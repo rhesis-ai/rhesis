@@ -1,0 +1,196 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+
+env:
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  build:
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      SERVICE: frontend
+
+    outputs:
+      image_name: ${{ steps.set_env.outputs.image_name }}
+      service_name: ${{ steps.set_env.outputs.service_name }}
+      environment: ${{ env.ENVIRONMENT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+          
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+          
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        id: set_env
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            echo "SERVICE_NAME=rhesis-frontend" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-frontend" >> $GITHUB_ENV
+            echo "service_name=rhesis-frontend" >> $GITHUB_OUTPUT
+            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-frontend" >> $GITHUB_OUTPUT
+          else
+            echo "SERVICE_NAME=rhesis-frontend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-frontend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "service_name=rhesis-frontend-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-frontend-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build Container
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile apps/frontend
+
+      - name: Push Container
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: build
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+    
+    env:
+      ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+      
+    steps:
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+          
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+          
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            echo "SERVICE_NAME=rhesis-frontend" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-frontend" >> $GITHUB_ENV
+          else
+            echo "SERVICE_NAME=rhesis-frontend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-frontend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to Cloud Run
+        run: |
+          echo "Deploying image: ${{ env.IMAGE_NAME }}:latest"
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.IMAGE_NAME }}:latest \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=3000 \
+            --memory=512Mi \
+            --cpu=1 \
+            --min-instances=1 \
+            --max-instances=10 \
+            --concurrency=80 \
+            --timeout=300s \
+            --set-env-vars="$(cat <<EOF
+          NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }},
+          NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
+          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }},
+          AUTH_SECRET=${{ secrets.AUTH_SECRET }},
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
+          NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }},
+          NEXT_PUBLIC_AUTH0_CLIENT_ID=${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID }},
+          NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }},
+          DATABASE_URL=${{ secrets.DATABASE_URL }},
+          SMTP_HOST=${{ secrets.SMTP_HOST }},
+          SMTP_PORT=${{ secrets.SMTP_PORT }},
+          SMTP_USER=${{ secrets.SMTP_USER }},
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          EOF
+          )"

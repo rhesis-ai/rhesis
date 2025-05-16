@@ -1,0 +1,57 @@
+# GCP region
+region = "europe-west4"
+
+# GCP billing account ID
+billing_account = "XXXXXX-XXXXXX-XXXXXX"
+
+# Database password
+database_password = "your-secure-password"
+
+# Container images - these will be replaced by the Artifact Registry URLs after deployment
+# Format will be: ${region}-docker.pkg.dev/${project_id}/${environment}-container-registry/image:tag
+backend_image    = "europe-west4-docker.pkg.dev/rhesis-stg/stg-container-registry/backend:latest"
+frontend_image   = "europe-west4-docker.pkg.dev/rhesis-stg/stg-container-registry/frontend:latest"
+worker_image     = "europe-west4-docker.pkg.dev/rhesis-stg/stg-container-registry/worker:latest"
+polyphemus_image = "europe-west4-docker.pkg.dev/rhesis-stg/stg-container-registry/polyphemus:latest"
+chatbot_image    = "europe-west4-docker.pkg.dev/rhesis-stg/stg-container-registry/chatbot:latest"
+
+# Load balancer domain settings
+enable_load_balancers = true
+backend_domain        = "stg-api.rhesis.ai"
+frontend_domain       = "stg-app.rhesis.ai"
+worker_domain         = "stg-worker.rhesis.ai"  # Leave empty if no domain needed
+polyphemus_domain     = "stg-llm.rhesis.ai"
+chatbot_domain        = "stg-chat.rhesis.ai"
+
+# Deployment stage settings
+# Options: "all", "project", "services"
+# - "all": Deploy everything (default)
+# - "project": Deploy only project infrastructure (no SQL users)
+# - "services": Deploy only services (assumes project exists)
+deployment_stage = "all"
+
+# Whether to create SQL users
+# Set to false for project-only deployment to avoid "instance not running" errors
+create_sql_users = true
+
+# Database connectivity settings
+# At least one of these must be enabled: public_ip, private_network, or allocated_ip_range
+public_ip = true  # Enable public IP for the database instance
+
+# Organization and folder settings
+# You MUST set at least one of these for service accounts to create projects
+# You can find your organization ID with: gcloud organizations list
+# You can find your folder ID with: gcloud resource-manager folders list --organization=YOUR_ORG_ID
+org_id = ""  # e.g., "123456789012"
+folder_id = ""  # e.g., "folders/123456789012" or just "123456789012" - leave empty if using org_id
+
+# Import common defaults
+service_defaults = {
+  # This will be loaded from ../../common/defaults.tfvars
+}
+service_roles = {
+  # This will be loaded from ../../common/defaults.tfvars
+}
+common_labels = {
+  # This will be loaded from ../../common/defaults.tfvars
+} 

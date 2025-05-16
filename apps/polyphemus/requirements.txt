@@ -1,0 +1,26 @@
+# Base dependencies - install first
+packaging
+numpy==1.24.3
+ninja
+
+# PyTorch - must be installed before flash-attn
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+
+# Hugging Face ecosystem
+transformers==4.51.2
+huggingface-hub==0.30.2
+accelerate==0.29.2
+bitsandbytes==0.41.1
+safetensors==0.4.3
+peft==0.6.0
+
+# Web API
+fastapi==0.104.1
+uvicorn==0.23.2
+gunicorn==21.2.0
+pydantic==2.4.2
+
+# Utilities
+loguru==0.7.2
