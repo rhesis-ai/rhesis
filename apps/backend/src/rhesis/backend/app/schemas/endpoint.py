@@ -1,0 +1,60 @@
+from typing import Any, Dict, Optional
+
+from pydantic import UUID4
+
+from rhesis.backend.app.models.enums import (
+    EndpointConfigSource,
+    EndpointEnvironment,
+    EndpointProtocol,
+    EndpointResponseFormat,
+)
+from rhesis.backend.app.schemas import Base
+
+
+# Endpoint schemas
+class EndpointBase(Base):
+    name: str
+    description: Optional[str] = None
+    protocol: EndpointProtocol
+    url: str
+    auth: Optional[Dict[str, Any]] = None
+    environment: EndpointEnvironment = EndpointEnvironment.DEVELOPMENT
+
+    # Configuration Source
+    config_source: EndpointConfigSource = EndpointConfigSource.MANUAL
+    openapi_spec_url: Optional[str] = None
+    openapi_spec: Optional[Dict[str, Any]] = None
+    llm_suggestions: Optional[Dict[str, Any]] = None
+
+    # Request Structure
+    method: Optional[str] = None
+    endpoint_path: Optional[str] = None
+    request_headers: Optional[Dict[str, str]] = None
+    query_params: Optional[Dict[str, Any]] = None
+    request_body_template: Optional[Dict[str, Any]] = None
+    input_mappings: Optional[Dict[str, Any]] = None
+
+    # Response Handling
+    response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
+    response_mappings: Optional[Dict[str, str]] = None
+    validation_rules: Optional[Dict[str, Any]] = None
+
+    project_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+    project_id: Optional[UUID4] = None
+
+
+class EndpointCreate(EndpointBase):
+    pass
+
+
+class EndpointUpdate(EndpointBase):
+    name: Optional[str] = None
+    protocol: Optional[EndpointProtocol] = None
+    url: Optional[str] = None
+
+
+class Endpoint(EndpointBase):
+    id: UUID4

@@ -1,0 +1,44 @@
+{
+  "system": {
+    "name": "Financial Assistant",
+    "description": "An AI-based assistant designed to help users with financial data queries, stock information, and web-based research related to finance.",
+    "primary_goals": [
+      "Provide accurate and up-to-date financial data",
+      "Assist users in making informed financial decisions"
+    ],
+    "key_capabilities": [
+      "Retrieving financial data using APIs",
+      "Conducting web-based research to gather supplemental information",
+      "Summarizing and presenting gathered information clearly"
+    ]
+  },
+  "agents": [
+    {
+      "name": "Supervisor Agent",
+      "description": "Oversees the conversation and determines which specialized agent should handle the current user request.",
+      "responsibilities": [
+        "Route user requests to the appropriate agent",
+        "Ensure all necessary data is collected before summarizing",
+        "Coordinate between multiple agents"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "name": "Retrieve Stock Prices",
+      "description": "The system should be able to fetch the current stock price for a given symbol."
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Fetch Current Stock Price",
+      "description": "A user wants to know the current stock price of a specific company."
+    }
+  ],
+  "personas": [
+    {
+      "name": "Individual Investor",
+      "description": "A person investing their own money who needs accurate and timely financial data to make informed decisions."
+    }
+  ]
+} 

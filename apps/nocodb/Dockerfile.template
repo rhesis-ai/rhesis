@@ -1,0 +1,13 @@
+FROM nocodb/nocodb:latest
+
+# Install gettext to get envsubst
+RUN apk add --no-cache gettext
+
+# Copy knex template
+COPY knex.template.json /knex.template.json
+
+# Create knex.json from knex.template.json and start NocoDB
+CMD envsubst < /knex.template.json > /knex.json
+
+# Set the environment variable for NocoDB
+ENV NC_DB_JSON_FILE=/knex.json

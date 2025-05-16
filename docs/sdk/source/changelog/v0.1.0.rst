@@ -1,0 +1,12 @@
+Version 0.1.0 - 2025-01-26
+===========================
+
+
+Added
+-----
+
+- Initial release of the SDK
+- Core functionality for test set access
+- Basic documentation and examples
+- Basic unit tests and integration tests
+

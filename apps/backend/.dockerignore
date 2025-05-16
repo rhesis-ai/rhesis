@@ -1,0 +1,36 @@
+# Environment and cache files
+**/.env
+**/.env.*
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/.pytest_cache/
+**/.coverage
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Version control
+**/.git/
+**/.gitignore
+**/.gitattributes
+
+# Build artifacts and documentation
+**/dist/
+**/build/
+**/*.egg-info/
+**/docs/
+**/htmlcov/
+
+# Development files
+**/.vscode/
+**/.idea/
+**/*.log
+**/*.swp
+**/*.swo
+**/node_modules/
+
+# Project specific
+**/tests/
+**/.github/
+**/*.md
+!README.md

@@ -1,0 +1,14 @@
+.next
+**/.env.*
+node_modules
+npm-debug.log
+.git
+.github
+.vscode
+*.md
+*.log
+coverage
+.DS_Store
+.idea
+.eslintcache
+*.tsbuildinfo
