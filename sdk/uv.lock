@@ -2406,7 +2406,7 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'examples'" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==1.15.0" },
     { name = "myst-parser", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "pandas", specifier = ">=2.2.3" },
+    { name = "pandas", specifier = ">=2.2.2" },
     { name = "pandas", marker = "extra == 'examples'" },
     { name = "pandas-stubs", marker = "extra == 'dev'", specifier = ">=2.2.3.250308" },
     { name = "pyarrow", specifier = ">=17.0.0" },
