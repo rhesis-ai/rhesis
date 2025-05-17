@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "ipykernel>=6.29.5",
-    "pandas>=2.2.3",
+    "pandas>=2.2.2",
     "python-dotenv>=1.0.1",
     "requests>=2.31.0",
     "pyarrow>=17.0.0",
