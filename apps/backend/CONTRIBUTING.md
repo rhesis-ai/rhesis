@@ -20,6 +20,34 @@ This will:
 - Sync all dependencies, including development dependencies (such as Sphinx for docs)
 - Install the backend package in editable mode
 
+## Python Version Requirements
+
+The Rhesis backend requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
+
+```bash
+# Install pyenv
+curl https://pyenv.run | bash
+
+# Install build dependencies (Ubuntu/Debian)
+sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
+libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
+
+# Install Python 3.10
+pyenv install 3.10.17
+
+# Set local Python version
+pyenv local 3.10.17
+
+# Create a fresh virtual environment with UV
+uv venv
+
+# Activate the virtual environment
+source .venv/bin/activate
+```
+
+This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
+
 ## Development Workflow
 
 1. Create a new branch for your feature:
