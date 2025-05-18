@@ -267,6 +267,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cachetools"
+version = "5.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/81/3747dad6b14fa2cf53fcf10548cf5aea6913e96fab41a3c198676f8948a5/cachetools-5.5.2.tar.gz", hash = "sha256:1a661caa9175d26759571b2e19580f9d6393969e5dfca11fdb1f947a23e640d4", size = 28380, upload-time = "2025-02-20T21:01:19.524Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl", hash = "sha256:d26a22bcc62eb95c3beabd9f1ee5e820d3d2704fe2967cbe350e20c8ffcd3f0a", size = 10080, upload-time = "2025-02-20T21:01:16.647Z" },
+]
+
+[[package]]
 name = "celery"
 version = "5.5.2"
 source = { registry = "https://pypi.org/simple" }
@@ -847,6 +856,38 @@ wheels = [
 [package.optional-dependencies]
 http = [
     { name = "aiohttp" },
+]
+
+[[package]]
+name = "google-auth"
+version = "2.40.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "pyasn1-modules" },
+    { name = "rsa" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/94/a5/38c21d0e731bb716cffcf987bd9a3555cb95877ab4b616cfb96939933f20/google_auth-2.40.1.tar.gz", hash = "sha256:58f0e8416a9814c1d86c9b7f6acf6816b51aba167b2c76821965271bac275540", size = 280975, upload-time = "2025-05-07T01:04:55.3Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/b1/1272c6e80847ba5349f5ccb7574596393d1e222543f5003cb810865c3575/google_auth-2.40.1-py2.py3-none-any.whl", hash = "sha256:ed4cae4f5c46b41bae1d19c036e06f6c371926e97b19e816fc854eff811974ee", size = 216101, upload-time = "2025-05-07T01:04:53.612Z" },
+]
+
+[[package]]
+name = "google-genai"
+version = "1.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "google-auth" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5e/1f/0861dad47febbb391123a529f3655582e2a7ce14aadb6ddc527dd7dea470/google_genai-1.13.0.tar.gz", hash = "sha256:de7b4960d361c7ea85b715ce0e07fe34903d94affa82d566d9eb04e8f92512b9", size = 165727, upload-time = "2025-04-30T23:47:02.605Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/2c/1833fa15311fa4f0790e9c8ea3488382fe428c3eca62b329d6aa355871ae/google_genai-1.13.0-py3-none-any.whl", hash = "sha256:e88417c95f333827ed051282803db627192fd8e5fdf5b49b6f26644a67775d1a", size = 164405, upload-time = "2025-04-30T23:47:00.901Z" },
 ]
 
 [[package]]
@@ -2662,6 +2703,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pyasn1-modules"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyasn1" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1d/67/6afbf0d507f73c32d21084a79946bfcfca5fbc62a72057e9c23797a737c9/pyasn1_modules-0.4.1.tar.gz", hash = "sha256:c28e2dbf9c06ad61c71a075c7e0f9fd0f1b0bb2d2ad4377f240d33ac2ab60a7c", size = 310028, upload-time = "2024-09-10T22:42:08.349Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/77/89/bc88a6711935ba795a679ea6ebee07e128050d6382eaa35a0a47c8032bdc/pyasn1_modules-0.4.1-py3-none-any.whl", hash = "sha256:49bfa96b45a292b711e986f222502c1c9a5e1f4e568fc30e2574a6c7d07838fd", size = 181537, upload-time = "2024-09-11T16:02:10.336Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "2.22"
 source = { registry = "https://pypi.org/simple" }
@@ -3109,6 +3162,7 @@ dependencies = [
     { name = "deepeval" },
     { name = "faker" },
     { name = "fastapi" },
+    { name = "google-genai" },
     { name = "gunicorn" },
     { name = "hatch" },
     { name = "httpx" },
@@ -3149,6 +3203,7 @@ requires-dist = [
     { name = "deepeval", specifier = "==2.5.0" },
     { name = "faker" },
     { name = "fastapi" },
+    { name = "google-genai", specifier = "==1.13.0" },
     { name = "gunicorn", specifier = ">=21.2.0" },
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "httpx" },
