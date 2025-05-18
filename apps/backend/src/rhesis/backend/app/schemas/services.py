@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel
 
@@ -26,3 +26,25 @@ class ChatRequest(BaseModel):
 class GenerateTestsRequest(BaseModel):
     prompt: str
     num_tests: int = 5
+
+
+class TestPrompt(BaseModel):
+    content: str
+    language_code: str = "en"
+
+
+class TestMetadata(BaseModel):
+    generated_by: str
+    additional_info: Optional[Dict[str, Any]] = None
+
+
+class Test(BaseModel):
+    prompt: TestPrompt
+    behavior: str
+    category: str
+    topic: str
+    metadata: TestMetadata
+
+
+class GenerateTestsResponse(BaseModel):
+    tests: List[Test]
