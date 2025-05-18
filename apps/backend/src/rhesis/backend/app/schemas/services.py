@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -15,5 +15,10 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[Message]
-    response_format: str = "json_object"  # default to JSON response
+    response_format: Optional[str] = None
     stream: bool = False
+
+
+class GenerateTestsRequest(BaseModel):
+    prompt: str
+    num_tests: int = 5

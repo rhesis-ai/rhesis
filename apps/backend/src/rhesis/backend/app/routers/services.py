@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
-from rhesis.backend.app.schemas.services import ChatRequest, PromptRequest
+from rhesis.backend.app.database import get_db
+from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.services import ChatRequest, GenerateTestsRequest, PromptRequest
 from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.openai_client import (
+from rhesis.backend.app.services.generation import generate_tests
+from rhesis.backend.app.services.gemini_client import (
     create_chat_completion,
     get_chat_response,
     get_json_response,
@@ -29,6 +33,7 @@ async def get_github_contents(repo_url: str):
     Returns:
         str: The contents of the repository
     """
+    print(f"Getting GitHub contents for {repo_url}")
     try:
         contents = read_repo_contents(repo_url)
         return contents
@@ -110,5 +115,81 @@ async def create_chat_completion_endpoint(request: dict):
             return StreamingResponse(response, media_type="text/event-stream")
 
         return response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/generate/tests")
+async def generate_tests_endpoint(
+    request: GenerateTestsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Generate test cases using the prompt synthesizer.
+
+    Args:
+        request: The request containing the prompt and number of tests
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        dict: The generated test set as a dictionary
+
+    Raises:
+        HTTPException: If no valid tokens are found for the user
+    """
+    try:
+        prompt = request.prompt
+        num_tests = request.num_tests
+        
+        if not prompt:
+            raise HTTPException(status_code=400, detail="prompt is required")
+            
+        return await generate_tests(db, current_user, prompt, num_tests)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/generate/text")
+async def generate_text(prompt_request: PromptRequest):
+    """
+    Generate raw text from an arbitrary prompt.
+
+    Args:
+        prompt_request: The request containing the prompt and stream flag
+
+    Returns:
+        str: The raw text response from the model
+    """
+    try:
+        # Create a simple message array with the prompt
+        messages = [
+            {"role": "user", "content": prompt_request.prompt}
+        ]
+        
+        if prompt_request.stream:
+            # Handle streaming response
+            async def generate():
+                response_stream = get_chat_response(
+                    messages=messages,
+                    response_format="text",  # Explicitly request text format
+                    stream=True
+                )
+                
+                async for chunk in response_stream:
+                    if chunk["choices"][0]["delta"]["content"]:
+                        yield f"data: {chunk['choices'][0]['delta']['content']}\n\n"
+
+            return StreamingResponse(generate(), media_type="text/event-stream")
+        
+        # Non-streaming response
+        response = get_chat_response(
+            messages=messages,
+            response_format="text",  # Explicitly request text format
+            stream=False
+        )
+        
+        return {"text": response}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
