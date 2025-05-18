@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.services import ChatRequest, GenerateTestsRequest, PromptRequest
+from rhesis.backend.app.schemas.services import (
+    ChatRequest, 
+    GenerateTestsRequest, 
+    PromptRequest,
+    TextResponse
+)
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.generation import generate_tests
 from rhesis.backend.app.services.gemini_client import (
@@ -151,7 +156,7 @@ async def generate_tests_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/generate/text")
+@router.post("/generate/text", response_model=TextResponse)
 async def generate_text(prompt_request: PromptRequest):
     """
     Generate raw text from an arbitrary prompt.
@@ -160,7 +165,7 @@ async def generate_text(prompt_request: PromptRequest):
         prompt_request: The request containing the prompt and stream flag
 
     Returns:
-        str: The raw text response from the model
+        TextResponse: The raw text response from the model
     """
     try:
         # Create a simple message array with the prompt
@@ -190,6 +195,6 @@ async def generate_text(prompt_request: PromptRequest):
             stream=False
         )
         
-        return {"text": response}
+        return TextResponse(text=response)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
