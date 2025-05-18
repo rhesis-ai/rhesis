@@ -15,16 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ongoing development within the main repo structure
 - Integration with other main repo components
 
+## [0.1.9] - 2025-05-15
+
+### Added
+- Added rhesis namespace - now accessible via `rhesis.sdk`
+
+### Changed
+- Migrated to uv for package management, a more modern approach
+
 ## [0.1.8] - 2025-04-30 (Included in repository-wide v0.1.0 release)
 
 ### Added
 - Support for custom test templates
 - New paraphrasing capabilities
 - Additional LLM service integrations
+- Better documentation structure within Sphinx
+
+### Changed
+- Versioning in documentation is linked to source files in the code base
 
 ### Fixed
 - Issue with token handling in the API client
 - Performance improvements in test generation
+- Documentation build issues that were generating warnings in Sphinx
 
 ## [0.1.7] - 2025-04-17
 
@@ -36,44 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed method naming issues
-
-## [0.1.0] - 2025-01-26
-
-### Added
-- Initial release of the SDK
-- Core functionality for test set access
-- Basic documentation and examples
-- Basic unit tests and integration tests
-
-## [0.1.1] - 2025-02-17
-
-### Added
-- Added support for Parquet files
-- Added more entities and functionality
-
-## [0.1.2] - 2025-02-18
-
-### Added
-- Added new topic entity
-- Added base entity for CRUD testing
-- Added topic tests
-
-## [0.1.3] - 2025-02-19
-
-### Added
-- Added new test set capabilities
-- Added PromptSynthesizer for generating test sets from prompts
-- Added example usage for PromptSynthesizer
-
-## [0.1.4] - 2025-02-20
-
-### Added
-- Added CLI scaffolding for rhesis
-
-## [0.1.5] - 2025-02-21
-
-### Added
-- Added ParaphrasingSynthesizer for generating paraphrases of test cases
 
 ## [0.1.6] - 2025-04-14
 
@@ -97,28 +72,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed synthesizer response parsing to handle new test structure
 - Fixed test set property extraction to work with nested test objects
 
-## [0.1.7] - 2025-04-17
+## [0.1.5] - 2025-02-21
+
 ### Added
-- Added test set upload functionality
+- Added ParaphrasingSynthesizer for generating paraphrases of test cases
 
-### Changed
-- Improved synthesizers and LLM generation functionality
+## [0.1.4] - 2025-02-20
 
-### Fixed
-- Fixed method naming issues
-
-## [0.1.8] - 2025-04-21
 ### Added
-- Better documentation structure within Sphinx
+- Added CLI scaffolding for rhesis
 
-### Changed
-- Versioning in documentation is linked to source files in the code base
+## [0.1.3] - 2025-02-19
 
-### Fixed
-- Documentation build issues that were generating warnings in Sphinx
+### Added
+- Added new test set capabilities
+- Added PromptSynthesizer for generating test sets from prompts
+- Added example usage for PromptSynthesizer
+
+## [0.1.2] - 2025-02-18
+
+### Added
+- Added new topic entity
+- Added base entity for CRUD testing
+- Added topic tests
+
+## [0.1.1] - 2025-02-17
+
+### Added
+- Added support for Parquet files
+- Added more entities and functionality
+
+## [0.1.0] - 2025-01-26
+
+### Added
+- Initial release of the SDK
+- Core functionality for test set access
+- Basic documentation and examples
+- Basic unit tests and integration tests
 
 
-[Unreleased]: https://github.com/rhesis-ai/rhesis/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/rhesis-ai/rhesis/compare/sdk-v0.1.9...HEAD
+[0.1.9]: https://github.com/rhesis-ai/rhesis/releases/tag/sdk-v0.1.9
 [0.1.8]: https://github.com/rhesis-ai/rhesis-sdk/releases/tag/v0.1.8
 [0.1.7]: https://github.com/rhesis-ai/rhesis-sdk/releases/tag/v0.1.7
 [0.1.6]: https://github.com/rhesis-ai/rhesis-sdk/releases/tag/v0.1.6
