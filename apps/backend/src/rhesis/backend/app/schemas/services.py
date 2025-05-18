@@ -8,6 +8,10 @@ class PromptRequest(BaseModel):
     stream: bool = False
 
 
+class TextResponse(BaseModel):
+    text: str
+
+
 class Message(BaseModel):
     role: str
     content: str
