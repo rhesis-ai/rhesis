@@ -72,6 +72,30 @@ Install the Rhesis SDK using pip:
 pip install rhesis-sdk
 ```
 
+## 🐍 Python Requirements
+
+Rhesis SDK requires **Python 3.10** or newer. For development, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
+
+```bash
+# Install pyenv
+curl https://pyenv.run | bash
+
+# Install build dependencies (Ubuntu/Debian)
+sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
+libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
+
+# Install Python 3.10
+pyenv install 3.10.17
+
+# Set local Python version for SDK
+cd sdk
+pyenv local 3.10.17
+
+# Create a virtual environment with UV
+uv venv
+```
+
 ## 🏁 Getting Started
 
 ### 1. Obtain an API Key 🔑
@@ -102,8 +126,8 @@ export RHESIS_BASE_URL="https://api.rhesis.ai"  # optional
 import rhesis 
 
 # Set configuration directly
-rhesis.base_url = "https://api.rhesis.ai"  # optional
-rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"
+rhesis.sdk.base_url = "https://api.rhesis.ai"  # optional
+rhesis.sdk.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"
 ```
 
 ## ⚡ Quick Start
