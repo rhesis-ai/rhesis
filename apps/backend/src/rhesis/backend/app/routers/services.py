@@ -8,6 +8,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest, 
     GenerateTestsRequest, 
+    GenerateTestsResponse,
     PromptRequest,
     TextResponse
 )
@@ -124,7 +125,7 @@ async def create_chat_completion_endpoint(request: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/generate/tests")
+@router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
     db: Session = Depends(get_db),
@@ -139,10 +140,7 @@ async def generate_tests_endpoint(
         current_user: Current authenticated user
 
     Returns:
-        dict: The generated test set as a dictionary
-
-    Raises:
-        HTTPException: If no valid tokens are found for the user
+        GenerateTestsResponse: The generated test cases
     """
     try:
         prompt = request.prompt
@@ -151,7 +149,8 @@ async def generate_tests_endpoint(
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
             
-        return await generate_tests(db, current_user, prompt, num_tests)
+        test_cases = await generate_tests(db, current_user, prompt, num_tests)
+        return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
