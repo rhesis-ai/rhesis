@@ -6,6 +6,12 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
+# Define build arguments only for NEXT_PUBLIC_ variables
+ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
+ARG NEXT_PUBLIC_APP_URL=https://app.rhesis.ai
+ARG NEXT_PUBLIC_AUTH0_DOMAIN=auth.rhesis.ai
+ARG NEXT_PUBLIC_AUTH0_CLIENT_ID=placeholder-auth0-client-id
+
 # Copy package.json and package-lock.json first to leverage Docker cache
 COPY package.json package-lock.json ./
 
@@ -22,13 +28,12 @@ COPY scripts ./scripts
 # Remove ALL .env files to ensure they don't override container env vars
 RUN find . -name ".env*" -type f -delete
 
-# Create a temporary .env file with required build-time variables
-# Use actual production URLs for NEXT_PUBLIC_ variables since they get embedded in the client bundle
+# Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
-    echo "NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai" >> .env && \
-    echo "NEXT_PUBLIC_APP_URL=https://app.rhesis.ai" >> .env && \
-    echo "NEXT_PUBLIC_AUTH0_DOMAIN=auth.rhesis.ai" >> .env && \
-    echo "NEXT_PUBLIC_AUTH0_CLIENT_ID=rIxfluuzo62nMsnwIXnKgPNsBJYfSFN6" >> .env && \
+    echo "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" >> .env && \
+    echo "NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}" >> .env && \
+    echo "NEXT_PUBLIC_AUTH0_DOMAIN=${NEXT_PUBLIC_AUTH0_DOMAIN}" >> .env && \
+    echo "NEXT_PUBLIC_AUTH0_CLIENT_ID=${NEXT_PUBLIC_AUTH0_CLIENT_ID}" >> .env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> .env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> .env && \
     echo "AUTH_SECRET=placeholder-auth-secret" >> .env
