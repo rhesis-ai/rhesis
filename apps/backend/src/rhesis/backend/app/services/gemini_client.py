@@ -155,9 +155,7 @@ def _create_completion(
     try:
         client = get_client()
         model_name = model or _get_model_name(client)
-        
-        logger.info(f"Creating completion with model {model_name}, stream={stream}")
-        
+
         # Process messages for Gemini format
         system_prompt, conversation = _adapt_messages_for_gemini(messages)
         
@@ -174,7 +172,6 @@ Do NOT include ```json at the beginning or ``` at the end.
 Just respond with the raw JSON object by itself.
 IMPORTANT: Your entire response must be valid JSON and nothing else.
 """
-            logger.info("Added JSON formatting instruction")
         
         # Add system prompt if present
         if system_prompt:

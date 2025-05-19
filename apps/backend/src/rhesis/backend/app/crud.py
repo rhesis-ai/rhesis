@@ -5,6 +5,7 @@ This code implements the CRUD operations for the models in the application.
 import uuid
 from typing import List, Optional, Union
 from uuid import UUID
+from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -795,14 +796,39 @@ def get_user_tokens(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    valid_only: bool = False,
 ) -> List[models.Token]:
-    """Get all active bearer tokens for a user with pagination and sorting"""
-    return (
-        QueryBuilder(db, models.Token)
-        .with_organization_filter()
-        .with_custom_filter(
-            lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
+    """Get all active bearer tokens for a user with pagination and sorting
+    
+    Args:
+        db: Database session
+        user_id: User ID to get tokens for
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        sort_by: Field to sort by
+        sort_order: Sort order (asc/desc)
+        filter: OData filter string
+        valid_only: If True, only returns valid (non-expired) tokens
+        
+    Returns:
+        List of token objects
+    """
+    query_builder = QueryBuilder(db, models.Token).with_organization_filter().with_custom_filter(
+        lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
+    )
+    
+    # Add validity check if requested
+    if valid_only:
+        now = datetime.now(timezone.utc)
+        query_builder = query_builder.with_custom_filter(
+            lambda q: q.filter(
+                # Token is either never-expiring (expires_at is None) or not yet expired
+                (models.Token.expires_at == None) | (models.Token.expires_at > now)
+            )
         )
+    
+    return (
+        query_builder
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)

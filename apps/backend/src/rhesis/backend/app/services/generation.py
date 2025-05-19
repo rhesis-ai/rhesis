@@ -31,7 +31,7 @@ async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 
         HTTPException: If no valid tokens are found for the user
     """
     # Get a valid token for the user
-    tokens = get_user_tokens(db, user.id)
+    tokens = get_user_tokens(db, user.id, valid_only=True)
     if not tokens:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -42,6 +42,10 @@ async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 
     rhesis.sdk.base_url = os.getenv('RHESIS_BASE_URL', "https://api.rhesis.ai")
     rhesis.sdk.api_key = tokens[0].token
 
+    print("Using token:", tokens[0].token)
+    print("This is configured in Rhesis API Key: ", rhesis.sdk.api_key)
+    print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
+    
     synthesizer = PromptSynthesizer(prompt=prompt)
 
     # Run the potentially blocking operation in a separate thread

@@ -207,10 +207,12 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # Local env files
-.env*.local
-.env.development
-.env.test
-.env.production
+**/.env*.local
+**/.env.development
+**/.env.test
+**/.env.production
+**/.env.docker
+**/.env.*
 
 # Vercel
 .vercel

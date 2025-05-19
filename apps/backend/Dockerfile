@@ -1,5 +1,5 @@
 # Hint: Build this image with an expanded build context
-# `docker build -t rhesis-backend -f Dockerfile .`
+# `docker build -t rhesis-backend -f apps/backend/Dockerfile .`
 
 # Single stage build for simplicity
 FROM python:3.10-slim
@@ -16,18 +16,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only the dependency files
-COPY pyproject.toml uv.lock README.md ./
+# Copy only the dependency files for backend
+COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
 
 # Copy only the minimal source code needed for your local package metadata
 # This ensures uv can install your package without invalidating the layer later
-COPY src/rhesis /app/src/rhesis
+COPY apps/backend/src/rhesis /app/src/rhesis
 
-# Install dependencies + local package
-RUN uv sync
+# Copy the SDK directory
+COPY sdk /app/sdk/
+
+# Install backend dependencies and SDK
+RUN uv sync && uv pip install -e /app/sdk
 
 # Now copy the rest of your source (scripts, modules, etc.)
-COPY src /app/src
+COPY apps/backend/src /app/src
 
 # Create non-root user and remove .env files
 RUN adduser --disabled-password --gecos '' rhesis-user \
