@@ -54,3 +54,48 @@ uv pip install -r requirements.txt
 
 # Update dependencies
 uv pip install --upgrade <package_name>
+```
+
+## Running the Backend Locally
+
+### Running Directly with Uvicorn
+
+After installing dependencies, you can run the backend directly using uvicorn:
+
+```sh
+uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload
+```
+
+The `--reload` flag enables auto-reloading when code changes are detected, which is useful during development.
+
+### Running with Docker
+
+To run the backend using Docker:
+
+1. Build the Docker image:
+```sh
+docker build -t rhesis-backend:local .
+```
+
+2. Run the container:
+```sh
+docker run -p 8080:8080 --env-file apps/backend/.env.docker --add-host="host.docker.internal:host-gateway" rhesis-backend:local
+```
+
+This command:
+- Maps port 8080 from the container to your host
+- Uses environment variables from `.env.docker`
+- Adds a host entry that allows the container to communicate with services on your host machine
+
+### Environment Variables
+
+The backend requires certain environment variables to be set. For local development:
+
+1. Copy the example environment file: 
+```sh
+cp apps/backend/.env.example apps/backend/.env
+```
+
+2. Edit the `.env` file with your specific configuration values.
+
+For Docker, follow the same process but create an `.env.docker` file that's compatible with container environments.
