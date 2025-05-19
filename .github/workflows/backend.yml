@@ -106,7 +106,7 @@ jobs:
 
       - name: Build Container
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/backend/Dockerfile apps/backend
+          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/backend/Dockerfile .
 
       - name: Push Container
         run: |
