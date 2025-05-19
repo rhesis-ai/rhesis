@@ -35,6 +35,7 @@ router = APIRouter(
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 FRONTEND_DOMAINS = [
     "app.rhesis.ai",
+    "dev-app.rhesis.ai",  # development environment
     "localhost:3000",  # development
 ]
 
