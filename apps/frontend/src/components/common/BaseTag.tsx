@@ -23,25 +23,28 @@ import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TestTag } from '@/utils/api-client/interfaces/tests';
 import { UUID } from 'crypto';
 
-// Styled components for consistent styling
-const TagContainer = styled(Box)({
-  width: '100%',
-  '& .MuiInputBase-root': {
+// Styled components for component-specific styling
+const StyledTextField = styled(TextField)({
+  '&.base-tag-field .MuiOutlinedInput-root': {
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
     minHeight: 'unset',
     padding: '8px 8px 8px 12px'
   },
-  '& .MuiInputBase-input': {
+  '&.base-tag-field .MuiOutlinedInput-input': {
     padding: '4px',
     height: '30px',
     minWidth: '80px'
-  },
+  }
+});
+
+const TagContainer = styled(Box)({
+  width: '100%',
   '& .MuiChip-root': {
     margin: '8px 4px 2px 0'
   }
-}) as typeof Box;
+});
 
 // Type definitions
 interface TaggableEntity {
@@ -330,7 +333,7 @@ export default function BaseTag({
 
   return (
     <TagContainer>
-      <TextField
+      <StyledTextField
         id={id}
         value={inputValue}
         onChange={handleInputChange}

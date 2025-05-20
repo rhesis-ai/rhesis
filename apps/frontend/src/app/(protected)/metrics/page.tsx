@@ -47,6 +47,7 @@ import type { Status } from '@/utils/api-client/interfaces/status';
 import type { User } from '@/utils/api-client/interfaces/user';
 import type { TypeLookup as MetricType } from '@/utils/api-client/interfaces/type-lookup';
 import type { TypeLookup as BackendType } from '@/utils/api-client/interfaces/type-lookup';
+import type { UUID } from 'crypto';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -335,7 +336,7 @@ export default function MetricsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [metricToDelete, setMetricToDelete] = React.useState<{ sectionKey: string; index: number; title: string } | null>(null);
   const [editingSection, setEditingSection] = React.useState<{
-    key: string;
+    key: UUID | null;
     title: string;
     description: string;
   } | null>(null);
@@ -351,10 +352,16 @@ export default function MetricsPage() {
   const [selectedMetric, setSelectedMetric] = React.useState<MetricDetail | null>(null);
   const [createMetricOpen, setCreateMetricOpen] = React.useState(false);
   const [behaviorMetrics, setBehaviorMetrics] = React.useState<BehaviorMetrics>({});
+  const [drawerLoading, setDrawerLoading] = React.useState(false);
+  const [drawerError, setDrawerError] = React.useState<string>();
+  const initialDataLoadedRef = React.useRef(false);
 
   // Fetch behaviors, metrics, and filter options
   React.useEffect(() => {
     const fetchData = async () => {
+      // Skip if data has already been loaded
+      if (initialDataLoadedRef.current) return;
+      
       try {
         setIsLoading(true);
         setError(null);
@@ -385,6 +392,20 @@ export default function MetricsPage() {
 
         setBehaviors(behaviorsData);
         setMetrics(metricsData.data || []);
+
+        // Initialize behavior metrics using the metrics data we already have
+        const initialBehaviorMetrics: BehaviorMetrics = {};
+        behaviorsData.forEach(behavior => {
+          const behaviorMetricsList = (metricsData.data || []).filter(metric => 
+            metric.behaviors?.includes(behavior.id)
+          );
+          initialBehaviorMetrics[behavior.id] = {
+            metrics: behaviorMetricsList,
+            isLoading: false,
+            error: null
+          };
+        });
+        setBehaviorMetrics(initialBehaviorMetrics);
         
         // Filter and set backend types and metric types
         const backendTypes = typeLookupData
@@ -408,6 +429,7 @@ export default function MetricsPage() {
           type: metricTypes
         }));
 
+        initialDataLoadedRef.current = true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
         notifications.show('Failed to load metrics data', {
@@ -419,87 +441,110 @@ export default function MetricsPage() {
       }
     };
 
-    if (session?.session_token) {
+    if (session?.session_token && !initialDataLoadedRef.current) {
       fetchData();
     }
   }, [session?.session_token, notifications]);
-
-  // Function to fetch metrics for a behavior
-  const fetchBehaviorMetrics = async (behaviorId: string) => {
-    try {
-      setBehaviorMetrics(prev => ({
-        ...prev,
-        [behaviorId]: { metrics: [], isLoading: true, error: null }
-      }));
-
-      const response = await fetch(
-        `https://rhesis-backend-dev-97484699177.us-central1.run.app/behaviors/${behaviorId}/metrics/?skip=0&limit=100&sort_by=created_at&sort_order=desc`,
-        {
-          headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${session?.session_token}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch metrics for behavior');
-      }
-
-      const metricsData = await response.json();
-
-      setBehaviorMetrics(prev => ({
-        ...prev,
-        [behaviorId]: { metrics: metricsData, isLoading: false, error: null }
-      }));
-    } catch (err) {
-      setBehaviorMetrics(prev => ({
-        ...prev,
-        [behaviorId]: { 
-          metrics: [], 
-          isLoading: false, 
-          error: err instanceof Error ? err.message : 'Failed to load metrics' 
-        }
-      }));
-    }
-  };
-
-  // Fetch metrics for each behavior when behaviors are loaded
-  React.useEffect(() => {
-    if (behaviors.length > 0 && session?.session_token) {
-      behaviors.forEach(behavior => {
-        if (behavior.name && behavior.name.trim() !== '') {
-          fetchBehaviorMetrics(behavior.id);
-        }
-      });
-    }
-  }, [behaviors, session?.session_token]);
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
   };
 
-  const handleEditSection = (key: string, title: string, description: string) => {
+  const handleEditSection = (key: UUID, title: string, description: string) => {
     setEditingSection({ key, title, description });
     setIsNewSection(false);
     setDrawerOpen(true);
   };
 
   const handleAddNewSection = () => {
-    setEditingSection({ key: '', title: '', description: '' });
+    setEditingSection({ key: null, title: '', description: '' });
     setIsNewSection(true);
     setDrawerOpen(true);
   };
 
-  const handleSaveSection = (title: string, description: string) => {
-    // TODO: Implement save functionality
-    console.log('Saving section:', { title, description });
+  const handleSaveSection = async (title: string, description: string, organization_id: UUID) => {
+    try {
+      setDrawerLoading(true);
+      setDrawerError(undefined);
+      
+      const behaviorClient = new BehaviorClient(session?.session_token);
+
+      if (isNewSection) {
+        // Create new behavior
+        const createPayload = {
+          name: title,
+          description: description || null,
+          organization_id
+        };
+
+        const created = await behaviorClient.createBehavior(createPayload);
+        
+        // Batch state updates
+        const newBehaviors = [...behaviors, created];
+        const newBehaviorMetrics = {
+          ...behaviorMetrics,
+          [created.id]: { metrics: [], isLoading: false, error: null }
+        };
+        
+        setBehaviors(newBehaviors);
+        setBehaviorMetrics(newBehaviorMetrics);
+        
+        notifications.show('Dimension created successfully', { 
+          severity: 'success', 
+          autoHideDuration: 4000 
+        });
+      } else if (editingSection && editingSection.key) {
+        // Update existing behavior
+        const updatePayload = {
+          name: title,
+          description: description || null,
+          organization_id
+        };
+
+        const updated = await behaviorClient.updateBehavior(editingSection.key, updatePayload);
+        setBehaviors(prev => prev.map(b => 
+          b.id === editingSection.key 
+            ? { ...b, name: updated.name, description: updated.description } 
+            : b
+        ));
+        
+        notifications.show('Dimension updated successfully', { 
+          severity: 'success', 
+          autoHideDuration: 4000 
+        });
+      }
+      setDrawerOpen(false);
+    } catch (err) {
+      console.error('Error saving behavior:', err);
+      setDrawerError(err instanceof Error ? err.message : 'Failed to save dimension');
+    } finally {
+      setDrawerLoading(false);
+    }
   };
 
-  const handleDeleteSection = () => {
-    if (editingSection) {
-      // TODO: Implement delete functionality
-      console.log('Deleting section:', editingSection.key);
+  const handleDeleteSection = async () => {
+    if (!isNewSection && editingSection && editingSection.key) {
+      try {
+        const behaviorClient = new BehaviorClient(session?.session_token);
+        await behaviorClient.deleteBehavior(editingSection.key);
+        
+        // Update local state
+        setBehaviors(prev => prev.filter(b => b.id !== editingSection.key));
+        
+        notifications.show('Dimension deleted successfully', { 
+          severity: 'success', 
+          autoHideDuration: 4000 
+        });
+        setDrawerOpen(false);
+      } catch (err) {
+        console.error('Error deleting behavior:', err);
+        notifications.show(
+          err instanceof Error ? err.message : 'Failed to delete dimension', 
+          { severity: 'error', autoHideDuration: 4000 }
+        );
+      }
+    } else {
+      setDrawerOpen(false);
     }
   };
 
@@ -596,14 +641,27 @@ export default function MetricsPage() {
         throw new Error('Failed to assign metric to behavior');
       }
 
-      // Update local state to reflect the change
+      // Update both metrics and behaviorMetrics state
       setMetrics(prevMetrics => 
         prevMetrics.map(metric => 
           metric.id === metricId 
-            ? { ...metric, behavior_id: behaviorId }
+            ? { ...metric, behaviors: [...(metric.behaviors || []), behaviorId as UUID] }
             : metric
         )
       );
+
+      setBehaviorMetrics(prev => {
+        const metric = metrics.find(m => m.id === metricId);
+        if (!metric) return prev;
+
+        return {
+          ...prev,
+          [behaviorId]: {
+            ...prev[behaviorId],
+            metrics: [...prev[behaviorId].metrics, metric]
+          }
+        };
+      });
       
       notifications.show('Successfully assigned metric to behavior', {
         severity: 'success',
@@ -635,14 +693,22 @@ export default function MetricsPage() {
         throw new Error('Failed to remove metric from behavior');
       }
 
-      // Update local state to reflect the change
+      // Update both metrics and behaviorMetrics state
       setMetrics(prevMetrics => 
         prevMetrics.map(metric => 
           metric.id === metricId 
-            ? { ...metric, behavior_id: undefined }
+            ? { ...metric, behaviors: metric.behaviors?.filter(id => id !== behaviorId) }
             : metric
         )
       );
+
+      setBehaviorMetrics(prev => ({
+        ...prev,
+        [behaviorId]: {
+          ...prev[behaviorId],
+          metrics: prev[behaviorId].metrics.filter(m => m.id !== metricId)
+        }
+      }));
       
       notifications.show('Successfully removed metric from behavior', {
         severity: 'success',
@@ -708,7 +774,7 @@ export default function MetricsPage() {
             {behavior.name || 'Unnamed Behavior'}
           </Typography>
           <IconButton 
-            onClick={() => handleEditSection(behavior.id, behavior.name, behavior.description || '')}
+            onClick={() => handleEditSection(behavior.id as UUID, behavior.name, behavior.description || '')}
             size="small"
           >
             <EditIcon />
@@ -807,8 +873,7 @@ export default function MetricsPage() {
                   variant="outlined"
                   startIcon={<AddIcon />}
                   onClick={() => {
-                    setSelectedMetric(null);
-                    setAssignDialogOpen(true);
+                    setValue(1); // Switch to Metrics Directory tab
                   }}
                 >
                   Add Metric
@@ -1099,135 +1164,146 @@ export default function MetricsPage() {
   };
 
   return (
-    <PageContainer title="Metrics" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
-      <Box sx={{ 
-        flexGrow: 1, 
-        display: 'flex', 
-        flexDirection: 'column',
-        minHeight: 'calc(100vh - 180px)',
-        pb: 4
-      }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs 
-            value={value} 
-            onChange={handleChange} 
-            aria-label="metrics tabs"
-          >
-            <Tab 
-              icon={<ChecklistIcon />} 
-              iconPosition="start" 
-              label="Selected Metrics" 
-              {...a11yProps(0)} 
-            />
-            <Tab 
-              icon={<ViewQuiltIcon />} 
-              iconPosition="start" 
-              label="Metrics Directory" 
-              {...a11yProps(1)} 
-            />
-          </Tabs>
-        </Box>
+    <>
+      {/* Render TemporaryDrawer outside PageContainer for testing */}
+      {/* <Box sx={{ position: 'absolute', top: 80, left: 20, zIndex: 1500 }}> {/* Ensure button is visible */}
+      {/*   <TemporaryDrawer /> */}
+      {/* </Box> */}
 
-        <CustomTabPanel value={value} index={0}>
-          <Box sx={{ 
-            width: '100%',
-            pr: 2,
-            pb: 4
-          }}>
-            {isLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <Typography>Loading behaviors and metrics...</Typography>
-              </Box>
-            ) : error ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <Typography color="error">{error}</Typography>
-              </Box>
-            ) : (
-              <>
-                {behaviors
-                  .filter(b => b.name && b.name.trim() !== '') // Filter out empty behaviors
-                  .map(behavior => renderSection(behavior))}
-                
-                <Box 
-                  sx={{ 
-                    mt: 4, 
-                    p: 3, 
-                    border: '2px dashed',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    mb: 8
-                  }}
-                >
-                  <Button
-                    startIcon={<AddIcon />}
-                    onClick={handleAddNewSection}
-                    sx={{ color: 'text.secondary' }}
-                  >
-                    Add New Dimension
-                  </Button>
-                </Box>
-              </>
-            )}
+      <PageContainer title="Metrics" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
+        <Box sx={{ 
+          width: '100%',
+          minHeight: '100%'
+        }}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, bgcolor: 'background.paper' }}>
+            <Tabs 
+              value={value} 
+              onChange={handleChange} 
+              aria-label="metrics tabs"
+            >
+              <Tab 
+                icon={<ChecklistIcon />} 
+                iconPosition="start" 
+                label="Selected Metrics" 
+                {...a11yProps(0)} 
+              />
+              <Tab 
+                icon={<ViewQuiltIcon />} 
+                iconPosition="start" 
+                label="Metrics Directory" 
+                {...a11yProps(1)} 
+              />
+            </Tabs>
           </Box>
-        </CustomTabPanel>
 
-        <CustomTabPanel value={value} index={1}>
-          {renderMetricsDirectory()}
-        </CustomTabPanel>
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            <CustomTabPanel value={value} index={0}>
+              <Box sx={{ 
+                width: '100%',
+                pr: 2,
+                pb: 4
+              }}>
+                {isLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <Typography>Loading behaviors and metrics...</Typography>
+                  </Box>
+                ) : error ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <Typography color="error">{error}</Typography>
+                  </Box>
+                ) : (
+                  <>
+                    {behaviors
+                      .filter(b => b.name && b.name.trim() !== '')
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map(behavior => renderSection(behavior))}
+                    
+                    <Box 
+                      sx={{ 
+                        mt: 4, 
+                        p: 3, 
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        mb: 8
+                      }}
+                    >
+                      <Button
+                        startIcon={<AddIcon />}
+                        onClick={handleAddNewSection}
+                        sx={{ color: 'text.secondary' }}
+                      >
+                        Add New Dimension
+                      </Button>
+                    </Box>
+                  </>
+                )}
+              </Box>
+            </CustomTabPanel>
 
-        {editingSection && (
-          <SectionEditDrawer
-            open={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
-            title={editingSection.title}
-            description={editingSection.description}
-            onSave={handleSaveSection}
-            onDelete={handleDeleteSection}
-            isNew={isNewSection}
-          />
-        )}
+            <CustomTabPanel value={value} index={1}>
+              {renderMetricsDirectory()}
+            </CustomTabPanel>
+          </Box>
+        </Box>
+      </PageContainer>
 
-        <Dialog
-          open={deleteDialogOpen}
-          onClose={handleCancelDelete}
-          aria-labelledby="alert-dialog-title"
-          aria-describedby="alert-dialog-description"
-        >
-          <DialogTitle id="alert-dialog-title">
-            Remove Metric
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText id="alert-dialog-description">
-              Are you sure you want to remove the {metricToDelete?.title} metric from this dimension?
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCancelDelete}>Cancel</Button>
-            <Button onClick={handleConfirmDelete} color="error" autoFocus>
-              Remove
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <AssignMetricDialog
-          open={assignDialogOpen}
-          onClose={() => {
-            setAssignDialogOpen(false);
-            setSelectedMetric(null);
-          }}
-          onAssign={handleAssignMetric}
-          behaviors={behaviors.filter(b => b.name && b.name.trim() !== '')}
-          isLoading={isLoading}
-          error={error}
+      {/* Dialogs and Drawers */}
+      {editingSection && (
+        <SectionEditDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          title={editingSection.title}
+          description={editingSection.description}
+          onSave={handleSaveSection}
+          onDelete={handleDeleteSection}
+          isNew={isNewSection}
+          loading={drawerLoading}
+          error={drawerError}
+          organization_id={session?.user?.organization_id as UUID}
         />
+      )}
 
-        <MetricTypeDialog
-          open={createMetricOpen}
-          onClose={() => setCreateMetricOpen(false)}
-        />
-      </Box>
-    </PageContainer>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          Remove Metric
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to remove the {metricToDelete?.title} metric from this dimension?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDelete}>Cancel</Button>
+          <Button onClick={handleConfirmDelete} color="error" autoFocus>
+            Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <AssignMetricDialog
+        open={assignDialogOpen}
+        onClose={() => {
+          setAssignDialogOpen(false);
+          setSelectedMetric(null);
+        }}
+        onAssign={handleAssignMetric}
+        behaviors={behaviors.filter(b => b.name && b.name.trim() !== '')}
+        isLoading={isLoading}
+        error={error}
+      />
+
+      <MetricTypeDialog
+        open={createMetricOpen}
+        onClose={() => setCreateMetricOpen(false)}
+      />
+    </>
   );
 } 

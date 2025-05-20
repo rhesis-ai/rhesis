@@ -57,7 +57,6 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiDrawer: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#ffffff' : '#1D2939',
           '& .MuiPaper-root': {
             backgroundColor: mode === 'light' ? '#ffffff' : '#1D2939',
             color: mode === 'light' ? '#1D2939' : '#ffffff',
@@ -88,6 +87,15 @@ const getDesignTokens = (mode: PaletteMode) => ({
         },
       },
     },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            minHeight: '56px', // Standard MUI height
+          }
+        }
+      }
+    }
   },
 });
 
