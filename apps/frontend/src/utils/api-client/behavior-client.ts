@@ -2,6 +2,7 @@ import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { Behavior, BehaviorCreate, BehaviorUpdate, BehaviorsQueryParams } from './interfaces/behavior';
 import { UUID } from 'crypto';
+import { MetricDetail } from './interfaces/metric';
 
 export class BehaviorClient extends BaseApiClient {
   async getBehaviors(params: BehaviorsQueryParams = {}): Promise<Behavior[]> {
@@ -45,6 +46,21 @@ export class BehaviorClient extends BaseApiClient {
   async deleteBehavior(id: UUID): Promise<Behavior> {
     return this.fetch<Behavior>(`${API_ENDPOINTS.behaviors}/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async getBehaviorMetrics(behaviorId: UUID, params: { skip?: number; limit?: number } = {}): Promise<MetricDetail[]> {
+    const { skip = 0, limit = 100 } = params;
+    
+    // Build query string
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip.toString());
+    queryParams.append('limit', limit.toString());
+    
+    const url = `${API_ENDPOINTS.behaviors}/${behaviorId}/metrics/?${queryParams.toString()}`;
+    
+    return this.fetch<MetricDetail[]>(url, {
+      cache: 'no-store'
     });
   }
 } 

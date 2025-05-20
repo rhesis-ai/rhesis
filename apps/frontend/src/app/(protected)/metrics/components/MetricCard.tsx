@@ -5,13 +5,20 @@ import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturi
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import SearchIcon from '@mui/icons-material/Search';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import StorageIcon from '@mui/icons-material/Storage';
+import CodeIcon from '@mui/icons-material/Code';
+import ApiIcon from '@mui/icons-material/Api';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import NumbersIcon from '@mui/icons-material/Numbers';
+import CategoryIcon from '@mui/icons-material/Category';
+import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 
 interface MetricCardProps {
   title: string;
   description: string;
   backend: string;
-  requiresGroundTruth: boolean;
-  defaultThreshold: number;
+  metricType: string;
+  scoreType: string;
   type: 'answer_relevancy' | 'faithfulness' | 'contextual_relevancy' | 'contextual_precision' | 'contextual_recall';
   usedIn?: string;
 }
@@ -33,15 +40,74 @@ const getMetricIcon = (type: string) => {
   }
 };
 
+const getBackendIcon = (backend: string) => {
+  switch (backend.toLowerCase()) {
+    case 'custom':
+      return <StorageIcon fontSize="small" />;
+    case 'deepeval':
+      return <ApiIcon fontSize="small" />;
+    default:
+      return <StorageIcon fontSize="small" />;
+  }
+};
+
+const getMetricTypeDisplay = (metricType: string): string => {
+  const mapping: Record<string, string> = {
+    'custom-prompt': 'LLM Judge',
+    'api-call': 'External API',
+    'custom-code': 'Script',
+    'grading': 'Grades'
+  };
+  return mapping[metricType] || metricType;
+};
+
+const getMetricTypeIcon = (metricType: string) => {
+  switch (metricType.toLowerCase()) {
+    case 'custom-prompt':
+      return <SmartToyIcon fontSize="small" />;
+    case 'api-call':
+      return <ApiIcon fontSize="small" />;
+    case 'custom-code':
+      return <CodeIcon fontSize="small" />;
+    case 'grading':
+      return <AssessmentIcon fontSize="small" />;
+    default:
+      return <AssessmentIcon fontSize="small" />;
+  }
+};
+
+const getScoreTypeIcon = (scoreType: string) => {
+  switch (scoreType.toLowerCase()) {
+    case 'numeric':
+      return <NumbersIcon fontSize="small" />;
+    case 'categorical':
+      return <CategoryIcon fontSize="small" />;
+    case 'binary':
+      return <ToggleOnIcon fontSize="small" />;
+    default:
+      return <NumbersIcon fontSize="small" />;
+  }
+};
+
 export default function MetricCard({ 
   title, 
   description, 
-  backend, 
-  requiresGroundTruth, 
-  defaultThreshold, 
+  backend,
+  metricType,
+  scoreType,
   type,
   usedIn 
 }: MetricCardProps) {
+  const capitalizedScoreType = scoreType.charAt(0).toUpperCase() + scoreType.slice(1).toLowerCase();
+  const capitalizedBackend = backend.charAt(0).toUpperCase() + backend.slice(1).toLowerCase();
+
+  const chipStyles = {
+    '& .MuiChip-icon': {
+      color: 'text.secondary',
+      marginLeft: '4px'
+    }
+  };
+
   return (
     <Card sx={{ 
       height: '100%',
@@ -55,7 +121,7 @@ export default function MetricCard({
         flexDirection: 'column',
         justifyContent: 'space-between',
         pb: 2,
-        pt: 3 // Add padding top to account for absolute positioned icons
+        pt: 3
       }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
@@ -107,25 +173,29 @@ export default function MetricCard({
             gap: 0.5,
             '& .MuiChip-root': {
               height: '24px',
-              fontSize: '0.75rem'
+              fontSize: '0.75rem',
+              ...chipStyles
             }
           }}>
             <Chip 
-              label={`Backend: ${backend}`}
+              icon={getBackendIcon(backend)}
+              label={capitalizedBackend}
               size="small"
-              color="primary"
+              color="default"
               variant="outlined"
             />
             <Chip 
-              label={`Threshold: ${defaultThreshold}`}
+              icon={getMetricTypeIcon(metricType)}
+              label={getMetricTypeDisplay(metricType)}
               size="small"
-              color="secondary"
+              color="default"
               variant="outlined"
             />
             <Chip 
-              label={requiresGroundTruth ? "Requires Ground Truth" : "No Ground Truth"}
+              icon={getScoreTypeIcon(scoreType)}
+              label={capitalizedScoreType}
               size="small"
-              color={requiresGroundTruth ? "warning" : "success"}
+              color="default"
               variant="outlined"
             />
           </Box>

@@ -20,7 +20,7 @@ import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import MetricCard from './components/MetricCard';
-import SectionEditDrawer from './components/SectionEditDrawer';
+import SectionEditDrawer from './components/DimensionDrawer';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
@@ -41,7 +41,6 @@ import { TypeLookupClient } from '@/utils/api-client/type-lookup-client';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { Behavior as ApiBehavior } from '@/utils/api-client/interfaces/behavior';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { User } from '@/utils/api-client/interfaces/user';
@@ -393,19 +392,47 @@ export default function MetricsPage() {
         setBehaviors(behaviorsData);
         setMetrics(metricsData.data || []);
 
-        // Initialize behavior metrics using the metrics data we already have
+        // Initialize behavior metrics state
         const initialBehaviorMetrics: BehaviorMetrics = {};
         behaviorsData.forEach(behavior => {
-          const behaviorMetricsList = (metricsData.data || []).filter(metric => 
-            metric.behaviors?.includes(behavior.id)
-          );
           initialBehaviorMetrics[behavior.id] = {
-            metrics: behaviorMetricsList,
-            isLoading: false,
+            metrics: [],
+            isLoading: true,
             error: null
           };
         });
         setBehaviorMetrics(initialBehaviorMetrics);
+
+        // Fetch metrics for each behavior
+        const behaviorMetricsPromises = behaviorsData.map(async behavior => {
+          try {
+            const behaviorMetricsList = await behaviorClient.getBehaviorMetrics(behavior.id as UUID);
+            return {
+              behaviorId: behavior.id,
+              metrics: behaviorMetricsList,
+              error: null
+            };
+          } catch (err) {
+            console.error(`Error fetching metrics for behavior ${behavior.id}:`, err);
+            return {
+              behaviorId: behavior.id,
+              metrics: [],
+              error: err instanceof Error ? err.message : 'Failed to load metrics'
+            };
+          }
+        });
+
+        // Update behavior metrics as they complete
+        const behaviorMetricsResults = await Promise.all(behaviorMetricsPromises);
+        const updatedBehaviorMetrics = { ...initialBehaviorMetrics };
+        behaviorMetricsResults.forEach(result => {
+          updatedBehaviorMetrics[result.behaviorId] = {
+            metrics: result.metrics,
+            isLoading: false,
+            error: result.error
+          };
+        });
+        setBehaviorMetrics(updatedBehaviorMetrics);
         
         // Filter and set backend types and metric types
         const backendTypes = typeLookupData
@@ -526,10 +553,40 @@ export default function MetricsPage() {
     if (!isNewSection && editingSection && editingSection.key) {
       try {
         const behaviorClient = new BehaviorClient(session?.session_token);
+        const metricsClient = new MetricsClient(session?.session_token);
+        const behaviorData = behaviorMetrics[editingSection.key];
+
+        if (behaviorData && behaviorData.metrics.length > 0) {
+          // First remove all metrics from the behavior
+          const removePromises = behaviorData.metrics.map(metric => 
+            metricsClient.removeBehaviorFromMetric(metric.id as UUID, editingSection.key as UUID)
+          );
+
+          try {
+            await Promise.all(removePromises);
+          } catch (err) {
+            console.error('Error removing metrics from behavior:', err);
+            notifications.show(
+              'Failed to remove all metrics from dimension. Please try again.',
+              { severity: 'error', autoHideDuration: 4000 }
+            );
+            return;
+          }
+        }
+
+        // Then delete the behavior itself
         await behaviorClient.deleteBehavior(editingSection.key);
         
         // Update local state
         setBehaviors(prev => prev.filter(b => b.id !== editingSection.key));
+        setBehaviorMetrics(prev => {
+          const newState = { ...prev };
+          const key = editingSection?.key as UUID;
+          if (key) {
+            delete newState[key];
+          }
+          return newState;
+        });
         
         notifications.show('Dimension deleted successfully', { 
           severity: 'success', 
@@ -626,20 +683,14 @@ export default function MetricsPage() {
   // Function to assign a metric to a behavior
   const handleAssignMetricToBehavior = async (behaviorId: string, metricId: string) => {
     try {
-      const response = await fetch(
-        `https://rhesis-backend-dev-97484699177.us-central1.run.app/metrics/${metricId}/behaviors/${behaviorId}`,
-        {
-          method: 'POST',
-          headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${session?.session_token}`
-          }
-        }
-      );
+      const behaviorClient = new BehaviorClient(session?.session_token);
+      const metricClient = new MetricsClient(session?.session_token);
 
-      if (!response.ok) {
-        throw new Error('Failed to assign metric to behavior');
-      }
+      // Assign metric to behavior
+      await metricClient.addBehaviorToMetric(metricId as UUID, behaviorId as UUID);
+
+      // Fetch updated metrics for the behavior
+      const updatedBehaviorMetrics = await behaviorClient.getBehaviorMetrics(behaviorId as UUID);
 
       // Update both metrics and behaviorMetrics state
       setMetrics(prevMetrics => 
@@ -650,24 +701,22 @@ export default function MetricsPage() {
         )
       );
 
-      setBehaviorMetrics(prev => {
-        const metric = metrics.find(m => m.id === metricId);
-        if (!metric) return prev;
-
-        return {
-          ...prev,
-          [behaviorId]: {
-            ...prev[behaviorId],
-            metrics: [...prev[behaviorId].metrics, metric]
-          }
-        };
-      });
+      setBehaviorMetrics(prev => ({
+        ...prev,
+        [behaviorId]: {
+          ...prev[behaviorId],
+          metrics: updatedBehaviorMetrics,
+          isLoading: false,
+          error: null
+        }
+      }));
       
       notifications.show('Successfully assigned metric to behavior', {
         severity: 'success',
         autoHideDuration: 4000
       });
     } catch (err) {
+      console.error('Error assigning metric to behavior:', err);
       notifications.show('Failed to assign metric to behavior', {
         severity: 'error',
         autoHideDuration: 4000
@@ -678,20 +727,14 @@ export default function MetricsPage() {
   // Function to remove a metric from a behavior
   const handleRemoveMetricFromBehavior = async (behaviorId: string, metricId: string) => {
     try {
-      const response = await fetch(
-        `https://rhesis-backend-dev-97484699177.us-central1.run.app/metrics/${metricId}/behaviors/${behaviorId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${session?.session_token}`
-          }
-        }
-      );
+      const behaviorClient = new BehaviorClient(session?.session_token);
+      const metricClient = new MetricsClient(session?.session_token);
 
-      if (!response.ok) {
-        throw new Error('Failed to remove metric from behavior');
-      }
+      // Remove metric from behavior
+      await metricClient.removeBehaviorFromMetric(metricId as UUID, behaviorId as UUID);
+
+      // Fetch updated metrics for the behavior
+      const updatedBehaviorMetrics = await behaviorClient.getBehaviorMetrics(behaviorId as UUID);
 
       // Update both metrics and behaviorMetrics state
       setMetrics(prevMetrics => 
@@ -706,7 +749,9 @@ export default function MetricsPage() {
         ...prev,
         [behaviorId]: {
           ...prev[behaviorId],
-          metrics: prev[behaviorId].metrics.filter(m => m.id !== metricId)
+          metrics: updatedBehaviorMetrics,
+          isLoading: false,
+          error: null
         }
       }));
       
@@ -715,6 +760,7 @@ export default function MetricsPage() {
         autoHideDuration: 4000
       });
     } catch (err) {
+      console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000
@@ -847,8 +893,8 @@ export default function MetricsPage() {
                     title={metric.name}
                     description={metric.description}
                     backend={metric.backend_type?.type_value || 'custom'}
-                    defaultThreshold={metric.threshold ?? 0.5}
-                    requiresGroundTruth={false}
+                    metricType={metric.metric_type?.type_value || 'custom-prompt'}
+                    scoreType={metric.score_type || 'numeric'}
                   />
                 </Box>
               </Grid>
@@ -1149,8 +1195,8 @@ export default function MetricsPage() {
                       title={metric.name}
                       description={metric.description}
                       backend={metric.backend_type?.type_value || 'custom'}
-                      defaultThreshold={metric.threshold ?? 0.5}
-                      requiresGroundTruth={false}
+                      metricType={metric.metric_type?.type_value || 'custom-prompt'}
+                      scoreType={metric.score_type || 'numeric'}
                       usedIn={assignedBehavior ? assignedBehavior.name : undefined}
                     />
                   </Box>
@@ -1165,10 +1211,6 @@ export default function MetricsPage() {
 
   return (
     <>
-      {/* Render TemporaryDrawer outside PageContainer for testing */}
-      {/* <Box sx={{ position: 'absolute', top: 80, left: 20, zIndex: 1500 }}> {/* Ensure button is visible */}
-      {/*   <TemporaryDrawer /> */}
-      {/* </Box> */}
 
       <PageContainer title="Metrics" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
         <Box sx={{ 
