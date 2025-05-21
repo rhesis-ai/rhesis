@@ -31,5 +31,5 @@ metrics:
 
 backends:
   deepeval:
-    module: "rhesis.metrics.deepeval_metrics"
+    module: "rhesis.backend.metrics.deepeval_metrics"
     factory: "DeepEvalMetricFactory" 

@@ -26,6 +26,7 @@ from .source import Source, SourceBase, SourceCreate, SourceUpdate
 from .stats import DimensionStats, EntityStats
 from .status import Status, StatusBase, StatusCreate, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
+from .task import TaskList, TaskPayload, TaskResponse, TaskStatus, TaskRevoke, WorkerInfo, WorkerStats, WorkerStatus, HealthCheck
 from .test import (
     Test,
     TestBase,
@@ -200,4 +201,14 @@ __all__ = [
     "MetricUpdate",
     "MetricDetail",
     "ScoreType",
+    # Task schemas
+    "TaskList",
+    "TaskPayload",
+    "TaskResponse",
+    "TaskStatus",
+    "TaskRevoke",
+    "WorkerInfo",
+    "WorkerStats",
+    "WorkerStatus",
+    "HealthCheck",
 ]

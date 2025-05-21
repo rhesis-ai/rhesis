@@ -149,7 +149,7 @@ Deploy Celery workers separately:
 docker run \
   --env-file ./apps/backend/.env.docker \
   rhesis-backend:latest \
-  celery -A rhesis.backend.celery_app worker --loglevel=info
+  celery -A rhesis.backend.worker worker --loglevel=info
 ```
 
 ## Monitoring and Logging
