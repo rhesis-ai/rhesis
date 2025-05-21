@@ -1,9 +1,8 @@
 import concurrent.futures
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.base import BaseMetric, MetricResult
-from rhesis.backend.metrics.config.loader import MetricConfigLoader
+from rhesis.backend.metrics.base import BaseMetric, MetricConfig, MetricResult
 from rhesis.backend.metrics.factory import MetricFactory
 
 
@@ -11,8 +10,7 @@ class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
     def __init__(self):
-        """Initialize evaluator with configuration."""
-        self.config = MetricConfigLoader()
+        """Initialize evaluator with factory."""
         self.factory = MetricFactory()
 
     def evaluate(
@@ -21,7 +19,7 @@ class MetricEvaluator:
         output_text: str,
         expected_output: str,
         context: List[str],
-        metrics: Optional[List[Dict[str, Any]]] = None,
+        metrics: List[Union[Dict[str, Any], MetricConfig]],
         max_workers: int = 5,
     ) -> Dict[str, Any]:
         """
@@ -32,16 +30,39 @@ class MetricEvaluator:
             output_text: The actual output from the LLM
             expected_output: The expected or reference output
             context: List of context strings used for the response
-            metrics: List of dicts with metric configs, e.g. 
-                    [{"name": "answer_relevancy", "threshold": 0.7}]
-                    If None, computes all available metrics with default thresholds
+            metrics: List of MetricConfig objects or config dictionaries, e.g. 
+                    [
+                        MetricConfig(
+                            class_name="DeepEvalAnswerRelevancy",
+                            backend="deepeval",
+                            threshold=0.7,
+                            description="Measures how relevant the answer is to the question"
+                        ),
+                        # Or plain dictionaries
+                        {
+                            "class_name": "DeepEvalFaithfulness", 
+                            "backend": "deepeval",
+                            "threshold": 0.8,
+                            "description": "Measures how faithful the answer is to the context"
+                        }
+                    ]
             max_workers: Maximum number of parallel workers for metric computation
 
         Returns:
             Dictionary containing scores and details for each metric
         """
+        if not metrics:
+            logger.warning("No metrics provided for evaluation")
+            return {}
+
+        # Convert any dict configs to MetricConfig objects
+        metric_configs = [
+            config if isinstance(config, MetricConfig) else MetricConfig.from_dict(config)
+            for config in metrics
+        ]
+
         # Prepare metrics for evaluation
-        metric_tasks = self._prepare_metrics(metrics, expected_output)
+        metric_tasks = self._prepare_metrics(metric_configs, expected_output)
 
         # Execute metrics in parallel and collect results
         results = self._execute_metrics_in_parallel(
@@ -51,8 +72,8 @@ class MetricEvaluator:
         return results
 
     def _prepare_metrics(
-        self, metrics: Optional[List[Dict[str, Any]]], expected_output: Optional[str]
-    ) -> List[Tuple[str, BaseMetric, Dict[str, Any], str]]:
+        self, metrics: List[MetricConfig], expected_output: Optional[str]
+    ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
         """
         Prepare metrics for evaluation.
 
@@ -61,53 +82,44 @@ class MetricEvaluator:
             expected_output: The expected output (to check if ground truth is required)
 
         Returns:
-            List of tuples containing (metric_name, metric_instance, metric_settings, backend)
+            List of tuples containing (class_name, metric_instance, metric_config, backend)
         """
-        # If no metrics specified, use all available ones with default settings
-        if metrics is None:
-            metrics = [{"name": metric_name} for metric_name in self.config.metrics.keys()]
-
         logger.info(f"Preparing {len(metrics)} metrics for evaluation")
         metric_tasks = []
 
         for metric_config in metrics:
-            metric_name = metric_config["name"]
+            class_name = metric_config.class_name
+            backend = metric_config.backend
 
             try:
-                # Get metric settings from config
-                metric_settings = self.config.get_metric_config(metric_name)
-
-                # Get the appropriate factory for this metric's backend
-                backend = metric_settings["backend"]
-                factory = self.factory.get_factory(backend)
-
-                # Create metric with config-specified defaults, overridden by user settings
+                # Prepare parameters for the metric
                 metric_params = {
-                    "threshold": metric_settings["default_threshold"],
-                    **{k: v for k, v in metric_config.items() if k != "name"},
+                    "threshold": metric_config.threshold,
+                    **metric_config.parameters
                 }
 
-                metric = factory.create(metric_name, **metric_params)
+                # Instantiate the metric using the class name and backend
+                metric = self.factory.create(backend, class_name, **metric_params)
 
                 # Skip metrics that require ground truth if it's not provided
                 if metric.requires_ground_truth and expected_output is None:
                     logger.debug(
-                        f"Skipping metric '{metric_name}' as it requires ground truth "
+                        f"Skipping metric '{class_name}' as it requires ground truth "
                         f"which is not provided"
                     )
                     continue
 
                 # Add task to the list
-                metric_tasks.append((metric_name, metric, metric_settings, backend))
+                metric_tasks.append((class_name, metric, metric_config, backend))
 
             except Exception as e:
-                logger.error(f"Error preparing metric '{metric_name}': {str(e)}", exc_info=True)
+                logger.error(f"Error preparing metric '{class_name}': {str(e)}", exc_info=True)
 
         return metric_tasks
 
     def _execute_metrics_in_parallel(
         self,
-        metric_tasks: List[Tuple[str, BaseMetric, Dict[str, Any], str]],
+        metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
         input_text: str,
         output_text: str,
         expected_output: str,
@@ -141,15 +153,15 @@ class MetricEvaluator:
             future_to_metric = {
                 executor.submit(
                     self._evaluate_metric, metric, input_text, output_text, expected_output, context
-                ): (metric_name, metric_settings, backend)
-                for metric_name, metric, metric_settings, backend in metric_tasks
+                ): (class_name, metric_config, backend)
+                for class_name, metric, metric_config, backend in metric_tasks
             }
 
             # Process results as they complete
             for future in concurrent.futures.as_completed(future_to_metric):
-                metric_name, metric_settings, backend = future_to_metric[future]
-                results[metric_name] = self._process_metric_result(
-                    future, metric_name, metric_settings, backend
+                class_name, metric_config, backend = future_to_metric[future]
+                results[class_name] = self._process_metric_result(
+                    future, class_name, metric_config, backend
                 )
 
         logger.info(f"Completed parallel evaluation of {len(results)} metrics")
@@ -184,8 +196,8 @@ class MetricEvaluator:
     def _process_metric_result(
         self,
         future: concurrent.futures.Future,
-        metric_name: str,
-        metric_settings: Dict[str, Any],
+        class_name: str,
+        metric_config: MetricConfig,
         backend: str,
     ) -> Dict[str, Any]:
         """
@@ -193,8 +205,8 @@ class MetricEvaluator:
 
         Args:
             future: The Future object containing the result
-            metric_name: Name of the metric
-            metric_settings: Settings for the metric
+            class_name: Name of the metric class
+            metric_config: Configuration for the metric
             backend: Backend used for the metric
 
         Returns:
@@ -202,72 +214,30 @@ class MetricEvaluator:
         """
         try:
             result = future.result()
+            # Get description from config or use a default
+            description = metric_config.description or f"{class_name} evaluation metric"
+            
             # Store results
             processed_result = {
                 "score": result.score,
                 "reason": result.details["reason"],
                 "is_successful": result.details["is_successful"],
-                "threshold": result.details["threshold"],
+                "threshold": metric_config.threshold,
                 "backend": backend,
-                "description": metric_settings["description"],
+                "description": description,
             }
-            logger.debug(f"Completed metric '{metric_name}' with score {result.score:.2f}")
+            logger.debug(f"Completed metric '{class_name}' with score {result.score:.2f}")
             return processed_result
 
         except Exception as exc:
-            logger.error(f"Metric '{metric_name}' generated an exception: {exc}", exc_info=True)
+            logger.error(f"Metric '{class_name}' generated an exception: {exc}", exc_info=True)
             # Store error information in results
             return {
                 "score": 0.0,
                 "reason": f"Error: {str(exc)}",
                 "is_successful": False,
-                "threshold": metric_settings["default_threshold"],
+                "threshold": metric_config.threshold,
                 "backend": backend,
-                "description": metric_settings["description"],
+                "description": description if 'description' in locals() else f"{class_name} evaluation metric",
                 "error": str(exc),
             }
-
-
-if __name__ == "__main__":
-    # Example usage
-    sample_input = {
-        "input_text": "What is the capital of France?",
-        "output_text": "The capital of France is Paris. It is known as the City of Light.",
-        "expected_output": "Paris is the capital of France.",
-        "context": [
-            "Paris is the capital and largest city of France.",
-            "Known as the City of Light, Paris is a global center for art, culture, and fashion.",
-        ],
-    }
-
-    # Create evaluator
-    evaluator = MetricEvaluator()
-
-    # Example 1: Evaluate all metrics with default thresholds
-    results_all = evaluator.evaluate(**sample_input)
-
-    # Example 2: Evaluate specific metrics with custom thresholds
-    results_specific = evaluator.evaluate(
-        metrics=[
-            {"name": "answer_relevancy", "threshold": 0.7},
-            {"name": "faithfulness", "threshold": 0.8},
-        ],
-        **sample_input,
-    )
-
-    # Print results in a readable format
-    def print_results(results: Dict[str, Any], title: str):
-        print(f"\n{title}")
-        print("=" * len(title))
-        for metric_name, metric_results in results.items():
-            print(f"\n{metric_name.upper()}:")
-            print(f"Description: {metric_results['description']}")
-            print(f"Backend: {metric_results['backend']}")
-            print(f"Score: {metric_results['score']:.2f}")
-            print(f"Success: {metric_results['is_successful']}")
-            print(f"Reason: {metric_results['reason']}")
-            print(f"Threshold: {metric_results['threshold']}")
-            print("-" * 50)
-
-    print_results(results_all, "All Metrics")
-    print_results(results_specific, "Specific Metrics")
