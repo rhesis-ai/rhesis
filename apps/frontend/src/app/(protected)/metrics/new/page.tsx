@@ -522,6 +522,8 @@ export default function NewMetricPage() {
         return 'Create Custom Code Metric';
       case 'custom-prompt':
         return 'Create Custom Prompt Metric';
+      case 'framework':
+        return 'Create Framework Metric';
       default:
         return 'Create New Metric';
     }

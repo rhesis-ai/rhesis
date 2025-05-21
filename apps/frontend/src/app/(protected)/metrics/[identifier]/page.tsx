@@ -48,7 +48,7 @@ interface MetricDetail {
   updatedAt: string;
   usedInTestSets: number;
   status: 'active' | 'draft' | 'archived';
-  type: 'grading' | 'api-call' | 'custom-code' | 'custom-prompt';
+  type: 'grading' | 'api-call' | 'custom-code' | 'custom-prompt' | 'framework';
 }
 
 interface PageProps {
