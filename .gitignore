@@ -255,3 +255,12 @@ override.tf.json
 .terraformrc
 terraform.rc
 terraform-*-plan*
+
+# DeepEval
+deepeval/
+.deepeval_telemetry.txt
+deepeval_telemetry.txt
+deepeval_telemetry.json
+deepeval_telemetry.jsonl
+deepeval_telemetry.jsonl.gz
+deepeval_telemetry.jsonl.gz.part
