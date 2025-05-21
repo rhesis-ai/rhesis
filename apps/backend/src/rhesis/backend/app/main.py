@@ -42,6 +42,7 @@ public_routes = [
 token_enabled_routes = [
     "/api/",
     "/tokens/",
+    "/tasks/",
     "/test_sets/",
     "/topics/",
     "/prompts/",
