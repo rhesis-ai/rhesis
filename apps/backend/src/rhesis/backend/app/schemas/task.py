@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 
 class TaskList(BaseModel):
@@ -8,9 +8,9 @@ class TaskList(BaseModel):
     tasks: List[str]
 
 
-class TaskPayload(BaseModel):
+class TaskPayload(RootModel):
     """Generic payload for task submission."""
-    __root__: Dict[str, Any] = Field(..., description="Task parameters")
+    root: Dict[str, Any] = Field(..., description="Task parameters")
 
 
 class TaskResponse(BaseModel):
