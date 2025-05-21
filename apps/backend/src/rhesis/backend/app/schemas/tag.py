@@ -36,6 +36,8 @@ class EntityType(str, Enum):
     RESPONSE_PATTERN = "ResponsePattern"
     PROJECT = "Project"
     ORGANIZATION = "Organization"
+    MODEL = "Model"
+    METRIC = "Metric"
 
 
 class TagAssignment(Base):
