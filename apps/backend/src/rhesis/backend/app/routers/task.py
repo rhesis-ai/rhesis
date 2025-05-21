@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app import schemas
+from rhesis.backend.app.schemas.task import TaskList, TaskPayload, TaskResponse, TaskStatus, TaskRevoke, WorkerInfo, WorkerStats, WorkerStatus, HealthCheck
 from rhesis.backend.worker import app as celery_app
 from rhesis.backend.tasks import task_launcher
 
@@ -18,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", response_model=TaskList)
 async def list_tasks(
     current_user: schemas.User = Depends(require_current_user_or_token)
 ) -> Dict[str, List[str]]:
@@ -31,7 +32,7 @@ async def list_tasks(
     return {"tasks": sorted(user_tasks)}
 
 
-@router.get("/active")
+@router.get("/active", response_model=WorkerInfo)
 async def list_active_tasks(
     current_user: schemas.User = Depends(require_current_user_or_token)
 ):
@@ -44,7 +45,7 @@ async def list_active_tasks(
     return {"active": active, "scheduled": scheduled, "reserved": reserved}
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=WorkerStats)
 async def get_stats(
     current_user: schemas.User = Depends(require_current_user_or_token)
 ):
@@ -56,7 +57,7 @@ async def get_stats(
     return {"stats": stats, "registered_tasks": registered, "total_tasks": len(celery_app.tasks)}
 
 
-@router.post("/{task_name}")
+@router.post("/{task_name}", response_model=TaskResponse)
 async def create_task(
     task_name: str, 
     payload: Dict[Any, Any],
@@ -86,7 +87,7 @@ async def create_task(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{task_id}")
+@router.get("/{task_id}", response_model=TaskStatus)
 async def get_task_status(
     task_id: str,
     current_user: schemas.User = Depends(require_current_user_or_token)
@@ -101,7 +102,7 @@ async def get_task_status(
     }
 
 
-@router.delete("/{task_id}")
+@router.delete("/{task_id}", response_model=TaskRevoke)
 async def revoke_task(
     task_id: str, 
     terminate: bool = False,
@@ -112,7 +113,7 @@ async def revoke_task(
     return {"message": f"Task {task_id} revoked"}
 
 
-@router.get("/health")
+@router.get("/health", response_model=HealthCheck)
 async def health_check(
     current_user: schemas.User = Depends(require_current_user_or_token)
 ):
@@ -131,7 +132,7 @@ async def health_check(
         raise HTTPException(status_code=503, detail=f"Celery health check failed: {str(e)}")
 
 
-@router.get("/workers/status")
+@router.get("/workers/status", response_model=WorkerStatus)
 async def get_workers_status(
     current_user: schemas.User = Depends(require_current_user_or_token)
 ):

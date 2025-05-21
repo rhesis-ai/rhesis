@@ -20,6 +20,7 @@ from .tag import router as tag_router
 
 # ... other imports
 # Import new routers
+from .task import router as task_router
 from .test import router as test_router
 from .test_configuration import router as test_configuration_router
 from .test_context import router as test_context_router
@@ -63,6 +64,7 @@ __all__ = [
     "test_context",
     "metric",
     "model",
+    "task",
 ]
 
 # Export all routers for use in main.py
@@ -97,6 +99,7 @@ routers = sorted(
         type_lookup_router,
         metric_router,
         model_router,
+        task_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )
