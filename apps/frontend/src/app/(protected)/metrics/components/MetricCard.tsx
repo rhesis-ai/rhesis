@@ -14,13 +14,14 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 
 interface MetricCardProps {
+  type?: 'custom-prompt' | 'api-call' | 'custom-code' | 'grading';
   title: string;
   description: string;
-  backend: string;
-  metricType: string;
-  scoreType: string;
-  type: 'answer_relevancy' | 'faithfulness' | 'contextual_relevancy' | 'contextual_precision' | 'contextual_recall';
-  usedIn?: string;
+  backend?: string;
+  metricType?: string;
+  scoreType?: string;
+  usedIn?: string[];
+  showUsage?: boolean;
 }
 
 const getMetricIcon = (type: string) => {
@@ -96,10 +97,11 @@ export default function MetricCard({
   metricType,
   scoreType,
   type,
-  usedIn 
+  usedIn,
+  showUsage = false
 }: MetricCardProps) {
-  const capitalizedScoreType = scoreType.charAt(0).toUpperCase() + scoreType.slice(1).toLowerCase();
-  const capitalizedBackend = backend.charAt(0).toUpperCase() + backend.slice(1).toLowerCase();
+  const capitalizedScoreType = (scoreType ?? '').charAt(0).toUpperCase() + (scoreType ?? '').slice(1).toLowerCase();
+  const capitalizedBackend = (backend ?? '').charAt(0).toUpperCase() + (backend ?? '').slice(1).toLowerCase();
 
   const chipStyles = {
     '& .MuiChip-icon': {
@@ -131,7 +133,7 @@ export default function MetricCard({
               display: 'flex',
               alignItems: 'center'
             }}>
-              {getMetricIcon(type)}
+              {getMetricIcon(type || '')}
             </Box>
             <Typography 
               variant="subtitle1" 
@@ -155,18 +157,17 @@ export default function MetricCard({
         </Box>
 
         <Box sx={{ mt: 2 }}>
-          {usedIn && (
-            <Typography 
-              variant="caption" 
-              color="text.secondary" 
-              sx={{ 
-                display: 'block',
-                mb: 1
-              }}
-            >
-              Used in: {usedIn}
-            </Typography>
-          )}
+          <Typography 
+            variant="caption" 
+            color="text.secondary" 
+            sx={{ 
+              display: 'block',
+              mb: 1,
+              minHeight: '1.5em'
+            }}
+          >
+            {showUsage && usedIn && usedIn.length > 0 ? `Used in: ${usedIn.join(', ')}` : ''}
+          </Typography>
           <Box sx={{ 
             display: 'flex',
             flexWrap: 'wrap',
@@ -178,21 +179,21 @@ export default function MetricCard({
             }
           }}>
             <Chip 
-              icon={getBackendIcon(backend)}
+              icon={getBackendIcon(backend || '')}
               label={capitalizedBackend}
               size="small"
               color="default"
               variant="outlined"
             />
             <Chip 
-              icon={getMetricTypeIcon(metricType)}
-              label={getMetricTypeDisplay(metricType)}
+              icon={getMetricTypeIcon(metricType || '')}
+              label={getMetricTypeDisplay(metricType || '')}
               size="small"
               color="default"
               variant="outlined"
             />
             <Chip 
-              icon={getScoreTypeIcon(scoreType)}
+              icon={getScoreTypeIcon(scoreType || '')}
               label={capitalizedScoreType}
               size="small"
               color="default"

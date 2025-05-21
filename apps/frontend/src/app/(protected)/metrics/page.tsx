@@ -132,126 +132,33 @@ interface MetricSections {
   [key: string]: MetricSectionItem[];
 }
 
-const metricSections: MetricSections = {
-  robustness: [
-    {
-      type: 'answer_relevancy',
-      title: 'Answer Relevancy',
-      description: 'Measures how relevant the answer is to the question',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: true,
-      metricType: 'Grading'
-    },
-    {
-      type: 'faithfulness',
-      title: 'Faithfulness',
-      description: 'Measures how faithful the answer is to the provided context',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: false,
-      metricType: 'Grading'
-    },
-    {
-      type: 'contextual_relevancy',
-      title: 'Contextual Relevancy',
-      description: 'Measures how relevant the context is to the question',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: false,
-      metricType: 'Grading'
-    }
-  ],
-  reliability: [
-    {
-      type: 'contextual_precision',
-      title: 'Contextual Precision',
-      description: 'Measures the precision of context usage in the answer',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: false,
-      metricType: 'Grading'
-    },
-    {
-      type: 'contextual_recall',
-      title: 'Contextual Recall',
-      description: 'Measures how much of the relevant context is used',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: false,
-      metricType: 'Grading'
-    },
-    {
-      type: 'answer_relevancy',
-      title: 'Response Quality',
-      description: 'Measures the overall quality and coherence of the response',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: true,
-      metricType: 'Grading'
-    }
-  ],
-  compliance: [
-    {
-      type: 'faithfulness',
-      title: 'Policy Adherence',
-      description: 'Measures compliance with defined policies and guidelines',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: true,
-      metricType: 'Grading'
-    },
-    {
-      type: 'contextual_precision',
-      title: 'Data Privacy',
-      description: 'Evaluates handling of sensitive information and privacy compliance',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: true,
-      metricType: 'Grading'
-    },
-    {
-      type: 'contextual_recall',
-      title: 'Regulatory Coverage',
-      description: 'Assesses coverage of relevant regulatory requirements',
-      backend: 'deepeval',
-      defaultThreshold: 0.5,
-      requiresGroundTruth: true,
-      metricType: 'Grading'
-    }
-  ]
-};
-
-interface Section {
-  title: string;
-  description: string;
-  metrics: MetricSectionItem[];
-}
-
 interface FilterState {
   search: string;
   backend: string[];
-  groundTruth: string[];
   type: string[];
+  scoreType: string[];
 }
 
 const initialFilterState: FilterState = {
   search: '',
   backend: [],
-  groundTruth: [],
-  type: []
+  type: [],
+  scoreType: []
 };
 
 interface FilterOptions {
   backend: { type_value: string }[];
-  groundTruth: string[];
   type: { type_value: string; description: string }[];
+  scoreType: { value: string; label: string }[];
 }
 
 const initialFilterOptions: FilterOptions = {
   backend: [],
-  groundTruth: ['yes', 'no'],
-  type: []
+  type: [],
+  scoreType: [
+    { value: 'binary', label: 'Binary (Pass/Fail)' },
+    { value: 'numeric', label: 'Numeric' }
+  ]
 };
 
 interface AssignMetricDialogProps {
@@ -305,25 +212,21 @@ function AssignMetricDialog({ open, onClose, onAssign, behaviors, isLoading, err
   );
 }
 
-type MetricCardType = 'answer_relevancy' | 'faithfulness' | 'contextual_relevancy' | 'contextual_precision' | 'contextual_recall';
-
-const mapMetricTypeToCardType = (apiType: string): MetricCardType => {
-  const mapping: Record<string, MetricCardType> = {
-    'answer-relevancy': 'answer_relevancy',
-    'faithfulness': 'faithfulness',
-    'contextual-relevancy': 'contextual_relevancy',
-    'contextual-precision': 'contextual_precision',
-    'contextual-recall': 'contextual_recall'
-  };
-  return mapping[apiType] || 'answer_relevancy'; // fallback to answer_relevancy if type not found
-};
-
 interface BehaviorMetrics {
   [behaviorId: string]: {
     metrics: MetricDetail[];
     isLoading: boolean;
     error: string | null;
   }
+}
+
+interface LocalMetricType {
+  type_value: string;
+}
+
+// Add type guard function
+function isValidMetricType(type: string | undefined): type is 'custom-prompt' | 'api-call' | 'custom-code' | 'grading' {
+  return type === 'custom-prompt' || type === 'api-call' || type === 'custom-code' || type === 'grading';
 }
 
 export default function MetricsPage() {
@@ -344,7 +247,7 @@ export default function MetricsPage() {
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [sections, setSections] = React.useState<MetricSections>(metricSections);
+  const [sections, setSections] = React.useState<MetricSections>({});
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
   const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(initialFilterOptions);
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -389,8 +292,24 @@ export default function MetricsPage() {
           })
         ]);
 
+        // Fetch behaviors for each metric
+        const metricsWithBehaviors = await Promise.all(
+          (metricsData.data || []).map(async (metric) => {
+            try {
+              const metricBehaviors = await metricClient.getMetricBehaviors(metric.id as UUID);
+              return {
+                ...metric,
+                behaviors: metricBehaviors.data?.map(b => b.id) || []
+              };
+            } catch (err) {
+              console.error(`Error fetching behaviors for metric ${metric.id}:`, err);
+              return metric;
+            }
+          })
+        );
+
         setBehaviors(behaviorsData);
-        setMetrics(metricsData.data || []);
+        setMetrics(metricsWithBehaviors);
 
         // Initialize behavior metrics state
         const initialBehaviorMetrics: BehaviorMetrics = {};
@@ -444,10 +363,8 @@ export default function MetricsPage() {
         const metricTypes = typeLookupData
           .filter((type: any) => type.type_name === 'MetricType')
           .map((type: any) => ({
-            type_value: type.type_value.replace(/-/g, ' ').split(' ').map((word: string) => 
-              word.charAt(0).toUpperCase() + word.slice(1)
-            ).join(' '),
-            description: type.description
+            type_value: type.type_value,
+            description: type.description || ''
           }));
 
         setFilterOptions(prev => ({
@@ -655,16 +572,15 @@ export default function MetricsPage() {
       const backendMatch = filters.backend.length === 0 || 
         (metric.backend_type && filters.backend.includes(metric.backend_type.type_value.toLowerCase()));
 
-      // Ground Truth filter
-      const groundTruthMatch = filters.groundTruth.length === 0 ||
-        (filters.groundTruth.includes('yes') && metric.ground_truth_required) ||
-        (filters.groundTruth.includes('no') && !metric.ground_truth_required);
-
       // Type filter
       const typeMatch = filters.type.length === 0 ||
         (metric.metric_type?.type_value && filters.type.includes(metric.metric_type.type_value));
 
-      return searchMatch && backendMatch && groundTruthMatch && typeMatch;
+      // Score type filter
+      const scoreTypeMatch = !filters.scoreType || filters.scoreType.length === 0 ||
+        (metric.score_type && filters.scoreType.includes(metric.score_type));
+
+      return searchMatch && backendMatch && typeMatch && scoreTypeMatch;
     });
   };
 
@@ -692,11 +608,17 @@ export default function MetricsPage() {
       // Fetch updated metrics for the behavior
       const updatedBehaviorMetrics = await behaviorClient.getBehaviorMetrics(behaviorId as UUID);
 
+      // Fetch updated behaviors for the metric
+      const updatedMetricBehaviors = await metricClient.getMetricBehaviors(metricId as UUID);
+
       // Update both metrics and behaviorMetrics state
       setMetrics(prevMetrics => 
         prevMetrics.map(metric => 
           metric.id === metricId 
-            ? { ...metric, behaviors: [...(metric.behaviors || []), behaviorId as UUID] }
+            ? { 
+                ...metric, 
+                behaviors: updatedMetricBehaviors.data?.map(b => b.id) || []
+              }
             : metric
         )
       );
@@ -736,11 +658,17 @@ export default function MetricsPage() {
       // Fetch updated metrics for the behavior
       const updatedBehaviorMetrics = await behaviorClient.getBehaviorMetrics(behaviorId as UUID);
 
+      // Fetch updated behaviors for the metric
+      const updatedMetricBehaviors = await metricClient.getMetricBehaviors(metricId as UUID);
+
       // Update both metrics and behaviorMetrics state
       setMetrics(prevMetrics => 
         prevMetrics.map(metric => 
           metric.id === metricId 
-            ? { ...metric, behaviors: metric.behaviors?.filter(id => id !== behaviorId) }
+            ? { 
+                ...metric, 
+                behaviors: updatedMetricBehaviors.data?.map(b => b.id) || []
+              }
             : metric
         )
       );
@@ -780,8 +708,8 @@ export default function MetricsPage() {
   const hasActiveFilters = () => {
     return filters.search !== '' || 
            filters.backend.length > 0 || 
-           filters.groundTruth.length > 0 || 
-           filters.type.length > 0;
+           filters.type.length > 0 ||
+           filters.scoreType.length > 0;
   };
 
   // Function to reset all filters
@@ -889,12 +817,14 @@ export default function MetricsPage() {
                     </IconButton>
                   </Box>
                   <MetricCard 
-                    type={mapMetricTypeToCardType(metric.metric_type?.type_value || 'answer_relevancy')}
+                    type={isValidMetricType(metric.metric_type?.type_value) ? metric.metric_type.type_value : undefined}
                     title={metric.name}
                     description={metric.description}
-                    backend={metric.backend_type?.type_value || 'custom'}
-                    metricType={metric.metric_type?.type_value || 'custom-prompt'}
-                    scoreType={metric.score_type || 'numeric'}
+                    backend={metric.backend_type?.type_value}
+                    metricType={metric.metric_type?.type_value}
+                    scoreType={metric.score_type}
+                    usedIn={[behavior.name]}
+                    showUsage={false}
                   />
                 </Box>
               </Grid>
@@ -1028,70 +958,27 @@ export default function MetricsPage() {
                 </Select>
               </FormControl>
 
-              {/* Ground Truth Filter */}
+              {/* Metric Type Filter */}
               <FormControl sx={{ minWidth: 200, flex: 1 }} size="small">
-                <InputLabel id="ground-truth-filter-label">Ground Truth</InputLabel>
-                <Select
-                  labelId="ground-truth-filter-label"
-                  id="ground-truth-filter"
-                  multiple
-                  value={filters.groundTruth}
-                  onChange={(e) => handleFilterChange('groundTruth', e.target.value as string[])}
-                  label="Ground Truth"
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.length === 0 ? (
-                        <em>Select ground truth</em>
-                      ) : (
-                        selected.map((value) => (
-                          <Chip 
-                            key={value} 
-                            label={value} 
-                            size="small"
-                          />
-                        ))
-                      )}
-                    </Box>
-                  )}
-                  MenuProps={{
-                    PaperProps: {
-                      style: {
-                        maxHeight: 224,
-                        width: 250
-                      }
-                    }
-                  }}
-                >
-                  <MenuItem disabled value="">
-                    <em>Select ground truth</em>
-                  </MenuItem>
-                  {filterOptions.groundTruth.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {/* Type Filter */}
-              <FormControl sx={{ minWidth: 200, flex: 1 }} size="small">
-                <InputLabel id="type-filter-label">Type</InputLabel>
+                <InputLabel id="type-filter-label">Metric Type</InputLabel>
                 <Select
                   labelId="type-filter-label"
                   id="type-filter"
                   multiple
                   value={filters.type}
                   onChange={(e) => handleFilterChange('type', e.target.value as string[])}
-                  label="Type"
+                  label="Metric Type"
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {selected.length === 0 ? (
-                        <em>Select type</em>
+                        <em>Select metric type</em>
                       ) : (
                         selected.map((value) => (
                           <Chip 
                             key={value} 
-                            label={value} 
+                            label={value.replace(/-/g, ' ').split(' ').map(word => 
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')} 
                             size="small"
                           />
                         ))
@@ -1108,16 +995,67 @@ export default function MetricsPage() {
                   }}
                 >
                   <MenuItem disabled value="">
-                    <em>Select type</em>
+                    <em>Select metric type</em>
                   </MenuItem>
                   {filterOptions.type.map((option) => (
                     <MenuItem key={option.type_value} value={option.type_value}>
                       <Box>
-                        <Typography>{option.type_value}</Typography>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {option.description}
+                        <Typography>
+                          {option.type_value.replace(/-/g, ' ').split(' ').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)
+                          ).join(' ')}
                         </Typography>
+                        {option.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {option.description}
+                          </Typography>
+                        )}
                       </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Score Type Filter */}
+              <FormControl sx={{ minWidth: 200, flex: 1 }} size="small">
+                <InputLabel id="score-type-filter-label">Score Type</InputLabel>
+                <Select
+                  labelId="score-type-filter-label"
+                  id="score-type-filter"
+                  multiple
+                  value={filters.scoreType}
+                  onChange={(e) => handleFilterChange('scoreType', e.target.value as string[])}
+                  label="Score Type"
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.length === 0 ? (
+                        <em>Select score type</em>
+                      ) : (
+                        selected.map((value) => (
+                          <Chip 
+                            key={value} 
+                            label={filterOptions.scoreType.find(opt => opt.value === value)?.label || value}
+                            size="small"
+                          />
+                        ))
+                      )}
+                    </Box>
+                  )}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 224,
+                        width: 250
+                      }
+                    }
+                  }}
+                >
+                  <MenuItem disabled value="">
+                    <em>Select score type</em>
+                  </MenuItem>
+                  {filterOptions.scoreType.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -1130,7 +1068,8 @@ export default function MetricsPage() {
         <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
           <Grid container spacing={3}>
             {filteredMetrics.map((metric) => {
-              const assignedBehavior = activeBehaviors.find(b => metric.behaviors?.includes(b.id));
+              const assignedBehaviors = activeBehaviors.filter(b => metric.behaviors?.includes(b.id));
+              const behaviorNames = assignedBehaviors.map(b => b.name || 'Unnamed Behavior');
               
               return (
                 <Grid item xs={12} md={4} key={metric.id}>
@@ -1172,12 +1111,12 @@ export default function MetricsPage() {
                       >
                         <AddIcon fontSize="inherit" />
                       </IconButton>
-                      {assignedBehavior && (
+                      {assignedBehaviors.length > 0 && (
                         <IconButton
                           size="small"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleRemoveMetricFromBehavior(assignedBehavior.id, metric.id);
+                            handleRemoveMetricFromBehavior(assignedBehaviors[0].id, metric.id);
                           }}
                           sx={{
                             padding: '2px',
@@ -1191,13 +1130,14 @@ export default function MetricsPage() {
                       )}
                     </Box>
                     <MetricCard 
-                      type={mapMetricTypeToCardType(metric.metric_type?.type_value || 'answer_relevancy')}
+                      type={isValidMetricType(metric.metric_type?.type_value) ? metric.metric_type.type_value : undefined}
                       title={metric.name}
                       description={metric.description}
-                      backend={metric.backend_type?.type_value || 'custom'}
-                      metricType={metric.metric_type?.type_value || 'custom-prompt'}
-                      scoreType={metric.score_type || 'numeric'}
-                      usedIn={assignedBehavior ? assignedBehavior.name : undefined}
+                      backend={metric.backend_type?.type_value}
+                      metricType={metric.metric_type?.type_value}
+                      scoreType={metric.score_type}
+                      usedIn={behaviorNames}
+                      showUsage={true}
                     />
                   </Box>
                 </Grid>
