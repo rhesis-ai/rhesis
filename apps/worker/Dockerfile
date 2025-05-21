@@ -1,39 +1,47 @@
+# Hint: Build this image with an expanded build context
+# `docker build -t rhesis-worker -f apps/worker/Dockerfile .`
+
 # Use Python 3.10 base image
 FROM python:3.10-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies including PostgreSQL client
+# Install system dependencies including PostgreSQL client and uv
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     python3-dev \
     curl \
     jq \
     gcc \
+    && pip install --no-cache-dir uv \
+    && apt-get purge -y gcc \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Celery and dependencies
-RUN pip install --no-cache-dir \
-    "celery[postgres,redis]==5.3.6" \
-    "psycopg2-binary==2.9.9" \
-    "kombu==5.3.5" \
-    "fastapi==0.104.1" \
-    "uvicorn==0.24.0" \
-    "redis>=4.5.2,<6.0.0,!=4.5.5"
+# Copy SDK directory
+COPY sdk /app/sdk/
 
-# Install the SDK with upgrade flag to ensure latest version
-RUN pip install --upgrade --no-cache-dir rhesis-sdk
+# Copy backend directory
+COPY apps/backend /app/backend/
 
-# Copy rhesis requirements and install dependencies
-COPY rhesis/requirements.txt /app/rhesis/requirements.txt
-RUN pip install --no-cache-dir -r /app/rhesis/requirements.txt
+# Copy Celery worker requirements
+COPY apps/worker/requirements.txt /app/requirements.txt
 
-# Copy the rhesis folder (backend code with sdk.py wrapper already included)
-COPY rhesis/ /app/rhesis/
+# Copy health check server
+COPY apps/worker/health_server.py /app/health_server.py
 
-# Set Python path to find the rhesis module (backend)
-ENV PYTHONPATH=/app:${PYTHONPATH}
+# Install dependencies with uv using --system flag
+RUN uv pip install --system -r /app/requirements.txt && \
+    uv pip install --system -e /app/sdk && \
+    uv pip install --system -e /app/backend
+
+# Set Python path to find the modules
+ENV PYTHONPATH=/app
 
 # Create directory for Celery logs
 RUN mkdir -p /var/log/celery
@@ -43,11 +51,26 @@ RUN useradd -m celery_user && \
     chown -R celery_user:celery_user /app /var/log/celery
 
 # Copy and set permissions for the startup script
-COPY celery/start.sh /app/start.sh
+COPY apps/worker/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
+RUN chmod +x /app/health_server.py
 
 # Switch to non-root user
 USER celery_user
+
+# Default Celery configuration (can be overridden at runtime)
+ENV CELERY_WORKER_CONCURRENCY=8 \
+    CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
+    CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
+    CELERY_WORKER_LOGLEVEL=INFO \
+    CELERY_WORKER_OPTS="--without-heartbeat --without-gossip"
+
+# Expose port for health check (Google Cloud Run)
+EXPOSE 8080
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD celery -A rhesis.backend.worker.app inspect ping || exit 1
 
 # Set the startup script as the entry point
 CMD ["/app/start.sh"]
