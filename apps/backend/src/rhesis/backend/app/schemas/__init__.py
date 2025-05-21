@@ -5,7 +5,7 @@ from .demographic import Demographic, DemographicBase, DemographicCreate, Demogr
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
 from .endpoint import Endpoint, EndpointBase, EndpointCreate, EndpointUpdate
 from .metric import Metric, MetricBase, MetricCreate, MetricUpdate, MetricDetail, ScoreType
-from .models import Model, ModelBase, ModelCreate, ModelUpdate
+from .model import Model, ModelBase, ModelCreate, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
 from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView

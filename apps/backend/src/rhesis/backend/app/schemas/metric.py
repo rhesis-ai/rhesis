@@ -8,7 +8,7 @@ from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.user import UserReference
 from rhesis.backend.app.schemas.status import Status
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
-
+from rhesis.backend.app.schemas.tag import Tag
 
 class ScoreType(str, Enum):
     BINARY = "binary"
@@ -48,7 +48,7 @@ class Metric(MetricBase):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
-    tags: List[str] = Field(default_factory=list)
+    tags: Optional[List[Tag]] = []
 
     class Config:
         from_attributes = True
