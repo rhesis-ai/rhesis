@@ -19,8 +19,7 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
-import { TestTag } from '@/utils/api-client/interfaces/tests';
+import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 
 // Styled components for component-specific styling
@@ -51,7 +50,7 @@ interface TaggableEntity {
   id: UUID;
   organization_id?: UUID;
   user_id?: UUID;
-  tags?: TestTag[];
+  tags?: Tag[];
 }
 
 export interface BaseTagProps extends Omit<StandardTextFieldProps, 'onChange' | 'value'> {

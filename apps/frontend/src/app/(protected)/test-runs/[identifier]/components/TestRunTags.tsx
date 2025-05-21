@@ -5,7 +5,6 @@ import { Box } from '@mui/material';
 import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import { TestTag } from '@/utils/api-client/interfaces/tests';
 
 interface TestRunTagsProps {
   sessionToken: string;

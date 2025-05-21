@@ -1,5 +1,6 @@
 import { UUID } from 'crypto';
 import { Prompt } from './prompt';
+import { Tag } from './tag';
 
 // Priority level enum
 export type PriorityLevel = 'Low' | 'Medium' | 'High' | 'Urgent';
@@ -52,12 +53,6 @@ export interface Organization {
   email?: string;
 }
 
-export interface TestTag {
-  id: UUID;
-  name: string;
-  icon_unicode?: string;
-}
-
 // Test interfaces
 export interface TestBase {
   prompt_id: UUID;
@@ -73,7 +68,7 @@ export interface TestBase {
   category_id?: UUID;
   status_id?: UUID;
   organization_id?: UUID;
-  tags?: TestTag[];
+  tags?: Tag[];
 }
 
 export interface TestCreate extends TestBase {}

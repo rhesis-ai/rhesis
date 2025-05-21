@@ -1,388 +1,194 @@
-import * as React from 'react';
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
-import Chip from '@mui/material/Chip';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import { PageContainer } from '@toolpad/core/PageContainer';
-import { auth } from '@/auth';
-import { Metadata } from 'next';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
-import Link from 'next/link';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import GradingIcon from '@mui/icons-material/Grading';
-import ApiIcon from '@mui/icons-material/Api';
-import CodeIcon from '@mui/icons-material/Code';
-import ChatIcon from '@mui/icons-material/Chat';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Box, Grid, Paper, Typography, Stack, Chip } from '@mui/material';
+import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import ListAltIcon from '@mui/icons-material/ListAlt';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import EditIcon from '@mui/icons-material/Edit';
-import ArchiveIcon from '@mui/icons-material/Archive';
-import UnarchiveIcon from '@mui/icons-material/Unarchive';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ClientWorkflowWrapper from './components/ClientWorkflowWrapper';
+import SettingsIcon from '@mui/icons-material/Settings';
+import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
+import BaseTag from '@/components/common/BaseTag';
+import { PageContainer } from '@toolpad/core/PageContainer';
+import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import { formatDate } from '@/utils/date-utils';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
 
-interface MetricDetail {
-  id: string;
-  title: string;
-  description: string;
-  tags: string[];
-  evaluationPrompt: string;
-  evaluationSteps: string[];
-  reasoning: string;
-  scoreType: 'binary' | 'numeric';
-  minScore?: number;
-  maxScore?: number;
-  threshold?: number;
-  explanation: string;
-  llmJudge: {
-    id: string;
-    name: string;
-    description: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-  usedInTestSets: number;
-  status: 'active' | 'draft' | 'archived';
-  type: 'grading' | 'api-call' | 'custom-code' | 'custom-prompt';
-}
+export default function MetricDetailPage() {
+  const params = useParams();
+  const identifier = params.identifier as string;
+  const { data: session } = useSession();
+  const [metric, setMetric] = useState<MetricDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const notifications = useNotifications();
 
-interface PageProps {
-  params: Promise<{ identifier: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
-// This would typically come from an API call
-const getMetricDetails = (identifier: string): MetricDetail => {
-  // For now, return mock data that matches our new structure
-  return {
-    id: identifier,
-    title: 'Response Coherence',
-    description: 'Evaluates the logical flow and coherence of AI-generated responses',
-    tags: ['coherence', 'quality', 'structure'],
-    evaluationPrompt: 'Analyze the response for logical flow, consistency, and clear progression of ideas.',
-    evaluationSteps: [
-      'Check if the response has a clear introduction and context setting',
-      'Evaluate the logical connection between paragraphs and ideas',
-      'Assess the conclusion and its relation to the main points'
-    ],
-    reasoning: 'Focus on how well ideas connect and flow. Look for clear transitions and logical progression. Check if conclusions naturally follow from the presented arguments.',
-    scoreType: 'numeric',
-    minScore: 0,
-    maxScore: 10,
-    threshold: 7,
-    explanation: 'Scores are based on the presence of clear structure, logical connections, and overall flow of ideas.',
-    llmJudge: {
-      id: 'claude-3.5',
-      name: 'Claude 3.5',
-      description: 'Anthropic\'s latest model, optimized for evaluation tasks'
-    },
-    createdAt: '2024-03-15T10:30:00Z',
-    updatedAt: '2024-03-15T10:30:00Z',
-    usedInTestSets: 5,
-    status: 'active',
-    type: 'custom-prompt'
-  };
-};
-
-// Generate metadata for the page
-export async function generateMetadata({ params }: { params: Promise<{ identifier: string }> }): Promise<Metadata> {
-  try {
-    const resolvedParams = await params;
-    const identifier = resolvedParams.identifier;
-    const metricDetails = getMetricDetails(identifier);
-    
-    return {
-      title: `Metric | ${metricDetails.title}`,
-      description: metricDetails.description,
-      openGraph: {
-        title: `Metric | ${metricDetails.title}`,
-        description: metricDetails.description,
-      },
+  useEffect(() => {
+    const fetchMetric = async () => {
+      if (!session?.session_token) return;
+      
+      try {
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const metricsClient = clientFactory.getMetricsClient();
+        const metricData = await metricsClient.getMetric(identifier);
+        setMetric(metricData);
+      } catch (error) {
+        console.error('Error fetching metric:', error);
+        notifications.show('Failed to load metric details', { severity: 'error' });
+      } finally {
+        setLoading(false);
+      }
     };
-  } catch (error) {
-    return {
-      title: 'Metric Details',
-    };
-  }
-}
 
-const SectionCard = ({ 
-  title, 
-  icon, 
-  children 
-}: { 
-  title: string; 
-  icon: React.ReactNode; 
-  children: React.ReactNode;
-}) => (
-  <Paper sx={{ p: 3, mb: 3 }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-      <Box sx={{ color: 'primary.main', mr: 1, display: 'flex' }}>
-        {icon}
-      </Box>
+    fetchMetric();
+  }, [identifier, session?.session_token, notifications]);
+
+  const handleTagsChange = async (newTags: string[]) => {
+    if (!session?.session_token || !metric) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(session.session_token);
+      const metricsClient = clientFactory.getMetricsClient();
+      const updatedMetric = await metricsClient.getMetric(metric.id);
+      setMetric(updatedMetric);
+    } catch (error) {
+      console.error('Error refreshing metric:', error);
+      notifications.show('Failed to refresh metric data', { severity: 'error' });
+    }
+  };
+
+  const SectionHeader = ({ icon, title }: { icon: React.ReactNode; title: string }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+      <Box sx={{ color: 'primary.main' }}>{icon}</Box>
       <Typography variant="h6">{title}</Typography>
     </Box>
-    {children}
-  </Paper>
-);
+  );
 
-const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <Box sx={{ mb: 2 }}>
-    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-      {label}
-    </Typography>
-    <Box sx={{ typography: 'body1' }}>
-      {value}
+  const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Typography variant="subtitle2" color="text.secondary">
+        {label}
+      </Typography>
+      {children}
     </Box>
-  </Box>
-);
+  );
 
-export default async function MetricDetailPage({ params }: PageProps) {
-  try {
-    const session = await auth();
-    
-    if (!session?.session_token) {
-      throw new Error('No session token available');
-    }
-    
-    const { identifier } = await params;
-    const metricDetails = getMetricDetails(identifier);
-
+  if (loading) {
     return (
-      <PageContainer 
-        title={metricDetails.title}
-        breadcrumbs={[
-          { title: 'Metrics', path: '/metrics' },
-          { title: metricDetails.title }
-        ]}
-      >
-        <Box sx={{ maxWidth: '1200px', mx: 'auto', pt: 3 }}>
-          {/* Action Buttons */}
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <ButtonGroup variant="contained" aria-label="metric actions">
-              <Button
-                startIcon={<EditIcon />}
-                component={Link}
-                href={`/metrics/edit/${metricDetails.id}`}
-              >
-                Edit
-              </Button>
-              <Button
-                startIcon={metricDetails.status === 'active' ? <ArchiveIcon /> : <UnarchiveIcon />}
-                color={metricDetails.status === 'active' ? 'warning' : 'success'}
-              >
-                {metricDetails.status === 'active' ? 'Archive' : 'Activate'}
-              </Button>
-              <Button
-                startIcon={<DeleteIcon />}
-                color="error"
-              >
-                Delete
-              </Button>
-            </ButtonGroup>
-          </Box>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
-              {/* General Information */}
-              <SectionCard title="General Information" icon={<AssessmentIcon />}>
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                  <Grid item xs={3}>
-                    <InfoRow label="Created" value={new Date(metricDetails.createdAt).toLocaleDateString()} />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <InfoRow label="Last Updated" value={new Date(metricDetails.updatedAt).toLocaleDateString()} />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <InfoRow label="Used in Test Sets" value={metricDetails.usedInTestSets} />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Chip 
-                        label={metricDetails.status.toUpperCase()} 
-                        color={metricDetails.status === 'active' ? 'success' : 'default'}
-                        size="small"
-                      />
-                      <Chip 
-                        label={metricDetails.type.replace('-', ' ').toUpperCase()}
-                        color="primary"
-                        size="small"
-                      />
-                    </Box>
-                  </Grid>
-                </Grid>
-                <InfoRow 
-                  label="Description" 
-                  value={metricDetails.description}
-                />
-                <InfoRow 
-                  label="Tags" 
-                  value={
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {metricDetails.tags.map((tag) => (
-                        <Chip
-                          key={tag}
-                          label={tag}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  }
-                />
-              </SectionCard>
-
-              {/* Evaluation Process */}
-              <SectionCard title="Evaluation Process" icon={<ListAltIcon />}>
-                <InfoRow 
-                  label="LLM Judge" 
-                  value={
-                    <Box>
-                      {metricDetails.llmJudge.name}
-                      <Box component="span" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
-                        {metricDetails.llmJudge.description}
-                      </Box>
-                    </Box>
-                  }
-                />
-                <InfoRow 
-                  label="Evaluation Prompt" 
-                  value={
-                    <Box 
-                      sx={{ 
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        bgcolor: 'grey.50', 
-                        p: 2, 
-                        borderRadius: 1,
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {metricDetails.evaluationPrompt}
-                    </Box>
-                  }
-                />
-                <InfoRow 
-                  label="Evaluation Steps" 
-                  value={
-                    <Box component="ol" sx={{ pl: 2, m: 0 }}>
-                      {metricDetails.evaluationSteps.map((step, index) => (
-                        <Box 
-                          component="li" 
-                          key={index}
-                          sx={{ 
-                            mb: 1,
-                            '&:last-child': { mb: 0 }
-                          }}
-                        >
-                          {step}
-                        </Box>
-                      ))}
-                    </Box>
-                  }
-                />
-                <InfoRow 
-                  label="Reasoning Instructions" 
-                  value={
-                    <Box 
-                      sx={{ 
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        bgcolor: 'grey.50', 
-                        p: 2, 
-                        borderRadius: 1,
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {metricDetails.reasoning}
-                    </Box>
-                  }
-                />
-              </SectionCard>
-
-              {/* Result Configuration */}
-              <SectionCard title="Result Configuration" icon={<SmartToyIcon />}>
-                <InfoRow 
-                  label="Score Type" 
-                  value={metricDetails.scoreType === 'binary' ? 'Binary (Pass/Fail)' : 'Numeric'} 
-                />
-                {metricDetails.scoreType === 'numeric' && (
-                  <>
-                    <InfoRow 
-                      label="Score Range" 
-                      value={`${metricDetails.minScore} - ${metricDetails.maxScore}`} 
-                    />
-                    <InfoRow 
-                      label="Threshold" 
-                      value={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {metricDetails.threshold}
-                          <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                            (minimum score required to pass)
-                          </Box>
-                        </Box>
-                      } 
-                    />
-                  </>
-                )}
-                <InfoRow 
-                  label="Result Explanation" 
-                  value={
-                    <Box 
-                      sx={{ 
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        bgcolor: 'grey.50', 
-                        p: 2, 
-                        borderRadius: 1,
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {metricDetails.explanation}
-                    </Box>
-                  }
-                />
-              </SectionCard>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <ClientWorkflowWrapper
-                    metricId={metricDetails.id}
-                    status={metricDetails.status}
-                    sessionToken={session.session_token}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+      <PageContainer title="Loading...">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Typography>Loading metric details...</Typography>
         </Box>
       </PageContainer>
     );
-  } catch (error) {
-    const errorMessage = (error as Error).message;
+  }
+
+  if (!metric) {
     return (
-      <PageContainer title="Metric Details" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
-        <Paper sx={{ p: 3 }}>
-          <Typography color="error">
-            Error loading metric details: {errorMessage}
-          </Typography>
-          <Button 
-            component={Link} 
-            href="/metrics" 
-            startIcon={<ArrowBackIcon />}
-            sx={{ mt: 2 }}
-          >
-            Back to Metrics
-          </Button>
-        </Paper>
+      <PageContainer title="Error">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Typography color="error">Failed to load metric details</Typography>
+        </Box>
       </PageContainer>
     );
   }
+
+  return (
+    <PageContainer title={metric.name} breadcrumbs={[
+      { title: 'Metrics', path: '/metrics' },
+      { title: metric.name, path: `/metrics/${identifier}` }
+    ]}>
+      <Grid container spacing={3}>
+        {/* Left side - Main content */}
+        <Grid item xs={12} md={8}>
+          <Stack spacing={3}>
+            {/* General Information Section */}
+            <Paper sx={{ p: 3 }}>
+              <SectionHeader icon={<InfoIcon />} title="General Information" />
+              
+              {/* Top row with Created, Last Updated, and Metric Type */}
+              <Box sx={{ display: 'flex', gap: 4, mb: 3 }}>
+                <InfoRow label="Created">
+                  <Typography>{formatDate(metric.created_at)}</Typography>
+                </InfoRow>
+
+                <InfoRow label="Last Updated">
+                  <Typography>{formatDate(metric.updated_at)}</Typography>
+                </InfoRow>
+
+                <InfoRow label="Metric Type">
+                  {metric.metric_type && (
+                    <Chip 
+                      label={metric.metric_type.type_value}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                    />
+                  )}
+                </InfoRow>
+              </Box>
+
+              {/* Description */}
+              <Box sx={{ mb: 3 }}>
+                <InfoRow label="Description">
+                  <Typography>{metric.description || '-'}</Typography>
+                </InfoRow>
+              </Box>
+
+              {/* Tags */}
+              <InfoRow label="Tags">
+                <BaseTag
+                  value={metric.tags?.map(tag => tag.name) || []}
+                  onChange={handleTagsChange}
+                  placeholder="Add tags..."
+                  chipColor="primary"
+                  disableEdition={!session?.session_token}
+                  entityType={EntityType.METRIC}
+                  entity={metric}
+                  sessionToken={session?.session_token}
+                />
+              </InfoRow>
+            </Paper>
+
+            {/* Evaluation Process Section */}
+            <Paper sx={{ p: 3 }}>
+              <SectionHeader icon={<AssessmentIcon />} title="Evaluation Process" />
+              {/* TODO: Add evaluation process content */}
+            </Paper>
+
+            {/* Result Configuration Section */}
+            <Paper sx={{ p: 3 }}>
+              <SectionHeader icon={<SettingsIcon />} title="Result Configuration" />
+              {/* TODO: Add result configuration content */}
+            </Paper>
+          </Stack>
+        </Grid>
+
+        {/* Right side - Workflow */}
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 3, height: '100%' }}>
+            <BaseWorkflowSection
+              title="Workflow"
+              entityId={identifier}
+              entityType="Metric"
+              onUpdateEntity={async (updateData, fieldName) => {
+                if (!session?.session_token) return;
+                
+                try {
+                  const clientFactory = new ApiClientFactory(session.session_token);
+                  const metricsClient = clientFactory.getMetricsClient();
+                  await metricsClient.updateMetric(identifier, updateData);
+                  notifications.show(`${fieldName} updated successfully`, { severity: 'success' });
+                } catch (error) {
+                  console.error('Error updating metric:', error);
+                  notifications.show(`Failed to update ${fieldName}`, { severity: 'error' });
+                }
+              }}
+            />
+          </Paper>
+        </Grid>
+      </Grid>
+    </PageContainer>
+  );
 } 
