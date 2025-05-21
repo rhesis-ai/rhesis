@@ -23,6 +23,9 @@ export interface Metric {
   ground_truth_required: boolean;
   created_at: string;
   updated_at: string;
+  priority?: number;
+  organization_id?: UUID;
+  user_id?: UUID;
   
   // References
   metric_type?: TypeLookup;

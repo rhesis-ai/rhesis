@@ -89,9 +89,14 @@ const getDesignTokens = (mode: PaletteMode) => ({
     },
     MuiTextField: {
       styleOverrides: {
+        root: {}
+      }
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
         root: {
-          '& .MuiOutlinedInput-root': {
-            minHeight: '56px', // Standard MUI height
+          '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
+            padding: '16.5px 14px'
           }
         }
       }

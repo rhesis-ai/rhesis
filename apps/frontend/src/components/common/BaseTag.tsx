@@ -317,7 +317,7 @@ export default function BaseTag({
       size="small"
       color={chipColor}
       variant="filled"
-      onDelete={disableEdition ? undefined : () => handleDeleteTag(tag)}
+      onDelete={!disabled && !disableEdition ? () => handleDeleteTag(tag) : undefined}
       disabled={disabled}
       sx={{ 
         height: '24px', 
@@ -333,25 +333,27 @@ export default function BaseTag({
   return (
     <TagContainer>
       <StyledTextField
+        {...textFieldProps}
         id={id}
+        className="base-tag-field"
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleInputKeyDown}
         onPaste={handlePaste}
-        onBlur={handleBlur}
         onFocus={handleFocus}
-        label={label}
+        onBlur={handleBlur}
         placeholder={localTags.length === 0 ? placeholder : ''}
-        disabled={disabled || isUpdating}
         error={error}
-        fullWidth
+        label={label}
+        disabled={disabled || disableEdition}
+        inputRef={inputRef}
         InputProps={{
           ...customInputProps,
-          startAdornment: chipElements.length > 0 ? chipElements : null
+          startAdornment: chipElements.length > 0 ? chipElements : null,
+          readOnly: disableEdition
         }}
         InputLabelProps={inputLabelProps}
-        variant="outlined"
-        {...textFieldProps}
+        fullWidth
       />
     </TagContainer>
   );

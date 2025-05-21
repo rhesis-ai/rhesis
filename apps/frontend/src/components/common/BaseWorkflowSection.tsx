@@ -176,7 +176,7 @@ export default function BaseWorkflowSection({
   const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <Box sx={{
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
       py: 1,
       width: '100%'
@@ -201,6 +201,8 @@ export default function BaseWorkflowSection({
         const statusObj = statuses.find(s => s.name === newStatus);
         if (statusObj) {
           await onUpdateEntity({ status_id: statusObj.id }, 'Status');
+        } else {
+          throw new Error(`Status "${newStatus}" not found in available statuses`);
         }
       } else {
         // If newStatus is null, clear the status
@@ -210,8 +212,9 @@ export default function BaseWorkflowSection({
       // Revert on error
       setCurrentStatus(status || null);
       onStatusChange?.(status || '');
+      notifications.show('Failed to update status', { severity: 'error' });
     }
-  }, [onStatusChange, onUpdateEntity, status, statuses]);
+  }, [onStatusChange, onUpdateEntity, status, statuses, notifications]);
 
   const handlePriorityChange = useCallback(async (newPriority: PriorityLevel) => {
     // Update UI immediately
@@ -265,7 +268,7 @@ export default function BaseWorkflowSection({
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
-      gap: 1,
+      gap: 2,
       width: '100%'
     }}>
       {title && (
@@ -274,151 +277,132 @@ export default function BaseWorkflowSection({
         </Typography>
       )}
 
-      <InfoRow label="">
-        {statusReadOnly ? (
-          <TextField
-            fullWidth
+      <Autocomplete
+        value={currentStatus}
+        onChange={(_, newValue) => handleStatusChange(newValue)}
+        options={statuses.map(s => s.name)}
+        sx={{ width: '100%' }}
+        renderInput={(params) => (
+          <TextField 
+            {...params} 
             label="Status"
-            value={currentStatus || ''}
-            InputProps={{
-              readOnly: true,
-            }}
-            size="small"
-          />
-        ) : (
-          <Autocomplete
-            value={currentStatus}
-            onChange={(_, newValue) => handleStatusChange(newValue)}
-            options={statuses.map(s => s.name)}
-            sx={{ width: '100%' }}
-            renderInput={(params) => (
-              <TextField 
-                {...params} 
-                label="Status"
-                variant="outlined"
-                size="small"
-                placeholder="Select Status"
-              />
-            )}
-            loading={loadingStatuses}
-            disabled={loadingStatuses}
+            variant="outlined"
+            placeholder="Select Status"
           />
         )}
-      </InfoRow>
+        loading={loadingStatuses}
+        disabled={loadingStatuses}
+      />
 
       {showPriority && (
-        <InfoRow label="">
-          <TextField
-            select
-            label="Priority"
-            value={currentPriority}
-            onChange={(e) => handlePriorityChange(e.target.value as PriorityLevel)}
-            sx={{ width: '100%' }}
-            size="small"
-            required
-          >
-            {PRIORITY_OPTIONS.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </TextField>
-        </InfoRow>
+        <Autocomplete
+          value={currentPriority}
+          onChange={(_, newValue) => handlePriorityChange(newValue as PriorityLevel)}
+          options={PRIORITY_OPTIONS}
+          sx={{ width: '100%' }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Priority"
+              variant="outlined"
+              placeholder="Select Priority"
+            />
+          )}
+          disableClearable
+        />
       )}
 
-      <InfoRow label="">
-        <Autocomplete
-          options={users}
-          value={currentAssignee}
-          onChange={(_, newValue) => handleAssigneeChange(newValue)}
-          getOptionLabel={(option) => option.displayName}
-          loading={loadingUsers}
-          sx={{ width: '100%' }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Assignee"
-              size="small"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: currentAssignee && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', pl: 1 }}>
-                    <Avatar
-                      src={currentAssignee.picture}
-                      sx={{ width: 24, height: 24 }}
-                    >
-                      <PersonIcon />
-                    </Avatar>
-                  </Box>
-                )
-              }}
-            />
-          )}
-          renderOption={(props, option) => {
-            const { key, ...otherProps } = props;
-            return (
-              <li key={option.id} {...otherProps}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Autocomplete
+        options={users}
+        value={currentAssignee}
+        onChange={(_, newValue) => handleAssigneeChange(newValue)}
+        getOptionLabel={(option) => option.displayName}
+        loading={loadingUsers}
+        sx={{ width: '100%' }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Assignee"
+            variant="outlined"
+            placeholder="Select Assignee"
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: currentAssignee && (
+                <Box sx={{ display: 'flex', alignItems: 'center', pl: 1 }}>
                   <Avatar
-                    src={option.picture}
-                    sx={{ width: 32, height: 32 }}
+                    src={currentAssignee.picture}
+                    sx={{ width: 24, height: 24 }}
                   >
-                    {!option.picture && option.displayName.charAt(0)}
+                    <PersonIcon />
                   </Avatar>
-                  <Typography>{option.displayName}</Typography>
                 </Box>
-              </li>
-            );
-          }}
-        />
-      </InfoRow>
+              )
+            }}
+          />
+        )}
+        renderOption={(props, option) => {
+          const { key, ...otherProps } = props;
+          return (
+            <li key={option.id} {...otherProps}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Avatar
+                  src={option.picture}
+                  sx={{ width: 32, height: 32 }}
+                >
+                  {!option.picture && option.displayName.charAt(0)}
+                </Avatar>
+                <Typography>{option.displayName}</Typography>
+              </Box>
+            </li>
+          );
+        }}
+      />
 
-      <InfoRow label="">
-        <Autocomplete
-          options={users}
-          value={currentOwner}
-          onChange={(_, newValue) => handleOwnerChange(newValue)}
-          getOptionLabel={(option) => option.displayName}
-          loading={loadingUsers}
-          sx={{ width: '100%' }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Owner"
-              size="small"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: currentOwner && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', pl: 1 }}>
-                    <Avatar
-                      src={currentOwner.picture}
-                      sx={{ width: 24, height: 24 }}
-                    >
-                      <PersonIcon />
-                    </Avatar>
-                  </Box>
-                )
-              }}
-            />
-          )}
-          renderOption={(props, option) => {
-            const { key, ...otherProps } = props;
-            return (
-              <li key={option.id} {...otherProps}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Autocomplete
+        options={users}
+        value={currentOwner}
+        onChange={(_, newValue) => handleOwnerChange(newValue)}
+        getOptionLabel={(option) => option.displayName}
+        loading={loadingUsers}
+        sx={{ width: '100%' }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Owner"
+            variant="outlined"
+            placeholder="Select Owner"
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: currentOwner && (
+                <Box sx={{ display: 'flex', alignItems: 'center', pl: 1 }}>
                   <Avatar
-                    src={option.picture}
-                    sx={{ width: 32, height: 32 }}
+                    src={currentOwner.picture}
+                    sx={{ width: 24, height: 24 }}
                   >
-                    {!option.picture && option.displayName.charAt(0)}
+                    <PersonIcon />
                   </Avatar>
-                  <Typography>{option.displayName}</Typography>
                 </Box>
-              </li>
-            );
-          }}
-        />
-      </InfoRow>
+              )
+            }}
+          />
+        )}
+        renderOption={(props, option) => {
+          const { key, ...otherProps } = props;
+          return (
+            <li key={option.id} {...otherProps}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Avatar
+                  src={option.picture}
+                  sx={{ width: 32, height: 32 }}
+                >
+                  {!option.picture && option.displayName.charAt(0)}
+                </Avatar>
+                <Typography>{option.displayName}</Typography>
+              </Box>
+            </li>
+          );
+        }}
+      />
     </Box>
   );
 } 
