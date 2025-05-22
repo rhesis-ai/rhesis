@@ -25,6 +25,7 @@ def create_detailed_schema(
 
     # Get model relationships using the utility function
     relationships = get_model_relationships(model)
+    relationship_names = set(relationships.keys())
 
     # Create fields dict for new schema
     fields: Dict[str, Any] = {}
@@ -55,22 +56,21 @@ def create_detailed_schema(
     ]
 
     # Apply common fields to top-level schema if they exist in the model
+    # BUT skip any fields that are also relationships - we'll handle those separately
     for field_name, field_type, default_value in common_fields:
-        if hasattr(model, field_name):
+        if hasattr(model, field_name) and field_name not in relationship_names:
             fields[field_name] = (field_type, default_value)
 
-    # Check if endpoint is a relationship and only add it as a field if it is
-    if "endpoint" in relationships:
-        fields["endpoint"] = (Optional[Endpoint], None)
-
+    # Handle relationship fields
     for rel_name, rel in relationships.items():
-        # Skip endpoint as we already handled it separately
-        if rel_name == "endpoint":
-            continue
-            
         # Get target model
         target_model = rel.mapper.class_
 
+        # Special handling for known relationship types
+        if rel_name == "endpoint":
+            fields[rel_name] = (Optional[Endpoint], None)
+            continue
+            
         # Check if we already have a schema for this model
         if target_model.__name__ in schema_registry:
             related_schema = schema_registry[target_model.__name__]
