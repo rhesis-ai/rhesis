@@ -3,9 +3,9 @@ from typing import List, Dict, Type
 
 from .base import BaseMetric, BaseMetricFactory
 from .config.loader import MetricConfigLoader
-from .deepeval_metrics import DeepEvalMetricFactory
-from .ragas_metrics import RagasMetricFactory
-from .rhesis_metrics import RhesisMetricFactory
+from .deepeval.factory import DeepEvalMetricFactory
+from .ragas.factory import RagasMetricFactory
+from .rhesis.factory import RhesisMetricFactory
 
 
 class MetricFactory:

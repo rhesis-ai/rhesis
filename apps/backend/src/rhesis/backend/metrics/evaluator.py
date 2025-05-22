@@ -3,15 +3,24 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.base import BaseMetric, MetricConfig, MetricResult
-from rhesis.backend.metrics.factory import MetricFactory
 
+# Use inline factory creation to avoid circular imports
+# Implementation of the factory import will be delayed until needed
 
 class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
     def __init__(self):
         """Initialize evaluator with factory."""
-        self.factory = MetricFactory()
+        # Lazy load factory to avoid circular imports
+        self.factory = None
+
+    def _get_factory(self):
+        """Lazy load the MetricFactory to avoid circular imports."""
+        if self.factory is None:
+            from rhesis.backend.metrics.factory import MetricFactory
+            self.factory = MetricFactory()
+        return self.factory
 
     def evaluate(
         self,
@@ -99,7 +108,7 @@ class MetricEvaluator:
                 }
 
                 # Instantiate the metric using the class name and backend
-                metric = self.factory.create(backend, class_name, **metric_params)
+                metric = self._get_factory().create(backend, class_name, **metric_params)
 
                 # Skip metrics that require ground truth if it's not provided
                 if metric.requires_ground_truth and expected_output is None:
@@ -242,3 +251,36 @@ class MetricEvaluator:
                 "description": description if 'description' in locals() else f"{class_name} evaluation metric",
                 "error": str(exc),
             }
+
+
+def run_evaluation(
+    input_text: str,
+    output_text: str,
+    expected_output: Optional[str],
+    context: List[str],
+    metrics: List[Union[Dict[str, Any], MetricConfig]],
+    max_workers: int = 5,
+) -> Dict[str, Any]:
+    """
+    Helper function to run the metric evaluation using MetricEvaluator.
+    
+    Args:
+        input_text: The input query or question
+        output_text: The actual output from the LLM
+        expected_output: The expected or reference output
+        context: List of context strings used for the response
+        metrics: List of metric configurations (MetricConfig objects or dictionaries)
+        max_workers: Maximum number of parallel workers
+        
+    Returns:
+        Dictionary of metric results
+    """
+    evaluator = MetricEvaluator()
+    return evaluator.evaluate(
+        input_text=input_text,
+        output_text=output_text,
+        expected_output=expected_output,
+        context=context,
+        metrics=metrics,
+        max_workers=max_workers,
+    )
