@@ -224,6 +224,7 @@ class MetricEvaluator:
                 "is_successful": result.details["is_successful"],
                 "threshold": metric_config.threshold,
                 "backend": backend,
+                "name": metric_config.name,
                 "description": description,
             }
             logger.debug(f"Completed metric '{class_name}' with score {result.score:.2f}")

@@ -18,6 +18,9 @@ class MetricConfig:
     threshold: float = 0.5
     """Threshold for metric success (typically between 0-1)"""
     
+    name: Optional[str] = None
+    """Human-readable name of the metric"""
+
     description: Optional[str] = None
     """Human-readable description of what the metric measures"""
     
@@ -50,7 +53,7 @@ class MetricConfig:
         # Extract optional fields with defaults
         threshold = data.get("threshold", 0.5)
         description = data.get("description")
-        
+        name = data.get("name")
         # Extract all other keys as custom parameters
         reserved_keys = {"class_name", "backend", "threshold", "description"}
         parameters = {k: v for k, v in data.items() if k not in reserved_keys}
@@ -60,6 +63,7 @@ class MetricConfig:
             backend=backend,
             threshold=threshold,
             description=description,
+            name=name,
             parameters=parameters
         )
 
