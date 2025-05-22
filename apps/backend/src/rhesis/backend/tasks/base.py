@@ -137,7 +137,7 @@ class BaseTask(Task):
                   f"for org: {org_id}, user: {user_id} - Error: {str(exc)}")
         else:
             print(f"Task {self.name}[{task_id}] failed (will retry, attempt {retries}/{self.max_retries}) "
-                  f"for org: {org_id}, user: {user_id} - Error: {str(exc)}")
+              f"for org: {org_id}, user: {user_id} - Error: {str(exc)}")
         
         return super().on_failure(exc, task_id, args, kwargs, einfo)
         

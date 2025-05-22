@@ -1,7 +1,8 @@
-from typing import Dict, List
+from typing import Dict, List, Any, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
+from rhesis.backend.metrics.base import MetricConfig
 
 
 def evaluate_prompt_response(
@@ -10,6 +11,7 @@ def evaluate_prompt_response(
     expected_response: str,
     context: List[str],
     result: Dict,
+    metrics: List[Union[Dict[str, Any], MetricConfig]],
 ) -> Dict:
     """Evaluate prompt response using different metrics."""
     metrics_results = {}
@@ -21,6 +23,7 @@ def evaluate_prompt_response(
             expected_output=expected_response,
             output_text=actual_response,
             context=context,
+            metrics=metrics,
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")

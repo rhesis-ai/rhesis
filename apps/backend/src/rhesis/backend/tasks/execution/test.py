@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Union
 from uuid import UUID
 
 from sqlalchemy import text
@@ -8,14 +8,62 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_result import TestResult
+from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.services.endpoint import invoke
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.database import set_tenant
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
+from rhesis.backend.metrics.base import MetricConfig
+from rhesis.backend.metrics.config import load_default_metrics
 from rhesis.backend.tasks.base import BaseTask, with_tenant_context
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.worker import app
+
+
+def get_behavior_metrics(db: Session, behavior_id: UUID) -> List[Dict]:
+    """
+    Retrieve metrics associated with a behavior.
+    
+    Args:
+        db: Database session
+        behavior_id: UUID of the behavior
+        
+    Returns:
+        List of metric configurations
+    """
+    if not behavior_id:
+        logger.warning("No behavior ID provided for metrics retrieval")
+        return []
+        
+    try:
+        # Query metrics related to the behavior
+        metrics = db.query(Metric).join(
+            Metric.behaviors
+        ).filter(
+            Metric.behaviors.any(id=behavior_id)
+        ).all()
+        
+        # Convert to metric configs
+        metric_configs = []
+        for metric in metrics:
+            # Determine the backend type from backend_type relationship
+            backend = metric.backend_type.type_value if metric.backend_type else "deepeval"
+            
+            metric_config = {
+                "name": metric.name,
+                "class_name": metric.class_name,
+                "backend": backend,
+                "threshold": metric.threshold,
+                "description": metric.description,
+                "parameters": {}  # Additional parameters could be added here
+            }
+            metric_configs.append(metric_config)
+            
+        return metric_configs
+    except Exception as e:
+        logger.error(f"Error retrieving metrics for behavior {behavior_id}: {str(e)}", exc_info=True)
+        return []
 
 
 @app.task(name="rhesis.backend.tasks.execute_single_test", base=BaseTask, bind=True)
@@ -88,6 +136,35 @@ def execute_single_test(
         prompt_content = prompt.content
         expected_response = prompt.expected_response or ""
 
+        # Get metrics from the test's behavior using the relationship
+        metrics = []
+        behavior = test.behavior
+        
+        if behavior and behavior.metrics:
+            # Access metrics directly from behavior.metrics relationship
+            for metric in behavior.metrics:
+                # Determine the backend type from backend_type relationship
+                backend = metric.backend_type.type_value if metric.backend_type else "deepeval"
+                
+                metric_config = {
+                    "name": metric.name,
+                    "class_name": metric.class_name,
+                    "backend": backend,
+                    "threshold": metric.threshold,
+                    "description": metric.description,
+                    "parameters": {}  # Additional parameters could be added here
+                }
+                metrics.append(metric_config)
+        
+        if not metrics:
+            logger.warning(f"No metrics found for test {test_id}, using defaults")
+            # Load default metrics from configuration file
+            metrics = load_default_metrics()
+            
+        # Convert metrics to MetricConfig objects
+        metric_configs = [MetricConfig.from_dict(metric) for metric in metrics]
+        logger.debug(f"Using {len(metric_configs)} metrics for test {test_id}")
+
         # Check if result already exists for this combination
         filter_str = f"test_configuration_id eq {test_config_id} and test_run_id eq {test_run_id} and test_id eq {test_id}"
         existing_results = crud.get_test_results(db, limit=1, filter=filter_str)
@@ -126,6 +203,7 @@ def execute_single_test(
             expected_response=expected_response,
             context=context,
             result=result,
+            metrics=metric_configs,
         )
 
         # Create test result with CRUD operation

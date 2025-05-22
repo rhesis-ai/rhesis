@@ -8,7 +8,7 @@ class MetricConfigLoader:
     """Loads and manages backend configurations from YAML."""
 
     def __init__(self):
-        self._config_path = Path(__file__).parent / "metrics.yml"
+        self._config_path = Path(__file__).parent / "backends.yml"
         self._config = self._load_config()
 
     def _load_config(self) -> Dict[str, Any]:
