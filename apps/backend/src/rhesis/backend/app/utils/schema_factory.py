@@ -46,7 +46,6 @@ def create_detailed_schema(
         ("picture", Optional[str], None),
         # Special case fields that should always be included
         ("test_set", Optional[TestSet], None),
-        ("endpoint", Optional[Endpoint], None),
         ("user_id", Optional[UUID4], None),
         ("organization_id", Optional[UUID4], None),
         ("status_id", Optional[UUID4], None),
@@ -60,7 +59,15 @@ def create_detailed_schema(
         if hasattr(model, field_name):
             fields[field_name] = (field_type, default_value)
 
+    # Check if endpoint is a relationship and only add it as a field if it is
+    if "endpoint" in relationships:
+        fields["endpoint"] = (Optional[Endpoint], None)
+
     for rel_name, rel in relationships.items():
+        # Skip endpoint as we already handled it separately
+        if rel_name == "endpoint":
+            continue
+            
         # Get target model
         target_model = rel.mapper.class_
 
