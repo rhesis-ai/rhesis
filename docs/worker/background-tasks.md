@@ -1,4 +1,4 @@
-# Background Tasks
+# Worker Tasks and Background Processing
 
 ## Overview
 
@@ -369,106 +369,14 @@ The enhanced BaseTask provides improved error handling:
 
 ## Troubleshooting
 
-### Dealing with Stuck Tasks
+For detailed information about troubleshooting common worker issues, including:
 
-Sometimes tasks can get stuck in an infinite retry loop, especially chord tasks (`chord_unlock`) when subtasks fail. This can happen if:
+- Dealing with stuck tasks and chord_unlock zombies
+- Fixing tenant context errors
+- Connection problems with the broker
+- Task execution failures
 
-1. One or more subtasks in a chord fail permanently
-2. The broker connection is interrupted during a chord execution
-3. The worker processes are killed unexpectedly
-
-#### Symptoms of Stuck Tasks
-
-The most obvious symptom is thousands of repeated log entries like these:
-
-```
-Task celery.chord_unlock[82116cfc-ae23-4526-b7ff-7267f389b367] retry: Retry in 1.0s
-```
-
-These messages indicate that there are "zombie" tasks that keep retrying indefinitely.
-
-#### Configuration to Prevent Stuck Tasks
-
-The worker.py file includes configuration to limit chord retries:
-
-```python
-app.conf.update(
-    # Other settings...
-    
-    # Limit chord unlocks to prevent infinite retry loops
-    chord_unlock_max_retries=3,
-    # Use light amqp result store
-    result_persistent=False,
-)
-```
-
-Additionally, the results handling in `tasks/execution/results.py` includes logic to detect and handle failed subtasks:
-
-```python
-# Check for failed tasks and count them
-failed_tasks = sum(1 for result in results if result is None)
-if failed_tasks > 0:
-    logger.warning(f"{failed_tasks} tasks failed out of {total_tests} for test run {test_run_id}")
-    
-# Determine status based on failures
-status = RunStatus.COMPLETED.value
-if failed_tasks > 0:
-    status = RunStatus.PARTIAL.value if failed_tasks < total_tests else RunStatus.FAILED.value
-```
-
-#### Purging Stuck Tasks
-
-If you encounter stuck tasks, you can purge all tasks from the queue:
-
-```bash
-# Purge all queues (use with caution in production)
-celery -A rhesis.backend.worker purge -f
-```
-
-This command removes all pending tasks from all queues. Use it with caution in production as it will delete all tasks, including those that are legitimately waiting to be processed.
-
-For a more targeted approach, you can inspect and revoke specific tasks:
-
-```bash
-# Inspect active tasks
-celery -A rhesis.backend.worker inspect active
-
-# Revoke specific tasks
-celery -A rhesis.backend.worker control revoke <task_id>
-
-# Terminate specific tasks (force)
-celery -A rhesis.backend.worker control terminate <task_id>
-```
-
-### Troubleshooting Tenant Context Issues
-
-If tasks fail with errors related to the tenant context, such as:
-
-```
-unrecognized configuration parameter "app.current_organization"
-```
-
-Ensure that:
-
-1. Your database has the proper configuration parameters set
-2. The `organization_id` and `user_id` are correctly passed to the task
-3. The tenant context is explicitly set at the beginning of database operations
-
-The `execute_single_test` task in `tasks/execution/test.py` includes defensive coding to handle such issues:
-
-```python
-# Explicitly set tenant context to ensure it's active for all queries
-if organization_id:
-    # Verify PostgreSQL has the parameter defined
-    try:
-        db.execute(text('SHOW "app.current_organization"'))
-    except Exception as e:
-        logger.warning(f"The database parameter 'app.current_organization' may not be defined: {e}")
-        # Continue without setting tenant context - will use normal filters instead
-    
-    # Set the tenant context for this session
-    set_tenant(db, organization_id, user_id)
-```
+Please refer to the [Worker Troubleshooting Guide](troubleshooting.md).
 
 ## Task Monitoring
 
