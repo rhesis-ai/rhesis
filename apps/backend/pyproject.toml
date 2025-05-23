@@ -41,7 +41,8 @@ dependencies = [
     "pathspec==0.12.1",
     "gunicorn>=21.2.0",
     "tomli>=2.0.0",
-    "google-genai==1.13.0"
+    "google-genai==1.13.0",
+    "mirascope==1.24.0"
 ]
 
 [build-system]
