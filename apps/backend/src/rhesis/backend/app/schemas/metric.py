@@ -32,7 +32,8 @@ class MetricBase(Base):
     status_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
-
+    class_name: Optional[str] = None
+    context_required: Optional[bool] = False
 
 class MetricCreate(MetricBase):
     pass

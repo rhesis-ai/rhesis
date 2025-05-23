@@ -1,9 +1,11 @@
 from importlib import import_module
-from typing import List
+from typing import List, Dict, Type
 
 from .base import BaseMetric, BaseMetricFactory
 from .config.loader import MetricConfigLoader
-from .deepeval_metrics import DeepEvalMetricFactory
+from .deepeval.factory import DeepEvalMetricFactory
+from .ragas.factory import RagasMetricFactory
+from .rhesis.factory import RhesisMetricFactory
 
 
 class MetricFactory:
@@ -28,33 +30,30 @@ class MetricFactory:
             self._factories[backend] = self._load_factory(backend)
         return self._factories[backend]
 
-    def list_supported_metrics(self, backend: str = None) -> List[str]:
-        """List supported metrics, optionally filtered by backend."""
-        if backend:
-            return list(self.config.get_metrics_for_backend(backend).keys())
-        return list(self.config.metrics.keys())
-
     def list_supported_backends(self) -> List[str]:
         """List all supported backends."""
-        return list(self.config.backends.keys())
+        return self.config.list_backends()
 
     @staticmethod
-    def create(framework: str, metric_name: str) -> BaseMetric:
-        """Create a metric instance from the specified framework.
+    def create(framework: str, class_name: str, **kwargs) -> BaseMetric:
+        """Create a metric instance from the specified framework using class name.
 
         Args:
-            framework: The evaluation framework to use ('deepeval', 'ragas', etc.)
-            metric_name: Name of metric to create ('answer_relevancy', etc.)
+            framework: The evaluation framework to use ('deepeval', 'ragas', 'rhesis')
+            class_name: Class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')
+            **kwargs: Additional parameters to pass to the metric constructor
 
         Returns:
             BaseMetric: The corresponding metric implementation
 
         Raises:
-            ValueError: If framework or metric_name is not supported
+            ValueError: If framework is not supported
+            AttributeError: If the class does not exist in the framework
         """
         factories = {
-            "deepeval": DeepEvalMetricFactory,
-            # Add other frameworks as they're implemented
+            "deepeval": DeepEvalMetricFactory(),
+            "ragas": RagasMetricFactory(),
+            "rhesis": RhesisMetricFactory(),
         }
 
         if framework not in factories:
@@ -63,12 +62,12 @@ class MetricFactory:
                 f"Supported frameworks are: {list(factories.keys())}"
             )
 
-        return factories[framework].create(metric_name)
+        return factories[framework].create(class_name, **kwargs)
 
     @staticmethod
     def list_supported_frameworks() -> List[str]:
         """List all supported evaluation frameworks."""
-        return ["deepeval"]  # Add others as they're implemented
+        return ["deepeval", "ragas", "rhesis"]
 
     @staticmethod
     def list_supported_metrics_for_framework(framework: str) -> List[str]:
@@ -78,8 +77,12 @@ class MetricFactory:
             framework: The evaluation framework
 
         Returns:
-            List[str]: List of supported metric types
+            List[str]: List of supported metric class names
         """
         if framework == "deepeval":
-            return ["answer_relevancy"]  # Add others as they're implemented
+            return DeepEvalMetricFactory().list_supported_metrics()
+        elif framework == "ragas":
+            return RagasMetricFactory().list_supported_metrics()
+        elif framework == "rhesis":
+            return RhesisMetricFactory().list_supported_metrics()
         raise ValueError(f"Unsupported framework: {framework}")

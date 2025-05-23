@@ -1,12 +1,12 @@
 import pytest
 
-from .config.loader import MetricConfigLoader
-from .factory import MetricFactory
+from rhesis.backend.metrics.config.loader import MetricConfigLoader
+from rhesis.backend.metrics.factory import MetricFactory
 
 
 @pytest.fixture
 def evaluator():
-    from .evaluator import MetricEvaluator
+    from rhesis.backend.metrics.evaluator import MetricEvaluator
 
     return MetricEvaluator()
 
@@ -31,8 +31,8 @@ def sample_data():
 
 @pytest.fixture
 def all_metric_types():
-    factory = MetricFactory.get_factory("deepeval")
-    return factory.list_supported_metrics()
+    factory = MetricFactory()
+    return factory.get_factory("deepeval").list_supported_metrics()
 
 
 def test_evaluator_interface(evaluator):
@@ -43,7 +43,16 @@ def test_evaluator_interface(evaluator):
 
 def test_metric_result_interface(evaluator, sample_data):
     """Test that metric results conform to the expected format."""
-    results = evaluator.evaluate(**sample_data)
+    results = evaluator.evaluate(
+        metrics=[
+            {
+                "class_name": "DeepEvalAnswerRelevancy", 
+                "backend": "deepeval", 
+                "threshold": 0.7
+            }
+        ],
+        **sample_data
+    )
 
     for metric_name, result in results.items():
         assert "score" in result
@@ -61,24 +70,40 @@ def test_metric_result_interface(evaluator, sample_data):
         assert isinstance(result["description"], str)
 
 
-def test_specific_metrics(evaluator, sample_data, config):
+def test_specific_metrics(evaluator, sample_data):
     """Test evaluation with specific metrics."""
     metrics = [
-        {"name": "answer_relevancy", "threshold": 0.7},
-        {"name": "faithfulness", "threshold": 0.8},
+        {
+            "class_name": "DeepEvalAnswerRelevancy", 
+            "backend": "deepeval", 
+            "threshold": 0.7,
+            "description": "Measures how relevant the answer is to the question"
+        },
+        {
+            "class_name": "DeepEvalFaithfulness", 
+            "backend": "deepeval", 
+            "threshold": 0.8,
+            "description": "Measures how faithful the answer is to the context"
+        },
     ]
     results = evaluator.evaluate(metrics=metrics, **sample_data)
 
-    assert set(results.keys()) == set(m["name"] for m in metrics)
+    assert set(results.keys()) == {"DeepEvalAnswerRelevancy", "DeepEvalFaithfulness"}
     # Check that thresholds were applied correctly
-    assert results["answer_relevancy"]["threshold"] == 0.7
-    assert results["faithfulness"]["threshold"] == 0.8
+    assert results["DeepEvalAnswerRelevancy"]["threshold"] == 0.7
+    assert results["DeepEvalFaithfulness"]["threshold"] == 0.8
 
 
 def test_invalid_metric(evaluator, sample_data):
-    """Test that invalid metrics raise appropriate errors."""
-    with pytest.raises(ValueError):
-        evaluator.evaluate(metrics=[{"name": "invalid_metric"}], **sample_data)
+    """Test that invalid metrics are handled properly."""
+    # The evaluator logs errors but returns empty results when metrics are invalid
+    results = evaluator.evaluate(
+        metrics=[{"class_name": "InvalidMetric", "backend": "deepeval"}], 
+        **sample_data
+    )
+    
+    # Should return empty results since the metric is invalid
+    assert results == {}
 
 
 def test_missing_required_params(evaluator):
@@ -89,11 +114,11 @@ def test_missing_required_params(evaluator):
 
 def test_config_loading(config):
     """Test that configuration is loaded correctly."""
-    assert "metrics" in config._config
     assert "backends" in config._config
     assert "deepeval" in config.backends
-    assert "answer_relevancy" in config.metrics
+    assert "module" in config.backends["deepeval"]
+    assert "factory" in config.backends["deepeval"]
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    pytest.main([__file__]) 

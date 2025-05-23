@@ -12,42 +12,14 @@ from rhesis.backend.tasks.base import BaseTask, with_tenant_context
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.worker import app
 
-# Import functionality from execution modules
-from rhesis.backend.tasks.execution.config import (
-    TestConfigurationError,
-    get_test_configuration
-)
+# Import only the functionality needed for this module
+from rhesis.backend.tasks.execution.config import get_test_configuration
 from rhesis.backend.tasks.execution.run import (
     TestExecutionError,
     create_test_run,
     update_test_run_status
 )
-from rhesis.backend.tasks.execution.test import (
-    execute_single_test
-)
-from rhesis.backend.tasks.execution.orchestration import (
-    execute_test_cases
-)
-from rhesis.backend.tasks.execution.results import (
-    collect_results
-)
-from rhesis.backend.tasks.execution.evaluation import (
-    evaluate_prompt_response
-)
-
-# Re-export all the public APIs for backward compatibility
-__all__ = [
-    'TestConfigurationError',
-    'TestExecutionError',
-    'get_test_configuration',
-    'create_test_run',
-    'execute_single_test',
-    'execute_test_cases',
-    'collect_results',
-    'evaluate_prompt_response',
-    'update_test_run_status',
-    'execute_test_configuration',
-]
+from rhesis.backend.tasks.execution.orchestration import execute_test_cases
 
 
 @app.task(base=BaseTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True)

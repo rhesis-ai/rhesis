@@ -18,7 +18,12 @@ app.conf.chord_unlock_max_retries = 3
 
 @app.task
 def collect_results(results, start_time, test_config_id, test_run_id, test_set_id, total_tests):
-    """Collect and aggregate results from test execution."""
+    """
+    Collect and aggregate results from test execution.
+    
+    This task is called as a callback after all individual test execution tasks have completed.
+    It updates the test run status and aggregates metrics from all tests.
+    """
     session = None
     try:
         session = next(get_db())
@@ -69,6 +74,7 @@ def collect_results(results, start_time, test_config_id, test_run_id, test_set_i
             if failed_tasks > 0:
                 status = RunStatus.PARTIAL.value if failed_tasks < total_tests else RunStatus.FAILED.value
                 
+            # Update test run status - this will also update task_state
             update_test_run_status(session, test_run, status)
 
         return {

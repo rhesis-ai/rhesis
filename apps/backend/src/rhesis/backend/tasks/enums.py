@@ -16,4 +16,5 @@ class RunStatus(str, Enum):
     """Enum for test run statuses."""
     PROGRESS = "Progress"
     COMPLETED = "Completed"
+    PARTIAL = "Partial"  # Some tests completed, but some failed
     FAILED = "Failed" 
