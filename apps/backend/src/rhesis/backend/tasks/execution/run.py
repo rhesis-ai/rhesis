@@ -31,7 +31,7 @@ def create_test_run(session: Session, test_config: TestConfiguration, task_info:
             "started_at": datetime.utcnow().isoformat(),
             "configuration_id": str(test_config.id),
             "task_id": task_info.get("id"),
-            "task_state": "PROGRESS",
+            "task_state": RunStatus.PROGRESS.value,
         },
     }
     
@@ -42,7 +42,16 @@ def create_test_run(session: Session, test_config: TestConfiguration, task_info:
 def update_test_run_status(
     session: Session, test_run: TestRun, status_name: str, error: str = None
 ) -> None:
-    """Update the status of a test run."""
+    """
+    Update the status of a test run.
+    
+    Args:
+        session: Database session
+        test_run: TestRun instance to update
+        status_name: New status name (should match RunStatus enum values)
+        error: Optional error message if the run failed
+    """
+    # Get the appropriate status record
     new_status = get_or_create_status(session, status_name, "TestRun")
     
     # Build update data
@@ -52,7 +61,17 @@ def update_test_run_status(
     if error:
         test_run.attributes["error"] = error
         test_run.attributes["status"] = RunStatus.FAILED.value
+        test_run.attributes["task_state"] = RunStatus.FAILED.value
     else:
+        # Map the status name to the corresponding RunStatus enum value
+        if status_name == RunStatus.COMPLETED.value:
+            test_run.attributes["task_state"] = RunStatus.COMPLETED.value
+        elif status_name == RunStatus.FAILED.value:
+            test_run.attributes["task_state"] = RunStatus.FAILED.value
+        elif status_name == RunStatus.PROGRESS.value:
+            test_run.attributes["task_state"] = RunStatus.PROGRESS.value
+            
+        # Update the status attribute consistently
         test_run.attributes["status"] = status_name
     
     test_run.attributes["updated_at"] = datetime.utcnow().isoformat()
