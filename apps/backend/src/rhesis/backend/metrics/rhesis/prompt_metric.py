@@ -3,7 +3,7 @@ from typing import Dict, List, Any, Optional
 from mirascope import llm
 from pydantic import BaseModel, Field
 
-from rhesis.backend.metrics.base import MetricResult
+from rhesis.backend.metrics.base import MetricResult, retry_evaluation
 from rhesis.backend.metrics.rhesis.metric_base import RhesisMetricBase
 
 
@@ -42,15 +42,30 @@ class RhesisPromptMetric(RhesisMetricBase):
         metric_type="rag",
         **kwargs
     ):
-        super().__init__(name=name, threshold=threshold, metric_type=metric_type)
+        # If threshold is between 0 and 1, it's normalized; otherwise it's in raw score range
+        self.min_score = min_score
+        self.max_score = max_score
+        
+        # Normalize threshold if it's in raw score range
+        normalized_threshold = threshold
+        if threshold > 1 or threshold < 0:
+            # This is a raw threshold, convert to normalized
+            normalized_threshold = (threshold - min_score) / (max_score - min_score)
+            normalized_threshold = max(0.0, min(1.0, normalized_threshold))
+        
+        # Pass the normalized threshold to the base class
+        super().__init__(name=name, threshold=normalized_threshold, metric_type=metric_type)
+        
+        # Store other parameters
         self.evaluation_prompt = evaluation_prompt
         self.evaluation_steps = evaluation_steps
         self.reasoning = reasoning
-        self.min_score = min_score
-        self.max_score = max_score
         self.provider = provider
         self.model = model
         self.additional_params = kwargs
+        
+        # Store original threshold for reporting
+        self.raw_threshold = threshold
 
     @property
     def requires_ground_truth(self) -> bool:
@@ -107,6 +122,9 @@ class RhesisPromptMetric(RhesisMetricBase):
         """
         return prompt
 
+    @retry_evaluation(
+        retry_exceptions=(ConnectionError, TimeoutError, Exception)  # Using broader Exception to catch LLM API errors
+    )
     def evaluate(
         self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
     ) -> MetricResult:
@@ -162,7 +180,8 @@ class RhesisPromptMetric(RhesisMetricBase):
             "prompt": prompt,
             "reason": reason,
             "is_successful": is_successful,
-            "threshold": self.threshold
+            "threshold": self.threshold,
+            "raw_threshold": getattr(self, "raw_threshold", self.threshold)
         }
         
         return MetricResult(score=normalized_score, details=details)
@@ -236,6 +255,9 @@ class RhesisDetailedPromptMetric(RhesisPromptMetric):
         """
         return prompt
     
+    @retry_evaluation(
+        retry_exceptions=(ConnectionError, TimeoutError, Exception)  # Using broader Exception to catch LLM API errors
+    )
     def evaluate(
         self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
     ) -> MetricResult:
@@ -288,7 +310,8 @@ class RhesisDetailedPromptMetric(RhesisPromptMetric):
             "prompt": prompt,
             "reason": reason,
             "is_successful": is_successful,
-            "threshold": self.threshold
+            "threshold": self.threshold,
+            "raw_threshold": getattr(self, "raw_threshold", self.threshold)
         }
         
         return MetricResult(score=normalized_score, details=details) 
