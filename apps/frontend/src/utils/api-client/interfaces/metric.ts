@@ -22,6 +22,7 @@ export interface Metric {
   ground_truth_required: boolean;
   context_required: boolean;
   class_name?: string;
+  evaluation_examples?: string;
   created_at: string;
   updated_at: string;
   
@@ -40,6 +41,7 @@ export interface MetricCreate {
   tags: string[];
   evaluation_prompt: string;
   evaluation_steps?: string;
+  evaluation_examples?: string;
   reasoning?: string;
   score_type: ScoreType;
   min_score?: number;
@@ -61,6 +63,7 @@ export interface MetricUpdate {
   tags?: string[];
   evaluation_prompt?: string;
   evaluation_steps?: string;
+  evaluation_examples?: string;
   reasoning?: string;
   score_type?: ScoreType;
   min_score?: number;

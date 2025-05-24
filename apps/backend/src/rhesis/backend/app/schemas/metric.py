@@ -34,6 +34,7 @@ class MetricBase(Base):
     owner_id: Optional[UUID4] = None
     class_name: Optional[str] = None
     context_required: Optional[bool] = False
+    evaluation_examples: Optional[str] = None
 
 class MetricCreate(MetricBase):
     pass
