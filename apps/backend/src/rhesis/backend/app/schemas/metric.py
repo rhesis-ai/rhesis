@@ -13,6 +13,7 @@ from rhesis.backend.app.schemas.tag import Tag
 class ScoreType(str, Enum):
     BINARY = "binary"
     NUMERIC = "numeric"
+    CATEGORICAL = "categorical"
 
 
 class ThresholdOperator(str, Enum):

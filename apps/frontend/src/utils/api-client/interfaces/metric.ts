@@ -4,7 +4,7 @@ import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { PaginationParams } from './pagination';
 
-export type ScoreType = 'binary' | 'numeric';
+export type ScoreType = 'binary' | 'numeric' | 'categorical';
 
 export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
 
