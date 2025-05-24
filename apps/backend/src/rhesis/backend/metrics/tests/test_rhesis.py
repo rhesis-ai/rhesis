@@ -3,9 +3,7 @@ from unittest.mock import patch, MagicMock
 
 from rhesis.backend.metrics.rhesis import (
     RhesisPromptMetric, 
-    RhesisDetailedPromptMetric, 
-    ScoreResponse,
-    DetailedScoreResponse
+    ScoreResponse
 )
 
 
@@ -30,28 +28,6 @@ def mock_llm_response():
     mock_response.reason = "The response is accurate and comprehensive"
     mock_response._response = MagicMock()
     mock_response._response.content = '{"score": 4.5, "reason": "The response is accurate and comprehensive"}'
-    return mock_response
-
-
-@pytest.fixture
-def mock_detailed_llm_response():
-    """Create a mock LLM detailed response for testing."""
-    mock_response = MagicMock()
-    mock_response.overall_score = 4.2
-    mock_response.relevance_score = 4.5
-    mock_response.accuracy_score = 4.0
-    mock_response.coherence_score = 4.3
-    mock_response.reasoning = "The response addresses the query with accurate information in a coherent way"
-    mock_response._response = MagicMock()
-    mock_response._response.content = """
-    {
-        "overall_score": 4.2,
-        "relevance_score": 4.5,
-        "accuracy_score": 4.0,
-        "coherence_score": 4.3,
-        "reasoning": "The response addresses the query with accurate information in a coherent way"
-    }
-    """
     return mock_response
 
 
@@ -117,48 +93,6 @@ def test_rhesis_prompt_metric_evaluate(mock_override, mock_llm_response, sample_
     assert result.details["threshold"] == 0.6
 
 
-@patch("mirascope.llm.override")
-def test_rhesis_detailed_prompt_metric_evaluate(mock_override, mock_detailed_llm_response, sample_data):
-    """Test evaluation using RhesisDetailedPromptMetric."""
-    # Configure the mock to return our mock response
-    mock_eval_fn = MagicMock()
-    mock_eval_fn.return_value = mock_detailed_llm_response
-    mock_override.return_value = mock_eval_fn
-
-    metric = RhesisDetailedPromptMetric(
-        name="test_detailed_metric",
-        evaluation_prompt="Test detailed prompt",
-        evaluation_steps="Test detailed steps",
-        reasoning="Test detailed reasoning",
-        min_score=1.0,
-        max_score=5.0,
-        threshold=0.7
-    )
-    
-    result = metric.evaluate(
-        input=sample_data["input"],
-        output=sample_data["output"],
-        expected_output=sample_data["expected_output"],
-        context=sample_data["context"]
-    )
-    
-    # Verify result
-    assert isinstance(result.score, float)
-    assert 0 <= result.score <= 1  # Score should be normalized
-    assert "raw_score" in result.details
-    assert result.details["raw_score"] == 4.2  # The mock overall_score
-    assert "relevance_score" in result.details
-    assert result.details["relevance_score"] == 4.5
-    assert "accuracy_score" in result.details
-    assert result.details["accuracy_score"] == 4.0
-    assert "coherence_score" in result.details
-    assert result.details["coherence_score"] == 4.3
-    assert "reasoning" in result.details
-    assert "is_successful" in result.details
-    assert "threshold" in result.details
-    assert result.details["threshold"] == 0.7
-
-
 def test_rhesis_prompt_metric_get_prompt_template(sample_data):
     """Test the prompt template generation."""
     metric = RhesisPromptMetric(
@@ -189,24 +123,54 @@ def test_rhesis_prompt_metric_get_prompt_template(sample_data):
 
 
 def test_rhesis_metric_threshold_validation():
-    """Test that threshold validation works."""
+    """Test that threshold validation works correctly."""
+    # Test 1: Invalid threshold (above max_score)
     with pytest.raises(ValueError):
         RhesisPromptMetric(
             name="test_metric",
             evaluation_prompt="Test prompt",
             evaluation_steps="Test steps",
             reasoning="Test reasoning",
-            threshold=1.5  # Invalid threshold > 1
+            min_score=1.0,
+            max_score=5.0,
+            threshold=6.0  # Invalid: higher than max_score
         )
         
+    # Test 2: Invalid threshold (below min_score and not between 0-1)
     with pytest.raises(ValueError):
         RhesisPromptMetric(
             name="test_metric",
             evaluation_prompt="Test prompt",
             evaluation_steps="Test steps",
             reasoning="Test reasoning",
-            threshold=-0.5  # Invalid threshold < 0
+            min_score=1.0,
+            max_score=5.0,
+            threshold=-0.5  # Invalid: lower than min_score and not a normalized value
         )
+    
+    # Test 3: Valid normalized threshold (between 0-1)
+    metric1 = RhesisPromptMetric(
+        name="test_metric",
+        evaluation_prompt="Test prompt",
+        evaluation_steps="Test steps",
+        reasoning="Test reasoning",
+        min_score=1.0,
+        max_score=5.0,
+        threshold=0.7  # Valid normalized threshold
+    )
+    assert metric1.threshold == 0.7
+    
+    # Test 4: Valid raw threshold (between min_score and max_score)
+    metric2 = RhesisPromptMetric(
+        name="test_metric",
+        evaluation_prompt="Test prompt",
+        evaluation_steps="Test steps",
+        reasoning="Test reasoning",
+        min_score=1.0,
+        max_score=5.0,
+        threshold=3.0  # Valid raw threshold (will be normalized)
+    )
+    assert metric2.threshold == 0.5  # (3.0 - 1.0) / (5.0 - 1.0) = 0.5
 
 
 if __name__ == "__main__":
