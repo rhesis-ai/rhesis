@@ -22,6 +22,15 @@ class ScoreType(str, Enum):
     NUMERIC = "numeric"
 
 
+class ThresholdOperator(str, Enum):
+    EQUAL = "="
+    LESS_THAN = "<"
+    GREATER_THAN = ">"
+    LESS_THAN_OR_EQUAL = "<="
+    GREATER_THAN_OR_EQUAL = ">="
+    NOT_EQUAL = "!="
+
+
 class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     __tablename__ = "metric"
 
@@ -34,6 +43,7 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     min_score = Column(Float)
     max_score = Column(Float)
     threshold = Column(Float)
+    threshold_operator = Column(String, default=ThresholdOperator.GREATER_THAN_OR_EQUAL.value)
     explanation = Column(Text)
     ground_truth_required = Column(Boolean, default=False)
     context_required = Column(Boolean, default=False)

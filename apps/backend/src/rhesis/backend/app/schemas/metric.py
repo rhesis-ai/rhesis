@@ -15,6 +15,15 @@ class ScoreType(str, Enum):
     NUMERIC = "numeric"
 
 
+class ThresholdOperator(str, Enum):
+    EQUAL = "="
+    LESS_THAN = "<"
+    GREATER_THAN = ">"
+    LESS_THAN_OR_EQUAL = "<="
+    GREATER_THAN_OR_EQUAL = ">="
+    NOT_EQUAL = "!="
+
+
 class MetricBase(Base):
     name: str
     description: Optional[str] = None
@@ -25,6 +34,7 @@ class MetricBase(Base):
     min_score: Optional[float] = None
     max_score: Optional[float] = None
     threshold: Optional[float] = None
+    threshold_operator: Optional[ThresholdOperator] = ThresholdOperator.GREATER_THAN_OR_EQUAL
     explanation: Optional[str] = None
     metric_type_id: Optional[UUID4] = None
     backend_type_id: Optional[UUID4] = None
@@ -44,6 +54,7 @@ class MetricUpdate(MetricBase):
     title: Optional[str] = None
     evaluation_prompt: Optional[str] = None
     score_type: Optional[ScoreType] = None
+    threshold_operator: Optional[ThresholdOperator] = None
 
 
 class Metric(MetricBase):

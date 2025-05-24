@@ -6,6 +6,8 @@ import { PaginationParams } from './pagination';
 
 export type ScoreType = 'binary' | 'numeric';
 
+export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
+
 export interface Metric {
   id: UUID;
   name: string;
@@ -18,6 +20,7 @@ export interface Metric {
   min_score?: number;
   max_score?: number;
   threshold?: number;
+  threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required: boolean;
   context_required: boolean;
@@ -47,6 +50,7 @@ export interface MetricCreate {
   min_score?: number;
   max_score?: number;
   threshold?: number;
+  threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required?: boolean;
   metric_type_id?: UUID;
@@ -69,6 +73,7 @@ export interface MetricUpdate {
   min_score?: number;
   max_score?: number;
   threshold?: number;
+  threshold_operator?: ThresholdOperator;
   explanation?: string;
   ground_truth_required?: boolean;
   metric_type_id?: UUID;
