@@ -42,44 +42,6 @@ print(f"Reason: {result.details['reason']}")
 print(f"Successful: {result.details['is_successful']}")
 ```
 
-### RhesisDetailedPromptMetric
-
-An extension of RhesisPromptMetric that provides multiple scores for different aspects of the evaluation using a more detailed response model.
-
-#### Features:
-- Evaluates responses across multiple dimensions
-- Returns separate scores for relevance, accuracy, and coherence
-- Includes an overall score and detailed reasoning
-- Uses the same interface as RhesisPromptMetric
-
-#### Usage:
-```python
-from rhesis.backend.metrics.rhesis import RhesisDetailedPromptMetric
-
-detailed_metric = RhesisDetailedPromptMetric(
-    name="Multi-Dimensional Evaluation",
-    evaluation_prompt="...",
-    evaluation_steps="...",
-    reasoning="...",
-    min_score=1.0,
-    max_score=5.0,
-    threshold=0.6
-)
-
-result = detailed_metric.evaluate(
-    input="User query",
-    output="LLM response to evaluate",
-    expected_output="Ground truth",
-    context=[]
-)
-
-print(f"Overall score: {result.details['raw_score']}")
-print(f"Relevance: {result.details['relevance_score']}")
-print(f"Accuracy: {result.details['accuracy_score']}")
-print(f"Coherence: {result.details['coherence_score']}")
-print(f"Reasoning: {result.details['reasoning']}")
-```
-
 ## Factory
 
 The `RhesisMetricFactory` provides a way to create Rhesis metric instances by name:
@@ -102,4 +64,26 @@ metric = factory.create(
 # List all available metrics
 available_metrics = factory.list_supported_metrics()
 print(f"Available metrics: {available_metrics}")
-``` 
+```
+
+## Testing
+
+To run the tests for the Rhesis metrics, use pytest from the backend directory:
+
+```bash
+# Run all Rhesis metric tests
+python -m pytest src/rhesis/backend/metrics/tests/test_rhesis.py -v
+
+# Run a specific test
+python -m pytest src/rhesis/backend/metrics/tests/test_rhesis.py::test_rhesis_prompt_metric_init -v
+
+# Run tests with coverage
+python -m pytest src/rhesis/backend/metrics/tests/test_rhesis.py --cov=rhesis.backend.metrics.rhesis
+```
+
+The test suite includes:
+- Metric initialization validation
+- Evaluation functionality with mocked LLM responses
+- Prompt template generation
+- Threshold validation
+- Error handling scenarios 
