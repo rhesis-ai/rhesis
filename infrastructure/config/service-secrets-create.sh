@@ -47,6 +47,13 @@ function show_usage() {
   echo "  SMTP_USER                     SMTP user"
   echo "  SMTP_PASSWORD                 SMTP password"
   echo ""
+  echo "  # Celery worker variables"
+  echo "  BROKER_URL                    Celery broker URL"
+  echo "  CELERY_RESULT_BACKEND         Celery result backend URL"
+  echo "  CELERY_WORKER_CONCURRENCY     Worker concurrency (number of processes)"
+  echo "  CELERY_WORKER_PREFETCH_MULTIPLIER Worker prefetch multiplier"
+  echo "  CELERY_WORKER_MAX_TASKS_PER_CHILD Max tasks per child process"
+  echo ""
   echo "  # Frontend variables"
   echo "  NEXTAUTH_URL                  NextAuth URL"
   echo "  NEXTAUTH_SECRET               NextAuth secret"
@@ -165,6 +172,13 @@ SERVICE_VARS=(
   "SMTP_PORT"
   "SMTP_USER"
   "SMTP_PASSWORD"
+  
+  # Celery worker variables
+  "BROKER_URL"
+  "CELERY_RESULT_BACKEND"
+  "CELERY_WORKER_CONCURRENCY"
+  "CELERY_WORKER_PREFETCH_MULTIPLIER"
+  "CELERY_WORKER_MAX_TASKS_PER_CHILD"
   
   # Frontend variables
   "NEXTAUTH_URL"

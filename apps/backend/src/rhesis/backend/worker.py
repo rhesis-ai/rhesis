@@ -18,6 +18,10 @@ app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
+    # Limit chord unlocks to prevent infinite retry loops
+    chord_unlock_max_retries=3,
+    # Use light amqp result store
+    result_persistent=False,
 )
 
 # Auto-discover tasks without loading config files

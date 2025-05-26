@@ -10,7 +10,7 @@ from .endpoint import Endpoint
 from .guid import GUID
 from .metric import Metric, behavior_metric_association
 from .mixins import TagsMixin
-from .models import Model
+from .model import Model
 from .organization import Organization
 
 # Import models with dependencies

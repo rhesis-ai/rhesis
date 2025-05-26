@@ -36,6 +36,8 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     threshold = Column(Float)
     explanation = Column(Text)
     ground_truth_required = Column(Boolean, default=False)
+    context_required = Column(Boolean, default=False)
+    class_name = Column(String) # useful if type is custom code or framework
     
     # Foreign keys
     metric_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

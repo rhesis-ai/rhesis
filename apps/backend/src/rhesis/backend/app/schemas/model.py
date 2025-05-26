@@ -46,7 +46,7 @@ class Model(ModelBase):
     status: Optional[Status] = None
     owner: Optional[User] = None
     assignee: Optional[User] = None
-    tags: List[Tag] = []
+    tags: Optional[List[Tag]] = []
 
     class Config:
         from_attributes = True 

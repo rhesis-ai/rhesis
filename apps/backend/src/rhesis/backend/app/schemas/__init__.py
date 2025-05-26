@@ -5,7 +5,7 @@ from .demographic import Demographic, DemographicBase, DemographicCreate, Demogr
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
 from .endpoint import Endpoint, EndpointBase, EndpointCreate, EndpointUpdate
 from .metric import Metric, MetricBase, MetricCreate, MetricUpdate, MetricDetail, ScoreType
-from .models import Model, ModelBase, ModelCreate, ModelUpdate
+from .model import Model, ModelBase, ModelCreate, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
 from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView
@@ -26,6 +26,7 @@ from .source import Source, SourceBase, SourceCreate, SourceUpdate
 from .stats import DimensionStats, EntityStats
 from .status import Status, StatusBase, StatusCreate, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
+from .task import TaskList, TaskPayload, TaskResponse, TaskStatus, TaskRevoke, WorkerInfo, WorkerStats, WorkerStatus, HealthCheck
 from .test import (
     Test,
     TestBase,
@@ -200,4 +201,14 @@ __all__ = [
     "MetricUpdate",
     "MetricDetail",
     "ScoreType",
+    # Task schemas
+    "TaskList",
+    "TaskPayload",
+    "TaskResponse",
+    "TaskStatus",
+    "TaskRevoke",
+    "WorkerInfo",
+    "WorkerStats",
+    "WorkerStatus",
+    "HealthCheck",
 ]

@@ -321,6 +321,11 @@
             "type_name": "MetricType",
             "type_value": "custom-prompt",
             "description": "Metric defined using user-crafted LLM prompts and output rules"
+        },
+        {
+            "type_name": "MetricType",
+            "type_value": "framework",
+            "description": "Metric defined using a framework"
         }
     ],
     "behavior": [

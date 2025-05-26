@@ -6,7 +6,6 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -23,6 +22,7 @@ import MetricCard from './components/MetricCard';
 import SectionEditDrawer from './components/DimensionDrawer';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TextField from '@mui/material/TextField';
@@ -256,6 +256,8 @@ export default function MetricsPage() {
   const [behaviorMetrics, setBehaviorMetrics] = React.useState<BehaviorMetrics>({});
   const [drawerLoading, setDrawerLoading] = React.useState(false);
   const [drawerError, setDrawerError] = React.useState<string>();
+  const [deleteMetricDialogOpen, setDeleteMetricDialogOpen] = React.useState(false);
+  const [metricToDeleteCompletely, setMetricToDeleteCompletely] = React.useState<{ id: string; name: string } | null>(null);
   const initialDataLoadedRef = React.useRef(false);
 
   // Fetch behaviors, metrics, and filter options
@@ -704,6 +706,43 @@ export default function MetricsPage() {
     setSelectedMetric(null);
   };
 
+  // Function to delete a metric
+  const handleDeleteMetric = async (metricId: string, metricName: string) => {
+    setMetricToDeleteCompletely({ id: metricId, name: metricName });
+    setDeleteMetricDialogOpen(true);
+  };
+
+  const handleConfirmDeleteMetric = async () => {
+    if (!session?.session_token || !metricToDeleteCompletely) return;
+
+    try {
+      const metricClient = new MetricsClient(session.session_token);
+      await metricClient.deleteMetric(metricToDeleteCompletely.id as UUID);
+      
+      // Remove the metric from local state
+      setMetrics(prevMetrics => prevMetrics.filter(m => m.id !== metricToDeleteCompletely.id));
+      
+      notifications.show('Metric deleted successfully', {
+        severity: 'success',
+        autoHideDuration: 4000
+      });
+    } catch (err) {
+      console.error('Error deleting metric:', err);
+      notifications.show('Failed to delete metric', {
+        severity: 'error',
+        autoHideDuration: 4000
+      });
+    } finally {
+      setDeleteMetricDialogOpen(false);
+      setMetricToDeleteCompletely(null);
+    }
+  };
+
+  const handleCancelDeleteMetric = () => {
+    setDeleteMetricDialogOpen(false);
+    setMetricToDeleteCompletely(null);
+  };
+
   // Function to check if any filter is active
   const hasActiveFilters = () => {
     return filters.search !== '' || 
@@ -738,14 +777,20 @@ export default function MetricsPage() {
   }
 
   const renderSection = (behavior: ApiBehavior) => {
-    const behaviorData = behaviorMetrics[behavior.id] || { metrics: [], isLoading: true, error: null };
-    const { metrics: behaviorMetricsList, isLoading: metricsLoading, error: metricsError } = behaviorData;
+    const behaviorData = behaviorMetrics[behavior.id];
+    const metricsLoading = behaviorData?.isLoading ?? false;
+    const metricsError = behaviorData?.error ?? null;
+    const behaviorMetricsList = behaviorData?.metrics ?? [];
 
     return (
-      <Box sx={{ mb: 4 }} key={behavior.id}>
+      <Box key={behavior.id} sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="h6">
-            {behavior.name || 'Unnamed Behavior'}
+          <Typography 
+            variant="h6" 
+            component="h2" 
+            sx={{ fontWeight: 'bold' }}
+          >
+            {behavior.name}
           </Typography>
           <IconButton 
             onClick={() => handleEditSection(behavior.id as UUID, behavior.name, behavior.description || '')}
@@ -756,108 +801,116 @@ export default function MetricsPage() {
         </Box>
         <Typography 
           variant="body2" 
-          color="text.secondary" 
+          color="text.secondary"
           sx={{ mb: 3 }}
         >
           {behavior.description || 'No description provided'}
         </Typography>
-        <Grid container spacing={3}>
-          {metricsLoading ? (
-            <Grid item xs={12}>
-              <Box sx={{ textAlign: 'center', py: 2 }}>
-                <Typography>Loading metrics...</Typography>
-              </Box>
-            </Grid>
-          ) : metricsError ? (
-            <Grid item xs={12}>
-              <Box sx={{ textAlign: 'center', py: 2 }}>
-                <Typography color="error">{metricsError}</Typography>
-              </Box>
-            </Grid>
-          ) : behaviorMetricsList.length > 0 ? (
-            behaviorMetricsList.map((metric) => (
-              <Grid item xs={12} md={4} key={metric.id}>
-                <Box sx={{ position: 'relative' }}>
-                  <Box 
-                    sx={{ 
-                      position: 'absolute',
-                      top: 8,
-                      right: 8,
-                      display: 'flex',
-                      gap: 1,
-                      zIndex: 1
-                    }}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={() => handleMetricDetail(metric.id)}
-                      sx={{
-                        padding: '2px',
-                        '& .MuiSvgIcon-root': {
-                          fontSize: '0.875rem'
-                        }
-                      }}
-                    >
-                      <OpenInNewIcon fontSize="inherit" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveMetricFromBehavior(behavior.id, metric.id);
-                      }}
-                      sx={{
-                        padding: '2px',
-                        '& .MuiSvgIcon-root': {
-                          fontSize: '0.875rem'
-                        }
-                      }}
-                    >
-                      <CloseIcon fontSize="inherit" />
-                    </IconButton>
-                  </Box>
-                  <MetricCard 
-                    type={isValidMetricType(metric.metric_type?.type_value) ? metric.metric_type.type_value : undefined}
-                    title={metric.name}
-                    description={metric.description}
-                    backend={metric.backend_type?.type_value}
-                    metricType={metric.metric_type?.type_value}
-                    scoreType={metric.score_type}
-                    usedIn={[behavior.name]}
-                    showUsage={false}
-                  />
-                </Box>
-              </Grid>
-            ))
-          ) : (
-            <Grid item xs={12}>
-              <Paper 
-                sx={{ 
-                  p: 3, 
-                  textAlign: 'center',
-                  backgroundColor: 'action.hover',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 2
-                }}
-              >
-                <Typography color="text.secondary">
-                  No metrics assigned to this behavior
-                </Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    setValue(1); // Switch to Metrics Directory tab
+        
+        {metricsLoading ? (
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Typography>Loading metrics...</Typography>
+          </Box>
+        ) : metricsError ? (
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Typography color="error">{metricsError}</Typography>
+          </Box>
+        ) : behaviorMetricsList.length > 0 ? (
+          <Box 
+            sx={{ 
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 3,
+              '& > *': {
+                flex: { 
+                  xs: '1 1 100%', 
+                  sm: '1 1 calc(50% - 12px)', 
+                  md: '1 1 calc(33.333% - 16px)' 
+                },
+                minWidth: { xs: '100%', sm: '300px', md: '320px' },
+                maxWidth: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' }
+              }
+            }}
+          >
+            {behaviorMetricsList.map((metric) => (
+              <Box key={metric.id} sx={{ position: 'relative' }}>
+                <Box 
+                  sx={{ 
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    display: 'flex',
+                    gap: 1,
+                    zIndex: 1
                   }}
                 >
-                  Add Metric
-                </Button>
-              </Paper>
-            </Grid>
-          )}
-        </Grid>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleMetricDetail(metric.id)}
+                    sx={{
+                      padding: '2px',
+                      '& .MuiSvgIcon-root': {
+                        fontSize: '0.875rem'
+                      }
+                    }}
+                  >
+                    <OpenInNewIcon fontSize="inherit" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveMetricFromBehavior(behavior.id, metric.id);
+                    }}
+                    sx={{
+                      padding: '2px',
+                      '& .MuiSvgIcon-root': {
+                        fontSize: '0.875rem'
+                      }
+                    }}
+                  >
+                    <CloseIcon fontSize="inherit" />
+                  </IconButton>
+                </Box>
+                <MetricCard 
+                  type={isValidMetricType(metric.metric_type?.type_value) ? metric.metric_type.type_value : undefined}
+                  title={metric.name}
+                  description={metric.description}
+                  backend={metric.backend_type?.type_value}
+                  metricType={metric.metric_type?.type_value}
+                  scoreType={metric.score_type}
+                  usedIn={[behavior.name]}
+                  showUsage={false}
+                />
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Paper 
+            sx={{ 
+              p: 3, 
+              textAlign: 'center',
+              backgroundColor: 'action.hover',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2
+            }}
+          >
+            <Typography color="text.secondary">
+              No metrics assigned to this behavior
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setValue(1); // Switch to Metrics Directory tab
+              }}
+            >
+              Add Metric
+            </Button>
+          </Paper>
+        )}
       </Box>
     );
   };
@@ -1064,16 +1117,31 @@ export default function MetricsPage() {
           </Stack>
         </Box>
 
-        {/* Metrics Grid */}
+        {/* Metrics Stack */}
         <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
-          <Grid container spacing={3}>
-            {filteredMetrics.map((metric) => {
-              const assignedBehaviors = activeBehaviors.filter(b => metric.behaviors?.includes(b.id));
-              const behaviorNames = assignedBehaviors.map(b => b.name || 'Unnamed Behavior');
-              
-              return (
-                <Grid item xs={12} md={4} key={metric.id}>
-                  <Box sx={{ position: 'relative' }}>
+          <Stack 
+            spacing={3}
+            sx={{
+              '& > *': {
+                display: 'flex',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 3,
+                '& > *': {
+                  flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(33.333% - 16px)' },
+                  minWidth: { xs: '100%', sm: '300px', md: '320px' },
+                  maxWidth: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' }
+                }
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+              {filteredMetrics.map((metric) => {
+                const assignedBehaviors = activeBehaviors.filter(b => metric.behaviors?.includes(b.id));
+                const behaviorNames = assignedBehaviors.map(b => b.name || 'Unnamed Behavior');
+                
+                return (
+                  <Box key={metric.id} sx={{ position: 'relative', flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(33.333% - 16px)' }, minWidth: { xs: '100%', sm: '300px', md: '320px' }, maxWidth: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' } }}>
                     <Box 
                       sx={{ 
                         position: 'absolute',
@@ -1111,7 +1179,7 @@ export default function MetricsPage() {
                       >
                         <AddIcon fontSize="inherit" />
                       </IconButton>
-                      {assignedBehaviors.length > 0 && (
+                      {assignedBehaviors.length > 0 ? (
                         <IconButton
                           size="small"
                           onClick={(e) => {
@@ -1127,6 +1195,22 @@ export default function MetricsPage() {
                         >
                           <CloseIcon fontSize="inherit" />
                         </IconButton>
+                      ) : (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMetric(metric.id, metric.name);
+                          }}
+                          sx={{
+                            padding: '2px',
+                            '& .MuiSvgIcon-root': {
+                              fontSize: '0.875rem'
+                            }
+                          }}
+                        >
+                          <DeleteIcon fontSize="inherit" />
+                        </IconButton>
                       )}
                     </Box>
                     <MetricCard 
@@ -1140,10 +1224,10 @@ export default function MetricsPage() {
                       showUsage={true}
                     />
                   </Box>
-                </Grid>
-              );
-            })}
-          </Grid>
+                );
+              })}
+            </Box>
+          </Stack>
         </Box>
       </Box>
     );
@@ -1240,7 +1324,14 @@ export default function MetricsPage() {
           title={editingSection.title}
           description={editingSection.description}
           onSave={handleSaveSection}
-          onDelete={handleDeleteSection}
+          onDelete={
+            !isNewSection && 
+            editingSection.key && 
+            behaviorMetrics[editingSection.key] && 
+            behaviorMetrics[editingSection.key].metrics.length === 0
+              ? handleDeleteSection 
+              : undefined
+          }
           isNew={isNewSection}
           loading={drawerLoading}
           error={drawerError}
@@ -1266,6 +1357,28 @@ export default function MetricsPage() {
           <Button onClick={handleCancelDelete}>Cancel</Button>
           <Button onClick={handleConfirmDelete} color="error" autoFocus>
             Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteMetricDialogOpen}
+        onClose={handleCancelDeleteMetric}
+        aria-labelledby="delete-metric-dialog-title"
+        aria-describedby="delete-metric-dialog-description"
+      >
+        <DialogTitle id="delete-metric-dialog-title">
+          Delete Metric
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-metric-dialog-description">
+            Are you sure you want to permanently delete the metric "{metricToDeleteCompletely?.name}"? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDeleteMetric}>Cancel</Button>
+          <Button onClick={handleConfirmDeleteMetric} color="error" autoFocus>
+            Delete
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Box, Grid, Paper, Typography, Stack, Chip, Button, TextField, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
+import { Box, Stack, Paper, Typography, Button, TextField, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -16,9 +16,8 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import { MetricDetail, ScoreType } from '@/utils/api-client/interfaces/metric';
 import { Model } from '@/utils/api-client/interfaces/model';
-import { formatDate } from '@/utils/date-utils';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
@@ -33,11 +32,16 @@ interface EditData {
   evaluation_prompt?: string;
   evaluation_steps?: string[];
   reasoning?: string;
-  score_type?: 'binary' | 'numeric';
+  score_type?: ScoreType;
   min_score?: number;
   max_score?: number;
   threshold?: number;
   explanation?: string;
+}
+
+interface PageProps {
+  params: Promise<{ identifier: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 export default function MetricDetailPage() {
@@ -48,27 +52,34 @@ export default function MetricDetailPage() {
   const [loading, setLoading] = useState(true);
   const notifications = useNotifications();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
-  const [editData, setEditData] = useState<EditData>({});
+  const [editData, setEditData] = useState<Partial<EditData>>({});
   const [models, setModels] = useState<Model[]>([]);
 
   useEffect(() => {
-    const fetchMetric = async () => {
+    const fetchData = async () => {
       if (!session?.session_token) return;
       
       try {
         const clientFactory = new ApiClientFactory(session.session_token);
         const metricsClient = clientFactory.getMetricsClient();
-        const metricData = await metricsClient.getMetric(identifier);
+        const modelsClient = clientFactory.getModelsClient();
+        
+        const [metricData, modelsData] = await Promise.all([
+          metricsClient.getMetric(identifier),
+          modelsClient.getModels({ limit: 100 })
+        ]);
+        
         setMetric(metricData);
+        setModels(modelsData.models || []);
       } catch (error) {
-        console.error('Error fetching metric:', error);
+        console.error('Error fetching data:', error);
         notifications.show('Failed to load metric details', { severity: 'error' });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMetric();
+    fetchData();
   }, [identifier, session?.session_token, notifications]);
 
   const handleTagsChange = async (newTags: string[]) => {
@@ -306,9 +317,9 @@ export default function MetricDetailPage() {
       { title: 'Metrics', path: '/metrics' },
       { title: metric.name, path: `/metrics/${identifier}` }
     ]}>
-      <Grid container spacing={3}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
         {/* Left side - Main content */}
-        <Grid item xs={12} md={8}>
+        <Box sx={{ flex: 1 }}>
           <Stack spacing={3}>
             {/* General Information Section */}
             <EditableSection 
@@ -543,7 +554,7 @@ export default function MetricDetailPage() {
                     <InputLabel>Score Type</InputLabel>
                     <Select
                       value={editData.score_type || 'binary'}
-                      onChange={(e) => setEditData({ ...editData, score_type: e.target.value as 'binary' | 'numeric' })}
+                      onChange={(e) => setEditData({ ...editData, score_type: e.target.value as ScoreType })}
                       label="Score Type"
                     >
                       <MenuItem value="binary">Binary (Pass/Fail)</MenuItem>
@@ -669,20 +680,20 @@ export default function MetricDetailPage() {
               </InfoRow>
             </EditableSection>
           </Stack>
-        </Grid>
+        </Box>
 
         {/* Right side - Workflow */}
-        <Grid item xs={12} md={4}>
+        <Box sx={{ width: { xs: '100%', md: '400px' }, flexShrink: 0 }}>
           <Paper sx={{ p: 3 }}>
             <BaseWorkflowSection
               title="Workflow"
               entityId={identifier}
               entityType="Metric"
               status={metric.status?.name}
-              priority={metric.priority}
               assignee={metric.assignee}
               owner={metric.owner}
               clientFactory={session?.session_token ? new ApiClientFactory(session.session_token) : undefined}
+              showPriority={false}
               onUpdateEntity={async (updateData, fieldName) => {
                 if (!session?.session_token) return;
                 
@@ -704,8 +715,8 @@ export default function MetricDetailPage() {
               }}
             />
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Stack>
     </PageContainer>
   );
 } 

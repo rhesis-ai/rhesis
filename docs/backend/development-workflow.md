@@ -108,7 +108,7 @@ When creating new background tasks:
 Test your tasks using:
 
 1. Direct invocation in development mode
-2. Running a local Celery worker: `celery -A rhesis.backend.celery_app worker --loglevel=info`
+2. Running a local Celery worker: `celery -A rhesis.backend.worker worker --loglevel=info`
 
 ## Testing
 

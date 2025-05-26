@@ -21,6 +21,8 @@ export interface Metric {
   threshold?: number;
   explanation: string;
   ground_truth_required: boolean;
+  context_required: boolean;
+  class_name?: string;
   created_at: string;
   updated_at: string;
   priority?: number;

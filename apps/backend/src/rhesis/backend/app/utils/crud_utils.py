@@ -169,8 +169,8 @@ def update_item(
                 setattr(db_item, key, value)
 
         db.flush()  # Flush changes before commit
-        db.commit()
         db.refresh(db_item)  # Refresh to get updated values
+        db.commit()
         return db_item
 
 

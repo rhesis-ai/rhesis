@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, BaseModel
 
 from rhesis.backend.app.schemas import Base
-
+from rhesis.backend.app.schemas.tag import Tag
 
 # TestSet schemas
 class TestSetBase(Base):
@@ -12,7 +12,7 @@ class TestSetBase(Base):
     short_description: Optional[str] = None
     slug: Optional[str] = None
     status_id: Optional[UUID4] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[List[Tag]] = []
     license_type_id: Optional[UUID4] = None
     attributes: Optional[dict] = None
     user_id: Optional[UUID4] = None

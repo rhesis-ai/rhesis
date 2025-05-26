@@ -96,7 +96,7 @@ The API will be available at http://localhost:8000
 1. Start a Celery worker:
 
 ```bash
-celery -A rhesis.backend.celery_app worker --loglevel=info
+celery -A rhesis.backend.worker worker --loglevel=info
 ```
 
 ## Development Workflow
