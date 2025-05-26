@@ -1,54 +1,42 @@
-import * as React from 'react';
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
-import Chip from '@mui/material/Chip';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import { PageContainer } from '@toolpad/core/PageContainer';
-import { auth } from '@/auth';
-import { Metadata } from 'next';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
-import Link from 'next/link';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import GradingIcon from '@mui/icons-material/Grading';
-import ApiIcon from '@mui/icons-material/Api';
-import CodeIcon from '@mui/icons-material/Code';
-import ChatIcon from '@mui/icons-material/Chat';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import ListAltIcon from '@mui/icons-material/ListAlt';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import EditIcon from '@mui/icons-material/Edit';
-import ArchiveIcon from '@mui/icons-material/Archive';
-import UnarchiveIcon from '@mui/icons-material/Unarchive';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ClientWorkflowWrapper from './components/ClientWorkflowWrapper';
+'use client';
 
-interface MetricDetail {
-  id: string;
-  title: string;
-  description: string;
-  tags: string[];
-  evaluationPrompt: string;
-  evaluationSteps: string[];
-  reasoning: string;
-  scoreType: 'binary' | 'numeric';
-  minScore?: number;
-  maxScore?: number;
+import { useState, useEffect } from 'react';
+import { Box, Stack, Paper, Typography, Button, TextField, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
+import InfoIcon from '@mui/icons-material/Info';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import SettingsIcon from '@mui/icons-material/Settings';
+import EditIcon from '@mui/icons-material/Edit';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckIcon from '@mui/icons-material/Check';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
+import BaseTag from '@/components/common/BaseTag';
+import { PageContainer } from '@toolpad/core/PageContainer';
+import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { MetricDetail, ScoreType } from '@/utils/api-client/interfaces/metric';
+import { Model } from '@/utils/api-client/interfaces/model';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
+import { UUID } from 'crypto';
+import React from 'react';
+
+type EditableSectionType = 'general' | 'evaluation' | 'configuration';
+
+interface EditData {
+  name?: string;
+  description?: string;
+  model_id?: UUID;
+  evaluation_prompt?: string;
+  evaluation_steps?: string[];
+  reasoning?: string;
+  score_type?: ScoreType;
+  min_score?: number;
+  max_score?: number;
   threshold?: number;
-  explanation: string;
-  llmJudge: {
-    id: string;
-    name: string;
-    description: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-  usedInTestSets: number;
-  status: 'active' | 'draft' | 'archived';
-  type: 'grading' | 'api-call' | 'custom-code' | 'custom-prompt' | 'framework';
+  explanation?: string;
 }
 
 interface PageProps {
@@ -56,333 +44,679 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-// This would typically come from an API call
-const getMetricDetails = (identifier: string): MetricDetail => {
-  // For now, return mock data that matches our new structure
-  return {
-    id: identifier,
-    title: 'Response Coherence',
-    description: 'Evaluates the logical flow and coherence of AI-generated responses',
-    tags: ['coherence', 'quality', 'structure'],
-    evaluationPrompt: 'Analyze the response for logical flow, consistency, and clear progression of ideas.',
-    evaluationSteps: [
-      'Check if the response has a clear introduction and context setting',
-      'Evaluate the logical connection between paragraphs and ideas',
-      'Assess the conclusion and its relation to the main points'
-    ],
-    reasoning: 'Focus on how well ideas connect and flow. Look for clear transitions and logical progression. Check if conclusions naturally follow from the presented arguments.',
-    scoreType: 'numeric',
-    minScore: 0,
-    maxScore: 10,
-    threshold: 7,
-    explanation: 'Scores are based on the presence of clear structure, logical connections, and overall flow of ideas.',
-    llmJudge: {
-      id: 'claude-3.5',
-      name: 'Claude 3.5',
-      description: 'Anthropic\'s latest model, optimized for evaluation tasks'
-    },
-    createdAt: '2024-03-15T10:30:00Z',
-    updatedAt: '2024-03-15T10:30:00Z',
-    usedInTestSets: 5,
-    status: 'active',
-    type: 'custom-prompt'
+export default function MetricDetailPage() {
+  const params = useParams();
+  const identifier = params.identifier as string;
+  const { data: session } = useSession();
+  const [metric, setMetric] = useState<MetricDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const notifications = useNotifications();
+  const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
+  const [editData, setEditData] = useState<Partial<EditData>>({});
+  const [models, setModels] = useState<Model[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!session?.session_token) return;
+      
+      try {
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const metricsClient = clientFactory.getMetricsClient();
+        const modelsClient = clientFactory.getModelsClient();
+        
+        const [metricData, modelsData] = await Promise.all([
+          metricsClient.getMetric(identifier),
+          modelsClient.getModels({ limit: 100 })
+        ]);
+        
+        setMetric(metricData);
+        setModels(modelsData.models || []);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        notifications.show('Failed to load metric details', { severity: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [identifier, session?.session_token, notifications]);
+
+  const handleTagsChange = async (newTags: string[]) => {
+    if (!session?.session_token || !metric) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(session.session_token);
+      const metricsClient = clientFactory.getMetricsClient();
+      const updatedMetric = await metricsClient.getMetric(metric.id);
+      setMetric(updatedMetric);
+    } catch (error) {
+      console.error('Error refreshing metric:', error);
+      notifications.show('Failed to refresh metric data', { severity: 'error' });
+    }
   };
-};
 
-// Generate metadata for the page
-export async function generateMetadata({ params }: { params: Promise<{ identifier: string }> }): Promise<Metadata> {
-  try {
-    const resolvedParams = await params;
-    const identifier = resolvedParams.identifier;
-    const metricDetails = getMetricDetails(identifier);
-    
-    return {
-      title: `Metric | ${metricDetails.title}`,
-      description: metricDetails.description,
-      openGraph: {
-        title: `Metric | ${metricDetails.title}`,
-        description: metricDetails.description,
-      },
-    };
-  } catch (error) {
-    return {
-      title: 'Metric Details',
-    };
-  }
-}
+  const handleEdit = (section: EditableSectionType) => {
+    setIsEditing(section);
+    let sectionData: Partial<EditData> = {};
 
-const SectionCard = ({ 
-  title, 
-  icon, 
-  children 
-}: { 
-  title: string; 
-  icon: React.ReactNode; 
-  children: React.ReactNode;
-}) => (
-  <Paper sx={{ p: 3, mb: 3 }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-      <Box sx={{ color: 'primary.main', mr: 1, display: 'flex' }}>
-        {icon}
+    if (section === 'general') {
+      sectionData = {
+        name: metric?.name || '',
+        description: metric?.description || ''
+      };
+    } else if (section === 'evaluation') {
+      sectionData = {
+        model_id: metric?.model_id,
+        evaluation_prompt: metric?.evaluation_prompt || '',
+        evaluation_steps: metric?.evaluation_steps?.split('\n---\n') || [''],
+        reasoning: metric?.reasoning || ''
+      };
+    } else if (section === 'configuration') {
+      sectionData = {
+        score_type: metric?.score_type || 'binary',
+        min_score: metric?.min_score,
+        max_score: metric?.max_score,
+        threshold: metric?.threshold,
+        explanation: metric?.explanation || ''
+      };
+    }
+
+    setEditData(sectionData);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(null);
+    setEditData({});
+  };
+
+  const handleConfirmEdit = async () => {
+    if (!session?.session_token || !metric) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(session.session_token);
+      const metricsClient = clientFactory.getMetricsClient();
+      
+      // Create a copy of editData and prepare it for the API
+      const dataToSend: any = { ...editData };
+      
+      // Handle evaluation steps
+      if (Array.isArray(dataToSend.evaluation_steps)) {
+        dataToSend.evaluation_steps = dataToSend.evaluation_steps.join('\n---\n');
+      }
+
+      // Remove tags from the update data as they're handled separately
+      delete dataToSend.tags;
+      
+      // Remove any undefined or null values
+      Object.keys(dataToSend).forEach(key => {
+        if (dataToSend[key] === undefined || dataToSend[key] === null) {
+          delete dataToSend[key];
+        }
+      });
+
+      console.log('Sending update data:', dataToSend);
+      
+      const updatedMetric = await metricsClient.updateMetric(metric.id, dataToSend);
+      setMetric(updatedMetric);
+      setIsEditing(null);
+      setEditData({});
+      notifications.show('Metric updated successfully', { severity: 'success' });
+    } catch (error) {
+      console.error('Error updating metric:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update metric';
+      notifications.show(errorMessage, { severity: 'error' });
+    }
+  };
+
+  // Memoize the change handlers to prevent recreating them on each render
+  const handleInputChange = React.useCallback((field: keyof EditData) => (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setEditData(prev => ({
+      ...prev,
+      [field]: event.target.value
+    }));
+  }, []);
+
+  const handleStepChange = React.useCallback((index: number) => (
+    event: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setEditData(prev => {
+      const newSteps = [...(prev.evaluation_steps || [])];
+      newSteps[index] = event.target.value;
+      return {
+        ...prev,
+        evaluation_steps: newSteps
+      };
+    });
+  }, []);
+
+  const addStep = React.useCallback(() => {
+    setEditData(prev => ({
+      ...prev,
+      evaluation_steps: [...(prev.evaluation_steps || []), '']
+    }));
+  }, []);
+
+  const removeStep = React.useCallback((index: number) => {
+    setEditData(prev => {
+      const newSteps = [...(prev.evaluation_steps || [])];
+      newSteps.splice(index, 1);
+      return {
+        ...prev,
+        evaluation_steps: newSteps
+      };
+    });
+  }, []);
+
+  const EditableSection = ({ 
+    title,
+    icon,
+    section,
+    children 
+  }: { 
+    title: string;
+    icon: React.ReactNode;
+    section: EditableSectionType;
+    children: React.ReactNode;
+  }) => (
+    <Paper sx={{ p: 3, position: 'relative' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <SectionHeader icon={icon} title={title} />
+        {!isEditing && (
+          <Button
+            startIcon={<EditIcon />}
+            onClick={() => handleEdit(section)}
+            variant="outlined"
+            size="small"
+          >
+            Edit Section
+          </Button>
+        )}
       </Box>
+      
+      {isEditing === section ? (
+        <Box>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: 3,
+            p: 2,
+            bgcolor: 'action.hover',
+            borderRadius: 1,
+            mb: 3
+          }}>
+            {children}
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<CancelIcon />}
+              onClick={handleCancelEdit}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<CheckIcon />}
+              onClick={handleConfirmEdit}
+            >
+              Save Section
+            </Button>
+          </Box>
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {children}
+        </Box>
+      )}
+    </Paper>
+  );
+
+  const SectionHeader = ({ icon, title }: { icon: React.ReactNode; title: string }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ color: 'primary.main' }}>{icon}</Box>
       <Typography variant="h6">{title}</Typography>
     </Box>
-    {children}
-  </Paper>
-);
+  );
 
-const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <Box sx={{ mb: 2 }}>
-    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-      {label}
-    </Typography>
-    <Box sx={{ typography: 'body1' }}>
-      {value}
+  const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
+        {label}
+      </Typography>
+      {children}
     </Box>
-  </Box>
-);
+  );
 
-export default async function MetricDetailPage({ params }: PageProps) {
-  try {
-    const session = await auth();
-    
-    if (!session?.session_token) {
-      throw new Error('No session token available');
-    }
-    
-    const { identifier } = await params;
-    const metricDetails = getMetricDetails(identifier);
-
+  if (loading) {
     return (
-      <PageContainer 
-        title={metricDetails.title}
-        breadcrumbs={[
-          { title: 'Metrics', path: '/metrics' },
-          { title: metricDetails.title }
-        ]}
-      >
-        <Box sx={{ maxWidth: '1200px', mx: 'auto', pt: 3 }}>
-          {/* Action Buttons */}
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <ButtonGroup variant="contained" aria-label="metric actions">
-              <Button
-                startIcon={<EditIcon />}
-                component={Link}
-                href={`/metrics/edit/${metricDetails.id}`}
-              >
-                Edit
-              </Button>
-              <Button
-                startIcon={metricDetails.status === 'active' ? <ArchiveIcon /> : <UnarchiveIcon />}
-                color={metricDetails.status === 'active' ? 'warning' : 'success'}
-              >
-                {metricDetails.status === 'active' ? 'Archive' : 'Activate'}
-              </Button>
-              <Button
-                startIcon={<DeleteIcon />}
-                color="error"
-              >
-                Delete
-              </Button>
-            </ButtonGroup>
-          </Box>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
-              {/* General Information */}
-              <SectionCard title="General Information" icon={<AssessmentIcon />}>
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                  <Grid item xs={3}>
-                    <InfoRow label="Created" value={new Date(metricDetails.createdAt).toLocaleDateString()} />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <InfoRow label="Last Updated" value={new Date(metricDetails.updatedAt).toLocaleDateString()} />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <InfoRow label="Used in Test Sets" value={metricDetails.usedInTestSets} />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Chip 
-                        label={metricDetails.status.toUpperCase()} 
-                        color={metricDetails.status === 'active' ? 'success' : 'default'}
-                        size="small"
-                      />
-                      <Chip 
-                        label={metricDetails.type.replace('-', ' ').toUpperCase()}
-                        color="primary"
-                        size="small"
-                      />
-                    </Box>
-                  </Grid>
-                </Grid>
-                <InfoRow 
-                  label="Description" 
-                  value={metricDetails.description}
-                />
-                <InfoRow 
-                  label="Tags" 
-                  value={
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {metricDetails.tags.map((tag) => (
-                        <Chip
-                          key={tag}
-                          label={tag}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  }
-                />
-              </SectionCard>
-
-              {/* Evaluation Process */}
-              <SectionCard title="Evaluation Process" icon={<ListAltIcon />}>
-                <InfoRow 
-                  label="LLM Judge" 
-                  value={
-                    <Box>
-                      {metricDetails.llmJudge.name}
-                      <Box component="span" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.875rem' }}>
-                        {metricDetails.llmJudge.description}
-                      </Box>
-                    </Box>
-                  }
-                />
-                <InfoRow 
-                  label="Evaluation Prompt" 
-                  value={
-                    <Box 
-                      sx={{ 
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        bgcolor: 'grey.50', 
-                        p: 2, 
-                        borderRadius: 1,
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {metricDetails.evaluationPrompt}
-                    </Box>
-                  }
-                />
-                <InfoRow 
-                  label="Evaluation Steps" 
-                  value={
-                    <Box component="ol" sx={{ pl: 2, m: 0 }}>
-                      {metricDetails.evaluationSteps.map((step, index) => (
-                        <Box 
-                          component="li" 
-                          key={index}
-                          sx={{ 
-                            mb: 1,
-                            '&:last-child': { mb: 0 }
-                          }}
-                        >
-                          {step}
-                        </Box>
-                      ))}
-                    </Box>
-                  }
-                />
-                <InfoRow 
-                  label="Reasoning Instructions" 
-                  value={
-                    <Box 
-                      sx={{ 
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        bgcolor: 'grey.50', 
-                        p: 2, 
-                        borderRadius: 1,
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {metricDetails.reasoning}
-                    </Box>
-                  }
-                />
-              </SectionCard>
-
-              {/* Result Configuration */}
-              <SectionCard title="Result Configuration" icon={<SmartToyIcon />}>
-                <InfoRow 
-                  label="Score Type" 
-                  value={metricDetails.scoreType === 'binary' ? 'Binary (Pass/Fail)' : 'Numeric'} 
-                />
-                {metricDetails.scoreType === 'numeric' && (
-                  <>
-                    <InfoRow 
-                      label="Score Range" 
-                      value={`${metricDetails.minScore} - ${metricDetails.maxScore}`} 
-                    />
-                    <InfoRow 
-                      label="Threshold" 
-                      value={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {metricDetails.threshold}
-                          <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                            (minimum score required to pass)
-                          </Box>
-                        </Box>
-                      } 
-                    />
-                  </>
-                )}
-                <InfoRow 
-                  label="Result Explanation" 
-                  value={
-                    <Box 
-                      sx={{ 
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        bgcolor: 'grey.50', 
-                        p: 2, 
-                        borderRadius: 1,
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {metricDetails.explanation}
-                    </Box>
-                  }
-                />
-              </SectionCard>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <ClientWorkflowWrapper
-                    metricId={metricDetails.id}
-                    status={metricDetails.status}
-                    sessionToken={session.session_token}
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+      <PageContainer title="Loading...">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Typography>Loading metric details...</Typography>
         </Box>
       </PageContainer>
     );
-  } catch (error) {
-    const errorMessage = (error as Error).message;
+  }
+
+  if (!metric) {
     return (
-      <PageContainer title="Metric Details" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
-        <Paper sx={{ p: 3 }}>
-          <Typography color="error">
-            Error loading metric details: {errorMessage}
-          </Typography>
-          <Button 
-            component={Link} 
-            href="/metrics" 
-            startIcon={<ArrowBackIcon />}
-            sx={{ mt: 2 }}
-          >
-            Back to Metrics
-          </Button>
-        </Paper>
+      <PageContainer title="Error">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Typography color="error">Failed to load metric details</Typography>
+        </Box>
       </PageContainer>
     );
   }
+
+  return (
+    <PageContainer title={metric.name} breadcrumbs={[
+      { title: 'Metrics', path: '/metrics' },
+      { title: metric.name, path: `/metrics/${identifier}` }
+    ]}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+        {/* Left side - Main content */}
+        <Box sx={{ flex: 1 }}>
+          <Stack spacing={3}>
+            {/* General Information Section */}
+            <EditableSection 
+              title="General Information" 
+              icon={<InfoIcon />}
+              section="general"
+            >
+              <InfoRow label="Name">
+                {isEditing === 'general' ? (
+                  <TextField
+                    fullWidth
+                    required
+                    value={editData.name || ''}
+                    onChange={handleInputChange('name')}
+                    placeholder="Enter metric name"
+                  />
+                ) : (
+                  <Typography>{metric.name}</Typography>
+                )}
+              </InfoRow>
+
+              <InfoRow label="Description">
+                {isEditing === 'general' ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={editData.description || ''}
+                    onChange={handleInputChange('description')}
+                    placeholder="Enter metric description"
+                  />
+                ) : (
+                  <Typography>{metric.description || '-'}</Typography>
+                )}
+              </InfoRow>
+
+              <InfoRow label="Tags">
+                <BaseTag
+                  value={metric.tags?.map(tag => tag.name) || []}
+                  onChange={handleTagsChange}
+                  placeholder="Add tags..."
+                  chipColor="primary"
+                  disableEdition={isEditing !== 'general'}
+                  entityType={EntityType.METRIC}
+                  entity={metric}
+                  sessionToken={session?.session_token}
+                />
+              </InfoRow>
+            </EditableSection>
+
+            {/* Evaluation Process Section */}
+            <EditableSection 
+              title="Evaluation Process" 
+              icon={<AssessmentIcon />}
+              section="evaluation"
+            >
+              <InfoRow label="LLM Judge Model">
+                {isEditing === 'evaluation' ? (
+                  <FormControl fullWidth>
+                    <InputLabel>Model</InputLabel>
+                    <Select
+                      value={editData.model_id || ''}
+                      onChange={(e) => setEditData({ ...editData, model_id: e.target.value as UUID })}
+                      label="Model"
+                    >
+                      {models.map((model) => (
+                        <MenuItem key={model.id} value={model.id}>
+                          <Box>
+                            <Typography variant="subtitle2">
+                              {model.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {model.description}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  (() => {
+                    const model = models.find(m => m.id === metric.model_id);
+                    return (
+                      <>
+                        <Typography>{model?.name || '-'}</Typography>
+                        {model?.description && (
+                          <Typography variant="body2" color="text.secondary">
+                            {model.description}
+                          </Typography>
+                        )}
+                      </>
+                    );
+                  })()
+                )}
+              </InfoRow>
+
+              <InfoRow label="Evaluation Prompt">
+                {isEditing === 'evaluation' ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={editData.evaluation_prompt || ''}
+                    onChange={handleInputChange('evaluation_prompt')}
+                    placeholder="Enter evaluation prompt"
+                  />
+                ) : (
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'monospace',
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      padding: 1,
+                      minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {metric.evaluation_prompt || '-'}
+                  </Typography>
+                )}
+              </InfoRow>
+
+              <InfoRow label="Evaluation Steps">
+                {isEditing === 'evaluation' ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {(editData.evaluation_steps || ['']).map((step, index) => (
+                      <Box key={index} sx={{ display: 'flex', gap: 1 }}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          value={step}
+                          onChange={handleStepChange(index)}
+                          placeholder={`Step ${index + 1}: Describe this evaluation step...`}
+                        />
+                        <IconButton 
+                          onClick={() => removeStep(index)}
+                          disabled={(editData.evaluation_steps || []).length === 1}
+                          sx={{ mt: 1 }}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    ))}
+                    <Button
+                      startIcon={<AddIcon />}
+                      onClick={addStep}
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      Add Step
+                    </Button>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {metric.evaluation_steps ? (
+                      metric.evaluation_steps.split('\n---\n').map((step, index) => (
+                        <Paper 
+                          key={index} 
+                          variant="outlined" 
+                          sx={{ 
+                            p: 2,
+                            bgcolor: 'background.paper',
+                            position: 'relative',
+                            pl: 6
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              position: 'absolute',
+                              left: 16,
+                              color: 'primary.main',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {index + 1}
+                          </Typography>
+                          <Typography sx={{ whiteSpace: 'pre-wrap' }}>
+                            {step.replace(/^Step \d+:\n/, '')}
+                          </Typography>
+                        </Paper>
+                      ))
+                    ) : (
+                      <Typography>-</Typography>
+                    )}
+                  </Box>
+                )}
+              </InfoRow>
+
+              <InfoRow label="Reasoning Instructions">
+                {isEditing === 'evaluation' ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={editData.reasoning || ''}
+                    onChange={handleInputChange('reasoning')}
+                    placeholder="Enter reasoning instructions"
+                  />
+                ) : (
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'monospace',
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      padding: 1,
+                      minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {metric.reasoning || '-'}
+                  </Typography>
+                )}
+              </InfoRow>
+            </EditableSection>
+
+            {/* Result Configuration Section */}
+            <EditableSection 
+              title="Result Configuration" 
+              icon={<SettingsIcon />}
+              section="configuration"
+            >
+              <InfoRow label="Score Type">
+                {isEditing === 'configuration' ? (
+                  <FormControl fullWidth>
+                    <InputLabel>Score Type</InputLabel>
+                    <Select
+                      value={editData.score_type || 'binary'}
+                      onChange={(e) => setEditData({ ...editData, score_type: e.target.value as ScoreType })}
+                      label="Score Type"
+                    >
+                      <MenuItem value="binary">Binary (Pass/Fail)</MenuItem>
+                      <MenuItem value="numeric">Numeric</MenuItem>
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontSize: '0.875rem',
+                        fontWeight: 'medium'
+                      }}
+                    >
+                      {metric.score_type === 'binary' ? 'Binary (Pass/Fail)' : 'Numeric'}
+                    </Typography>
+                  </Box>
+                )}
+              </InfoRow>
+
+              {(metric.score_type === 'numeric' || editData.score_type === 'numeric') && (
+                <>
+                  <Box sx={{ display: 'flex', gap: 4 }}>
+                    <InfoRow label="Minimum Score">
+                      {isEditing === 'configuration' ? (
+                        <TextField
+                          type="number"
+                          value={editData.min_score || ''}
+                          onChange={(e) => setEditData({ ...editData, min_score: Number(e.target.value) })}
+                          fullWidth
+                          placeholder="Enter minimum score"
+                        />
+                      ) : (
+                        <Typography variant="h6" color="text.secondary">
+                          {metric.min_score}
+                        </Typography>
+                      )}
+                    </InfoRow>
+
+                    <InfoRow label="Maximum Score">
+                      {isEditing === 'configuration' ? (
+                        <TextField
+                          type="number"
+                          value={editData.max_score || ''}
+                          onChange={(e) => setEditData({ ...editData, max_score: Number(e.target.value) })}
+                          fullWidth
+                          placeholder="Enter maximum score"
+                        />
+                      ) : (
+                        <Typography variant="h6" color="text.secondary">
+                          {metric.max_score}
+                        </Typography>
+                      )}
+                    </InfoRow>
+                  </Box>
+
+                  <InfoRow label="Threshold">
+                    {isEditing === 'configuration' ? (
+                      <TextField
+                        type="number"
+                        value={editData.threshold || ''}
+                        onChange={(e) => setEditData({ ...editData, threshold: Number(e.target.value) })}
+                        fullWidth
+                        placeholder="Enter threshold score"
+                        helperText="Minimum score required to pass"
+                      />
+                    ) : (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography
+                          sx={{
+                            bgcolor: 'success.main',
+                            color: 'success.contrastText',
+                            px: 2,
+                            py: 0.5,
+                            borderRadius: 1,
+                            fontSize: '0.875rem',
+                            fontWeight: 'medium'
+                          }}
+                        >
+                          ≥ {metric.threshold}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Minimum score required to pass
+                        </Typography>
+                      </Box>
+                    )}
+                  </InfoRow>
+                </>
+              )}
+
+              <InfoRow label="Result Explanation">
+                {isEditing === 'configuration' ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={editData.explanation || ''}
+                    onChange={handleInputChange('explanation')}
+                    placeholder="Enter result explanation"
+                  />
+                ) : (
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'monospace',
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      padding: 1,
+                      minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {metric.explanation || '-'}
+                  </Typography>
+                )}
+              </InfoRow>
+            </EditableSection>
+          </Stack>
+        </Box>
+
+        {/* Right side - Workflow */}
+        <Box sx={{ width: { xs: '100%', md: '400px' }, flexShrink: 0 }}>
+          <Paper sx={{ p: 3 }}>
+            <BaseWorkflowSection
+              title="Workflow"
+              entityId={identifier}
+              entityType="Metric"
+              status={metric.status?.name}
+              assignee={metric.assignee}
+              owner={metric.owner}
+              clientFactory={session?.session_token ? new ApiClientFactory(session.session_token) : undefined}
+              showPriority={false}
+              onUpdateEntity={async (updateData, fieldName) => {
+                if (!session?.session_token) return;
+                
+                try {
+                  const clientFactory = new ApiClientFactory(session.session_token);
+                  const metricsClient = clientFactory.getMetricsClient();
+                  await metricsClient.updateMetric(identifier, updateData);
+                  
+                  // Refresh metric data after successful update
+                  const updatedMetric = await metricsClient.getMetric(identifier);
+                  setMetric(updatedMetric);
+                  
+                  notifications.show(`${fieldName} updated successfully`, { severity: 'success' });
+                } catch (error) {
+                  console.error('Error updating metric:', error);
+                  notifications.show(`Failed to update ${fieldName}`, { severity: 'error' });
+                  throw error; // Re-throw to let BaseWorkflowSection handle the error
+                }
+              }}
+            />
+          </Paper>
+        </Box>
+      </Stack>
+    </PageContainer>
+  );
 } 

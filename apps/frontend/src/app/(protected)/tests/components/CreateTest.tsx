@@ -330,7 +330,7 @@ export default function CreateTest({
 
   return (
     <Stack spacing={3}>
-      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+      <Typography variant="subtitle2" color="text.secondary">
         Workflow
       </Typography>
 
@@ -451,7 +451,7 @@ export default function CreateTest({
 
       <Divider sx={{ my: 1 }} />
 
-      <Typography variant="subtitle2" color="text.secondary">
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
         Test Details
       </Typography>
 

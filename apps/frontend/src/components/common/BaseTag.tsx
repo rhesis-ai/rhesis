@@ -20,24 +20,37 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
-import { TestTag } from '@/utils/api-client/interfaces/tests';
+import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 
-// Styled components for consistent styling
+// Styled components for component-specific styling
+const StyledTextField = styled(TextField)({
+  '&.base-tag-field .MuiOutlinedInput-root': {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    minHeight: 'unset',
+    padding: '8px 8px 8px 12px'
+  },
+  '&.base-tag-field .MuiOutlinedInput-input': {
+    padding: '4px',
+    height: '30px',
+    minWidth: '80px'
+  }
+});
 const TagContainer = styled(Box)({
   width: '100%',
   '& .MuiChip-root': {
     margin: '8px 4px 2px 0'
   }
-}) as typeof Box;
+});
 
 // Type definitions
 interface TaggableEntity {
   id: UUID;
   organization_id?: UUID;
   user_id?: UUID;
-  tags?: TestTag[];
+  tags?: Tag[];
 }
 
 export interface BaseTagProps extends Omit<StandardTextFieldProps, 'onChange' | 'value'> {
@@ -303,33 +316,46 @@ export default function BaseTag({
       label={tag}
       onDelete={!disabled ? () => handleDeleteTag(tag) : undefined}
       color={chipColor}
+      variant="filled"
+      onDelete={!disabled && !disableEdition ? () => handleDeleteTag(tag) : undefined}
+      disabled={disabled}
+      sx={{ 
+        height: '24px', 
+        maxWidth: '200px',
+        '& .MuiChip-label': { 
+          padding: '0 6px',
+          fontSize: '0.8125rem'
+        }
+      }}
       className={styles.baseTag}
     />
   ));
 
   return (
     <TagContainer>
-      <TextField
+      <StyledTextField
+        {...textFieldProps}
         id={id}
+        className="base-tag-field"
         className="tag-input"
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleInputKeyDown}
         onPaste={handlePaste}
-        onBlur={handleBlur}
         onFocus={handleFocus}
-        label={label}
+        onBlur={handleBlur}
         placeholder={localTags.length === 0 ? placeholder : ''}
-        disabled={disabled || isUpdating}
         error={error}
-        fullWidth
+        label={label}
+        disabled={disabled || disableEdition}
+        inputRef={inputRef}
         InputProps={{
           ...customInputProps,
-          startAdornment: chipElements.length > 0 ? chipElements : null
+          startAdornment: chipElements.length > 0 ? chipElements : null,
+          readOnly: disableEdition
         }}
         InputLabelProps={inputLabelProps}
-        variant="outlined"
-        {...textFieldProps}
+        fullWidth
       />
     </TagContainer>
   );

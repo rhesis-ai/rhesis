@@ -1,8 +1,9 @@
 import { UUID } from 'crypto';
-import { UserReference, Status, TestTag } from './tests';
+import { UserReference, Status } from './tests';
 import { TestConfigurationDetail } from './test-configuration';
 import { Endpoint } from './endpoint';
 import { TestSet } from './test-set';
+import { Tag } from './tag';
 
 // Define Organization interface based on API response
 export interface OrganizationReference {
@@ -23,7 +24,7 @@ export interface TestRunBase {
   test_configuration_id?: UUID;
   owner_id?: UUID;
   assignee_id?: UUID;
-  tags?: TestTag[];
+  tags?: Tag[];
 }
 
 export interface TestRunCreate extends TestRunBase {}

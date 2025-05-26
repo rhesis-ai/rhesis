@@ -7,7 +7,7 @@ import {
   Typography,
   Button,
   Stack,
-  Divider
+  // Divider // Keep or remove based on whether header/footer have borders
 } from '@mui/material';
 
 interface BaseDrawerProps {
@@ -19,6 +19,7 @@ interface BaseDrawerProps {
   onSave?: () => void;
   error?: string;
   saveButtonText?: string;
+  width?: number | string; // Add width prop
 }
 
 // Utility function to filter out duplicates and invalid entries
@@ -51,7 +52,8 @@ export default function BaseDrawer({
   loading = false,
   onSave,
   error,
-  saveButtonText = 'Save Changes'
+  saveButtonText = 'Save Changes',
+  width = 600 // Default width
 }: BaseDrawerProps) {
   return (
     <Drawer
@@ -60,8 +62,8 @@ export default function BaseDrawer({
       onClose={onClose}
       variant="temporary"
       ModalProps={{
-        keepMounted: false,
-        slotProps: {
+        keepMounted: true, // Or false, depending on preference
+        slotProps: {        
           backdrop: {
             sx: {
               backgroundColor: 'rgba(0, 0, 0, 0.5)'
@@ -69,74 +71,68 @@ export default function BaseDrawer({
           }
         }
       }}
-      slotProps={{
+      slotProps={{ 
         backdrop: {
           sx: {
-            zIndex: 1200
+            // Ensure backdrop is below drawer paper but above other content if necessary
+            zIndex: (theme) => theme.zIndex.drawer - 1 
           }
         }
       }}
       PaperProps={{
         sx: {
-          width: 600,
-          zIndex: 1300
+          width: width,
+          zIndex: (theme) => theme.zIndex.drawer + 1, // Ensure Paper is above AppBar and its own backdrop
+          display: 'flex', // Added for flex structure if header/content/footer are direct children of Paper
+          flexDirection: 'column',
+          justifyContent: 'space-between' // If header/content/footer structure is used
         }
       }}
-      sx={{
-        zIndex: 1300,
-        '& .MuiDrawer-paper': {
+      sx={{ // Sx for the Drawer root
+        zIndex: (theme) => theme.zIndex.drawer + 1, // Match PaperProps or slightly higher for the root container
+        '& .MuiDrawer-paper': { // Already present in your old BaseDrawer for boxSizing
           boxSizing: 'border-box'
         }
       }}
     >
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6">{title}</Typography>
-        </Box>
+      {/* Optional: Re-introduce explicit Header/Content/Footer Box structure if desired */}
+      {/* Header */}
+      <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="h6">{title}</Typography>
+      </Box>
 
-        {/* Content */}
-        <Box 
-          sx={{ 
-            flex: 1, 
-            overflow: 'auto'
-          }}
-        >
-          {/* Content wrapper with standardized styling */}
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: 2,
-              p: 3
-            }}
-          >
-            {children}
-          </Box>
-        </Box>
+      {/* Content */}
+      <Box 
+        sx={{ 
+          p: 3, 
+          flex: 1, 
+          overflowY: 'auto'
+        }}
+      >
+        {children}
+      </Box>
 
-        {/* Footer */}
-        <Box sx={{ p: 3, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-              {error}
-            </Typography>
-          )}
-          <Stack direction="row" spacing={2} justifyContent="flex-end">
-            <Button onClick={onClose} disabled={loading}>
-              Cancel
+      {/* Footer */}
+      <Box sx={{ p: 3, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+        {error && (
+          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
+        <Stack direction="row" spacing={2} justifyContent="flex-end">
+          <Button onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          {onSave && (
+            <Button 
+              variant="contained" 
+              onClick={onSave}
+              disabled={loading}
+            >
+              {saveButtonText}
             </Button>
-            {onSave && (
-              <Button 
-                variant="contained" 
-                onClick={onSave}
-                disabled={loading}
-              >
-                {saveButtonText}
-              </Button>
-            )}
-          </Stack>
-        </Box>
+          )}
+        </Stack>
       </Box>
     </Drawer>
   );

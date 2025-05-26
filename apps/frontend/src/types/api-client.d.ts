@@ -806,7 +806,8 @@ declare module '@/utils/api-client/interfaces/tag' {
     USE_CASE = "UseCase",
     RESPONSE_PATTERN = "ResponsePattern",
     PROJECT = "Project",
-    ORGANIZATION = "Organization"
+    ORGANIZATION = "Organization",
+    METRIC = "Metric"
   }
 
   export interface TagBase {
@@ -834,7 +835,8 @@ declare module '@/utils/api-client/interfaces/tag' {
 
 declare module '@/utils/api-client/interfaces/test-run' {
   import { UUID } from 'crypto';
-  import { UserReference, Status, TestTag } from '@/utils/api-client/interfaces/tests';
+  import { UserReference, Status } from '@/utils/api-client/interfaces/tests';
+  import { Tag } from '@/utils/api-client/interfaces/tag';
   import { TestConfigurationDetail } from '@/utils/api-client/interfaces/test-configuration';
   import { OrganizationReference } from '@/utils/api-client/interfaces/organization';
 
@@ -847,7 +849,7 @@ declare module '@/utils/api-client/interfaces/test-run' {
     test_configuration_id?: UUID;
     owner_id?: UUID;
     assignee_id?: UUID;
-    tags?: TestTag[];
+    tags?: Tag[];
   }
 
   export interface TestRunCreate extends TestRunBase {}

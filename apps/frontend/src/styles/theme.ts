@@ -57,7 +57,6 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiDrawer: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#ffffff' : '#1D2939',
           '& .MuiPaper-root': {
             backgroundColor: mode === 'light' ? '#ffffff' : '#1D2939',
             color: mode === 'light' ? '#1D2939' : '#ffffff',
@@ -87,6 +86,20 @@ const getDesignTokens = (mode: PaletteMode) => ({
           backgroundColor: mode === 'light' ? '#ffffff' : '#344054',
         },
       },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {}
+      }
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
+            padding: '16.5px 14px'
+          }
+        }
+      }
     }
   },
   chartPalettes: {

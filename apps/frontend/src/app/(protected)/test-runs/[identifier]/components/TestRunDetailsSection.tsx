@@ -55,14 +55,16 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
 
   // Common style for TextField with chips
   const chipFieldStyle = {
-    '& .MuiInputBase-root': {
+    '& .MuiInputBase-root.MuiOutlinedInput-root.chip-field': {
       display: 'flex',
       flexWrap: 'wrap',
       alignItems: 'center',
-      padding: '0',
-      minHeight: 'unset'
+      padding: '8px',
+      '&.chip-field-no-input': {
+        minHeight: 'unset'
+      }
     },
-    '& .MuiInputBase-input': {
+    '& .MuiInputBase-input.MuiOutlinedInput-input.chip-field': {
       padding: '0',
       height: '0'
     },
