@@ -229,21 +229,25 @@ class MetricEvaluator:
 
         # Generate unique keys for each metric to avoid collisions
         metric_keys = []
+        used_keys = set()  # Track all used keys to ensure uniqueness
         class_name_counts = {}
         
         for class_name, metric, metric_config, backend in metric_tasks:
-            # Use the metric's name if available, otherwise generate a unique key
+            # Start with the preferred key (name if available, otherwise class_name)
             if metric_config.name and metric_config.name.strip():
-                unique_key = metric_config.name
+                base_key = metric_config.name
             else:
-                # Generate unique key based on class_name and occurrence count
-                count = class_name_counts.get(class_name, 0)
-                class_name_counts[class_name] = count + 1
-                if count == 0:
-                    unique_key = class_name
-                else:
-                    unique_key = f"{class_name}_{count}"
+                base_key = class_name
             
+            # Ensure the key is unique by adding suffixes if necessary
+            unique_key = base_key
+            counter = 1
+            while unique_key in used_keys:
+                unique_key = f"{base_key}_{counter}"
+                counter += 1
+            
+            # Track this key as used
+            used_keys.add(unique_key)
             metric_keys.append(unique_key)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
