@@ -1372,7 +1372,7 @@ export default function MetricsPage() {
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="delete-metric-dialog-description">
-            Are you sure you want to permanently delete the metric "{metricToDeleteCompletely?.name}"? This action cannot be undone.
+            Are you sure you want to permanently delete the metric &quot;{metricToDeleteCompletely?.name}&quot;? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

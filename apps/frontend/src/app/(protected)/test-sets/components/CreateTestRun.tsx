@@ -129,9 +129,10 @@ export default function CreateTestRun({
         const projectsData = await projectsClient.getProjects({
           sortOrder: 'asc'
         });
-        setProjects(projectsData.data);
+        setProjects(projectsData.data || []);
       } catch (error) {
         console.error('Error fetching initial data:', error);
+        setProjects([]); // Ensure projects remains an empty array on error
         onError?.('Failed to load initial data');
       }
     };
@@ -154,9 +155,10 @@ export default function CreateTestRun({
         const filteredEndpoints = endpointsData.data.filter(
           endpoint => endpoint.project_id === selectedProject
         );
-        setEndpoints(filteredEndpoints);
+        setEndpoints(filteredEndpoints || []);
       } catch (error) {
         console.error('Error fetching endpoints:', error);
+        setEndpoints([]); // Ensure endpoints remains an empty array on error
         onError?.('Failed to load endpoints');
       }
     };
@@ -208,7 +210,7 @@ export default function CreateTestRun({
           }}
           label="Project"
         >
-          {projects.map((project) => (
+          {(projects || []).map((project) => (
             <MenuItem key={project.id} value={project.id}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {getProjectIcon(project)}
@@ -227,7 +229,7 @@ export default function CreateTestRun({
           label="Endpoint"
           disabled={!selectedProject}
         >
-          {endpoints.length === 0 ? (
+          {(!endpoints || endpoints.length === 0) ? (
             <MenuItem disabled>
               <Typography color="text.secondary">
                 {selectedProject ? 'No endpoints available for this project' : 'Select a project first'}

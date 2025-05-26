@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSet, TestSetTag } from '@/utils/api-client/interfaces/test-set';
+import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
