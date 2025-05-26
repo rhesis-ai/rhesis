@@ -105,16 +105,12 @@ def bulk_create_test_set(
                 db=db,
                 name=defaults["test_set"]["status"],
                 entity_type="General",
-                organization_id=organization_id,
-                user_id=user_id,
             )
 
             license_type = get_or_create_type_lookup(
                 db=db,
                 type_name="LicenseType",
                 type_value=defaults["test_set"]["license_type"],
-                organization_id=organization_id,
-                user_id=user_id,
             )
 
             # Create test set with minimal attributes

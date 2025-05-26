@@ -226,8 +226,6 @@ def create_entity_with_status(
         db=db,
         name=defaults[entity_type.lower()]["status"],
         entity_type="General",
-        organization_id=organization_id,
-        user_id=user_id,
     )
 
     return get_or_create_entity(
@@ -293,8 +291,6 @@ def create_prompt(
                 db=db,
                 name=defaults["prompt"]["status"],
                 entity_type="General",
-                organization_id=organization_id,
-                user_id=user_id,
             ).id,
             "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
             "demographic_id": demographic.id if demographic else None,
@@ -321,16 +317,12 @@ def bulk_create_tests(
                 db=db,
                 type_name="TestType",
                 type_value=defaults["test"]["test_type"],
-                organization_id=organization_id,
-                user_id=user_id,
             )
 
             test_status = get_or_create_status(
                 db=db,
                 name=defaults["test"]["status"],
                 entity_type="Test",
-                organization_id=organization_id,
-                user_id=user_id,
             )
 
             for test_data in tests_data:
@@ -390,8 +382,6 @@ def bulk_create_tests(
                         db=db,
                         name=test_data_dict.pop("status"),
                         entity_type="Test",
-                        organization_id=organization_id,
-                        user_id=user_id,
                     ).id,
                     "user_id": user_id,
                     "organization_id": organization_id,
