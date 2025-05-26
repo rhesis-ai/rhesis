@@ -339,11 +339,12 @@ export default function EndpointForm() {
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
+                    required
                     label="Name"
                     name="name"
                     value={formData.name}
                     onChange={(e) => handleChange('name', e.target.value)}
-                    required
+                    helperText="A unique name to identify this endpoint"
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -355,7 +356,6 @@ export default function EndpointForm() {
                     onChange={(e) => handleChange('description', e.target.value)}
                     multiline
                     rows={1}
-                    sx={{ '& .MuiInputBase-root': { height: '56px' } }}
                   />
                 </Grid>
               </Grid>

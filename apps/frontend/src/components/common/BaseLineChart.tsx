@@ -9,9 +9,9 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { Typography, Box, Card, CardContent } from '@mui/material';
-import { useChartColors } from './BaseChartColors';
+import { Typography, Box, Card, CardContent, useTheme } from '@mui/material';
 import { format, subMonths } from 'date-fns';
+import styles from '@/styles/BaseLineChart.module.css';
 
 export interface LineDataSeries {
   dataKey: string;
@@ -118,65 +118,48 @@ export default function BaseLineChart({
   tooltipProps = { contentStyle: { fontSize: '10px' } },
   yAxisConfig
 }: BaseLineChartProps) {
-  // Get theme colors
-  const { palettes } = useChartColors();
-  
-  // Default colors if not using theme
+  const theme = useTheme();
   const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
   
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent sx={{ 
-        p: 0.5, 
-        height: '100%', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        '&:last-child': { pb: 0.5 },
-        alignItems: 'center', // Center content horizontally
-        justifyContent: 'center' // Center content vertically
-      }}>
+    <Card className={styles.card}>
+      <CardContent className={styles.cardContent}>
         {title && (
-          <Typography variant="subtitle1" sx={{ mb: 1, fontSize: '0.875rem', px: 0.5, textAlign: 'center', fontWeight: 'bold' }}>
+          <Typography variant="subtitle1" className={styles.title}>
             {title}
           </Typography>
         )}
-        <Box sx={{ 
-          flexGrow: 1, 
-          display: 'flex', 
-          alignItems: 'center',
-          justifyContent: 'center', // Center horizontally
-          width: '100%' 
-        }}>
+        <Box className={styles.chartContainer}>
           <ResponsiveContainer width="99%" height={height}>
             <LineChart 
               data={data} 
-              margin={{ top: 5, right: 5, bottom: 5, left: -20 }} // Improved margins
+              margin={{ top: 5, right: 5, bottom: 5, left: -20 }}
             >
               {showGrid && <CartesianGrid strokeDasharray="3 3" />}
               <XAxis 
                 dataKey={xAxisDataKey} 
                 tick={{ fontSize: 10 }}
-                axisLine={{ strokeWidth: 1 }} // Make axis more visible
-                tickLine={{ strokeWidth: 1 }} // Make ticks more visible
+                axisLine={{ strokeWidth: 1 }}
+                tickLine={{ strokeWidth: 1 }}
               />
               <YAxis 
                 tick={{ fontSize: 10 }} 
-                axisLine={{ strokeWidth: 1 }} // Make axis more visible
-                tickLine={{ strokeWidth: 1 }} // Make ticks more visible
+                axisLine={{ strokeWidth: 1 }}
+                tickLine={{ strokeWidth: 1 }}
                 {...yAxisConfig}
               />
               <Tooltip {...tooltipProps} />
-              <Legend {...legendProps} height={30} /> {/* Adjust legend height */}
+              <Legend {...legendProps} height={30} />
               {series.map((s, index) => (
                 <Line
                   key={index}
                   type="monotone"
                   dataKey={s.dataKey}
                   name={s.name || s.dataKey}
-                  stroke={s.color || (useThemeColors ? palettes[colorPalette][index % palettes[colorPalette].length] : defaultColors[index % defaultColors.length])}
-                  strokeWidth={s.strokeWidth || 1.5} // Slightly thicker lines
-                  dot={{ strokeWidth: 1, r: 3 }} // Smaller dots
-                  activeDot={{ r: 5, strokeWidth: 1 }} // More visible active dots
+                  stroke={s.color || (useThemeColors ? theme.chartPalettes[colorPalette][index % theme.chartPalettes[colorPalette].length] : defaultColors[index % defaultColors.length])}
+                  strokeWidth={s.strokeWidth || 1.5}
+                  dot={{ strokeWidth: 1, r: 3 }}
+                  activeDot={{ r: 5, strokeWidth: 1 }}
                 />
               ))}
             </LineChart>

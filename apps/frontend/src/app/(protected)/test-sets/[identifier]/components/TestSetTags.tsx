@@ -38,11 +38,6 @@ export default function TestSetTags({ sessionToken, testSet }: TestSetTagsProps)
         sessionToken={sessionToken}
         entityType={EntityType.TEST_SET}
         entity={testSet}
-        sx={{
-          '& .MuiInputBase-root': {
-            padding: '16.5px 14px'
-          }
-        }}
       />
     </Box>
   );

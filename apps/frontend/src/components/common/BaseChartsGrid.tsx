@@ -1,8 +1,9 @@
-import React, { ReactNode } from 'react';
-import { Grid, Box } from '@mui/material';
+import React from 'react';
+import { Grid } from '@mui/material';
+import styles from '@/styles/BaseChartsGrid.module.css';
 
 export interface BaseChartsGridProps {
-  children: ReactNode | ReactNode[];
+  children: React.ReactNode;
   spacing?: number;
   columns?: {
     xs?: number;
@@ -20,8 +21,13 @@ export default function BaseChartsGrid({
   columns = { xs: 12, md: 3 },
   marginBottom = 4
 }: BaseChartsGridProps) {
+  // Set the CSS variable for grid margin
+  const gridStyle = {
+    '--grid-margin': `${marginBottom * 8}px`
+  } as React.CSSProperties;
+
   return (
-    <Grid container spacing={spacing} sx={{ mb: marginBottom }}>
+    <Grid container spacing={spacing} className={styles.grid} style={gridStyle}>
       {React.Children.map(children, (child, index) => (
         <Grid item key={index} {...columns}>
           {child}

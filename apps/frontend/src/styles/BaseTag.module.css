@@ -1,0 +1,9 @@
+.baseTag {
+  height: 24px;
+  max-width: 200px;
+}
+
+.baseTag :global(.MuiChip-label) {
+  padding: 0 6px;
+  font-size: 0.8125rem;
+} 

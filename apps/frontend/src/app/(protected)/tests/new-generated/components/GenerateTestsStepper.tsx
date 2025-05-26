@@ -39,6 +39,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import StarIcon from '@mui/icons-material/Star';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+import styles from '@/styles/ReviewSamples.module.css';
 
 // Common interfaces
 interface Sample {
@@ -646,39 +647,9 @@ const ReviewSamples = ({ samples: initialSamples, onRatingChange, onFeedbackChan
               </Box>
 
               {/* Right side - Rating (20%) */}
-              <Box sx={{ 
-                flex: '0 0 20%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative'
-              }}>
+              <Box className={styles.ratingContainer}>
                 {sample.rating === null && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: -10,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      bgcolor: 'warning.main',
-                      color: 'warning.contrastText',
-                      px: 1,
-                      py: 0.5,
-                      borderRadius: 1,
-                      fontSize: '0.75rem',
-                      whiteSpace: 'nowrap',
-                      '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        top: '100%',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        border: '4px solid transparent',
-                        borderTopColor: 'warning.main'
-                      }
-                    }}
-                  >
+                  <Box className={styles.ratingTooltip}>
                     Click to Rate
                   </Box>
                 )}
