@@ -322,16 +322,7 @@ export default function BaseDataGrid({
         {filters && filters.length > 0 && (
           <Box sx={{ display: 'flex', gap: 2 }}>
             {filters.map((filter, index) => (
-              <FormControl key={index} variant="outlined" size="small" sx={{ 
-                minWidth: 150,
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(0, 0, 0, 0.23)',
-                },
-                '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(0, 0, 0, 0.23) !important',
-                  borderWidth: '1px !important',
-                }
-              }}>
+              <FormControl key={index} variant="outlined" size="small" sx={{ minWidth: 150 }}>
                 <InputLabel id={`${filter.name}-label`}>{filter.label}</InputLabel>
                 <Select
                   labelId={`${filter.name}-label`}

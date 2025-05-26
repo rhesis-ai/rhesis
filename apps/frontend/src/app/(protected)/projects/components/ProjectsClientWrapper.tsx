@@ -13,6 +13,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { PaginatedResponse } from '@/utils/api-client/interfaces/common';
+import styles from '@/styles/ProjectsClientWrapper.module.css';
 
 /** Type for alert/snackbar severity */
 type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
@@ -29,33 +30,19 @@ interface EmptyStateMessageProps {
  */
 function EmptyStateMessage({ title, description, icon }: EmptyStateMessageProps) {
   return (
-    <Paper 
-      elevation={2}
-      sx={{ 
-        width: '100%', 
-        textAlign: 'center', 
-        py: 8,
-        px: 3,
-        borderRadius: 2,
-        backgroundColor: 'background.paper',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2
-      }}
-    >
+    <Paper elevation={2} className={styles.emptyState}>
       {icon || (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-          <FolderIcon sx={{ fontSize: 60, color: 'primary.main', opacity: 0.7, mr: 1 }} />
-          <AutoAwesomeIcon sx={{ fontSize: 30, color: 'secondary.main', ml: -3, mt: -1 }} />
+        <Box className={styles.iconContainer}>
+          <FolderIcon className={styles.primaryIcon} />
+          <AutoAwesomeIcon className={styles.secondaryIcon} />
         </Box>
       )}
       
-      <Typography variant="h5" color="text.primary" gutterBottom fontWeight="medium">
+      <Typography variant="h5" className={styles.title}>
         {title}
       </Typography>
       
-      <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 550, mx: 'auto' }}>
+      <Typography variant="body1" className={styles.description}>
         {description}
       </Typography>
     </Paper>

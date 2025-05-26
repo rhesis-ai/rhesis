@@ -439,8 +439,8 @@ export default function UpdateTest({
   }, [submitRef, handleSubmit]);
 
   return (
-    <Stack spacing={3}>
-      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+    <Stack spacing={2}>
+      <Typography variant="subtitle2" color="text.secondary">
         Workflow
       </Typography>
 
@@ -566,7 +566,7 @@ export default function UpdateTest({
 
       <Divider sx={{ my: 1 }} />
 
-      <Typography variant="subtitle2" color="text.secondary">
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
         Test Details
       </Typography>
 

@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { User } from '@/utils/api-client/interfaces/user';
 import { UsersClient } from '@/utils/api-client/users-client';
 import PersonIcon from '@mui/icons-material/Person';
+import styles from '@/styles/ProjectDetailsStep.module.css';
 
 // Import icons for selection
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -106,7 +107,7 @@ const PROJECT_ICONS = [
 // IconSelector component
 const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChange: (icon: string) => void }) => {
   return (
-    <FormControl fullWidth sx={{ mt: 2, mb: 2 }}>
+    <FormControl fullWidth className={styles.iconSelector}>
       <InputLabel>Project Icon</InputLabel>
       <Select
         value={selectedIcon || 'SmartToy'}
@@ -117,7 +118,7 @@ const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChan
           const IconComponent = icon.component;
           return (
             <MenuItem key={icon.name} value={icon.name}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box className={styles.iconOption}>
                 <IconComponent fontSize="small" />
                 <Typography>{icon.label}</Typography>
               </Box>

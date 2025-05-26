@@ -5,7 +5,6 @@ import { Box } from '@mui/material';
 import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import { TestTag } from '@/utils/api-client/interfaces/tests';
 
 interface TestRunTagsProps {
   sessionToken: string;
@@ -39,11 +38,6 @@ export default function TestRunTags({ sessionToken, testRun }: TestRunTagsProps)
         sessionToken={sessionToken}
         entityType={EntityType.TEST_RUN}
         entity={testRun}
-        sx={{
-          '& .MuiInputBase-root': {
-            padding: '16.5px 14px'
-          }
-        }}
       />
     </Box>
   );

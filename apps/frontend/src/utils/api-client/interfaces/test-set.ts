@@ -1,10 +1,20 @@
 import { UUID } from 'crypto';
 import { Status } from './status';
+import { Tag } from './tag';
 
-export interface TestSetTag {
-  id: UUID;
+export interface TestSetBase {
   name: string;
-  icon_unicode?: string;
+  description?: string;
+  short_description?: string;
+  slug?: string;
+  status_id?: UUID;
+  tags?: Tag[];
+  attributes?: Record<string, any>;
+  priority?: number;
+  user_id?: UUID;
+  owner_id?: UUID;
+  assignee_id?: UUID;
+  organization_id?: UUID;
 }
 
 // Organization interface for the nested organization data
@@ -51,7 +61,7 @@ export interface TestSet {
   status_id?: UUID;
   status: string | Status;
   status_details?: Status;
-  tags?: TestSetTag[];
+  tags?: Tag[];
   license_type_id?: UUID;
   license_type?: LicenseType;
   attributes?: {

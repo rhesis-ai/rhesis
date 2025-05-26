@@ -13,7 +13,9 @@ export enum EntityType {
     USE_CASE = "UseCase",
     RESPONSE_PATTERN = "ResponsePattern",
     PROJECT = "Project",
-    ORGANIZATION = "Organization"
+    ORGANIZATION = "Organization",
+    METRIC = "Metric",
+    MODEL = "Model"
 }
 
 export interface TagBase {

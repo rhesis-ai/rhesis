@@ -17,11 +17,13 @@ import { TypeLookupClient } from './type-lookup-client';
 import { TestResultsClient } from './test-results-client';
 import { MetricsClient } from './metrics-client';
 import { ModelsClient } from './models-client';
+import { TagsClient } from './tags-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
   private metricsClient: MetricsClient | null = null;
   private modelsClient: ModelsClient | null = null;
+  private tagsClient: TagsClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -107,5 +109,12 @@ export class ApiClientFactory {
       this.modelsClient = new ModelsClient(this.sessionToken);
     }
     return this.modelsClient;
+  }
+
+  getTagsClient(): TagsClient {
+    if (!this.tagsClient) {
+      this.tagsClient = new TagsClient(this.sessionToken);
+    }
+    return this.tagsClient;
   }
 } 

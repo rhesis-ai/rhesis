@@ -1,5 +1,6 @@
 import { UUID } from 'crypto';
-import { UserReference, Organization, Status, TestTag } from './tests';
+import { UserReference, Organization, Status } from './tests';
+import { Tag } from './tag';
 
 // Metric interfaces
 export interface MetricResult {
@@ -32,7 +33,7 @@ export interface TestSet {
   short_description: string;
   slug: string;
   status_id: UUID;
-  tags: TestTag[];
+  tags: Tag[];
   license_type_id: UUID;
   attributes: {
     topics: UUID[];
@@ -98,7 +99,7 @@ export interface TestRun {
     task_state: string;
     configuration_id: UUID;
   };
-  tags: TestTag[];
+  tags: Tag[];
 }
 
 export interface TestReference {
@@ -106,7 +107,7 @@ export interface TestReference {
   user_id: UUID;
   organization_id: UUID;
   status_id: UUID;
-  tags: TestTag[];
+  tags: Tag[];
 }
 
 // Base interface for test results

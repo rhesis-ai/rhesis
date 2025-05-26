@@ -2,6 +2,7 @@ import { UUID } from 'crypto';
 import { User } from './user';
 import { TypeLookup } from './type-lookup';
 import { Status } from './status';
+import { Tag } from './tag';
 import { PaginationParams } from './pagination';
 
 export type ScoreType = 'binary' | 'numeric' | 'categorical';
@@ -12,7 +13,7 @@ export interface Metric {
   id: UUID;
   name: string;
   description: string;
-  tags: string[];
+  tags: Tag[];
   evaluation_prompt: string;
   evaluation_steps: string;
   reasoning: string;
@@ -29,6 +30,9 @@ export interface Metric {
   evaluation_examples?: string;
   created_at: string;
   updated_at: string;
+  priority?: number;
+  organization_id?: UUID;
+  user_id?: UUID;
   
   // References
   metric_type?: TypeLookup;
@@ -65,7 +69,7 @@ export interface MetricCreate {
 export interface MetricUpdate {
   name?: string;
   description?: string;
-  tags?: string[];
+  tags?: Tag[];
   evaluation_prompt?: string;
   evaluation_steps?: string;
   evaluation_examples?: string;

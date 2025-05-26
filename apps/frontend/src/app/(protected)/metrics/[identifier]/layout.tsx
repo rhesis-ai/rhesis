@@ -1,15 +1,15 @@
-import React from 'react';
-import { Metadata } from 'next';
+'use client';
 
-// This will be overridden by the dynamic generation in page.tsx
-export const metadata: Metadata = {
-  title: 'Metric Details',
-};
+import { Box } from '@mui/material';
 
-interface MetricDetailLayoutProps {
+export default function MetricLayout({
+  children,
+}: {
   children: React.ReactNode;
-}
-
-export default function MetricDetailLayout({ children }: MetricDetailLayoutProps) {
-  return children;
+}) {
+  return (
+    <Box sx={{ p: 3, height: '100%' }}>
+      {children}
+    </Box>
+  );
 } 

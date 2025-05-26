@@ -57,7 +57,6 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiDrawer: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#ffffff' : '#1D2939',
           '& .MuiPaper-root': {
             backgroundColor: mode === 'light' ? '#ffffff' : '#1D2939',
             color: mode === 'light' ? '#1D2939' : '#ffffff',
@@ -88,11 +87,48 @@ const getDesignTokens = (mode: PaletteMode) => ({
         },
       },
     },
+    MuiTextField: {
+      styleOverrides: {
+        root: {}
+      }
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
+            padding: '16.5px 14px'
+          }
+        }
+      }
+    }
   },
+  chartPalettes: {
+    line: ['#1976d2', '#9c27b0', '#2e7d32', '#ed6c02'], // primary, secondary, success, warning
+    pie: ['#42a5f5', '#1976d2', '#1565c0'], // primary light, main, dark
+    status: ['#2e7d32', '#ed6c02', '#d32f2f'] // success, warning, error
+  }
 });
 
 // Create the theme instance
 const theme = createTheme(getDesignTokens('light'));
+
+// Add chartPalettes to theme type
+declare module '@mui/material/styles' {
+  interface Theme {
+    chartPalettes: {
+      line: string[];
+      pie: string[];
+      status: string[];
+    }
+  }
+  interface ThemeOptions {
+    chartPalettes?: {
+      line: string[];
+      pie: string[];
+      status: string[];
+    }
+  }
+}
 
 export default theme;
 

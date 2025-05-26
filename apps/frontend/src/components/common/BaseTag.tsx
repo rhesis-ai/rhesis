@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState, useRef, KeyboardEvent, ClipboardEvent, ChangeEvent, FocusEvent, useEffect } from 'react';
+import styles from '@/styles/BaseTag.module.css';
 import {
   Box,
   Chip,
@@ -19,36 +20,37 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
-import { TestTag } from '@/utils/api-client/interfaces/tests';
+import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 
-// Styled components for consistent styling
-const TagContainer = styled(Box)({
-  width: '100%',
-  '& .MuiInputBase-root': {
+// Styled components for component-specific styling
+const StyledTextField = styled(TextField)({
+  '&.base-tag-field .MuiOutlinedInput-root': {
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
     minHeight: 'unset',
     padding: '8px 8px 8px 12px'
   },
-  '& .MuiInputBase-input': {
+  '&.base-tag-field .MuiOutlinedInput-input': {
     padding: '4px',
     height: '30px',
     minWidth: '80px'
-  },
+  }
+});
+const TagContainer = styled(Box)({
+  width: '100%',
   '& .MuiChip-root': {
     margin: '8px 4px 2px 0'
   }
-}) as typeof Box;
+});
 
 // Type definitions
 interface TaggableEntity {
   id: UUID;
   organization_id?: UUID;
   user_id?: UUID;
-  tags?: TestTag[];
+  tags?: Tag[];
 }
 
 export interface BaseTagProps extends Omit<StandardTextFieldProps, 'onChange' | 'value'> {
@@ -312,10 +314,9 @@ export default function BaseTag({
     <Chip
       key={tag}
       label={tag}
-      size="small"
+      onDelete={!disabled && !disableEdition ? () => handleDeleteTag(tag) : undefined}
       color={chipColor}
       variant="filled"
-      onDelete={disableEdition ? undefined : () => handleDeleteTag(tag)}
       disabled={disabled}
       sx={{ 
         height: '24px', 
@@ -325,31 +326,34 @@ export default function BaseTag({
           fontSize: '0.8125rem'
         }
       }}
+      className={styles.baseTag}
     />
   ));
 
   return (
     <TagContainer>
-      <TextField
+      <StyledTextField
+        {...textFieldProps}
         id={id}
+        className="base-tag-field"
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleInputKeyDown}
         onPaste={handlePaste}
-        onBlur={handleBlur}
         onFocus={handleFocus}
-        label={label}
+        onBlur={handleBlur}
         placeholder={localTags.length === 0 ? placeholder : ''}
-        disabled={disabled || isUpdating}
         error={error}
-        fullWidth
+        label={label}
+        disabled={disabled || disableEdition}
+        inputRef={inputRef}
         InputProps={{
           ...customInputProps,
-          startAdornment: chipElements.length > 0 ? chipElements : null
+          startAdornment: chipElements.length > 0 ? chipElements : null,
+          readOnly: disableEdition
         }}
         InputLabelProps={inputLabelProps}
-        variant="outlined"
-        {...textFieldProps}
+        fullWidth
       />
     </TagContainer>
   );

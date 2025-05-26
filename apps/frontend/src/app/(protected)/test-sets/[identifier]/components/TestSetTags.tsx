@@ -5,6 +5,7 @@ import { Box } from '@mui/material';
 import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { useTheme } from '@mui/material/styles';
 
 interface TestSetTagsProps {
   sessionToken: string;
@@ -13,6 +14,7 @@ interface TestSetTagsProps {
 
 export default function TestSetTags({ sessionToken, testSet }: TestSetTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
+  const theme = useTheme();
 
   // Initialize and update tag names when testSet changes
   useEffect(() => {
@@ -38,9 +40,10 @@ export default function TestSetTags({ sessionToken, testSet }: TestSetTagsProps)
         sessionToken={sessionToken}
         entityType={EntityType.TEST_SET}
         entity={testSet}
+        className="test-set-tags"
         sx={{
-          '& .MuiInputBase-root': {
-            padding: '16.5px 14px'
+          '&.test-set-tags .MuiInputBase-root': {
+            padding: theme => theme.spacing(2)
           }
         }}
       />

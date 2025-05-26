@@ -23,32 +23,32 @@ interface MetricTypeOption {
 
 const metricTypes: MetricTypeOption[] = [
   {
+    type: 'Custom Prompt',
+    title: 'Evaluation Prompt',
+    description: 'Evaluates the response using a LLM judge and a custom evaluation prompt',
+    icon: <ChatIcon />
+  },
+  {
+    type: 'Custom Code',
+    title: 'Code Evaluation',
+    description: 'Evaluates the response using the code provided',
+    icon: <CodeIcon />,
+    disabled: true
+  },
+  {
     type: 'Grading',
     title: 'Grading Criteria',
-    description: 'Checks the response according to your grading criteria',
+    description: 'Checks the response according to custom grading criteria',
     icon: <GradingIcon />,
     disabled: true
   },
   {
     type: 'API Call',
     title: 'API Call',
-    description: 'Makes an API call and checks the response',
+    description: 'Uses an external API service to check the response',
     icon: <ApiIcon />,
     disabled: true
   },
-  {
-    type: 'Custom Code',
-    title: 'Custom Code Evaluation',
-    description: 'Evaluate using the code provided',
-    icon: <CodeIcon />,
-    disabled: true
-  },
-  {
-    type: 'Custom Prompt',
-    title: 'Custom Prompt',
-    description: 'Evaluates the response using a custom prompt',
-    icon: <ChatIcon />
-  }
 ];
 
 interface MetricTypeDialogProps {
@@ -72,7 +72,7 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
       fullWidth
     >
       <DialogTitle>
-        Create a custom evaluation
+        Create a custom metric for your evaluation
       </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
