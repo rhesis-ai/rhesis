@@ -241,7 +241,7 @@ export default function NewMetricPage() {
           value={formData.name}
           onChange={handleChange('name')}
           helperText="Your custom metric name is simply for identification purposes only. It must not be one of Rhesis AI's default metric name, and cannot already be taken by another custom metric."
-          sx={{ mb: 3, '& .MuiInputBase-root': { height: '56px' } }}
+          sx={{ mb: 3 }}
         />
         
         <TextField
@@ -390,7 +390,6 @@ export default function NewMetricPage() {
                 value={formData.min_score || ''}
                 onChange={handleChange('min_score')}
                 fullWidth
-                sx={{ '& .MuiInputBase-root': { height: '56px' } }}
               />
               <TextField
                 required
@@ -399,7 +398,6 @@ export default function NewMetricPage() {
                 value={formData.max_score || ''}
                 onChange={handleChange('max_score')}
                 fullWidth
-                sx={{ '& .MuiInputBase-root': { height: '56px' } }}
               />
             </Box>
 
@@ -411,7 +409,7 @@ export default function NewMetricPage() {
               onChange={handleChange('threshold')}
               helperText="The minimum score required for this metric to pass"
               fullWidth
-              sx={{ mb: 3, '& .MuiInputBase-root': { height: '56px' } }}
+              sx={{ mb: 3 }}
             />
           </>
         )}

@@ -87,12 +87,35 @@ const getDesignTokens = (mode: PaletteMode) => ({
           backgroundColor: mode === 'light' ? '#ffffff' : '#344054',
         },
       },
-    },
+    }
   },
+  chartPalettes: {
+    line: ['#1976d2', '#9c27b0', '#2e7d32', '#ed6c02'], // primary, secondary, success, warning
+    pie: ['#42a5f5', '#1976d2', '#1565c0'], // primary light, main, dark
+    status: ['#2e7d32', '#ed6c02', '#d32f2f'] // success, warning, error
+  }
 });
 
 // Create the theme instance
 const theme = createTheme(getDesignTokens('light'));
+
+// Add chartPalettes to theme type
+declare module '@mui/material/styles' {
+  interface Theme {
+    chartPalettes: {
+      line: string[];
+      pie: string[];
+      status: string[];
+    }
+  }
+  interface ThemeOptions {
+    chartPalettes?: {
+      line: string[];
+      pie: string[];
+      status: string[];
+    }
+  }
+}
 
 export default theme;
 

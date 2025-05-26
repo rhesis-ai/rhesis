@@ -17,10 +17,15 @@ export class TypeLookupClient extends BaseApiClient {
     if (limit !== undefined) queryParams.append('limit', limit.toString());
     queryParams.append('sort_by', sort_by);
     queryParams.append('sort_order', sort_order);
-    if ($filter) queryParams.append('$filter', $filter);
+    if ($filter) {
+      // Don't double encode - just use the filter as is
+      queryParams.append('$filter', $filter);
+    }
     
     const queryString = queryParams.toString();
     const url = `${API_ENDPOINTS.type_lookups}?${queryString}`;
+    
+    console.log('Fetching type lookups with URL:', url);
     
     return this.fetch<TypeLookup[]>(url, {
       cache: 'no-store'
@@ -28,7 +33,7 @@ export class TypeLookupClient extends BaseApiClient {
   }
 
   async getTypeLookup(id: string): Promise<TypeLookup> {
-    return this.fetch<TypeLookup>(`${API_ENDPOINTS.type_lookups}${id}`);
+    return this.fetch<TypeLookup>(`${API_ENDPOINTS.type_lookups}/${id}`);
   }
 
   async createTypeLookup(typeLookup: TypeLookupCreate): Promise<TypeLookup> {
@@ -39,14 +44,14 @@ export class TypeLookupClient extends BaseApiClient {
   }
 
   async updateTypeLookup(id: string, typeLookup: TypeLookupUpdate): Promise<TypeLookup> {
-    return this.fetch<TypeLookup>(`${API_ENDPOINTS.type_lookups}${id}`, {
+    return this.fetch<TypeLookup>(`${API_ENDPOINTS.type_lookups}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(typeLookup),
     });
   }
 
   async deleteTypeLookup(id: string): Promise<TypeLookup> {
-    return this.fetch<TypeLookup>(`${API_ENDPOINTS.type_lookups}${id}`, {
+    return this.fetch<TypeLookup>(`${API_ENDPOINTS.type_lookups}/${id}`, {
       method: 'DELETE',
     });
   }

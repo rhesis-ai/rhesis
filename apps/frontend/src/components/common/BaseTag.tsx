@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState, useRef, KeyboardEvent, ClipboardEvent, ChangeEvent, FocusEvent, useEffect } from 'react';
+import styles from '@/styles/BaseTag.module.css';
 import {
   Box,
   Chip,
@@ -26,18 +27,6 @@ import { UUID } from 'crypto';
 // Styled components for consistent styling
 const TagContainer = styled(Box)({
   width: '100%',
-  '& .MuiInputBase-root': {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    minHeight: 'unset',
-    padding: '8px 8px 8px 12px'
-  },
-  '& .MuiInputBase-input': {
-    padding: '4px',
-    height: '30px',
-    minWidth: '80px'
-  },
   '& .MuiChip-root': {
     margin: '8px 4px 2px 0'
   }
@@ -312,19 +301,9 @@ export default function BaseTag({
     <Chip
       key={tag}
       label={tag}
-      size="small"
+      onDelete={!disabled ? () => handleDeleteTag(tag) : undefined}
       color={chipColor}
-      variant="filled"
-      onDelete={disableEdition ? undefined : () => handleDeleteTag(tag)}
-      disabled={disabled}
-      sx={{ 
-        height: '24px', 
-        maxWidth: '200px',
-        '& .MuiChip-label': { 
-          padding: '0 6px',
-          fontSize: '0.8125rem'
-        }
-      }}
+      className={styles.baseTag}
     />
   ));
 
@@ -332,6 +311,7 @@ export default function BaseTag({
     <TagContainer>
       <TextField
         id={id}
+        className="tag-input"
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleInputKeyDown}

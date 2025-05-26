@@ -1,0 +1,38 @@
+.iconSelector {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.iconOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.iconButton {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 8px;
+  font-size: 0.7rem;
+  height: 80px;
+}
+
+.iconButtonLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+} 
