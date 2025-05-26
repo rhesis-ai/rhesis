@@ -39,7 +39,7 @@ class MetricFactory:
         """Create a metric instance from the specified framework using class name.
 
         Args:
-            framework: The evaluation framework to use ('deepeval', 'ragas', 'rhesis')
+            framework: The evaluation framework to use ('deepeval', 'ragas', 'rhesis', 'custom')
             class_name: Class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')
             **kwargs: Additional parameters to pass to the metric constructor
 
@@ -54,6 +54,7 @@ class MetricFactory:
             "deepeval": DeepEvalMetricFactory(),
             "ragas": RagasMetricFactory(),
             "rhesis": RhesisMetricFactory(),
+            "custom": RhesisMetricFactory(),
         }
 
         if framework not in factories:
@@ -67,7 +68,7 @@ class MetricFactory:
     @staticmethod
     def list_supported_frameworks() -> List[str]:
         """List all supported evaluation frameworks."""
-        return ["deepeval", "ragas", "rhesis"]
+        return ["deepeval", "ragas", "rhesis", "custom"]
 
     @staticmethod
     def list_supported_metrics_for_framework(framework: str) -> List[str]:

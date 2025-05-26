@@ -2,7 +2,7 @@
 Utility functions for managing metric configurations and behavior metrics.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.logging.rhesis_logger import logger
 
 
-def create_metric_config_from_model(metric: Metric) -> Dict:
+def create_metric_config_from_model(metric: Metric) -> Optional[Dict]:
     """
     Convert a Metric model instance to a metric configuration dictionary.
     
@@ -22,7 +22,21 @@ def create_metric_config_from_model(metric: Metric) -> Dict:
         Dictionary containing the metric configuration
     """
     # Determine the backend type from backend_type relationship
-    backend = metric.backend_type.type_value if metric.backend_type else "deepeval"
+    backend_raw = metric.backend_type.type_value if metric.backend_type else "deepeval"
+    
+    # Map specific custom metric types to supported backends
+    backend_mapping = {
+        "custom-code": "custom", 
+        "custom-prompt": "custom",
+        "framework": "deepeval"  # fallback for framework type
+    }
+    
+    backend = backend_mapping.get(backend_raw, backend_raw)
+    
+    # Validate that we have essential metric information
+    if not metric.class_name:
+        logger.warning(f"Metric {metric.id} is missing class_name, skipping")
+        return None
     
     # Get model and provider information if available
     provider = None
@@ -33,11 +47,11 @@ def create_metric_config_from_model(metric: Metric) -> Dict:
     
     # Create the base metric config
     metric_config = {
-        "name": metric.name,
+        "name": metric.name or f"Metric_{metric.id}",
         "class_name": metric.class_name,
         "backend": backend,
-        "threshold": metric.threshold,
-        "description": metric.description,
+        "threshold": metric.threshold if metric.threshold is not None else 0.5,
+        "description": metric.description or f"Metric evaluation for {metric.class_name}",
         "parameters": {}
     }
     
@@ -89,7 +103,13 @@ def get_behavior_metrics(db: Session, behavior_id: UUID) -> List[Dict]:
         ).all()
         
         # Convert to metric configs
-        return [create_metric_config_from_model(metric) for metric in metrics]
+        metric_configs = [
+            config for config in 
+            [create_metric_config_from_model(metric) for metric in metrics]
+            if config is not None
+        ]
+        
+        return metric_configs
         
     except Exception as e:
         logger.error(f"Error retrieving metrics for behavior {behavior_id}: {str(e)}", exc_info=True)

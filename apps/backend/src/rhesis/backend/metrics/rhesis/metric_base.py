@@ -41,18 +41,27 @@ VALID_OPERATORS_BY_SCORE_TYPE = {
 class RhesisMetricBase(BaseMetric):
     """Base class for Rhesis' own metrics with common functionality."""
 
-    def __init__(self, name: str, threshold: float = 0.5, metric_type: MetricType = "rag"):
+    def __init__(self, name: str, threshold: Optional[float] = None, reference_score: Optional[str] = None, metric_type: MetricType = "rag"):
         super().__init__(name=name, metric_type=metric_type)
-        self._threshold = threshold  # Store directly without validation
+        self._threshold = threshold
+        self._reference_score = reference_score
 
     @property
-    def threshold(self) -> float:
+    def threshold(self) -> Optional[float]:
         return self._threshold
 
     @threshold.setter
-    def threshold(self, value: float):
+    def threshold(self, value: Optional[float]):
         # No range validation - let the derived classes handle threshold validation if needed
         self._threshold = value
+    
+    @property
+    def reference_score(self) -> Optional[str]:
+        return self._reference_score
+
+    @reference_score.setter
+    def reference_score(self, value: Optional[str]):
+        self._reference_score = value
     
     def _sanitize_threshold_operator(self, threshold_operator: Union[ThresholdOperator, str, None]) -> ThresholdOperator:
         """
@@ -108,9 +117,10 @@ class RhesisMetricBase(BaseMetric):
     
     def evaluate_score(
         self, 
-        score: float, 
+        score: Union[float, str, int], 
         score_type: Union[ScoreType, str], 
-        threshold: float = None, 
+        threshold: Optional[float] = None, 
+        reference_score: Optional[str] = None,
         threshold_operator: Union[ThresholdOperator, str] = None
     ) -> bool:
         """
@@ -119,7 +129,8 @@ class RhesisMetricBase(BaseMetric):
         Args:
             score: The score to evaluate
             score_type: Type of score (binary, numeric, or categorical)
-            threshold: Threshold value (defaults to self.threshold)
+            threshold: Threshold value for numeric scores (defaults to self.threshold)
+            reference_score: Reference score for binary/categorical scores (defaults to self.reference_score)
             threshold_operator: Comparison operator (defaults based on score_type)
             
         Returns:
@@ -128,9 +139,6 @@ class RhesisMetricBase(BaseMetric):
         Raises:
             ValueError: If the threshold operator is invalid or inappropriate for the score type
         """
-        if threshold is None:
-            threshold = self.threshold
-            
         # Convert string enums to enum values if needed
         if isinstance(score_type, str):
             score_type = ScoreType(score_type)
@@ -148,10 +156,37 @@ class RhesisMetricBase(BaseMetric):
         # Validate operator for score type
         self._validate_operator_for_score_type(threshold_operator, score_type)
         
-        # Use operator module for comparison
-        op_func = OPERATOR_MAP.get(threshold_operator)
-        if op_func is None:
-            # Fallback to default behavior
-            return score >= threshold
+        # Handle different score types
+        if score_type == ScoreType.NUMERIC:
+            # For numeric scores, use threshold
+            if threshold is None:
+                threshold = self.threshold
+            if threshold is None:
+                raise ValueError("Threshold is required for numeric score type but was not provided")
             
-        return op_func(score, threshold) 
+            # Use operator module for comparison
+            op_func = OPERATOR_MAP.get(threshold_operator)
+            if op_func is None:
+                # Fallback to default behavior
+                return score >= threshold
+                
+            return op_func(score, threshold)
+            
+        else:  # BINARY or CATEGORICAL
+            # For binary/categorical scores, use reference_score
+            if reference_score is None:
+                reference_score = self.reference_score
+            if reference_score is None:
+                raise ValueError(f"Reference score is required for {score_type.value} score type but was not provided")
+            
+            # Convert score to string for comparison if needed
+            score_str = str(score).lower().strip() if not isinstance(score, str) else score.lower().strip()
+            reference_str = reference_score.lower().strip()
+            
+            # Use operator module for comparison
+            op_func = OPERATOR_MAP.get(threshold_operator)
+            if op_func is None:
+                # Fallback to equality check
+                return score_str == reference_str
+                
+            return op_func(score_str, reference_str) 

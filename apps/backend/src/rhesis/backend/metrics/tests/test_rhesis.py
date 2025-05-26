@@ -107,11 +107,15 @@ def test_rhesis_prompt_metric_init_with_score_types():
         evaluation_steps="Steps",
         reasoning="Reasoning",
         score_type="binary",  # Test string input
-        threshold=1.0,
+        reference_score="true",
         threshold_operator="="  # Test string input
     )
     assert binary_metric.score_type == ScoreType.BINARY
     assert binary_metric.threshold_operator == ThresholdOperator.EQUAL
+    assert binary_metric.reference_score == "true"
+    assert binary_metric.threshold is None
+    assert binary_metric.min_score is None
+    assert binary_metric.max_score is None
     
     # Test categorical score type
     categorical_metric = RhesisPromptMetric(
@@ -120,9 +124,13 @@ def test_rhesis_prompt_metric_init_with_score_types():
         evaluation_steps="Steps",
         reasoning="Reasoning",
         score_type=ScoreType.CATEGORICAL,
-        threshold="good"
+        reference_score="excellent"
     )
     assert categorical_metric.score_type == ScoreType.CATEGORICAL
+    assert categorical_metric.reference_score == "excellent"
+    assert categorical_metric.threshold is None
+    assert categorical_metric.min_score is None
+    assert categorical_metric.max_score is None
 
 
 @patch("mirascope.llm.override")
@@ -174,7 +182,7 @@ def test_rhesis_prompt_metric_evaluate_binary(mock_override, mock_binary_respons
         evaluation_steps="Check accuracy",
         reasoning="Binary evaluation",
         score_type=ScoreType.BINARY,
-        threshold=1.0,
+        reference_score="true",
         threshold_operator=ThresholdOperator.EQUAL
     )
     
@@ -186,11 +194,13 @@ def test_rhesis_prompt_metric_evaluate_binary(mock_override, mock_binary_respons
     )
     
     # Verify binary result
-    assert result.score == 1.0  # Should be converted to 1.0 for True
+    assert result.score == "true"  # Should be string "true" for binary
     assert result.details["raw_score"] is True
-    assert result.details["processed_score"] == 1.0
+    assert result.details["processed_score"] == "true"
     assert result.details["score_type"] == "binary"
     assert result.details["is_successful"] is True
+    assert result.details["reference_score"] == "true"
+    assert "threshold" not in result.details  # No threshold for binary
 
 
 @patch("mirascope.llm.override")
@@ -206,7 +216,7 @@ def test_rhesis_prompt_metric_evaluate_categorical(mock_override, mock_categoric
         evaluation_steps="Assess overall quality",
         reasoning="Categorical evaluation",
         score_type=ScoreType.CATEGORICAL,
-        threshold="excellent",
+        reference_score="excellent",
         threshold_operator=ThresholdOperator.EQUAL
     )
     
@@ -223,6 +233,8 @@ def test_rhesis_prompt_metric_evaluate_categorical(mock_override, mock_categoric
     assert result.details["processed_score"] == "excellent"
     assert result.details["score_type"] == "categorical"
     assert result.details["is_successful"] is True
+    assert result.details["reference_score"] == "excellent"
+    assert "threshold" not in result.details  # No threshold for categorical
 
 
 def test_rhesis_prompt_metric_get_prompt_template(sample_data):
@@ -316,14 +328,16 @@ def test_score_processing():
     )
     
     # Test binary score processing
-    assert metric._process_score("true") == 1.0
-    assert metric._process_score("false") == 0.0
-    assert metric._process_score("yes") == 1.0
-    assert metric._process_score("no") == 0.0
-    assert metric._process_score("1") == 1.0
-    assert metric._process_score("0") == 0.0
-    assert metric._process_score(1) == 1.0
-    assert metric._process_score(0) == 0.0
+    assert metric._process_score("true") == "true"
+    assert metric._process_score("false") == "false"
+    assert metric._process_score("yes") == "true"
+    assert metric._process_score("no") == "false"
+    assert metric._process_score("1") == "true"
+    assert metric._process_score("0") == "false"
+    assert metric._process_score(1) == "true"
+    assert metric._process_score(0) == "false"
+    assert metric._process_score(True) == "true"
+    assert metric._process_score(False) == "false"
     
     # Test numeric score processing
     numeric_metric = RhesisPromptMetric(
@@ -347,11 +361,13 @@ def test_score_processing():
         evaluation_prompt="Test",
         evaluation_steps="Test",
         reasoning="Test",
-        score_type=ScoreType.CATEGORICAL
+        score_type=ScoreType.CATEGORICAL,
+        reference_score="excellent"
     )
     
     assert categorical_metric._process_score("excellent") == "excellent"
-    assert categorical_metric._process_score(5) == 5.0
+    assert categorical_metric._process_score(5) == "5"
+    assert categorical_metric._process_score("good") == "good"
 
 
 class TestableRhesisMetricBase(RhesisMetricBase):
@@ -407,50 +423,109 @@ class TestRhesisMetricBase:
         base = TestableRhesisMetricBase("test", threshold=0.7)
         
         # Test different operators with numeric scores
-        assert base.evaluate_score(0.8, ScoreType.NUMERIC, 0.7, ThresholdOperator.GREATER_THAN_OR_EQUAL) is True
-        assert base.evaluate_score(0.6, ScoreType.NUMERIC, 0.7, ThresholdOperator.GREATER_THAN_OR_EQUAL) is False
-        assert base.evaluate_score(0.6, ScoreType.NUMERIC, 0.7, ThresholdOperator.LESS_THAN) is True
-        assert base.evaluate_score(0.8, ScoreType.NUMERIC, 0.7, ThresholdOperator.LESS_THAN) is False
-        assert base.evaluate_score(0.7, ScoreType.NUMERIC, 0.7, ThresholdOperator.EQUAL) is True
-        assert base.evaluate_score(0.8, ScoreType.NUMERIC, 0.7, ThresholdOperator.EQUAL) is False
-        assert base.evaluate_score(0.8, ScoreType.NUMERIC, 0.7, ThresholdOperator.NOT_EQUAL) is True
-        assert base.evaluate_score(0.7, ScoreType.NUMERIC, 0.7, ThresholdOperator.NOT_EQUAL) is False
+        assert base.evaluate_score(0.8, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.GREATER_THAN_OR_EQUAL) is True
+        assert base.evaluate_score(0.6, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.GREATER_THAN_OR_EQUAL) is False
+        assert base.evaluate_score(0.6, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.LESS_THAN) is True
+        assert base.evaluate_score(0.8, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.LESS_THAN) is False
+        assert base.evaluate_score(0.7, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.EQUAL) is True
+        assert base.evaluate_score(0.8, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.EQUAL) is False
+        assert base.evaluate_score(0.8, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.NOT_EQUAL) is True
+        assert base.evaluate_score(0.7, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.NOT_EQUAL) is False
     
     def test_evaluate_score_binary(self):
         """Test score evaluation for binary score types."""
-        base = TestableRhesisMetricBase("test")
+        base = TestableRhesisMetricBase("test", reference_score="true")
         
         # Test binary evaluation (only = and != should work)
-        assert base.evaluate_score(1.0, ScoreType.BINARY, 1.0, ThresholdOperator.EQUAL) is True
-        assert base.evaluate_score(0.0, ScoreType.BINARY, 1.0, ThresholdOperator.EQUAL) is False
-        assert base.evaluate_score(0.0, ScoreType.BINARY, 1.0, ThresholdOperator.NOT_EQUAL) is True
-        assert base.evaluate_score(1.0, ScoreType.BINARY, 1.0, ThresholdOperator.NOT_EQUAL) is False
+        assert base.evaluate_score("true", ScoreType.BINARY, reference_score="true", threshold_operator=ThresholdOperator.EQUAL) is True
+        assert base.evaluate_score("false", ScoreType.BINARY, reference_score="true", threshold_operator=ThresholdOperator.EQUAL) is False
+        assert base.evaluate_score("false", ScoreType.BINARY, reference_score="true", threshold_operator=ThresholdOperator.NOT_EQUAL) is True
+        assert base.evaluate_score("true", ScoreType.BINARY, reference_score="true", threshold_operator=ThresholdOperator.NOT_EQUAL) is False
     
     def test_evaluate_score_categorical(self):
         """Test score evaluation for categorical score types."""
-        base = TestableRhesisMetricBase("test")
+        base = TestableRhesisMetricBase("test", reference_score="excellent")
         
         # Test categorical evaluation
-        assert base.evaluate_score("excellent", ScoreType.CATEGORICAL, "excellent", ThresholdOperator.EQUAL) is True
-        assert base.evaluate_score("good", ScoreType.CATEGORICAL, "excellent", ThresholdOperator.EQUAL) is False
-        assert base.evaluate_score("good", ScoreType.CATEGORICAL, "excellent", ThresholdOperator.NOT_EQUAL) is True
-        assert base.evaluate_score("excellent", ScoreType.CATEGORICAL, "excellent", ThresholdOperator.NOT_EQUAL) is False
+        assert base.evaluate_score("excellent", ScoreType.CATEGORICAL, reference_score="excellent", threshold_operator=ThresholdOperator.EQUAL) is True
+        assert base.evaluate_score("good", ScoreType.CATEGORICAL, reference_score="excellent", threshold_operator=ThresholdOperator.EQUAL) is False
+        assert base.evaluate_score("good", ScoreType.CATEGORICAL, reference_score="excellent", threshold_operator=ThresholdOperator.NOT_EQUAL) is True
+        assert base.evaluate_score("excellent", ScoreType.CATEGORICAL, reference_score="excellent", threshold_operator=ThresholdOperator.NOT_EQUAL) is False
     
     def test_evaluate_score_defaults(self):
         """Test that default operators are set correctly based on score type."""
-        base = TestableRhesisMetricBase("test", threshold=0.7)
+        base_numeric = TestableRhesisMetricBase("test", threshold=0.7)
+        base_binary = TestableRhesisMetricBase("test", reference_score="true")
+        base_categorical = TestableRhesisMetricBase("test", reference_score="excellent")
         
         # Default for numeric should be >=
-        assert base.evaluate_score(0.8, ScoreType.NUMERIC, None, None) is True  # 0.8 >= 0.7
-        assert base.evaluate_score(0.6, ScoreType.NUMERIC, None, None) is False  # 0.6 < 0.7
+        assert base_numeric.evaluate_score(0.8, ScoreType.NUMERIC) is True  # 0.8 >= 0.7
+        assert base_numeric.evaluate_score(0.6, ScoreType.NUMERIC) is False  # 0.6 < 0.7
         
         # Default for binary should be =
-        assert base.evaluate_score(1.0, ScoreType.BINARY, 1.0, None) is True
-        assert base.evaluate_score(0.0, ScoreType.BINARY, 1.0, None) is False
+        assert base_binary.evaluate_score("true", ScoreType.BINARY) is True
+        assert base_binary.evaluate_score("false", ScoreType.BINARY) is False
         
         # Default for categorical should be =
-        assert base.evaluate_score("test", ScoreType.CATEGORICAL, "test", None) is True
-        assert base.evaluate_score("other", ScoreType.CATEGORICAL, "test", None) is False
+        assert base_categorical.evaluate_score("excellent", ScoreType.CATEGORICAL) is True
+        assert base_categorical.evaluate_score("good", ScoreType.CATEGORICAL) is False
+
+
+def test_reference_score_requirements():
+    """Test that reference_score is properly required for binary and categorical metrics."""
+    
+    # Test that categorical metrics require reference_score
+    with pytest.raises(ValueError, match="reference_score is required for categorical score type"):
+        RhesisPromptMetric(
+            name="categorical_metric",
+            evaluation_prompt="Rate quality",
+            evaluation_steps="Steps",
+            reasoning="Reasoning",
+            score_type=ScoreType.CATEGORICAL
+            # Missing reference_score
+        )
+    
+    # Test that binary metrics get a default reference_score if not provided
+    binary_metric = RhesisPromptMetric(
+        name="binary_metric",
+        evaluation_prompt="Is correct?",
+        evaluation_steps="Steps",
+        reasoning="Reasoning",
+        score_type=ScoreType.BINARY
+        # No reference_score provided, should default to "true"
+    )
+    assert binary_metric.reference_score == "true"
+    
+    # Test that numeric metrics don't use reference_score
+    numeric_metric = RhesisPromptMetric(
+        name="numeric_metric",
+        evaluation_prompt="Rate quality",
+        evaluation_steps="Steps",
+        reasoning="Reasoning",
+        score_type=ScoreType.NUMERIC,
+        min_score=1.0,
+        max_score=5.0,
+        threshold=0.7
+    )
+    assert numeric_metric.reference_score is None
+    assert numeric_metric.threshold == 0.7
+
+
+def test_evaluate_score_error_cases():
+    """Test error cases in score evaluation."""
+    base = TestableRhesisMetricBase("test")
+    
+    # Test missing threshold for numeric
+    with pytest.raises(ValueError, match="Threshold is required for numeric score type"):
+        base.evaluate_score(0.8, ScoreType.NUMERIC)
+    
+    # Test missing reference_score for binary
+    with pytest.raises(ValueError, match="Reference score is required for binary score type"):
+        base.evaluate_score("true", ScoreType.BINARY)
+    
+    # Test missing reference_score for categorical
+    with pytest.raises(ValueError, match="Reference score is required for categorical score type"):
+        base.evaluate_score("excellent", ScoreType.CATEGORICAL)
 
 
 if __name__ == "__main__":

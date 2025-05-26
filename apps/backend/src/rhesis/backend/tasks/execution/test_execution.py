@@ -95,17 +95,24 @@ def get_test_metrics(test) -> List[Dict]:
         test: Test model instance
     
     Returns:
-        List of metric configuration dictionaries
+        List of metric configuration dictionaries (excluding invalid/None metrics)
     """
     metrics = []
     behavior = test.behavior
     
     if behavior and behavior.metrics:
         # Access metrics directly from behavior.metrics relationship
-        metrics = [create_metric_config_from_model(metric) for metric in behavior.metrics]
+        # Filter out None values returned by create_metric_config_from_model
+        raw_metrics = [create_metric_config_from_model(metric) for metric in behavior.metrics]
+        metrics = [metric for metric in raw_metrics if metric is not None]
+        
+        # Log if any metrics were invalid
+        invalid_count = len(raw_metrics) - len(metrics)
+        if invalid_count > 0:
+            logger.warning(f"Filtered out {invalid_count} invalid metrics for test {test.id}")
     
     if not metrics:
-        logger.warning(f"No metrics found for test {test.id}, using defaults")
+        logger.warning(f"No valid metrics found for test {test.id}, using defaults")
         # Load default metrics from configuration file
         metrics = load_default_metrics()
     
@@ -190,9 +197,30 @@ def execute_test(
     # Get metrics for the test
     metrics = get_test_metrics(test)
     
-    # Convert metrics to MetricConfig objects
-    metric_configs = [MetricConfig.from_dict(metric) for metric in metrics]
-    logger.debug(f"Using {len(metric_configs)} metrics for test {test_id}")
+    # Convert metrics to MetricConfig objects, filtering out None/invalid ones
+    metric_configs = []
+    invalid_metrics_count = 0
+    
+    for i, metric in enumerate(metrics):
+        try:
+            config = MetricConfig.from_dict(metric)
+            if config is not None:
+                metric_configs.append(config)
+            else:
+                invalid_metrics_count += 1
+                logger.warning(f"Skipped invalid metric {i} for test {test_id}: missing required fields")
+        except Exception as e:
+            invalid_metrics_count += 1
+            logger.warning(f"Failed to parse metric {i} for test {test_id}: {str(e)}")
+    
+    if invalid_metrics_count > 0:
+        logger.warning(f"Skipped {invalid_metrics_count} invalid metrics for test {test_id}")
+    
+    logger.debug(f"Using {len(metric_configs)} valid metrics for test {test_id}")
+    
+    # If no valid metrics found, log a warning but continue execution
+    if not metric_configs:
+        logger.warning(f"No valid metrics found for test {test_id}, proceeding without metric evaluation")
     
     # Get required statuses
     test_result_status = get_or_create_status(db, ResultStatus.PASS.value, "TestResult")
