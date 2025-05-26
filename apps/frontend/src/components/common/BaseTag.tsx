@@ -314,10 +314,9 @@ export default function BaseTag({
     <Chip
       key={tag}
       label={tag}
-      onDelete={!disabled ? () => handleDeleteTag(tag) : undefined}
+      onDelete={!disabled && !disableEdition ? () => handleDeleteTag(tag) : undefined}
       color={chipColor}
       variant="filled"
-      onDelete={!disabled && !disableEdition ? () => handleDeleteTag(tag) : undefined}
       disabled={disabled}
       sx={{ 
         height: '24px', 
@@ -337,7 +336,6 @@ export default function BaseTag({
         {...textFieldProps}
         id={id}
         className="base-tag-field"
-        className="tag-input"
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleInputKeyDown}
