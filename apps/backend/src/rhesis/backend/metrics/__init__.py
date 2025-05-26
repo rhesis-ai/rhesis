@@ -8,7 +8,6 @@ from .rhesis import (  # Re-export Rhesis metrics
     RhesisMetricBase,
     RhesisMetricFactory,
     RhesisPromptMetric,
-    RhesisDetailedPromptMetric,
 )
 from .deepeval import (  # Re-export DeepEval metrics
     DeepEvalMetricBase,
@@ -42,7 +41,6 @@ __all__ = [
     "RhesisMetricBase",
     "RhesisMetricFactory",
     "RhesisPromptMetric",
-    "RhesisDetailedPromptMetric",
     
     # DeepEval metrics
     "DeepEvalMetricBase",

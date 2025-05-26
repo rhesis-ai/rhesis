@@ -88,32 +88,32 @@ class BaseEntity:
     @handle_http_errors
     def save(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
-        try:
-            data = {k: v for k, v in self.fields.items() if k != "id"}
+        #try:
+        data = {k: v for k, v in self.fields.items() if k != "id"}
 
-            if "id" in self.fields:
-                url = f"{self.client.get_url(self.endpoint)}/{self.fields['id']}/"
-                try:
-                    response = requests.put(
-                        url,
-                        json=data,
-                        headers=self.headers,
-                    )
-                    response.raise_for_status()
-                    return dict(response.json())
-                except requests.exceptions.RequestException:
-                    raise
-            else:
-                url = f"{self.client.get_url(self.endpoint)}/"
-                response = requests.post(
+        if "id" in self.fields:
+            url = f"{self.client.get_url(self.endpoint)}/{self.fields['id']}/"
+            try:
+                response = requests.put(
                     url,
                     json=data,
                     headers=self.headers,
                 )
                 response.raise_for_status()
                 return dict(response.json())
-        except requests.exceptions.HTTPError:
-            return None
+            except requests.exceptions.RequestException:
+                raise
+        else:
+            url = f"{self.client.get_url(self.endpoint)}/"
+            response = requests.post(
+                url,
+                json=data,
+                headers=self.headers,
+            )
+            response.raise_for_status()
+            return dict(response.json())
+        #except requests.exceptions.HTTPError:
+        #    return None
 
     @handle_http_errors
     def delete(self, record_id: str) -> bool:

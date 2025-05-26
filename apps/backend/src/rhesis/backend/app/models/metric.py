@@ -20,6 +20,16 @@ behavior_metric_association = Table(
 class ScoreType(str, Enum):
     BINARY = "binary"
     NUMERIC = "numeric"
+    CATEGORICAL = "categorical"
+
+
+class ThresholdOperator(str, Enum):
+    EQUAL = "="
+    LESS_THAN = "<"
+    GREATER_THAN = ">"
+    LESS_THAN_OR_EQUAL = "<="
+    GREATER_THAN_OR_EQUAL = ">="
+    NOT_EQUAL = "!="
 
 
 class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
@@ -33,11 +43,14 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     score_type = Column(String, nullable=False)
     min_score = Column(Float)
     max_score = Column(Float)
+    reference_score = Column(String) # used for binary or categorical metrics
     threshold = Column(Float)
+    threshold_operator = Column(String, default=ThresholdOperator.GREATER_THAN_OR_EQUAL.value)
     explanation = Column(Text)
     ground_truth_required = Column(Boolean, default=False)
     context_required = Column(Boolean, default=False)
     class_name = Column(String) # useful if type is custom code or framework
+    evaluation_examples = Column(String)
     
     # Foreign keys
     metric_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

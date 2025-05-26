@@ -25,8 +25,14 @@ class LLMService:
                 **kwargs,
             )
             response_content = response["choices"][0]["message"]["content"]
+            
             if response_format == "json_object":
-                return json.loads(response_content)
+                try:
+                    return json.loads(response_content)
+                except json.JSONDecodeError as e:
+                    # Return the raw content for the synthesizer to handle
+                    print(f"JSON parsing failed: {e}. Returning raw content for custom parsing.")
+                    return response_content
 
             return response_content
 
@@ -42,7 +48,7 @@ class LLMService:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
-        max_tokens: int = 2000,
+        max_tokens: int = 4000,
         response_format: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -52,7 +58,7 @@ class LLMService:
         Args:
             messages: List of message dictionaries with 'role' and 'content'
             temperature: Sampling temperature (0-1)
-            max_tokens: Maximum tokens to generate
+            max_tokens: Maximum tokens to generate (increased default for larger responses)
             **kwargs: Additional parameters to pass to the API
 
         Returns:

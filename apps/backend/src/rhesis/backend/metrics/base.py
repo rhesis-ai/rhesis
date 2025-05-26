@@ -58,8 +58,11 @@ class MetricConfig:
     backend: str
     """The backend/framework to use for this metric (e.g., 'deepeval')"""
     
-    threshold: float = 0.5
-    """Threshold for metric success (typically between 0-1)"""
+    threshold: Optional[float] = None
+    """Threshold for metric success (used for numeric score types)"""
+    
+    reference_score: Optional[str] = None
+    """Reference score for binary/categorical metrics (e.g., 'true', 'excellent')"""
     
     name: Optional[str] = None
     """Human-readable name of the metric"""
@@ -75,8 +78,13 @@ class MetricConfig:
         result = {
             "class_name": self.class_name,
             "backend": self.backend,
-            "threshold": self.threshold,
         }
+        
+        if self.threshold is not None:
+            result["threshold"] = self.threshold
+            
+        if self.reference_score is not None:
+            result["reference_score"] = self.reference_score
         
         if self.description:
             result["description"] = self.description
@@ -87,24 +95,66 @@ class MetricConfig:
         return result
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetricConfig":
-        """Create a MetricConfig from a dictionary."""
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> Optional["MetricConfig"]:
+        """Create a MetricConfig from a dictionary.
+        
+        Args:
+            data: Dictionary containing metric configuration data
+            
+        Returns:
+            MetricConfig instance or None if data is invalid
+            
+        Raises:
+            ValueError: If data has invalid structure but is not None
+        """
+        if data is None:
+            return None
+            
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected dictionary for metric config, got {type(data)}")
+        
+        # Check for required fields
+        required_fields = ["class_name", "backend"]
+        missing_fields = [field for field in required_fields if field not in data or data[field] is None]
+        
+        if missing_fields:
+            # Return None for invalid configs rather than raising an exception
+            # This allows the calling code to handle invalid metrics gracefully
+            return None
+        
         # Extract required fields
         class_name = data["class_name"]
         backend = data["backend"]
         
+        # Validate that required fields are not empty strings
+        if not class_name.strip() if isinstance(class_name, str) else not class_name:
+            return None
+            
+        if not backend.strip() if isinstance(backend, str) else not backend:
+            return None
+        
         # Extract optional fields with defaults
-        threshold = data.get("threshold", 0.5)
+        threshold = data.get("threshold")
+        reference_score = data.get("reference_score")
         description = data.get("description")
         name = data.get("name")
+        
+        # Ensure threshold is a valid number if provided
+        if threshold is not None:
+            try:
+                threshold = float(threshold)
+            except (ValueError, TypeError):
+                threshold = None
+        
         # Extract all other keys as custom parameters
-        reserved_keys = {"class_name", "backend", "threshold", "description"}
+        reserved_keys = {"class_name", "backend", "threshold", "reference_score", "description", "name"}
         parameters = {k: v for k, v in data.items() if k not in reserved_keys}
         
         return cls(
             class_name=class_name,
             backend=backend,
             threshold=threshold,
+            reference_score=reference_score,
             description=description,
             name=name,
             parameters=parameters

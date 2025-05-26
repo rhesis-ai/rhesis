@@ -5,7 +5,9 @@ import { Status } from './status';
 import { Tag } from './tag';
 import { PaginationParams } from './pagination';
 
-export type ScoreType = 'binary' | 'numeric';
+export type ScoreType = 'binary' | 'numeric' | 'categorical';
+
+export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
 
 export interface Metric {
   id: UUID;
@@ -18,11 +20,14 @@ export interface Metric {
   score_type: ScoreType;
   min_score?: number;
   max_score?: number;
+  reference_score?: string;
   threshold?: number;
+  threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required: boolean;
   context_required: boolean;
   class_name?: string;
+  evaluation_examples?: string;
   created_at: string;
   updated_at: string;
   priority?: number;
@@ -44,11 +49,13 @@ export interface MetricCreate {
   tags: string[];
   evaluation_prompt: string;
   evaluation_steps?: string;
+  evaluation_examples?: string;
   reasoning?: string;
   score_type: ScoreType;
   min_score?: number;
   max_score?: number;
   threshold?: number;
+  threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required?: boolean;
   metric_type_id?: UUID;
@@ -65,11 +72,13 @@ export interface MetricUpdate {
   tags?: Tag[];
   evaluation_prompt?: string;
   evaluation_steps?: string;
+  evaluation_examples?: string;
   reasoning?: string;
   score_type?: ScoreType;
   min_score?: number;
   max_score?: number;
   threshold?: number;
+  threshold_operator?: ThresholdOperator;
   explanation?: string;
   ground_truth_required?: boolean;
   metric_type_id?: UUID;

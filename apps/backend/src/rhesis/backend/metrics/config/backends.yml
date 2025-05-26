@@ -7,4 +7,7 @@ backends:
     factory: "RagasMetricFactory"
   rhesis:
     module: "rhesis.backend.metrics.rhesis"
+    factory: "RhesisMetricFactory"
+  custom:
+    module: "rhesis.backend.metrics.rhesis"
     factory: "RhesisMetricFactory" 

@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 
 from rhesis.backend.metrics.base import BaseMetricFactory, BaseMetric
 from rhesis.backend.metrics.rhesis.metric_base import RhesisMetricBase
-from rhesis.backend.metrics.rhesis.prompt_metric import RhesisPromptMetric, RhesisDetailedPromptMetric
+from rhesis.backend.metrics.rhesis.prompt_metric import RhesisPromptMetric
 
 
 class RhesisMetricFactory(BaseMetricFactory):
@@ -12,8 +12,7 @@ class RhesisMetricFactory(BaseMetricFactory):
     _metrics = {
         # Add metrics as they're implemented, e.g.:
         # "RhesisCustomMetric": RhesisCustomMetric,
-        "RhesisPromptMetric": RhesisPromptMetric,
-        "RhesisDetailedPromptMetric": RhesisDetailedPromptMetric,
+        "RhesisPromptMetric": RhesisPromptMetric
     }
 
     # Define which parameters each metric class accepts
@@ -49,10 +48,7 @@ class RhesisMetricFactory(BaseMetricFactory):
     _required_params = {
         "RhesisPromptMetric": {
             "name", "evaluation_prompt", "evaluation_steps", "reasoning"
-        },
-        "RhesisDetailedPromptMetric": {
-            "name", "evaluation_prompt", "evaluation_steps", "reasoning"
-        },
+        }
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
