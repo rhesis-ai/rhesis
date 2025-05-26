@@ -19,6 +19,7 @@ export interface Metric {
   score_type: ScoreType;
   min_score?: number;
   max_score?: number;
+  reference_score?: string;
   threshold?: number;
   threshold_operator?: ThresholdOperator;
   explanation: string;

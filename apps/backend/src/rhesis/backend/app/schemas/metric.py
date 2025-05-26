@@ -34,6 +34,7 @@ class MetricBase(Base):
     score_type: ScoreType
     min_score: Optional[float] = None
     max_score: Optional[float] = None
+    reference_score: Optional[str] = None
     threshold: Optional[float] = None
     threshold_operator: Optional[ThresholdOperator] = ThresholdOperator.GREATER_THAN_OR_EQUAL
     explanation: Optional[str] = None

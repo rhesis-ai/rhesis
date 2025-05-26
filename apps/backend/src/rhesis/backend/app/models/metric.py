@@ -43,6 +43,7 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     score_type = Column(String, nullable=False)
     min_score = Column(Float)
     max_score = Column(Float)
+    reference_score = Column(String) # used for binary or categorical metrics
     threshold = Column(Float)
     threshold_operator = Column(String, default=ThresholdOperator.GREATER_THAN_OR_EQUAL.value)
     explanation = Column(Text)
