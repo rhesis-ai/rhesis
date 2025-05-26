@@ -1,6 +1,6 @@
-- If interacting with the backend API, always check the interfaces first under ./lib/api-client.
+- If interacting with the backend API, always check the interfaces first under ./utils/api-client.
 - Always look for other pages doing similar interactions with the API.
 - Always use the basedatagrid when using a grid.
 - If running into issues. Check if things work similarly in a different place of the app.
 - Never use the name as the key in the Autocomplete component, always use the id.
-- Expand your own learnings under "My learnings" in this file.
+- Do not use the regular grid, use stack instead. Grid is deprecated.

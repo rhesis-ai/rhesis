@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { Box, Paper, Typography, Button, Grid, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, CircularProgress, Alert, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Stack } from '@mui/material';
+import { Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, CircularProgress, Alert, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Stack } from '@mui/material';
 import { 
   SiOpenai,
   SiGoogle,
@@ -269,28 +269,24 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
             </Alert>
           )}
 
-          <Grid container spacing={3}>
+          <Stack spacing={2}>
             {/* Basic Configuration */}
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
-                Basic Configuration
-              </Typography>
-            </Grid>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}>
+              Basic Configuration
+            </Typography>
 
             {isCustomProvider && (
-              <Grid item xs={12}>
-                <TextField
-                  label="Provider Name"
-                  fullWidth
-                  required
-                  value={providerName}
-                  onChange={(e) => setProviderName(e.target.value)}
-                  helperText="A descriptive name for your custom LLM provider or deployment"
-                />
-              </Grid>
+              <TextField
+                label="Provider Name"
+                fullWidth
+                required
+                value={providerName}
+                onChange={(e) => setProviderName(e.target.value)}
+                helperText="A descriptive name for your custom LLM provider or deployment"
+              />
             )}
 
-            <Grid item xs={12} sm={6}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
                 label="Connection Name"
                 fullWidth
@@ -300,9 +296,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
                 onChange={(e) => setName(e.target.value)}
                 helperText="A unique name to identify this connection"
               />
-            </Grid>
 
-            <Grid item xs={12} sm={6}>
               <TextField
                 label="Model Name"
                 fullWidth
@@ -315,65 +309,58 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
                     : "The specific model to use from this provider"
                 }
               />
-            </Grid>
+            </Stack>
 
             {/* Connection Details */}
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: 'primary.main', mt: 2 }}>
-                Connection Details
-              </Typography>
-            </Grid>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}>
+              Connection Details
+            </Typography>
 
-            <Grid item xs={12}>
-              <TextField
-                label="API Endpoint"
-                fullWidth
-                required
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                helperText={
-                  isCustomProvider
-                    ? "The full URL of your model's API endpoint"
-                    : "The API endpoint URL provided by your LLM provider"
-                }
-              />
-            </Grid>
+            <TextField
+              label="API Endpoint"
+              fullWidth
+              required
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              helperText={
+                isCustomProvider
+                  ? "The full URL of your model's API endpoint"
+                  : "The API endpoint URL provided by your LLM provider"
+              }
+            />
 
-            <Grid item xs={12}>
-              <TextField
-                label="API Key"
-                fullWidth
-                required
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                helperText={
-                  isCustomProvider
-                    ? "Authentication key for your deployment (if required)"
-                    : "Your API key from the provider's dashboard"
-                }
-              />
-            </Grid>
+            <TextField
+              label="API Key"
+              fullWidth
+              required
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              helperText={
+                isCustomProvider
+                  ? "Authentication key for your deployment (if required)"
+                  : "Your API key from the provider's dashboard"
+              }
+            />
 
             {/* Custom Headers */}
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: 'primary.main', mt: 2 }}>
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mt: 1 }}>
                 Custom Headers (Optional)
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
                 Add any additional HTTP headers required for your API calls. Authorization header is automatically included.
               </Typography>
 
               {/* Existing Headers */}
               {Object.entries(customHeaders).length > 0 && (
-                <Box sx={{ mb: 2 }}>
+                <Stack spacing={1}>
                   {Object.entries(customHeaders).map(([key, value]) => (
                     <Paper 
                       key={key} 
                       variant="outlined" 
                       sx={{ 
                         p: 2, 
-                        mb: 1, 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between',
@@ -397,43 +384,37 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
                       </IconButton>
                     </Paper>
                   ))}
-                </Box>
+                </Stack>
               )}
 
               {/* Add New Header */}
               <Paper variant="outlined" sx={{ p: 2 }}>
-                <Grid container spacing={2} alignItems="flex-end">
-                  <Grid item xs={12} sm={5}>
-                    <TextField
-                      label="Header Name"
-                      fullWidth
-                      value={newHeaderKey}
-                      onChange={(e) => setNewHeaderKey(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={5}>
-                    <TextField
-                      label="Header Value"
-                      fullWidth
-                      value={newHeaderValue}
-                      onChange={(e) => setNewHeaderValue(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={2}>
-                    <Button
-                      variant="outlined"
-                      onClick={handleAddHeader}
-                      disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
-                      fullWidth
-                      startIcon={<AddIcon />}
-                    >
-                      Add
-                    </Button>
-                  </Grid>
-                </Grid>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-end">
+                  <TextField
+                    label="Header Name"
+                    fullWidth
+                    value={newHeaderKey}
+                    onChange={(e) => setNewHeaderKey(e.target.value)}
+                  />
+                  <TextField
+                    label="Header Value"
+                    fullWidth
+                    value={newHeaderValue}
+                    onChange={(e) => setNewHeaderValue(e.target.value)}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={handleAddHeader}
+                    disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
+                    sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
+                    startIcon={<AddIcon />}
+                  >
+                    Add
+                  </Button>
+                </Stack>
               </Paper>
-            </Grid>
-          </Grid>
+            </Stack>
+          </Stack>
         </DialogContent>
 
         <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
@@ -480,7 +461,10 @@ export default function LLMProvidersPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!session?.session_token) return;
+      if (!session?.session_token) {
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
@@ -579,122 +563,144 @@ export default function LLMProvidersPage() {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Stack 
+          direction="row" 
+          flexWrap="wrap" 
+          spacing={3}
+          sx={{
+            '& > *': {
+              flexBasis: {
+                xs: '100%',           // 1 card per row on extra small screens
+                sm: 'calc(50% - 12px)',  // 2 cards per row on small screens
+                md: 'calc(25% - 18px)',  // 4 cards per row on medium screens
+                lg: 'calc(25% - 18px)',  // 4 cards per row on large screens 
+              },
+              flexGrow: 0,
+              flexShrink: 0,
+              minHeight: '200px', // Ensure minimum height for all cards
+              display: 'flex' // Make each card a flex container
+            }
+          }}
+        >
           {connectedModels.map((model) => (
-            <Grid item xs={12} md={6} lg={2.4} key={model.id}>
-              <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => handleDeleteClick(model, e)}
-                  sx={{ 
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
+            <Paper key={model.id} sx={{ 
+              p: 3, 
+              width: '100%',
+              display: 'flex', 
+              flexDirection: 'column', 
+              position: 'relative',
+              minHeight: 'inherit' // Inherit the minimum height from parent
+            }}>
+              <IconButton 
+                size="small" 
+                onClick={(e) => handleDeleteClick(model, e)}
+                sx={{ 
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  color: 'error.main',
+                  '&:hover': {
+                    backgroundColor: 'error.light',
                     color: 'error.main',
-                    '&:hover': {
-                      backgroundColor: 'error.light',
-                      color: 'error.main',
-                    }
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon sx={{ fontSize: 32 }} />}
-                    <CheckCircleIcon 
-                      sx={{ 
-                        ml: -1, 
-                        mt: -2, 
-                        fontSize: 16, 
-                        color: 'success.main' 
-                      }} 
-                    />
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6">{model.name}</Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      {model.description}
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                <Box sx={{ mt: 1, mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Model: {model.model_name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    API Key: •••••{model.key.slice(-4)}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ mt: 'auto' }}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    color="success"
-                    size="small"
-                    disableElevation
-                    disableRipple
-                    sx={{ 
-                      textTransform: 'none',
-                      borderRadius: 1.5,
-                      pointerEvents: 'none',
-                      cursor: 'default'
-                    }}
-                  >
-                    Connected
-                  </Button>
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
-
-          {/* Add LLM Card */}
-          <Grid item xs={12} md={6} lg={2.4}>
-            <Paper 
-              sx={{ 
-                p: 3, 
-                height: '100%', 
-                display: 'flex', 
-                flexDirection: 'column',
-                bgcolor: 'grey.50',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  bgcolor: 'grey.100',
-                  transform: 'translateY(-2px)'
-                }
-              }}
-              onClick={handleAddLLM}
-            >
+                  }
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+              
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <AddIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon sx={{ fontSize: 32 }} />}
+                  <CheckCircleIcon 
+                    sx={{ 
+                      ml: -1, 
+                      mt: -2, 
+                      fontSize: 16, 
+                      color: 'success.main' 
+                    }} 
+                  />
+                </Box>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" color="text.secondary">Add LLM</Typography>
+                  <Typography variant="h6">{model.name}</Typography>
                   <Typography color="text.secondary" variant="body2">
-                    Connect to a new LLM provider
+                    {model.description}
                   </Typography>
                 </Box>
               </Box>
               
+              <Box sx={{ mt: 1, mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Model: {model.model_name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  API Key: •••••{model.key.slice(-4)}
+                </Typography>
+              </Box>
+
               <Box sx={{ mt: 'auto' }}>
                 <Button
                   fullWidth
-                  variant="outlined"
+                  variant="contained"
+                  color="success"
                   size="small"
+                  disableElevation
+                  disableRipple
                   sx={{ 
                     textTransform: 'none',
-                    borderRadius: 1.5
+                    borderRadius: 1.5,
+                    pointerEvents: 'none',
+                    cursor: 'default'
                   }}
                 >
-                  Add Provider
+                  Connected
                 </Button>
               </Box>
             </Paper>
-          </Grid>
-        </Grid>
+          ))}
+
+          {/* Add LLM Card */}
+          <Paper 
+            sx={{ 
+              p: 3, 
+              width: '100%',
+              display: 'flex', 
+              flexDirection: 'column',
+              bgcolor: 'grey.50',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              minHeight: 'inherit', // Inherit the minimum height from parent
+              '&:hover': {
+                bgcolor: 'grey.100',
+                transform: 'translateY(-2px)'
+              }
+            }}
+            onClick={handleAddLLM}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <AddIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="h6" color="text.secondary">Add LLM</Typography>
+                <Typography color="text.secondary" variant="body2">
+                  Connect to a new LLM provider
+                </Typography>
+              </Box>
+            </Box>
+            
+            <Box sx={{ mt: 'auto' }}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                sx={{ 
+                  textTransform: 'none',
+                  borderRadius: 1.5
+                }}
+              >
+                Add Provider
+              </Button>
+            </Box>
+          </Paper>
+        </Stack>
       )}
 
       <ProviderSelectionDialog
