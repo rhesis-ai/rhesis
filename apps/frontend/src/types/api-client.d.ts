@@ -128,7 +128,8 @@ declare module '@/utils/api-client/interfaces/user' {
 
 declare module '@/utils/api-client/interfaces/test-results' {
   import { UUID } from 'crypto';
-  import { UserReference, Organization, Status, TestTag } from '@/utils/api-client/interfaces/tests';
+  import { UserReference, Organization, Status } from '@/utils/api-client/interfaces/tests';
+  import { Tag } from '@/utils/api-client/interfaces/tag';
 
   export interface MetricResult {
     score: number;
@@ -358,12 +359,6 @@ declare module '@/utils/api-client/interfaces/tests' {
     email?: string;
   }
 
-  export interface TestTag {
-    id: UUID;
-    name: string;
-    icon_unicode?: string;
-  }
-
   export interface TestBase {
     prompt_id: UUID;
     test_type_id?: UUID;
@@ -378,7 +373,7 @@ declare module '@/utils/api-client/interfaces/tests' {
     category_id?: UUID;
     status_id?: UUID;
     organization_id?: UUID;
-    tags?: TestTag[];
+    tags?: Tag[];
   }
 
   export interface TestCreate extends TestBase {}
@@ -879,23 +874,13 @@ declare module '@/utils/api-client/interfaces/test-set' {
   import { Status } from '@/utils/api-client/interfaces/status';
   import { User } from '@/utils/api-client/interfaces/user';
 
-  export interface TestSetTag {
-    id: UUID;
-    name: string;
-    icon_unicode?: string;
-  }
-
   export interface Organization {
     id: UUID;
     name: string;
     description?: string;
     email?: string;
     user_id?: UUID;
-    tags?: Array<{
-      id: UUID;
-      name: string;
-      icon_unicode?: string;
-    }>;
+    tags?: Tag[];
   }
 
   export interface LicenseType {
@@ -916,7 +901,7 @@ declare module '@/utils/api-client/interfaces/test-set' {
     status_id?: UUID;
     status: string | Status;
     status_details?: Status;
-    tags?: TestSetTag[];
+    tags?: Tag[];
     license_type_id?: UUID;
     license_type?: LicenseType;
     attributes?: {

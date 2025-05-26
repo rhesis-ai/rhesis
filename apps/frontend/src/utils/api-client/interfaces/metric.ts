@@ -41,7 +41,7 @@ export interface Metric {
 export interface MetricCreate {
   name: string;
   description?: string;
-  tags: Tag[];
+  tags: string[];
   evaluation_prompt: string;
   evaluation_steps?: string;
   reasoning?: string;
