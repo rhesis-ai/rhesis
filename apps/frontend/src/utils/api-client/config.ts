@@ -28,7 +28,7 @@ export const API_ENDPOINTS = {
   behaviors: '/behaviors',
   topics: '/topics',
   categories: '/categories',
-  type_lookups: '/type_lookups/',
+  type_lookups: '/type_lookups',
   metrics: '/metrics',
   models: '/models'
 } as const; 

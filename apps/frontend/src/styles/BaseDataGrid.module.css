@@ -1,0 +1,31 @@
+.dataGrid {
+  /* Base styles for the grid */
+  border: none;
+}
+
+.dataGrid :global(.MuiDataGrid-columnHeaders) {
+  background-color: rgba(0, 0, 0, 0.04);
+  font-weight: bold;
+}
+
+.dataGrid :global(.MuiDataGrid-columnHeaderTitle) {
+  font-weight: 800;
+}
+
+.dataGrid :global(.MuiDataGrid-columnHeader) {
+  font-weight: bold;
+}
+
+.dataGrid :global(.MuiDataGrid-cell:focus) {
+  outline: none;
+}
+
+.dataGrid :global(.MuiDataGrid-row:hover) {
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.dataGrid :global(.MuiDataGrid-cell) {
+  display: flex;
+  align-items: center;
+} 

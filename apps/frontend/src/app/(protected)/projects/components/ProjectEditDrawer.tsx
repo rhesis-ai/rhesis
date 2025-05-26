@@ -22,6 +22,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { UsersClient } from '@/utils/api-client/users-client';
 import PersonIcon from '@mui/icons-material/Person';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import styles from '@/styles/ProjectEditDrawer.module.css';
 
 // Import icons for selection
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -72,11 +73,11 @@ const PROJECT_ICONS = [
 // IconSelector component
 const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChange: (icon: string) => void }) => {
   return (
-    <Box sx={{ mt: 2, mb: 2 }}>
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium' }}>
+    <Box className={styles.iconSelectorContainer}>
+      <Typography variant="subtitle1" gutterBottom className={styles.iconSelectorTitle}>
         Project Icon
       </Typography>
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+      <Paper variant="outlined" className={styles.iconSelectorPaper}>
         <ToggleButtonGroup
           value={selectedIcon}
           exclusive
@@ -84,12 +85,7 @@ const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChan
             if (newIcon) onChange(newIcon);
           }}
           aria-label="project icon"
-          sx={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(5, 1fr)', 
-            gap: 1,
-            width: '100%'
-          }}
+          className={styles.toggleButtonGroup}
         >
           {PROJECT_ICONS.map((icon) => {
             const IconComponent = icon.component;
@@ -98,17 +94,12 @@ const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChan
                 key={icon.name}
                 value={icon.name}
                 aria-label={icon.label}
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: 1.5,
-                  gap: 1,
-                  fontSize: '0.7rem',
-                  height: '80px'
-                }}
+                className={styles.toggleButton}
               >
                 <IconComponent fontSize="medium" />
-                <Typography variant="caption" noWrap>{icon.label}</Typography>
+                <Typography variant="caption" noWrap className={styles.toggleButtonLabel}>
+                  {icon.label}
+                </Typography>
               </ToggleButton>
             );
           })}

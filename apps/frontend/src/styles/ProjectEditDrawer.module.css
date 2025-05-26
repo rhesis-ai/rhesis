@@ -1,0 +1,35 @@
+.iconSelectorContainer {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.iconSelectorTitle {
+  font-weight: 500;
+}
+
+.iconSelectorPaper {
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.toggleButtonGroup {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.toggleButton {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 8px;
+  font-size: 0.7rem;
+  height: 80px;
+}
+
+.toggleButtonLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+} 

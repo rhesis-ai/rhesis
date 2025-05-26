@@ -38,11 +38,6 @@ export default function TestRunTags({ sessionToken, testRun }: TestRunTagsProps)
         sessionToken={sessionToken}
         entityType={EntityType.TEST_RUN}
         entity={testRun}
-        sx={{
-          '& .MuiInputBase-root': {
-            padding: '16.5px 14px'
-          }
-        }}
       />
     </Box>
   );

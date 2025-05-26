@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState, useRef, KeyboardEvent, ClipboardEvent, ChangeEvent, FocusEvent, useEffect } from 'react';
+import styles from '@/styles/BaseTag.module.css';
 import {
   Box,
   Chip,
@@ -37,7 +38,6 @@ const StyledTextField = styled(TextField)({
     minWidth: '80px'
   }
 });
-
 const TagContainer = styled(Box)({
   width: '100%',
   '& .MuiChip-root': {
@@ -314,7 +314,7 @@ export default function BaseTag({
     <Chip
       key={tag}
       label={tag}
-      size="small"
+      onDelete={!disabled ? () => handleDeleteTag(tag) : undefined}
       color={chipColor}
       variant="filled"
       onDelete={!disabled && !disableEdition ? () => handleDeleteTag(tag) : undefined}
@@ -327,6 +327,7 @@ export default function BaseTag({
           fontSize: '0.8125rem'
         }
       }}
+      className={styles.baseTag}
     />
   ));
 
@@ -336,6 +337,7 @@ export default function BaseTag({
         {...textFieldProps}
         id={id}
         className="base-tag-field"
+        className="tag-input"
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleInputKeyDown}
