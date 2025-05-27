@@ -1196,21 +1196,23 @@ export default function MetricsPage() {
                           <CloseIcon fontSize="inherit" />
                         </IconButton>
                       ) : (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteMetric(metric.id, metric.name);
-                          }}
-                          sx={{
-                            padding: '2px',
-                            '& .MuiSvgIcon-root': {
-                              fontSize: '0.875rem'
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="inherit" />
-                        </IconButton>
+                        metric.backend_type?.type_value?.toLowerCase() === 'custom' && (
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteMetric(metric.id, metric.name);
+                            }}
+                            sx={{
+                              padding: '2px',
+                              '& .MuiSvgIcon-root': {
+                                fontSize: '0.875rem'
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="inherit" />
+                          </IconButton>
+                        )
                       )}
                     </Box>
                     <MetricCard 

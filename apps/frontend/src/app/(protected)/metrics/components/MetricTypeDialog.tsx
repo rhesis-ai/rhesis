@@ -36,13 +36,6 @@ const metricTypes: MetricTypeOption[] = [
     disabled: true
   },
   {
-    type: 'Grading',
-    title: 'Grading Criteria',
-    description: 'Checks the response according to custom grading criteria',
-    icon: <GradingIcon />,
-    disabled: true
-  },
-  {
     type: 'API Call',
     title: 'API Call',
     description: 'Uses an external API service to check the response',
