@@ -143,6 +143,13 @@ class EndpointInvoker:
 
         # Prepare request headers
         headers = endpoint.request_headers or {"Content-Type": "application/json"}
+        # Substitute {{ auth_token }} in headers if present
+        if headers:
+            context = {"auth_token": getattr(endpoint, "auth_token", None)}
+            for key, value in headers.items():
+                if isinstance(value, str) and "{{ auth_token }}" in value:
+                    template = Template(value)
+                    headers[key] = template.render(**context)
 
         # Prepare request body using template
         request_body = self.template_renderer.render(

@@ -47,7 +47,7 @@ class EndpointBase(Base):
     project_id: Optional[UUID4] = None
 
     auth_type: Optional[EndpointAuthType] = None
-    token: Optional[str] = None
+    auth_token: Optional[str] = None
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     token_url: Optional[str] = None

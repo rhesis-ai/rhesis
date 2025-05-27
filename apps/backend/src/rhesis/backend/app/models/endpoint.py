@@ -58,7 +58,7 @@ class Endpoint(Base, TagsMixin):
 
     # Authentication fields
     auth_type = Column(String, nullable=True)
-    token = Column(Text, nullable=True)
+    auth_token = Column(Text, nullable=True)
     client_id = Column(Text, nullable=True)
     client_secret = Column(Text, nullable=True)
     token_url = Column(Text, nullable=True)
