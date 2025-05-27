@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import { Box } from '@mui/material';
-import EndpointsTable from './components/EndpointsTable';
+import EndpointsGrid from './components/EndpointsGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
@@ -50,6 +50,10 @@ export default function EndpointsPage() {
     }
   }, [session, paginationModel]);
 
+  const handleEndpointDeleted = useCallback(() => {
+    fetchEndpoints();
+  }, [fetchEndpoints]);
+
   React.useEffect(() => {
     fetchEndpoints();
   }, [fetchEndpoints]);
@@ -75,12 +79,13 @@ export default function EndpointsPage() {
         { title: 'Endpoints' }
       ]}
     >
-      <EndpointsTable 
+      <EndpointsGrid 
         endpoints={endpoints}
         loading={loading}
         totalCount={totalCount}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        onEndpointDeleted={handleEndpointDeleted}
       />
     </PageContainer>
   );

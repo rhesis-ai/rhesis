@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Chip, Paper, Box, Button, Typography } from '@mui/material';
+import { Chip, Paper, Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import AddIcon from '@mui/icons-material/Add';
 import UploadIcon from '@mui/icons-material/Upload';
-import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -87,6 +88,7 @@ interface EndpointGridProps {
   totalCount?: number;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
+  onEndpointDeleted?: () => void;
 }
 
 const getEnvironmentColor = (environment: string) => {
@@ -108,11 +110,15 @@ export default function EndpointGrid({
   paginationModel = {
     page: 0,
     pageSize: 10,
-  }
+  },
+  onEndpointDeleted
 }: EndpointGridProps) {
   const router = useRouter();
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { data: session } = useSession();
 
   // Fetch projects when component mounts
@@ -161,25 +167,78 @@ export default function EndpointGrid({
     }
   }, [session]);
 
+  // Handle row selection
+  const handleRowSelectionModelChange = (newSelection: GridRowSelectionModel) => {
+    setSelectedRows(newSelection);
+  };
+
+  // Handle delete endpoints
+  const handleDeleteEndpoints = async () => {
+    if (!session?.session_token || selectedRows.length === 0) return;
+
+    try {
+      setDeleting(true);
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const endpointsClient = apiFactory.getEndpointsClient();
+
+      // Delete all selected endpoints
+      await Promise.all(
+        selectedRows.map(id => endpointsClient.deleteEndpoint(id as string))
+      );
+
+      // Clear selection and close dialog
+      setSelectedRows([]);
+      setDeleteDialogOpen(false);
+
+      // Refresh the data
+      if (onEndpointDeleted) {
+        onEndpointDeleted();
+      }
+    } catch (error) {
+      console.error('Error deleting endpoints:', error);
+      // You might want to show a toast notification here
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Custom toolbar with right-aligned buttons
   const customToolbar = (
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%', gap: 2 }}>
-      <Button 
-        component={Link} 
-        href="/endpoints/new" 
-        variant="outlined" 
-        startIcon={<AddIcon />}
-      >
-        New Endpoint
-      </Button>
-      <Button 
-        component={Link} 
-        href="/endpoints/swagger" 
-        variant="contained" 
-        startIcon={<UploadIcon />}
-      >
-        Import Swagger
-      </Button>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: 2 }}>
+      {/* Delete button - shown when rows are selected */}
+      {selectedRows.length > 0 && (
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<DeleteIcon />}
+          onClick={() => setDeleteDialogOpen(true)}
+          disabled={deleting}
+        >
+          Delete {selectedRows.length} endpoint{selectedRows.length > 1 ? 's' : ''}
+        </Button>
+      )}
+      
+      {/* Spacer to push buttons to the right when no selection */}
+      <Box sx={{ flexGrow: 1 }} />
+      
+      <Box sx={{ display: 'flex', gap: 2 }}>
+        <Button 
+          component={Link} 
+          href="/endpoints/new" 
+          variant="outlined" 
+          startIcon={<AddIcon />}
+        >
+          New Endpoint
+        </Button>
+        <Button 
+          component={Link} 
+          href="/endpoints/swagger" 
+          variant="contained" 
+          startIcon={<UploadIcon />}
+        >
+          Import Swagger
+        </Button>
+      </Box>
     </Box>
   );
 
@@ -247,21 +306,61 @@ export default function EndpointGrid({
   ];
 
   return (
-    <Paper elevation={2} sx={{ p: 2 }}>
-      <BaseDataGrid
-        rows={endpoints}
-        columns={columns}
-        loading={loading || loadingProjects}
-        density="comfortable"
-        customToolbarContent={customToolbar}
-        linkPath="/endpoints"
-        linkField="id"
-        serverSidePagination={true}
-        totalRows={totalCount}
-        paginationModel={paginationModel}
-        onPaginationModelChange={onPaginationModelChange}
-        pageSizeOptions={[10, 25, 50]}
-      />
-    </Paper>
+    <>
+      <Paper elevation={2} sx={{ p: 2 }}>
+        <BaseDataGrid
+          rows={endpoints}
+          columns={columns}
+          loading={loading || loadingProjects}
+          density="comfortable"
+          customToolbarContent={customToolbar}
+          linkPath="/endpoints"
+          linkField="id"
+          serverSidePagination={true}
+          totalRows={totalCount}
+          paginationModel={paginationModel}
+          onPaginationModelChange={onPaginationModelChange}
+          pageSizeOptions={[10, 25, 50]}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedRows}
+          onRowSelectionModelChange={handleRowSelectionModelChange}
+        />
+      </Paper>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">
+          Delete Endpoint{selectedRows.length > 1 ? 's' : ''}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to delete {selectedRows.length} endpoint{selectedRows.length > 1 ? 's' : ''}? 
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)} 
+            disabled={deleting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteEndpoints} 
+            color="error" 
+            variant="contained"
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 } 
