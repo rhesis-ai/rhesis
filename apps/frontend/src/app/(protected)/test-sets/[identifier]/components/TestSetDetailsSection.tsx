@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Paper, Button, TextField, Typography, Tooltip } from '@mui/material';
+import { Box, Paper, Button, TextField, Typography, Tooltip, Chip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DownloadIcon from '@mui/icons-material/Download';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -16,6 +16,72 @@ import TestSetTags from './TestSetTags';
 interface TestSetDetailsSectionProps {
   testSet: TestSet;
   sessionToken: string;
+}
+
+interface MetadataFieldProps {
+  label: string;
+  items: string[];
+  maxVisible?: number;
+}
+
+function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
+  if (!items || items.length === 0) {
+    return (
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          {label}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          No {label.toLowerCase()} defined
+        </Typography>
+      </Box>
+    );
+  }
+
+  const visibleItems = items.slice(0, maxVisible);
+  const remainingCount = items.length - maxVisible;
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+        {label}
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        {visibleItems.map((item, index) => (
+          <Chip
+            key={index}
+            label={item}
+            variant="outlined"
+            size="small"
+            sx={{ 
+              backgroundColor: 'rgba(158, 158, 158, 0.08)',
+              borderColor: 'rgba(158, 158, 158, 0.3)',
+              color: 'rgba(97, 97, 97, 1)',
+              '&:hover': {
+                backgroundColor: 'rgba(158, 158, 158, 0.12)',
+              }
+            }}
+          />
+        ))}
+        {remainingCount > 0 && (
+          <Chip
+            label={`+${remainingCount}`}
+            variant="outlined"
+            size="small"
+            sx={{ 
+              backgroundColor: 'rgba(117, 117, 117, 0.08)',
+              borderColor: 'rgba(117, 117, 117, 0.3)',
+              color: 'rgba(66, 66, 66, 1)',
+              fontWeight: 'medium',
+              '&:hover': {
+                backgroundColor: 'rgba(117, 117, 117, 0.12)',
+              }
+            }}
+          />
+        )}
+      </Box>
+    </Box>
+  );
 }
 
 export default function TestSetDetailsSection({ testSet, sessionToken }: TestSetDetailsSectionProps) {
@@ -59,6 +125,11 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
       setIsUpdating(false);
     }
   };
+
+  // Extract metadata from testSet
+  const behaviors = testSet.attributes?.metadata?.behaviors || [];
+  const categories = testSet.attributes?.metadata?.categories || [];
+  const topics = testSet.attributes?.metadata?.topics || [];
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
@@ -142,6 +213,13 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
             </Button>
           </Box>
         )}
+      </Box>
+
+      {/* Metadata Fields */}
+      <Box sx={{ mb: 3 }}>
+        <MetadataField label="Behaviors" items={behaviors} />
+        <MetadataField label="Categories" items={categories} />
+        <MetadataField label="Topics" items={topics} />
       </Box>
 
       {/* Tags Section */}
