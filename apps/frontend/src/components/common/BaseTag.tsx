@@ -14,36 +14,13 @@ import {
   InputProps,
   StandardTextFieldProps,
   InputLabelProps,
-  FormHelperText,
-  styled
+  FormHelperText
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
-
-// Styled components for component-specific styling
-const StyledTextField = styled(TextField)({
-  '&.base-tag-field .MuiOutlinedInput-root': {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    minHeight: 'unset',
-    padding: '8px 8px 8px 12px'
-  },
-  '&.base-tag-field .MuiOutlinedInput-input': {
-    padding: '4px',
-    height: '30px',
-    minWidth: '80px'
-  }
-});
-const TagContainer = styled(Box)({
-  width: '100%',
-  '& .MuiChip-root': {
-    margin: '8px 4px 2px 0'
-  }
-});
 
 // Type definitions
 interface TaggableEntity {
@@ -318,24 +295,16 @@ export default function BaseTag({
       color={chipColor}
       variant="filled"
       disabled={disabled}
-      sx={{ 
-        height: '24px', 
-        maxWidth: '200px',
-        '& .MuiChip-label': { 
-          padding: '0 6px',
-          fontSize: '0.8125rem'
-        }
-      }}
       className={styles.baseTag}
     />
   ));
 
   return (
-    <TagContainer>
-      <StyledTextField
+    <Box className={styles.tagContainer}>
+      <TextField
         {...textFieldProps}
         id={id}
-        className="base-tag-field"
+        className={styles.tagField}
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleInputKeyDown}
@@ -349,12 +318,16 @@ export default function BaseTag({
         inputRef={inputRef}
         InputProps={{
           ...customInputProps,
-          startAdornment: chipElements.length > 0 ? chipElements : null,
+          startAdornment: chipElements.length > 0 ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+              {chipElements}
+            </Box>
+          ) : null,
           readOnly: disableEdition
         }}
         InputLabelProps={inputLabelProps}
         fullWidth
       />
-    </TagContainer>
+    </Box>
   );
 } 
