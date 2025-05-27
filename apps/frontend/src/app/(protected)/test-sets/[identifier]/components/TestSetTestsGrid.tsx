@@ -3,11 +3,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { GridColDef, GridRowSelectionModel, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { Typography, Box, Alert, Avatar, Button } from '@mui/material';
+import { Typography, Box, Alert, Button, Chip } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
-import PersonIcon from '@mui/icons-material/Person';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -47,8 +46,8 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
       const response = await testSetsClient.getTestSetTests(testSetId, {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sortBy: 'topic',
+        sortOrder: 'asc'
       });
       
       if (isMounted.current) {
@@ -83,75 +82,50 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
 
   const columns: GridColDef[] = React.useMemo(() => [
     { 
-      field: 'behavior',
-      headerName: 'Behavior', 
-      flex: 1,
-      valueGetter: (_, row) => row.behavior?.name || ''
-    },
-    { 
-      field: 'test_type', 
-      headerName: 'Type', 
-      flex: 1,
-      valueGetter: (_, row) => row.test_type?.type_value || ''
-    },
-    { 
-      field: 'topic', 
-      headerName: 'Topic', 
-      flex: 1,
-      valueGetter: (_, row) => row.topic?.name || ''
-    },
-    { 
-      field: 'category', 
-      headerName: 'Category', 
-      flex: 1,
-      valueGetter: (_, row) => row.category?.name || ''
-    },
-    { 
-      field: 'priority', 
-      headerName: 'Priority', 
-      flex: 1,
-      valueGetter: (_, row) => {
-        const priorityLevel = row.priorityLevel;
-        return priorityLevel || 'Medium';
-      }
-    },
-    { 
-      field: 'status', 
-      headerName: 'Status', 
-      flex: 1,
+      field: 'prompt',
+      headerName: 'Prompt', 
+      flex: 3,
       renderCell: (params) => {
-        const status = params.row.status;
-        if (!status) return null;
+        const prompt = params.row.prompt;
+        if (!prompt) return null;
 
         return (
-          <Typography variant="body2">
-            {status.name}
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%'
+            }}
+          >
+            {prompt.content}
           </Typography>
         );
       }
     },
     { 
-      field: 'assignee', 
-      headerName: 'Assignee', 
+      field: 'topic', 
+      headerName: 'Topic', 
       flex: 1,
       renderCell: (params) => {
-        const assignee = params.row.assignee;
-        if (!assignee) return null;
-
-        const displayName = assignee.name || 
-          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
-          assignee.email;
+        const topicName = params.row.topic?.name;
+        if (!topicName) return null;
 
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar
-              src={assignee.picture}
-              sx={{ width: 24, height: 24 }}
-            >
-              <PersonIcon />
-            </Avatar>
-            <Typography variant="body2">{displayName}</Typography>
-          </Box>
+          <Chip
+            label={topicName}
+            variant="outlined"
+            size="small"
+            sx={{ 
+              backgroundColor: 'rgba(158, 158, 158, 0.08)',
+              borderColor: 'rgba(158, 158, 158, 0.3)',
+              color: 'rgba(97, 97, 97, 1)',
+              '&:hover': {
+                backgroundColor: 'rgba(158, 158, 158, 0.12)',
+              }
+            }}
+          />
         );
       }
     }
@@ -226,6 +200,10 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
 
   return (
     <>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        Tests
+      </Typography>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
