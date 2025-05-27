@@ -598,6 +598,7 @@ declare module '@/utils/api-client/client-factory' {
     getEndpoints(params?: Partial<PaginationParams>): Promise<PaginatedResponse<Endpoint>>;
     createEndpoint(data: Omit<Endpoint, 'id'>): Promise<Endpoint>;
     updateEndpoint(id: string, data: Partial<Endpoint>): Promise<Endpoint>;
+    deleteEndpoint(id: string): Promise<void>;
     invokeEndpoint(id: string, inputData: any): Promise<any>;
     getEndpoint(id: string): Promise<Endpoint>;
     executeEndpoint(id: string, test_set_ids: string[]): Promise<any>;
