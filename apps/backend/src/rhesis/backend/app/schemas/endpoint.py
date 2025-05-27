@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from pydantic import UUID4
 
@@ -7,6 +7,7 @@ from rhesis.backend.app.models.enums import (
     EndpointEnvironment,
     EndpointProtocol,
     EndpointResponseFormat,
+    EndpointAuthType,
 )
 from rhesis.backend.app.schemas import Base
 
@@ -44,6 +45,15 @@ class EndpointBase(Base):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     project_id: Optional[UUID4] = None
+
+    auth_type: Optional[EndpointAuthType] = None
+    token: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    token_url: Optional[str] = None
+    scopes: Optional[List[str]] = None
+    audience: Optional[str] = None
+    extra_payload: Optional[Dict[str, Any]] = None
 
 
 class EndpointCreate(EndpointBase):

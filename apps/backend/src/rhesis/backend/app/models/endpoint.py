@@ -1,9 +1,9 @@
-from sqlalchemy import Column, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy import Column, ForeignKey, String, Text, Enum
+from sqlalchemy.dialects.postgresql import JSON, ARRAY
 from sqlalchemy.orm import relationship
 
 from .base import Base
-from .enums import EndpointConfigSource, EndpointEnvironment, EndpointResponseFormat
+from .enums import EndpointConfigSource, EndpointEnvironment, EndpointResponseFormat, EndpointAuthType
 from .guid import GUID
 from .mixins import TagsMixin
 
@@ -55,3 +55,13 @@ class Endpoint(Base, TagsMixin):
 
     # Test Configuration relationship
     test_configurations = relationship("TestConfiguration", back_populates="endpoint")
+
+    # Authentication fields
+    auth_type = Column(String, nullable=True)
+    token = Column(Text, nullable=True)
+    client_id = Column(Text, nullable=True)
+    client_secret = Column(Text, nullable=True)
+    token_url = Column(Text, nullable=True)
+    scopes = Column(ARRAY(Text), nullable=True)
+    audience = Column(Text, nullable=True)
+    extra_payload = Column(JSON, nullable=True)
