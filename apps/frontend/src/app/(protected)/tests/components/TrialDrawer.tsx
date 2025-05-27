@@ -7,22 +7,17 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import BaseFreesoloAutocomplete, { AutocompleteOption } from '@/components/common/BaseFreesoloAutocomplete';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
 
-// Sample response for demonstration
-const SAMPLE_RESPONSE = {
-  output: "I'm sorry, I'm an insurance expert and can only answer questions about insurance.\n",
-  session_id: "024de0f6-3cf7-463f-a9a9-129c965e3927",
-  context: [
-    "Please provide a valid insurance-related question so I can generate relevant context fragments.",
-    "I need a clear question about insurance to provide helpful information.",
-    "Without a proper question, I am unable to provide context fragments."
-  ]
-};
+interface ProjectOption {
+  id: UUID;
+  name: string;
+}
 
-interface AutocompleteEndpointOption extends AutocompleteOption {
+interface EndpointOption {
+  id: UUID;
+  name: string;
   environment?: 'development' | 'staging' | 'production';
   project_id?: string;
 }
@@ -45,11 +40,11 @@ export default function TrialDrawer({
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState<TestDetail | null>(null);
-  const [projects, setProjects] = useState<AutocompleteOption[]>([]);
-  const [endpoints, setEndpoints] = useState<AutocompleteEndpointOption[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
-  const [filteredEndpoints, setFilteredEndpoints] = useState<AutocompleteEndpointOption[]>([]);
+  const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>([]);
   const [trialResponse, setTrialResponse] = useState<any>(null);
   const [trialInProgress, setTrialInProgress] = useState(false);
   const [trialCompleted, setTrialCompleted] = useState(false);
@@ -64,58 +59,102 @@ export default function TrialDrawer({
         setLoading(true);
         setTrialResponse(null);
         setTrialCompleted(false);
+        setError(undefined);
         const clientFactory = new ApiClientFactory(sessionToken);
         
         // Fetch test data (we only support single test trial for now)
         if (testIds.length > 0) {
-          const testsClient = clientFactory.getTestsClient();
-          const testDetail = await testsClient.getTest(testIds[0]);
-          
-          // If test has a prompt_id but no prompt data, fetch the prompt
-          if (testDetail.prompt_id && !testDetail.prompt) {
-            const promptsClient = clientFactory.getPromptsClient();
-            const promptData = await promptsClient.getPrompt(testDetail.prompt_id);
-            testDetail.prompt = promptData;
+          try {
+            const testsClient = clientFactory.getTestsClient();
+            const testDetail = await testsClient.getTest(testIds[0]);
+            
+            // If test has a prompt_id but no prompt data, fetch the prompt
+            if (testDetail.prompt_id && !testDetail.prompt) {
+              const promptsClient = clientFactory.getPromptsClient();
+              const promptData = await promptsClient.getPrompt(testDetail.prompt_id);
+              testDetail.prompt = promptData;
+            }
+            
+            setTestData(testDetail);
+          } catch (testError) {
+            console.error('Error fetching test data:', testError);
+            // Continue with projects/endpoints even if test fetch fails
           }
-          
-          setTestData(testDetail);
         }
         
-        // Fetch projects
-        const projectsClient = clientFactory.getProjectsClient();
-        const projectsData = await projectsClient.getProjects({ 
-          sortBy: 'name', 
-          sortOrder: 'asc'
-        });
-        
-        setProjects(
-          projectsData.data
+        // Fetch projects with proper response handling
+        try {
+          const projectsClient = clientFactory.getProjectsClient();
+          const projectsData = await projectsClient.getProjects({ 
+            sortBy: 'name', 
+            sortOrder: 'asc',
+            limit: 100
+          });
+          
+          console.log('Projects API response:', projectsData);
+          
+          // Handle both response formats: direct array or {data: array}
+          let projectsArray: Project[] = [];
+          if (Array.isArray(projectsData)) {
+            // Direct array response (what we're getting)
+            projectsArray = projectsData;
+            console.log('Using direct array response');
+          } else if (projectsData && Array.isArray(projectsData.data)) {
+            // Paginated response with data property
+            projectsArray = projectsData.data;
+            console.log('Using paginated response data');
+          } else {
+            console.warn('Invalid projects response structure:', projectsData);
+          }
+          
+          const processedProjects = projectsArray
             .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
-            .map((p: Project) => ({ id: p.id as UUID, name: p.name }))
-        );
+            .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
+          
+          console.log('Final processed projects:', processedProjects);
+          setProjects(processedProjects);
+        } catch (projectsError) {
+          console.error('Error fetching projects:', projectsError);
+          setProjects([]);
+          notifications.show('Failed to load projects. Please refresh the page.', { severity: 'error' });
+        }
         
         // Fetch all endpoints
-        const endpointsClient = clientFactory.getEndpointsClient();
-        const endpointsResponse = await endpointsClient.getEndpoints({
-          sortBy: 'name',
-          sortOrder: 'asc'
-        });
+        try {
+          const endpointsClient = clientFactory.getEndpointsClient();
+          const endpointsResponse = await endpointsClient.getEndpoints({
+            sortBy: 'name',
+            sortOrder: 'asc',
+            limit: 100
+          });
+          
+          console.log('Endpoints API response:', endpointsResponse);
+          
+          if (endpointsResponse && Array.isArray(endpointsResponse.data)) {
+            const processedEndpoints = endpointsResponse.data
+              .filter(e => e.id && e.name && e.name.trim() !== '')
+              .map(e => ({ 
+                id: e.id as UUID, 
+                name: e.name,
+                environment: e.environment,
+                project_id: e.project_id
+              }));
+            
+            console.log('Final processed endpoints:', processedEndpoints);
+            setEndpoints(processedEndpoints);
+          } else {
+            console.warn('Invalid endpoints response structure:', endpointsResponse);
+            setEndpoints([]);
+          }
+        } catch (endpointsError) {
+          console.error('Error fetching endpoints:', endpointsError);
+          setEndpoints([]);
+          notifications.show('Failed to load endpoints. Please refresh the page.', { severity: 'error' });
+        }
         
-        setEndpoints(
-          endpointsResponse.data
-            .filter(e => e.id && e.name && e.name.trim() !== '')
-            .map(e => ({ 
-              id: e.id as UUID, 
-              name: e.name,
-              environment: e.environment,
-              project_id: e.project_id
-            }))
-        );
-        
-        setError(undefined);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load projects and endpoints');
+        console.error('General error in fetchData:', error);
+        setError('Failed to load data. Please check your connection and try again.');
       } finally {
         setLoading(false);
       }
@@ -124,7 +163,7 @@ export default function TrialDrawer({
     if (open) {
       fetchData();
     }
-  }, [sessionToken, open, testIds]);
+  }, [sessionToken, open, testIds, notifications]);
 
   // Filter endpoints when project changes
   useEffect(() => {
@@ -142,27 +181,13 @@ export default function TrialDrawer({
     setSelectedEndpoint(null);
   }, [selectedProject, endpoints]);
 
-  const handleProjectChange = (value: AutocompleteOption | string | null) => {
-    if (!value) {
-      setSelectedProject(null);
-      return;
-    }
-    
-    const projectId = typeof value === 'string' ? value : value.id;
-    setSelectedProject(projectId);
-    
-    // Reset endpoint if project changes
-    setSelectedEndpoint(null);
-  };
-
-  const handleEndpointChange = (value: AutocompleteEndpointOption | string | null) => {
+  const handleEndpointChange = (value: EndpointOption | null) => {
     if (!value) {
       setSelectedEndpoint(null);
       return;
     }
     
-    const endpointId = typeof value === 'string' ? value : value.id;
-    setSelectedEndpoint(endpointId);
+    setSelectedEndpoint(value.id);
   };
 
   const handleSave = async () => {
@@ -188,7 +213,6 @@ export default function TrialDrawer({
       console.log('Output:', data.output);
       
       setTrialResponse(data);
-      // Don't set trialCompleted, so the button stays in "Start Trial" state
     } catch (error) {
       console.error(error);
       setError('Failed to execute trial');
@@ -209,13 +233,32 @@ export default function TrialDrawer({
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <FormControl fullWidth>
-          <BaseFreesoloAutocomplete
+          <Autocomplete
             options={projects}
-            value={selectedProject}
-            onChange={handleProjectChange}
-            label="Project"
-            required
+            value={projects.find(p => p.id === selectedProject) || null}
+            onChange={(_, newValue) => {
+              console.log('Project selection changed:', newValue);
+              if (!newValue) {
+                setSelectedProject(null);
+                return;
+              }
+              setSelectedProject(newValue.id);
+              setSelectedEndpoint(null);
+            }}
+            getOptionLabel={(option) => option.name}
+            renderInput={(params) => (
+              <TextField 
+                {...params} 
+                label="Project" 
+                required 
+                placeholder="Select a project"
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
           />
+          {projects.length === 0 && !loading && (
+            <FormHelperText>No projects available</FormHelperText>
+          )}
         </FormControl>
         
         <FormControl fullWidth>
@@ -258,7 +301,11 @@ export default function TrialDrawer({
                 </Box>
               );
             }}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
           />
+          {filteredEndpoints.length === 0 && selectedProject && !loading && (
+            <FormHelperText>No endpoints available for this project</FormHelperText>
+          )}
         </FormControl>
 
         {testData?.prompt?.content && (
