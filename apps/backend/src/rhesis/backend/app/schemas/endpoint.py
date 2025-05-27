@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional, List
+from datetime import datetime
 
 from pydantic import UUID4
 
@@ -54,6 +55,8 @@ class EndpointBase(Base):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+    last_token: Optional[str] = None
+    last_token_expires_at: Optional[datetime] = None
 
 
 class EndpointCreate(EndpointBase):

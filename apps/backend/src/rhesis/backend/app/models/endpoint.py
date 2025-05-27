@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Text, Enum
+from sqlalchemy import Column, ForeignKey, String, Text, Enum, DateTime
 from sqlalchemy.dialects.postgresql import JSON, ARRAY
 from sqlalchemy.orm import relationship
 
@@ -65,3 +65,5 @@ class Endpoint(Base, TagsMixin):
     scopes = Column(ARRAY(Text), nullable=True)
     audience = Column(Text, nullable=True)
     extra_payload = Column(JSON, nullable=True)
+    last_token = Column(Text, nullable=True)
+    last_token_expires_at = Column(DateTime, nullable=True)
