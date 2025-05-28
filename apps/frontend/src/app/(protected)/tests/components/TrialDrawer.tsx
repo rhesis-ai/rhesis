@@ -196,19 +196,13 @@ export default function TrialDrawer({
     try {
       setTrialInProgress(true);
       
-      const response = await fetch(`https://api.rhesis.ai/endpoints/${selectedEndpoint}/invoke`, {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`
-        },
-        body: JSON.stringify({
-          input: testData.prompt.content
-        })
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const endpointsClient = clientFactory.getEndpointsClient();
+      
+      const data = await endpointsClient.invokeEndpoint(selectedEndpoint, {
+        input: testData.prompt.content
       });
       
-      const data = await response.json();
       console.log('Response data:', data);
       console.log('Output:', data.output);
       
