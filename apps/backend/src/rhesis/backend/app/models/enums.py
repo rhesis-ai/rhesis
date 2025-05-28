@@ -3,7 +3,7 @@ from enum import Enum
 
 class EndpointProtocol(str, Enum):
     REST = "REST"
-    WEBSOCKET = "WEBSOCKET"
+    WEBSOCKET = "WebSocket"
     GRPC = "GRPC"
 
 
