@@ -219,7 +219,7 @@ export default function TrialDrawer({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      title="Trial Test Execution"
+      title="Run Test"
       loading={loading || trialInProgress}
       error={error}
       onSave={handleSave}

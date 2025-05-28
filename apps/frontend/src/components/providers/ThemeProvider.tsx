@@ -81,7 +81,7 @@ export default function ThemeContextProvider({
   return (
     <ColorModeContext.Provider value={colorMode}>
       <MuiThemeProvider theme={theme} disableTransitionOnChange={disableTransitionOnChange}>
-        <CssBaseline />
+        {/* <CssBaseline /> */}
         {children}
       </MuiThemeProvider>
     </ColorModeContext.Provider>

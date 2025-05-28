@@ -85,7 +85,7 @@ export default function TestToTestSet({ sessionToken, testId, parentButton }: Te
           startIcon={<PlayArrowIcon />}
           onClick={() => setTrialDrawerOpen(true)}
         >
-          Trial
+          Run Test
         </Button>
       </Box>
 

@@ -3,7 +3,7 @@
 import React, { useRef, useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Autocomplete, TextField, Box, Avatar, MenuItem, Typography, Divider } from '@mui/material';
+import { Autocomplete, TextField, Box, Avatar, MenuItem, Typography, Divider, Stack } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -186,117 +186,108 @@ export default function TestSetDrawer({
       error={error}
       onSave={handleSave}
     >
-      <>
-        <Typography variant="subtitle2" color="text.secondary">
-          Workflow
-        </Typography>
+      <Stack spacing={3}>
+        {/* Workflow Section */}
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Workflow
+          </Typography>
 
-        <Autocomplete
-          options={statuses}
-          value={status}
-          onChange={(_, newValue) => setStatus(newValue)}
-          getOptionLabel={(option) => option.name}
-          renderInput={(params) => (
-            <TextField {...params} label="Status" required />
-          )}
-        />
-
-<TextField
-          select
-          label="Priority"
-          value={priority}
-          onChange={(e) => setPriority(Number(e.target.value))}
-          fullWidth
-          required
-        >
-          {PRIORITY_LEVELS.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        <Autocomplete
-          options={users}
-          value={assignee}
-          onChange={(_, newValue) => setAssignee(newValue)}
-          getOptionLabel={getUserDisplayName}
-          renderOption={renderUserOption}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Assignee"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: assignee && (
-                  <Avatar
-                    src={assignee.picture}
-                    sx={{ width: 24, height: 24, mr: 1 }}
-                  >
-                    <PersonIcon />
-                  </Avatar>
-                )
-              }}
+          <Stack spacing={2}>
+            <Autocomplete
+              options={statuses}
+              value={status}
+              onChange={(_, newValue) => setStatus(newValue)}
+              getOptionLabel={(option) => option.name}
+              fullWidth
+              renderInput={(params) => (
+                <TextField {...params} label="Status" required />
+              )}
             />
-          )}
-        />
 
-        <Autocomplete
-          options={users}
-          value={owner}
-          onChange={(_, newValue) => setOwner(newValue)}
-          getOptionLabel={getUserDisplayName}
-          renderOption={renderUserOption}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Owner" 
+            <TextField
+              select
+              label="Priority"
+              value={priority}
+              onChange={(e) => setPriority(Number(e.target.value))}
+              fullWidth
               required
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: owner && (
-                  <Avatar
-                    src={owner.picture}
-                    sx={{ width: 24, height: 24, mr: 1 }}
-                  >
-                    <PersonIcon />
-                  </Avatar>
-                )
-              }}
+            >
+              {PRIORITY_LEVELS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Autocomplete
+              options={users}
+              value={assignee}
+              onChange={(_, newValue) => setAssignee(newValue)}
+              getOptionLabel={getUserDisplayName}
+              renderOption={renderUserOption}
+              fullWidth
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Assignee"
+                />
+              )}
             />
-          )}
-        />
 
-        <Divider sx={{ my: 1 }} />
+            <Autocomplete
+              options={users}
+              value={owner}
+              onChange={(_, newValue) => setOwner(newValue)}
+              getOptionLabel={getUserDisplayName}
+              renderOption={renderUserOption}
+              fullWidth
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Owner" 
+                  required
+                />
+              )}
+            />
+          </Stack>
+        </Stack>
 
-        <Typography variant="subtitle2" color="text.secondary">
-          Test Set Details
-        </Typography>
+        <Divider />
 
-        <TextField
-          label="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          fullWidth
-        />
+        {/* Test Set Details Section */}
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Test Set Details
+          </Typography>
 
-        <TextField
-          label="Short Description"
-          value={shortDescription}
-          onChange={(e) => setShortDescription(e.target.value)}
-          fullWidth
-        />
+          <Stack spacing={2}>
+            <TextField
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              fullWidth
+            />
 
-        <TextField
-          label="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          multiline
-          rows={4}
-          fullWidth
-        />
-      </>
+            <TextField
+              label="Short Description"
+              value={shortDescription}
+              onChange={(e) => setShortDescription(e.target.value)}
+              fullWidth
+            />
+
+            <TextField
+              label="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              multiline
+              rows={4}
+              fullWidth
+            />
+          </Stack>
+        </Stack>
+      </Stack>
     </BaseDrawer>
   );
 } 
