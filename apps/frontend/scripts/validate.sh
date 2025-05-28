@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Navigate to the frontend directory (parent of scripts)
+FRONTEND_DIR="$(dirname "$SCRIPT_DIR")"
+
+echo "📁 Changing to frontend directory: $FRONTEND_DIR"
+cd "$FRONTEND_DIR" || exit 1
+
 # Clean before building to ensure a fresh build
 echo "🗑️ Cleaning .next folder..."
 npm run clean
