@@ -3,7 +3,7 @@
 import React, { useRef, useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestRunDetail, TestRunCreate } from '@/utils/api-client/interfaces/test-run';
-import { Autocomplete, TextField, Box, Avatar, Typography, Divider } from '@mui/material';
+import { Autocomplete, TextField, Box, Avatar, Typography, Divider, Stack } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -207,104 +207,119 @@ export default function TestRunDrawer({
       onSave={handleSave}
       saveButtonText="Execute Now"
     >
-      <>
-        <Typography variant="subtitle2" color="text.secondary">
-          Workflow
-        </Typography>
+      <Stack spacing={3}>
+        {/* Workflow Section */}
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Workflow
+          </Typography>
 
-        <Autocomplete
-          options={users}
-          value={assignee}
-          onChange={(_, newValue) => setAssignee(newValue)}
-          getOptionLabel={getUserDisplayName}
-          renderOption={renderUserOption}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Assignee"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: assignee && (
-                  <Avatar
-                    src={assignee.picture}
-                    sx={{ width: 24, height: 24, mr: 1 }}
-                  >
-                    <PersonIcon />
-                  </Avatar>
-                )
-              }}
+          <Stack spacing={2}>
+            <Autocomplete
+              options={users}
+              value={assignee}
+              onChange={(_, newValue) => setAssignee(newValue)}
+              getOptionLabel={getUserDisplayName}
+              renderOption={renderUserOption}
+              fullWidth
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Assignee"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: assignee && (
+                      <Avatar
+                        src={assignee.picture}
+                        sx={{ width: 24, height: 24, mr: 1 }}
+                      >
+                        <PersonIcon />
+                      </Avatar>
+                    )
+                  }}
+                />
+              )}
             />
-          )}
-        />
 
-        <Autocomplete
-          options={users}
-          value={owner}
-          onChange={(_, newValue) => setOwner(newValue)}
-          getOptionLabel={getUserDisplayName}
-          renderOption={renderUserOption}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Owner" 
-              required
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: owner && (
-                  <Avatar
-                    src={owner.picture}
-                    sx={{ width: 24, height: 24, mr: 1 }}
-                  >
-                    <PersonIcon />
-                  </Avatar>
-                )
-              }}
+            <Autocomplete
+              options={users}
+              value={owner}
+              onChange={(_, newValue) => setOwner(newValue)}
+              getOptionLabel={getUserDisplayName}
+              renderOption={renderUserOption}
+              fullWidth
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Owner" 
+                  required
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: owner && (
+                      <Avatar
+                        src={owner.picture}
+                        sx={{ width: 24, height: 24, mr: 1 }}
+                      >
+                        <PersonIcon />
+                      </Avatar>
+                    )
+                  }}
+                />
+              )}
             />
-          )}
-        />
+          </Stack>
+        </Stack>
 
-        <Divider sx={{ my: 1 }} />
+        <Divider />
 
-        <Typography variant="subtitle2" color="text.secondary">
-          Test Run Configuration
-        </Typography>
+        {/* Test Run Configuration Section */}
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Test Run Configuration
+          </Typography>
 
-        <Autocomplete
-          options={testSets}
-          value={testSet}
-          onChange={(_, newValue) => setTestSet(newValue)}
-          getOptionLabel={(option) => option.name || 'Unnamed Test Set'}
-          renderInput={(params) => (
-            <TextField {...params} label="Test Set" required />
-          )}
-        />
-
-        <Autocomplete
-          options={projects}
-          value={project}
-          onChange={(_, newValue) => setProject(newValue)}
-          getOptionLabel={(option) => option.name}
-          renderInput={(params) => (
-            <TextField {...params} label="Application" required />
-          )}
-        />
-
-        <Autocomplete
-          options={filteredEndpoints}
-          value={endpoint}
-          onChange={(_, newValue) => setEndpoint(newValue)}
-          getOptionLabel={(option) => `${option.name} (${option.environment})`}
-          disabled={!project}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Endpoint" 
-              required
-              helperText={!project ? "Select an application first" : undefined}
+          <Stack spacing={2}>
+            <Autocomplete
+              options={testSets}
+              value={testSet}
+              onChange={(_, newValue) => setTestSet(newValue)}
+              getOptionLabel={(option) => option.name || 'Unnamed Test Set'}
+              fullWidth
+              renderInput={(params) => (
+                <TextField {...params} label="Test Set" required />
+              )}
             />
-          )}
-        />
-      </>
+
+            <Autocomplete
+              options={projects}
+              value={project}
+              onChange={(_, newValue) => setProject(newValue)}
+              getOptionLabel={(option) => option.name}
+              fullWidth
+              renderInput={(params) => (
+                <TextField {...params} label="Application" required />
+              )}
+            />
+
+            <Autocomplete
+              options={filteredEndpoints}
+              value={endpoint}
+              onChange={(_, newValue) => setEndpoint(newValue)}
+              getOptionLabel={(option) => `${option.name} (${option.environment})`}
+              disabled={!project}
+              fullWidth
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Endpoint" 
+                  required
+                  helperText={!project ? "Select an application first" : undefined}
+                />
+              )}
+            />
+          </Stack>
+        </Stack>
+      </Stack>
     </BaseDrawer>
   );
 } 
