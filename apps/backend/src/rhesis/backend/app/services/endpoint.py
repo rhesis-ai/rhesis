@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from .invokers import create_invoker
+from rhesis.backend.app.services.invokers import create_invoker
 
 
 class EndpointService:

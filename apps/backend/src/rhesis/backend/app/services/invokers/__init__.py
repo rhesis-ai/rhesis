@@ -4,12 +4,13 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointProtocol
 from .base import BaseEndpointInvoker
 from .rest_invoker import RestEndpointInvoker
+from .websocket_invoker import WebSocketEndpointInvoker
 
 
 # Registry of invokers by protocol
 INVOKERS: Dict[str, Type[BaseEndpointInvoker]] = {
     EndpointProtocol.REST.value: RestEndpointInvoker,
-    # WebSocket invoker will be added here later
+    EndpointProtocol.WEBSOCKET.value: WebSocketEndpointInvoker,
 }
 
 
