@@ -238,7 +238,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.warning(f"Could not parse URL for Origin header: {e}")
         
         # Add User-Agent header
-        headers["User-Agent"] = "Rhesis WebSocket Client/1.0"
+        headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         logger.debug("Added User-Agent header")
         
         logger.debug(f"Final headers for WebSocket handshake: {json.dumps(headers, indent=2)}")
