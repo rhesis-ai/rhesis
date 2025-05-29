@@ -9,6 +9,7 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.logging.rhesis_logger import logger
 
 
 class TestExecutionError(Exception):
@@ -68,13 +69,23 @@ def update_test_run_status(
             test_run.attributes["task_state"] = RunStatus.COMPLETED.value
         elif status_name == RunStatus.FAILED.value:
             test_run.attributes["task_state"] = RunStatus.FAILED.value
+        elif status_name == RunStatus.PARTIAL.value:
+            test_run.attributes["task_state"] = RunStatus.PARTIAL.value
         elif status_name == RunStatus.PROGRESS.value:
             test_run.attributes["task_state"] = RunStatus.PROGRESS.value
             
         # Update the status attribute consistently
         test_run.attributes["status"] = status_name
     
+    # Always update the timestamp
     test_run.attributes["updated_at"] = datetime.utcnow().isoformat()
+    
+    # If this is a final status (not Progress), add completed_at if not already present
+    # This preserves the completed_at set by collect_results while ensuring it gets set
+    # if update_test_run_status is called directly
+    if status_name != RunStatus.PROGRESS.value and "completed_at" not in test_run.attributes:
+        test_run.attributes["completed_at"] = datetime.utcnow().isoformat()
+    
     update_data["attributes"] = test_run.attributes
     
     # Use crud update operation
