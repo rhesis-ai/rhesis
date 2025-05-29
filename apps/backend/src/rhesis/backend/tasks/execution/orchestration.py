@@ -55,6 +55,8 @@ def execute_test_cases(
         str(test_run.id),
         str(test_config.test_set_id),
         len(tasks),
+        organization_id=str(test_config.organization_id) if test_config.organization_id else None,
+        user_id=str(test_config.user_id) if test_config.user_id else None,
     )
 
     # Execute tasks in parallel with a callback

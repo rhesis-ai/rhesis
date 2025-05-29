@@ -12,6 +12,7 @@ class TestRunBase(Base):
     organization_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     attributes: Optional[dict] = None
+    test_configuration_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
 
