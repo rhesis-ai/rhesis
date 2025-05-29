@@ -11,6 +11,7 @@ An intelligent script that automates the creation of pull requests by analyzing 
 #### Features
 
 - ✅ **Automatic title generation** based on branch naming conventions
+- ✅ **Smart abbreviation handling** (API, DEV, STG, PROD, UI, UX, etc.)
 - ✅ **Rich PR descriptions** with commit details, file changes, and checklists
 - ✅ **Smart branch detection** (feature/, fix/, hotfix/ prefixes)
 - ✅ **Interactive browser opening** option
@@ -43,12 +44,27 @@ An intelligent script that automates the creation of pull requests by analyzing 
 
 #### Branch Naming Conventions
 
-The script intelligently handles different branch naming patterns:
+The script intelligently handles different branch naming patterns and properly capitalizes common abbreviations:
 
 - `feature/websocket-endpoint` → "Websocket Endpoint"
+- `feature/api-dev-environment` → "API DEV Environment"
+- `feature/ui-ux-improvements` → "UI UX Improvements"
 - `fix/authentication-bug` → "Fix: authentication bug"
+- `fix/auth-jwt-bug` → "Fix: AUTH JWT Bug"
 - `hotfix/critical-security` → "Hotfix: critical security"
+- `hotfix/prod-db-issue` → "Hotfix: PROD DB Issue"
 - `custom-branch-name` → "Custom Branch Name"
+
+**Supported Abbreviations:**
+- **Infrastructure**: DEV, STG, STAGING, PROD, PRD, PRODUCTION, AWS, GCP, AZURE, K8S, DOCKER
+- **APIs & Protocols**: API, REST, HTTP, HTTPS, URL, URI, GRPC, TCP, UDP, SSH, FTP, SMTP
+- **Frontend**: UI, UX, CSS, HTML, JS, TS, JSX, TSX
+- **Backend**: DB, SQL, JWT, AUTH, OAUTH, SSO, LDAP
+- **Data**: JSON, XML, YAML, YML, CSV, PDF
+- **DevOps**: CI, CD, QA, QC, TEST, TESTS
+- **Tools**: SDK, CLI, GUI, IDE, VM, VPC, DNS
+- **Business**: CRM, ERP, SAAS, PAAS, IAAS
+- **Tech**: ML, AI, NLP, OCR, IOT, AR, VR
 
 #### Generated PR Template
 

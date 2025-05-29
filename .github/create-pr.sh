@@ -71,17 +71,48 @@ FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l)
 
 # Generate PR title based on branch name and commits
 generate_title() {
-    # Try to extract meaningful title from branch name
-    local title=$(echo "$CURRENT_BRANCH" | sed 's/[_-]/ /g' | sed 's/\b\w/\U&/g')
+    # Common abbreviations that should stay uppercase
+    local abbreviations=(
+        "DEV" "STAGING" "STG" "PROD" "PRD" "PRODUCTION"
+        "API" "REST" "HTTP" "HTTPS" "URL" "URI" "GRPC"
+        "UI" "UX" "CSS" "HTML" "JS" "TS" "JSX" "TSX"
+        "DB" "SQL" "AWS" "GCP" "AZURE" "K8S" "DOCKER"
+        "CI" "CD" "QA" "QC" "TEST" "TESTS"
+        "JWT" "AUTH" "OAUTH" "SSO" "LDAP"
+        "JSON" "XML" "YAML" "YML" "CSV" "PDF"
+        "SDK" "CLI" "GUI" "IDE" "VM" "VPC" "DNS"
+        "TCP" "UDP" "SSH" "FTP" "SMTP" "IMAP"
+        "CRM" "ERP" "SAAS" "PAAS" "IAAS"
+        "ML" "AI" "NLP" "OCR" "IOT" "AR" "VR"
+    )
     
-    # If branch starts with feature/, fix/, etc., use a more descriptive format
+    local title=""
+    
+    # Extract title based on branch type
     if [[ $CURRENT_BRANCH == feature/* ]]; then
-        title=$(echo "$CURRENT_BRANCH" | sed 's/feature\///g' | sed 's/[_-]/ /g' | sed 's/\b\w/\U&/g')
+        title=$(echo "$CURRENT_BRANCH" | sed 's/feature\///g' | sed 's/[_-]/ /g')
     elif [[ $CURRENT_BRANCH == fix/* ]]; then
-        title="Fix: $(echo "$CURRENT_BRANCH" | sed 's/fix\///g' | sed 's/[_-]/ /g')"
+        local branch_part=$(echo "$CURRENT_BRANCH" | sed 's/fix\///g' | sed 's/[_-]/ /g')
+        title="Fix: $branch_part"
     elif [[ $CURRENT_BRANCH == hotfix/* ]]; then
-        title="Hotfix: $(echo "$CURRENT_BRANCH" | sed 's/hotfix\///g' | sed 's/[_-]/ /g')"
+        local branch_part=$(echo "$CURRENT_BRANCH" | sed 's/hotfix\///g' | sed 's/[_-]/ /g')
+        title="Hotfix: $branch_part"
+    else
+        title=$(echo "$CURRENT_BRANCH" | sed 's/[_-]/ /g')
     fi
+    
+    # Convert to title case (capitalize first letter of each word)
+    title=$(echo "$title" | sed 's/\b\w/\U&/g')
+    
+    # Apply proper capitalization for abbreviations
+    for abbrev in "${abbreviations[@]}"; do
+        # Convert abbreviation to lowercase for matching, then replace with uppercase
+        local lower_abbrev=$(echo "$abbrev" | tr '[:upper:]' '[:lower:]')
+        # Use word boundaries to match whole words only
+        title=$(echo "$title" | sed "s/\b${lower_abbrev^}\b/${abbrev}/g")
+        title=$(echo "$title" | sed "s/\b${lower_abbrev}\b/${abbrev}/g")
+        title=$(echo "$title" | sed "s/\b${abbrev}\b/${abbrev}/g")
+    done
     
     echo "$title"
 }
