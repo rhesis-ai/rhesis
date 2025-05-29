@@ -14,27 +14,29 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 
-// Import Material-UI icons
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import DevicesIcon from '@mui/icons-material/Devices';
-import WebIcon from '@mui/icons-material/Web';
-import StorageIcon from '@mui/icons-material/Storage';
-import CodeIcon from '@mui/icons-material/Code';
-import DataObjectIcon from '@mui/icons-material/DataObject';
-import CloudIcon from '@mui/icons-material/Cloud';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import ChatIcon from '@mui/icons-material/Chat';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SearchIcon from '@mui/icons-material/Search';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SchoolIcon from '@mui/icons-material/School';
-import ScienceIcon from '@mui/icons-material/Science';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
+// Import Material-UI icons from bundled source
+import {
+  SmartToyIcon,
+  DevicesIcon,
+  WebIcon,
+  StorageIcon,
+  CodeIcon,
+  DataObjectIcon,
+  CloudIcon,
+  AnalyticsIcon,
+  ShoppingCartIcon,
+  TerminalIcon,
+  VideogameAssetIcon,
+  ChatIcon,
+  PsychologyIcon,
+  DashboardIcon,
+  SearchIcon,
+  AutoFixHighIcon,
+  PhoneIphoneIcon,
+  SchoolIcon,
+  ScienceIcon,
+  AccountTreeIcon
+} from '@/components/icons';
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {

@@ -108,22 +108,17 @@ export async function middleware(request: NextRequest) {
   }
 }
 
-// Update the matcher configuration
+// Update the matcher configuration - catch everything except static files
 export const config = {
   matcher: [
-    // Protected paths
-    '/admin/:path*',
-    '/admin-dashboard/:path*',
-    '/superuser/:path*',
-    // Add other paths that need protection
-    '/dashboard/:path*',
-    '/tokens/:path*',
-    '/endpoints/:path*',
-    '/onboarding/:path*', // Include onboarding for auth check
-    '/test-sets/:path*',
-    '/models/:path*',
-    '/organizations/:path*',
-    '/settings/:path*',
-    '/profile/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder files
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.ico$|.*\\.css$|.*\\.js$).*)',
   ],
 }
