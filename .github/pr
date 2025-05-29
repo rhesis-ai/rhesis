@@ -1,0 +1,4 @@
+#!/bin/bash
+# Simple alias for the PR creation script
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$DIR/create-pr.sh" "$@" 
