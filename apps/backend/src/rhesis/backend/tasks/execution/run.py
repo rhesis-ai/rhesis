@@ -9,6 +9,7 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.logging.rhesis_logger import logger
 
 
 class TestExecutionError(Exception):
