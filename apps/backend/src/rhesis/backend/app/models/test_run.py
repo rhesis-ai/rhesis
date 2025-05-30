@@ -13,7 +13,7 @@ class TestRun(Base, TagsMixin, OrganizationMixin):
 
     user_id = Column(GUID(), ForeignKey("user.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
-    test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"))
+    test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"), nullable=False)
     name = Column(String)
     attributes = Column(JSONB)
     owner_id = Column(GUID(), ForeignKey("user.id"))
