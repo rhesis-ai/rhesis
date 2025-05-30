@@ -14,9 +14,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { UUID } from 'crypto';
-import ScienceIcon from '@mui/icons-material/Science';
-import HorizontalSplit from '@mui/icons-material/HorizontalSplit';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { ScienceIcon, HorizontalSplitIcon, PlayArrowIcon } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 
 // Extended User interface with organization_id
@@ -82,7 +80,7 @@ export default function DashboardPage() {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              <HorizontalSplit sx={{ verticalAlign: 'middle', mr: 1 }} />
+              <HorizontalSplitIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
               Newest Test Sets
             </Typography>
             <RecentTestSetsGrid sessionToken={session?.session_token || ''} />

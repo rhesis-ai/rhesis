@@ -25,6 +25,7 @@
         "@types/nodemailer": "^6.4.17",
         "@types/prismjs": "^1.26.5",
         "auth0-lock": "^13.0.0",
+        "critters": "^0.0.23",
         "date-fns": "^4.1.0",
         "dayjs": "^1.11.13",
         "invariant": "^2.2.4",
@@ -40,12 +41,15 @@
         "recharts": "^2.15.0"
     },
     "devDependencies": {
+        "@next/bundle-analyzer": "^15.3.2",
         "@types/invariant": "^2.2.37",
         "@types/node": "20.17.46",
         "@types/react": "^18",
         "@types/react-dom": "^18",
+        "concurrently": "^7.6.0",
         "eslint": "^8",
         "eslint-config-next": "^15",
-        "typescript": "5.8.3"
+        "typescript": "5.8.3",
+        "webpack-bundle-analyzer": "^4.10.2"
     }
 }

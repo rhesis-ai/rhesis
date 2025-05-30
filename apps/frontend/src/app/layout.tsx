@@ -2,25 +2,27 @@ import * as React from 'react';
 import { Metadata } from 'next';
 import Image from 'next/image';
 import { Box } from '@mui/material';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import ScienceIcon from '@mui/icons-material/Science';
-import AppsIcon from '@mui/icons-material/Apps';
-import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import BusinessIcon from '@mui/icons-material/Business';
-import GroupIcon from '@mui/icons-material/Group';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import DescriptionIcon from '@mui/icons-material/Description';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import CategoryIcon from '@mui/icons-material/Category';
-import AutoGraphIcon from '@mui/icons-material/AutoGraph';
-import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstructions';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import GridViewIcon from '@mui/icons-material/GridView';
-import ApiIcon from '@mui/icons-material/Api';
-import TerminalIcon from '@mui/icons-material/Terminal';
+import { 
+  DashboardIcon, 
+  ScienceIcon, 
+  AppsIcon, 
+  VpnKeyIcon, 
+  BusinessIcon, 
+  GroupIcon, 
+  WarningAmberIcon, 
+  MenuBookIcon, 
+  PlayArrowIcon, 
+  AssessmentIcon, 
+  DescriptionIcon, 
+  AutoFixHighIcon, 
+  CategoryIcon, 
+  AutoGraphIcon, 
+  IntegrationInstructionsIcon, 
+  SmartToyIcon, 
+  GridViewIcon, 
+  ApiIcon, 
+  TerminalIcon 
+} from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';

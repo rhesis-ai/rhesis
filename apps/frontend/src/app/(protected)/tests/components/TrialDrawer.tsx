@@ -223,7 +223,7 @@ export default function TrialDrawer({
       loading={loading || trialInProgress}
       error={error}
       onSave={handleSave}
-      saveButtonText={trialInProgress ? "Running Trial..." : "Start Trial"}
+      saveButtonText={trialInProgress ? "Running Test..." : "Run Test"}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <FormControl fullWidth>

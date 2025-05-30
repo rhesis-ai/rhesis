@@ -2,41 +2,41 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, Tabs, Tab, Grid, Button, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, ListItemIcon, ListItemText, Chip } from '@mui/material';
-import Editor from '@monaco-editor/react';
+import dynamic from 'next/dynamic';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { 
+  EditIcon, 
+  SaveIcon, 
+  CancelIcon, 
+  PlayArrowIcon,
+  SmartToyIcon,
+  DevicesIcon,
+  WebIcon,
+  StorageIcon,
+  CodeIcon,
+  DataObjectIcon,
+  CloudIcon,
+  AnalyticsIcon,
+  ShoppingCartIcon,
+  TerminalIcon,
+  VideogameAssetIcon,
+  ChatIcon,
+  PsychologyIcon,
+  DashboardIcon,
+  SearchIcon,
+  AutoFixHighIcon,
+  PhoneIphoneIcon,
+  SchoolIcon,
+  ScienceIcon,
+  AccountTreeIcon
+} from '@/components/icons';
 import { LoadingButton } from '@mui/lab';
 import { updateEndpoint, invokeEndpoint } from '@/actions/endpoints';
 import { Alert, Snackbar } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
-
-// Import icons for dynamic project icon rendering
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import DevicesIcon from '@mui/icons-material/Devices';
-import WebIcon from '@mui/icons-material/Web';
-import StorageIcon from '@mui/icons-material/Storage';
-import CodeIcon from '@mui/icons-material/Code';
-import DataObjectIcon from '@mui/icons-material/DataObject';
-import CloudIcon from '@mui/icons-material/Cloud';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import ChatIcon from '@mui/icons-material/Chat';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SearchIcon from '@mui/icons-material/Search';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SchoolIcon from '@mui/icons-material/School';
-import ScienceIcon from '@mui/icons-material/Science';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
 // Constants for select fields
 const PROTOCOLS = ['REST'];
@@ -120,6 +120,29 @@ const editorWrapperStyle = {
 interface EndpointDetailProps {
   endpoint: Endpoint;
 }
+
+// Lazy load Monaco Editor
+const Editor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: () => (
+    <Box 
+      sx={{ 
+        height: '200px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        border: '1px solid rgba(0, 0, 0, 0.23)',
+        borderRadius: '4px',
+        backgroundColor: '#f5f5f5'
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CircularProgress size={20} />
+        <Typography variant="body2" color="text.secondary">Loading editor...</Typography>
+      </Box>
+    </Box>
+  )
+});
 
 export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDetailProps) {
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);

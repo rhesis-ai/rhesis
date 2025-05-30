@@ -122,7 +122,7 @@ export default function UpdateTest({
     if (test.status?.id) {
       setFormData(prev => ({ ...prev, status_id: test.status?.id }));
     }
-  }, [test.status, setFormData, formData.status_id]);
+  }, [test.status]);
 
   // Load options when component mounts
   useEffect(() => {
