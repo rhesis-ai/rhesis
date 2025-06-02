@@ -61,6 +61,11 @@
   gap: 8px;
 }
 
+.metricCell > * {
+  display: flex;
+  align-items: center;
+}
+
 .metricCellPassed {
   color: #2e7d32;
 }
@@ -71,6 +76,7 @@
 
 .metricScore {
   font-size: 0.875rem;
+  line-height: 1;
 }
 
 .tooltipContent {

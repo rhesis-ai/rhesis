@@ -22,7 +22,6 @@ const ChipContainer = styled(Box)(({ theme }) => ({
   listStyle: 'none',
   padding: theme.spacing(1),
   margin: theme.spacing(1, 0),
-  minHeight: '48px',
   alignItems: 'center',
   border: `1px solid ${theme.palette.divider}`,
   borderRadius: theme.shape.borderRadius,
@@ -81,50 +80,70 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
     );
   };
 
-  const renderChipArray = (items: string[], label: string) => (
-    <Box sx={{ mt: 2, mb: 1 }}>
-      <Box
-        component="fieldset"
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-start',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          border: '1px solid',
-          borderColor: 'rgba(0, 0, 0, 0.25)',
-          borderRadius: 1,
-          margin: 0,
-        }}
-      >
-        <Box
-          component="legend"
-          sx={{
-            fontSize: '0.75rem',
-            color: 'text.secondary',
-            px: 0.5,
-            ml: -0.5,
-          }}
-        >
-          {label}
-        </Box>
-        {items.length === 0 ? (
-          <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
-            No {label.toLowerCase()} specified
-          </Typography>
-        ) : (
-          items.map((item, index) => (
-            <Box key={`${item}-${index}`} sx={{ m: 0.25 }}>
-              <Chip
-                label={item}
-                size="small"
-                color="primary"
-              />
+  const renderChipArray = (items: string[], label: string, maxChips?: number) => {
+    const shouldTruncate = maxChips && items.length > maxChips;
+    const displayItems = shouldTruncate ? items.slice(0, maxChips) : items;
+    const remainingCount = shouldTruncate ? items.length - maxChips : 0;
+
+    return (
+      <TextField
+        fullWidth
+        label={label}
+        value=""
+        margin="normal"
+        InputProps={{
+          readOnly: true,
+          startAdornment: (
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: 0.5,
+              py: 0.5,
+              pr: 1,
+              width: '100%'
+            }}>
+              {items.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic', py: 0.5 }}>
+                  No {label.toLowerCase()} specified
+                </Typography>
+              ) : (
+                <>
+                  {displayItems.map((item, index) => (
+                    <Chip
+                      key={`${item}-${index}`}
+                      label={item}
+                      size="small"
+                      color="primary"
+                    />
+                  ))}
+                  {shouldTruncate && (
+                    <Chip
+                      key="remaining"
+                      label={`+${remainingCount}`}
+                      size="small"
+                      color="secondary"
+                      variant="outlined"
+                    />
+                  )}
+                </>
+              )}
             </Box>
-          ))
-        )}
-      </Box>
-    </Box>
-  );
+          )
+        }}
+        sx={{
+          '& .MuiInputBase-root': {
+            minHeight: '54px',
+            alignItems: 'flex-start',
+            paddingTop: '14px',
+            paddingBottom: '14px',
+          },
+          '& .MuiInputBase-input': {
+            display: 'none'
+          }
+        }}
+      />
+    );
+  };
 
   return (
     <Paper className={styles.detailsSection}>
@@ -208,7 +227,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
               }}
             />
 
-            {renderChipArray(topicsList, 'Topics')}
+            {renderChipArray(topicsList, 'Topics', 20)}
 
             {renderChipArray(categoriesList, 'Categories')}
           </Box>

@@ -152,7 +152,14 @@ export default function DetailedTestRunGrid({ testRunId, sessionToken, open, onC
           leaveDelay={0}
           enterNextDelay={1000}
         >
-          <Box component="span">
+          <Box 
+            component="span" 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
             {isPassed ? (
               <CheckCircleOutlineIcon style={{ fontSize: 16 }} />
             ) : (
