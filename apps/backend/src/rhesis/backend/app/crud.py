@@ -24,6 +24,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.name_generator import generate_memorable_name
 from rhesis.backend.logging import logger
 
 
@@ -1033,6 +1034,37 @@ def get_test_runs(
 
 
 def create_test_run(db: Session, test_run: schemas.TestRunCreate) -> models.TestRun:
+    """Create a new test run with automatic name generation if no name is provided"""
+    
+    # If no name is provided or it's empty, generate a memorable one
+    if not test_run.name or not test_run.name.strip():
+        # Get organization_id for scoping uniqueness
+        organization_id = test_run.organization_id
+        if not organization_id:
+            # Try to get from session context if not explicitly provided
+            from rhesis.backend.app.utils.crud_utils import get_current_organization_id
+            organization_id = get_current_organization_id(db)
+        
+        if organization_id:
+            try:
+                generated_name = generate_memorable_name(db, organization_id)
+                logger.info(f"Generated memorable name for test run: {generated_name}")
+                
+                # Create a new TestRunCreate with the generated name
+                test_run_dict = test_run.model_dump() if hasattr(test_run, 'model_dump') else test_run.dict()
+                test_run_dict['name'] = generated_name
+                test_run = schemas.TestRunCreate(**test_run_dict)
+            except Exception as e:
+                logger.warning(f"Failed to generate memorable name: {e}. Using fallback.")
+                # Fallback to a simple timestamp-based name
+                import time
+                timestamp = int(time.time())
+                test_run_dict = test_run.model_dump() if hasattr(test_run, 'model_dump') else test_run.dict()
+                test_run_dict['name'] = f"test-run-{timestamp}"
+                test_run = schemas.TestRunCreate(**test_run_dict)
+        else:
+            logger.warning("No organization_id available for test run name generation")
+    
     return create_item(db, models.TestRun, test_run)
 
 
