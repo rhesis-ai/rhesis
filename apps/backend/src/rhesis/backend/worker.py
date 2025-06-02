@@ -3,7 +3,7 @@ import os
 from celery import Celery
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file (only works locally, not in Cloud Run)
 load_dotenv()
 
 # Create the Celery app

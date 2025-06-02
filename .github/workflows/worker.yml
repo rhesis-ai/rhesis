@@ -1,4 +1,4 @@
-name: Publish Worker CI/CD
+name: Worker CI/CD
 
 on:
   push:

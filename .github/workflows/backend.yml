@@ -202,6 +202,8 @@ jobs:
           SMTP_HOST=${{ secrets.SMTP_HOST }},
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
-          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          BROKER_URL=${{ secrets.BROKER_URL }},
+          CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}
           EOF
           )"
