@@ -186,7 +186,7 @@ export default function UpdateTest({
     };
 
     loadOptions();
-  }, [sessionToken, onError, setBehaviors, setTopics, setCategories, setStatuses, setUsers]);
+  }, [sessionToken, onError, setBehaviors, setTopics, setCategories, setStatuses, setUsers, formData.status_id, test.status]);
 
   // Update form data with autocomplete value (either string or option)
   const handleFieldChange = (field: keyof TestFormData) => (value: AutocompleteOption | string | null) => {

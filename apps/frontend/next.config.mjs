@@ -1,6 +1,13 @@
 // Set memory limit to prevent swapping
 process.env.NODE_OPTIONS = '--max-old-space-size=4096';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Compiler optimizations
@@ -158,14 +165,14 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       // Add common aliases to speed up resolution
-      '@': require('path').resolve(__dirname, './'),
-      '~': require('path').resolve(__dirname, './'),
+      '@': path.resolve(__dirname, './'),
+      '~': path.resolve(__dirname, './'),
       // Use ESM versions for better tree shaking
       '@mui/icons-material': '@mui/icons-material/esm',
     };
 
     // Module resolution optimizations
-    config.resolve.modules = ['node_modules', require('path').resolve(__dirname, 'node_modules')];
+    config.resolve.modules = ['node_modules', path.resolve(__dirname, 'node_modules')];
 
     // Faster module resolution
     config.resolve.extensions = ['.js', '.jsx', '.ts', '.tsx', '.json'];
