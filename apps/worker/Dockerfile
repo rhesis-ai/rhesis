@@ -68,9 +68,9 @@ ENV CELERY_WORKER_CONCURRENCY=8 \
 # Expose port for health check (Google Cloud Run)
 EXPOSE 8080
 
-# Add health check
+# Cloud Run needs an HTTP health check, not a Celery inspect ping
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD celery -A rhesis.backend.worker.app inspect ping || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Set the startup script as the entry point
 CMD ["/app/start.sh"]

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Exit on any error
+set -e
+
 # Print environment variables for debugging (excluding sensitive info)
 echo "Environment Configuration:"
 echo "BROKER_URL exists: $(if [ ! -z "$BROKER_URL" ]; then echo "yes"; else echo "no"; fi)"
@@ -23,6 +26,32 @@ if [ "${ENABLE_FLOWER:-no}" = "yes" ]; then
     echo "Flower started with PID: $FLOWER_PID"
 fi
 
+# Function to forward signals to children
+forward_signal() {
+    echo "Received shutdown signal, stopping processes..."
+    
+    if [ ! -z "$HEALTH_SERVER_PID" ] && kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
+        echo "Stopping health check server (PID: $HEALTH_SERVER_PID)..."
+        kill -TERM $HEALTH_SERVER_PID || true
+    fi
+    
+    if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
+        echo "Stopping Flower (PID: $FLOWER_PID)..."
+        kill -TERM $FLOWER_PID || true
+    fi
+    
+    if [ ! -z "$CELERY_PID" ] && kill -0 $CELERY_PID 2>/dev/null; then
+        echo "Stopping Celery worker (PID: $CELERY_PID)..."
+        kill -TERM $CELERY_PID || true
+        wait $CELERY_PID
+    fi
+    
+    exit 0
+}
+
+# Set up signal handling
+trap forward_signal SIGTERM SIGINT
+
 # Start Celery worker with configuration from environment variables
 echo "Starting Celery worker..."
 celery -A rhesis.backend.worker.app worker \
@@ -36,51 +65,24 @@ celery -A rhesis.backend.worker.app worker \
 CELERY_PID=$!
 echo "Celery worker started with PID: $CELERY_PID"
 
-# Function to forward signals to children
-forward_signal() {
-    echo "Received shutdown signal, stopping processes..."
-    
-    if [ ! -z "$HEALTH_SERVER_PID" ]; then
-        echo "Stopping health check server (PID: $HEALTH_SERVER_PID)..."
-        kill -TERM $HEALTH_SERVER_PID || true
-    fi
-    
-    if [ ! -z "$FLOWER_PID" ]; then
-        echo "Stopping Flower (PID: $FLOWER_PID)..."
-        kill -TERM $FLOWER_PID || true
-    fi
-    
-    echo "Stopping Celery worker (PID: $CELERY_PID)..."
-    kill -TERM $CELERY_PID || true
-}
-
-# Set up signal handling
-trap forward_signal SIGTERM SIGINT
-
-# Wait for Celery worker to exit
+# Wait for Celery worker to exit and handle signals
 wait $CELERY_PID
 
-# Exit with Celery's exit code
+# Get the exit code
 EXIT_CODE=$?
 echo "Celery worker exited with code: $EXIT_CODE"
 
-# If health server is running, stop it
-if [ ! -z "$HEALTH_SERVER_PID" ]; then
-    if kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
-        echo "Stopping health check server..."
-        kill -TERM $HEALTH_SERVER_PID
-        wait $HEALTH_SERVER_PID || true
-    fi
+# Clean up remaining processes
+if [ ! -z "$HEALTH_SERVER_PID" ] && kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
+    echo "Stopping health check server..."
+    kill -TERM $HEALTH_SERVER_PID || true
+    wait $HEALTH_SERVER_PID 2>/dev/null || true
 fi
 
-# If Flower is running, stop it
-if [ ! -z "$FLOWER_PID" ]; then
-    # Check if flower is still running
-    if kill -0 $FLOWER_PID 2>/dev/null; then
-        echo "Stopping Flower monitoring..."
-        kill -TERM $FLOWER_PID
-        wait $FLOWER_PID || true
-    fi
+if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
+    echo "Stopping Flower monitoring..."
+    kill -TERM $FLOWER_PID || true
+    wait $FLOWER_PID 2>/dev/null || true
 fi
 
 exit $EXIT_CODE 
