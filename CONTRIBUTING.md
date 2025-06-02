@@ -228,7 +228,7 @@ The script intelligently handles different branch naming patterns and properly c
 - **Frontend**: UI, UX, CSS, HTML, JS, TS, JSX, TSX
 - **Backend**: DB, SQL, JWT, AUTH, OAUTH, SSO, LDAP
 - **Data**: JSON, XML, YAML, YML, CSV, PDF
-- **DevOps**: CI, CD, QA, QC, TEST, TESTS
+- **DevOps**: CI, CD, QA, QC
 - **Tools**: SDK, CLI, GUI, IDE, VM, VPC, DNS
 - **Business**: CRM, ERP, SAAS, PAAS, IAAS
 - **Tech**: ML, AI, NLP, OCR, IOT, AR, VR
