@@ -197,6 +197,7 @@ jobs:
           AZURE_OPENAI_DEPLOYMENT_NAME=${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }},
           AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }},
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
+          GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
           SMTP_HOST=${{ secrets.SMTP_HOST }},
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},

@@ -257,7 +257,7 @@ terraform.rc
 terraform-*-plan*
 
 # DeepEval
-deepeval/
+.deepeval/
 .deepeval_telemetry.txt
 deepeval_telemetry.txt
 deepeval_telemetry.json
