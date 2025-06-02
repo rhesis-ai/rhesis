@@ -80,10 +80,7 @@ class RhesisMetricFactory(BaseMetricFactory):
         if 'name' not in combined_kwargs and class_name in self._metrics:
             # Use class name as a fallback for the name
             combined_kwargs['name'] = class_name.lower()
-        
-        # Log all parameters for debugging
-        print(f"Creating {class_name} with parameters: {combined_kwargs}")
-        
+                
         # Check for required parameters
         required_params = self._required_params.get(class_name, set())
         missing_params = required_params - set(combined_kwargs.keys())
