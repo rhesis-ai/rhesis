@@ -1,5 +1,5 @@
 # First stage: Build the application
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Add build dependencies
 RUN apk add --no-cache libc6-compat
@@ -49,7 +49,7 @@ RUN npm run build
 RUN rm -f .env
 
 # Second stage: Run the application
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 # Add runtime dependencies
 RUN apk add --no-cache curl

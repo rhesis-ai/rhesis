@@ -31,6 +31,9 @@ import { type NavigationItem, type BrandingProps, type AuthenticationProps } fro
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 
+// Mark this layout as dynamic since it uses server-side authentication
+export const dynamic = 'force-dynamic';
+
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(session: Session | null): Promise<NavigationItem[]> {
   'use server';

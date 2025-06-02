@@ -19,7 +19,7 @@ const nextConfig = {
   // Keep source maps in production for debugging, disable in dev for speed
   productionBrowserSourceMaps: true,
   
-  // Experimental features for better performance
+  // Experimental features for better performance - TEMPORARILY DISABLED
   experimental: {
     // Enable optimized package imports for MUI and other heavy libraries
     optimizePackageImports: [
@@ -28,15 +28,16 @@ const nextConfig = {
       '@mui/x-data-grid',
       '@mui/x-date-pickers',
       '@toolpad/core',
-      '@monaco-editor/react',
+      // '@monaco-editor/react', // COMMENTED OUT - potential SSR issue
       'lucide-react', 
       'date-fns',
       'lodash'
+      // NOTE: Excluding reactflow from optimization
     ],
 
-    // Additional performance optimizations
-    optimizeServerReact: true,
-    optimizeCss: true,
+    // Additional performance optimizations - TEMPORARILY DISABLED
+    // optimizeServerReact: true,
+    // optimizeCss: true,
   },
 
   // Turbopack configuration
@@ -130,35 +131,36 @@ const nextConfig = {
       };
     }
 
-    // Performance optimizations
+    // Performance optimizations - SIMPLIFIED TO AVOID VENDOR CHUNK ISSUES
     config.optimization = {
       ...config.optimization,
       moduleIds: 'deterministic',
-      splitChunks: {
-        chunks: 'all',
-        maxInitialRequests: 25,
-        minSize: 20000,
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            priority: 10,
-            reuseExistingChunk: true,
-          },
-          mui: {
-            test: /[\\/]node_modules[\\/]@mui[\\/]/,
-            name: 'mui',
-            priority: 15,
-            reuseExistingChunk: true,
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            priority: 5,
-            reuseExistingChunk: true,
-          },
-        },
-      },
+      // TEMPORARILY DISABLED splitChunks that was creating problematic vendors.js
+      // splitChunks: {
+      //   chunks: 'all',
+      //   maxInitialRequests: 25,
+      //   minSize: 20000,
+      //   cacheGroups: {
+      //     vendor: {
+      //       test: /[\\/]node_modules[\\/]/,
+      //       name: 'vendors',
+      //       priority: 10,
+      //       reuseExistingChunk: true,
+      //     },
+      //     mui: {
+      //       test: /[\\/]node_modules[\\/]@mui[\\/]/,
+      //       name: 'mui',
+      //       priority: 15,
+      //       reuseExistingChunk: true,
+      //     },
+      //     common: {
+      //       name: 'common',
+      //       minChunks: 2,
+      //       priority: 5,
+      //       reuseExistingChunk: true,
+      //     },
+      //   },
+      // },
     };
 
     // Resolve optimizations
@@ -167,8 +169,8 @@ const nextConfig = {
       // Add common aliases to speed up resolution
       '@': path.resolve(__dirname, './'),
       '~': path.resolve(__dirname, './'),
-      // Use ESM versions for better tree shaking
-      '@mui/icons-material': '@mui/icons-material/esm',
+      // TEMPORARILY DISABLED - Use ESM versions for better tree shaking
+      // '@mui/icons-material': '@mui/icons-material/esm',
     };
 
     // Module resolution optimizations
@@ -187,7 +189,10 @@ const nextConfig = {
   compress: true,
   
   // Output settings for better caching
-  output: 'standalone',
+  // COMMENTED OUT: This was causing static generation failures
+  // The 'standalone' output mode treats pages as dynamic when they use
+  // authentication or headers, causing build errors
+  // output: 'standalone',
   
   // Headers for better caching
   async headers() {
