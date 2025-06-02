@@ -54,6 +54,8 @@ def task_launcher(task: T, *args: Any, current_user=None, **kwargs: Any):
     This helper automatically adds organization_id and user_id from current_user
     to the task context, removing the need to pass them explicitly.
     
+    Uses task.delay() for reliable async task submission that works across all environments.
+    
     Args:
         task: The Celery task to launch
         *args: Positional arguments to pass to the task
@@ -83,14 +85,14 @@ def task_launcher(task: T, *args: Any, current_user=None, **kwargs: Any):
             )
             return {"task_id": task.id}
     """
-    # Add user context if available and not already specified
+    # Add user context to kwargs (these will be moved to headers by before_start)
     if current_user is not None:
-        # Use kwargs.setdefault to avoid overriding if explicitly passed
         if hasattr(current_user, 'id') and current_user.id is not None:
             kwargs.setdefault('user_id', str(current_user.id))
         
         if hasattr(current_user, 'organization_id') and current_user.organization_id is not None:
             kwargs.setdefault('organization_id', str(current_user.organization_id))
     
-    # Launch the task
+    # Use delay() which is Celery's standard method for async task submission
+    # This avoids ChannelPromise issues and works reliably across all environments
     return task.delay(*args, **kwargs)

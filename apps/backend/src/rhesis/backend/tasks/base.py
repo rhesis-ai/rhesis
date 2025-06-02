@@ -92,26 +92,6 @@ class BaseTask(Task):
         # We don't validate here - we do it in before_start when the request is available
         return super().__call__(*args, **kwargs)
         
-    def apply_async(self, args=None, kwargs=None, **options):
-        """Store org_id and user_id in task context when task is queued."""
-        args = args or ()
-        kwargs = kwargs or {}
-        
-        # If organization_id and user_id are in kwargs, add them to headers
-        if kwargs and ('organization_id' in kwargs or 'user_id' in kwargs):
-            # Create or update task headers with context information
-            headers = options.get('headers', {})
-            
-            if 'organization_id' in kwargs:
-                headers['organization_id'] = kwargs.pop('organization_id')
-                
-            if 'user_id' in kwargs:  
-                headers['user_id'] = kwargs.pop('user_id')
-                
-            options['headers'] = headers
-            
-        return super().apply_async(args, kwargs, **options)
-        
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful task completion with context information."""
         org_id = getattr(self.request, 'organization_id', 'unknown')
@@ -143,7 +123,7 @@ class BaseTask(Task):
         
     def before_start(self, task_id, args, kwargs):
         """Add organization_id and user_id to task request context."""
-        # Try to get from kwargs first
+        # Move context from kwargs to request object
         if 'organization_id' in kwargs:
             self.request.organization_id = kwargs.pop('organization_id')
         if 'user_id' in kwargs:  
