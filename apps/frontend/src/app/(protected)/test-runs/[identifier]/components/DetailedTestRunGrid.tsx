@@ -1,47 +1,46 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, Tooltip, Button } from '@mui/material';
+import { Box, Tooltip, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestDetail } from '@/utils/api-client/interfaces/tests';
-import { formatDate } from '@/utils/date';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { TestResult, TestResultDetail, MetricResult } from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail, MetricResult } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
 import { Behavior } from '@/utils/api-client/interfaces/behavior';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import { GridColDef, GridPaginationModel, GridRenderCellParams, GridRowParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridPaginationModel, GridRenderCellParams, GridColumnGroupingModel, GridRowParams } from '@mui/x-data-grid';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import CloseIcon from '@mui/icons-material/Close';
 import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
-import DetailedTestRunGrid from './DetailedTestRunGrid';
+import styles from '@/styles/DetailedTestRunGrid.module.css';
 
-interface TestRunTestsGridProps {
+interface DetailedTestRunGridProps {
   testRunId: string;
   sessionToken: string;
+  open: boolean;
+  onClose: () => void;
 }
 
 interface BehaviorWithMetrics extends Behavior {
   metrics: MetricDetail[];
 }
 
-export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTestsGridProps) {
+export default function DetailedTestRunGrid({ testRunId, sessionToken, open, onClose }: DetailedTestRunGridProps) {
   const router = useRouter();
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
   const [loading, setLoading] = useState(true);
   const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [detailedViewOpen, setDetailedViewOpen] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
-    pageSize: 10,
+    pageSize: 25,
   });
 
   useEffect(() => {
+    if (!open) return;
+
     const fetchTestResults = async () => {
       try {
         setLoading(true);
@@ -119,7 +118,7 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
     };
 
     fetchTestResults();
-  }, [testRunId, sessionToken, paginationModel]);
+  }, [testRunId, sessionToken, paginationModel, open]);
 
   const handlePaginationModelChange = (newModel: GridPaginationModel) => {
     setPaginationModel(newModel);
@@ -131,48 +130,44 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
     }
   };
 
-  const renderBehaviorCell = (params: GridRenderCellParams) => {
+  const renderMetricCell = (params: GridRenderCellParams) => {
     const value = params.value;
     if (value === 'N/A') return value;
     
-    const { status, passedMetrics, totalMetrics, failedMetrics } = value as { 
+    const { status, score, threshold, reason } = value as { 
       status: string; 
-      passedMetrics: number; 
-      totalMetrics: number; 
-      failedMetrics: string[];
+      score: number; 
+      threshold: number; 
+      reason: string;
     };
-    const color = status === 'Passed' ? 'success.main' : 'error.main';
-    
-    const tooltipContent = status === 'Passed' 
-      ? `All ${totalMetrics} metrics passed`
-      : `${passedMetrics}/${totalMetrics} metrics passed. Failed: ${failedMetrics.join(', ')}`;
+    const isPassed = status === 'Passed';
     
     return (
       <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          width: '100%',
-          height: '100%',
-          gap: 1,
-          color
-        }}
+        className={`${styles.metricCell} ${isPassed ? styles.metricCellPassed : styles.metricCellFailed}`}
       >
         <Tooltip 
-          title={tooltipContent} 
+          title={reason ?? 'No reason provided'} 
           enterDelay={1000}
           leaveDelay={0}
           enterNextDelay={1000}
         >
-          <Box component="span" sx={{ display: 'flex' }}>
-            {status === 'Passed' ? (
-              <CheckCircleOutlineIcon sx={{ color }} />
+          <Box 
+            component="span" 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {isPassed ? (
+              <CheckCircleOutlineIcon style={{ fontSize: 16 }} />
             ) : (
-              <CancelOutlinedIcon sx={{ color }} />
+              <CancelOutlinedIcon style={{ fontSize: 16 }} />
             )}
           </Box>
         </Tooltip>
-        <span>{`(${passedMetrics}/${totalMetrics})`}</span>
+        <span className={styles.metricScore}>{`${score.toFixed(1)}/${threshold.toFixed(1)}`}</span>
       </Box>
     );
   };
@@ -182,7 +177,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
       field: 'prompt_name',
       headerName: 'Test',
       flex: 1,
-      minWidth: 200,
+      minWidth: 250,
+      headerClassName: 'bold-header',
       renderCell: (params) => {
         const content = params.row.prompt_id && prompts[params.row.prompt_id]
           ? prompts[params.row.prompt_id].content
@@ -194,8 +190,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
             leaveDelay={0}
             enterNextDelay={1500}
           >
-            <Box sx={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {content.substring(0, 50) + '...'}
+            <Box className={styles.tooltipContent}>
+              {content.substring(0, 60) + '...'}
             </Box>
           </Tooltip>
         );
@@ -205,7 +201,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
       field: 'response',
       headerName: 'Response',
       flex: 1,
-      minWidth: 200,
+      minWidth: 250,
+      headerClassName: 'bold-header',
       renderCell: (params) => {
         const content = params.row.test_output?.output ?? 'N/A';
         return (
@@ -215,8 +212,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
             leaveDelay={0}
             enterNextDelay={1500}
           >
-            <Box sx={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {content === 'N/A' ? content : content.substring(0, 50) + '...'}
+            <Box className={styles.tooltipContent}>
+              {content === 'N/A' ? content : content.substring(0, 60) + '...'}
             </Box>
           </Tooltip>
         );
@@ -224,107 +221,109 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
     },
   ];
 
-  const behaviorColumns: GridColDef<TestResultDetail>[] = behaviors.map((behavior) => ({
-    field: behavior.id,
-    headerName: '',
-    width: 180,
-    renderHeader: () => (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <span>
-          {behavior.name}
-        </span>
-        <Tooltip 
-          title={behavior.description ?? 'No description available'} 
-          enterDelay={1000}
-          leaveDelay={0}
-          enterNextDelay={1000}
-        >
-          <InfoOutlinedIcon sx={{ fontSize: 16, color: 'action.active', opacity: 0.8 }} />
-        </Tooltip>
-      </Box>
-    ),
-    renderCell: renderBehaviorCell,
-    valueGetter: (_, row) => {
-      const testMetrics = row.test_metrics?.metrics;
-      if (!testMetrics || behavior.metrics.length === 0) return 'N/A';
-      
-      // Check each metric associated with this behavior
-      let passedMetrics = 0;
-      const failedMetrics: string[] = [];
-      
-      behavior.metrics.forEach((metric) => {
+  // Create metric columns grouped by behavior
+  const metricColumns: GridColDef<TestResultDetail>[] = [];
+  const columnGroupingModel: GridColumnGroupingModel = [];
+
+  behaviors.forEach((behavior) => {
+    if (behavior.metrics.length === 0) return;
+
+    // Create columns for each metric in this behavior
+    const behaviorMetricColumns = behavior.metrics.map((metric) => ({
+      field: `${behavior.id}_${metric.id}`,
+      headerName: metric.name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+      width: 140,
+      renderCell: renderMetricCell,
+      valueGetter: (_value: any, row: TestResultDetail) => {
+        const testMetrics = row.test_metrics?.metrics;
+        if (!testMetrics) return 'N/A';
+        
         const metricResult = testMetrics[metric.name];
-        if (metricResult) {
-          if (metricResult.is_successful) {
-            passedMetrics++;
-          } else {
-            failedMetrics.push(metric.name);
-          }
-        }
-      });
-      
-      const totalMetrics = behavior.metrics.length;
-      const allPassed = passedMetrics === totalMetrics && failedMetrics.length === 0;
-      
-      return {
-        status: allPassed ? 'Passed' : 'Failed',
-        passedMetrics,
-        totalMetrics,
-        failedMetrics
-      };
-    },
-  }));
+        if (!metricResult) return 'N/A';
+        
+        return {
+          status: metricResult.is_successful ? 'Passed' : 'Failed',
+          score: metricResult.score,
+          threshold: metricResult.threshold,
+          reason: metricResult.reason
+        };
+      },
+    }));
 
-  const columns = [...baseColumns, ...behaviorColumns];
+    metricColumns.push(...behaviorMetricColumns);
 
-  const customToolbarContent = (
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
-      <Button
-        variant="outlined"
-        startIcon={<VisibilityIcon />}
-        onClick={() => setDetailedViewOpen(true)}
-        size="small"
-      >
-        View Details
-      </Button>
-    </Box>
-  );
+    // Add column group for this behavior
+    columnGroupingModel.push({
+      groupId: behavior.id,
+      headerName: behavior.name,
+      description: behavior.description || undefined,
+      children: behaviorMetricColumns.map(col => ({ field: col.field }))
+    });
+  });
+
+  const columns = [...baseColumns, ...metricColumns];
 
   return (
-    <Box>
-      <BaseDataGrid
-        title="Test Run Results"
-        rows={testResults}
-        columns={columns}
-        loading={loading}
-        pageSizeOptions={[10, 25, 50]}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        getRowId={(row) => row.id}
-        onRowClick={handleRowClick}
-        showToolbar={true}
-        customToolbarContent={customToolbarContent}
-        density="compact"
-        disableRowSelectionOnClick
-        disableMultipleRowSelection
-        serverSidePagination={true}
-        totalRows={totalCount}
-        sx={{
-          '& .MuiDataGrid-row': {
-            cursor: 'pointer',
-            '&:hover': {
-              backgroundColor: 'action.hover',
-            },
-          },
-        }}
-      />
-      
-      <DetailedTestRunGrid
-        testRunId={testRunId}
-        sessionToken={sessionToken}
-        open={detailedViewOpen}
-        onClose={() => setDetailedViewOpen(false)}
-      />
-    </Box>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth={false}
+      fullWidth
+      PaperProps={{
+        sx: {
+          width: '95vw',
+          height: '90vh',
+          maxWidth: 'none',
+          maxHeight: 'none'
+        }
+      }}
+    >
+      <DialogTitle className={styles.dialogTitle}>
+        View Details
+        <IconButton onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent className={styles.dialogContent}>
+        <Box className={styles.detailedGrid}>
+          <DataGrid
+            rows={testResults}
+            columns={columns}
+            columnGroupingModel={columnGroupingModel}
+            loading={loading}
+            pageSizeOptions={[10, 25, 50, 100]}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
+            getRowId={(row) => row.id}
+            density="compact"
+            disableRowSelectionOnClick
+            disableMultipleRowSelection
+            disableColumnSelector
+            disableColumnMenu
+            disableColumnFilter
+            disableColumnResize
+            disableDensitySelector
+            hideFooterSelectedRowCount
+            paginationMode="server"
+            rowCount={totalCount}
+            onRowClick={handleRowClick}
+            sx={{
+              '& .MuiDataGrid-cell:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-cell:focus-within': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-columnHeader:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-columnHeader:focus-within': {
+                outline: 'none',
+              },
+            }}
+          />
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 } 

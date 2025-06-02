@@ -1,0 +1,20 @@
+.detailsSection {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.title {
+  font-weight: 500;
+}
+
+/* Override padding ONLY for Autocomplete fields in TestRunDetailsSection */
+/* .detailsSection .MuiGrid-container [class*="MuiAutocomplete-root"] .MuiOutlinedInput-root {
+  padding: 14px !important;
+}  */

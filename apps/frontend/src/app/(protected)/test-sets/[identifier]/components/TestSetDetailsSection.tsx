@@ -7,7 +7,7 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '../../../../../utils/api-client/client-factory';
-import TestRunDrawer from '../../components/TestRunDrawer';
+import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
 import EditIcon from '@mui/icons-material/Edit';
@@ -228,12 +228,11 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
         testSet={testSet} 
       />
 
-      <TestRunDrawer
+      <ExecuteTestSetDrawer
         open={testRunDrawerOpen}
         onClose={() => setTestRunDrawerOpen(false)}
+        testSetId={testSet.id}
         sessionToken={sessionToken}
-        selectedTestSetIds={[testSet.id]}
-        onSuccess={() => setTestRunDrawerOpen(false)}
       />
     </Paper>
   );

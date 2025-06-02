@@ -11,6 +11,7 @@ import {
   Box,
   Chip,
   TextField,
+  Autocomplete,
   InputProps,
   StandardTextFieldProps,
   InputLabelProps,
@@ -203,9 +204,11 @@ export default function BaseTag({
     
     if (isDelimiter && inputValue) {
       event.preventDefault();
+      event.stopPropagation();
       handleAddTag(inputValue);
     } else if (event.key === 'Backspace' && !inputValue && localTags.length > 0 && !disableDeleteOnBackspace) {
       // Remove the last tag on backspace if input is empty
+      event.preventDefault();
       handleTagsChange(localTags.slice(0, -1));
     }
   };
@@ -286,47 +289,62 @@ export default function BaseTag({
     shrink: focused || !!inputValue || localTags.length > 0,
   };
 
-  // Create chips for each tag
-  const chipElements = localTags.map((tag) => (
-    <Chip
-      key={tag}
-      label={tag}
-      onDelete={!disabled && !disableEdition ? () => handleDeleteTag(tag) : undefined}
-      color={chipColor}
-      variant="filled"
-      disabled={disabled}
-      className={styles.baseTag}
-    />
-  ));
-
   return (
     <Box className={styles.tagContainer}>
-      <TextField
-        {...textFieldProps}
-        id={id}
-        className={styles.tagField}
-        value={inputValue}
-        onChange={handleInputChange}
-        onKeyDown={handleInputKeyDown}
-        onPaste={handlePaste}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholder={localTags.length === 0 ? placeholder : ''}
-        error={error}
-        label={label}
-        disabled={disabled || disableEdition}
-        inputRef={inputRef}
-        InputProps={{
-          ...customInputProps,
-          startAdornment: chipElements.length > 0 ? (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-              {chipElements}
-            </Box>
-          ) : null,
-          readOnly: disableEdition
+      <Autocomplete
+        multiple
+        freeSolo
+        clearIcon={false}
+        options={[]}
+        value={localTags}
+        inputValue={inputValue}
+        onChange={(event, newValue: string[]) => {
+          // Handle tag changes when chips are removed or values change
+          handleTagsChange(newValue);
         }}
-        InputLabelProps={inputLabelProps}
-        fullWidth
+        onInputChange={(event, newInputValue: string, reason) => {
+          if (reason === 'input') {
+            setInputValue(newInputValue);
+          } else if (reason === 'clear') {
+            setInputValue('');
+          }
+        }}
+        onKeyDown={handleInputKeyDown}
+        disabled={disabled || disableEdition}
+        renderTags={(value: string[], getTagProps) =>
+          value.map((option: string, index: number) => (
+            <Chip
+              {...getTagProps({ index })}
+              key={option}
+              label={option}
+              color={chipColor}
+              variant="filled"
+              disabled={disabled}
+              className={styles.baseTag}
+              onDelete={!disabled && !disableEdition ? () => handleDeleteTag(option) : undefined}
+            />
+          ))
+        }
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            {...textFieldProps}
+            label={label}
+            placeholder={localTags.length === 0 ? placeholder : ''}
+            error={error}
+            inputRef={inputRef}
+            onBlur={handleBlur}
+            onFocus={handleFocus}
+            onPaste={handlePaste}
+            InputLabelProps={inputLabelProps}
+            InputProps={{
+              ...params.InputProps,
+              ...customInputProps,
+              readOnly: disableEdition
+            }}
+            fullWidth
+          />
+        )}
       />
     </Box>
   );
