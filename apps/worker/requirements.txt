@@ -1,6 +1,6 @@
 # Celery worker requirements
-celery[postgres,redis]==5.3.6
+celery[postgres,redis]==5.5.2
 psycopg2-binary==2.9.9
-kombu==5.3.5
+kombu==5.5.3
 redis>=4.5.2,<6.0.0,!=4.5.5
 flower==2.0.1 
