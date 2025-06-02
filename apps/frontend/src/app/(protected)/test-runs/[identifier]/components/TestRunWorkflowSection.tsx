@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {  TestRunUpdate } from '@/utils/api-client/interfaces/test-run';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
-import { Box, Button, Typography } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { Box, Typography } from '@mui/material';
 
 interface TestRunWorkflowSectionProps {
   status?: string;
@@ -31,7 +30,6 @@ export default function TestRunWorkflowSection({
   onOwnerChange
 }: TestRunWorkflowSectionProps) {
   const notifications = useNotifications();
-  const [isRetrying, setIsRetrying] = useState(false);
   
   // Create a memoized apiClientFactory instance
   const clientFactory = useMemo(() => new ApiClientFactory(sessionToken), [sessionToken]);
@@ -49,23 +47,6 @@ export default function TestRunWorkflowSection({
     }
   };
 
-  const handleRetry = async () => {
-    if (!testConfigurationId) return;
-    
-    setIsRetrying(true);
-    try {
-      const testConfigClient = clientFactory.getTestConfigurationsClient();
-      await testConfigClient.executeTestConfiguration(testConfigurationId);
-      
-      notifications.show('Test run retry initiated successfully', { severity: 'success' });
-    } catch (error) {
-      console.error('Error retrying test run:', error);
-      notifications.show('Failed to retry test run', { severity: 'error' });
-    } finally {
-      setIsRetrying(false);
-    }
-  };
-
   return (
     <Box>
       <Typography 
@@ -78,20 +59,6 @@ export default function TestRunWorkflowSection({
       >
         Workflow
       </Typography>
-      {testConfigurationId && (
-        <Box sx={{ mb: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<PlayArrowIcon />}
-            onClick={handleRetry}
-            disabled={isRetrying}
-            fullWidth
-          >
-            {isRetrying ? 'Retrying...' : 'Retry Test Run'}
-          </Button>
-        </Box>
-      )}
       
       <BaseWorkflowSection
         title=""

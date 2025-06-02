@@ -26,37 +26,37 @@ import {
   ListItemText,
   FormHelperText,
 } from '@mui/material';
+import dynamic from 'next/dynamic';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { auth } from '@/auth';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { createEndpoint } from '@/actions/endpoints';
-import Editor from '@monaco-editor/react';
 import { LoadingButton } from '@mui/lab';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { 
+  PlayArrowIcon,
+  SmartToyIcon,
+  DevicesIcon,
+  WebIcon,
+  StorageIcon,
+  CodeIcon,
+  DataObjectIcon,
+  CloudIcon,
+  AnalyticsIcon,
+  ShoppingCartIcon,
+  TerminalIcon,
+  VideogameAssetIcon,
+  ChatIcon,
+  PsychologyIcon,
+  DashboardIcon,
+  SearchIcon,
+  AutoFixHighIcon,
+  PhoneIphoneIcon,
+  SchoolIcon,
+  ScienceIcon,
+  AccountTreeIcon
+} from '@/components/icons';
 import { useSession } from 'next-auth/react';
-
-// Import icons for dynamic project icon rendering
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import DevicesIcon from '@mui/icons-material/Devices';
-import WebIcon from '@mui/icons-material/Web';
-import StorageIcon from '@mui/icons-material/Storage';
-import CodeIcon from '@mui/icons-material/Code';
-import DataObjectIcon from '@mui/icons-material/DataObject';
-import CloudIcon from '@mui/icons-material/Cloud';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import ChatIcon from '@mui/icons-material/Chat';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SearchIcon from '@mui/icons-material/Search';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SchoolIcon from '@mui/icons-material/School';
-import ScienceIcon from '@mui/icons-material/Science';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
@@ -81,6 +81,29 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   Science: ScienceIcon,
   AccountTree: AccountTreeIcon
 };
+
+// Lazy load Monaco Editor
+const Editor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: () => (
+    <Box 
+      sx={{ 
+        height: '200px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        border: '1px solid rgba(0, 0, 0, 0.23)',
+        borderRadius: '4px',
+        backgroundColor: '#f5f5f5'
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CircularProgress size={20} />
+        <Typography variant="body2" color="text.secondary">Loading editor...</Typography>
+      </Box>
+    </Box>
+  )
+});
 
 // Enums based on your backend models
 const PROTOCOLS = ['REST'];

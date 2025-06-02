@@ -7,9 +7,13 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.services.endpoint import get_schema, invoke
+from rhesis.backend.app.dependencies import get_endpoint_service
+from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+
+# Use rhesis logger
+from rhesis.backend.logging import logger
 
 # Create the detailed schema for Endpoint
 EndpointDetailSchema = create_detailed_schema(schemas.Endpoint, models.Endpoint)
@@ -75,7 +79,10 @@ def update_endpoint(
 
 @router.post("/{endpoint_id}/invoke")
 def invoke_endpoint(
-    endpoint_id: uuid.UUID, input_data: Dict[str, Any], db: Session = Depends(get_db)
+    endpoint_id: uuid.UUID,
+    input_data: Dict[str, Any],
+    db: Session = Depends(get_db),
+    endpoint_service: EndpointService = Depends(get_endpoint_service)
 ):
     """
     Invoke an endpoint with the given input data.
@@ -84,24 +91,56 @@ def invoke_endpoint(
         endpoint_id: The UUID of the endpoint to invoke
         input_data: Dictionary containing input data for the endpoint
         db: Database session
+        endpoint_service: The endpoint service instance
 
     Returns:
         The response from the endpoint, either mapped or raw depending on endpoint configuration
     """
     try:
-        return invoke(db, str(endpoint_id), input_data)
+        logger.info(f"API invoke request for endpoint {endpoint_id} with input: {input_data}")
+        
+        # Validate that input_data contains required fields
+        if not isinstance(input_data, dict):
+            raise HTTPException(
+                status_code=400, 
+                detail="Input data must be a JSON object"
+            )
+        
+        # If input_data doesn't have 'input' field, provide helpful error
+        if 'input' not in input_data:
+            logger.warning(f"Input data missing 'input' field. Received keys: {list(input_data.keys())}")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "Missing required field 'input'",
+                    "received_fields": list(input_data.keys()),
+                    "expected_format": {
+                        "input": "Your query text here",
+                        "session_id": "optional-session-id"
+                    }
+                }
+            )
+        
+        result = endpoint_service.invoke_endpoint(db, str(endpoint_id), input_data)
+        logger.info(f"API invoke successful for endpoint {endpoint_id}")
+        return result
     except HTTPException as e:
+        logger.error(f"API invoke HTTPException for endpoint {endpoint_id}: {e.detail}")
         raise e
     except Exception as e:
+        logger.error(f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/schema")
-def get_endpoint_schema():
+def get_endpoint_schema(endpoint_service: EndpointService = Depends(get_endpoint_service)):
     """
     Get the endpoint schema definition.
+
+    Args:
+        endpoint_service: The endpoint service instance
 
     Returns:
         Dict containing the input and output schema definitions
     """
-    return get_schema()
+    return endpoint_service.get_schema()

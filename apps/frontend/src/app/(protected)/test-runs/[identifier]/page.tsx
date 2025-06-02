@@ -18,7 +18,16 @@ export async function generateMetadata({ params }: { params: Promise<{ identifie
   try {
     const resolvedParams = await params;
     const identifier = resolvedParams.identifier;
-    const session = await auth() as { session_token: string };
+    const session = await auth() as { session_token: string } | null;
+    
+    // If no session (like during warmup), return basic metadata
+    if (!session?.session_token) {
+      return {
+        title: `Test Run | ${identifier}`,
+        description: `Details for Test Run ${identifier}`,
+      };
+    }
+    
     const apiFactory = new ApiClientFactory(session.session_token);
     const testRunsClient = apiFactory.getTestRunsClient();
     const testRun = await testRunsClient.getTestRun(resolvedParams.identifier);
@@ -43,7 +52,12 @@ export default async function TestRunPage({ params }: { params: any }) {
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;
   
-  const session = await auth() as { session_token: string };
+  const session = await auth() as { session_token: string } | null;
+  
+  // If no session (like during warmup), redirect to login
+  if (!session?.session_token) {
+    throw new Error('Authentication required');
+  }
   
   const apiFactory = new ApiClientFactory(session.session_token);
   const testRunsClient = apiFactory.getTestRunsClient();

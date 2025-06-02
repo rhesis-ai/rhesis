@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.app.services.endpoint import invoke
+from rhesis.backend.app.dependencies import get_endpoint_service
+from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.database import set_tenant
 from rhesis.backend.logging.rhesis_logger import logger
@@ -182,7 +183,8 @@ def execute_test(
     # Set up tenant context if needed
     setup_tenant_context(db, organization_id, user_id)
     
-    # Initialize metrics evaluator
+    # Initialize services and evaluators
+    endpoint_service = get_endpoint_service()
     metrics_evaluator = MetricEvaluator()
     start_time = datetime.utcnow()
     
@@ -229,7 +231,7 @@ def execute_test(
 
     # Execute prompt against endpoint
     input_data = {"input": prompt_content}
-    result = invoke(db=db, endpoint_id=endpoint_id, input_data=input_data)
+    result = endpoint_service.invoke_endpoint(db=db, endpoint_id=endpoint_id, input_data=input_data)
 
     # Calculate execution time
     execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000

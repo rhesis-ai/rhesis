@@ -3,7 +3,7 @@ from enum import Enum
 
 class EndpointProtocol(str, Enum):
     REST = "REST"
-    WEBSOCKET = "WEBSOCKET"
+    WEBSOCKET = "WebSocket"
     GRPC = "GRPC"
 
 
@@ -23,3 +23,9 @@ class EndpointEnvironment(str, Enum):
     PRODUCTION = "production"
     STAGING = "staging"
     DEVELOPMENT = "development"
+
+
+class EndpointAuthType(str, Enum):
+    BEARER_TOKEN = "bearer_token"
+    CLIENT_CREDENTIALS = "client_credentials"
+    # Add more as needed

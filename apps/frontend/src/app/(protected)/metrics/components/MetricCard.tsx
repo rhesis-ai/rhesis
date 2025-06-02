@@ -1,17 +1,19 @@
 import React from 'react';
 import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
-import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import SearchIcon from '@mui/icons-material/Search';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
-import StorageIcon from '@mui/icons-material/Storage';
-import CodeIcon from '@mui/icons-material/Code';
-import ApiIcon from '@mui/icons-material/Api';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import NumbersIcon from '@mui/icons-material/Numbers';
-import CategoryIcon from '@mui/icons-material/Category';
-import ToggleOnIcon from '@mui/icons-material/ToggleOn';
+import {
+  AssessmentIcon,
+  PrecisionManufacturingIcon,
+  VerifiedUserIcon,
+  SearchIcon,
+  FactCheckIcon,
+  StorageIcon,
+  CodeIcon,
+  ApiIcon,
+  SmartToyIcon,
+  NumbersIcon,
+  CategoryIcon,
+  ToggleOnIcon
+} from '@/components/icons';
 
 interface MetricCardProps {
   type?: 'custom-prompt' | 'api-call' | 'custom-code' | 'grading';

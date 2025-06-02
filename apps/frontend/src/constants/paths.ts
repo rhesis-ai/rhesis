@@ -21,10 +21,11 @@ export const PROTECTED_PATHS = {
 export const ONBOARDING_PATH = '/onboarding';
 
 export const PUBLIC_PATHS = [
-  '/',
+  '/',                    // Root path is public
   '/public',
   '/auth',
   '/api/auth',
+  '/api/warmup',          // Allow warmup endpoint
   '/_next',
   '/rhesis-favicon.ico',
   '/rhesis-logo.png',
