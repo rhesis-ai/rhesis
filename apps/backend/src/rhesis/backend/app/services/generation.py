@@ -42,8 +42,6 @@ async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 
     rhesis.sdk.base_url = os.getenv('RHESIS_BASE_URL', "https://api.rhesis.ai")
     rhesis.sdk.api_key = tokens[0].token
 
-    print("Using token:", tokens[0].token)
-    print("This is configured in Rhesis API Key: ", rhesis.sdk.api_key)
     print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
     
     synthesizer = PromptSynthesizer(prompt=prompt)

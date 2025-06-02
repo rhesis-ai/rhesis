@@ -43,15 +43,40 @@ class PromptSynthesizer(TestSetSynthesizer):
                 # Use run() method with default parameters
                 response = self.llm_service.run(prompt=formatted_prompt)
                 
+                # Debug logging to understand response structure
+                print(f"DEBUG: Response type: {type(response)}")
+                if isinstance(response, dict):
+                    print(f"DEBUG: Dict keys: {list(response.keys())}")
+                    print(f"DEBUG: Dict content preview: {str(response)[:300]}...")
+                
                 # Handle different response types
-                if isinstance(response, dict) and "tests" in response:
-                    test_cases = response["tests"]
+                test_cases = []
+                
+                if isinstance(response, dict):
+                    # Try to extract tests from various possible dict structures
+                    if "tests" in response:
+                        test_cases = response["tests"]
+                    else:
+                        # Check if the dict contains test-like structures
+                        # Look for common keys that might contain test arrays
+                        for key in ["test_cases", "data", "results", "items"]:
+                            if key in response and isinstance(response[key], list):
+                                test_cases = response[key]
+                                break
+                        
+                        # If still no tests found, check if the dict itself looks like a single test
+                        if not test_cases and any(key in response for key in ["input", "output", "expected", "question", "answer"]):
+                            test_cases = [response]
+                            
                 elif isinstance(response, str):
                     # Use utility function for robust JSON extraction
                     parsed_response = extract_json_from_text(response)
                     test_cases = parsed_response.get("tests", [])
+                elif isinstance(response, list):
+                    # Response is already a list of test cases
+                    test_cases = response
                 else:
-                    raise ValueError(f"Unexpected response type: {type(response)}")
+                    raise ValueError(f"Unexpected response type: {type(response)}. Response content: {str(response)[:200]}...")
 
                 # Clean and validate test cases using utility function
                 valid_test_cases = clean_and_validate_tests(test_cases)
