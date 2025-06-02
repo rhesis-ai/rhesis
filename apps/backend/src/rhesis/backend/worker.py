@@ -22,6 +22,14 @@ app.conf.update(
     chord_unlock_max_retries=3,
     # Use light amqp result store
     result_persistent=False,
+    # Additional stability configurations
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_connection_max_retries=10,
+    # Prevent channel promise issues
+    task_reject_on_worker_lost=True,
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
 )
 
 # Auto-discover tasks without loading config files

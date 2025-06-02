@@ -280,6 +280,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/04/94/8e825ac1cf59d45d20c4345d4461e6b5263ae475f708d047c3dad0ac6401/celery-5.5.2-py3-none-any.whl", hash = "sha256:54425a067afdc88b57cd8d94ed4af2ffaf13ab8c7680041ac2c4ac44357bdf4c", size = 438626, upload-time = "2025-04-25T20:10:01.383Z" },
 ]
 
+[package.optional-dependencies]
+redis = [
+    { name = "redis" },
+]
+
 [[package]]
 name = "certifi"
 version = "2025.4.26"
@@ -2381,7 +2386,7 @@ source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "authlib" },
-    { name = "celery" },
+    { name = "celery", extra = ["redis"] },
     { name = "chardet" },
     { name = "deepeval" },
     { name = "faker" },
@@ -2394,6 +2399,7 @@ dependencies = [
     { name = "itsdangerous" },
     { name = "jinja2" },
     { name = "jsonpath-ng" },
+    { name = "kombu" },
     { name = "mirascope" },
     { name = "nanoid" },
     { name = "odata-query" },
@@ -2424,7 +2430,7 @@ dependencies = [
 requires-dist = [
     { name = "alembic" },
     { name = "authlib" },
-    { name = "celery", specifier = ">=5.3.0" },
+    { name = "celery", extras = ["redis"], specifier = "==5.5.2" },
     { name = "chardet" },
     { name = "deepeval", specifier = "==3.0.0" },
     { name = "faker" },
@@ -2437,6 +2443,7 @@ requires-dist = [
     { name = "itsdangerous" },
     { name = "jinja2" },
     { name = "jsonpath-ng", specifier = "==1.7.0" },
+    { name = "kombu", specifier = "==5.5.3" },
     { name = "mirascope", specifier = "==1.24.0" },
     { name = "nanoid" },
     { name = "odata-query", specifier = "==0.10.0" },
