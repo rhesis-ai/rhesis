@@ -1,0 +1,18 @@
+{
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "input": { "type": "string", "description": "User query" },
+        "session_id": { "type": "string", "description": "Session identifier" }
+      },
+      "required": ["input"]
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "output": { "type": "string", "description": "Extracted response message" },
+        "metadata": { "type": "object", "description": "Metadata about the response" },
+        "context": { "type": "array", "description": "Context used for the response" }
+      }
+    }
+  }

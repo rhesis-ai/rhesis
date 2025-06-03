@@ -1,0 +1,22 @@
+NOTE
+
+Rhesis is developed as an open-core project. The core functionality of Rhesis is available under a permissive open-source license (MIT Expat). Certain surrounding components of the Rhesis platform are licensed under commercial terms and fall under the scope of this Enterprise License.
+To clarify: this Enterprise License does not apply to the Rhesis core as defined under the license located at /LICENSE. That core component may be freely used and executed without triggering the terms below.
+
+Rhesis Enterprise License
+(the “Enterprise License” or "EE License")
+
+Copyright (c) 2025 Rhesis AI GmbH
+
+With respect to the Rhesis Enterprise Software:
+
+The use of this software and accompanying documentation (collectively, the "Software") is permitted only if you (or the organization you represent) have accepted and comply with the applicable Rhesis Terms of Service, which can be found at https://www.rhesis.ai/terms-conditions, or a separate agreement executed between you and Rhesis AI GmbH that governs use of the Software.
+Provided that the above condition is met, you are allowed to make modifications to the Software and may share patches. However, Rhesis AI GmbH (and/or its licensors, as applicable) retains all intellectual property rights and ownership of any such modifications and derivatives. Any use, duplication, alteration, display, or distribution of these modifications is permitted only under a valid Rhesis Enterprise License.
+
+For development and testing purposes, you are permitted to copy and adapt the Software without a paid subscription. Nonetheless, ownership of all resulting work remains with Rhesis AI GmbH or its respective licensors. No rights are granted beyond those explicitly mentioned in this license. 
+
+Except as otherwise stated above, you may not publish, merge, sublicense, distribute, or commercially exploit the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT ANY WARRANTY OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. UNDER NO CIRCUMSTANCES SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE HELD RESPONSIBLE FOR ANY DAMAGES OR LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE, ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USAGE.
+
+All third-party libraries and tools integrated into the Rhesis Software are governed by the original licenses issued by their respective creators.

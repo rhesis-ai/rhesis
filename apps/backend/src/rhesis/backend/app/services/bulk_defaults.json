@@ -1,0 +1,36 @@
+{
+    "test": {
+        "test_type": "Single-Turn",
+        "status": "New",
+        "priority": 1,
+        "test_configuration": null
+    },
+    "test_set": {
+        "status": "Active",
+        "license_type": "Copyright",
+        "visibility": "organization",
+        "attributes": {
+            "metadata": {
+                "sample": "",
+                "categories": [],
+                "behaviors": [],
+                "topics": [],
+                "license_type": "Copyright"
+            }
+        }
+    },
+    "prompt": {
+        "language_code": "en-US",
+        "status": "Active"
+    },
+    "topic": {
+        "status": "Active"
+    },
+    "behavior": {
+        "status": "Active"
+    },
+    "category": {
+        "status": "Active",
+        "entity_type": "Test"
+    }
+} 

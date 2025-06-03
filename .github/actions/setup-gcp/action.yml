@@ -1,0 +1,44 @@
+name: 'Setup Google Cloud'
+description: 'Sets up Google Cloud SDK and authentication'
+
+inputs:
+  credentials_json:
+    description: 'Google Cloud service account credentials JSON'
+    required: true
+  sa_key_path:
+    description: 'Path to the service account key file'
+    required: false
+    default: 'gcp-sa-key.json'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+    
+    - name: Verify service account key file
+      if: inputs.sa_key_path != ''
+      shell: bash
+      run: |
+        if [ ! -f "${{ inputs.sa_key_path }}" ]; then
+          echo "❌ Key file not found at: ${{ inputs.sa_key_path }}"
+          exit 1
+        fi
+        
+        echo "✅ Key file exists at: $(realpath ${{ inputs.sa_key_path }})"
+        
+        # Validate JSON format
+        if ! jq . ${{ inputs.sa_key_path }} > /dev/null 2>&1; then
+          echo "❌ Error: Service account key is not valid JSON"
+          echo "First few characters:"
+          head -c 20 ${{ inputs.sa_key_path }}
+          exit 1
+        fi
+        
+        echo "✅ Service account key validated as proper JSON"
+        echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ inputs.sa_key_path }})" >> $GITHUB_ENV
+    
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ inputs.credentials_json }} 

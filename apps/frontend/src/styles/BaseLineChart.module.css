@@ -1,0 +1,33 @@
+.card {
+  height: 100%;
+}
+
+.cardContent {
+  padding: 4px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Override MUI's last-child padding */
+.cardContent :global(.MuiCardContent-root:last-child) {
+  padding-bottom: 4px;
+}
+
+.title {
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  padding: 0 4px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.chartContainer {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+} 

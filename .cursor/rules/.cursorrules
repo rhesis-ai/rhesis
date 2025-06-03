@@ -1,0 +1,69 @@
+# General Rules
+- Always use the basedatagrid when using a grid.
+- Do not use the regular grid, use stack instead. Grid is deprecated.
+
+## API interactions
+
+- If interacting with the backend API, always check the interfaces first under ./utils/api-client.
+- Always look for other pages doing similar interactions with the API.
+- Never use the name as the key in the Autocomplete component, always use the id.
+
+## Chip Display in Form Fields
+
+### For Single Chips (1 item):
+- Use `TextField` with `InputAdornment` containing a single `Chip` component
+- Keep it simple with `startAdornment: <Chip label={value} size="small" color="primary" />`
+
+### For Multiple Chips (array of items):
+- **Never use TextField** - it doesn't handle wrapping properly
+- **Always use Autocomplete** with these exact props:
+  ```jsx
+  <Autocomplete
+    multiple
+    options={[]}
+    value={arrayOfValues || []}
+    readOnly
+    disableCloseOnSelect
+    disableClearable
+    freeSolo
+    renderTags={(value, getTagProps) => 
+      value.map((option, index) => (
+        <Chip
+          {...getTagProps({ index })}
+          key={option}
+          label={option}
+          size="small"
+          color="primary"
+          onDelete={undefined}
+        />
+      ))
+    }
+    renderInput={(params) => (
+      <TextField
+        {...params}
+        label="Field Label"
+        margin="normal"
+        InputProps={{
+          ...params.InputProps,
+          readOnly: true,
+        }}
+        inputProps={{
+          ...params.inputProps,
+          style: { display: 'none' }  // Hide input field for display-only
+        }}
+      />
+    )}
+  />
+  ```
+
+### For Chip Overflow (showing "+x" for remaining items):
+- Slice the array: `value.slice(0, maxCount)`
+- Add overflow chip: `remainingCount > 0 ? [<Chip label={`+${remainingCount}`} variant="outlined" />] : []`
+- Use `.concat()` to combine display chips with overflow chip
+
+### Key Rules:
+1. **Single chip = TextField + InputAdornment**
+2. **Multiple chips = Autocomplete with hidden input**
+3. **Always hide input field with `style: { display: 'none' }` for display-only**
+4. **Never wrap chips in extra containers - let Autocomplete handle layout**
+5. **Use `onDelete={undefined}` to remove delete buttons from chips**
