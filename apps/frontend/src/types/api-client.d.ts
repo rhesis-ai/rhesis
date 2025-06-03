@@ -649,6 +649,14 @@ declare module '@/utils/api-client/client-factory' {
     getGitHubContents(repo_url: string): Promise<string>;
     getOpenAIJson(prompt: string): Promise<any>;
     getOpenAIChat(messages: Array<{ role: string; content: string }>): Promise<string>;
+    generateText(prompt: string, stream?: boolean): Promise<{ text: string }>;
+    generateTests(request: { prompt: string; num_tests?: number }): Promise<{ tests: Array<{
+      prompt: { content: string; language_code: string };
+      behavior: string;
+      category: string;
+      topic: string;
+      metadata: { generated_by: string; additional_info?: Record<string, any> };
+    }> }>;
   }
 
   interface ProjectsClient {
