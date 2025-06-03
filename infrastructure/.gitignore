@@ -1,0 +1,31 @@
+# Terraform directories and files
+.terraform/
+**/.terraform/*
+.terraform.lock.hcl
+**/.terraform.lock.hcl
+environments/*/.terraform/
+environments/*/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Infra secrets configuration
+config/infra-secrets-*.sh
+!config/infra-secrets-config.sh.example
+!config/infra-secrets-create.sh
+
+# Service secrets configuration
+config/service-secrets-*.sh
+!config/service-secrets-config.sh.example
+!config/service-secrets-create.sh
+
+# Service account keys
+*terraform*key*.json
+*deployer*key*.json 

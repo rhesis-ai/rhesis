@@ -1,0 +1,209 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/**'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+
+env:
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  build:
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      SERVICE: backend
+
+    outputs:
+      image_name: ${{ steps.set_env.outputs.image_name }}
+      service_name: ${{ steps.set_env.outputs.service_name }}
+      environment: ${{ env.ENVIRONMENT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+          
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+          
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        id: set_env
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.TF_VAR_REGION }}" >> $GITHUB_ENV
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            echo "SERVICE_NAME=rhesis-backend" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_ENV
+            echo "service_name=rhesis-backend" >> $GITHUB_OUTPUT
+            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_OUTPUT
+          else
+            echo "SERVICE_NAME=rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "service_name=rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+          fi
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build Container
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/backend/Dockerfile .
+
+      - name: Push Container
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: build
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+    
+    env:
+      ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+      
+    steps:
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+          
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+          
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION }}" >> $GITHUB_ENV
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            echo "SERVICE_NAME=rhesis-backend" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_ENV
+          else
+            echo "SERVICE_NAME=rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+          fi
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        run: |
+          echo "Deploying image: ${{ env.IMAGE_NAME }}:latest"
+          echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.IMAGE_NAME }}:latest \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+            --set-env-vars="$(cat <<EOF
+          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
+          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
+          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
+          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
+          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          LOG_LEVEL=${{ secrets.LOG_LEVEL }},
+          AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},
+          AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},
+          AUTH0_CLIENT_ID=${{ secrets.AUTH0_CLIENT_ID }},
+          AUTH0_CLIENT_SECRET=${{ secrets.AUTH0_CLIENT_SECRET }},
+          AUTH0_SECRET_KEY=${{ secrets.AUTH0_SECRET_KEY }},
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
+          JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }},
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }},
+          FRONTEND_URL=${{ secrets.FRONTEND_URL }},
+          AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }},
+          AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }},
+          AZURE_OPENAI_DEPLOYMENT_NAME=${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }},
+          AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }},
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
+          GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
+          RHESIS_BASE_URL=${{ secrets.RHESIS_BASE_URL }},
+          SMTP_HOST=${{ secrets.SMTP_HOST }},
+          SMTP_PORT=${{ secrets.SMTP_PORT }},
+          SMTP_USER=${{ secrets.SMTP_USER }},
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          BROKER_URL=${{ secrets.BROKER_URL }},
+          CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}
+          EOF
+          )"

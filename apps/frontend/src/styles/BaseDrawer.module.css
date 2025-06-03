@@ -1,0 +1,39 @@
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  padding: 24px;
+  border-bottom: 1px solid var(--mui-palette-divider);
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+}
+
+.contentWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+.footer {
+  padding: 24px;
+  border-top: 1px solid var(--mui-palette-divider);
+  background-color: var(--mui-palette-background-paper);
+}
+
+.error {
+  color: var(--mui-palette-error-main);
+  margin-bottom: 16px;
+}
+
+.buttonContainer {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+} 

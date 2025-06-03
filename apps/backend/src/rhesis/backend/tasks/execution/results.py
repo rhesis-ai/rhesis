@@ -1,0 +1,128 @@
+from collections import defaultdict
+from datetime import datetime
+from typing import Dict, List
+from uuid import UUID
+
+from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.database import SessionLocal, set_tenant
+from rhesis.backend.app.models.test_run import TestRun
+from rhesis.backend.logging.rhesis_logger import logger
+from rhesis.backend.tasks.execution.run import update_test_run_status
+from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.worker import app
+
+
+# Configure the chord_unlock task to have reasonable retry limits
+app.conf.chord_unlock_max_retries = 3
+
+
+@app.task
+def collect_results(results, start_time, test_config_id, test_run_id, test_set_id, total_tests, organization_id=None, user_id=None):
+    """
+    Collect and aggregate results from test execution.
+    
+    This task is called as a callback after all individual test execution tasks have completed.
+    It updates the test run status and aggregates metrics from all tests.
+    """
+    # Create database session manually
+    db = SessionLocal()
+    
+    try:
+        # Set tenant context using the proper database utility function
+        set_tenant(db, organization_id=organization_id, user_id=user_id)
+        
+        # Check for failed tasks and count them
+        failed_tasks = sum(1 for result in results if result is None)
+        if failed_tasks > 0:
+            logger.warning(f"{failed_tasks} tasks failed out of {total_tests} for test run {test_run_id}")
+
+        # Calculate aggregated metrics
+        execution_times = [result.get("execution_time", 0) for result in results if result]
+        mean_execution_time = (
+            sum(execution_times) / len(execution_times) if execution_times else 0
+        )
+
+        # Get the test run using crud
+        test_run = crud.get_test_run(db, UUID(test_run_id))
+        
+        if test_run:
+            # Calculate total execution time from start to now
+            start_datetime = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            end_datetime = datetime.utcnow()
+            total_execution_time_ms = (end_datetime - start_datetime).total_seconds() * 1000
+            
+            # Determine status based on failures
+            status = RunStatus.COMPLETED.value
+            if failed_tasks > 0:
+                status = RunStatus.PARTIAL.value if failed_tasks < total_tests else RunStatus.FAILED.value
+            
+            # Prepare the complete attributes update including completion data
+            completed_at = datetime.utcnow().isoformat()
+            updated_attributes = test_run.attributes.copy()  # Copy existing attributes
+            updated_attributes.update({
+                "completed_at": completed_at,
+                "total_tests": total_tests,
+                "completed_tests": len(results) - failed_tasks,
+                "failed_tasks": failed_tasks,
+                "mean_execution_time_ms": mean_execution_time,
+                "total_execution_time_ms": total_execution_time_ms,
+                "task_state": status,  # Explicitly set the final task_state
+                "status": status,      # Also set status for consistency
+                "updated_at": completed_at
+            })
+
+            # Create update object with both status and attributes
+            from rhesis.backend.app.utils.crud_utils import get_or_create_status
+            new_status = get_or_create_status(db, status, "TestRun")
+            
+            # Use crud.update_test_run directly with all the data at once
+            # This ensures a single transaction with proper commit handling
+            update_data = {
+                "status_id": new_status.id,
+                "attributes": updated_attributes
+            }
+            
+            crud.update_test_run(db, test_run.id, crud.schemas.TestRunUpdate(**update_data))
+        else:
+            logger.error(f"Test run {test_run_id} not found!")
+
+        return {
+            "test_run_id": test_run_id,
+            "test_config_id": test_config_id,
+            "total_tests": total_tests,
+            "completed_tests": len(results) - failed_tasks,
+            "failed_tasks": failed_tasks,
+            "mean_execution_time_ms": mean_execution_time,
+        }
+
+    except Exception as e:
+        logger.error(f"Error collecting results: {str(e)}", exc_info=True)
+        db.rollback()
+        
+        try:
+            # Update test run status to failed
+            test_run = crud.get_test_run(db, UUID(test_run_id))
+            if test_run:
+                from rhesis.backend.app.utils.crud_utils import get_or_create_status
+                failed_status = get_or_create_status(db, RunStatus.FAILED.value, "TestRun")
+                
+                # Add error to attributes
+                error_attributes = test_run.attributes.copy()
+                error_attributes.update({
+                    "error": str(e),
+                    "task_state": RunStatus.FAILED.value,
+                    "updated_at": datetime.utcnow().isoformat()
+                })
+                
+                update_data = {
+                    "status_id": failed_status.id,
+                    "attributes": error_attributes
+                }
+                
+                crud.update_test_run(db, test_run.id, crud.schemas.TestRunUpdate(**update_data))
+        except Exception as update_error:
+            logger.error(f"Failed to update test run status: {str(update_error)}")
+        
+        raise 
+    finally:
+        db.close() 

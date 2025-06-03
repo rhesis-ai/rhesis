@@ -1,0 +1,536 @@
+name: Infrastructure CI/CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (dev, stg, prd)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      auto_approve:
+        description: 'Auto-approve terraform apply'
+        required: false
+        default: false
+        type: boolean
+      plan_only:
+        description: 'Generate plan only, do not apply'
+        required: false
+        default: false
+        type: boolean
+      force_unlock:
+        description: 'Force unlock state with specified lock ID (leave empty to skip)'
+        required: false
+        default: ''
+        type: string
+      fresh_start:
+        description: 'Create a new Terraform workspace for a fresh start'
+        required: false
+        default: false
+        type: boolean
+      deployment_stage:
+        description: 'Deployment stage (project, services, all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - project
+          - services
+
+env:
+  TF_VERSION: '1.11.4'
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  setup:
+    name: 'Setup Environment'
+    runs-on: ubuntu-latest
+    outputs:
+      sa_key_path: ${{ steps.setup_outputs.outputs.sa_key_path }}
+      project_id: ${{ steps.project_id.outputs.project_id }}
+      region: ${{ steps.region.outputs.region }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+          
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+          
+          echo "✅ Service account key validated as proper JSON"
+          echo "Key file created at: $(realpath ${{ env.SA_KEY_PATH }})"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+      
+      - name: Setup Google Cloud
+        uses: ./.github/actions/setup-gcp
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          sa_key_path: ${{ env.SA_KEY_PATH }}
+      
+      - name: Set Google Cloud project
+        run: |
+          # Set the project to the environment-specific project, not the admin project
+          PROJECT_ID="rhesis-${{ github.event.inputs.environment }}"
+          echo "Setting active GCP project to: $PROJECT_ID"
+          gcloud config set project $PROJECT_ID || true
+          # Verify the project is set correctly
+          CURRENT_PROJECT=$(gcloud config get-value project)
+          echo "Current GCP project: $CURRENT_PROJECT"
+      
+      - name: Ensure project exists or can be created
+        run: |
+          PROJECT_ID="rhesis-${{ github.event.inputs.environment }}"
+          
+          # Check if project exists
+          if gcloud projects describe "$PROJECT_ID" &>/dev/null; then
+            echo "✅ Project $PROJECT_ID exists"
+          else
+            echo "⚠️ Project $PROJECT_ID does not exist yet"
+            echo "Terraform will attempt to create it. Ensuring service account has Project Creator role..."
+          fi
+          
+          # Check APIs in admin project to ensure project creation is possible
+          # Switch temporarily to admin project
+          gcloud config set project rhesis-platform-admin
+          
+          # Ensure necessary APIs are enabled in admin project
+          ADMIN_APIS=("cloudresourcemanager.googleapis.com" "serviceusage.googleapis.com" "iam.googleapis.com")
+          for api in "${ADMIN_APIS[@]}"; do
+            echo "Ensuring $api is enabled in admin project..."
+            gcloud services enable $api
+          done
+          
+          # Switch back to target project (if it exists)
+          gcloud config set project $PROJECT_ID || true
+      
+      - name: Make scripts executable
+        run: |
+          chmod +x infrastructure/scripts/deploy-terraform.sh
+          chmod +x infrastructure/scripts/check-images.sh
+      
+      - name: Determine project ID
+        id: project_id
+        run: |
+          PROJECT_ID="rhesis-${{ github.event.inputs.environment }}"
+          echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
+          echo "Project ID: $PROJECT_ID"
+      
+      - name: Get region from secrets
+        id: region
+        run: |
+          # Default to europe-west4 if not specified in secrets
+          REGION="${{ secrets.TF_VAR_REGION }}"
+          REGION="${REGION:-europe-west4}"
+          echo "region=$REGION" >> $GITHUB_OUTPUT
+          echo "Region: $REGION"
+      
+      - name: Set outputs
+        id: setup_outputs
+        run: |
+          echo "sa_key_path=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_OUTPUT
+      
+      - name: Upload setup artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-artifacts
+          path: |
+            ${{ env.SA_KEY_PATH }}
+            infrastructure/scripts/
+          retention-days: 1
+
+  plan:
+    name: 'Plan for ${{ github.event.inputs.environment }}'
+    needs: setup
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    outputs:
+      workspace: ${{ steps.set_workspace.outputs.workspace }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download setup artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-artifacts
+          path: .
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Setup Google Cloud
+        uses: ./.github/actions/setup-gcp
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          sa_key_path: ${{ env.SA_KEY_PATH }}
+      
+      - name: Set Google Cloud project
+        run: |
+          # Set the project to the environment-specific project, not the admin project
+          PROJECT_ID="rhesis-${{ github.event.inputs.environment }}"
+          echo "Setting active GCP project to: $PROJECT_ID"
+          gcloud config set project $PROJECT_ID || true
+          # Verify the project is set correctly
+          CURRENT_PROJECT=$(gcloud config get-value project)
+          echo "Current GCP project: $CURRENT_PROJECT"
+      
+      - name: Create new Terraform workspace (optional)
+        if: ${{ github.event.inputs.fresh_start == 'true' }}
+        id: create_workspace
+        run: |
+          cd infrastructure/environments/${{ github.event.inputs.environment }}
+          echo "🔄 Starting fresh by removing existing state files..."
+          # Initialize Terraform first to ensure backend configuration is set up
+          terraform init
+          
+          # Remove Terraform state files (backend will be preserved but local references cleared)
+          rm -f .terraform/terraform.tfstate* || true
+          rm -f terraform.tfstate* || true
+          
+          # Force initialization to re-download state from backend
+          terraform init -reconfigure
+          
+          echo "✅ State files removed, Terraform is ready for a fresh start"
+          echo "workspace=default" >> $GITHUB_OUTPUT
+      
+      - name: Set workspace output
+        id: set_workspace
+        run: |
+          cd infrastructure/environments/${{ github.event.inputs.environment }}
+          
+          # Always use default workspace
+          echo "workspace=default" >> $GITHUB_OUTPUT
+      
+      - name: Force Unlock Terraform State (if requested)
+        if: ${{ github.event.inputs.force_unlock != '' }}
+        run: |
+          echo "🔓 Force unlocking state with lock ID: ${{ github.event.inputs.force_unlock }}"
+          cd infrastructure/environments/${{ github.event.inputs.environment }}
+          
+          # Initialize Terraform first
+          echo "Initializing Terraform..."
+          terraform init
+          
+          # Then force-unlock
+          echo "Forcing unlock with ID: ${{ github.event.inputs.force_unlock }}"
+          terraform force-unlock -force ${{ github.event.inputs.force_unlock }}
+      
+      - name: Check container images
+        id: check_images
+        run: |
+          chmod +x infrastructure/scripts/check-images.sh
+          # Export the image variables so the script can access them
+          export TF_VAR_BACKEND_IMAGE="${{ secrets.TF_VAR_BACKEND_IMAGE }}"
+          export TF_VAR_FRONTEND_IMAGE="${{ secrets.TF_VAR_FRONTEND_IMAGE }}"
+          export TF_VAR_WORKER_IMAGE="${{ secrets.TF_VAR_WORKER_IMAGE }}"
+          export TF_VAR_POLYPHEMUS_IMAGE="${{ secrets.TF_VAR_POLYPHEMUS_IMAGE }}"
+          export TF_VAR_CHATBOT_IMAGE="${{ secrets.TF_VAR_CHATBOT_IMAGE }}"
+          
+          # Default region if not set
+          REGION="${{ needs.setup.outputs.region }}"
+          if [ -z "$REGION" ]; then
+            REGION="europe-west4"
+            echo "Using default region: $REGION"
+          else
+            echo "Using region from setup: $REGION"
+          fi
+          
+          # Run the image check script
+          infrastructure/scripts/check-images.sh \
+            --project ${{ needs.setup.outputs.project_id }} \
+            --environment ${{ github.event.inputs.environment }} \
+            --region "$REGION"
+          
+          # Print all the TF_VAR_ environment variables set by the script
+          echo "Environment variables set for Terraform:"
+          grep -E "^TF_VAR_.*_IMAGE=" $GITHUB_ENV || echo "No image variables were set"
+      
+      - name: Debug Environment Variables
+        run: |
+          echo "Current GITHUB_ENV file contents (TF_VAR_ only):"
+          grep -E "^TF_VAR_" $GITHUB_ENV || echo "No TF_VAR_ variables found"
+      
+      - name: Generate Terraform Plan
+        env:
+          # Environment-specific variables are automatically available from the environment
+          TF_VAR_DATABASE_PASSWORD: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
+          
+          # Explicitly set image variables from GitHub ENV file
+          # These will be empty for non-existent images causing Terraform to use defaults
+          TF_VAR_BACKEND_IMAGE: ${{ env.TF_VAR_BACKEND_IMAGE }}
+          TF_VAR_FRONTEND_IMAGE: ${{ env.TF_VAR_FRONTEND_IMAGE }}
+          TF_VAR_WORKER_IMAGE: ${{ env.TF_VAR_WORKER_IMAGE }}
+          TF_VAR_POLYPHEMUS_IMAGE: ${{ env.TF_VAR_POLYPHEMUS_IMAGE }}
+          TF_VAR_CHATBOT_IMAGE: ${{ env.TF_VAR_CHATBOT_IMAGE }}
+          
+          TF_VAR_ENABLE_LOAD_BALANCERS: ${{ secrets.TF_VAR_ENABLE_LOAD_BALANCERS }}
+          TF_VAR_BACKEND_DOMAIN: ${{ secrets.TF_VAR_BACKEND_DOMAIN }}
+          TF_VAR_FRONTEND_DOMAIN: ${{ secrets.TF_VAR_FRONTEND_DOMAIN }}
+          TF_VAR_WORKER_DOMAIN: ${{ secrets.TF_VAR_WORKER_DOMAIN }}
+          TF_VAR_POLYPHEMUS_DOMAIN: ${{ secrets.TF_VAR_POLYPHEMUS_DOMAIN }}
+          TF_VAR_CHATBOT_DOMAIN: ${{ secrets.TF_VAR_CHATBOT_DOMAIN }}
+          
+          # Common variables from repo secrets
+          TF_VAR_REGION: ${{ secrets.TF_VAR_REGION }}
+          TF_VAR_BILLING_ACCOUNT: ${{ secrets.TF_VAR_BILLING_ACCOUNT }}
+          TF_VAR_ORG_ID: ${{ secrets.TF_VAR_ORG_ID }}
+        run: |
+          # Print the image variables being used by Terraform
+          echo "Image variables being used by Terraform:"
+          echo "BACKEND_IMAGE: $TF_VAR_BACKEND_IMAGE"
+          echo "FRONTEND_IMAGE: $TF_VAR_FRONTEND_IMAGE"
+          echo "WORKER_IMAGE: $TF_VAR_WORKER_IMAGE"
+          echo "POLYPHEMUS_IMAGE: $TF_VAR_POLYPHEMUS_IMAGE"
+          echo "CHATBOT_IMAGE: $TF_VAR_CHATBOT_IMAGE"
+          
+          # Run the deploy script with plan-only option
+          # Pass the deployment stage parameter if specified
+          if [[ "${{ github.event.inputs.deployment_stage }}" != "all" ]]; then
+            infrastructure/scripts/deploy-terraform.sh \
+              --environment ${{ github.event.inputs.environment }} \
+              --key $(realpath ${{ env.SA_KEY_PATH }}) \
+              --stage ${{ github.event.inputs.deployment_stage }} \
+              --plan
+          else
+            infrastructure/scripts/deploy-terraform.sh \
+              --environment ${{ github.event.inputs.environment }} \
+              --key $(realpath ${{ env.SA_KEY_PATH }}) \
+              --plan
+          fi
+      
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment }}
+          path: infrastructure/environments/${{ github.event.inputs.environment }}/terraform-${{ github.event.inputs.environment }}-plan
+          retention-days: 1
+
+  apply-project:
+    name: 'Apply Project Infrastructure to ${{ github.event.inputs.environment }}'
+    needs: [setup, plan]
+    if: ${{ github.event.inputs.plan_only != 'true' && (github.event.inputs.deployment_stage == 'project' || github.event.inputs.deployment_stage == 'all') }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download setup artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-artifacts
+          path: .
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Setup Google Cloud
+        uses: ./.github/actions/setup-gcp
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          sa_key_path: ${{ env.SA_KEY_PATH }}
+      
+      - name: Set Google Cloud project
+        run: |
+          # Set the project to the environment-specific project, not the admin project
+          PROJECT_ID="rhesis-${{ github.event.inputs.environment }}"
+          echo "Setting active GCP project to: $PROJECT_ID"
+          gcloud config set project $PROJECT_ID || true
+          # Verify the project is set correctly
+          CURRENT_PROJECT=$(gcloud config get-value project)
+          echo "Current GCP project: $CURRENT_PROJECT"
+      
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment }}
+          path: infrastructure/environments/${{ github.event.inputs.environment }}
+      
+      - name: Initialize Terraform
+        run: |
+          cd infrastructure/environments/${{ github.event.inputs.environment }}
+          
+          if [[ "${{ github.event.inputs.fresh_start }}" == "true" ]]; then
+            # For fresh start, use -reconfigure to force re-initialization
+            terraform init -reconfigure
+          else
+            # Normal initialization
+            terraform init
+          fi
+      
+      - name: Apply Project Infrastructure
+        run: |
+          cd infrastructure/environments/${{ github.event.inputs.environment }}
+          
+          if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
+            echo "Applying project infrastructure with auto-approve..."
+            infrastructure/scripts/deploy-terraform.sh \
+              --environment ${{ github.event.inputs.environment }} \
+              --key $(realpath ${{ env.SA_KEY_PATH }}) \
+              --stage project \
+              --auto-approve
+          else
+            echo "Applying project infrastructure (requires approval)..."
+            infrastructure/scripts/deploy-terraform.sh \
+              --environment ${{ github.event.inputs.environment }} \
+              --key $(realpath ${{ env.SA_KEY_PATH }}) \
+              --stage project
+          fi
+      
+      - name: Wait for SQL instance to be ready
+        if: ${{ github.event.inputs.deployment_stage == 'all' }}
+        run: |
+          echo "⏳ Waiting for Cloud SQL instance to be fully operational..."
+          PROJECT_ID="rhesis-${{ github.event.inputs.environment }}"
+          INSTANCE_NAME="db-${{ github.event.inputs.environment == 'prd' && 'production' || github.event.inputs.environment == 'stg' && 'staging' || 'development' }}-${{ needs.setup.outputs.region }}"
+          
+          # Check if instance exists
+          if ! gcloud sql instances describe $INSTANCE_NAME --project=$PROJECT_ID &>/dev/null; then
+            echo "⚠️ SQL instance $INSTANCE_NAME not found. It may still be creating."
+            echo "⏳ Waiting for 3 minutes to allow instance creation to complete..."
+            sleep 180
+          fi
+          
+          # Wait for instance to be in RUNNABLE state
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          SLEEP_TIME=30
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            INSTANCE_STATE=$(gcloud sql instances describe $INSTANCE_NAME --project=$PROJECT_ID --format="value(state)" 2>/dev/null || echo "NOT_FOUND")
+            
+            if [ "$INSTANCE_STATE" == "RUNNABLE" ]; then
+              echo "✅ SQL instance $INSTANCE_NAME is now in RUNNABLE state!"
+              break
+            elif [ "$INSTANCE_STATE" == "NOT_FOUND" ]; then
+              echo "⚠️ SQL instance $INSTANCE_NAME not found. Waiting..."
+            else
+              echo "⏳ SQL instance $INSTANCE_NAME is in state: $INSTANCE_STATE. Waiting..."
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT+1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "Retrying in $SLEEP_TIME seconds... (Attempt $RETRY_COUNT/$MAX_RETRIES)"
+              sleep $SLEEP_TIME
+            fi
+          done
+          
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "⚠️ Maximum retries reached. SQL instance may not be ready."
+            echo "Continuing with deployment, but be aware that SQL user creation may fail."
+            echo "You may need to run the services deployment stage separately later."
+          fi
+          
+          # Additional wait time for good measure
+          echo "⏳ Waiting an additional 60 seconds for APIs and permissions to fully propagate..."
+          sleep 60
+
+  apply-services:
+    name: 'Apply Services to ${{ github.event.inputs.environment }}'
+    needs: [setup, plan, apply-project]
+    if: ${{ github.event.inputs.plan_only != 'true' && (github.event.inputs.deployment_stage == 'services' || github.event.inputs.deployment_stage == 'all') }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download setup artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-artifacts
+          path: .
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Setup Google Cloud
+        uses: ./.github/actions/setup-gcp
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          sa_key_path: ${{ env.SA_KEY_PATH }}
+      
+      - name: Set Google Cloud project
+        run: |
+          # Set the project to the environment-specific project, not the admin project
+          PROJECT_ID="rhesis-${{ github.event.inputs.environment }}"
+          echo "Setting active GCP project to: $PROJECT_ID"
+          gcloud config set project $PROJECT_ID || true
+          # Verify the project is set correctly
+          CURRENT_PROJECT=$(gcloud config get-value project)
+          echo "Current GCP project: $CURRENT_PROJECT"
+      
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment }}
+          path: infrastructure/environments/${{ github.event.inputs.environment }}
+      
+      - name: Initialize Terraform
+        run: |
+          cd infrastructure/environments/${{ github.event.inputs.environment }}
+          
+          if [[ "${{ github.event.inputs.fresh_start }}" == "true" ]]; then
+            # For fresh start, use -reconfigure to force re-initialization
+            terraform init -reconfigure
+          else
+            # Normal initialization
+            terraform init
+          fi
+      
+      - name: Apply Services
+        env:
+          # Environment-specific variables are automatically available from the environment
+          TF_VAR_DATABASE_PASSWORD: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
+          TF_VAR_BACKEND_IMAGE: ${{ env.TF_VAR_BACKEND_IMAGE }}
+          TF_VAR_FRONTEND_IMAGE: ${{ env.TF_VAR_FRONTEND_IMAGE }}
+          TF_VAR_WORKER_IMAGE: ${{ env.TF_VAR_WORKER_IMAGE }}
+          TF_VAR_POLYPHEMUS_IMAGE: ${{ env.TF_VAR_POLYPHEMUS_IMAGE }}
+          TF_VAR_CHATBOT_IMAGE: ${{ env.TF_VAR_CHATBOT_IMAGE }}
+        run: |
+          cd infrastructure/environments/${{ github.event.inputs.environment }}
+          
+          if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
+            echo "Applying services with auto-approve..."
+            infrastructure/scripts/deploy-terraform.sh \
+              --environment ${{ github.event.inputs.environment }} \
+              --key $(realpath ${{ env.SA_KEY_PATH }}) \
+              --stage services \
+              --auto-approve
+          else
+            echo "Applying services (requires approval)..."
+            infrastructure/scripts/deploy-terraform.sh \
+              --environment ${{ github.event.inputs.environment }} \
+              --key $(realpath ${{ env.SA_KEY_PATH }}) \
+              --stage services
+          fi 

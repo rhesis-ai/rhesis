@@ -1,0 +1,53 @@
+.tableContainer {
+  box-shadow: var(--mui-shadows-1);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--mui-palette-background-paper);
+  min-height: 200px;
+  position: relative;
+}
+
+.headerRow {
+  background-color: var(--mui-palette-grey-50);
+}
+
+.headerCell {
+  font-weight: bold;
+  color: var(--mui-palette-text-primary);
+}
+
+.tableRow {
+  transition: background-color 0.2s;
+}
+
+.tableRow:nth-of-type(odd) {
+  background-color: var(--mui-palette-grey-50);
+}
+
+.tableRow:hover {
+  background-color: var(--mui-palette-grey-100);
+  cursor: pointer;
+}
+
+.tableRow.noClick:hover {
+  cursor: default;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.actionButtonsContainer {
+  display: flex;
+  gap: 16px;
+}
+
+.headerContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+} 

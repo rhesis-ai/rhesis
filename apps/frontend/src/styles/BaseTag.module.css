@@ -1,0 +1,52 @@
+/* Tag chip styling */
+.baseTag {
+  height: 24px;
+  max-width: 200px;
+}
+
+.baseTag :global(.MuiChip-label) {
+  padding: 0px 10px;
+  font-size: 0.8125rem;
+}
+
+.baseTag :global(.MuiChip-deleteIcon) {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+/* Field container styling */
+.tagField :global(.MuiOutlinedInput-root) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 8px 8px 12px;
+}
+
+.tagField :global(.MuiOutlinedInput-input) {
+  padding: 4px;
+  height: 24px;
+  min-width: 120px;
+  flex: 1 1 auto;
+  border: none;
+  outline: none;
+}
+
+/* Ensure the startAdornment (chips container) behaves properly */
+.tagField :global(.MuiInputAdornment-root) {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  max-height: none;
+}
+
+/* Container styling */
+.tagContainer {
+  width: 100%;
+}
+
+.tagContainer :global(.MuiChip-root) {
+  margin: 2px 4px 2px 0;
+  flex-shrink: 0;
+} 
