@@ -30,7 +30,42 @@ app.conf.update(
     task_reject_on_worker_lost=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    # Add explicit task discovery
+    include=[
+        'rhesis.backend.tasks.test_configuration',
+        'rhesis.backend.tasks.example_task',
+        'rhesis.backend.tasks.test_set',
+    ],
 )
+
+# Print configuration for debugging
+print(f"Celery app created with broker: {bool(app.conf.broker_url)}")
+print(f"Result backend configured: {bool(app.conf.result_backend)}")
 
 # Auto-discover tasks without loading config files
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
+
+# After autodiscovery, print discovered tasks
+def print_registered_tasks():
+    """Print all registered tasks for debugging"""
+    print("Registered Celery tasks:")
+    for task_name in sorted(app.tasks.keys()):
+        print(f"  - {task_name}")
+
+# Call this after import
+print_registered_tasks()
+
+# Test task registration by checking if our main task is available
+if __name__ == "__main__":
+    print("\n=== Worker Module Test ===")
+    expected_task = "rhesis.backend.tasks.execute_test_configuration"
+    if expected_task in app.tasks:
+        print(f"✅ Task {expected_task} is properly registered")
+        task = app.tasks[expected_task]
+        print(f"Task type: {type(task)}")
+        print(f"Task name: {task.name}")
+    else:
+        print(f"❌ Task {expected_task} is NOT registered")
+        print("Available tasks:")
+        for name in sorted(app.tasks.keys()):
+            print(f"  - {name}")

@@ -63,7 +63,7 @@ ENV CELERY_WORKER_CONCURRENCY=8 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
     CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
     CELERY_WORKER_LOGLEVEL=INFO \
-    CELERY_WORKER_OPTS="--without-heartbeat --without-gossip"
+    CELERY_WORKER_OPTS=""
 
 # Expose port for health check (Google Cloud Run)
 EXPOSE 8080

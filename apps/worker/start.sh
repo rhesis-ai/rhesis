@@ -12,6 +12,38 @@ echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
 echo "Celery worker max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000}"
 echo "Celery worker log level: ${CELERY_WORKER_LOGLEVEL:-INFO}"
 
+# Test Celery app import before starting worker
+echo "Testing Celery app import..."
+python -c "
+import sys
+try:
+    from rhesis.backend.worker import app
+    print('✅ Celery app imported successfully')
+    print(f'Broker URL configured: {bool(app.conf.broker_url)}')
+    print(f'Result backend configured: {bool(app.conf.result_backend)}')
+except Exception as e:
+    print(f'❌ Failed to import Celery app: {e}')
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+"
+
+# Test broker connectivity
+echo "Testing broker connectivity..."
+timeout 10 python -c "
+import sys
+try:
+    from rhesis.backend.worker import app
+    with app.connection() as conn:
+        conn.connect()
+        print('✅ Broker connection successful')
+except Exception as e:
+    print(f'❌ Broker connection failed: {e}')
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+" || echo "⚠️ Broker connection test timed out or failed"
+
 # Start the health check server
 echo "Starting health check server on port 8080..."
 python /app/health_server.py &
@@ -53,7 +85,10 @@ forward_signal() {
 trap forward_signal SIGTERM SIGINT
 
 # Start Celery worker with configuration from environment variables
-echo "Starting Celery worker..."
+echo "Starting Celery worker with full output..."
+echo "Command: celery -A rhesis.backend.worker.app worker --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} --concurrency=${CELERY_WORKER_CONCURRENCY:-8} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} ${CELERY_WORKER_OPTS}"
+
+# Run celery worker in foreground first to see any immediate errors
 celery -A rhesis.backend.worker.app worker \
     --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} \
     --concurrency=${CELERY_WORKER_CONCURRENCY:-8} \
@@ -64,6 +99,18 @@ celery -A rhesis.backend.worker.app worker \
 # Store Celery worker PID
 CELERY_PID=$!
 echo "Celery worker started with PID: $CELERY_PID"
+
+# Wait a moment and check if the worker is still running
+sleep 5
+if ! kill -0 $CELERY_PID 2>/dev/null; then
+    echo "❌ Celery worker died immediately after startup!"
+    wait $CELERY_PID
+    EXIT_CODE=$?
+    echo "Worker exit code: $EXIT_CODE"
+    exit $EXIT_CODE
+else
+    echo "✅ Celery worker is running after 5 seconds"
+fi
 
 # Wait for Celery worker to exit and handle signals
 wait $CELERY_PID

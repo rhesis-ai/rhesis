@@ -64,6 +64,9 @@ class MetricConfig:
     reference_score: Optional[str] = None
     """Reference score for binary/categorical metrics (e.g., 'true', 'excellent')"""
     
+    threshold_operator: Optional[str] = None
+    """Threshold operator for comparison (e.g., '>=', '<', '=')"""
+    
     name: Optional[str] = None
     """Human-readable name of the metric"""
 
@@ -85,6 +88,9 @@ class MetricConfig:
             
         if self.reference_score is not None:
             result["reference_score"] = self.reference_score
+            
+        if self.threshold_operator is not None:
+            result["threshold_operator"] = self.threshold_operator
         
         if self.description:
             result["description"] = self.description
@@ -136,6 +142,7 @@ class MetricConfig:
         # Extract optional fields with defaults
         threshold = data.get("threshold")
         reference_score = data.get("reference_score")
+        threshold_operator = data.get("threshold_operator")
         description = data.get("description")
         name = data.get("name")
         
@@ -147,7 +154,7 @@ class MetricConfig:
                 threshold = None
         
         # Extract all other keys as custom parameters
-        reserved_keys = {"class_name", "backend", "threshold", "reference_score", "description", "name"}
+        reserved_keys = {"class_name", "backend", "threshold", "reference_score", "threshold_operator", "description", "name"}
         parameters = {k: v for k, v in data.items() if k not in reserved_keys}
         
         return cls(
@@ -155,6 +162,7 @@ class MetricConfig:
             backend=backend,
             threshold=threshold,
             reference_score=reference_score,
+            threshold_operator=threshold_operator,
             description=description,
             name=name,
             parameters=parameters

@@ -55,6 +55,10 @@ def create_metric_config_from_model(metric: Metric) -> Optional[Dict]:
         "parameters": {}
     }
     
+    # Add threshold_operator if it exists in the database
+    if hasattr(metric, 'threshold_operator') and metric.threshold_operator:
+        metric_config["threshold_operator"] = metric.threshold_operator
+    
     # Optional parameter mapping - only add parameters if they exist
     optional_params = {
         "evaluation_prompt": metric.evaluation_prompt,
