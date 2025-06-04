@@ -103,16 +103,18 @@ def validate_token(
     if not token:
         return False, "Invalid or revoked token"
 
-    # Make sure token.expires_at is timezone-aware
-    token_expiry = (
-        token.expires_at
-        if token.expires_at.tzinfo
-        else token.expires_at.replace(tzinfo=timezone.utc)
-    )
-    now = datetime.now(timezone.utc)
+    # Check expiration only if expires_at is not None
+    if token.expires_at:
+        # Make sure token.expires_at is timezone-aware
+        token_expiry = (
+            token.expires_at
+            if token.expires_at.tzinfo
+            else token.expires_at.replace(tzinfo=timezone.utc)
+        )
+        now = datetime.now(timezone.utc)
 
-    if token.expires_at and token_expiry <= now:
-        return False, "Token has expired"
+        if token_expiry <= now:
+            return False, "Token has expired"
 
     if update_usage and db:
         update_token_usage(db, token)
