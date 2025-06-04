@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.user import UserReference
@@ -148,6 +148,12 @@ class TestBulkCreate(BaseModel):
     owner_id: Optional[UUID4] = None
     status: Optional[str] = None
     priority: Optional[int] = None
+
+    @validator('assignee_id', 'owner_id')
+    def validate_uuid(cls, v):
+        if v == "":
+            return None
+        return v
 
 
 class TestBulkCreateRequest(BaseModel):
