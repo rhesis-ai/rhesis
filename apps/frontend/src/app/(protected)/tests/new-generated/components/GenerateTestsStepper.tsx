@@ -389,7 +389,13 @@ const ReviewSamples = ({
     setIsLoadingMore(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
-      const response = await apiFactory.getServicesClient().generateTests({
+      
+      // Debug: Check the services client here too
+      const servicesClient = apiFactory.getServicesClient();
+      console.log('ServicesClient (loadMoreSamples):', servicesClient);
+      console.log('generateTests method exists:', typeof servicesClient.generateTests === 'function');
+      
+      const response = await servicesClient.generateTests({
         prompt: generatePromptFromConfig(configData),
         num_tests: 5
       });
@@ -408,6 +414,7 @@ const ReviewSamples = ({
         show('Additional samples loaded', { severity: 'success' });
       }
     } catch (error) {
+      console.error('Error in loadMoreSamples:', error);
       show('Failed to load more samples', { severity: 'error' });
     } finally {
       setIsLoadingMore(false);
@@ -422,6 +429,12 @@ const ReviewSamples = ({
     
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
+      
+      // Debug: Check the services client here too
+      const servicesClient = apiFactory.getServicesClient();
+      console.log('ServicesClient (regenerateSample):', servicesClient);
+      console.log('generateTests method exists:', typeof servicesClient.generateTests === 'function');
+      
       const prompt = `
         Original Test: "${sample.text}"
         Test Type: ${sample.behavior}
@@ -431,7 +444,7 @@ const ReviewSamples = ({
         
         Please generate a new version of this test that addresses the feedback.`;
 
-      const response = await apiFactory.getServicesClient().generateTests({
+      const response = await servicesClient.generateTests({
         prompt,
         num_tests: 1
       });
@@ -448,6 +461,7 @@ const ReviewSamples = ({
         show('Test regenerated successfully', { severity: 'success' });
       }
     } catch (error) {
+      console.error('Error in regenerateSample:', error);
       show('Failed to regenerate test', { severity: 'error' });
     } finally {
       setRegenerating(prev => {
@@ -630,7 +644,7 @@ const ConfirmGenerate = ({ samples, configData }: { samples: Sample[]; configDat
 
       <Alert severity="info">
         <AlertTitle>What happens next?</AlertTitle>
-        When you click "Generate Tests", we'll create your test suite and notify you when ready.
+        When you click &quot;Generate Tests&quot;, we&apos;ll create your test suite and notify you when ready.
       </Alert>
     </Box>
   );
@@ -655,6 +669,16 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       
+      // Debug: Check what the apiFactory looks like
+      console.log('ApiClientFactory instance:', apiFactory);
+      
+      const servicesClient = apiFactory.getServicesClient();
+      
+      // Debug: Check what the services client looks like
+      console.log('ServicesClient instance:', servicesClient);
+      console.log('ServicesClient methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(servicesClient)));
+      console.log('generateTests method:', servicesClient.generateTests);
+      
       const generatedPrompt = generatePromptFromConfig(config);
       
       const requestPayload = {
@@ -662,7 +686,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
         num_tests: 5
       };
       
-      const response = await apiFactory.getServicesClient().generateTests(requestPayload);
+      const response = await servicesClient.generateTests(requestPayload);
 
       if (response.tests?.length) {
         const newSamples: Sample[] = response.tests.map((test, index) => ({
@@ -680,6 +704,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
         throw new Error('No tests generated in response');
       }
     } catch (error) {
+      console.error('Error in handleConfigSubmit:', error);
       show('Failed to generate samples', { severity: 'error' });
       setActiveStep(0);
     } finally {
