@@ -93,7 +93,7 @@ def _execute_set_tenant(
                 cursor.execute("SELECT set_config('app.current_user', %s, false)", (str(user_id),))
                 cursor.close()
         else:
-            logger.debug("Not setting app.current_user (empty or None)")
+            logger.debug("Not setting app.current_user (already set)")
     except Exception as e:
         logger.error(f"Error setting tenant context: {e}")
         # Don't raise the exception - allow the operation to continue
