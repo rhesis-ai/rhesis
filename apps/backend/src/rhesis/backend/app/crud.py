@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.database import reset_session_context
+from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
@@ -975,7 +976,37 @@ def update_test(db: Session, test_id: uuid.UUID, test: schemas.TestUpdate) -> Op
 
 
 def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
-    return delete_item(db, models.Test, test_id)
+    """Delete a test and update any associated test sets' attributes"""
+    from rhesis.backend.app.services.test_set import update_test_set_attributes
+    
+    with maintain_tenant_context(db):
+        # Get the test to be deleted
+        db_test = get_item(db, models.Test, test_id)
+        if db_test is None:
+            return None
+
+        # Get all test sets that contain this test before deletion
+        test_set_ids = db.execute(
+            test_test_set_association.select().where(
+                test_test_set_association.c.test_id == test_id
+            )
+        ).fetchall()
+        
+        affected_test_set_ids = [row.test_set_id for row in test_set_ids]
+
+        # Store a copy of the test before deletion
+        deleted_test = db_test
+
+        # Delete the test (this will also cascade delete the associations)
+        db.delete(db_test)
+        db.flush()
+
+        # Update attributes for all affected test sets
+        for test_set_id in affected_test_set_ids:
+            update_test_set_attributes(db=db, test_set_id=str(test_set_id))
+
+        db.commit()
+        return deleted_test
 
 
 # TestContext CRUD

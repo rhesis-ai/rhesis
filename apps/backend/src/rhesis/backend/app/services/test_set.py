@@ -65,10 +65,17 @@ def generate_test_set_attributes(
     behavior_names = list(set(test.behavior.name for test in test_set.tests))
     category_names = list(set(test.category.name for test in test_set.tests))
 
-    # Get a random prompt's content for the sample
+    # Get a random prompt's content for the sample (now through tests)
     sample = None
-    if test_set.prompts:
-        sample = random.choice(test_set.prompts).content
+    if test_set.tests:
+        # Filter tests that have prompts with content
+        tests_with_prompts = [test for test in test_set.tests if test.prompt and test.prompt.content]
+        if tests_with_prompts:
+            sample = random.choice(tests_with_prompts).prompt.content
+
+    # Count unique prompts (in case multiple tests reference the same prompt)
+    unique_prompt_ids = set(str(test.prompt_id) for test in test_set.tests if test.prompt_id)
+    total_prompts = len(unique_prompt_ids)
 
     return {
         "topics": topics,
@@ -80,7 +87,8 @@ def generate_test_set_attributes(
             "behaviors": behavior_names,
             "categories": category_names,
             "license_type": license_type.type_value,
-            "total_prompts": len(test_set.prompts) if test_set.prompts else 0,
+            "total_prompts": total_prompts,
+            "total_tests": len(test_set.tests),
         },
     }
 
@@ -314,3 +322,23 @@ def remove_test_set_associations(
             "removed_associations": 0,
             "message": f"Failed to remove test set associations: {str(e)}",
         }
+
+
+def update_test_set_attributes(db: Session, test_set_id: str) -> None:
+    """
+    Update test set attributes after tests are added or removed.
+    
+    Args:
+        db: Database session
+        test_set_id: ID of the test set to update
+    """
+    test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+    if test_set:
+        defaults = load_defaults()
+        test_set.attributes = generate_test_set_attributes(
+            db=db,
+            test_set=test_set,
+            defaults=defaults,
+            license_type=test_set.license_type,
+        )
+        db.flush()
