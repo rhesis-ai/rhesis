@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -25,10 +25,9 @@ import {
   Rating,
   Alert,
   AlertTitle,
-  Tooltip,
-  IconButton,
   LinearProgress,
-  CircularProgress
+  CircularProgress,
+  Skeleton
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import BaseTag from '@/components/common/BaseTag';
@@ -41,7 +40,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import styles from '@/styles/ReviewSamples.module.css';
 
-// Common interfaces
+// Types
 interface Sample {
   id: number;
   text: string;
@@ -62,260 +61,181 @@ interface ConfigData {
   description: string;
 }
 
-// Component prop interfaces
 interface GenerateTestsStepperProps {
   sessionToken: string;
 }
 
-interface ConfigureGenerationProps {
-  sessionToken: string;
-}
-
-interface ReviewSamplesProps {
-  samples: Sample[];
-  onRatingChange: (id: number, newValue: number | null) => void;
-  onFeedbackChange: (id: number, newValue: string) => void;
-}
-
-interface ConfirmGenerateProps {
-  samples: Sample[];
-  configData: ConfigData;
-}
-
 // Constants
-const labels: { [index: number]: string } = {
+const RATING_LABELS: Record<number, string> = {
   1: 'Poor',
-  2: 'Fair',
+  2: 'Fair', 
   3: 'Good',
   4: 'Very Good',
   5: 'Excellent',
 };
 
-function getLabelText(value: number) {
-  return `${value} Star${value !== 1 ? 's' : ''}, ${labels[value]}`;
-}
+const PURPOSES = [
+  'Regression Testing',
+  'New Feature Testing', 
+  'Integration Testing',
+  'Edge Case Testing',
+  'Performance Testing'
+];
 
-const ConfigureGeneration = ({ sessionToken }: ConfigureGenerationProps) => {
-  // State declarations
+const INITIAL_CONFIG: ConfigData = {
+  project: null,
+  behaviors: [],
+  purposes: [],
+  testType: "single_turn",
+  responseGeneration: "prompt_only", 
+  testCoverage: "standard",
+  tags: [],
+  description: ""
+};
+
+// Helper functions
+const getLabelText = (value: number) => {
+  return `${value} Star${value !== 1 ? 's' : ''}, ${RATING_LABELS[value]}`;
+};
+
+const generatePromptFromConfig = (config: ConfigData): string => {
+  const parts = [
+    `Project Context: ${config.project?.name || 'General'}`,
+    `Test Behaviors: ${config.behaviors.join(', ')}`,
+    `Test Purposes: ${config.purposes.join(', ')}`,
+    `Key Aspects: ${config.tags.join(', ')}`,
+    `Specific Requirements: ${config.description}`,
+    `Test Type: ${config.testType === 'single_turn' ? 'Single interaction tests' : 'Multi-turn conversation tests'}`,
+    `Output Format: ${config.responseGeneration === 'prompt_only' ? 'Generate only user inputs' : 'Generate both user inputs and expected responses'}`
+  ];
+  return parts.join('\n');
+};
+
+// Step 1: Configuration Component
+const ConfigureGeneration = ({ sessionToken, onSubmit }: { 
+  sessionToken: string; 
+  onSubmit: (config: ConfigData) => void;
+}) => {
+  const [formData, setFormData] = useState(INITIAL_CONFIG);
   const [projects, setProjects] = useState<Project[]>([]);
   const [behaviors, setBehaviors] = useState<Behavior[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [selectedBehaviors, setSelectedBehaviors] = useState<string[]>([]);
-  const [selectedPurposes, setSelectedPurposes] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [description, setDescription] = useState('');
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [showSuggestButton, setShowSuggestButton] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
   const { show } = useNotifications();
 
-  // Constants
-  const purposes = [
-    'Regression Testing',
-    'New Feature Testing',
-    'Integration Testing',
-    'Edge Case Testing',
-    'Performance Testing'
-  ];
-
-  // Fetch data on component mount
+  // Load initial data
   useEffect(() => {
+    let mounted = true;
+    
     const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const projectsClient = apiFactory.getProjectsClient();
-      const behaviorClient = apiFactory.getBehaviorClient();
-
       try {
+        const apiFactory = new ApiClientFactory(sessionToken);
         const [projectsData, behaviorsData] = await Promise.all([
-          projectsClient.getProjects(),
-          behaviorClient.getBehaviors({ sort_by: 'name', sort_order: 'asc' })
+          apiFactory.getProjectsClient().getProjects(),
+          apiFactory.getBehaviorClient().getBehaviors({ sort_by: 'name', sort_order: 'asc' })
         ]);
 
-        if (!Array.isArray(projectsData)) {
-          throw new Error('Invalid projects data received');
-        }
+        if (!mounted) return;
 
-        setProjects(projectsData);
-        
-        // Filter out behaviors with empty or invalid names
-        const validBehaviors = behaviorsData.filter(behavior => 
-          behavior && 
-          behavior.id && 
-          behavior.name && 
-          behavior.name.trim() !== ''
-        );
-        setBehaviors(validBehaviors);
+        setProjects(Array.isArray(projectsData) ? projectsData : []);
+        setBehaviors(behaviorsData.filter(b => b?.id && b?.name?.trim()) || []);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load projects and behaviors. Please try again.');
-        show('Failed to load configuration data', { severity: 'error' });
+        if (mounted) {
+          console.error('Failed to load data:', error);
+          show('Failed to load configuration data', { severity: 'error' });
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchData();
+    return () => { mounted = false; };
   }, [sessionToken, show]);
 
-  // Field validation
-  const handleFieldTouch = (field: string) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-  };
-
-  const getFieldError = (field: string, value: any): string => {
-    if (!touched[field]) return '';
-    
-    switch (field) {
-      case 'project':
-        return !value ? 'Project is required' : '';
-      case 'behaviors':
-        return value.length === 0 ? 'At least one behavior must be selected' : '';
-      case 'purposes':
-        return value.length === 0 ? 'At least one purpose must be selected' : '';
-      case 'tags':
-        return value.length === 0 ? 'At least one aspect must be added' : '';
-      case 'description':
-        return !value.trim() ? 'Description is required' : '';
-      default:
-        return '';
-    }
-  };
-
-  // Event handlers
-  const handleDescriptionFocus = () => {
-    if (!description.trim()) {
-      setShowSuggestButton(true);
-    }
-  };
-
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setDescription(newValue);
-    setShowSuggestButton(!newValue.trim());
-  };
-
-  const handleSuggestDescription = () => {
-    // This will be implemented later with API integration
-    console.log('Suggesting description based on current inputs');
-  };
-
   // Form validation
-  const errors = {
-    project: getFieldError('project', selectedProject),
-    behaviors: getFieldError('behaviors', selectedBehaviors),
-    purposes: getFieldError('purposes', selectedPurposes),
-    tags: getFieldError('tags', tags),
-    description: getFieldError('description', description)
-  };
-
-  const isFormValid = () => {
-    // Mark all fields as touched
-    const allFields = ['project', 'behaviors', 'purposes', 'tags', 'description'];
-    setTouched(allFields.reduce((acc, field) => ({ ...acc, [field]: true }), {}));
-
-    // Check all validation errors
-    const validationErrors = {
-      project: !selectedProject,
-      behaviors: selectedBehaviors.length === 0,
-      purposes: selectedPurposes.length === 0,
-      tags: tags.length === 0,
-      description: !description.trim()
-    };
-
-    const hasErrors = Object.values(validationErrors).some(error => error);
+  const validateForm = useCallback(() => {
+    const newErrors: Record<string, string> = {};
     
-    if (hasErrors) {
-      show('Please fill in all required fields', { severity: 'error' });
-      return false;
+    if (!formData.project) newErrors.project = 'Project is required';
+    if (formData.behaviors.length === 0) newErrors.behaviors = 'At least one behavior must be selected';
+    if (formData.purposes.length === 0) newErrors.purposes = 'At least one purpose must be selected';
+    // Tags are optional
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formData]);
+
+  // Form handlers
+  const updateField = useCallback((field: keyof ConfigData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  }, [errors]);
 
-    return true;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    return isFormValid();
-  };
+    if (validateForm()) {
+      onSubmit(formData);
+    }
+  }, [formData, validateForm, onSubmit]);
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-        <Button variant="contained" onClick={() => window.location.reload()}>
-          Retry
-        </Button>
-      </Box>
+      <Grid container spacing={3}>
+        {[...Array(6)].map((_, i) => (
+          <Grid item xs={12} md={6} key={i}>
+            <Skeleton variant="rectangular" height={56} sx={{ mb: 3 }} />
+          </Grid>
+        ))}
+      </Grid>
     );
   }
 
   return (
-    <form 
-      id="generation-config-form" 
-      noValidate 
-      onSubmit={handleSubmit}
-    >
+    <form id="generation-config-form" onSubmit={handleSubmit}>
       <Grid container spacing={3}>
-        {/* Left Column */}
         <Grid item xs={12} md={6}>
-          <Box sx={{ mb: 3 }}>
-            <Autocomplete
-              options={projects}
-              value={selectedProject}
-              onChange={(_, newValue) => setSelectedProject(newValue)}
-              onBlur={() => handleFieldTouch('project')}
-              getOptionLabel={(option) => option.name}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Select Project"
-                  variant="outlined"
-                  required
-                  error={!!errors.project}
-                  helperText={errors.project}
-                />
-              )}
-            />
-          </Box>
+          <Autocomplete
+            id="project-select"
+            options={projects}
+            value={formData.project}
+            onChange={(_, value) => updateField('project', value)}
+            getOptionLabel={(option) => option.name}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                id="project-input"
+                name="project"
+                label="Select Project"
+                required
+                error={!!errors.project}
+                helperText={errors.project}
+                sx={{ mb: 3 }}
+              />
+            )}
+          />
 
-          <FormControl 
-            fullWidth 
-            sx={{ mb: 3 }}
-            error={!!errors.behaviors}
-          >
-            <InputLabel required>Behaviors</InputLabel>
+          <FormControl fullWidth error={!!errors.behaviors} sx={{ mb: 3 }}>
+            <InputLabel id="behaviors-label" required>Behaviors</InputLabel>
             <Select
+              labelId="behaviors-label"
+              id="behaviors-select"
+              name="behaviors"
               multiple
-              value={selectedBehaviors}
-              onChange={(e) => setSelectedBehaviors(e.target.value as string[])}
-              onBlur={() => handleFieldTouch('behaviors')}
+              value={formData.behaviors}
+              onChange={(e) => updateField('behaviors', e.target.value)}
               input={<OutlinedInput label="Behaviors" />}
               renderValue={(selected) => (
-                <Stack gap={1} direction="row" flexWrap="wrap">
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                   {selected.map((value) => {
                     const behavior = behaviors.find(b => b.id === value);
-                    return (
-                      <Chip 
-                        key={value} 
-                        label={behavior?.name || value}
-                        size="small"
-                      />
-                    );
+                    return <Chip key={value} label={behavior?.name || value} size="small" />;
                   })}
                 </Stack>
               )}
@@ -326,350 +246,333 @@ const ConfigureGeneration = ({ sessionToken }: ConfigureGenerationProps) => {
                 </MenuItem>
               ))}
             </Select>
-            {errors.behaviors && (
-              <FormHelperText>{errors.behaviors}</FormHelperText>
-            )}
+            <FormHelperText>{errors.behaviors}</FormHelperText>
           </FormControl>
 
-          <FormControl 
-            fullWidth 
-            sx={{ mb: 3 }}
-            error={!!errors.purposes}
-          >
-            <InputLabel required>Purpose</InputLabel>
+          <FormControl fullWidth error={!!errors.purposes} sx={{ mb: 3 }}>
+            <InputLabel id="purposes-label" required>Purpose</InputLabel>
             <Select
+              labelId="purposes-label"
+              id="purposes-select"
+              name="purposes"
               multiple
-              value={selectedPurposes}
-              onChange={(e) => setSelectedPurposes(e.target.value as string[])}
-              onBlur={() => handleFieldTouch('purposes')}
+              value={formData.purposes}
+              onChange={(e) => updateField('purposes', e.target.value)}
               input={<OutlinedInput label="Purpose" />}
               renderValue={(selected) => (
-                <Stack gap={1} direction="row" flexWrap="wrap">
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                   {selected.map((value) => (
-                    <Chip 
-                      key={value} 
-                      label={value}
-                      size="small"
-                    />
+                    <Chip key={value} label={value} size="small" />
                   ))}
                 </Stack>
               )}
             >
-              {purposes.map((purpose) => (
+              {PURPOSES.map((purpose) => (
                 <MenuItem key={purpose} value={purpose}>
                   {purpose}
                 </MenuItem>
               ))}
             </Select>
-            {errors.purposes && (
-              <FormHelperText>{errors.purposes}</FormHelperText>
-            )}
+            <FormHelperText>{errors.purposes}</FormHelperText>
           </FormControl>
         </Grid>
 
-        {/* Right Column */}
         <Grid item xs={12} md={6}>
           <TextField
+            id="test-type-select"
+            name="testType"
             select
             fullWidth
             label="Test Type"
-            value="single_turn"
+            value={formData.testType}
+            onChange={(e) => updateField('testType', e.target.value)}
             sx={{ mb: 3 }}
-            required
           >
             <MenuItem value="single_turn">Single Turn</MenuItem>
           </TextField>
 
           <TextField
+            id="response-generation-select"
+            name="responseGeneration"
             select
             fullWidth
             label="Response Generation"
-            defaultValue="prompt_only"
+            value={formData.responseGeneration}
+            onChange={(e) => updateField('responseGeneration', e.target.value)}
             sx={{ mb: 3 }}
-            required
           >
-            <MenuItem value="prompt_only">
-              Generate Prompts Only
-            </MenuItem>
-            <MenuItem value="prompt_and_response">
-              Generate Prompts with Expected Responses
-            </MenuItem>
+            <MenuItem value="prompt_only">Generate Prompts Only</MenuItem>
+            <MenuItem value="prompt_and_response">Generate Prompts with Expected Responses</MenuItem>
           </TextField>
 
           <TextField
+            id="test-coverage-select"
+            name="testCoverage"
             select
             fullWidth
             label="Test Coverage"
-            defaultValue="standard"
+            value={formData.testCoverage}
+            onChange={(e) => updateField('testCoverage', e.target.value)}
             sx={{ mb: 3 }}
-            required
           >
-            <MenuItem value="focused">
-              Focused Coverage (100+ test cases)
-            </MenuItem>
-            <MenuItem value="standard">
-              Standard Coverage (1,000+ test cases)
-            </MenuItem>
-            <MenuItem value="comprehensive">
-              Comprehensive Coverage (5,000+ test cases)
-            </MenuItem>
+            <MenuItem value="focused">Focused Coverage (100+ test cases)</MenuItem>
+            <MenuItem value="standard">Standard Coverage (1,000+ test cases)</MenuItem>
+            <MenuItem value="comprehensive">Comprehensive Coverage (5,000+ test cases)</MenuItem>
           </TextField>
         </Grid>
 
-        {/* Full Width Fields */}
         <Grid item xs={12}>
-          <Box sx={{ mb: 3 }}>
-            <BaseTag
-              value={tags}
-              onChange={setTags}
-              onBlur={() => handleFieldTouch('tags')}
-              placeholder="Add aspects..."
-              label="Aspects to cover"
-              required
-              error={!!errors.tags}
-              helperText={errors.tags}
-            />
-          </Box>
+          <BaseTag
+            id="aspects-tags"
+            name="aspects"
+            value={formData.tags}
+            onChange={(value) => updateField('tags', value)}
+            placeholder="Add aspects..."
+            label="Aspects to cover"
+            error={!!errors.tags}
+            helperText={errors.tags}
+            sx={{ mb: 3 }}
+          />
 
-          <Box sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              label="Describe what you want to test"
-              value={description}
-              onChange={handleDescriptionChange}
-              onFocus={handleDescriptionFocus}
-              onBlur={() => handleFieldTouch('description')}
-              variant="outlined"
-              required
-              error={!!errors.description}
-              helperText={errors.description}
-            />
-            {showSuggestButton && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 1 }}>
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleSuggestDescription}
-                >
-                  Suggest description
-                </Button>
-              </Box>
-            )}
-          </Box>
+          <TextField
+            id="description-input"
+            name="description"
+            fullWidth
+            multiline
+            rows={4}
+            label="Describe what you want to test"
+            value={formData.description}
+            onChange={(e) => updateField('description', e.target.value)}
+            required
+            error={!!errors.description}
+            helperText={errors.description}
+          />
         </Grid>
       </Grid>
     </form>
   );
 };
 
-const ReviewSamples = ({ samples: initialSamples, onRatingChange, onFeedbackChange }: ReviewSamplesProps) => {
-  const [hover, setHover] = useState<Record<number, number>>({});
+// Step 2: Review Samples Component  
+const ReviewSamples = ({ 
+  samples, 
+  onSamplesChange,
+  sessionToken, 
+  configData,
+  isLoading = false
+}: {
+  samples: Sample[];
+  onSamplesChange: (samples: Sample[]) => void;
+  sessionToken: string;
+  configData: ConfigData;
+  isLoading?: boolean;
+}) => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [regenerating, setRegenerating] = useState<Record<number, boolean>>({});
-  const [localSamples, setLocalSamples] = useState<Sample[]>(initialSamples);
-  
-  // Debounce feedback updates
-  const feedbackDebounceTimerRef = useRef<Record<number, NodeJS.Timeout>>({});
+  const [regenerating, setRegenerating] = useState<Set<number>>(new Set());
+  const { show } = useNotifications();
 
-  // Update local samples when parent samples change (except for feedback values)
-  useEffect(() => {
-    setLocalSamples(prevLocalSamples => 
-      initialSamples.map(sample => ({
-        ...sample,
-        // Preserve local feedback values to avoid focus issues
-        feedback: prevLocalSamples.find(s => s.id === sample.id)?.feedback || sample.feedback
-      }))
-    );
-  }, [initialSamples]);
+  const updateSample = useCallback((id: number, updates: Partial<Sample>) => {
+    onSamplesChange(samples.map(sample => 
+      sample.id === id ? { ...sample, ...updates } : sample
+    ));
+  }, [samples, onSamplesChange]);
 
-  const handleLoadMore = () => {
+  const handleRatingChange = useCallback((id: number, rating: number | null) => {
+    updateSample(id, { rating, feedback: rating && rating >= 4 ? '' : samples.find(s => s.id === id)?.feedback || '' });
+  }, [updateSample, samples]);
+
+  const handleFeedbackChange = useCallback((id: number, feedback: string) => {
+    updateSample(id, { feedback });
+  }, [updateSample]);
+
+  const loadMoreSamples = useCallback(async () => {
     setIsLoadingMore(true);
-    // TODO: Implement actual loading logic
-    setTimeout(() => {
-      setIsLoadingMore(false);
-    }, 2000);
-  };
-
-  const handleRegenerate = (sampleId: number) => {
-    setRegenerating(prev => ({ ...prev, [sampleId]: true }));
-    // TODO: Implement actual regeneration logic
-    setTimeout(() => {
-      setRegenerating(prev => ({ ...prev, [sampleId]: false }));
-    }, 1500);
-  };
-
-  const handleLocalFeedbackChange = (id: number, newValue: string) => {
-    // Update local state immediately for responsive UI
-    setLocalSamples(prevSamples => 
-      prevSamples.map(sample => 
-        sample.id === id ? { ...sample, feedback: newValue } : sample
-      )
-    );
-    
-    // Clear previous debounce timer if exists
-    if (feedbackDebounceTimerRef.current[id]) {
-      clearTimeout(feedbackDebounceTimerRef.current[id]);
-    }
-    
-    // Debounce the update to parent state to avoid unnecessary re-renders
-    feedbackDebounceTimerRef.current[id] = setTimeout(() => {
-      onFeedbackChange(id, newValue);
-    }, 300);
-  };
-
-  const handleLocalRatingChange = (id: number, newValue: number | null) => {
-    // If no rating or rating is 4-5 stars, clear feedback
-    if (newValue === null || newValue >= 4) {
-      setLocalSamples(prevSamples => 
-        prevSamples.map(sample => 
-          sample.id === id ? { ...sample, rating: newValue, feedback: "" } : sample
-        )
-      );
-    } else {
-      // Rating is 1-3 stars
-      setLocalSamples(prevSamples => 
-        prevSamples.map(sample => 
-          sample.id === id ? { ...sample, rating: newValue } : sample
-        )
-      );
-    }
-    
-    // Update parent state
-    onRatingChange(id, newValue);
-  };
-  
-  // Clean up timers on component unmount
-  useEffect(() => {
-    const timers = feedbackDebounceTimerRef.current;
-    return () => {
-      Object.values(timers).forEach(timer => {
-        clearTimeout(timer);
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const response = await apiFactory.getServicesClient().generateTests({
+        prompt: generatePromptFromConfig(configData),
+        num_tests: 5
       });
-    };
-  }, []);
+
+      if (response.tests?.length) {
+        const newSamples: Sample[] = response.tests.map((test, index) => ({
+          id: Math.max(...samples.map(s => s.id), 0) + index + 1,
+          text: test.prompt.content,
+          behavior: test.behavior as 'Reliability' | 'Compliance',
+          topic: test.topic,
+          rating: null,
+          feedback: ''
+        }));
+        
+        onSamplesChange([...samples, ...newSamples]);
+        show('Additional samples loaded', { severity: 'success' });
+      }
+    } catch (error) {
+      show('Failed to load more samples', { severity: 'error' });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [sessionToken, configData, samples, onSamplesChange, show]);
+
+  const regenerateSample = useCallback(async (sampleId: number) => {
+    const sample = samples.find(s => s.id === sampleId);
+    if (!sample?.feedback || sample.rating === null || sample.rating >= 4) return;
+
+    setRegenerating(prev => new Set(prev).add(sampleId));
+    
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const prompt = `
+        Original Test: "${sample.text}"
+        Test Type: ${sample.behavior}
+        Topic: ${sample.topic}
+        User Rating: ${sample.rating}/5 stars
+        Improvement Feedback: "${sample.feedback}"
+        
+        Please generate a new version of this test that addresses the feedback.`;
+
+      const response = await apiFactory.getServicesClient().generateTests({
+        prompt,
+        num_tests: 1
+      });
+
+      if (response.tests?.[0]) {
+        const newTest = response.tests[0];
+        updateSample(sampleId, {
+          text: newTest.prompt.content,
+          behavior: newTest.behavior as 'Reliability' | 'Compliance',
+          topic: newTest.topic,
+          rating: null,
+          feedback: ''
+        });
+        show('Test regenerated successfully', { severity: 'success' });
+      }
+    } catch (error) {
+      show('Failed to regenerate test', { severity: 'error' });
+    } finally {
+      setRegenerating(prev => {
+        const next = new Set(prev);
+        next.delete(sampleId);
+        return next;
+      });
+    }
+  }, [samples, sessionToken, updateSample, show]);
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+        <CircularProgress sx={{ mb: 2 }} />
+        <Typography>Generating test samples...</Typography>
+      </Box>
+    );
+  }
+
+  if (samples.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+        <Typography variant="h6" color="text.secondary">No samples generated yet</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Evaluate Samples
-      </Typography>
-
+    <Box>
+      <Typography variant="h6" gutterBottom>Evaluate Samples</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Please review the generated test samples and provide your feedback. Rate each sample using the stars and optionally add comments for improvement.
+        Rate each sample and provide feedback for improvements.
       </Typography>
 
       <Stack spacing={2}>
-        {localSamples.map((sample) => (
+        {samples.map((sample) => (
           <Paper 
             key={sample.id} 
             sx={{ 
               p: 2,
-              '& .MuiTextField-root': {
-                mt: 0
-              },
-              // Add subtle highlight for unrated samples
               border: sample.rating === null ? '1px solid' : 'none',
               borderColor: 'warning.light',
               bgcolor: sample.rating === null ? 'warning.lighter' : 'inherit'
             }}
           >
-            {/* Chips Row */}
-            <Box sx={{ 
-              display: 'flex', 
-              gap: 1, 
-              mb: 1.5,
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-              pb: 1
-            }}>
-              <Chip
-                label={sample.behavior}
-                size="small"
-                color={sample.behavior === 'Reliability' ? 'success' : 'warning'}
-              />
-              <Chip
-                label={sample.topic}
-                size="small"
-                variant="outlined"
-                color="primary"
-              />
+            <Box sx={{ display: 'flex', gap: 1, mb: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
+              <Chip label={sample.behavior} size="small" color={sample.behavior === 'Reliability' ? 'success' : 'warning'} />
+              <Chip label={sample.topic} size="small" variant="outlined" />
             </Box>
 
-            {/* Content Row */}
             <Box sx={{ display: 'flex', gap: 2 }}>
-              {/* Left side - Text and Feedback (80%) */}
-              <Box sx={{ flex: '0 0 80%' }}>
-                <Typography 
-                  variant="body1" 
-                  sx={{ 
-                    fontStyle: 'italic',
-                    mb: 1
-                  }}
-                >
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body1" sx={{ fontStyle: 'italic', mb: 1 }}>
                   {sample.text}
                 </Typography>
-                <Box sx={{ 
-                  display: 'flex', 
-                  gap: 1,
-                  alignItems: 'flex-start'
-                }}>
+                
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                   <TextField
                     placeholder="What could be improved?"
                     value={sample.feedback}
-                    onChange={(e) => handleLocalFeedbackChange(sample.id, e.target.value)}
+                    onChange={(e) => handleFeedbackChange(sample.id, e.target.value)}
                     variant="standard"
                     size="small"
-                    disabled={Boolean(sample.rating === null || sample.rating >= 4)}
-                    sx={{ 
-                      flex: 1,
-                      '& .Mui-disabled': {
-                        WebkitTextFillColor: 'rgba(0, 0, 0, 0.38)'
-                      }
-                    }}
+                    disabled={sample.rating === null || sample.rating >= 4}
+                    sx={{ flex: 1 }}
                   />
+                  
                   <LoadingButton
-                    loading={regenerating[sample.id]}
-                    onClick={() => handleRegenerate(sample.id)}
+                    loading={regenerating.has(sample.id)}
+                    onClick={() => regenerateSample(sample.id)}
                     variant="outlined"
                     size="small"
                     startIcon={<AutorenewIcon />}
-                    disabled={Boolean(sample.rating === null || !sample.feedback || sample.rating >= 4)}
-                    sx={{ 
-                      minWidth: 'auto',
-                      opacity: Boolean(sample.feedback && sample.rating !== null && sample.rating < 4) ? 1 : 0.5
-                    }}
+                    disabled={!sample.feedback || sample.rating === null || sample.rating >= 4}
                   >
                     Regenerate
                   </LoadingButton>
                 </Box>
               </Box>
 
-              {/* Right side - Rating (20%) */}
-              <Box className={styles.ratingContainer}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                 {sample.rating === null && (
-                  <Box className={styles.ratingTooltip}>
+                  <Box sx={{
+                    position: 'absolute',
+                    top: -30,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    bgcolor: 'background.paper',
+                    color: 'text.primary',
+                    border: 1,
+                    borderColor: 'divider',
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    fontSize: '0.75rem',
+                    whiteSpace: 'nowrap',
+                    zIndex: 1,
+                    boxShadow: 1,
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      top: '100%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 0,
+                      height: 0,
+                      borderLeft: '4px solid transparent',
+                      borderRight: '4px solid transparent',
+                      borderTop: '4px solid',
+                      borderTopColor: 'background.paper'
+                    }
+                  }}>
                     Click to Rate
                   </Box>
                 )}
                 <Rating
                   value={sample.rating}
-                  onChange={(_, newValue) => handleLocalRatingChange(sample.id, newValue)}
-                  onChangeActive={(_, newHover) => {
-                    setHover(prev => ({ ...prev, [sample.id]: newHover }));
-                  }}
+                  onChange={(_, value) => handleRatingChange(sample.id, value)}
                   size="large"
                   getLabelText={getLabelText}
                   emptyIcon={<StarIcon style={{ opacity: 0.55 }} fontSize="inherit" />}
                 />
-                {sample.rating !== null && (
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary"
-                    sx={{ mt: 0.5 }}
-                  >
-                    {labels[hover[sample.id] !== undefined ? hover[sample.id] : sample.rating]}
+                {sample.rating && (
+                  <Typography variant="caption" color="text.secondary">
+                    {RATING_LABELS[sample.rating]}
                   </Typography>
                 )}
               </Box>
@@ -677,493 +580,201 @@ const ReviewSamples = ({ samples: initialSamples, onRatingChange, onFeedbackChan
           </Paper>
         ))}
 
-        {/* Load More Button */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-start',
-          pt: 1,
-          pb: 2 
-        }}>
-          <LoadingButton
-            onClick={handleLoadMore}
-            loading={isLoadingMore}
-            loadingPosition="start"
-            startIcon={<AutoFixHighIcon />}
-            variant="outlined"
-            sx={{ 
-              borderColor: 'divider',
-              color: 'text.secondary',
-              '&:hover': {
-                borderColor: 'primary.main',
-                bgcolor: 'action.hover'
-              }
-            }}
-          >
-            Load More Samples
-          </LoadingButton>
-        </Box>
+        <LoadingButton
+          onClick={loadMoreSamples}
+          loading={isLoadingMore}
+          startIcon={<AutoFixHighIcon />}
+          variant="outlined"
+          sx={{ alignSelf: 'flex-start' }}
+        >
+          Load More Samples
+        </LoadingButton>
       </Stack>
     </Box>
   );
 };
 
-const ConfirmGenerate = ({ samples, configData }: ConfirmGenerateProps) => {
-  // Calculate feedback statistics
-  const totalSamples = samples.length;
-  const samplesWithFeedback = samples.filter(sample => sample.feedback && sample.feedback.trim() !== "").length;
-  const feedbackPercentage = totalSamples > 0 ? Math.round((samplesWithFeedback / totalSamples) * 100) : 0;
-  
-  // Calculate average rating - only include samples with ratings
+// Step 3: Confirm Generation Component
+const ConfirmGenerate = ({ samples, configData }: { samples: Sample[]; configData: ConfigData }) => {
   const ratedSamples = samples.filter(s => s.rating !== null);
-  const totalRating = ratedSamples.reduce((acc, sample) => acc + (sample.rating || 0), 0);
   const averageRating = ratedSamples.length > 0 
-    ? (totalRating / ratedSamples.length).toFixed(1) 
-    : "N/A";
-    
-  // Convert raw values to human-readable labels
-  const testTypeLabels: Record<string, string> = {
-    'single_turn': 'Single Turn'
-  };
-  
-  const responseGenerationLabels: Record<string, string> = {
-    'prompt_only': 'Generate Prompts Only',
-    'prompt_and_response': 'Generate Prompts with Expected Responses'
-  };
-  
-  const testCoverageLabels: Record<string, string> = {
-    'focused': 'Focused Coverage (100+ test cases)',
-    'standard': 'Standard Coverage (1,000+ test cases)',
-    'comprehensive': 'Comprehensive Coverage (5,000+ test cases)'
-  };
+    ? (ratedSamples.reduce((acc, s) => acc + (s.rating || 0), 0) / ratedSamples.length).toFixed(1)
+    : 'N/A';
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Confirm Test Generation
-      </Typography>
+      <Typography variant="h6" gutterBottom>Confirm Test Generation</Typography>
       
-      {/* Configuration Summary */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          Test Configuration
-        </Typography>
-        
+        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Configuration Summary</Typography>
         <Grid container spacing={2}>
-          <Grid item xs={6} md={4}>
+          <Grid item xs={6}>
             <Typography variant="body2" color="text.secondary">Project</Typography>
-            <Typography variant="body1" gutterBottom>{configData.project?.name || "Not set"}</Typography>
-            
-            <Typography variant="body2" color="text.secondary">Test Type</Typography>
-            <Typography variant="body1" gutterBottom>
-              {testTypeLabels[configData.testType] || configData.testType}
-            </Typography>
-            
-            <Typography variant="body2" color="text.secondary">Response Generation</Typography>
-            <Typography variant="body1" gutterBottom>
-              {responseGenerationLabels[configData.responseGeneration] || configData.responseGeneration}
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={6} md={4}>
-            <Typography variant="body2" color="text.secondary">Test Coverage</Typography>
-            <Typography variant="body1" gutterBottom>
-              {testCoverageLabels[configData.testCoverage] || configData.testCoverage}
-            </Typography>
-            
+            <Typography variant="body1" gutterBottom>{configData.project?.name || 'Not set'}</Typography>
             <Typography variant="body2" color="text.secondary">Behaviors</Typography>
-            <Box sx={{ mb: 1 }}>
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                {configData.behaviors.length > 0 ? (
-                  configData.behaviors.map((behavior, index) => (
-                    <Chip key={index} label={behavior} size="small" sx={{ mt: 0.5 }} />
-                  ))
-                ) : (
-                  <Typography variant="body1">None selected</Typography>
-                )}
-              </Stack>
-            </Box>
-            
-            <Typography variant="body2" color="text.secondary">Purposes</Typography>
-            <Box>
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                {configData.purposes.length > 0 ? (
-                  configData.purposes.map((purpose, index) => (
-                    <Chip key={index} label={purpose} size="small" sx={{ mt: 0.5 }} />
-                  ))
-                ) : (
-                  <Typography variant="body1">None selected</Typography>
-                )}
-              </Stack>
-            </Box>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              {configData.behaviors.map(behavior => (
+                <Chip key={behavior} label={behavior} size="small" />
+              ))}
+            </Stack>
           </Grid>
-          
-          <Grid item xs={12} md={4}>
-            <Typography variant="body2" color="text.secondary">Aspects to cover</Typography>
-            <Box sx={{ mb: 1 }}>
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                {configData.tags.length > 0 ? (
-                  configData.tags.map((tag, index) => (
-                    <Chip key={index} label={tag} size="small" sx={{ mt: 0.5 }} />
-                  ))
-                ) : (
-                  <Typography variant="body1">None added</Typography>
-                )}
-              </Stack>
-            </Box>
-            
-            <Typography variant="body2" color="text.secondary">Description</Typography>
-            <Typography variant="body1" sx={{ 
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical',
-            }}>
-              {configData.description || "No description provided"}
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
-      
-      {/* Samples Summary */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          Sample Evaluation Summary
-        </Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">Total Samples</Typography>
-            <Typography variant="body1" gutterBottom>{totalSamples}</Typography>
-            
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary">Average Rating</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Rating 
-                  value={parseFloat(averageRating) || 0} 
-                  precision={0.1} 
-                  readOnly 
-                  size="medium"
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                  ({averageRating})
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">Feedback Provided</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, mb: 2 }}>
-              <Box sx={{ flex: 1, mr: 2 }}>
-                <Typography variant="body1">{feedbackPercentage}% ({samplesWithFeedback}/{totalSamples})</Typography>
-              </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={feedbackPercentage}
-                sx={{ 
-                  width: '100px', 
-                  height: 8,
-                  borderRadius: 1,
-                  backgroundColor: 'action.hover',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: feedbackPercentage > 50 ? 'success.main' : 'primary.main'
-                  }
-                }}
-              />
-            </Box>
-            
-            <Typography variant="body2" color="text.secondary">Sample Breakdown</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-              {['Reliability', 'Compliance'].map(behavior => {
-                const count = samples.filter(s => s.behavior === behavior).length;
-                return (
-                  <Chip
-                    key={behavior}
-                    label={`${behavior}: ${count}`}
-                    size="small"
-                    color={behavior === 'Reliability' ? 'success' : 'warning'}
-                    variant="outlined"
-                  />
-                );
-              })}
+          <Grid item xs={6}>
+            <Typography variant="body2" color="text.secondary">Average Rating</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Rating value={parseFloat(averageRating) || 0} precision={0.1} readOnly size="small" />
+              <Typography variant="body2">({averageRating})</Typography>
             </Box>
           </Grid>
         </Grid>
       </Paper>
-      
-      {/* Information Box */}
-      <Box sx={{ mb: 2 }}>
-        <Alert severity="info">
-          <AlertTitle>What happens next?</AlertTitle>
-          <Typography variant="body2">
-            When you click &quot;Generate Tests&quot;, our system will:
-          </Typography>
-          <Box component="ul" sx={{ pl: 2, mt: 1, mb: 0 }}>
-            <li>Begin the test generation process using your configuration and feedback</li>
-            <li>Notify you via email when your tests are ready</li>
-            <li>Make the generated tests available in your test library</li>
-          </Box>
-        </Alert>
-      </Box>
+
+      <Alert severity="info">
+        <AlertTitle>What happens next?</AlertTitle>
+        When you click "Generate Tests", we'll create your test suite and notify you when ready.
+      </Alert>
     </Box>
   );
 };
 
+// Main Stepper Component
 export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStepperProps) {
   const [activeStep, setActiveStep] = useState(0);
+  const [configData, setConfigData] = useState(INITIAL_CONFIG);
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const router = useRouter();
   const { show } = useNotifications();
-  const feedbackDebounceTimerRef = useRef<Record<number, NodeJS.Timeout>>({});
 
-  // Initial sample data
-  const [samples, setSamples] = useState<Sample[]>([
-    {
-      id: 1,
-      text: "How can I understand the overall cost and its impact on the return of the investment for insurance-based investment products?",
-      behavior: "Reliability",
-      topic: "Cost Analysis",
-      rating: null,
-      feedback: ""
-    },
-    {
-      id: 2,
-      text: "How often should information about costs and charges be provided to customers during the life cycle of the investment?",
-      behavior: "Compliance",
-      topic: "Disclosure",
-      rating: null,
-      feedback: ""
-    },
-    {
-      id: 3,
-      text: "What information should be included in the disclosure of costs and charges?",
-      behavior: "Compliance",
-      topic: "Documentation",
-      rating: null,
-      feedback: ""
-    }
-  ]);
-  
-  // Configuration data state
-  const [configData, setConfigData] = useState<ConfigData>({
-    project: null,
-    behaviors: [],
-    purposes: [],
-    testType: "single_turn",
-    responseGeneration: "prompt_only",
-    testCoverage: "standard",
-    tags: [],
-    description: ""
-  });
-  
-  // Use a ref to track feedback changes without causing re-renders
-  const feedbackUpdates = useRef<Record<number, string>>({});
+  const steps = ['Configure Generation', 'Review Samples', 'Confirm & Generate'];
 
-  // Step handlers
-  const handleNext = () => {
-    // Validate first step
-    if (activeStep === 0) {
-      const configForm = document.getElementById('generation-config-form') as HTMLFormElement;
-      if (configForm) {
-        const event = new Event('submit', { cancelable: true });
-        configForm.dispatchEvent(event);
-        
-        // Get the form validation result directly from the form's onSubmit handler
-        const formValid = configForm.onsubmit ? (configForm.onsubmit as any)(event) : true;
-        
-        if (!formValid) {
-          return;
-        }
-        
-        // Get configuration data from form fields
-        // In a real implementation, this would be replaced with proper form data retrieval
-        // Here we're just simulating it for demonstration purposes
-        const projectSelect = document.querySelector('[name="project"]') as HTMLInputElement;
-        const projectName = projectSelect?.value || "Sample Project";
-        
-        // Update config data in state
-        setConfigData(prev => ({
-          ...prev,
-          project: { id: '123', name: projectName } as Project,
-          behaviors: ['Compliance', 'Reliability'],
-          purposes: ['Regression Testing', 'Edge Case Testing'],
-          testType: 'single_turn',
-          responseGeneration: 'prompt_only',
-          testCoverage: 'standard',
-          tags: ['Cost Analysis', 'Risk Assessment', 'Regulatory Compliance'],
-          description: "Testing the system's ability to provide accurate information about investment costs and fees."
-        }));
-      }
-    }
+  const handleConfigSubmit = useCallback(async (config: ConfigData) => {
+    setConfigData(config);
+    setActiveStep(1);
+    setIsGenerating(true);
     
-    // Validate samples step
-    if (activeStep === 1) {
-      // Apply any pending feedback updates to the samples
-      if (Object.keys(feedbackUpdates.current).length > 0) {
-        setSamples(prevSamples => 
-          prevSamples.map(sample => ({
-            ...sample,
-            feedback: feedbackUpdates.current[sample.id] !== undefined 
-              ? feedbackUpdates.current[sample.id] 
-              : sample.feedback
-          }))
-        );
-        feedbackUpdates.current = {};
-      }
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
       
-      const hasUnratedSamples = samples.some(sample => sample.rating === null);
+      const generatedPrompt = generatePromptFromConfig(config);
+      
+      const requestPayload = {
+        prompt: generatedPrompt,
+        num_tests: 5
+      };
+      
+      const response = await apiFactory.getServicesClient().generateTests(requestPayload);
+
+      if (response.tests?.length) {
+        const newSamples: Sample[] = response.tests.map((test, index) => ({
+          id: index + 1,
+          text: test.prompt.content,
+          behavior: test.behavior as 'Reliability' | 'Compliance',
+          topic: test.topic,
+          rating: null,
+          feedback: ''
+        }));
+        
+        setSamples(newSamples);
+        show('Samples generated successfully', { severity: 'success' });
+      } else {
+        throw new Error('No tests generated in response');
+      }
+    } catch (error) {
+      show('Failed to generate samples', { severity: 'error' });
+      setActiveStep(0);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [sessionToken, show]);
+
+  const handleNext = useCallback(() => {
+    if (activeStep === 1) {
+      const hasUnratedSamples = samples.some(s => s.rating === null);
       if (hasUnratedSamples) {
         show('Please rate all samples before proceeding', { severity: 'error' });
         return;
       }
     }
-    
-    setActiveStep(prevStep => prevStep + 1);
-  };
+    setActiveStep(prev => prev + 1);
+  }, [activeStep, samples, show]);
 
-  const handleBack = () => {
-    setActiveStep(prevStep => prevStep - 1);
-  };
-
-  const handleFinish = () => {
-    // Apply any pending feedback updates to the samples
-    if (Object.keys(feedbackUpdates.current).length > 0) {
-      setSamples(prevSamples => 
-        prevSamples.map(sample => ({
-          ...sample,
-          feedback: feedbackUpdates.current[sample.id] !== undefined 
-            ? feedbackUpdates.current[sample.id] 
-            : sample.feedback
-        }))
-      );
-      feedbackUpdates.current = {};
-    }
-    
-    // Show a success notification
-    show('Test generation started. You will be notified by email when complete.', { 
-      severity: 'success',
-      autoHideDuration: 5000
-    });
-    
-    // Simulate an API call for test generation
-    console.log('Generating tests...', { config: configData, samples });
-    
-    // Redirect back to tests page
-    setTimeout(() => {
-      router.push('/tests');
-    }, 1000);
-  };
-
-  // Sample handling
-  const handleRatingChange = (id: number, newValue: number | null) => {
-    setSamples(prevSamples => 
-      prevSamples.map(sample => 
-        sample.id === id ? { ...sample, rating: newValue } : sample
-      )
-    );
-  };
-
-  const handleFeedbackChange = (id: number, newValue: string) => {
-    // Store feedback updates in ref without triggering re-renders
-    feedbackUpdates.current[id] = newValue;
-  };
-
-  // Step definitions
-  const steps = [
-    {
-      label: 'Configure Generation',
-      component: () => <ConfigureGeneration sessionToken={sessionToken} />
-    },
-    {
-      label: 'Review Samples',
-      component: () => (
-        <ReviewSamples 
-          samples={samples}
-          onRatingChange={handleRatingChange}
-          onFeedbackChange={handleFeedbackChange}
-        />
-      )
-    },
-    {
-      label: 'Confirm & Generate',
-      component: () => (
-        <ConfirmGenerate 
-          samples={samples}
-          configData={configData}
-        />
-      )
-    }
-  ];
-
-  const CurrentStepComponent = steps[activeStep].component;
-
-  // Clean up timers on component unmount
-  useEffect(() => {
-    const timers = feedbackDebounceTimerRef.current;
-    return () => {
-      Object.values(timers).forEach(timer => {
-        clearTimeout(timer);
-      });
-    };
+  const handleBack = useCallback(() => {
+    setActiveStep(prev => prev - 1);
   }, []);
+
+  const handleFinish = useCallback(() => {
+    show('Test generation started. You will be notified when complete.', { severity: 'success' });
+    setTimeout(() => router.push('/tests'), 1000);
+  }, [router, show]);
+
+  const renderStepContent = useMemo(() => {
+    switch (activeStep) {
+      case 0:
+        return <ConfigureGeneration sessionToken={sessionToken} onSubmit={handleConfigSubmit} />;
+      case 1:
+        return (
+          <ReviewSamples 
+            samples={samples}
+            onSamplesChange={setSamples}
+            sessionToken={sessionToken}
+            configData={configData}
+            isLoading={isGenerating}
+          />
+        );
+      case 2:
+        return <ConfirmGenerate samples={samples} configData={configData} />;
+      default:
+        return null;
+    }
+  }, [activeStep, sessionToken, handleConfigSubmit, samples, configData, isGenerating]);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Box sx={{ 
-        minHeight: '80vh',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <Stepper 
-          activeStep={activeStep} 
-          sx={{ 
-            py: 4,
-            px: { xs: 2, sm: 4, md: 6 }
-          }}
-        >
-          {steps.map((step) => (
-            <Step key={step.label}>
-              <StepLabel>{step.label}</StepLabel>
+      <Box sx={{ minHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <Stepper activeStep={activeStep} sx={{ py: 4 }}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
             </Step>
           ))}
         </Stepper>
 
-        <Box 
-          sx={{ flex: 1, mt: 4, px: { xs: 2, sm: 4, md: 6 } }}
-        >
-          <CurrentStepComponent />
+        <Box sx={{ flex: 1, mt: 4 }}>
+          {renderStepContent}
         </Box>
 
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end',
-          gap: 2,
-          mt: 4,
-          px: { xs: 2, sm: 4, md: 6 }
-        }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4 }}>
           {activeStep > 0 && (
-            <Button
-              variant="outlined"
+            <Button 
+              variant="outlined" 
               onClick={handleBack}
+              disabled={isGenerating}
             >
               Back
             </Button>
           )}
           
           {activeStep === steps.length - 1 ? (
-            <Button
-              variant="contained"
-              onClick={handleFinish}
-            >
+            <Button variant="contained" onClick={handleFinish}>
               Generate Tests
             </Button>
-          ) : (
-            <Button
+          ) : activeStep === 0 ? (
+            <LoadingButton
               variant="contained"
-              onClick={handleNext}
-              disabled={activeStep === 1 && samples.some(sample => sample.rating === null)}
+              loading={isGenerating}
+              disabled={isGenerating}
+              form="generation-config-form"
+              type="submit"
             >
-              {activeStep === 0 ? "Generate Samples" : "Next"}
+              Generate Samples
+            </LoadingButton>
+          ) : (
+            <Button 
+              variant="contained" 
+              onClick={handleNext}
+              disabled={isGenerating}
+            >
+              Next
             </Button>
           )}
         </Box>
