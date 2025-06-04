@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -14,6 +15,8 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_status,
     get_or_create_type_lookup,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_test_stats(
@@ -45,6 +48,21 @@ def load_defaults():
     defaults_path = Path(__file__).parent / "bulk_defaults.json"
     with open(defaults_path) as f:
         return json.load(f)
+
+
+def _sanitize_uuid_field(value: Any) -> str | None:
+    """
+    Sanitize UUID field values to handle empty strings.
+    
+    Args:
+        value: The value to sanitize (could be None, empty string, or valid UUID string)
+        
+    Returns:
+        None if value is None or empty string, otherwise returns the value as string
+    """
+    if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
+        return None
+    return str(value)
 
 
 def _validate_test_set(
@@ -389,10 +407,13 @@ def bulk_create_tests(
                     "test_configuration": test_data_dict.pop(
                         "test_configuration", defaults["test"]["test_configuration"]
                     ),
-                    "assignee_id": test_data_dict.pop("assignee_id", None),
-                    "owner_id": test_data_dict.pop("owner_id", None),
+                    "assignee_id": _sanitize_uuid_field(test_data_dict.pop("assignee_id", None)),
+                    "owner_id": _sanitize_uuid_field(test_data_dict.pop("owner_id", None)),
                 }
 
+                # Log test parameters for debugging UUID issues
+                logger.debug(f"Creating test with params: assignee_id={test_params.get('assignee_id')}, owner_id={test_params.get('owner_id')}")
+                
                 test = models.Test(**test_params)
                 db.add(test)
                 created_tests.append(test)
@@ -414,7 +435,17 @@ def bulk_create_tests(
 
     except Exception as e:
         db.rollback()
-        raise Exception(f"Failed to create tests: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"Failed to create tests: {error_msg}", exc_info=True)
+        
+        # Provide more specific error messages for common UUID issues
+        if "invalid input syntax for type uuid" in error_msg.lower():
+            if '""' in error_msg or "empty string" in error_msg.lower():
+                error_msg = "Invalid UUID format: Empty string provided where UUID expected. Check assignee_id and owner_id fields."
+            else:
+                error_msg = f"Invalid UUID format in test data: {error_msg}"
+        
+        raise Exception(f"Failed to create tests: {error_msg}")
 
 
 def create_test_set_associations(
@@ -469,6 +500,11 @@ def create_test_set_associations(
                 organization_id=organization_id,
                 user_id=user_id,
             )
+
+            # Update test set attributes if any new associations were created
+            if result.get("metadata", {}).get("new_associations", 0) > 0:
+                from rhesis.backend.app.services.test_set import update_test_set_attributes
+                update_test_set_attributes(db=db, test_set_id=test_set_id)
 
             # Commit the transaction
             db.commit()
@@ -573,6 +609,11 @@ def remove_test_set_associations(
 
             # Build detailed message
             message = f"Successfully removed {removed_count} test associations"
+
+            # Update test set attributes if any associations were removed
+            if removed_count > 0:
+                from rhesis.backend.app.services.test_set import update_test_set_attributes
+                update_test_set_attributes(db=db, test_set_id=test_set_id)
 
             # Commit the transaction
             db.commit()

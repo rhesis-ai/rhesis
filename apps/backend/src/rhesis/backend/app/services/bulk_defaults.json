@@ -6,7 +6,7 @@
         "test_configuration": null
     },
     "test_set": {
-        "status": "Active",
+        "status": "New",
         "license_type": "Copyright",
         "visibility": "organization",
         "attributes": {
@@ -21,7 +21,7 @@
     },
     "prompt": {
         "language_code": "en-US",
-        "status": "Active"
+        "status": "New"
     },
     "topic": {
         "status": "Active"
