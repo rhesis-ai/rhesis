@@ -100,13 +100,20 @@ def create_item(db: Session, model: Type[T], item_data: Dict[str, Any] | BaseMod
 
     # Clean up empty string values for UUID fields to prevent errors
     for field_name, field_value in list(item_data.items()):
-        if field_value == "" and field_name.endswith("_id"):
+        if field_value == "":
             # Check if this is a UUID/GUID field
             if hasattr(model, field_name):
-                field_type = str(getattr(model, field_name).type)
-                if field_type.startswith("UUID") or field_type.startswith("GUID"):
-                    logger.debug(f"Removing empty string value for UUID/GUID field {field_name}")
-                    item_data[field_name] = None
+                column = getattr(model, field_name)
+                # Check column type more robustly
+                if hasattr(column, 'type'):
+                    field_type = str(column.type)
+                    # Check for various UUID type representations
+                    if (field_type.startswith("UUID") or 
+                        field_type.startswith("GUID") or
+                        "uuid" in field_type.lower() or
+                        field_name.endswith("_id")):  # Also treat all _id fields as potential UUIDs
+                        logger.debug(f"Converting empty string to None for UUID/GUID field {field_name}")
+                        item_data[field_name] = None
 
     # Get model columns to check for organization_id and user_id
     columns = inspect(model).columns.keys()
@@ -155,13 +162,20 @@ def update_item(
 
         # Clean up empty string values for UUID fields to prevent errors
         for field_name, field_value in list(item_data.items()):
-            if field_value == "" and field_name.endswith("_id"):
+            if field_value == "":
                 # Check if this is a UUID/GUID field
                 if hasattr(model, field_name):
-                    field_type = str(getattr(model, field_name).type)
-                    if field_type.startswith("UUID") or field_type.startswith("GUID"):
-                        logger.debug(f"Removing empty string value for UUID/GUID field {field_name}")
-                        item_data[field_name] = None
+                    column = getattr(model, field_name)
+                    # Check column type more robustly
+                    if hasattr(column, 'type'):
+                        field_type = str(column.type)
+                        # Check for various UUID type representations
+                        if (field_type.startswith("UUID") or 
+                            field_type.startswith("GUID") or
+                            "uuid" in field_type.lower() or
+                            field_name.endswith("_id")):  # Also treat all _id fields as potential UUIDs
+                            logger.debug(f"Converting empty string to None for UUID/GUID field {field_name}")
+                            item_data[field_name] = None
 
         # Update item attributes
         for key, value in item_data.items():

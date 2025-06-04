@@ -35,7 +35,10 @@ def get_current_user_id(session: Session) -> Optional[UUID]:
     """Get the current user ID from the database session."""
     try:
         result = session.execute(text('SHOW "app.current_user";')).scalar()
-        return UUID(result) if result else None
+        # Return None if result is None, empty string, or can't be converted to UUID
+        if not result or result == "":
+            return None
+        return UUID(result)
     except Exception as e:
         logger.debug(f"Error getting current user ID: {e}")
         return None
@@ -45,7 +48,10 @@ def get_current_organization_id(session: Session) -> Optional[UUID]:
     """Get the current organization ID from the database session."""
     try:
         result = session.execute(text('SHOW "app.current_organization";')).scalar()
-        return UUID(result) if result else None
+        # Return None if result is None, empty string, or can't be converted to UUID
+        if not result or result == "":
+            return None
+        return UUID(result)
     except Exception as e:
         logger.debug(f"Error getting current organization ID: {e}")
         return None
@@ -56,7 +62,9 @@ def _execute_set_tenant(
 ):
     """Helper function to execute SET commands for tenant context"""
     try:
-        if organization_id and organization_id.strip():  # Only set if organization_id is not empty
+        # Only set if organization_id is not None and not empty
+        if organization_id and organization_id.strip() and organization_id != "":
+            logger.debug(f"Setting app.current_organization to: {organization_id}")
             if hasattr(connection, "execute"):  # SQLAlchemy session
                 connection.execute(
                     text("SELECT set_config('app.current_organization', :org_id, false)"),
@@ -69,8 +77,12 @@ def _execute_set_tenant(
                     (str(organization_id),),
                 )
                 cursor.close()
+        else:
+            logger.debug("Not setting app.current_organization (empty or None)")
 
-        if user_id and user_id.strip():  # Only set if user_id is not empty
+        # Only set if user_id is not None and not empty
+        if user_id and user_id.strip() and user_id != "":
+            logger.debug(f"Setting app.current_user to: {user_id}")
             if hasattr(connection, "execute"):  # SQLAlchemy session
                 connection.execute(
                     text("SELECT set_config('app.current_user', :user_id, false)"),
@@ -80,8 +92,10 @@ def _execute_set_tenant(
                 cursor = connection.cursor()
                 cursor.execute("SELECT set_config('app.current_user', %s, false)", (str(user_id),))
                 cursor.close()
+        else:
+            logger.debug("Not setting app.current_user (empty or None)")
     except Exception as e:
-        logger.debug(f"Error setting tenant context: {e}")
+        logger.error(f"Error setting tenant context: {e}")
         # Don't raise the exception - allow the operation to continue
         pass
 
