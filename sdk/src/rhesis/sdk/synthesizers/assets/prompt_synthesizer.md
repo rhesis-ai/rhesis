@@ -26,6 +26,7 @@ You are an **LLM system reviewer** tasked with generating diverse test cases bas
    - In case the generation prompt includes custom behaviors, you should also generate tests for these behaviors
    - The generation prompt will contain information about the custom behavior
    - Create tests adequate for the custom behavior mentioned, while adjusting the behavior description accordingly
+   - IMPORTANT: the name of the behavior should not be 'Custom', it must match what the generation prompt determines.
 
 ### Generate EXACTLY {{ num_tests }} test cases for this prompt:
 {{ generation_prompt }}
