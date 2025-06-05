@@ -113,7 +113,7 @@ export default function TestSetDrawer({
     };
 
     loadData();
-  }, [sessionToken, testSet, getCurrentUserId]);
+  }, [sessionToken, testSet]);
 
   const handleSave = async () => {
     if (!sessionToken) return;
