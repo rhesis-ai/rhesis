@@ -27,13 +27,38 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
         # Set tenant context using the proper database utility function
         set_tenant(db, organization_id=organization_id, user_id=user_id)
         
+        # Handle different result formats that might come from chord execution
+        processed_results = []
+        if results:
+            for result in results:
+                if result is None:
+                    # Handle None results
+                    processed_results.append(None)
+                elif isinstance(result, list) and len(result) == 2:
+                    # Handle [[task_id, result], error] format from failed chord tasks
+                    task_result = result[1] if result[1] is not None else None
+                    processed_results.append(task_result)
+                else:
+                    # Handle direct results
+                    processed_results.append(result)
+        else:
+            processed_results = []
+        
         # Check for failed tasks and count them
-        failed_tasks = sum(1 for result in results if result is None)
+        failed_tasks = sum(1 for result in processed_results if result is None or (isinstance(result, dict) and result.get("status") == "failed"))
+        successful_results = [result for result in processed_results if result is not None and (not isinstance(result, dict) or result.get("status") != "failed")]
+        
         if failed_tasks > 0:
             logger.warning(f"{failed_tasks} tasks failed out of {total_tests} for test run {test_run_id}")
 
-        # Calculate aggregated metrics
-        execution_times = [result.get("execution_time", 0) for result in results if result]
+        # Calculate aggregated metrics from successful results only
+        execution_times = []
+        for result in successful_results:
+            if isinstance(result, dict) and "execution_time" in result:
+                execution_times.append(result.get("execution_time", 0))
+            elif isinstance(result, dict) and "execution_time_ms" in result:
+                execution_times.append(result.get("execution_time_ms", 0))
+        
         mean_execution_time = (
             sum(execution_times) / len(execution_times) if execution_times else 0
         )
@@ -58,7 +83,7 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
             updated_attributes.update({
                 "completed_at": completed_at,
                 "total_tests": total_tests,
-                "completed_tests": len(results) - failed_tasks,
+                "completed_tests": len(successful_results),
                 "failed_tasks": failed_tasks,
                 "mean_execution_time_ms": mean_execution_time,
                 "total_execution_time_ms": total_execution_time_ms,
@@ -79,6 +104,7 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
             }
             
             crud.update_test_run(db, test_run.id, crud.schemas.TestRunUpdate(**update_data))
+            logger.info(f"Successfully updated test run {test_run_id} with status {status}")
         else:
             logger.error(f"Test run {test_run_id} not found!")
 
@@ -86,7 +112,7 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
             "test_run_id": test_run_id,
             "test_config_id": test_config_id,
             "total_tests": total_tests,
-            "completed_tests": len(results) - failed_tasks,
+            "completed_tests": len(successful_results),
             "failed_tasks": failed_tasks,
             "mean_execution_time_ms": mean_execution_time,
         }

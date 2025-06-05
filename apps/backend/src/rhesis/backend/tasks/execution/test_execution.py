@@ -180,96 +180,132 @@ def execute_test(
     Raises:
         ValueError: If test or prompt is not found
     """
-    # Set up tenant context if needed
-    setup_tenant_context(db, organization_id, user_id)
+    logger.info(f"🔍 DEBUG: execute_test starting for test {test_id}")
+    logger.debug(f"🔍 DEBUG: execute_test params - config_id={test_config_id}, run_id={test_run_id}, endpoint_id={endpoint_id}")
+    logger.debug(f"🔍 DEBUG: execute_test context - org_id={organization_id}, user_id={user_id}")
     
-    # Initialize services and evaluators
-    endpoint_service = get_endpoint_service()
-    metrics_evaluator = MetricEvaluator()
-    start_time = datetime.utcnow()
-    
-    # Check for existing result
-    existing_result = check_existing_result(db, test_config_id, test_run_id, test_id)
-    if existing_result:
-        return existing_result
-    
-    # Get test and prompt
-    test, prompt_content, expected_response = get_test_and_prompt(db, test_id, organization_id)
-    
-    # Get metrics for the test
-    metrics = get_test_metrics(test)
-    
-    # Convert metrics to MetricConfig objects, filtering out None/invalid ones
-    metric_configs = []
-    invalid_metrics_count = 0
-    
-    for i, metric in enumerate(metrics):
-        try:
-            config = MetricConfig.from_dict(metric)
-            if config is not None:
-                metric_configs.append(config)
-            else:
+    try:
+        # Set up tenant context if needed
+        logger.debug(f"🔍 DEBUG: Setting up tenant context for test {test_id}")
+        setup_tenant_context(db, organization_id, user_id)
+        
+        # Initialize services and evaluators
+        logger.debug(f"🔍 DEBUG: Initializing services for test {test_id}")
+        endpoint_service = get_endpoint_service()
+        metrics_evaluator = MetricEvaluator()
+        start_time = datetime.utcnow()
+        
+        # Check for existing result
+        logger.debug(f"🔍 DEBUG: Checking for existing result for test {test_id}")
+        existing_result = check_existing_result(db, test_config_id, test_run_id, test_id)
+        if existing_result:
+            logger.info(f"✅ DEBUG: Found existing result for test {test_id}, returning it")
+            return existing_result
+        
+        # Get test and prompt
+        logger.debug(f"🔍 DEBUG: Getting test and prompt for test {test_id}")
+        test, prompt_content, expected_response = get_test_and_prompt(db, test_id, organization_id)
+        logger.debug(f"🔍 DEBUG: Got test and prompt for test {test_id} - prompt length: {len(prompt_content) if prompt_content else 0}")
+        
+        # Get metrics for the test
+        logger.debug(f"🔍 DEBUG: Getting metrics for test {test_id}")
+        metrics = get_test_metrics(test)
+        logger.debug(f"🔍 DEBUG: Got {len(metrics)} metrics for test {test_id}")
+        
+        # Convert metrics to MetricConfig objects, filtering out None/invalid ones
+        metric_configs = []
+        invalid_metrics_count = 0
+        
+        logger.debug(f"🔍 DEBUG: Converting metrics to configs for test {test_id}")
+        for i, metric in enumerate(metrics):
+            try:
+                config = MetricConfig.from_dict(metric)
+                if config is not None:
+                    metric_configs.append(config)
+                else:
+                    invalid_metrics_count += 1
+                    logger.warning(f"Skipped invalid metric {i} for test {test_id}: missing required fields")
+            except Exception as e:
                 invalid_metrics_count += 1
-                logger.warning(f"Skipped invalid metric {i} for test {test_id}: missing required fields")
-        except Exception as e:
-            invalid_metrics_count += 1
-            logger.warning(f"Failed to parse metric {i} for test {test_id}: {str(e)}")
-    
-    if invalid_metrics_count > 0:
-        logger.warning(f"Skipped {invalid_metrics_count} invalid metrics for test {test_id}")
-    
-    logger.debug(f"Using {len(metric_configs)} valid metrics for test {test_id}")
-    
-    # If no valid metrics found, log a warning but continue execution
-    if not metric_configs:
-        logger.warning(f"No valid metrics found for test {test_id}, proceeding without metric evaluation")
-    
-    # Get required statuses
-    test_result_status = get_or_create_status(db, ResultStatus.PASS.value, "TestResult")
+                logger.warning(f"Failed to parse metric {i} for test {test_id}: {str(e)}")
+        
+        if invalid_metrics_count > 0:
+            logger.warning(f"Skipped {invalid_metrics_count} invalid metrics for test {test_id}")
+        
+        logger.debug(f"🔍 DEBUG: Using {len(metric_configs)} valid metrics for test {test_id}")
+        
+        # If no valid metrics found, log a warning but continue execution
+        if not metric_configs:
+            logger.warning(f"No valid metrics found for test {test_id}, proceeding without metric evaluation")
+        
+        # Get required statuses
+        logger.debug(f"🔍 DEBUG: Getting test result status for test {test_id}")
+        test_result_status = get_or_create_status(db, ResultStatus.PASS.value, "TestResult")
 
-    logger.info(f"Starting execute task for test: {test_id}")
+        logger.info(f"🔍 DEBUG: Starting endpoint invocation for test {test_id}")
 
-    # Execute prompt against endpoint
-    input_data = {"input": prompt_content}
-    result = endpoint_service.invoke_endpoint(db=db, endpoint_id=endpoint_id, input_data=input_data)
+        # Execute prompt against endpoint
+        input_data = {"input": prompt_content}
+        logger.debug(f"🔍 DEBUG: Invoking endpoint {endpoint_id} for test {test_id}")
+        result = endpoint_service.invoke_endpoint(db=db, endpoint_id=endpoint_id, input_data=input_data)
+        logger.debug(f"🔍 DEBUG: Endpoint invocation completed for test {test_id}, result type: {type(result)}")
 
-    # Calculate execution time
-    execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        # Calculate execution time
+        execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        logger.debug(f"🔍 DEBUG: Execution time for test {test_id}: {execution_time}ms")
 
-    # Get context from result
-    context = result.get("context", []) if result else []
+        # Get context from result
+        context = result.get("context", []) if result else []
+        logger.debug(f"🔍 DEBUG: Got context for test {test_id}, length: {len(context)}")
 
-    # Import evaluation function from evaluation module
-    from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
+        # Import evaluation function from evaluation module
+        from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
 
-    # Evaluate metrics
-    metrics_results = evaluate_prompt_response(
-        metrics_evaluator=metrics_evaluator,
-        prompt_content=prompt_content,
-        expected_response=expected_response,
-        context=context,
-        result=result,
-        metrics=metric_configs,
-    )
+        # Evaluate metrics
+        logger.debug(f"🔍 DEBUG: Evaluating metrics for test {test_id}")
+        metrics_results = evaluate_prompt_response(
+            metrics_evaluator=metrics_evaluator,
+            prompt_content=prompt_content,
+            expected_response=expected_response,
+            context=context,
+            result=result,
+            metrics=metric_configs,
+        )
+        logger.debug(f"🔍 DEBUG: Metrics evaluation completed for test {test_id}")
 
-    # Create test result with CRUD operation
-    test_result_data = {
-        "test_configuration_id": UUID(test_config_id),
-        "test_run_id": UUID(test_run_id),
-        "test_id": UUID(test_id),
-        "prompt_id": test.prompt_id,
-        "status_id": test_result_status.id,
-        "user_id": UUID(user_id) if user_id else None,
-        "organization_id": UUID(organization_id) if organization_id else None,
-        "test_metrics": {"execution_time": execution_time, "metrics": metrics_results},
-        "test_output": result,
-    }
-    
-    crud.create_test_result(db, schemas.TestResultCreate(**test_result_data))
+        # Create test result with CRUD operation
+        logger.debug(f"🔍 DEBUG: Creating test result record for test {test_id}")
+        test_result_data = {
+            "test_configuration_id": UUID(test_config_id),
+            "test_run_id": UUID(test_run_id),
+            "test_id": UUID(test_id),
+            "prompt_id": test.prompt_id,
+            "status_id": test_result_status.id,
+            "user_id": UUID(user_id) if user_id else None,
+            "organization_id": UUID(organization_id) if organization_id else None,
+            "test_metrics": {"execution_time": execution_time, "metrics": metrics_results},
+            "test_output": result,
+        }
+        
+        logger.debug(f"🔍 DEBUG: Calling crud.create_test_result for test {test_id}")
+        crud.create_test_result(db, schemas.TestResultCreate(**test_result_data))
+        logger.debug(f"🔍 DEBUG: Test result created successfully for test {test_id}")
 
-    logger.debug(f"Test execution completed successfully for test_id={test_id}")
-    return {
-        "test_id": test_id,
-        "execution_time": execution_time,
-        "metrics": metrics_results,
-    } 
+        # Prepare return value
+        return_value = {
+            "test_id": test_id,
+            "execution_time": execution_time,
+            "metrics": metrics_results,
+        }
+        
+        logger.info(f"✅ DEBUG: execute_test completed successfully for test {test_id}")
+        logger.debug(f"✅ DEBUG: Returning result for test {test_id}: {return_value}")
+        return return_value
+        
+    except Exception as e:
+        logger.error(f"🚨 DEBUG: Exception in execute_test for test {test_id}: {str(e)}", exc_info=True)
+        logger.error(f"🚨 DEBUG: Exception type: {type(e).__name__}")
+        logger.error(f"🚨 DEBUG: Exception args: {e.args}")
+        
+        # Re-raise the exception so it's handled by execute_single_test
+        raise 
