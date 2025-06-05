@@ -68,6 +68,16 @@ export default function TestSetSelectionDialog({
     if (selectedTestSet) {
       try {
         await onSelect(selectedTestSet);
+        
+        // Show success notification
+        notifications.show(
+          `Test successfully added to "${selectedTestSet.name}"`,
+          {
+            severity: 'success',
+            autoHideDuration: 4000
+          }
+        );
+        
         handleClose();
       } catch (error) {
         console.error('Error associating test with test set:', error);
