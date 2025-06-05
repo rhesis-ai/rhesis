@@ -60,58 +60,97 @@ export default function TestRunDrawer({
   // Load initial data
   React.useEffect(() => {
     const loadData = async () => {
-      if (!sessionToken) return;
-
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const usersClient = clientFactory.getUsersClient();
-      const testSetsClient = clientFactory.getTestSetsClient();
-      const projectsClient = clientFactory.getProjectsClient();
-      const endpointsClient = clientFactory.getEndpointsClient();
+      if (!sessionToken || !open) return;
 
       try {
+        setLoading(true);
+        setError(undefined);
+
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const usersClient = clientFactory.getUsersClient();
+        const testSetsClient = clientFactory.getTestSetsClient();
+        const projectsClient = clientFactory.getProjectsClient();
+        const endpointsClient = clientFactory.getEndpointsClient();
+
         const currentUserId = getCurrentUserId();
-        const [fetchedUsers, fetchedTestSets, fetchedProjects, fetchedEndpoints] = await Promise.all([
-          usersClient.getUsers(),
-          testSetsClient.getTestSets({ limit: 100 }),
-          projectsClient.getProjects(),
-          endpointsClient.getEndpoints()
-        ]);
+        
+        try {
+          const [fetchedUsers, fetchedTestSets, fetchedProjects, fetchedEndpoints] = await Promise.all([
+            usersClient.getUsers(),
+            testSetsClient.getTestSets({ limit: 100 }),
+            projectsClient.getProjects(),
+            endpointsClient.getEndpoints()
+          ]);
 
-        setUsers(fetchedUsers);
-        setTestSets(fetchedTestSets.data);
-        setProjects(fetchedProjects.data);
-        setEndpoints(fetchedEndpoints.data);
+          console.log('Projects API response:', fetchedProjects);
+          
+          // Ensure we always set arrays, never undefined
+          setUsers(Array.isArray(fetchedUsers) ? fetchedUsers : []);
+          setTestSets(Array.isArray(fetchedTestSets?.data) ? fetchedTestSets.data : []);
+          
+          // Handle both response formats for projects: direct array or {data: array}
+          let projectsArray: Project[] = [];
+          if (Array.isArray(fetchedProjects)) {
+            // Direct array response (what we're getting)
+            projectsArray = fetchedProjects;
+            console.log('Using direct array response for projects');
+          } else if (fetchedProjects && Array.isArray(fetchedProjects.data)) {
+            // Paginated response with data property
+            projectsArray = fetchedProjects.data;
+            console.log('Using paginated response data for projects');
+          } else {
+            console.warn('Invalid projects response structure:', fetchedProjects);
+          }
+          
+          setProjects(projectsArray);
+          setEndpoints(Array.isArray(fetchedEndpoints?.data) ? fetchedEndpoints.data : []);
 
-        // Set initial values if editing
-        if (testRun) {
-          if (testRun.assignee_id) {
-            const currentAssignee = fetchedUsers.find(u => u.id === testRun.assignee_id);
-            setAssignee(currentAssignee || null);
+          console.log('Final processed projects:', projectsArray);
+
+          // Set initial values if editing
+          if (testRun) {
+            if (testRun.assignee_id) {
+              const currentAssignee = fetchedUsers.find(u => u.id === testRun.assignee_id);
+              setAssignee(currentAssignee || null);
+            }
+            if (testRun.owner_id) {
+              const currentOwner = fetchedUsers.find(u => u.id === testRun.owner_id);
+              setOwner(currentOwner || null);
+            }
+            // Add test set, project and endpoint initialization if available in testRun
+          } else {
+            // Set default owner as current user for new test runs
+            if (currentUserId) {
+              const currentUser = fetchedUsers.find(u => u.id === currentUserId);
+              setOwner(currentUser || null);
+            }
           }
-          if (testRun.owner_id) {
-            const currentOwner = fetchedUsers.find(u => u.id === testRun.owner_id);
-            setOwner(currentOwner || null);
-          }
-          // Add test set, project and endpoint initialization if available in testRun
-        } else {
-          // Set default owner as current user for new test runs
-          if (currentUserId) {
-            const currentUser = fetchedUsers.find(u => u.id === currentUserId);
-            setOwner(currentUser || null);
-          }
+        } catch (fetchError) {
+          console.error('Error fetching data:', fetchError);
+          setError('Failed to load required data');
+          // Ensure state remains as empty arrays even on error
+          setUsers([]);
+          setTestSets([]);
+          setProjects([]);
+          setEndpoints([]);
+          setFilteredEndpoints([]);
         }
       } catch (err) {
-        console.error('Error loading data:', err);
+        console.error('Error in loadData:', err);
         setError('Failed to load required data');
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadData();
-  }, [sessionToken, testRun, getCurrentUserId]);
+    if (open) {
+      loadData();
+    }
+  }, [sessionToken, testRun, getCurrentUserId, open]);
 
   // Filter endpoints when project changes
   React.useEffect(() => {
-    if (project) {
+    if (project && Array.isArray(endpoints)) {
       const filtered = endpoints.filter(endpoint => endpoint.project_id === project.id);
       setFilteredEndpoints(filtered);
       // Clear endpoint selection if current selection is not in filtered list
@@ -158,7 +197,8 @@ export default function TestRunDrawer({
         test_configuration_id: testConfiguration.id as UUID,
         owner_id: owner?.id,
         assignee_id: assignee?.id,
-        organization_id: endpoint.organization_id as UUID
+        organization_id: endpoint.organization_id as UUID,
+        user_id: getCurrentUserId() as UUID
       };
 
       // Create the test run
@@ -216,7 +256,7 @@ export default function TestRunDrawer({
 
           <Stack spacing={2}>
             <Autocomplete
-              options={users}
+              options={Array.isArray(users) ? users : []}
               value={assignee}
               onChange={(_, newValue) => setAssignee(newValue)}
               getOptionLabel={getUserDisplayName}
@@ -242,7 +282,7 @@ export default function TestRunDrawer({
             />
 
             <Autocomplete
-              options={users}
+              options={Array.isArray(users) ? users : []}
               value={owner}
               onChange={(_, newValue) => setOwner(newValue)}
               getOptionLabel={getUserDisplayName}
@@ -280,7 +320,7 @@ export default function TestRunDrawer({
 
           <Stack spacing={2}>
             <Autocomplete
-              options={testSets}
+              options={Array.isArray(testSets) ? testSets : []}
               value={testSet}
               onChange={(_, newValue) => setTestSet(newValue)}
               getOptionLabel={(option) => option.name || 'Unnamed Test Set'}
@@ -300,7 +340,7 @@ export default function TestRunDrawer({
             />
 
             <Autocomplete
-              options={projects}
+              options={Array.isArray(projects) ? projects : []}
               value={project}
               onChange={(_, newValue) => setProject(newValue)}
               getOptionLabel={(option) => option.name}
@@ -311,7 +351,7 @@ export default function TestRunDrawer({
             />
 
             <Autocomplete
-              options={filteredEndpoints}
+              options={Array.isArray(filteredEndpoints) ? filteredEndpoints : []}
               value={endpoint}
               onChange={(_, newValue) => setEndpoint(newValue)}
               getOptionLabel={(option) => `${option.name} (${option.environment})`}
