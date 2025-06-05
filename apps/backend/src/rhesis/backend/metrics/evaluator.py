@@ -219,15 +219,18 @@ class MetricEvaluator:
                         }
                         logger.warning(f"Invalid metric configuration {i}: {error_reason}")
                 except Exception as e:
-                    # Create error result for parsing failure
-                    error_reason = f"Failed to parse metric configuration: {str(e)}"
+                    # Create a more informative error message that includes backend and metric name
+                    metric_name = config.get("name") or config.get("class_name")
+                    error_msg = (f"Error parsing metric configuration (class: '{metric_name}', "
+                               f"backend: '{config.get('backend')}'): {str(e)}")
+                    logger.error(error_msg, exc_info=True)
                     invalid_key = f"InvalidMetric_{i}"
                     invalid_metric_results[invalid_key] = {
                         "score": 0.0,
-                        "reason": error_reason,
+                        "reason": error_msg,
                         "is_successful": False,
                         "threshold": 0.0,
-                        "backend": "unknown",
+                        "backend": config.get("backend", "unknown") if isinstance(config, dict) else "unknown",
                         "name": invalid_key,
                         "class_name": config.get("class_name", "Unknown") if isinstance(config, dict) else "Unknown",
                         "description": f"Parsing error: {str(e)}",
@@ -318,7 +321,11 @@ class MetricEvaluator:
                 metric_tasks.append((class_name, metric, metric_config, backend))
 
             except Exception as e:
-                logger.error(f"Error preparing metric '{class_name}': {str(e)}", exc_info=True)
+                # Create a more informative error message that includes backend and metric name
+                metric_name = metric_config.name or class_name
+                error_msg = (f"Error preparing metric '{metric_name}' (class: '{class_name}', "
+                           f"backend: '{backend}'): {str(e)}")
+                logger.error(error_msg, exc_info=True)
 
         return metric_tasks
 
