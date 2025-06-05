@@ -125,25 +125,10 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
 
   const columns: GridColDef[] = React.useMemo(() => [
     { 
-      field: 'project',
-      headerName: 'Project', 
+      field: 'name',
+      headerName: 'Name', 
       flex: 1,
-      valueGetter: (_, row) => {
-        const projectId = row.test_configuration?.endpoint?.project_id;
-        return projectId ? projectNames[projectId] || 'Loading...' : '';
-      }
-    },
-    { 
-      field: 'endpoint',
-      headerName: 'Endpoint', 
-      flex: 1,
-      valueGetter: (_, row) => row.test_configuration?.endpoint?.name || ''
-    },
-    { 
-      field: 'environment',
-      headerName: 'Environment', 
-      flex: 1,
-      valueGetter: (_, row) => row.test_configuration?.endpoint?.environment || ''
+      valueGetter: (_, row) => row.name || ''
     },
     { 
       field: 'test_sets',
@@ -163,6 +148,21 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       valueGetter: (_, row) => {
         const metadata = row.test_configuration?.test_set?.attributes?.metadata;
         return metadata?.total_prompts || 0;
+      }
+    },
+    { 
+      field: 'execution_time',
+      headerName: 'Execution Time (sec)', 
+      flex: 1,
+      align: 'right',
+      headerAlign: 'right',
+      valueGetter: (_, row) => {
+        const status = row.status?.name || row.attributes?.status;
+        if (status?.toLowerCase() !== 'completed') return '';
+        
+        const timeMs = row.attributes?.total_execution_time_ms;
+        if (!timeMs) return '';
+        return Math.round(timeMs / 1000); // Convert ms to seconds and round
       }
     },
     { 
