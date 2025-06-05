@@ -237,7 +237,8 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
 
   // Handle delete selected test runs
   const handleDeleteTestRuns = useCallback(async () => {
-    if (selectedRows.length > 0) {
+    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
+    if (validSelectedRows.length > 0) {
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
@@ -252,12 +253,12 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         }
         
         await Promise.all(
-          selectedRows.map(id => testRunsClient.updateTestRun(id.toString(), { 
+          validSelectedRows.map(id => testRunsClient.updateTestRun(id.toString(), { 
             status_id: deletedStatus.id 
           }))
         );
         
-        notifications.show(`Successfully deleted ${selectedRows.length} test runs`, { severity: 'success' });
+        notifications.show(`Successfully deleted ${validSelectedRows.length} test runs`, { severity: 'success' });
         
         // Refresh the data
         const skip = paginationModel.page * paginationModel.pageSize;
@@ -275,6 +276,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
   // Dynamic action buttons based on selection
   const getActionButtons = useCallback(() => {
     const buttons = [];
+    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
 
     buttons.push({
       label: 'New Test Run',
@@ -283,7 +285,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       onClick: handleCreateTestRun
     });
 
-    if (selectedRows.length > 0) {
+    if (validSelectedRows.length > 0) {
       buttons.push({
         label: 'Delete Test Runs',
         icon: <DeleteIcon />,
@@ -294,7 +296,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     }
 
     return buttons;
-  }, [selectedRows.length, handleCreateTestRun, handleDeleteTestRuns]);
+  }, [selectedRows, handleCreateTestRun, handleDeleteTestRuns]);
 
   return (
     <>
@@ -304,7 +306,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         </Alert>
       )}
 
-      {selectedRows.length > 0 && (
+      {Array.isArray(selectedRows) && selectedRows.length > 0 && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="subtitle1" color="primary">
             {selectedRows.length} test runs selected
@@ -324,7 +326,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
           fetchTestRuns(skip, model.pageSize);
         }}
         onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
+        rowSelectionModel={Array.isArray(selectedRows) ? selectedRows : []}
         onRowClick={handleRowClick}
         serverSidePagination={true}
         totalRows={totalCount}
