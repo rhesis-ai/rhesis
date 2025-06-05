@@ -2,6 +2,8 @@ if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
   throw new Error('NEXT_PUBLIC_API_BASE_URL environment variable is not defined');
 }
 
+console.log('API_CONFIG: baseUrl set to:', process.env.NEXT_PUBLIC_API_BASE_URL);
+
 export const API_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
   defaultHeaders: {

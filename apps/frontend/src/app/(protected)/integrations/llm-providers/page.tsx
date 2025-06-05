@@ -563,22 +563,19 @@ export default function LLMProvidersPage() {
           <CircularProgress />
         </Box>
       ) : (
-        <Stack 
-          direction="row" 
-          flexWrap="wrap" 
-          spacing={3}
+        <Box
           sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',                    // 1 column on mobile
+              sm: 'repeat(2, 1fr)',         // 2 columns on small screens
+              md: 'repeat(4, 1fr)',         // 4 columns on medium screens
+              lg: 'repeat(4, 1fr)',         // 4 columns on large screens
+            },
+            gap: 3,
             '& > *': {
-              flexBasis: {
-                xs: '100%',           // 1 card per row on extra small screens
-                sm: 'calc(50% - 12px)',  // 2 cards per row on small screens
-                md: 'calc(25% - 18px)',  // 4 cards per row on medium screens
-                lg: 'calc(25% - 18px)',  // 4 cards per row on large screens 
-              },
-              flexGrow: 0,
-              flexShrink: 0,
-              minHeight: '200px', // Ensure minimum height for all cards
-              display: 'flex' // Make each card a flex container
+              minHeight: '200px',
+              display: 'flex'
             }
           }}
         >
@@ -700,7 +697,7 @@ export default function LLMProvidersPage() {
               </Button>
             </Box>
           </Paper>
-        </Stack>
+        </Box>
       )}
 
       <ProviderSelectionDialog
