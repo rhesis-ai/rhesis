@@ -284,6 +284,15 @@ export default function TestRunDrawer({
               value={testSet}
               onChange={(_, newValue) => setTestSet(newValue)}
               getOptionLabel={(option) => option.name || 'Unnamed Test Set'}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box component="li" key={option.id} {...otherProps}>
+                    {option.name || 'Unnamed Test Set'}
+                  </Box>
+                );
+              }}
               fullWidth
               renderInput={(params) => (
                 <TextField {...params} label="Test Set" required />
