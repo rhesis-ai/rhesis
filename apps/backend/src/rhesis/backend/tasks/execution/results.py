@@ -12,12 +12,8 @@ from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.worker import app
 
 
-# Configure the chord_unlock task to have reasonable retry limits
-app.conf.chord_unlock_max_retries = 3
-
-
-@app.task
-def collect_results(results, start_time, test_config_id, test_run_id, test_set_id, total_tests, organization_id=None, user_id=None):
+@app.task(bind=True, max_retries=3, retry_backoff=True, retry_backoff_max=60)
+def collect_results(self, results, start_time, test_config_id, test_run_id, test_set_id, total_tests, organization_id=None, user_id=None):
     """
     Collect and aggregate results from test execution.
     
@@ -99,6 +95,15 @@ def collect_results(results, start_time, test_config_id, test_run_id, test_set_i
         logger.error(f"Error collecting results: {str(e)}", exc_info=True)
         db.rollback()
         
+        # Check if we should retry
+        if self.request.retries < self.max_retries:
+            logger.warning(f"Retrying collect_results task (attempt {self.request.retries + 1}/{self.max_retries})")
+            try:
+                # Retry with exponential backoff
+                raise self.retry(countdown=min(60 * (2 ** self.request.retries), 300), exc=e)
+            except Exception as retry_exc:
+                logger.error(f"Failed to retry collect_results: {str(retry_exc)}")
+        
         try:
             # Update test run status to failed
             test_run = crud.get_test_run(db, UUID(test_run_id))
@@ -123,6 +128,16 @@ def collect_results(results, start_time, test_config_id, test_run_id, test_set_i
         except Exception as update_error:
             logger.error(f"Failed to update test run status: {str(update_error)}")
         
-        raise 
+        # Don't re-raise the exception if we've exhausted retries
+        # This prevents the chord from getting stuck
+        if self.request.retries >= self.max_retries:
+            logger.error(f"collect_results task failed permanently after {self.max_retries} retries")
+            return {
+                "error": str(e),
+                "test_run_id": test_run_id,
+                "status": "failed"
+            }
+        else:
+            raise
     finally:
         db.close() 
