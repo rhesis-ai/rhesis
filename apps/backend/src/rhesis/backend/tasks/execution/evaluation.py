@@ -15,7 +15,23 @@ def evaluate_prompt_response(
 ) -> Dict:
     """Evaluate prompt response using different metrics."""
     metrics_results = {}
-    actual_response = result.get("output", "") if result else ""
+    
+    # Handle the new error structure from REST invoker
+    if result and result.get("error", False):
+        # If there's an error, use the error message as the actual response
+        actual_response = result.get("message", "Unknown error occurred")
+        logger.info(f"Using error message as response for evaluation: {actual_response}")
+    else:
+        # For successful responses, extract the output
+        if result and not result.get("error", False):
+            # New success structure: {"error": false, "data": {...}}
+            actual_response = result.get("data", {}).get("output", "") if isinstance(result.get("data"), dict) else result.get("data", "")
+            # Fallback to old structure if data doesn't contain output
+            if not actual_response:
+                actual_response = result.get("output", "") if result else ""
+        else:
+            # Fallback for old structure or empty result
+            actual_response = result.get("output", "") if result else ""
 
     try:
         metrics_results = metrics_evaluator.evaluate(
