@@ -2,8 +2,11 @@
 
 from .base import BaseMetric, MetricConfig, MetricResult
 from .config.loader import MetricConfigLoader
-from .evaluator import MetricEvaluator as Evaluator, run_evaluation
+from .evaluator import MetricEvaluator as Evaluator
 from .factory import MetricFactory
+from .score_evaluator import ScoreEvaluator
+from .types import ScoreType, ThresholdOperator, OPERATOR_MAP, VALID_OPERATORS_BY_SCORE_TYPE
+from .utils import run_evaluation, diagnose_invalid_metric
 from .rhesis import (  # Re-export Rhesis metrics
     RhesisMetricBase,
     RhesisMetricFactory,
@@ -35,7 +38,15 @@ __all__ = [
     
     # Evaluation
     "Evaluator",
+    "ScoreEvaluator",
     "run_evaluation",
+    
+    # Types and utilities
+    "ScoreType",
+    "ThresholdOperator",
+    "OPERATOR_MAP",
+    "VALID_OPERATORS_BY_SCORE_TYPE",
+    "diagnose_invalid_metric",
     
     # Rhesis metrics
     "RhesisMetricBase",

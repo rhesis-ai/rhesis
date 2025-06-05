@@ -1924,6 +1924,18 @@ wheels = [
 ]
 
 [[package]]
+name = "proto-plus"
+version = "1.26.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f4/ac/87285f15f7cce6d4a008f33f1757fb5a13611ea8914eb58c3d0d26243468/proto_plus-1.26.1.tar.gz", hash = "sha256:21a515a4c4c0088a773899e23c7bbade3d18f9c66c73edd4c7ee3816bc96a012", size = 56142, upload-time = "2025-03-10T15:54:38.843Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/6d/280c4c2ce28b1593a19ad5239c8b826871fc6ec275c21afc8e1820108039/proto_plus-1.26.1-py3-none-any.whl", hash = "sha256:13285478c2dcf2abb829db158e1047e2f1e8d63a077d94263c2b88b043c75a66", size = 50163, upload-time = "2025-03-10T15:54:37.335Z" },
+]
+
+[[package]]
 name = "protobuf"
 version = "5.29.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2408,6 +2420,8 @@ dependencies = [
     { name = "pandas" },
     { name = "pathspec" },
     { name = "portalocker" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
     { name = "psutil" },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
@@ -2452,6 +2466,8 @@ requires-dist = [
     { name = "pandas", specifier = "==2.2.2" },
     { name = "pathspec", specifier = "==0.12.1" },
     { name = "portalocker", specifier = "==3.1.1" },
+    { name = "proto-plus", specifier = ">=1.26.1" },
+    { name = "protobuf", specifier = ">=5.29.4" },
     { name = "psutil", specifier = "==5.9.5" },
     { name = "psycopg2-binary", specifier = "==2.9.9" },
     { name = "pydantic" },
