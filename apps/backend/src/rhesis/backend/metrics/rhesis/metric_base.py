@@ -1,8 +1,9 @@
-from typing import List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
+from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.base import BaseMetric, MetricResult, MetricType
-# Import the enums and evaluator from the centralized location
-from rhesis.backend.metrics.evaluator import ScoreType, ThresholdOperator, MetricEvaluator
+from rhesis.backend.metrics.types import ScoreType, ThresholdOperator
+from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 
 
 class RhesisMetricBase(BaseMetric):
@@ -12,7 +13,7 @@ class RhesisMetricBase(BaseMetric):
         super().__init__(name=name, metric_type=metric_type)
         self._threshold = threshold
         self._reference_score = reference_score
-        self._evaluator = MetricEvaluator()
+        self._score_evaluator = ScoreEvaluator()
 
     @property
     def threshold(self) -> Optional[float]:
@@ -41,7 +42,7 @@ class RhesisMetricBase(BaseMetric):
     ) -> bool:
         """
         Evaluate if a score meets the success criteria based on score type and threshold operator.
-        Delegates to the evaluator's comprehensive implementation.
+        Delegates to the score evaluator's comprehensive implementation.
         
         Args:
             score: The score to evaluate
@@ -59,8 +60,8 @@ class RhesisMetricBase(BaseMetric):
         if reference_score is None:
             reference_score = self.reference_score
             
-        # Delegate to the evaluator's comprehensive implementation
-        return self._evaluator.evaluate_score(
+        # Delegate to the score evaluator's comprehensive implementation
+        return self._score_evaluator.evaluate_score(
             score=score,
             threshold=threshold,
             threshold_operator=threshold_operator,
