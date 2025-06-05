@@ -18,12 +18,24 @@ app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
-    # Chord configuration - prevent infinite retry loops
-    chord_unlock_max_retries=3,
-    chord_unlock_retry_delay=1.0,
-    # Use light amqp result store
-    result_persistent=False,
-    # Additional stability configurations
+    # Database backend specific chord configuration
+    chord_unlock_max_retries=10,  # Increase retries for database backend
+    chord_unlock_retry_delay=5.0,  # Longer delay between retries
+    result_chord_join_timeout=300,  # 5 minutes timeout for chord joins
+    # Database backend optimizations
+    result_persistent=True,
+    result_expires=7200,  # 2 hours - longer for database backend
+    database_table_names={
+        'task': 'celery_taskmeta',
+        'group': 'celery_groupmeta',
+    },
+    # Force database transactions to be committed immediately
+    database_engine_options={
+        'isolation_level': 'AUTOCOMMIT',  # Prevent read-after-write issues
+        'pool_pre_ping': True,  # Verify connections before use
+        'pool_recycle': 3600,  # Recycle connections hourly
+    },
+    # Additional stability configurations for database backend
     broker_connection_retry_on_startup=True,
     broker_connection_retry=True,
     broker_connection_max_retries=10,
@@ -31,21 +43,42 @@ app.conf.update(
     task_reject_on_worker_lost=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    # Enhanced chord reliability for database backend
+    task_track_started=True,
+    task_send_sent_event=True,
+    worker_send_task_events=True,
+    # Force result backend to use polling for chord coordination
+    result_backend_always_retry=True,
+    result_backend_max_retries=10,
     # Task-specific configurations
     task_routes={
         'celery.chord_unlock': {'queue': 'celery'},
+        'rhesis.backend.tasks.execution.results.collect_results': {'queue': 'celery'},
     },
     task_annotations={
         'celery.chord_unlock': {
-            'max_retries': 3,
+            'max_retries': 10,  # More retries for database backend
             'retry_backoff': True,
-            'retry_backoff_max': 60,
+            'retry_backoff_max': 300,  # Up to 5 minutes between retries
             'retry_jitter': True,
+            'soft_time_limit': 600,  # 10 minutes soft limit
+            'time_limit': 900,       # 15 minutes hard limit
+            # Database-specific chord_unlock settings
+            'chord_unlock_retry_delay': 10.0,  # Longer delays
         },
         'rhesis.backend.tasks.execution.results.collect_results': {
             'max_retries': 3,
             'retry_backoff': True,
             'retry_backoff_max': 60,
+            'soft_time_limit': 600,  # 10 minutes soft limit
+            'time_limit': 900,       # 15 minutes hard limit
+        },
+        'rhesis.backend.tasks.execute_single_test': {
+            'max_retries': 2,
+            'retry_backoff': True,
+            'retry_backoff_max': 120,
+            'soft_time_limit': 300,  # 5 minutes soft limit
+            'time_limit': 600,       # 10 minutes hard limit
         }
     },
     # Add explicit task discovery
@@ -53,6 +86,9 @@ app.conf.update(
         'rhesis.backend.tasks.test_configuration',
         'rhesis.backend.tasks.example_task',
         'rhesis.backend.tasks.test_set',
+        'rhesis.backend.tasks.execution.results',
+        'rhesis.backend.tasks.execution.test',
+        'rhesis.backend.tasks.execution.db_chord_coordinator',
     ],
 )
 
