@@ -72,9 +72,28 @@ class GeminiClient:
 class ResponseGenerator:
     """Class to generate responses from the Gemini model."""
     
-    def __init__(self, client: GeminiClient):
-        """Initialize with a GeminiClient instance."""
+    def __init__(self, client: GeminiClient, use_case: str = "insurance"):
+        """Initialize with a GeminiClient instance and use case."""
         self.client = client
+        self.use_case = use_case
+        self.use_case_system_prompt = self._load_system_prompt()
+    
+    def _load_system_prompt(self) -> str:
+        """Load system prompt from the corresponding .md file in use_cases folder."""
+        try:
+            # Get the directory of the current script
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            prompt_file = os.path.join(current_dir, "use_cases", f"{self.use_case}.md")
+            
+            with open(prompt_file, 'r', encoding='utf-8') as file:
+                return file.read().strip()
+        except FileNotFoundError:
+            logger.error(f"System prompt file not found: use_cases/{self.use_case}.md")
+            # Fallback to a basic prompt
+            return "You are a helpful assistant. Please provide clear and helpful responses."
+        except Exception as e:
+            logger.error(f"Error loading system prompt: {str(e)}")
+            return "You are a helpful assistant. Please provide clear and helpful responses."
     
     def get_assistant_response(self, prompt: str) -> str:
         """Get a complete response from the assistant."""
@@ -83,22 +102,11 @@ class ResponseGenerator:
     def stream_assistant_response(self, prompt: str) -> Generator[str, None, None]:
         """Stream the assistant's response."""
         try:
-            # Create system prompt and user message
-            system_prompt = """
-                Your name is Rosalind. You are an approachable, friendly insurance expert here to answer any questions users have about insurance. 
-                Your responses should be clear, concise, and conversational.
-                Keep your tone light and engaging, as if you're a clever friend explaining insurance concepts in an easy-to-understand way.
-                The answers should be concise and to the point, and up to 100 words.
-                If the user asks a question that is not related to insurance, politely explain that you are an insurance expert and can only answer questions about insurance.
-                You should answer in fluid text, no new lines or breaks.
-                Do not use markdown formatting.
-                """
-            
             # Create a chat session with the Gemini model
             chat = self.client.create_chat_session()
             
             # Send the system instruction as the first message
-            self.client.send_message(chat, system_prompt)
+            self.client.send_message(chat, self.use_case_system_prompt)
             
             # Use send_message_stream for streaming responses
             for chunk in self.client.send_message_stream(chat, prompt):
@@ -117,8 +125,8 @@ class ResponseGenerator:
         """Generate context fragments for a prompt."""
         try:
             # Create system prompt for context generation with explicit JSON format instructions
-            system_prompt = """
-                You are a helpful assistant that provides relevant context fragments for insurance-related questions.
+            context_system_prompt = """
+                You are a helpful assistant that provides relevant context fragments for user questions.
                 For the given user query, generate 3-5 short, relevant context fragments that would be helpful for answering the question.
                 
                 IMPORTANT: You MUST respond with ONLY a valid JSON object that has a "fragments" key containing an array of strings.
@@ -138,7 +146,7 @@ class ResponseGenerator:
             chat = self.client.create_chat_session()
             
             # Send the system instruction as the first message
-            self.client.send_message(chat, system_prompt)
+            self.client.send_message(chat, context_system_prompt)
             
             # Send the user's question and get the response
             response = self.client.send_message(chat, f"Generate context fragments for this insurance question: {prompt}")
@@ -223,25 +231,31 @@ class ResponseGenerator:
         """Get default context fragments based on the prompt."""
         return [
             f"Information about {prompt}",
-            f"Key concepts related to {prompt} in insurance",
+            f"Key concepts related to {prompt}",
             f"Common questions about {prompt}"
         ]
 
 
 # Create singleton instances for use in the API
 gemini_client = GeminiClient()
-response_generator = ResponseGenerator(gemini_client)
+
+def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
+    """Get a ResponseGenerator instance for the specified use case."""
+    return ResponseGenerator(gemini_client, use_case)
 
 # Public API functions that maintain backward compatibility
-def get_assistant_response(prompt: str) -> str:
+def get_assistant_response(prompt: str, use_case: str = "insurance") -> str:
     """Get a complete response from the assistant."""
+    response_generator = get_response_generator(use_case)
     return response_generator.get_assistant_response(prompt)
 
-def stream_assistant_response(prompt: str) -> Generator[str, None, None]:
+def stream_assistant_response(prompt: str, use_case: str = "insurance") -> Generator[str, None, None]:
     """Stream the assistant's response."""
+    response_generator = get_response_generator(use_case)
     return response_generator.stream_assistant_response(prompt)
 
-def generate_context(prompt: str) -> List[str]:
+def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
     """Generate context fragments for a prompt."""
+    response_generator = get_response_generator(use_case)
     return response_generator.generate_context(prompt)
 
