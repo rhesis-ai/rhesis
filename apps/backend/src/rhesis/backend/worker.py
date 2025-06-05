@@ -18,8 +18,9 @@ app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
-    # Limit chord unlocks to prevent infinite retry loops
+    # Chord configuration - prevent infinite retry loops
     chord_unlock_max_retries=3,
+    chord_unlock_retry_delay=1.0,
     # Use light amqp result store
     result_persistent=False,
     # Additional stability configurations
@@ -30,6 +31,23 @@ app.conf.update(
     task_reject_on_worker_lost=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    # Task-specific configurations
+    task_routes={
+        'celery.chord_unlock': {'queue': 'celery'},
+    },
+    task_annotations={
+        'celery.chord_unlock': {
+            'max_retries': 3,
+            'retry_backoff': True,
+            'retry_backoff_max': 60,
+            'retry_jitter': True,
+        },
+        'rhesis.backend.tasks.execution.results.collect_results': {
+            'max_retries': 3,
+            'retry_backoff': True,
+            'retry_backoff_max': 60,
+        }
+    },
     # Add explicit task discovery
     include=[
         'rhesis.backend.tasks.test_configuration',

@@ -60,7 +60,17 @@ def execute_test_cases(
     )
 
     # Execute tasks in parallel with a callback
-    chord(tasks)(callback)
+    # Add timeout and error handling to prevent stuck chords
+    try:
+        job = chord(tasks)(callback)
+        
+        # Log the chord job for monitoring
+        logger.info(f"Started chord execution for test run {test_run.id} with {len(tasks)} tasks")
+        logger.debug(f"Chord job ID: {job.id if hasattr(job, 'id') else 'unknown'}")
+        
+    except Exception as e:
+        logger.error(f"Failed to start chord execution: {str(e)}", exc_info=True)
+        raise
 
     return {
         "test_run_id": str(test_run.id),

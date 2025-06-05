@@ -16,6 +16,9 @@ def evaluate_prompt_response(
     """Evaluate prompt response using different metrics."""
     metrics_results = {}
     
+    # Debug: Log the result structure
+    logger.info(f"DEBUG: Result structure for evaluation: {result}")
+    
     # Handle the new error structure from REST invoker
     if result and result.get("error", False):
         # If there's an error, use the error message as the actual response
@@ -32,6 +35,9 @@ def evaluate_prompt_response(
         else:
             # Fallback for old structure or empty result
             actual_response = result.get("output", "") if result else ""
+
+    # Debug: Log the extracted actual_response
+    logger.info(f"DEBUG: Extracted actual_response for metrics: '{actual_response}' (type: {type(actual_response)})")
 
     try:
         metrics_results = metrics_evaluator.evaluate(
