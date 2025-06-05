@@ -1,7 +1,7 @@
 'use client';
 
 import { Paper, Typography, Grid, Box, TextField, Chip, Button } from '@mui/material';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -34,10 +34,30 @@ interface TestRunDetailsSectionProps {
 
 export default function TestRunDetailsSection({ testRun, sessionToken }: TestRunDetailsSectionProps) {
   const [isRetrying, setIsRetrying] = useState(false);
+  const [endpointName, setEndpointName] = useState<string | null>(null);
   const notifications = useNotifications();
   
   const startedAt = testRun.attributes?.started_at;
   const metadata = testRun.test_configuration?.test_set?.attributes?.metadata;
+
+  // Fetch test configuration details to get endpoint name
+  useEffect(() => {
+    async function fetchTestConfiguration() {
+      if (testRun.test_configuration_id) {
+        try {
+          const testConfigClient = new ApiClientFactory(sessionToken).getTestConfigurationsClient();
+          const testConfig = await testConfigClient.getTestConfiguration(testRun.test_configuration_id);
+          setEndpointName(testConfig.endpoint?.name || null);
+        } catch (error) {
+          console.error('Error fetching test configuration:', error);
+          // Fallback to existing endpoint name if available
+          setEndpointName(testRun.test_configuration?.endpoint?.name || null);
+        }
+      }
+    }
+    
+    fetchTestConfiguration();
+  }, [testRun.test_configuration_id, sessionToken, testRun.test_configuration?.endpoint?.name]);
 
   // Ensure consistent empty arrays to prevent hydration mismatches
   const behaviorsList = useMemo(() => {
@@ -183,7 +203,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
             <TextField
               fullWidth
               label="Completed"
-              value={formatDate(testRun.updated_at)}
+              value={testRun.attributes?.completed_at ? formatDate(testRun.attributes.completed_at) : 'Not Completed'}
               margin="normal"
               InputProps={{
                 readOnly: true,
@@ -208,12 +228,12 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
           <Box>
             <TextField
               fullWidth
-              label="Application"
+              label="Endpoint"
               value=""
               margin="normal"
               InputProps={{
                 readOnly: true,
-                startAdornment: renderSingleChip(testRun.test_configuration?.endpoint?.name)
+                startAdornment: renderSingleChip(endpointName)
               }}
             />
             <TextField
