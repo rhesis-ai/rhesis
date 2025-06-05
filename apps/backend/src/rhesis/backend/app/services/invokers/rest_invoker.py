@@ -16,7 +16,7 @@ from tenacity import (
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
-from .base import BaseEndpointInvoker
+from .base import BaseEndpointInvoker, ResponseMapper, TemplateRenderer
 
 # Use rhesis logger
 from rhesis.backend.logging import logger
@@ -26,6 +26,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     """REST endpoint invoker with support for different auth types."""
 
     def __init__(self):
+        super().__init__()
         self.request_handlers = {
             "POST": self._handle_post_request,
             "GET": self._handle_get_request,
@@ -38,48 +39,166 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Invoke the REST endpoint with proper authentication."""
         try:
-            # Log input data for debugging
-            logger.info(f"Invoking endpoint {endpoint.name} with input_data: {json.dumps(input_data, indent=2)}")
+            # Prepare request components
+            method, headers, request_body, url = self._prepare_request(db, endpoint, input_data)
             
-            # Get appropriate request handler
-            method = (endpoint.method or "POST").upper()
-            handler = self.request_handlers.get(method)
-            if not handler:
-                raise HTTPException(status_code=400, detail=f"Unsupported HTTP method: {method}")
-
-            # Prepare headers with authentication if needed
-            headers = self._prepare_headers(db, endpoint)
-            logger.info(f"Prepared headers: {json.dumps(headers, indent=2)}")
-
-            # Prepare request body using template
-            request_body = self.template_renderer.render(
-                endpoint.request_body_template or {}, input_data
+            # Log outgoing request
+            self._log_outgoing_request(method, url, headers, request_body)
+            
+            # Make request and handle response
+            response = self._make_request_without_raise(self.request_handlers[method], url, headers, request_body)
+            
+            # Log response summary
+            logger.info(f"Response received: {response.status_code} {response.reason}")
+            logger.info(f"Response content length: {len(response.text) if response.text else 0}")
+            
+            # Handle different response scenarios
+            if response.status_code >= 400:
+                return self._handle_http_error(response, method, url, headers, request_body)
+            
+            return self._handle_successful_response(response, endpoint, method, url, headers, request_body)
+            
+        except requests.exceptions.RequestException as e:
+            return self._create_error_response(
+                error_type="network_error",
+                output_message=f"Network/connection error: {str(e)}",
+                message=f"Network/connection error: {str(e)}",
+                request_details=self._safe_request_details(locals(), "REST")
             )
-            logger.info(f"Rendered request body: {json.dumps(request_body, indent=2)}")
-
-            # Make the request with retry logic
-            url = endpoint.url + (endpoint.endpoint_path or "")
-            logger.info(f"Making request to URL: {url}")
-            
-            response = self._make_request(handler, url, headers, request_body)
-            response_data = response.json()
-
-            # Map response
-            return self.response_mapper.map_response(response_data, endpoint.response_mappings or {})
-        except requests.exceptions.HTTPError as e:
-            # Log the response details for HTTP errors
-            logger.error(f"HTTP error occurred: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"Response status: {e.response.status_code}")
-                logger.error(f"Response headers: {dict(e.response.headers)}")
-                try:
-                    logger.error(f"Response body: {e.response.text}")
-                except:
-                    logger.error("Could not read response body")
-            raise HTTPException(status_code=500, detail=f"API error: {e.response.status_code} - {e}")
+        except HTTPException:
+            # Re-raise HTTPExceptions (configuration errors that should still fail)
+            raise
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            return self._create_error_response(
+                error_type="unexpected_error",
+                output_message=f"Unexpected error: {str(e)}",
+                message=f"Unexpected error: {str(e)}",
+                request_details=self._safe_request_details(locals(), "REST")
+            )
+
+    def _prepare_request(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> tuple:
+        """Prepare all request components."""
+        logger.info(f"Invoking endpoint {endpoint.name} with input_data: {json.dumps(input_data, indent=2)}")
+        
+        # Get method and validate
+        method = (endpoint.method or "POST").upper()
+        if method not in self.request_handlers:
+            raise HTTPException(status_code=400, detail=f"Unsupported HTTP method: {method}")
+
+        # Prepare headers and body
+        headers = self._prepare_headers(db, endpoint)
+        logger.info(f"Prepared headers: {json.dumps(headers, indent=2)}")
+
+        request_body = self.template_renderer.render(endpoint.request_body_template or {}, input_data)
+        logger.info(f"Rendered request body: {json.dumps(request_body, indent=2)}")
+
+        # Build URL
+        url = endpoint.url + (endpoint.endpoint_path or "")
+        logger.info(f"Making {method} request to URL: {url}")
+        
+        return method, headers, request_body, url
+
+    def _log_outgoing_request(self, method: str, url: str, headers: Dict, body: Any):
+        """Log outgoing request details."""
+        logger.info("=== OUTGOING REQUEST ===")
+        logger.info(f"Method: {method}")
+        logger.info(f"URL: {url}")
+        logger.info(f"Headers: {json.dumps(headers, indent=2)}")
+        logger.info(f"Body: {json.dumps(body, indent=2)}")
+        logger.info("========================")
+
+    def _log_error_details(self, error_title: str, url: str, method: str, headers: Dict, 
+                          request_body: Any, response: requests.Response, additional_info: Dict = None):
+        """Log detailed error information."""
+        logger.error(f"=== {error_title} ===")
+        logger.error(f"Failed request to {url}")
+        logger.error("REQUEST DETAILS:")
+        logger.error(f"  Method: {method}")
+        logger.error(f"  URL: {url}")
+        logger.error(f"  Headers: {json.dumps(headers, indent=2)}")
+        logger.error(f"  Body: {json.dumps(request_body, indent=2)}")
+        logger.error("RESPONSE DETAILS:")
+        logger.error(f"  Status Code: {response.status_code}")
+        logger.error(f"  Response Headers: {json.dumps(dict(response.headers), indent=2)}")
+        logger.error(f"  Raw Response Content: '{response.text}'")
+        if additional_info:
+            for key, value in additional_info.items():
+                logger.error(f"  {key}: {value}")
+        logger.error("=" * (len(error_title) + 8))
+
+    def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
+        """Create request details dictionary."""
+        return {
+            "protocol": "REST",
+            "method": method,
+            "url": url,
+            "headers": headers,
+            "body": body
+        }
+
+    def _safe_request_details(self, local_vars: Dict, protocol: str) -> Dict:
+        """Safely create request details from local variables."""
+        return {
+            "protocol": protocol,
+            "method": local_vars.get('method', "UNKNOWN"),
+            "url": local_vars.get('url', "UNKNOWN"),
+            "headers": local_vars.get('headers', {}),
+            "body": local_vars.get('request_body')
+        }
+
+    def _handle_http_error(self, response: requests.Response, method: str, url: str, 
+                          headers: Dict, request_body: Any) -> Dict:
+        """Handle HTTP error responses."""
+        self._log_error_details("HTTP ERROR", url, method, headers, request_body, response)
+        
+        error_output = f"HTTP {response.status_code} error from endpoint: {response.reason}"
+        if response.text:
+            error_output += f". Response content: {response.text}"
+        
+        return self._create_error_response(
+            error_type="http_error",
+            output_message=error_output,
+            message=f"HTTP {response.status_code} error from endpoint",
+            request_details=self._create_request_details(method, url, headers, request_body),
+            status_code=response.status_code,
+            reason=response.reason,
+            response_headers=dict(response.headers),
+            response_content=response.text
+        )
+
+    def _handle_successful_response(self, response: requests.Response, endpoint: Endpoint,
+                                  method: str, url: str, headers: Dict, request_body: Any) -> Dict:
+        """Handle successful response with JSON parsing."""
+        try:
+            response_data = response.json()
+            return self.response_mapper.map_response(response_data, endpoint.response_mappings or {})
+        except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:
+            # Log detailed error information
+            additional_info = {
+                "Response Content Length": len(response.text) if response.text else 0,
+                "JSON Error": str(json_error)
+            }
+            self._log_error_details("JSON PARSING ERROR", url, method, headers, request_body, 
+                                  response, additional_info)
+            
+            # Create error response
+            error_message = "Empty response received from endpoint" if not response.text else "Invalid JSON response from endpoint"
+            error_output = f"{error_message} (status: {response.status_code})"
+            if response.text:
+                error_output += f". Response content: {response.text}"
+            
+            return self._create_error_response(
+                error_type="json_parsing_error",
+                output_message=error_output,
+                message=f"{error_message} (status: {response.status_code})",
+                request_details=self._create_request_details(method, url, headers, request_body),
+                status_code=response.status_code,
+                response_headers=dict(response.headers),
+                response_content=response.text,
+                response_content_length=len(response.text) if response.text else 0,
+                json_error=str(json_error)
+            )
 
     def _prepare_headers(self, db: Session, endpoint: Endpoint) -> Dict[str, str]:
         """Prepare request headers with proper authentication."""
@@ -99,49 +218,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         return headers
 
-    def _get_valid_token(self, db: Session, endpoint: Endpoint) -> Optional[str]:
-        """Get a valid authentication token based on the endpoint's auth type."""
-        # Check if we have a valid cached token
-        if endpoint.last_token and endpoint.last_token_expires_at:
-            if endpoint.last_token_expires_at > datetime.utcnow():
-                return endpoint.last_token
-
-        # No valid cached token, get new one based on auth type
-        if endpoint.auth_type == EndpointAuthType.BEARER_TOKEN.value:
-            return endpoint.auth_token
-        elif endpoint.auth_type == EndpointAuthType.CLIENT_CREDENTIALS.value:
-            return self._get_client_credentials_token(db, endpoint)
-        
-        return None
-
-    def _get_client_credentials_token(self, db: Session, endpoint: Endpoint) -> str:
-        """Get a new token using client credentials flow."""
-        if not endpoint.token_url:
-            raise HTTPException(status_code=400, detail="Token URL is required for client credentials flow")
-
-        # Prepare token request
-        payload = {
-            "client_id": endpoint.client_id,
-            "client_secret": endpoint.client_secret,
-            "audience": endpoint.audience,
-            "grant_type": "client_credentials"
-        }
-
-        try:
-            # Make token request
-            response = requests.post(endpoint.token_url, json=payload)
-            response.raise_for_status()
-            token_data = response.json()
-
-            # Update endpoint with new token info
-            endpoint.last_token = token_data["access_token"]
-            endpoint.last_token_expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
-            db.commit()
-
-            return endpoint.last_token
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get client credentials token: {str(e)}")
-
     @retry(
         retry=retry_if_exception_type(requests.exceptions.RequestException),
         stop=stop_after_attempt(3),
@@ -152,6 +228,12 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         """Make HTTP request with retry logic for transient failures."""
         response = handler(url, headers, body)
         response.raise_for_status()
+        return response
+
+    def _make_request_without_raise(self, handler, url: str, headers: Dict[str, str], body: Any) -> requests.Response:
+        """Make HTTP request without raising for HTTP errors."""
+        response = handler(url, headers, body)
+        # Don't raise for status - let the caller handle HTTP errors gracefully
         return response
 
     def _handle_post_request(self, url: str, headers: Dict[str, str], body: Any) -> requests.Response:
@@ -166,50 +248,3 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     def _handle_delete_request(self, url: str, headers: Dict[str, str], body: Any) -> requests.Response:
         return requests.delete(url, headers=headers, json=body)
 
-
-class TemplateRenderer:
-    """Handles template rendering using Jinja2."""
-
-    def render(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
-        # Ensure session_id exists if it's referenced in template but missing from input
-        if isinstance(template_data, (dict, str)):
-            template_str = json.dumps(template_data) if isinstance(template_data, dict) else template_data
-            if "{{ session_id }}" in template_str and "session_id" not in input_data:
-                import uuid
-                input_data = input_data.copy()
-                input_data["session_id"] = str(uuid.uuid4())
-                logger.info(f"Auto-generated session_id: {input_data['session_id']}")
-        
-        if isinstance(template_data, str):
-            template = Template(template_data)
-            rendered = template.render(**input_data)
-            try:
-                return json.loads(rendered)
-            except json.JSONDecodeError:
-                return rendered
-        elif isinstance(template_data, dict):
-            result = template_data.copy()
-            for key, value in result.items():
-                if isinstance(value, str):
-                    template = Template(value)
-                    result[key] = template.render(**input_data)
-            return result
-        return template_data
-
-
-class ResponseMapper:
-    """Handles response mapping using JSONPath."""
-
-    def map_response(
-        self, response_data: Dict[str, Any], mappings: Dict[str, str]
-    ) -> Dict[str, Any]:
-        if not mappings:
-            return response_data
-
-        result = {}
-        for output_key, jsonpath in mappings.items():
-            jsonpath_expr = jsonpath_ng.parse(jsonpath)
-            matches = jsonpath_expr.find(response_data)
-            if matches:
-                result[output_key] = matches[0].value
-        return result 

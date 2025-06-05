@@ -20,7 +20,7 @@ from tenacity import (
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
-from .base import BaseEndpointInvoker
+from .base import BaseEndpointInvoker, TemplateRenderer, ResponseMapper
 
 from rhesis.backend.logging import logger
 
@@ -29,12 +29,10 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
     """WebSocket endpoint invoker with support for different auth types."""
 
     def __init__(self):
-        self.template_renderer = TemplateRenderer()
-        self.response_mapper = ResponseMapper()
+        super().__init__()
 
     def invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Invoke the WebSocket endpoint with proper authentication."""
-
         try:
             logger.info(f"Starting WebSocket invocation for endpoint: {endpoint.name}")
             logger.debug(f"Endpoint URL: {endpoint.url}")
@@ -45,10 +43,19 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             return asyncio.run(self._async_invoke(db, endpoint, input_data))
         except Exception as e:
             logger.error(f"WebSocket invocation failed: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            return self._create_error_response(
+                error_type="websocket_error",
+                output_message=f"WebSocket invocation failed: {str(e)}",
+                message=f"WebSocket invocation failed: {str(e)}",
+                request_details=self._safe_request_details(locals(), "WebSocket")
+            )
 
     async def _async_invoke(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Async implementation of WebSocket communication."""
+        uri = None
+        message_data = None
+        additional_headers = None
+        
         try:
             # Get authentication token
             logger.debug("Getting authentication token...")
@@ -74,25 +81,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.debug(f"Message data prepared: {json.dumps(message_data, indent=2)}")
 
             # Connect to WebSocket and send message
-            uri = endpoint.url
-            if endpoint.endpoint_path:
-                # Handle WebSocket URL construction - avoid duplicating path if already present
-                if endpoint.endpoint_path.startswith('/'):
-                    path_to_check = endpoint.endpoint_path
-                else:
-                    path_to_check = '/' + endpoint.endpoint_path
-                
-                # Check if the URL already contains the endpoint path
-                if not endpoint.url.endswith(path_to_check):
-                    if endpoint.url.endswith('/'):
-                        uri = endpoint.url.rstrip('/') + path_to_check
-                    else:
-                        uri = endpoint.url + path_to_check
-                else:
-                    # URL already contains the path, use as-is
-                    uri = endpoint.url
-                    logger.debug(f"Endpoint URL already contains the path '{path_to_check}', using URL as-is")
-
+            uri = self._build_websocket_uri(endpoint)
             logger.info(f"Connecting to WebSocket URI: {uri}")
 
             # Prepare headers for WebSocket connection
@@ -168,11 +157,26 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 logger.error(f"WebSocket connection rejected with status code: {status_err.status_code}")
                 logger.error(f"Response headers: {status_err.headers}")
                 logger.error(f"Response body: {status_err.body}")
-                raise HTTPException(
-                    status_code=500, 
-                    detail=f"WebSocket connection rejected: HTTP {status_err.status_code}. "
-                           f"Headers: {dict(status_err.headers)}. Body: {status_err.body}"
+                
+                error_output = f"WebSocket connection rejected: HTTP {status_err.status_code}"
+                if status_err.body:
+                    error_output += f". Response: {status_err.body}"
+                
+                return self._create_error_response(
+                    error_type="websocket_connection_error",
+                    output_message=error_output,
+                    message=f"WebSocket connection rejected: HTTP {status_err.status_code}",
+                    request_details={
+                        "protocol": "WebSocket",
+                        "uri": uri,
+                        "headers": additional_headers,
+                        "body": message_data
+                    },
+                    status_code=status_err.status_code,
+                    response_headers=dict(status_err.headers) if status_err.headers else {},
+                    response_body=status_err.body
                 )
+                
             except Exception as e:
                 # Enhanced error logging for WebSocket failures
                 error_type = type(e).__name__
@@ -189,11 +193,53 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 # Log the full traceback for debugging
                 logger.error(f"Full error traceback:", exc_info=True)
                 
-                raise HTTPException(status_code=500, detail=f"WebSocket communication failed: {str(e)}")
+                return self._create_error_response(
+                    error_type="websocket_communication_error",
+                    output_message=f"WebSocket communication failed: {str(e)}",
+                    message=f"WebSocket communication failed: {str(e)}",
+                    request_details={
+                        "protocol": "WebSocket",
+                        "uri": uri,
+                        "headers": additional_headers,
+                        "body": message_data
+                    }
+                )
                 
         except Exception as e:
             logger.error(f"Async invoke error: {str(e)}", exc_info=True)
-            raise
+            return self._create_error_response(
+                error_type="websocket_error",
+                output_message=f"WebSocket error: {str(e)}",
+                message=f"WebSocket error: {str(e)}",
+                request_details={
+                    "protocol": "WebSocket",
+                    "uri": uri or "unknown",
+                    "headers": additional_headers or {},
+                    "body": message_data
+                }
+            )
+
+    def _build_websocket_uri(self, endpoint: Endpoint) -> str:
+        """Build the complete WebSocket URI."""
+        uri = endpoint.url
+        if endpoint.endpoint_path:
+            # Handle WebSocket URL construction - avoid duplicating path if already present
+            if endpoint.endpoint_path.startswith('/'):
+                path_to_check = endpoint.endpoint_path
+            else:
+                path_to_check = '/' + endpoint.endpoint_path
+            
+            # Check if the URL already contains the endpoint path
+            if not endpoint.url.endswith(path_to_check):
+                if endpoint.url.endswith('/'):
+                    uri = endpoint.url.rstrip('/') + path_to_check
+                else:
+                    uri = endpoint.url + path_to_check
+            else:
+                # URL already contains the path, use as-is
+                uri = endpoint.url
+                logger.debug(f"Endpoint URL already contains the path '{path_to_check}', using URL as-is")
+        return uri
 
     def _prepare_additional_headers(self, endpoint: Endpoint) -> Dict[str, str]:
         """Prepare additional headers for WebSocket connection (excluding standard WebSocket headers)."""
@@ -243,164 +289,3 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         
         logger.debug(f"Final headers for WebSocket handshake: {json.dumps(headers, indent=2)}")
         return headers
-
-    def _get_valid_token(self, db: Session, endpoint: Endpoint) -> Optional[str]:
-        """Get a valid authentication token based on the endpoint's auth type."""
-        logger.debug(f"Getting valid token for auth type: {endpoint.auth_type}")
-        logger.debug(f"Endpoint: {endpoint.name}")
-        logger.debug(f"Endpoint auth_type: {endpoint.auth_type}")
-        logger.debug(f"Endpoint client_id: {endpoint.client_id}")
-        logger.debug(f"Endpoint token_url: {endpoint.token_url}")
-        logger.debug(f"Endpoint audience: {endpoint.audience}")
-        logger.debug(f"Endpoint scopes: {endpoint.scopes}")
-        logger.debug(f"Endpoint extra_payload: {endpoint.extra_payload}")
-        logger.debug(f"Cached token: {endpoint.last_token[:50] + '...' if endpoint.last_token else 'None'}")
-        logger.debug(f"Token expires at: {endpoint.last_token_expires_at}")
-        
-        # Check if we have a valid cached token
-        if endpoint.last_token and endpoint.last_token_expires_at:
-            logger.debug(f"Cached token expires at: {endpoint.last_token_expires_at}")
-            if endpoint.last_token_expires_at > datetime.utcnow():
-                logger.debug("Using cached token (still valid)")
-                return endpoint.last_token
-            else:
-                logger.debug("Cached token has expired")
-
-        # No valid cached token, get new one based on auth type
-        if endpoint.auth_type == EndpointAuthType.BEARER_TOKEN.value:
-            logger.debug("Using bearer token from endpoint.auth_token")
-            return endpoint.auth_token
-        elif endpoint.auth_type == EndpointAuthType.CLIENT_CREDENTIALS.value:
-            logger.debug("Getting new client credentials token")
-            return self._get_client_credentials_token(db, endpoint)
-        
-        logger.warning("No auth type configured or unsupported auth type")
-        return None
-
-    def _get_client_credentials_token(self, db: Session, endpoint: Endpoint) -> str:
-        """Get a new token using client credentials flow."""
-        import requests
-        
-        logger.debug("Starting client credentials token request")
-        
-        if not endpoint.token_url:
-            logger.error("Token URL is required for client credentials flow")
-            raise HTTPException(status_code=400, detail="Token URL is required for client credentials flow")
-
-        # Prepare token request
-        payload = {
-            "client_id": endpoint.client_id,
-            "client_secret": endpoint.client_secret,
-            "audience": endpoint.audience,
-            "grant_type": "client_credentials"
-        }
-
-        # Add scopes if configured
-        if endpoint.scopes:
-            payload["scope"] = " ".join(endpoint.scopes)
-            logger.debug(f"Added scopes: {payload['scope']}")
-
-        # Add extra payload if configured
-        if endpoint.extra_payload:
-            payload.update(endpoint.extra_payload)
-            logger.debug(f"Added extra payload: {endpoint.extra_payload}")
-
-        logger.debug(f"Token request URL: {endpoint.token_url}")
-        logger.debug(f"Token request payload: {json.dumps({k: v if k != 'client_secret' else '***' for k, v in payload.items()}, indent=2)}")
-
-        try:
-            # Make token request
-            logger.debug("Making token request...")
-            response = requests.post(endpoint.token_url, json=payload)
-            logger.debug(f"Token response status: {response.status_code}")
-            logger.debug(f"Token response headers: {dict(response.headers)}")
-            
-            # Log the response body for debugging, even if it's an error
-            try:
-                response_body = response.text
-                logger.debug(f"Token response body: {response_body}")
-                
-                if response.status_code == 403:
-                    logger.error(f"AUTH0 403 ERROR - Client may not be authorized for audience: {endpoint.audience}")
-                    logger.error(f"Auth0 error response: {response_body}")
-                    
-                    # Try to parse error details
-                    try:
-                        error_data = response.json()
-                        if "error_description" in error_data:
-                            logger.error(f"Auth0 error description: {error_data['error_description']}")
-                    except:
-                        pass
-                        
-            except Exception as log_error:
-                logger.warning(f"Could not log response body: {log_error}")
-            
-            response.raise_for_status()
-            token_data = response.json()
-            logger.debug(f"Token response data keys: {list(token_data.keys())}")
-
-            # Update endpoint with new token info
-            endpoint.last_token = token_data["access_token"]
-            endpoint.last_token_expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
-            
-            logger.debug(f"Updating database with new token...")
-            logger.debug(f"New token (first 50 chars): {endpoint.last_token[:50]}...")
-            logger.debug(f"Token expires at: {endpoint.last_token_expires_at}")
-            
-            # Commit the transaction
-            db.commit()
-            logger.debug("Database commit successful")
-
-            logger.info(f"Successfully obtained new token, expires at: {endpoint.last_token_expires_at}")
-            return endpoint.last_token
-            
-        except requests.exceptions.HTTPError as http_err:
-            logger.error(f"HTTP error during token request: {http_err}")
-            logger.error(f"Response status: {response.status_code}")
-            logger.error(f"Response text: {response.text}")
-            raise HTTPException(status_code=500, detail=f"Failed to get client credentials token: {str(http_err)}")
-        except Exception as e:
-            logger.error(f"Failed to get client credentials token: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to get client credentials token: {str(e)}")
-
-
-class TemplateRenderer:
-    """Handles template rendering using Jinja2."""
-
-    def render(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
-        if isinstance(template_data, str):
-            template = Template(template_data)
-            rendered = template.render(**input_data)
-            try:
-                return json.loads(rendered)
-            except json.JSONDecodeError:
-                return rendered
-        elif isinstance(template_data, dict):
-            result = template_data.copy()
-            for key, value in result.items():
-                if isinstance(value, str):
-                    template = Template(value)
-                    result[key] = template.render(**input_data)
-            return result
-        return template_data
-
-
-class ResponseMapper:
-    """Handles response mapping using JSONPath."""
-
-    def map_response(
-        self, response_data: Dict[str, Any], mappings: Dict[str, str]
-    ) -> Dict[str, Any]:
-        if not mappings:
-            return response_data
-
-        result = {}
-        for output_key, jsonpath in mappings.items():
-            jsonpath_expr = jsonpath_ng.parse(jsonpath)
-            matches = jsonpath_expr.find(response_data)
-            if matches:
-                result[output_key] = matches[0].value
-            else:
-                # If no match found, set to None
-                result[output_key] = None
-        return result 
