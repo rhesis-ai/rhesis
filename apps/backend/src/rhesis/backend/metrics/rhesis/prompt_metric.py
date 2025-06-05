@@ -34,11 +34,18 @@ class RhesisPromptMetric(RhesisMetricBase):
         threshold: Optional[float] = None,
         reference_score: Optional[str] = None,
         threshold_operator: Union[ThresholdOperator, str] = None,
-        provider: str = "openai",
-        model: str = "gpt-4o",
+        provider: str = "google",
+        model: Optional[str] = None,
+        api_key: Optional[str] = None,
         metric_type="rag",
         **kwargs
     ):
+        # Set API key from parameter or environment variable
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        
+        # Set model from parameter or environment variable, with fallback to default
+        self.model = model or os.environ.get("GEMINI_MODEL_NAME") or "gemini-2.0-flash"
+        
         # Convert string to enum if needed
         if isinstance(score_type, str):
             score_type = ScoreType(score_type)
@@ -97,8 +104,11 @@ class RhesisPromptMetric(RhesisMetricBase):
         self.reasoning = reasoning
         self.evaluation_examples = evaluation_examples
         self.provider = provider
-        self.model = model
-        self.additional_params = kwargs
+        
+        # Prepare call params including API key
+        self.additional_params = kwargs.copy()
+        if self.api_key:
+            self.additional_params['api_key'] = self.api_key
         
         # Set up Jinja environment
         templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
@@ -295,11 +305,25 @@ class RhesisPromptMetric(RhesisMetricBase):
             return MetricResult(score=evaluation_score, details=details)
             
         except Exception as e:
-            # Log the error for debugging
+            # Log the error for debugging with full traceback
+            import traceback
+            from rhesis.backend.logging.rhesis_logger import logger
+            
             error_msg = f"Error evaluating with {self.name}: {str(e)}"
+            logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
+            logger.error(f"Provider: {self.provider}, Model: {self.model}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            logger.error(f"Exception details: {str(e)}")
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
+            
             # Return a fallback score with error information
             details = {
                 "error": error_msg,
+                "reason": error_msg,
+                "exception_type": type(e).__name__,
+                "exception_details": str(e),
+                "provider": self.provider,
+                "model": self.model,
                 "prompt": prompt,
                 "score_type": self.score_type.value,
                 "threshold_operator": self.threshold_operator.value if self.threshold_operator else None,
