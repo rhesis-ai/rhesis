@@ -646,7 +646,8 @@
               "Toxic"
             ],
             "license_type": "Copyright",
-            "total_prompts": 5
+            "total_prompts": 5,
+            "total_tests": 5
           }
         }
       ]

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, Set
 
 from pydantic import UUID4, BaseModel, create_model
 
@@ -10,7 +10,10 @@ from rhesis.backend.app.utils.model_utils import get_model_relationships
 
 
 def create_detailed_schema(
-    base_schema: Type[Base], model: Type, schema_registry: Dict[str, Type[BaseModel]] = None
+    base_schema: Type[Base], 
+    model: Type, 
+    schema_registry: Dict[str, Type[BaseModel]] = None,
+    include_nested_relationships: Optional[Dict[str, List[str]]] = None
 ) -> Type[Base]:
     """
     Dynamically create a detailed schema with expanded relationships
@@ -19,9 +22,14 @@ def create_detailed_schema(
         base_schema: The base Pydantic schema
         model: The SQLAlchemy model
         schema_registry: Registry of already created schemas to avoid circular refs
+        include_nested_relationships: Dict mapping relationship names to list of nested relationships to include
+                                     e.g., {"test_configuration": ["endpoint"]} for TestRun
     """
     if schema_registry is None:
         schema_registry = {}
+    
+    if include_nested_relationships is None:
+        include_nested_relationships = {}
 
     # Get model relationships using the utility function
     relationships = get_model_relationships(model)
@@ -53,6 +61,8 @@ def create_detailed_schema(
         ("attributes", Optional[Dict[str, Any]], None),
         ("tags", Optional[List[TagRead]], None),
         ("icon", Optional[str], None),
+        ("endpoint_id", Optional[UUID4], None),
+
     ]
 
     # Apply common fields to top-level schema if they exist in the model
@@ -72,8 +82,9 @@ def create_detailed_schema(
             continue
             
         # Check if we already have a schema for this model
-        if target_model.__name__ in schema_registry:
-            related_schema = schema_registry[target_model.__name__]
+        schema_key = f"{target_model.__name__}Reference"
+        if schema_key in schema_registry:
+            related_schema = schema_registry[schema_key]
         else:
             # Create schema fields for related model
             schema_fields = {}
@@ -83,13 +94,42 @@ def create_detailed_schema(
                 if hasattr(target_model, field_name):
                     schema_fields[field_name] = (field_type, default_value)
 
+            # Handle nested relationships if specified
+            if rel_name in include_nested_relationships:
+                nested_relationships = get_model_relationships(target_model)
+                for nested_rel_name in include_nested_relationships[rel_name]:
+                    if nested_rel_name in nested_relationships:
+                        nested_rel = nested_relationships[nested_rel_name]
+                        nested_target_model = nested_rel.mapper.class_
+                        
+                        # Special handling for known nested relationship types
+                        if nested_rel_name == "endpoint":
+                            schema_fields[nested_rel_name] = (Optional[Endpoint], None)
+                        else:
+                            # Create a simple reference schema for the nested relationship
+                            nested_schema_fields = {}
+                            for field_name, field_type, default_value in common_fields:
+                                if hasattr(nested_target_model, field_name):
+                                    nested_schema_fields[field_name] = (field_type, default_value)
+                            
+                            nested_schema_key = f"{nested_target_model.__name__}Reference"
+                            if nested_schema_key not in schema_registry:
+                                nested_schema = create_model(
+                                    nested_schema_key, **nested_schema_fields, __base__=Base
+                                )
+                                schema_registry[nested_schema_key] = nested_schema
+                            else:
+                                nested_schema = schema_registry[nested_schema_key]
+                            
+                            schema_fields[nested_rel_name] = (Optional[nested_schema], None)
+
             # Create the schema
             related_schema = create_model(
-                f"{target_model.__name__}Reference", **schema_fields, __base__=Base
+                schema_key, **schema_fields, __base__=Base
             )
 
             # Store in registry to avoid circular references
-            schema_registry[target_model.__name__] = related_schema
+            schema_registry[schema_key] = related_schema
 
         # For scalar relationships (many-to-one, one-to-one), use Optional
         fields[rel_name] = (Optional[related_schema], None)
