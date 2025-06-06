@@ -207,7 +207,8 @@ def apply_organization_filter(db: Session, query: Query, model: Type[T]) -> Quer
     """Apply organization filter to query if model supports it"""
     if has_organization_id(model):
         current_org_id = get_current_organization_id(db)
-        if current_org_id:
+        # Only apply filter if we have a valid organization ID
+        if current_org_id is not None:
             query = query.filter(model.organization_id == current_org_id)
     return query
 
@@ -221,14 +222,14 @@ def apply_visibility_filter(db: Session, query: Query, model: Type[T]) -> Query:
         # Start with public visibility - always visible to everyone
         visibility_conditions = [model.visibility == "public"]
 
-        # Add organization-level visibility if user has an organization
-        if current_org_id:
+        # Add organization-level visibility if user has a valid organization
+        if current_org_id is not None:
             visibility_conditions.append(
                 (model.visibility == "organization") & (model.organization_id == current_org_id)
             )
 
         # Add user-level visibility if user is authenticated
-        if current_user_id:
+        if current_user_id is not None:
             visibility_conditions.append(
                 (model.visibility == "user") & (model.user_id == current_user_id)
             )

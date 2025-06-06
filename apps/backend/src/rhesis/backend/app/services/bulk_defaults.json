@@ -9,6 +9,7 @@
         "status": "New",
         "license_type": "Copyright",
         "visibility": "organization",
+        "priority": 1,
         "attributes": {
             "metadata": {
                 "sample": "",
@@ -32,5 +33,11 @@
     "category": {
         "status": "Active",
         "entity_type": "Test"
+    },
+    "dimension": {
+        "status": "Active"
+    },
+    "demographic": {
+        "status": "Active"
     }
 } 

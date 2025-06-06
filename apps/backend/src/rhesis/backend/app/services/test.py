@@ -1,5 +1,4 @@
 import json
-import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -7,6 +6,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.constants import (
+    DEFAULT_BATCH_SIZE,
+    EntityType,
+    ERROR_BULK_CREATE_FAILED,
+)
 from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.stats import get_entity_stats
@@ -15,8 +19,13 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_status,
     get_or_create_type_lookup,
 )
-
-logger = logging.getLogger(__name__)
+from rhesis.backend.app.utils.uuid_utils import (
+    ensure_owner_id,
+    sanitize_uuid_field,
+    validate_uuid_list,
+    validate_uuid_parameters,
+)
+from rhesis.backend.logging import logger
 
 
 def get_test_stats(
@@ -48,21 +57,6 @@ def load_defaults():
     defaults_path = Path(__file__).parent / "bulk_defaults.json"
     with open(defaults_path) as f:
         return json.load(f)
-
-
-def _sanitize_uuid_field(value: Any) -> str | None:
-    """
-    Sanitize UUID field values to handle empty strings.
-    
-    Args:
-        value: The value to sanitize (could be None, empty string, or valid UUID string)
-        
-    Returns:
-        None if value is None or empty string, otherwise returns the value as string
-    """
-    if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
-        return None
-    return str(value)
 
 
 def _validate_test_set(
@@ -169,7 +163,7 @@ def bulk_create_test_set_associations(
     test_set_id: str,
     organization_id: str,
     user_id: str,
-    batch_size: int = 100,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> Dict[str, Any]:
     """
     Bulk create associations between tests and a test set in batches.
@@ -234,16 +228,19 @@ def create_entity_with_status(
     model: Any,
     name: str,
     defaults: Dict,
-    entity_type: str,
+    entity_type: EntityType,
     organization_id: str,
     user_id: str,
     **extra_fields,
 ) -> Any:
     """Helper to create an entity with a status"""
+    # Get the string value from EntityType enum and convert to lowercase
+    entity_type_str = entity_type.value.lower()
+    
     status = get_or_create_status(
         db=db,
-        name=defaults[entity_type.lower()]["status"],
-        entity_type="General",
+        name=defaults[entity_type_str]["status"],
+        entity_type=EntityType.GENERAL,
     )
 
     return get_or_create_entity(
@@ -282,7 +279,7 @@ def create_prompt(
             model=models.Dimension,
             name=prompt_data.pop("dimension"),
             defaults=defaults,
-            entity_type="Dimension",
+            entity_type=EntityType.DIMENSION,
             organization_id=organization_id,
             user_id=user_id,
         )
@@ -292,7 +289,7 @@ def create_prompt(
             model=models.Demographic,
             name=prompt_data.pop("demographic"),
             defaults=defaults,
-            entity_type="Demographic",
+            entity_type=EntityType.DEMOGRAPHIC,
             organization_id=organization_id,
             user_id=user_id,
             dimension_id=dimension.id,
@@ -308,7 +305,7 @@ def create_prompt(
             "status_id": get_or_create_status(
                 db=db,
                 name=defaults["prompt"]["status"],
-                entity_type="General",
+                entity_type=EntityType.GENERAL,
             ).id,
             "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
             "demographic_id": demographic.id if demographic else None,
@@ -325,6 +322,13 @@ def bulk_create_tests(
     test_set_id: str | None = None,
 ) -> List[models.Test]:
     """Bulk create tests from a list of test data dictionaries or TestData objects."""
+    # Validate input UUIDs
+    validation_error = validate_uuid_parameters(organization_id, user_id, test_set_id)
+    if validation_error:
+        error_msg = validation_error
+        logger.error(error_msg)
+        raise Exception(ERROR_BULK_CREATE_FAILED.format(entity="tests", error=error_msg))
+
     created_tests = []
     defaults = load_defaults()
 
@@ -340,7 +344,7 @@ def bulk_create_tests(
             test_status = get_or_create_status(
                 db=db,
                 name=defaults["test"]["status"],
-                entity_type="Test",
+                entity_type=EntityType.TEST,
             )
 
             for test_data in tests_data:
@@ -362,7 +366,7 @@ def bulk_create_tests(
                     model=models.Topic,
                     name=test_data_dict.pop("topic"),
                     defaults=defaults,
-                    entity_type="Topic",
+                    entity_type=EntityType.TOPIC,
                     organization_id=organization_id,
                     user_id=user_id,
                 )
@@ -372,7 +376,7 @@ def bulk_create_tests(
                     model=models.Behavior,
                     name=test_data_dict.pop("behavior"),
                     defaults=defaults,
-                    entity_type="Behavior",
+                    entity_type=EntityType.BEHAVIOR,
                     organization_id=organization_id,
                     user_id=user_id,
                 )
@@ -382,12 +386,15 @@ def bulk_create_tests(
                     model=models.Category,
                     name=test_data_dict.pop("category"),
                     defaults=defaults,
-                    entity_type="Category",
+                    entity_type=EntityType.CATEGORY,
                     organization_id=organization_id,
                     user_id=user_id,
                 )
 
-                # Create test
+                # Create test with improved owner_id handling
+                assignee_id = sanitize_uuid_field(test_data_dict.pop("assignee_id", None))
+                owner_id = ensure_owner_id(test_data_dict.pop("owner_id", None), user_id)
+                
                 test_params = {
                     "prompt_id": prompt.id,
                     "test_type_id": test_type.id,
@@ -399,7 +406,7 @@ def bulk_create_tests(
                     else get_or_create_status(
                         db=db,
                         name=test_data_dict.pop("status"),
-                        entity_type="Test",
+                        entity_type=EntityType.TEST,
                     ).id,
                     "user_id": user_id,
                     "organization_id": organization_id,
@@ -407,8 +414,8 @@ def bulk_create_tests(
                     "test_configuration": test_data_dict.pop(
                         "test_configuration", defaults["test"]["test_configuration"]
                     ),
-                    "assignee_id": _sanitize_uuid_field(test_data_dict.pop("assignee_id", None)),
-                    "owner_id": _sanitize_uuid_field(test_data_dict.pop("owner_id", None)),
+                    "assignee_id": assignee_id,
+                    "owner_id": owner_id,
                 }
 
                 # Log test parameters for debugging UUID issues

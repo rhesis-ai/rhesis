@@ -17,6 +17,7 @@ from rhesis.backend.app.database import (
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.model_utils import QueryBuilder
 from rhesis.backend.logging import logger
+from rhesis.backend.app.constants import EntityType
 
 # Define a generic type variable
 T = TypeVar("T")
@@ -275,11 +276,14 @@ def get_or_create_entity(db: Session, model: Type[T], entity_data: Dict[str, Any
         return create_item(db, model, entity_data)
 
 
-def get_or_create_status(db: Session, name: str, entity_type: str) -> Status:
+def get_or_create_status(db: Session, name: str, entity_type) -> Status:
     """Helper function to get or create a status"""
+    # Handle EntityType enum or string
+    entity_type_value = entity_type.value if hasattr(entity_type, 'value') else entity_type
+    
     # First get or create the entity type lookup
     entity_type_lookup = get_or_create_type_lookup(
-        db=db, type_name="EntityType", type_value=entity_type
+        db=db, type_name="EntityType", type_value=entity_type_value
     )
 
     # Try to find existing status using QueryBuilder
@@ -361,7 +365,7 @@ def get_or_create_topic(
     # Get status if provided
     status_id = None
     if status:
-        status_obj = get_or_create_status(db=db, name=status, entity_type="General")
+        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL)
         status_id = status_obj.id
 
     # Create new topic if not found
@@ -415,7 +419,7 @@ def get_or_create_category(
     # Get status if provided
     status_id = None
     if status:
-        status_obj = get_or_create_status(db=db, name=status, entity_type="General")
+        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL)
         status_id = status_obj.id
 
     # Create new category if not found
@@ -469,7 +473,7 @@ def get_or_create_behavior(
     # Get status if provided
     status_id = None
     if status:
-        status_obj = get_or_create_status(db=db, name=status, entity_type="General")
+        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL)
         status_id = status_obj.id
 
     # Create new behavior if not found

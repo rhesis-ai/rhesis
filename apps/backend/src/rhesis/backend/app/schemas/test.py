@@ -151,9 +151,17 @@ class TestBulkCreate(BaseModel):
 
     @validator('assignee_id', 'owner_id')
     def validate_uuid(cls, v):
-        if v == "":
+        if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
             return None
-        return v
+        # Additional validation for UUID format
+        try:
+            from uuid import UUID
+            if isinstance(v, str):
+                UUID(v)  # This will raise ValueError if invalid
+            return v
+        except (ValueError, TypeError):
+            # If it's not a valid UUID, return None instead of raising an error
+            return None
 
 
 class TestBulkCreateRequest(BaseModel):
