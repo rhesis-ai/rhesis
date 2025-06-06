@@ -11,7 +11,11 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for TestRun
-TestRunDetailSchema = create_detailed_schema(schemas.TestRun, models.TestRun)
+TestRunDetailSchema = create_detailed_schema(
+    schemas.TestRun, 
+    models.TestRun,
+    include_nested_relationships={"test_configuration": ["endpoint"]}
+)
 
 router = APIRouter(
     prefix="/test_runs",
