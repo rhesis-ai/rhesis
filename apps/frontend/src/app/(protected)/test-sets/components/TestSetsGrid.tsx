@@ -206,7 +206,7 @@ export default function TestSetsGrid({
       name: testSet.name,
       behaviors: testSet.attributes?.metadata?.behaviors || [],
       categories: testSet.attributes?.metadata?.categories || [],
-      totalPrompts: testSet.attributes?.metadata?.total_prompts || 0,
+      totalTests: testSet.attributes?.metadata?.total_tests || 0,
       status: statusInfo.label,
       assignee: testSet.assignee
     };
@@ -231,7 +231,7 @@ export default function TestSetsGrid({
       flex: 1.5,
       renderCell: (params) => <ChipContainer items={params.value || []} />
     },
-    { field: 'totalPrompts', headerName: 'Prompts', flex: 0.5 },
+    { field: 'totalTests', headerName: 'Tests', flex: 0.5 },
     { 
       field: 'status', 
       headerName: 'Status', 

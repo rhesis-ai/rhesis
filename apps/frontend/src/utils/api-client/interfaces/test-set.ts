@@ -66,7 +66,7 @@ export interface TestSet {
   license_type?: LicenseType;
   attributes?: {
     metadata?: {
-      total_prompts?: number;
+      total_tests?: number;
       categories?: string[];
       behaviors?: string[];
       use_cases?: string[];
