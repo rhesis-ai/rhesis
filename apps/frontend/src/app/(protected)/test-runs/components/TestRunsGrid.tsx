@@ -123,6 +123,21 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     };
   }, [sessionToken, paginationModel, fetchTestRuns]);
 
+  // Helper function to format execution time in a user-friendly way
+  const formatExecutionTime = useCallback((timeMs: number): string => {
+    const seconds = timeMs / 1000;
+    
+    if (seconds < 60) {
+      return `${Math.round(seconds)}s`;
+    } else if (seconds < 3600) { // Less than 1 hour
+      const minutes = seconds / 60;
+      return `${Math.round(minutes * 10) / 10}m`; // Round to 1 decimal place
+    } else {
+      const hours = seconds / 3600;
+      return `${Math.round(hours * 10) / 10}h`; // Round to 1 decimal place
+    }
+  }, []);
+
   const columns: GridColDef[] = React.useMemo(() => [
     { 
       field: 'name',
@@ -152,7 +167,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     },
     { 
       field: 'execution_time',
-      headerName: 'Execution Time (sec)', 
+      headerName: 'Execution Time', 
       flex: 1,
       align: 'right',
       headerAlign: 'right',
@@ -162,7 +177,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         
         const timeMs = row.attributes?.total_execution_time_ms;
         if (!timeMs) return '';
-        return Math.round(timeMs / 1000); // Convert ms to seconds and round
+        return formatExecutionTime(timeMs);
       }
     },
     { 
@@ -207,7 +222,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         );
       }
     }
-  ], [projectNames]);
+  ], [projectNames, formatExecutionTime]);
 
   // Handle row click to navigate to test run details
   const handleRowClick = useCallback((params: any) => {
