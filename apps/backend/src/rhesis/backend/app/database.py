@@ -36,9 +36,14 @@ def get_current_user_id(session: Session) -> Optional[UUID]:
     try:
         result = session.execute(text('SHOW "app.current_user";')).scalar()
         # Return None if result is None, empty string, or can't be converted to UUID
-        if not result or result == "":
+        if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
             return None
-        return UUID(result)
+        # Validate that result is a valid UUID format before converting
+        try:
+            return UUID(result)
+        except (ValueError, TypeError):
+            logger.debug(f"Invalid UUID format for user ID: {result}")
+            return None
     except Exception as e:
         logger.debug(f"Error getting current user ID: {e}")
         return None
@@ -49,9 +54,14 @@ def get_current_organization_id(session: Session) -> Optional[UUID]:
     try:
         result = session.execute(text('SHOW "app.current_organization";')).scalar()
         # Return None if result is None, empty string, or can't be converted to UUID
-        if not result or result == "":
+        if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
             return None
-        return UUID(result)
+        # Validate that result is a valid UUID format before converting
+        try:
+            return UUID(result)
+        except (ValueError, TypeError):
+            logger.debug(f"Invalid UUID format for organization ID: {result}")
+            return None
     except Exception as e:
         logger.debug(f"Error getting current organization ID: {e}")
         return None
@@ -62,38 +72,48 @@ def _execute_set_tenant(
 ):
     """Helper function to execute SET commands for tenant context"""
     try:
-        # Only set if organization_id is not None and not empty
+        # Only set if organization_id is not None, not empty, and is a valid UUID format
         if organization_id and organization_id.strip() and organization_id != "":
-            logger.debug(f"Setting app.current_organization to: {organization_id}")
-            if hasattr(connection, "execute"):  # SQLAlchemy session
-                connection.execute(
-                    text("SELECT set_config('app.current_organization', :org_id, false)"),
-                    {"org_id": str(organization_id)},
-                )
-            else:  # Raw database connection
-                cursor = connection.cursor()
-                cursor.execute(
-                    "SELECT set_config('app.current_organization', %s, false)",
-                    (str(organization_id),),
-                )
-                cursor.close()
+            # Validate UUID format before setting
+            try:
+                UUID(organization_id)  # Validate it's a proper UUID
+                logger.debug(f"Setting app.current_organization to: {organization_id}")
+                if hasattr(connection, "execute"):  # SQLAlchemy session
+                    connection.execute(
+                        text("SELECT set_config('app.current_organization', :org_id, false)"),
+                        {"org_id": str(organization_id)},
+                    )
+                else:  # Raw database connection
+                    cursor = connection.cursor()
+                    cursor.execute(
+                        "SELECT set_config('app.current_organization', %s, false)",
+                        (str(organization_id),),
+                    )
+                    cursor.close()
+            except (ValueError, TypeError) as uuid_error:
+                logger.debug(f"Invalid UUID format for organization_id: {organization_id}, error: {uuid_error}")
         else:
             logger.debug("Not setting app.current_organization (empty or None)")
 
-        # Only set if user_id is not None and not empty
+        # Only set if user_id is not None, not empty, and is a valid UUID format
         if user_id and user_id.strip() and user_id != "":
-            logger.debug(f"Setting app.current_user to: {user_id}")
-            if hasattr(connection, "execute"):  # SQLAlchemy session
-                connection.execute(
-                    text("SELECT set_config('app.current_user', :user_id, false)"),
-                    {"user_id": str(user_id)},
-                )
-            else:  # Raw database connection
-                cursor = connection.cursor()
-                cursor.execute("SELECT set_config('app.current_user', %s, false)", (str(user_id),))
-                cursor.close()
+            # Validate UUID format before setting
+            try:
+                UUID(user_id)  # Validate it's a proper UUID
+                logger.debug(f"Setting app.current_user to: {user_id}")
+                if hasattr(connection, "execute"):  # SQLAlchemy session
+                    connection.execute(
+                        text("SELECT set_config('app.current_user', :user_id, false)"),
+                        {"user_id": str(user_id)},
+                    )
+                else:  # Raw database connection
+                    cursor = connection.cursor()
+                    cursor.execute("SELECT set_config('app.current_user', %s, false)", (str(user_id),))
+                    cursor.close()
+            except (ValueError, TypeError) as uuid_error:
+                logger.debug(f"Invalid UUID format for user_id: {user_id}, error: {uuid_error}")
         else:
-            logger.debug("Not setting app.current_user (already set)")
+            logger.debug("Not setting app.current_user (empty or None)")
     except Exception as e:
         logger.error(f"Error setting tenant context: {e}")
         # Don't raise the exception - allow the operation to continue

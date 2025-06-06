@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.tag import Tag
@@ -55,7 +55,24 @@ class TestSetBulkCreate(BaseModel):
     name: str
     description: Optional[str] = None
     short_description: Optional[str] = None
+    owner_id: Optional[UUID4] = None
+    assignee_id: Optional[UUID4] = None
+    priority: Optional[int] = None
     tests: List[TestData]
+
+    @validator('owner_id', 'assignee_id')
+    def validate_uuid_fields(cls, v):
+        if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
+            return None
+        # Additional validation for UUID format
+        try:
+            from uuid import UUID
+            if isinstance(v, str):
+                UUID(v)  # This will raise ValueError if invalid
+            return v
+        except (ValueError, TypeError):
+            # If it's not a valid UUID, return None instead of raising an error
+            return None
 
 
 class TestSetBulkResponse(BaseModel):
