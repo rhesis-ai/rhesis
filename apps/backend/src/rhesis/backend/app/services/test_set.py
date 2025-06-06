@@ -7,12 +7,24 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.constants import (
+    EntityType,
+    ERROR_BULK_CREATE_FAILED,
+    ERROR_INVALID_UUID,
+    ERROR_TEST_SET_NOT_FOUND,
+)
 from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.stats import get_entity_stats, get_related_stats
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
+from rhesis.backend.app.utils.uuid_utils import (
+    ensure_owner_id,
+    validate_uuid_list,
+    validate_uuid_parameters,
+)
+from rhesis.backend.logging import logger
 
 
 def get_test_set(db: Session, test_set_id: uuid.UUID):
@@ -102,6 +114,11 @@ def bulk_create_test_set(
     """Create a test set with its associated tests in a single operation."""
     defaults = load_defaults()
 
+    # Validate input UUIDs
+    validation_error = validate_uuid_parameters(organization_id, user_id)
+    if validation_error:
+        raise Exception(ERROR_BULK_CREATE_FAILED.format(entity="test set", error=validation_error))
+
     try:
         with maintain_tenant_context(db):
             # Convert dictionary to schema if needed
@@ -112,7 +129,7 @@ def bulk_create_test_set(
             test_set_status = get_or_create_status(
                 db=db,
                 name=defaults["test_set"]["status"],
-                entity_type="General",
+                entity_type=EntityType.GENERAL,
             )
 
             license_type = get_or_create_type_lookup(
@@ -130,6 +147,9 @@ def bulk_create_test_set(
                 license_type_id=license_type.id,
                 user_id=user_id,
                 organization_id=organization_id,
+                owner_id=ensure_owner_id(getattr(test_set_data, 'owner_id', None), user_id),
+                assignee_id=getattr(test_set_data, 'assignee_id', None),  # Keep as None if not provided
+                priority=getattr(test_set_data, 'priority', None) or defaults["test_set"]["priority"],
                 visibility=defaults["test_set"]["visibility"],
                 attributes={},  # Will be updated after tests are created
             )
@@ -213,9 +233,31 @@ def create_test_set_associations(
     db: Session, test_set_id: str, test_ids: List[str], organization_id: str, user_id: str
 ) -> Dict[str, Any]:
     """Associate multiple tests with a test set."""
-    print("[DEBUG-SERVICE] Starting create_test_set_associations")
-    print(f"[DEBUG-SERVICE] Input test_set_id: {test_set_id}")
-    print(f"[DEBUG-SERVICE] Input test_ids: {test_ids}")
+    logger.info("Starting create_test_set_associations")
+    logger.info(f"Input test_set_id: {test_set_id}")
+    logger.info(f"Input test_ids: {test_ids}")
+
+    # Validate input UUIDs
+    validation_error = validate_uuid_parameters(test_set_id, organization_id, user_id)
+    if validation_error:
+        error_response = {
+            "success": False,
+            "total_tests": len(test_ids),
+            "message": ERROR_INVALID_UUID.format(error=validation_error),
+        }
+        logger.info(f"UUID validation failed, returning: {error_response}")
+        return error_response
+
+    # Validate test IDs list
+    test_ids_validation_error = validate_uuid_list(test_ids)
+    if test_ids_validation_error:
+        error_response = {
+            "success": False,
+            "total_tests": len(test_ids),
+            "message": ERROR_INVALID_UUID.format(error=test_ids_validation_error),
+        }
+        logger.info(f"Test IDs validation failed, returning: {error_response}")
+        return error_response
 
     try:
         with maintain_tenant_context(db):
@@ -225,12 +267,12 @@ def create_test_set_associations(
                 error_response = {
                     "success": False,
                     "total_tests": 0,
-                    "message": f"Test set with ID {test_set_id} not found",
+                    "message": ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id),
                 }
-                print(f"[DEBUG-SERVICE] Test set not found, returning: {error_response}")
+                logger.info(f"Test set not found, returning: {error_response}")
                 return error_response
 
-            print("[DEBUG-SERVICE] Test set found, calling bulk_create_test_set_associations")
+            logger.info("Test set found, calling bulk_create_test_set_associations")
             # Create associations and get result
             bulk_result = bulk_create_test_set_associations(
                 db=db,
@@ -239,11 +281,11 @@ def create_test_set_associations(
                 organization_id=organization_id,
                 user_id=user_id,
             )
-            print(f"[DEBUG-SERVICE] Result from bulk_create_test_set_associations: {bulk_result}")
+            logger.info(f"Result from bulk_create_test_set_associations: {bulk_result}")
 
             # If any associations were created, update test set attributes
             if bulk_result["new_associations"] > 0:
-                print("[DEBUG-SERVICE] New associations created, updating test set attributes")
+                logger.info("New associations created, updating test set attributes")
                 db.refresh(test_set)
                 test_set.attributes = generate_test_set_attributes(
                     db=db,
@@ -253,7 +295,7 @@ def create_test_set_associations(
                 )
                 db.commit()
 
-            print(f"[DEBUG-SERVICE] Returning final result: {bulk_result}")
+            logger.info(f"Returning final result: {bulk_result}")
             return bulk_result
 
     except Exception as e:
@@ -263,7 +305,7 @@ def create_test_set_associations(
             "total_tests": len(test_ids),
             "message": f"An error occurred while creating test set associations: {str(e)}",
         }
-        print(f"[DEBUG-SERVICE] Exception occurred, returning: {error_response}")
+        logger.info(f"Exception occurred, returning: {error_response}")
         return error_response
 
 
@@ -271,6 +313,26 @@ def remove_test_set_associations(
     db: Session, test_set_id: str, test_ids: List[str], organization_id: str, user_id: str
 ) -> Dict[str, Any]:
     """Remove associations between tests and a test set."""
+    # Validate input UUIDs
+    validation_error = validate_uuid_parameters(test_set_id, organization_id, user_id)
+    if validation_error:
+        return {
+            "success": False,
+            "total_tests": len(test_ids),
+            "removed_associations": 0,
+            "message": ERROR_INVALID_UUID.format(error=validation_error),
+        }
+
+    # Validate test IDs list
+    test_ids_validation_error = validate_uuid_list(test_ids)
+    if test_ids_validation_error:
+        return {
+            "success": False,
+            "total_tests": len(test_ids),
+            "removed_associations": 0,
+            "message": ERROR_INVALID_UUID.format(error=test_ids_validation_error),
+        }
+
     try:
         with maintain_tenant_context(db):
             # Get test set and verify it exists
@@ -280,7 +342,7 @@ def remove_test_set_associations(
                     "success": False,
                     "total_tests": 0,
                     "removed_associations": 0,
-                    "message": f"Test set with ID {test_set_id} not found",
+                    "message": ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id),
                 }
 
             # Remove associations
