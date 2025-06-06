@@ -147,7 +147,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       headerAlign: 'right',
       valueGetter: (_, row) => {
         const metadata = row.test_configuration?.test_set?.attributes?.metadata;
-        return metadata?.total_prompts || 0;
+        return metadata?.total_tests || 0;
       }
     },
     { 
