@@ -94,9 +94,14 @@ def create_detailed_schema(
             # Create schema fields for related model
             schema_fields = {}
 
+            # Get relationships for the target model to avoid treating relationships as regular fields
+            target_relationships = get_model_relationships(target_model)
+            target_relationship_names = set(target_relationships.keys())
+
             # Only include fields that exist in the target model AND are in common_fields
+            # BUT skip any fields that are also relationships in the target model
             for field_name, field_type, default_value in common_fields:
-                if hasattr(target_model, field_name):
+                if hasattr(target_model, field_name) and field_name not in target_relationship_names:
                     schema_fields[field_name] = (field_type, default_value)
 
             # Handle nested relationships if specified
@@ -148,8 +153,12 @@ def _handle_nested_relationships_simple(
             
             # Create a reference schema for the nested relationship
             nested_schema_fields = {}
+            # Get relationships for the nested target model to avoid treating relationships as regular fields
+            nested_target_relationships = get_model_relationships(nested_target_model)
+            nested_target_relationship_names = set(nested_target_relationships.keys())
+            
             for field_name, field_type, default_value in common_fields:
-                if hasattr(nested_target_model, field_name):
+                if hasattr(nested_target_model, field_name) and field_name not in nested_target_relationship_names:
                     nested_schema_fields[field_name] = (field_type, default_value)
             
             nested_schema_key = f"{nested_target_model.__name__}Reference"
@@ -181,8 +190,12 @@ def _handle_nested_relationships_deep(
             
             # Create schema fields for the nested relationship
             nested_schema_fields = {}
+            # Get relationships for the nested target model to avoid treating relationships as regular fields
+            nested_target_relationships = get_model_relationships(nested_target_model)
+            nested_target_relationship_names = set(nested_target_relationships.keys())
+            
             for field_name, field_type, default_value in common_fields:
-                if hasattr(nested_target_model, field_name):
+                if hasattr(nested_target_model, field_name) and field_name not in nested_target_relationship_names:
                     nested_schema_fields[field_name] = (field_type, default_value)
             
             # Recursively handle deeper relationships
