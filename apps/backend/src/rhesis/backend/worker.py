@@ -106,8 +106,9 @@ def print_registered_tasks():
     for task_name in sorted(app.tasks.keys()):
         print(f"  - {task_name}")
 
-# Call this after import
-print_registered_tasks()
+# Call this after import if log level is debug
+if app.conf.worker_log_format == 'DEBUG':
+    print_registered_tasks()
 
 # Test task registration by checking if our main task is available
 if __name__ == "__main__":
