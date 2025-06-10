@@ -161,7 +161,9 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
   });
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
-  const [testInput, setTestInput] = useState<string>('');
+  const [testInput, setTestInput] = useState<string>(`{
+  "input": "[place your input here]"
+}`);
   
   // Add projects state and loading state
   const [projects, setProjects] = useState<Record<string, Project>>({});

@@ -694,7 +694,7 @@ export default function EndpointForm() {
                   height="200px"
                   defaultLanguage="json"
                   defaultValue={`{
-  "user_input": "Hello, World!"
+  "input": "[place your input here]"
 }`}
                   options={{
                     minimap: { enabled: false },
