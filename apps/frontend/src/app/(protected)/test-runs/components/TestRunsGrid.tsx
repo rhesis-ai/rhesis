@@ -161,8 +161,8 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       align: 'right',
       headerAlign: 'right',
       valueGetter: (_, row) => {
-        const metadata = row.test_configuration?.test_set?.attributes?.metadata;
-        return metadata?.total_tests || 0;
+        const attributes = row.test_configuration?.test_set?.attributes;
+        return attributes?.total_tests || 0;
       }
     },
     { 
