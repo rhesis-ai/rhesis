@@ -16,7 +16,8 @@ TestRunDetailSchema = create_detailed_schema(
     models.TestRun,
     include_nested_relationships={
         "test_configuration": {
-            "endpoint": ["project"]
+            "endpoint": ["project"],
+            "test_set": []
         }
     }
 )
