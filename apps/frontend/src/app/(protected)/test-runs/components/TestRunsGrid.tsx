@@ -156,7 +156,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     },
     { 
       field: 'total_tests',
-      headerName: 'Total Tests YZ',
+      headerName: 'Total Tests',
       flex: 1,
       align: 'right',
       headerAlign: 'right',
