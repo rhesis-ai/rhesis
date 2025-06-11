@@ -28,7 +28,6 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { auth } from '@/auth';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { createEndpoint } from '@/actions/endpoints';
@@ -197,30 +196,20 @@ export default function EndpointForm() {
   // Fetch projects when component mounts
   useEffect(() => {
     const fetchProjects = async () => {
+      if (!session?.session_token) {
+        setLoadingProjects(false);
+        return;
+      }
+
       try {
         setLoadingProjects(true);
-        let sessionToken = session?.session_token;
-        
-        // Fallback to server-side auth if client-side session is not available
-        if (!sessionToken) {
-          try {
-            const serverSession = await auth();
-            sessionToken = serverSession?.session_token;
-          } catch (error) {
-            console.error('Failed to get session from server-side auth:', error);
-          }
-        }
-        
-        if (sessionToken) {
-          const client = new ApiClientFactory(sessionToken).getProjectsClient();
-          const data = await client.getProjects();
-          setProjects(data.data);
-        } else {
-          setError('Authentication required. Please log in again.');
-        }
+        const client = new ApiClientFactory(session.session_token).getProjectsClient();
+        const data = await client.getProjects();
+        setProjects(Array.isArray(data) ? data : (data?.data || []));
       } catch (err) {
         console.error('Error fetching projects:', err);
         setError('Failed to load projects. Please try again later.');
+        setProjects([]);
       } finally {
         setLoadingProjects(false);
       }
@@ -335,7 +324,7 @@ export default function EndpointForm() {
               type="submit"
               variant="contained"
               color="primary"
-              disabled={projects.length === 0 && !loadingProjects}
+              disabled={(projects?.length || 0) === 0 && !loadingProjects}
             >
               Create Endpoint
             </Button>
@@ -440,7 +429,7 @@ export default function EndpointForm() {
               <Typography variant="subtitle1" sx={{ mb: 2 }}>Project</Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  {projects.length === 0 && !loadingProjects ? (
+                  {(projects?.length || 0) === 0 && !loadingProjects ? (
                     <Alert 
                       severity="warning" 
                       action={
