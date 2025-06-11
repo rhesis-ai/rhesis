@@ -109,7 +109,15 @@ export class BaseApiClient {
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
               errorData = await response.json();
-              errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+              if (errorData.detail) {
+                errorMessage = Array.isArray(errorData.detail) 
+                  ? errorData.detail.map((err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`).join(', ')
+                  : errorData.detail;
+              } else if (errorData.message) {
+                errorMessage = errorData.message;
+              } else {
+                errorMessage = JSON.stringify(errorData, null, 2);
+              }
             } else {
               errorMessage = await response.text();
             }

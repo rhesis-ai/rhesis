@@ -56,6 +56,7 @@ import {
   AccountTreeIcon
 } from '@/components/icons';
 import { useSession } from 'next-auth/react';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
@@ -170,7 +171,6 @@ const getProjectIcon = (project: Project) => {
 export default function EndpointForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<boolean>(false);
   const [currentTab, setCurrentTab] = useState(0);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [testResponse, setTestResponse] = useState<string>('');
@@ -178,6 +178,7 @@ export default function EndpointForm() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const { data: session } = useSession();
+  const notifications = useNotifications();
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -254,7 +255,6 @@ export default function EndpointForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
 
     if (!formData.url || !validateUrl(formData.url)) {
       setError('Please enter a valid URL');
@@ -269,34 +269,38 @@ export default function EndpointForm() {
     try {
       const transformedData = { ...formData } as Partial<typeof formData>;
       
-      // Handle request_headers separately
-      if (transformedData.request_headers && transformedData.request_headers.trim()) {
-        transformedData.request_headers = JSON.parse(transformedData.request_headers);
-        // Remove the old headers field if it exists
-        delete (transformedData as any).headers;
-      }
-
-      // Handle other JSON fields
-      const jsonFields = ['request_body_template', 'response_mappings'] as const;
-      for (const field of jsonFields) {
-        if (transformedData[field] && transformedData[field].trim()) {
-          transformedData[field] = JSON.parse(transformedData[field]);
-        }
-        // Remove empty fields
-        if (!transformedData[field] || transformedData[field] === '') {
-          delete transformedData[field];
+      // Handle JSON string fields
+      const jsonStringFields = ['request_headers', 'request_body_template', 'response_mappings'] as const;
+      for (const field of jsonStringFields) {
+        const value = transformedData[field] as string;
+        if (value && typeof value === 'string' && value.trim()) {
+          try {
+            (transformedData as any)[field] = JSON.parse(value);
+          } catch (e) {
+            console.error(`Invalid JSON in ${field}:`, e);
+            delete (transformedData as any)[field];
+          }
+        } else {
+          delete (transformedData as any)[field];
         }
       }
 
-      // Set empty project_id to empty string for the backend
-      if (transformedData.project_id === '') {
-        transformedData.project_id = '';
+      // Remove organization_id as it should not be part of the request
+      delete (transformedData as any).organization_id;
+      
+      // Remove empty project_id 
+      if (!transformedData.project_id || transformedData.project_id === '') {
+        delete (transformedData as any).project_id;
       }
 
       // Ensure we're sending a single object, not an array
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
-      await createEndpoint(endpointData);
-      setSuccess(true);
+      console.log('Submitting endpoint data:', JSON.stringify(endpointData, null, 2));
+      const result = await createEndpoint(endpointData);
+      console.log('Create endpoint result:', result);
+      
+      // Show success notification
+      notifications.show('Endpoint created successfully!', { severity: 'success' });
       router.push('/endpoints');
     } catch (error) {
       setError((error as Error).message);
@@ -774,12 +778,6 @@ export default function EndpointForm() {
       {error && (
         <Box sx={{ mt: 2 }}>
           <Alert severity="error">{error}</Alert>
-        </Box>
-      )}
-
-      {success && (
-        <Box sx={{ mt: 2 }}>
-          <Alert severity="success">Endpoint created successfully!</Alert>
         </Box>
       )}
     </form>
