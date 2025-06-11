@@ -156,12 +156,12 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     },
     { 
       field: 'total_tests',
-      headerName: 'Total Tests',
+      headerName: 'Total Tests YZ',
       flex: 1,
       align: 'right',
       headerAlign: 'right',
       valueGetter: (_, row) => {
-        const attributes = row.test_configuration?.test_set?.attributes;
+        const attributes = row?.attributes;
         return attributes?.total_tests || 0;
       }
     },
