@@ -8,18 +8,25 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const isDev = process.env.NODE_ENV === 'development';
+const isProd = process.env.NODE_ENV === 'production';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ===== DEVELOPMENT-SPECIFIC ANTI-CACHING =====
+  // These are the key additions to fix your caching issues
+  generateEtags: !isDev, // Disable ETags in development
+  
   // Compiler optimizations
   compiler: {
-    // Remove console.log in production
-    removeConsole: process.env.NODE_ENV === 'production',
+    // Remove console.log in production only
+    removeConsole: isProd,
   },
   
-  // Keep source maps in production for debugging, disable in dev for speed
-  productionBrowserSourceMaps: true,
+  // Source maps: enable in prod for debugging, faster option in dev
+  productionBrowserSourceMaps: isProd,
   
-  // Experimental features for better performance - TEMPORARILY DISABLED
+  // Experimental features
   experimental: {
     // Enable optimized package imports for MUI and other heavy libraries
     optimizePackageImports: [
@@ -28,17 +35,21 @@ const nextConfig = {
       '@mui/x-data-grid',
       '@mui/x-date-pickers',
       '@toolpad/core',
-      // '@monaco-editor/react', // COMMENTED OUT - potential SSR issue
       'lucide-react', 
       'date-fns',
       'lodash'
-      // NOTE: Excluding reactflow from optimization
     ],
-
-    // Additional performance optimizations - TEMPORARILY DISABLED
-    // optimizeServerReact: true,
-    // optimizeCss: true,
   },
+
+  // Development-specific: configure on-demand entries to reduce caching
+  ...(isDev && {
+    onDemandEntries: {
+      // Shorter period to keep pages in buffer
+      maxInactiveAge: 15 * 1000, // 15 seconds instead of default 60
+      // Fewer pages kept simultaneously
+      pagesBufferLength: 2,
+    },
+  }),
 
   // Turbopack configuration
   turbopack: {
@@ -59,9 +70,8 @@ const nextConfig = {
         pathname: '**',
       },
     ],
-    // Disable optimization in development for faster builds
-    unoptimized: process.env.NODE_ENV === 'development',
-    // Reduce formats for faster processing
+    // Keep unoptimized in development, optimize in production
+    unoptimized: isDev,
     formats: ['image/webp'],
   },
 
@@ -75,13 +85,13 @@ const nextConfig = {
 
     // Development-specific optimizations
     if (dev) {
-      // Use faster source map option instead of disabling completely
+      // Use faster source map option
       config.devtool = 'eval-cheap-module-source-map';
       
-      // Optimized file watching
+      // MODIFIED: More aggressive file watching for better change detection
       config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
+        poll: 500, // Reduced from 1000 for faster detection
+        aggregateTimeout: 200, // Reduced from 300
         ignored: [
           '**/node_modules/**',
           '**/.git/**',
@@ -97,23 +107,33 @@ const nextConfig = {
       // Optimize module resolution
       config.resolve.symlinks = false;
       
-      // Cache configuration for faster rebuilds
+      // MODIFIED: Less aggressive caching for development
       config.cache = {
         type: 'filesystem',
         buildDependencies: {
           config: [__filename],
         },
-        // Add cache versioning
-        version: '1.0.0',
+        // Add timestamp to cache version to reduce stale cache issues
+        version: `dev-${Date.now()}`,
+        // Shorter cache duration
+        maxAge: 1000 * 60 * 5, // 5 minutes instead of default
       };
 
       // Reduce worker threads to prevent memory issues
       config.parallelism = 2;
+    } else {
+      // Production: more aggressive caching
+      config.cache = {
+        type: 'filesystem',
+        buildDependencies: {
+          config: [__filename],
+        },
+        version: '1.0.0',
+      };
     }
 
     // Client-side optimizations
     if (!isServer) {
-      // Exclude server-side modules from client bundle
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -131,52 +151,20 @@ const nextConfig = {
       };
     }
 
-    // Performance optimizations - SIMPLIFIED TO AVOID VENDOR CHUNK ISSUES
+    // Performance optimizations
     config.optimization = {
       ...config.optimization,
       moduleIds: 'deterministic',
-      // TEMPORARILY DISABLED splitChunks that was creating problematic vendors.js
-      // splitChunks: {
-      //   chunks: 'all',
-      //   maxInitialRequests: 25,
-      //   minSize: 20000,
-      //   cacheGroups: {
-      //     vendor: {
-      //       test: /[\\/]node_modules[\\/]/,
-      //       name: 'vendors',
-      //       priority: 10,
-      //       reuseExistingChunk: true,
-      //     },
-      //     mui: {
-      //       test: /[\\/]node_modules[\\/]@mui[\\/]/,
-      //       name: 'mui',
-      //       priority: 15,
-      //       reuseExistingChunk: true,
-      //     },
-      //     common: {
-      //       name: 'common',
-      //       minChunks: 2,
-      //       priority: 5,
-      //       reuseExistingChunk: true,
-      //     },
-      //   },
-      // },
     };
 
     // Resolve optimizations
     config.resolve.alias = {
       ...config.resolve.alias,
-      // Add common aliases to speed up resolution
       '@': path.resolve(__dirname, './'),
       '~': path.resolve(__dirname, './'),
-      // TEMPORARILY DISABLED - Use ESM versions for better tree shaking
-      // '@mui/icons-material': '@mui/icons-material/esm',
     };
 
-    // Module resolution optimizations
     config.resolve.modules = ['node_modules', path.resolve(__dirname, 'node_modules')];
-
-    // Faster module resolution
     config.resolve.extensions = ['.js', '.jsx', '.ts', '.tsx', '.json'];
 
     return config;
@@ -185,18 +173,12 @@ const nextConfig = {
   // Reduce JavaScript bundle size
   poweredByHeader: false,
   
-  // Compression settings
-  compress: true,
+  // Enable compression only in production
+  compress: isProd,
   
-  // Output settings for better caching
-  // COMMENTED OUT: This was causing static generation failures
-  // The 'standalone' output mode treats pages as dynamic when they use
-  // authentication or headers, causing build errors
-  // output: 'standalone',
-  
-  // Headers for better caching
+  // MODIFIED: Headers with environment-specific caching
   async headers() {
-    return [
+    const baseHeaders = [
       {
         source: '/(.*)',
         headers: [
@@ -208,27 +190,40 @@ const nextConfig = {
             key: 'X-Frame-Options',
             value: 'DENY',
           },
-        ],
-      },
-      {
-        source: '/static/(.*)',
-        headers: [
-          {
+          // Development: Disable caching for HTML pages
+          ...(isDev ? [{
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/_next/static/(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
+            value: 'no-cache, no-store, must-revalidate',
+          }] : []),
         ],
       },
     ];
+
+    // Only add aggressive caching headers in production
+    if (isProd) {
+      baseHeaders.push(
+        {
+          source: '/static/(.*)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+        {
+          source: '/_next/static/(.*)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        }
+      );
+    }
+
+    return baseHeaders;
   },
 };
 

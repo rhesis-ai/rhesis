@@ -55,16 +55,14 @@ export default function EndpointPage({ params, searchParams }: PageProps) {
       } catch (err) {
         setError((err as Error).message);
       } finally {
-        if (status !== 'loading') {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
     
     fetchEndpoint();
   }, [identifier, session, status]);
 
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || loading || !identifier) {
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <CircularProgress size={24} sx={{ mr: 1 }} />

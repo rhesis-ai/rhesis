@@ -4,8 +4,6 @@ import React from 'react';
 import { Box, Typography, Breadcrumbs } from '@mui/material';
 import Link from 'next/link';
 import EndpointForm from '../components/EndpointForm';
-import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { PageContainer } from '@toolpad/core';
 
 export default function NewEndpointPage() {
