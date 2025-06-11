@@ -28,7 +28,6 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { auth } from '@/auth';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { createEndpoint } from '@/actions/endpoints';
@@ -57,6 +56,7 @@ import {
   AccountTreeIcon
 } from '@/components/icons';
 import { useSession } from 'next-auth/react';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
@@ -171,7 +171,6 @@ const getProjectIcon = (project: Project) => {
 export default function EndpointForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<boolean>(false);
   const [currentTab, setCurrentTab] = useState(0);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [testResponse, setTestResponse] = useState<string>('');
@@ -179,6 +178,7 @@ export default function EndpointForm() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const { data: session } = useSession();
+  const notifications = useNotifications();
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -197,30 +197,20 @@ export default function EndpointForm() {
   // Fetch projects when component mounts
   useEffect(() => {
     const fetchProjects = async () => {
+      if (!session?.session_token) {
+        setLoadingProjects(false);
+        return;
+      }
+
       try {
         setLoadingProjects(true);
-        let sessionToken = session?.session_token;
-        
-        // Fallback to server-side auth if client-side session is not available
-        if (!sessionToken) {
-          try {
-            const serverSession = await auth();
-            sessionToken = serverSession?.session_token;
-          } catch (error) {
-            console.error('Failed to get session from server-side auth:', error);
-          }
-        }
-        
-        if (sessionToken) {
-          const client = new ApiClientFactory(sessionToken).getProjectsClient();
-          const data = await client.getProjects();
-          setProjects(data.data);
-        } else {
-          setError('Authentication required. Please log in again.');
-        }
+        const client = new ApiClientFactory(session.session_token).getProjectsClient();
+        const data = await client.getProjects();
+        setProjects(Array.isArray(data) ? data : (data?.data || []));
       } catch (err) {
         console.error('Error fetching projects:', err);
         setError('Failed to load projects. Please try again later.');
+        setProjects([]);
       } finally {
         setLoadingProjects(false);
       }
@@ -265,7 +255,6 @@ export default function EndpointForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
 
     if (!formData.url || !validateUrl(formData.url)) {
       setError('Please enter a valid URL');
@@ -280,34 +269,38 @@ export default function EndpointForm() {
     try {
       const transformedData = { ...formData } as Partial<typeof formData>;
       
-      // Handle request_headers separately
-      if (transformedData.request_headers && transformedData.request_headers.trim()) {
-        transformedData.request_headers = JSON.parse(transformedData.request_headers);
-        // Remove the old headers field if it exists
-        delete (transformedData as any).headers;
-      }
-
-      // Handle other JSON fields
-      const jsonFields = ['request_body_template', 'response_mappings'] as const;
-      for (const field of jsonFields) {
-        if (transformedData[field] && transformedData[field].trim()) {
-          transformedData[field] = JSON.parse(transformedData[field]);
-        }
-        // Remove empty fields
-        if (!transformedData[field] || transformedData[field] === '') {
-          delete transformedData[field];
+      // Handle JSON string fields
+      const jsonStringFields = ['request_headers', 'request_body_template', 'response_mappings'] as const;
+      for (const field of jsonStringFields) {
+        const value = transformedData[field] as string;
+        if (value && typeof value === 'string' && value.trim()) {
+          try {
+            (transformedData as any)[field] = JSON.parse(value);
+          } catch (e) {
+            console.error(`Invalid JSON in ${field}:`, e);
+            delete (transformedData as any)[field];
+          }
+        } else {
+          delete (transformedData as any)[field];
         }
       }
 
-      // Set empty project_id to empty string for the backend
-      if (transformedData.project_id === '') {
-        transformedData.project_id = '';
+      // Remove organization_id as it should not be part of the request
+      delete (transformedData as any).organization_id;
+      
+      // Remove empty project_id 
+      if (!transformedData.project_id || transformedData.project_id === '') {
+        delete (transformedData as any).project_id;
       }
 
       // Ensure we're sending a single object, not an array
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
-      await createEndpoint(endpointData);
-      setSuccess(true);
+      console.log('Submitting endpoint data:', JSON.stringify(endpointData, null, 2));
+      const result = await createEndpoint(endpointData);
+      console.log('Create endpoint result:', result);
+      
+      // Show success notification
+      notifications.show('Endpoint created successfully!', { severity: 'success' });
       router.push('/endpoints');
     } catch (error) {
       setError((error as Error).message);
@@ -335,7 +328,7 @@ export default function EndpointForm() {
               type="submit"
               variant="contained"
               color="primary"
-              disabled={projects.length === 0 && !loadingProjects}
+              disabled={(projects?.length || 0) === 0 && !loadingProjects}
             >
               Create Endpoint
             </Button>
@@ -440,7 +433,7 @@ export default function EndpointForm() {
               <Typography variant="subtitle1" sx={{ mb: 2 }}>Project</Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  {projects.length === 0 && !loadingProjects ? (
+                  {(projects?.length || 0) === 0 && !loadingProjects ? (
                     <Alert 
                       severity="warning" 
                       action={
@@ -694,7 +687,7 @@ export default function EndpointForm() {
                   height="200px"
                   defaultLanguage="json"
                   defaultValue={`{
-  "user_input": "Hello, World!"
+  "input": "[place your input here]"
 }`}
                   options={{
                     minimap: { enabled: false },
@@ -785,12 +778,6 @@ export default function EndpointForm() {
       {error && (
         <Box sx={{ mt: 2 }}>
           <Alert severity="error">{error}</Alert>
-        </Box>
-      )}
-
-      {success && (
-        <Box sx={{ mt: 2 }}>
-          <Alert severity="success">Endpoint created successfully!</Alert>
         </Box>
       )}
     </form>
