@@ -6,8 +6,10 @@ resources:
 - service.yaml
 - networkpolicy.yaml
 
-commonLabels:
-  environment: dev
+labels:
+- includeSelectors: true
+  pairs:
+    environment: dev
 
 # Namespace will be set via command line during deployment
 namespace: rhesis-worker
