@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhesis-worker
+  labels:
+    app: rhesis-worker
+    component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rhesis-worker
+  template:
+    metadata:
+      labels:
+        app: rhesis-worker
+        component: worker
+    spec:
+      containers:
+      - name: worker
+        image: gcr.io/PROJECT_ID/rhesis-worker:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        env:
+        - name: BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_RESULT_BACKEND
+        - name: SQLALCHEMY_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DATABASE_URL
+        - name: SQLALCHEMY_DB_MODE
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_MODE
+        - name: SQLALCHEMY_DB_DRIVER
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_DRIVER
+        - name: SQLALCHEMY_DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_USER
+        - name: SQLALCHEMY_DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_PASS
+        - name: SQLALCHEMY_DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_HOST
+        - name: SQLALCHEMY_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_NAME
+        - name: LOG_LEVEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: LOG_LEVEL
+        - name: CELERY_WORKER_LOGLEVEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_WORKER_LOGLEVEL
+        - name: CELERY_WORKER_CONCURRENCY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_WORKER_CONCURRENCY
+        ports:
+        - containerPort: 8080
+          name: health
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      restartPolicy: Always 
