@@ -134,12 +134,19 @@ def create_item(db: Session, model: Type[T], item_data: Dict[str, Any] | BaseMod
             logger.debug(f"Auto-populated user_id: {user_id}")
 
     db_item = model(**item_data)
-
+    logger.debug(f"Initiating database operation: {db_item}")
     with maintain_tenant_context(db):
+        logger.debug(f"Adding item to database: {db_item}")
         db.add(db_item)
+        logger.debug(f"Flushing database: {db_item}")
         db.flush()  # Flush to get the ID and other generated values
+        logger.debug(f"Refreshing database: {db_item}")
         db.refresh(db_item)  # Refresh to ensure we have all generated values
+        
+        logger.debug(f"Committing database: {db_item}")
         db.commit()
+        
+        logger.debug(f"Returning database item: {db_item}")
         return db_item
 
 
@@ -186,6 +193,7 @@ def update_item(
         db.flush()  # Flush changes before commit
         db.refresh(db_item)  # Refresh to get updated values
         db.commit()
+        
         return db_item
 
 
@@ -196,11 +204,16 @@ def delete_item(db: Session, model: Type[T], item_id: uuid.UUID) -> Optional[T]:
         if db_item is None:
             return None
 
-        # Store a copy of the item before deletion
+        # Store a reference to the item before deletion
         deleted_item = db_item
 
         db.delete(db_item)
         db.commit()
+        
+        # Note: For deleted items, we can't refresh since they're deleted
+        # The object should already have all its data loaded from the get_item call
+        logger.debug(f"Deleted object returned: {deleted_item}")
+        
         return deleted_item
 
 
