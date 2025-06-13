@@ -5,6 +5,7 @@ from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.base import BaseTask, with_tenant_context
 from rhesis.backend.tasks.execution.metrics_utils import get_behavior_metrics
 from rhesis.backend.tasks.execution.test_execution import execute_test
+from rhesis.backend.tasks.utils import increment_test_run_progress
 from rhesis.backend.worker import app
 
 
@@ -90,6 +91,26 @@ def execute_single_test(
                 "original_result": str(result)
             }
         
+        # Update test run progress - determine if test was successful
+        was_successful = (
+            isinstance(result, dict) and 
+            result.get("status") != "failed" and 
+            result is not None
+        )
+        
+        # Increment the progress counter
+        progress_updated = increment_test_run_progress(
+            db=db,
+            test_run_id=test_run_id,
+            test_id=test_id,
+            was_successful=was_successful
+        )
+        
+        if progress_updated:
+            logger.debug(f"✅ DEBUG: Updated test run progress for test {test_id}, successful: {was_successful}")
+        else:
+            logger.warning(f"⚠️ DEBUG: Failed to update test run progress for test {test_id}")
+        
         logger.info(f"✅ DEBUG: execute_single_test completing successfully for test {test_id}")
         return result
 
@@ -112,6 +133,21 @@ def execute_single_test(
         }
         
         logger.error(f"🚨 DEBUG: Created failure_result for test {test_id}: {failure_result}")
+        
+        # Update progress for failed test
+        try:
+            progress_updated = increment_test_run_progress(
+                db=db,
+                test_run_id=test_run_id,
+                test_id=test_id,
+                was_successful=False
+            )
+            if progress_updated:
+                logger.debug(f"✅ DEBUG: Updated test run progress for failed test {test_id}")
+            else:
+                logger.warning(f"⚠️ DEBUG: Failed to update test run progress for failed test {test_id}")
+        except Exception as progress_error:
+            logger.error(f"🚨 DEBUG: Exception updating progress for failed test {test_id}: {str(progress_error)}")
         
         # Pass explicit organization_id and user_id on retry to ensure context is preserved
         if self.request.retries < self.max_retries:

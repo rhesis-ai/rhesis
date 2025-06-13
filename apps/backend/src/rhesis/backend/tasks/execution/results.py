@@ -19,7 +19,15 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
     
     This task is called as a callback after all individual test execution tasks have completed.
     It updates the test run status and aggregates metrics from all tests.
+    
+    For Redis chords, the results are automatically collected via chord context.
     """
+    logger.info(f"Chord callback triggered for test run {test_run_id}")
+    logger.info(f"Processing {len(results) if results else 0} task results")
+    
+    if not results:
+        logger.warning(f"No results provided to callback for test run {test_run_id}")
+    
     # Create database session manually
     db = SessionLocal()
     
@@ -48,8 +56,10 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
         failed_tasks = sum(1 for result in processed_results if result is None or (isinstance(result, dict) and result.get("status") == "failed"))
         successful_results = [result for result in processed_results if result is not None and (not isinstance(result, dict) or result.get("status") != "failed")]
         
+        logger.info(f"Task completion: {len(successful_results)} successful, {failed_tasks} failed out of {total_tests} total")
+        
         if failed_tasks > 0:
-            logger.warning(f"{failed_tasks} tasks failed out of {total_tests} for test run {test_run_id}")
+            logger.warning(f"{failed_tasks} tasks failed for test run {test_run_id}")
 
         # Calculate aggregated metrics from successful results only
         execution_times = []
@@ -67,15 +77,29 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
         test_run = crud.get_test_run(db, UUID(test_run_id))
         
         if test_run:
+            
             # Calculate total execution time from start to now
             start_datetime = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
             end_datetime = datetime.utcnow()
             total_execution_time_ms = (end_datetime - start_datetime).total_seconds() * 1000
             
+            # Get real-time progress from test run attributes (updated by individual tests)
+            current_attributes = test_run.attributes if test_run.attributes else {}
+            real_time_completed = current_attributes.get("completed_tests", 0)
+            real_time_failed = current_attributes.get("failed_tests", 0)
+            
+            # Use real-time counters if available, otherwise fall back to result processing
+            actual_completed = real_time_completed if real_time_completed > 0 else len(successful_results)
+            actual_failed = real_time_failed if real_time_failed > 0 else failed_tasks
+            
+            # Log comparison for debugging
+            logger.info(f"Progress tracking - Real-time: {real_time_completed} completed, {real_time_failed} failed | "
+                       f"Result processing: {len(successful_results)} successful, {failed_tasks} failed")
+            
             # Determine status based on failures
             status = RunStatus.COMPLETED.value
-            if failed_tasks > 0:
-                status = RunStatus.PARTIAL.value if failed_tasks < total_tests else RunStatus.FAILED.value
+            if actual_failed > 0:
+                status = RunStatus.PARTIAL.value if actual_failed < total_tests else RunStatus.FAILED.value
             
             # Prepare the complete attributes update including completion data
             completed_at = datetime.utcnow().isoformat()
@@ -83,12 +107,15 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
             updated_attributes.update({
                 "completed_at": completed_at,
                 "total_tests": total_tests,
-                "completed_tests": len(successful_results),
-                "failed_tasks": failed_tasks,
+                "completed_tests": actual_completed,  # Use real-time counter
+                "failed_tests": actual_failed,       # Use real-time counter  
+                "failed_tasks": failed_tasks,        # Keep original for compatibility
                 "mean_execution_time_ms": mean_execution_time,
                 "total_execution_time_ms": total_execution_time_ms,
                 "task_state": status,  # Explicitly set the final task_state
                 "status": status,      # Also set status for consistency
+                "collect_results_called": True,  # Proof that callback was executed
+                "final_update": True,  # Mark this as the final update
                 "updated_at": completed_at
             })
 
@@ -106,19 +133,21 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
             crud.update_test_run(db, test_run.id, crud.schemas.TestRunUpdate(**update_data))
             logger.info(f"Successfully updated test run {test_run_id} with status {status}")
         else:
-            logger.error(f"Test run {test_run_id} not found!")
+            logger.error(f"Test run {test_run_id} not found in database!")
 
         return {
             "test_run_id": test_run_id,
             "test_config_id": test_config_id,
             "total_tests": total_tests,
-            "completed_tests": len(successful_results),
-            "failed_tasks": failed_tasks,
+            "completed_tests": actual_completed,  # Use real-time counter
+            "failed_tests": actual_failed,       # Use real-time counter
+            "failed_tasks": failed_tasks,        # Keep original for compatibility
             "mean_execution_time_ms": mean_execution_time,
+            "callback_executed": True,
         }
 
     except Exception as e:
-        logger.error(f"Error collecting results: {str(e)}", exc_info=True)
+        logger.error(f"Error in collect_results callback: {str(e)}", exc_info=True)
         db.rollback()
         
         # Check if we should retry
@@ -142,6 +171,7 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
                 error_attributes.update({
                     "error": str(e),
                     "task_state": RunStatus.FAILED.value,
+                    "collect_results_error": True,
                     "updated_at": datetime.utcnow().isoformat()
                 })
                 
@@ -161,7 +191,8 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
             return {
                 "error": str(e),
                 "test_run_id": test_run_id,
-                "status": "failed"
+                "status": "failed",
+                "callback_executed": False,
             }
         else:
             raise
