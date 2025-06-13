@@ -233,8 +233,10 @@ jobs:
           - service.yaml
           - networkpolicy.yaml
           
-          commonLabels:
-            environment: ${{ env.ENVIRONMENT }}
+          labels:
+          - includeSelectors: true
+            pairs:
+              environment: ${{ env.ENVIRONMENT }}
           
           namespace: ${{ env.NAMESPACE }}
           
@@ -247,6 +249,23 @@ jobs:
           kubectl apply -k . --namespace=${{ env.NAMESPACE }}
           
           # Wait for deployment to be ready
-          kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s
+          echo "Waiting for deployment to be ready..."
+          if ! kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s; then
+            echo "❌ Deployment failed to become ready. Debugging information:"
+            echo ""
+            echo "=== Pod Status ==="
+            kubectl get pods --namespace=${{ env.NAMESPACE }} -o wide
+            echo ""
+            echo "=== Pod Events ==="
+            kubectl get events --namespace=${{ env.NAMESPACE }} --sort-by='.lastTimestamp' | tail -20
+            echo ""
+            echo "=== Pod Logs (if any pods exist) ==="
+            for pod in $(kubectl get pods --namespace=${{ env.NAMESPACE }} -o jsonpath='{.items[*].metadata.name}'); do
+              echo "--- Logs for $pod ---"
+              kubectl logs $pod --namespace=${{ env.NAMESPACE }} --tail=50 || echo "No logs available"
+              echo ""
+            done
+            exit 1
+          fi
           
           echo "✅ Deployment completed successfully"
