@@ -3,6 +3,14 @@
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.enums import (
+    DEFAULT_METRIC_WORKERS,
+    DEFAULT_RESULT_STATUS,
+    DEFAULT_RUN_STATUS_PROGRESS,
+    DEFAULT_RUN_STATUS_COMPLETED,
+    DEFAULT_RUN_STATUS_FAILED
+)
+from rhesis.backend.tasks.utils import increment_test_run_progress
 
 # Import task functions after BaseTask is defined to avoid circular imports
 # We use direct imports instead of relative imports to be explicit
@@ -30,6 +38,7 @@ __all__ = [
     
     # Helper functions
     "task_launcher",
+    "increment_test_run_progress",
     
     # Tasks
     "echo",

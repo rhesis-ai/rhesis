@@ -1,6 +1,7 @@
 from celery import Task
 from contextlib import contextmanager
 from functools import wraps
+from typing import Tuple, Optional
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,10 @@ from rhesis.backend.app.database import (
     SessionLocal,
     set_tenant,
     maintain_tenant_context,
+)
+from rhesis.backend.tasks.enums import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_BACKOFF_MAX
 )
 
 
@@ -43,15 +48,60 @@ class BaseTask(Task):
     autoretry_for = (Exception,)
     retry_for_unexpected_only = True  # Only retry for unexpected exceptions
 
-    # Maximum number of retries
-    max_retries = 3
+    # Maximum number of retries - use centralized constant
+    max_retries = DEFAULT_MAX_RETRIES
 
     # Exponential backoff: 1min, 5min, 25min
     retry_backoff = True
-    retry_backoff_max = 600  # 10 minutes max delay
+    retry_backoff_max = DEFAULT_RETRY_BACKOFF_MAX
 
     # Report started status
     track_started = True
+    
+    def get_tenant_context(self) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Get tenant context from task request in a consistent way.
+        
+        Returns:
+            Tuple of (organization_id, user_id)
+        """
+        request = getattr(self, 'request', None)
+        if not request:
+            return None, None
+            
+        organization_id = getattr(request, 'organization_id', None)
+        user_id = getattr(request, 'user_id', None)
+        
+        return organization_id, user_id
+    
+    def log_with_context(self, level: str, message: str, **kwargs):
+        """
+        Log a message with consistent tenant context information.
+        
+        Args:
+            level: Log level ('info', 'warning', 'error', 'debug')
+            message: The message to log
+            **kwargs: Additional context to include in the log
+        """
+        from rhesis.backend.logging.rhesis_logger import logger
+        
+        org_id, user_id = self.get_tenant_context()
+        task_id = getattr(self.request, 'id', 'unknown') if hasattr(self, 'request') else 'unknown'
+        
+        context_info = {
+            'task_id': task_id,
+            'organization_id': org_id or 'unknown',
+            'user_id': user_id or 'unknown',
+            **kwargs
+        }
+        
+        # Format message with context
+        context_str = ', '.join(f"{k}={v}" for k, v in context_info.items())
+        formatted_message = f"{message} [{context_str}]"
+        
+        # Log at the appropriate level
+        log_method = getattr(logger, level.lower(), logger.info)
+        log_method(formatted_message)
     
     @contextmanager
     def get_db_session(self):
@@ -62,9 +112,7 @@ class BaseTask(Task):
             db.expire_all()
             
             # Get task context
-            request = getattr(self, 'request', None)
-            org_id = getattr(request, 'organization_id', None)
-            user_id = getattr(request, 'user_id', None)
+            org_id, user_id = self.get_tenant_context()
             
             # Set tenant context if available
             if org_id or user_id:
@@ -94,12 +142,7 @@ class BaseTask(Task):
         
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful task completion with context information."""
-        org_id = getattr(self.request, 'organization_id', 'unknown')
-        user_id = getattr(self.request, 'user_id', 'unknown')
-        
-        print(f"Task {self.name}[{task_id}] completed successfully "
-              f"for org: {org_id}, user: {user_id}")
-        
+        self.log_with_context('info', f"Task completed successfully", task_result_type=type(retval).__name__)
         return super().on_success(retval, task_id, args, kwargs)
         
     def on_failure(self, exc, task_id, args, kwargs, einfo):
@@ -107,17 +150,21 @@ class BaseTask(Task):
         # Import TestExecutionError here to avoid circular imports
         from rhesis.backend.tasks.execution.run import TestExecutionError
         
-        org_id = getattr(self.request, 'organization_id', 'unknown')
-        user_id = getattr(self.request, 'user_id', 'unknown')
+        retries = getattr(self.request, 'retries', 0)
         
         # Don't retry if this is a TestExecutionError
-        retries = getattr(self.request, 'retries', 0)
         if isinstance(exc, TestExecutionError) or retries >= self.max_retries:
-            print(f"Task {self.name}[{task_id}] permanently failed after {retries} attempts "
-                  f"for org: {org_id}, user: {user_id} - Error: {str(exc)}")
+            self.log_with_context('error', 
+                f"Task permanently failed after {retries} attempts", 
+                error=str(exc), 
+                exception_type=type(exc).__name__
+            )
         else:
-            print(f"Task {self.name}[{task_id}] failed (will retry, attempt {retries}/{self.max_retries}) "
-              f"for org: {org_id}, user: {user_id} - Error: {str(exc)}")
+            self.log_with_context('warning',
+                f"Task failed (will retry, attempt {retries}/{self.max_retries})", 
+                error=str(exc),
+                exception_type=type(exc).__name__
+            )
         
         return super().on_failure(exc, task_id, args, kwargs, einfo)
         

@@ -90,6 +90,7 @@ echo "Command: celery -A rhesis.backend.worker.app worker --loglevel=${CELERY_WO
 
 # Run celery worker in foreground first to see any immediate errors
 celery -A rhesis.backend.worker.app worker \
+    --queues=celery,execution \
     --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} \
     --concurrency=${CELERY_WORKER_CONCURRENCY:-8} \
     --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \

@@ -45,7 +45,7 @@ class GeminiClient:
         while retries <= MAX_RETRIES:
             try:
                 return func(*args, **kwargs)
-            except (errors.APIError, errors.APIConnectionError, errors.RateLimitError) as e:
+            except (errors.GoogleGenerativeAIError) as e:
                 retries += 1
                 if retries > MAX_RETRIES:
                     logger.error(f"Failed after {MAX_RETRIES} retries: {str(e)}")
@@ -113,7 +113,7 @@ class ResponseGenerator:
                 if chunk.text:
                     yield chunk.text
                     
-        except (errors.APIError, errors.APIConnectionError, errors.RateLimitError) as e:
+        except errors.GoogleGenerativeAIError as e:
             logger.error(f"API error in stream_assistant_response: {str(e)}")
             yield f"I apologize, but I couldn't process your request at this time due to a service issue."
             
@@ -154,7 +154,7 @@ class ResponseGenerator:
             # Parse the response
             return self._parse_context_response(response.text, prompt)
             
-        except (errors.APIError, errors.APIConnectionError, errors.RateLimitError) as e:
+        except errors.GoogleGenerativeAIError as e:
             logger.error(f"API error in generate_context: {str(e)}")
             return self._get_default_fragments(prompt)
             
