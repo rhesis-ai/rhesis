@@ -10,6 +10,9 @@ load_dotenv(override=True)
 logger = logging.getLogger("__rhesis__")
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
+# Prevent propagation to parent loggers to avoid duplicate messages
+logger.propagate = False
+
 # Only configure handlers if they haven't been added yet (prevents duplicates)
 if not logger.handlers:
     # Create a console handler (Cloud Run captures logs from stdout)
