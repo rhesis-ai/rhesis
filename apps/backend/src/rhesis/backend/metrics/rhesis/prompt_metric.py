@@ -105,9 +105,14 @@ class RhesisPromptMetric(RhesisMetricBase):
         self.evaluation_examples = evaluation_examples
         self.provider = provider
         
-        # Prepare call params including API key
+        # Prepare call params (for Google provider, API key is handled via environment variables)
         self.additional_params = kwargs.copy()
-        if self.api_key:
+        
+        # For Google provider, set the API key as environment variable if provided
+        if self.api_key and self.provider == "google":
+            os.environ["GEMINI_API_KEY"] = self.api_key
+        elif self.api_key and self.provider != "google":
+            # For other providers, pass API key as parameter
             self.additional_params['api_key'] = self.api_key
         
         # Set up Jinja environment
@@ -231,6 +236,8 @@ class RhesisPromptMetric(RhesisMetricBase):
         prompt = self.get_prompt_template(input, output, expected_output or "", context or [])
         
         # Override the provider and model at runtime
+        # Note: For Google provider, API key is set via environment variable (GEMINI_API_KEY)
+        # rather than call_params to avoid 'api_key' parameter error
         evaluation_fn = llm.override(
             self.run_evaluation,
             provider=self.provider,

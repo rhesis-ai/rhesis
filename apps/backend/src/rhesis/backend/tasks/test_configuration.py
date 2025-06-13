@@ -7,9 +7,14 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models import TestRun
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.base import BaseTask, with_tenant_context
 from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.tasks.utils import (
+    get_test_run_by_config,
+    create_task_result,
+    update_test_run_with_error,
+    validate_task_parameters
+)
 from rhesis.backend.worker import app
 
 # Import only the functionality needed for this module
@@ -31,15 +36,20 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
     This task uses the with_tenant_context decorator to automatically
     handle database sessions with the proper tenant context.
     """
-    logger.info(f"Starting test configuration execution: {test_configuration_id}")
+    # Validate parameters
+    is_valid, error_msg = validate_task_parameters(test_configuration_id=test_configuration_id)
+    if not is_valid:
+        self.log_with_context('error', f"Parameter validation failed", error=error_msg)
+        raise ValueError(error_msg)
     
-    # Access context from task request
-    task = self.request
-    user_id = getattr(task, 'user_id', None)
-    organization_id = getattr(task, 'organization_id', None)
-    retries = getattr(task, 'retries', 0)
+    self.log_with_context('info', f"Starting test configuration execution", 
+                         test_configuration_id=test_configuration_id)
     
-    logger.debug(f"Task context: user_id={user_id}, organization_id={organization_id}, retries={retries}")
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
+    retries = getattr(self.request, 'retries', 0)
+    
+    self.log_with_context('debug', f"Task context retrieved", retries=retries)
     
     try:
         # Get test configuration with tenant context
@@ -55,36 +65,38 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
         # Execute test cases in parallel
         result = execute_test_cases(db, test_config, test_run)
         
-        # Include task info in the result
-        result["task_id"] = self.request.id
+        # Use utility to create standardized result
+        final_result = create_task_result(
+            task_id=self.request.id,
+            test_config_id=test_configuration_id,
+            test_run_id=str(test_run.id),
+            **result
+        )
         
-        return result
+        self.log_with_context('info', f"Test configuration execution completed successfully",
+                             test_configuration_id=test_configuration_id,
+                             test_run_id=str(test_run.id),
+                             total_tests=result.get("total_tests", 0))
+        
+        return final_result
         
     except Exception as e:
-        logger.error(f"Error executing test configuration {test_configuration_id}: {str(e)}", 
-                    exc_info=True)
+        self.log_with_context('error', f"Error executing test configuration",
+                             test_configuration_id=test_configuration_id,
+                             error=str(e),
+                             exception_type=type(e).__name__)
         
-        # Attempt to update test run status to failed if possible
-        try:
-            # Get the most recent test run for this configuration using crud
-            test_runs = crud.get_test_runs(
-                db, 
-                limit=1, 
-                filter=f"test_configuration_id eq {test_configuration_id}",
-                sort_by="created_at",
-                sort_order="desc"
-            )
-            
-            test_run = test_runs[0] if test_runs else None
-            
-            if test_run:
-                update_test_run_status(db, test_run, RunStatus.FAILED.value, str(e))
-        except Exception as update_error:
-            logger.error(f"Failed to update test run status: {str(update_error)}")
+        # Attempt to update test run status to failed using utility
+        test_run = get_test_run_by_config(db, test_configuration_id)
+        if test_run:
+            success = update_test_run_with_error(db, test_run, str(e))
+            if not success:
+                self.log_with_context('error', f"Failed to update test run status")
         
         # Check if we've exceeded max_retries (from BaseTask)
         if retries >= self.max_retries:
-            logger.warning(f"Maximum retries ({self.max_retries}) reached for task {self.request.id}. Giving up.")
+            self.log_with_context('warning', f"Maximum retries reached, giving up",
+                                 max_retries=self.max_retries)
             # Raise a specific error that should not trigger retry
             raise TestExecutionError(f"Failed after {self.max_retries} retries: {str(e)}")
         

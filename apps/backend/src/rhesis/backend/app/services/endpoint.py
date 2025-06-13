@@ -137,12 +137,12 @@ if __name__ == "__main__":
         set_tenant(db, organization_id=args.org_id, user_id=args.user_id)
         
         # Invoke endpoint
-        print(f"\nInvoking endpoint {args.endpoint_id} with input: {input_data}")
-        print(f"Using organization ID: {args.org_id}")
-        print(f"Using user ID: {args.user_id}")
+        # print(f"\nInvoking endpoint {args.endpoint_id} with input: {input_data}")
+        # print(f"Using organization ID: {args.org_id}")
+        # print(f"Using user ID: {args.user_id}")
         result = invoke(db, args.endpoint_id, input_data)
-        print("\nResponse:")
-        print(json.dumps(result, indent=2))
+        # print("\nResponse:")
+        # print(json.dumps(result, indent=2))
     except Exception as e:
         print(f"\nError: {str(e)}")
     finally:
