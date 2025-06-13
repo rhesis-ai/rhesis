@@ -388,19 +388,205 @@ def remove_test_set_associations(
 
 def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     """
-    Update test set attributes after tests are added or removed.
+    Regenerate and update the attributes for a test set based on its current associated tests.
+
+    Args:
+        db: Database session
+        test_set_id: UUID string of the test set to update
+
+    Raises:
+        ValueError: If test set not found or invalid UUID
+    """
+    from uuid import UUID
+
+    # Validate UUID
+    try:
+        test_set_uuid = UUID(test_set_id)
+    except ValueError:
+        raise ValueError(ERROR_INVALID_UUID.format(entity="test set", id=test_set_id))
+
+    with maintain_tenant_context(db):
+        # Get test set with relationships
+        test_set = (
+            db.query(models.TestSet)
+            .options(joinedload(models.TestSet.tests))
+            .filter(models.TestSet.id == test_set_uuid)
+            .first()
+        )
+
+        if not test_set:
+            raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(id=test_set_id))
+
+        # Get defaults and license type
+        defaults = load_defaults()
+        license_type = get_or_create_type_lookup(
+            db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"]
+        )
+
+        # Regenerate attributes
+        test_set.attributes = generate_test_set_attributes(
+            db=db, test_set=test_set, defaults=defaults, license_type=license_type
+        )
+
+        db.commit()
+
+
+def execute_test_set_on_endpoint(
+    db: Session,
+    test_set_identifier: str,
+    endpoint_id: uuid.UUID,
+    current_user: models.User,
+) -> Dict[str, Any]:
+    """
+    Execute a test set against an endpoint by creating a test configuration and submitting it for execution.
     
     Args:
         db: Database session
-        test_set_id: ID of the test set to update
+        test_set_identifier: Test set identifier (UUID, nano_id, or slug)
+        endpoint_id: Endpoint UUID
+        current_user: Current authenticated user
+        
+    Returns:
+        Dict containing execution status and metadata
+        
+    Raises:
+        ValueError: For validation errors
+        PermissionError: For access control errors
+        RuntimeError: For execution errors
     """
-    test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
-    if test_set:
-        defaults = load_defaults()
-        test_set.attributes = generate_test_set_attributes(
-            db=db,
-            test_set=test_set,
-            defaults=defaults,
-            license_type=test_set.license_type,
+    from rhesis.backend.app import crud
+    from rhesis.backend.app import schemas
+    from rhesis.backend.tasks import task_launcher
+    
+    logger.info(
+        f"Starting test set execution for identifier: {test_set_identifier} "
+        f"and endpoint: {endpoint_id}, user: {current_user.id}"
+    )
+
+    # Validate input parameters
+    if not test_set_identifier:
+        raise ValueError("test_set_identifier is required")
+    if not endpoint_id:
+        raise ValueError("endpoint_id is required")
+
+    with maintain_tenant_context(db):
+        # Resolve test set
+        logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
+        db_test_set = crud.resolve_test_set(test_set_identifier, db)
+        if db_test_set is None:
+            raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
+        logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
+
+        # Verify endpoint exists
+        logger.debug(f"Verifying endpoint exists: {endpoint_id}")
+        db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id)
+        if not db_endpoint:
+            raise ValueError(f"Endpoint not found: {endpoint_id}")
+        logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
+
+        # Check user access permissions
+        _validate_user_access(current_user, db_test_set, db_endpoint)
+
+        # Create test configuration
+        test_config_id = _create_test_configuration(
+            db, endpoint_id, db_test_set.id, current_user
         )
-        db.flush()
+
+        # Submit for execution
+        task_result = _submit_test_configuration_for_execution(test_config_id, current_user)
+
+        # Return success response
+        response_data = {
+            "status": "submitted",
+            "message": f"Test set execution started for {db_test_set.name}",
+            "test_set_id": str(db_test_set.id),
+            "test_set_name": db_test_set.name,
+            "endpoint_id": str(endpoint_id),
+            "endpoint_name": db_endpoint.name,
+            "test_configuration_id": test_config_id,
+            "task_id": task_result.id,
+        }
+        logger.info(f"Successfully initiated test set execution: {response_data}")
+        return response_data
+
+
+def _validate_user_access(
+    current_user: models.User, 
+    db_test_set: models.TestSet, 
+    db_endpoint: models.Endpoint
+) -> None:
+    """Validate user has access to both test set and endpoint."""
+    # Check if user has access to the test set
+    logger.debug(
+        f"Checking user access to test set: user_org={current_user.organization_id}, "
+        f"test_set_org={db_test_set.organization_id}"
+    )
+    if str(current_user.organization_id) != str(db_test_set.organization_id):
+        logger.error(
+            f"User {current_user.id} from org {current_user.organization_id} "
+            f"cannot access test set {db_test_set.id} from org {db_test_set.organization_id}"
+        )
+        raise PermissionError("Access denied: test set belongs to different organization")
+
+    # Check if user has access to the endpoint
+    logger.debug(
+        f"Checking user access to endpoint: user_org={current_user.organization_id}, "
+        f"endpoint_org={db_endpoint.organization_id}"
+    )
+    if str(current_user.organization_id) != str(db_endpoint.organization_id):
+        logger.error(
+            f"User {current_user.id} from org {current_user.organization_id} "
+            f"cannot access endpoint {db_endpoint.id} from org {db_endpoint.organization_id}"
+        )
+        raise PermissionError("Access denied: endpoint belongs to different organization")
+
+
+def _create_test_configuration(
+    db: Session, 
+    endpoint_id: uuid.UUID, 
+    test_set_id: uuid.UUID, 
+    current_user: models.User
+) -> str:
+    """Create test configuration and return its ID as string."""
+    from rhesis.backend.app import crud, schemas
+    
+    logger.debug(
+        f"Creating test configuration for test_set_id={test_set_id}, "
+        f"endpoint_id={endpoint_id}, user_id={current_user.id}"
+    )
+    
+    test_config = schemas.TestConfigurationCreate(
+        endpoint_id=endpoint_id,
+        test_set_id=test_set_id,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+    )
+    logger.debug(f"Test configuration schema created: {test_config}")
+    
+    # Create the test configuration
+    db_test_config = crud.create_test_configuration(db=db, test_configuration=test_config)
+    print(f"I got db_test_config: {db_test_config}")
+    # Access the ID immediately while we're still in the same transaction context
+    # This avoids any potential session expiration or RLS context issues
+    test_config_id = str(db_test_config.id)
+    logger.info(f"Created test configuration with ID: {test_config_id}")
+    
+    # Return just the ID string instead of trying to access the object later
+    return test_config_id
+
+
+def _submit_test_configuration_for_execution(test_config_id: str, current_user: models.User):
+    """Submit test configuration for background execution."""
+    from rhesis.backend.tasks.test_configuration import execute_test_configuration
+    from rhesis.backend.tasks import task_launcher
+    
+    logger.debug(f"Submitting test configuration for execution: test_configuration_id={test_config_id}")
+    
+    result = task_launcher(
+        execute_test_configuration,
+        test_config_id,
+        current_user=current_user
+    )
+    
+    logger.info(f"Test configuration execution submitted with task ID: {result.id}")
+    return result
