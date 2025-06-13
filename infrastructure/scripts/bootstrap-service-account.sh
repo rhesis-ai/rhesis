@@ -3,13 +3,14 @@
 set -e
 
 # === CONFIGURATION ===
-PROJECT_ID="your-project-id"
-SA_NAME="your-service-account-name"
-SA_DISPLAY_NAME="Your Service Account Display Name"
+PROJECT_ID="playground-437609"  # Target project for deployments
+SA_PROJECT_ID="rhesis-platform-admin"  # Project where service account lives
+SA_NAME="terraform-deployer"
+SA_DISPLAY_NAME="Terraform Deployer Service Account"
 KEY_OUTPUT_PATH="./service-account-key.json"
 
 # === DERIVED VARIABLES ===
-SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+SA_EMAIL="${SA_NAME}@${SA_PROJECT_ID}.iam.gserviceaccount.com"
 
 # === HELPER FUNCTIONS ===
 function log_info() {
@@ -55,12 +56,12 @@ done
 
 # Create service account if it doesn't exist
 log_info "Checking if service account exists: $SA_NAME"
-if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" &>/dev/null; then
+if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$SA_PROJECT_ID" &>/dev/null; then
   log_info "Creating service account: $SA_NAME"
   gcloud iam service-accounts create "$SA_NAME" \
-    --description="Service account for your use case" \
+    --description="Service account for GKE worker deployment" \
     --display-name="$SA_DISPLAY_NAME" \
-    --project="$PROJECT_ID"
+    --project="$SA_PROJECT_ID"
   log_success "Service account created: $SA_EMAIL"
 else
   log_success "Service account already exists: $SA_EMAIL"
@@ -68,17 +69,32 @@ fi
 
 # Grant roles to service account
 log_info "Granting roles to service account..."
-# Add your required roles here, for example:
-# gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-#   --member="serviceAccount:$SA_EMAIL" \
-#   --role="roles/your.required.role" \
-#   --quiet
+
+# Required roles for GKE worker deployment
+REQUIRED_ROLES=(
+  "roles/container.admin"           # Kubernetes Engine Admin - for GKE cluster creation/management
+  "roles/container.clusterAdmin"    # Kubernetes Engine Cluster Admin - specifically for cluster creation
+  "roles/container.developer"       # Kubernetes Engine Developer - for additional GKE operations
+  "roles/iam.serviceAccountUser"    # Service Account User - for GKE nodes to use service accounts  
+  "roles/compute.networkAdmin"      # Compute Network Admin - for VPC networking
+  "roles/compute.viewer"            # Compute Viewer - for viewing network resources
+)
+
+for role in "${REQUIRED_ROLES[@]}"; do
+  log_info "Adding role: $role"
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="$role" \
+    --quiet
+  log_success "Role added: $role"
+done
 
 # Generate service account key if it doesn't exist
 if [[ ! -f "$KEY_OUTPUT_PATH" ]]; then
   log_info "Generating and downloading service account key..."
   gcloud iam service-accounts keys create "$KEY_OUTPUT_PATH" \
-    --iam-account="$SA_EMAIL"
+    --iam-account="$SA_EMAIL" \
+    --project="$SA_PROJECT_ID"
   log_success "Key saved to $KEY_OUTPUT_PATH"
 else
   log_warning "Key file already exists at $KEY_OUTPUT_PATH"
@@ -88,7 +104,8 @@ else
     mv "$KEY_OUTPUT_PATH" "${KEY_OUTPUT_PATH}.$(date +%Y%m%d%H%M%S).bak"
     log_info "Old key backed up. Generating new key..."
     gcloud iam service-accounts keys create "$KEY_OUTPUT_PATH" \
-      --iam-account="$SA_EMAIL"
+      --iam-account="$SA_EMAIL" \
+      --project="$SA_PROJECT_ID"
     log_success "New key saved to $KEY_OUTPUT_PATH"
   fi
 fi
