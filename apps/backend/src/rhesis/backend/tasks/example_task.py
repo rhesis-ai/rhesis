@@ -6,49 +6,41 @@ from rhesis.backend.worker import app
 from rhesis.backend.tasks.base import BaseTask, with_tenant_context
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.process_data")
-def process_data(data: dict):
+@app.task(base=BaseTask, name="rhesis.backend.tasks.process_data", bind=True)
+def process_data(self, data: dict):
     """
     Example task that processes data.
     
     This task automatically receives organization_id and user_id in its context
     when launched with task_launcher.
     """
-    # Access the task instance to get the request object with context
-    task = process_data.request
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
     
-    # Access context values from the request
-    org_id = getattr(task, 'organization_id', 'unknown')
-    user_id = getattr(task, 'user_id', 'unknown')
-    
-    print(f"Processing data: {data}")
-    print(f"Organization from context: {org_id}")
-    print(f"User from context: {user_id}")
+    self.log_with_context('info', f"Processing data", data_keys=list(data.keys()) if data else [])
     
     result = {"processed": data, "organization_id": org_id, "user_id": user_id}
     return result
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.echo")
-def echo(message: str):
+@app.task(base=BaseTask, name="rhesis.backend.tasks.echo", bind=True)
+def echo(self, message: str):
     """
     Echo task for testing.
     
     This task doesn't use the database, but demonstrates how to access
     context information from the task request.
     """
-    # Access context directly from the current task's request object
-    task = echo.request
-    org_id = getattr(task, 'organization_id', 'unknown') 
-    user_id = getattr(task, 'user_id', 'unknown')
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
     
-    print(f"Task executed for organization: {org_id}, by user: {user_id}")
+    self.log_with_context('info', f"Echo task executed", message_length=len(message))
     return f"Message: {message}, Organization: {org_id}, User: {user_id}"
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_set_count")
+@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_set_count", bind=True)
 @with_tenant_context
-def get_test_set_count(db=None):
+def get_test_set_count(self, db=None):
     """
     Count test sets for the current organization.
     
@@ -68,10 +60,10 @@ def get_test_set_count(db=None):
     test_sets = crud.get_test_sets(db)
     count = len(test_sets)
     
-    # Access context from task request
-    task = get_test_set_count.request
-    org_id = getattr(task, 'organization_id', 'unknown')
-    user_id = getattr(task, 'user_id', 'unknown')
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
+    
+    self.log_with_context('info', f"Test set count retrieved", test_set_count=count)
     
     return {
         "organization_id": org_id,
@@ -80,9 +72,9 @@ def get_test_set_count(db=None):
     }
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration")
+@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration", bind=True)
 @with_tenant_context
-def get_test_configuration(test_configuration_id: str, db=None):
+def get_test_configuration(self, test_configuration_id: str, db=None):
     """
     Get details of a specific test configuration.
     
@@ -96,10 +88,12 @@ def get_test_configuration(test_configuration_id: str, db=None):
     # which has the tenant context already set
     test_config = crud.get_test_configuration(db, test_configuration_id=config_id)
     
-    # Access context from task request
-    task = get_test_configuration.request
-    org_id = getattr(task, 'organization_id', 'unknown')
-    user_id = getattr(task, 'user_id', 'unknown')
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
+    
+    self.log_with_context('info', f"Test configuration retrieved", 
+                         test_configuration_id=test_configuration_id,
+                         found=test_config is not None)
     
     return {
         "organization_id": org_id,
@@ -109,26 +103,27 @@ def get_test_configuration(test_configuration_id: str, db=None):
     }
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example")
-def manual_db_example():
+@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example", bind=True)
+def manual_db_example(self):
     """
     Example of manually managing the database session in a task.
     
     This demonstrates using get_db_session for cases where you need more
     control over the session lifecycle.
     """
-    # Access context from task request
-    task = manual_db_example.request
-    org_id = getattr(task, 'organization_id', 'unknown')
-    user_id = getattr(task, 'user_id', 'unknown')
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
     
     results = {}
     
     # Use the context manager to get a properly configured session
-    with manual_db_example.get_db_session() as db:
+    with self.get_db_session() as db:
         # The session already has tenant context set
         test_sets = crud.get_test_sets(db)
         results["test_set_count"] = len(test_sets)
+    
+    self.log_with_context('info', f"Manual DB example completed", 
+                         test_set_count=results.get("test_set_count", 0))
     
     return {
         "organization_id": org_id,

@@ -23,36 +23,35 @@ def count_test_sets(self, db=None):
     
     All database operations will have the correct tenant context automatically.
     """
-    # Access context from task request
-    org_id = getattr(self.request, 'organization_id', 'unknown')
-    user_id = getattr(self.request, 'user_id', 'unknown')
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
     
-    logger.info(f"Starting count_test_sets task with id: {self.request.id}")
-    logger.info(f"Task context - organization_id: {org_id}, user_id: {user_id}")
+    self.log_with_context('info', f"Starting count_test_sets task")
 
     try:
         # Update task state to show progress
         self.update_state(state="PROGRESS", meta={"status": "Counting test sets"})
-        logger.info("Starting database queries with tenant context: user_id={user_id}, org_id={org_id}")
+        self.log_with_context('info', f"Starting database queries")
 
         # Get all test sets with the proper tenant context
         # The db session is already configured with the tenant context by the decorator
         test_sets = crud.get_test_sets(db)
         total_count = len(test_sets)
-        logger.info(f"Total test sets count: {total_count}")
+        self.log_with_context('info', f"Total test sets counted", total_count=total_count)
 
         # Get counts by visibility
         public_count = db.query(TestSet).filter(TestSet.visibility == "public").count()
         private_count = db.query(TestSet).filter(TestSet.visibility == "private").count()
-        logger.info(f"Visibility counts - public: {public_count}, private: {private_count}")
+        self.log_with_context('info', f"Visibility counts retrieved", 
+                             public_count=public_count, 
+                             private_count=private_count)
 
         # Get counts by published status
         published_count = db.query(TestSet).filter(TestSet.is_published).count()
         unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
-        logger.info(
-            f"Published status counts - published: {published_count}, "
-            f"unpublished: {unpublished_count}"
-        )
+        self.log_with_context('info', f"Published status counts retrieved",
+                             published_count=published_count,
+                             unpublished_count=unpublished_count)
 
         result = {
             "total_count": total_count,
@@ -62,10 +61,13 @@ def count_test_sets(self, db=None):
             "user_id": user_id
         }
 
-        logger.info(f"Task completed successfully with result: {result}")
+        self.log_with_context('info', f"Task completed successfully", 
+                             total_count=total_count,
+                             public_count=public_count,
+                             private_count=private_count)
         return result
 
     except Exception as e:
-        logger.error(f"Task failed with error: {str(e)}", exc_info=True)
+        self.log_with_context('error', f"Task failed", error=str(e))
         # The task will be automatically retried due to BaseTask settings
         raise
