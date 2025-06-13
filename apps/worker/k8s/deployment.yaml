@@ -65,7 +65,10 @@ spec:
               name: rhesis-worker-secrets
               key: SQLALCHEMY_DB_PASS
         - name: SQLALCHEMY_DB_HOST
-          value: "127.0.0.1"  # Connect via Cloud SQL Auth Proxy
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_HOST
         - name: SQLALCHEMY_DB_NAME
           valueFrom:
             secretKeyRef:
