@@ -180,7 +180,9 @@ jobs:
               --project=${{ env.PROJECT_ID }} \
               --network=default \
               --subnetwork=default \
-              --release-channel=regular
+              --release-channel=regular \
+              --enable-ip-alias \
+              --workload-pool=${{ env.PROJECT_ID }}.svc.id.goog
           else
             echo "Cluster ${{ env.CLUSTER_NAME }} already exists"
           fi
@@ -190,6 +192,14 @@ jobs:
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
+
+      - name: Setup Workload Identity
+        run: |
+          # Create Kubernetes service account binding with Google service account
+          gcloud iam service-accounts add-iam-policy-binding \
+            --role roles/iam.workloadIdentityUser \
+            --member "serviceAccount:${{ env.PROJECT_ID }}.svc.id.goog[${{ env.NAMESPACE }}/rhesis-worker-sa]" \
+            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
       - name: Create namespace
         run: |
@@ -206,7 +216,6 @@ jobs:
             --from-literal=SQLALCHEMY_DB_DRIVER="${{ secrets.SQLALCHEMY_DB_DRIVER }}" \
             --from-literal=SQLALCHEMY_DB_USER="${{ secrets.SQLALCHEMY_DB_USER }}" \
             --from-literal=SQLALCHEMY_DB_PASS="${{ secrets.SQLALCHEMY_DB_PASS }}" \
-            --from-literal=SQLALCHEMY_DB_HOST="${{ secrets.SQLALCHEMY_DB_HOST }}" \
             --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
             --from-literal=CELERY_WORKER_LOGLEVEL="${{ secrets.LOG_LEVEL || 'INFO' }}" \
@@ -216,12 +225,15 @@ jobs:
       - name: Deploy to GKE
         run: |
           echo "Deploying image: ${{ env.IMAGE_NAME }}:latest"
+          echo "Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}"
           
           # Update kustomization with correct image and environment
           cd apps/worker/k8s
           
-          # Update image reference
+          # Update deployment with actual values
           sed -i "s|gcr.io/PROJECT_ID/rhesis-worker|${{ env.IMAGE_NAME }}|g" deployment.yaml
+          sed -i "s|PROJECT_ID:REGION:CLOUDSQL_INSTANCE|${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}|g" deployment.yaml
+          sed -i "s|GCP_SERVICE_ACCOUNT_EMAIL|${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}|g" serviceaccount.yaml
           
           # Update kustomization for environment
           cat > kustomization.yaml << EOF
@@ -231,6 +243,7 @@ jobs:
           resources:
           - deployment.yaml
           - service.yaml
+          - serviceaccount.yaml
           - networkpolicy.yaml
           
           labels:

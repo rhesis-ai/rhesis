@@ -16,6 +16,7 @@ spec:
         app: rhesis-worker
         component: worker
     spec:
+      serviceAccountName: rhesis-worker-sa
       containers:
       - name: worker
         image: gcr.io/PROJECT_ID/rhesis-worker:latest
@@ -64,10 +65,7 @@ spec:
               name: rhesis-worker-secrets
               key: SQLALCHEMY_DB_PASS
         - name: SQLALCHEMY_DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: SQLALCHEMY_DB_HOST
+          value: "127.0.0.1"  # Connect via Cloud SQL Auth Proxy
         - name: SQLALCHEMY_DB_NAME
           valueFrom:
             secretKeyRef:
@@ -107,4 +105,21 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
+      
+      # Cloud SQL Auth Proxy sidecar
+      - name: cloudsql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
+        args:
+          - "--structured-logs"
+          - "--port=5432"
+          - "PROJECT_ID:REGION:CLOUDSQL_INSTANCE"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
       restartPolicy: Always 
