@@ -172,11 +172,11 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         """Handle successful response with JSON parsing."""
         try:
             response_data = response.json()
-            logger.info(f"Raw response data: {json.dumps(response_data, indent=2)}")
-            logger.info(f"Response mappings: {json.dumps(endpoint.response_mappings or {}, indent=2)}")
+            #logger.info(f"Raw response data: {json.dumps(response_data, indent=2)}")
+            #logger.info(f"Response mappings: {json.dumps(endpoint.response_mappings or {}, indent=2)}")
             
             mapped_response = self.response_mapper.map_response(response_data, endpoint.response_mappings or {})
-            logger.info(f"Mapped response: {json.dumps(mapped_response, indent=2)}")
+            #logger.info(f"Mapped response: {json.dumps(mapped_response, indent=2)}")
             
             return mapped_response
         except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:
