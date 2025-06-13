@@ -26,6 +26,7 @@ from rhesis.backend.app.services.test_set import (
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
+from rhesis.backend.tasks import task_launcher
 
 # Create the detailed schema for TestSet and Test
 TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
@@ -364,6 +365,7 @@ async def execute_test_set(
                 endpoint_id=endpoint_id,
                 test_set_id=db_test_set.id,
                 user_id=current_user.id if current_user else None,
+                organization_id=current_user.organization_id if current_user else None,
             )
             logger.debug(f"Test configuration schema created: {test_config}")
             
@@ -380,7 +382,11 @@ async def execute_test_set(
             logger.debug(f"Importing execute_test_configuration task successfully")
             logger.debug(f"Submitting test configuration for execution: test_configuration_id={db_test_config.id}")
             
-            result = execute_test_configuration.delay(test_configuration_id=str(db_test_config.id))
+            result = task_launcher(
+                execute_test_configuration,
+                str(db_test_config.id),
+                current_user=current_user
+            )
             logger.info(f"Test configuration execution submitted with task ID: {result.id}")
         except ImportError as e:
             logger.error(f"Failed to import execute_test_configuration task: {str(e)}", exc_info=True)
