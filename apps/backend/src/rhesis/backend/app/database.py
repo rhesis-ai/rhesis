@@ -20,7 +20,7 @@ SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
-    expire_on_commit=False,  # Expire objects after commit, this is important for RLS
+    expire_on_commit=False,  # Expire objects after commit
 )
 Base = declarative_base()
 
