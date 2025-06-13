@@ -180,10 +180,6 @@ jobs:
               --project=${{ env.PROJECT_ID }} \
               --network=default \
               --subnetwork=default \
-              --cluster-dns=clouddns \
-              --cluster-dns-scope=vpc \
-              --enable-ip-alias \
-              --cluster-version=latest \
               --release-channel=regular
           else
             echo "Cluster ${{ env.CLUSTER_NAME }} already exists"
