@@ -35,10 +35,20 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
   const [totalCount, setTotalCount] = useState<number>(0);
   const [projectNames, setProjectNames] = useState<ProjectCache>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
   });
+
+  // Update current time every second to refresh dynamic execution times
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchProjectName = useCallback(async (projectId: string) => {
     if (!sessionToken || projectNames[projectId]) return;
@@ -138,6 +148,39 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     }
   }, []);
 
+  // Helper function to calculate elapsed time for in-progress runs
+  const getElapsedTime = useCallback((startTime: string): number => {
+    const start = new Date(startTime);
+    const now = currentTime;
+    return now.getTime() - start.getTime();
+  }, [currentTime]);
+
+  // CSS for animated progress border
+  const progressBorderAnimation = {
+    position: 'relative',
+    overflow: 'hidden',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: '-2px',
+      left: '-2px',
+      right: '-2px',
+      bottom: '-2px',
+      background: 'conic-gradient(from 0deg, #1976d2, #42a5f5, #90caf9, #1976d2)',
+      borderRadius: 'inherit',
+      zIndex: -1,
+      animation: 'progressSpin 2s linear infinite',
+    },
+    '@keyframes progressSpin': {
+      '0%': {
+        transform: 'rotate(0deg)',
+      },
+      '100%': {
+        transform: 'rotate(360deg)',
+      },
+    },
+  };
+
   const columns: GridColDef[] = React.useMemo(() => [
     { 
       field: 'name',
@@ -173,11 +216,24 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       headerAlign: 'right',
       valueGetter: (_, row) => {
         const status = row.status?.name || row.attributes?.status;
-        if (status?.toLowerCase() !== 'completed') return '';
         
-        const timeMs = row.attributes?.total_execution_time_ms;
-        if (!timeMs) return '';
-        return formatExecutionTime(timeMs);
+        // For completed runs, show the final execution time
+        if (status?.toLowerCase() === 'completed') {
+          const timeMs = row.attributes?.total_execution_time_ms;
+          if (!timeMs) return '';
+          return formatExecutionTime(timeMs);
+        }
+        
+        // For in-progress runs, show elapsed time since start
+        if (status?.toLowerCase() === 'progress' || status?.toLowerCase() === 'in progress' || status?.toLowerCase() === 'running') {
+          const startTime = row.created_at || row.started_at;
+          if (!startTime) return '';
+          
+          const elapsedMs = getElapsedTime(startTime);
+          return formatExecutionTime(elapsedMs);
+        }
+        
+        return '';
       }
     },
     { 
@@ -188,11 +244,16 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         const status = params.row.status?.name;
         if (!status) return null;
 
+        const isInProgress = status.toLowerCase() === 'progress' || 
+                           status.toLowerCase() === 'in progress' || 
+                           status.toLowerCase() === 'running';
+
         return (
           <Chip 
             label={status} 
             size="small" 
-            variant="outlined" 
+            variant="outlined"
+            sx={isInProgress ? progressBorderAnimation : {}}
           />
         );
       }
@@ -222,7 +283,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         );
       }
     }
-  ], [projectNames, formatExecutionTime]);
+  ], [projectNames, formatExecutionTime, getElapsedTime, progressBorderAnimation]);
 
   // Handle row click to navigate to test run details
   const handleRowClick = useCallback((params: any) => {
