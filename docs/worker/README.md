@@ -9,6 +9,7 @@ This directory contains documentation related to the Rhesis worker system, which
 - [Chord Monitoring Quick Reference](chord-monitoring-quick-reference.md): Quick reference card for chord monitoring commands and workflows.
 - [Troubleshooting Guide](troubleshooting.md): Solutions for common issues with workers, tasks, and the Celery processing system.
 - [GKE Troubleshooting Guide](gke-troubleshooting.md): **NEW** - Comprehensive guide for diagnosing and fixing worker issues in Google Kubernetes Engine.
+- [Logging Guide](logging.md): **NEW** - Complete guide to worker logging, log analysis, and monitoring.
 - [Architecture and Dependencies](architecture.md): Explanation of how the worker system integrates with the backend and SDK components.
 
 ## Topics Covered
@@ -22,6 +23,7 @@ This directory contains documentation related to the Rhesis worker system, which
 - Error handling and recovery
 - Task monitoring and observability
 - **GKE troubleshooting with kubectl**
+- **Comprehensive logging and log analysis**
 - Redis connection diagnostics
 
 ## Quick Start Guides
@@ -31,8 +33,9 @@ If you're experiencing deployment or connectivity issues:
 
 1. **Connect to Cluster**: Follow [GKE Setup](gke-troubleshooting.md#quick-start-connect-to-your-cluster)
 2. **Check Pod Status**: `kubectl get pods -n <namespace>`
-3. **Test Health Endpoints**: `kubectl exec -it <pod> -- curl localhost:8080/debug`
-4. **Full Diagnostics**: See [GKE Troubleshooting Guide](gke-troubleshooting.md)
+3. **Check Logs**: `kubectl logs <pod> -c worker -n <namespace> --tail=100`
+4. **Test Health Endpoints**: `kubectl exec -it <pod> -- curl localhost:8080/debug`
+5. **Full Diagnostics**: See [GKE Troubleshooting Guide](gke-troubleshooting.md) and [Logging Guide](logging.md)
 
 ### For Chord Monitoring Issues
 If you're experiencing chord-related issues:
