@@ -70,7 +70,7 @@ EXPOSE 8080
 
 # Cloud Run needs an HTTP health check, not a Celery inspect ping
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:8080/health/basic || exit 1
 
 # Set the startup script as the entry point
 CMD ["/app/start.sh"]
