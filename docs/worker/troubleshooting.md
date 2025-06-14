@@ -150,13 +150,15 @@ organization_id = organization_id or request_org_id
 
 **Symptoms**: Worker fails to start or tasks are not being processed
 
-**Cause**: Connection to the PostgreSQL broker is not working
+**Cause**: Connection to the Redis broker is not working
 
 **Solution**:
-1. Check that PostgreSQL is running and accessible
-2. Verify that database credentials are correct
-3. Ensure that the PostgreSQL extension `pg_trgm` is installed
-4. Check firewall rules if running in a cloud environment
+1. Check that Redis is running and accessible
+2. Verify the `BROKER_URL` environment variable is correct
+3. For TLS connections (`rediss://`), ensure `ssl_cert_reqs=CERT_NONE` parameter is included
+4. Test Redis connectivity: `redis-cli -u "$BROKER_URL" ping`
+5. Check firewall rules if running in a cloud environment
+6. For GKE deployments, see the [GKE Troubleshooting Guide](gke-troubleshooting.md)
 
 ### Error: Test runs stuck in "IN_PROGRESS" status
 
@@ -201,5 +203,6 @@ def worker_health_check():
 ## Related Documentation
 
 - **[Chord Management and Monitoring](chord-management.md)**: Comprehensive guide for chord-specific issues
+- **[GKE Troubleshooting Guide](gke-troubleshooting.md)**: Debugging workers in Google Kubernetes Engine
 - [Background Tasks and Processing](background-tasks.md): General task management information
 - [Architecture and Dependencies](architecture.md): System integration details 
