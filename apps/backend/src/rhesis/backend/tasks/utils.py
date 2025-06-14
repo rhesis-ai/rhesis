@@ -64,6 +64,37 @@ def get_test_run_by_config(
         return None
 
 
+def get_test_run_by_task_id(
+    db: Session, 
+    task_id: str
+) -> Optional[Any]:
+    """
+    Get a test run by task ID from attributes.
+    This is used to find test runs created by a specific Celery task,
+    which is important for handling task retries correctly.
+    
+    Args:
+        db: Database session
+        task_id: Celery task ID
+        
+    Returns:
+        Test run with matching task_id in attributes, or None if not found
+    """
+    try:
+        # Get all test runs and filter by task_id in attributes
+        # Note: This is not the most efficient approach, but since we expect
+        # few test runs per task, it's acceptable for now
+        test_runs = crud.get_test_runs(db, limit=100)
+        
+        for test_run in test_runs:
+            if test_run.attributes and test_run.attributes.get("task_id") == task_id:
+                return test_run
+        
+        return None
+    except Exception:
+        return None
+
+
 def increment_test_run_progress(
     db: Session, 
     test_run_id: str, 
