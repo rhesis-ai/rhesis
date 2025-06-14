@@ -124,23 +124,23 @@ spec:
           name: health
         livenessProbe:
           httpGet:
-            path: /health
+            path: /ping
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 120
-          periodSeconds: 45
-          timeoutSeconds: 10
-          failureThreshold: 3
+          initialDelaySeconds: 180
+          periodSeconds: 60
+          timeoutSeconds: 20
+          failureThreshold: 5
           successThreshold: 1
         readinessProbe:
           httpGet:
             path: /health/basic
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 5
           successThreshold: 1
       
       # Cloud SQL Auth Proxy sidecar

@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     gcc \
+    procps \
     && pip install --no-cache-dir uv \
     && apt-get purge -y gcc \
     && apt-get autoremove -y \
