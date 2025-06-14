@@ -240,6 +240,16 @@ class HealthHandler(BaseHTTPRequestHandler):
             # Test Redis connectivity first (faster than celery inspect)
             redis_healthy = self._test_redis_connection()
             
+            # Test broker connectivity first before running celery inspect
+            broker_test = self._test_redis_connection()
+            if broker_test != "connected":
+                return False, {
+                    "message": "Broker connection failed before Celery test",
+                    "connection_type": "TLS" if is_tls else "standard",
+                    "broker_status": broker_test,
+                    "last_check": datetime.now().isoformat()
+                }
+            
             # Quick ping with appropriate timeout for connection type
             result = subprocess.run(
                 ["celery", "-A", "rhesis.backend.worker.app", "inspect", "ping"],
@@ -291,41 +301,51 @@ class HealthHandler(BaseHTTPRequestHandler):
         return broker_url.startswith("rediss://") or result_backend.startswith("rediss://")
     
     def _test_redis_connection(self):
-        """Quick Redis connection test"""
+        """Quick Redis connection test using Celery's connection method"""
         try:
-            # Try to import and test redis connection
-            import redis
-            from urllib.parse import urlparse
+            # Use Celery's connection method instead of direct Redis
+            # This ensures we use the same SSL handling as Celery
+            import rhesis.backend.worker
+            app = rhesis.backend.worker.app
             
-            broker_url = os.getenv("BROKER_URL", "")
-            if not broker_url:
-                return "no_broker_url"
-            
-            # Parse Redis URL
-            parsed = urlparse(broker_url)
-            if not parsed.hostname:
-                return "invalid_url"
-            
-            # Quick connection test with short timeout
-            if broker_url.startswith("rediss://"):
-                # TLS connection
-                r = redis.Redis.from_url(broker_url, socket_connect_timeout=2, socket_timeout=2)
-            else:
-                # Standard connection  
-                r = redis.Redis.from_url(broker_url, socket_connect_timeout=1, socket_timeout=1)
-            
-            # Simple ping
-            r.ping()
+            # Test broker connection using Celery's method
+            with app.connection() as conn:
+                conn.connect()
             return "connected"
             
         except ImportError:
-            return "redis_not_available"
-        except redis.ConnectionError:
-            return "connection_failed"
-        except redis.TimeoutError:
-            return "timeout"
+            return "celery_not_available"
         except Exception as e:
-            return f"error: {str(e)[:50]}"
+            # Fallback to direct Redis test if Celery method fails
+            try:
+                import redis
+                from urllib.parse import urlparse
+                
+                broker_url = os.getenv("BROKER_URL", "")
+                if not broker_url:
+                    return "no_broker_url"
+                
+                # Parse Redis URL
+                parsed = urlparse(broker_url)
+                if not parsed.hostname:
+                    return "invalid_url"
+                
+                # Quick connection test with short timeout
+                # Don't modify SSL parameters - let Redis library handle URL parsing
+                r = redis.Redis.from_url(broker_url, socket_connect_timeout=1, socket_timeout=1)
+                
+                # Simple ping
+                r.ping()
+                return "connected"
+                
+            except ImportError:
+                return "redis_not_available"
+            except redis.ConnectionError:
+                return "connection_failed"
+            except redis.TimeoutError:
+                return "timeout"
+            except Exception as redis_e:
+                return f"celery_error: {str(e)[:25]}, redis_error: {str(redis_e)[:25]}"
 
     def _get_celery_debug_info(self):
         """Get detailed Celery debug information"""
@@ -367,7 +387,7 @@ class HealthHandler(BaseHTTPRequestHandler):
                 "redis_module_available": True,
             }
             
-            # Test connections
+            # Test connections using Celery's method
             if broker_url:
                 try:
                     parsed = urlparse(broker_url)
@@ -375,14 +395,14 @@ class HealthHandler(BaseHTTPRequestHandler):
                     debug_info["broker_port"] = parsed.port
                     debug_info["broker_db"] = parsed.path.lstrip('/')
                     
-                    # Quick connection test
-                    r = redis.Redis.from_url(broker_url, socket_connect_timeout=1, socket_timeout=1)
-                    r.ping()
+                    # Use Celery's connection method for accurate testing
+                    import rhesis.backend.worker
+                    app = rhesis.backend.worker.app
+                    with app.connection() as conn:
+                        conn.connect()
                     debug_info["broker_connectivity"] = "success"
-                except redis.ConnectionError:
-                    debug_info["broker_connectivity"] = "connection_failed"
-                except redis.TimeoutError:
-                    debug_info["broker_connectivity"] = "timeout"
+                except ImportError:
+                    debug_info["broker_connectivity"] = "celery_not_available"
                 except Exception as e:
                     debug_info["broker_connectivity"] = f"error: {str(e)[:50]}"
             
