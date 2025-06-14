@@ -65,10 +65,11 @@ spec:
               name: rhesis-worker-secrets
               key: SQLALCHEMY_DB_PASS
         - name: SQLALCHEMY_DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: SQLALCHEMY_DB_HOST
+          value: "127.0.0.1"
+        - name: SQLALCHEMY_DB_PORT
+          value: "5432"
+        - name: USE_TCP_DATABASE
+          value: "true"
         - name: SQLALCHEMY_DB_NAME
           valueFrom:
             secretKeyRef:

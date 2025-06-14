@@ -72,6 +72,22 @@ except Exception as e:
     sys.exit(1)
 "
 
+# Override database URL for TCP connection if needed
+if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
+    echo "🔧 Overriding database URL for TCP connection..."
+    echo "Original SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}"
+    
+    # Construct TCP database URL from components
+    export SQLALCHEMY_DATABASE_URL="postgresql://${SQLALCHEMY_DB_USER:-}:${SQLALCHEMY_DB_PASS:-}@${SQLALCHEMY_DB_HOST:-127.0.0.1}:${SQLALCHEMY_DB_PORT:-5432}/${SQLALCHEMY_DB_NAME:-}"
+    echo "TCP SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}"
+    
+    # Also set individual components for consistency
+    echo "Database host: ${SQLALCHEMY_DB_HOST}"
+    echo "Database port: ${SQLALCHEMY_DB_PORT}"
+    echo "Database name: ${SQLALCHEMY_DB_NAME}"
+    echo "Database user: ${SQLALCHEMY_DB_USER}"
+fi
+
 # Test broker connectivity
 echo "Testing broker connectivity..."
 # Use longer timeout for TLS connections
@@ -98,6 +114,29 @@ except Exception as e:
     traceback.print_exc()
     sys.exit(1)
 " || echo "⚠️ Broker connection test timed out or failed"
+
+# Test database connectivity if TCP mode is enabled
+if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
+    echo "Testing database connectivity (TCP mode)..."
+    timeout 10 python -c "
+import sys
+try:
+    from sqlalchemy import create_engine, text
+    import os
+    
+    # Test database connection
+    db_url = os.getenv('SQLALCHEMY_DATABASE_URL')
+    print(f'Testing database connection: {db_url.replace(os.getenv(\"SQLALCHEMY_DB_PASS\", \"\"), \"***\")}')
+    
+    engine = create_engine(db_url, pool_pre_ping=True)
+    with engine.connect() as conn:
+        result = conn.execute(text('SELECT 1'))
+        print('✅ Database connection successful')
+except Exception as e:
+    print(f'❌ Database connection failed: {e}')
+    sys.exit(1)
+" || echo "⚠️ Database connection test timed out or failed"
+fi
 
 # Start the health check server
 echo "Starting health check server on port 8080..."
