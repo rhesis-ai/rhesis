@@ -105,15 +105,18 @@ import os
 try:
     from rhesis.backend.worker import app
     print(f'Broker URL type: {\"TLS\" if os.getenv(\"BROKER_URL\", \"\").startswith(\"rediss://\") else \"standard\"}')
+    
+    # Test basic broker connection (lighter than worker ping)
     with app.connection() as conn:
         conn.connect()
-        print('✅ Broker connection successful')
+        # Test basic broker communication
+        conn.default_channel.basic_get('test_queue_connectivity_check', no_ack=True)
+        print('✅ Broker connection and communication successful')
 except Exception as e:
-    print(f'❌ Broker connection failed: {e}')
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
-" || echo "⚠️ Broker connection test timed out or failed"
+    print(f'⚠️ Broker connection warning: {e}')
+    print('Note: This is expected during startup - workers will retry connections')
+    # Don't exit here - let the worker handle retries
+" || echo "⚠️ Broker connection test completed (timeouts are normal during startup)"
 
 # Test database connectivity if TCP mode is enabled
 if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
@@ -280,32 +283,62 @@ done
 
 echo "✅ Celery worker is stable after 10 seconds"
 
-# Test worker connectivity
+# Test worker connectivity - wait for worker to be ready first
 echo ""
 echo "=== Worker Connectivity Test ==="
-# Use same timeout logic as broker test
+echo "Waiting for worker to fully initialize before connectivity test..."
+
+# Give the worker time to fully start up
+sleep 5
+
+# Use same timeout logic as broker test  
 if [[ "$BROKER_URL" == rediss://* ]]; then
-    CONNECTIVITY_TIMEOUT=15
+    CONNECTIVITY_TIMEOUT=20
     echo "Using TLS timeout: ${CONNECTIVITY_TIMEOUT}s"
 else
-    CONNECTIVITY_TIMEOUT=10
+    CONNECTIVITY_TIMEOUT=15
     echo "Using standard timeout: ${CONNECTIVITY_TIMEOUT}s"
 fi
 
-timeout $CONNECTIVITY_TIMEOUT python -c "
+# Try multiple times with increasing delays
+for attempt in {1..3}; do
+    echo "Connectivity test attempt $attempt/3..."
+    
+    timeout $CONNECTIVITY_TIMEOUT python -c "
 import sys
+import time
 try:
     from rhesis.backend.worker import app
-    # Test if we can connect to our own worker
+    
+    # Give a moment for workers to register
+    time.sleep(2)
+    
+    # Test if we can connect to our own worker  
     result = app.control.inspect().ping()
     if result:
         print('✅ Worker is responding to ping')
         print(f'Active workers: {list(result.keys())}')
+        print(f'Worker count: {len(result)}')
+        sys.exit(0)
     else:
-        print('⚠️ No workers responded to ping')
+        print('⚠️ No workers responded to ping (this may be normal during startup)')
+        sys.exit(1)
 except Exception as e:
     print(f'❌ Worker connectivity test failed: {e}')
-" || echo "⚠️ Worker connectivity test timed out"
+    sys.exit(1)
+" && {
+    echo "✅ Worker connectivity confirmed!"
+    break
+} || {
+    if [ $attempt -eq 3 ]; then
+        echo "⚠️ Worker connectivity test failed after 3 attempts"
+        echo "Note: Workers may still be initializing - this is often normal"
+    else
+        echo "Retrying in 3 seconds..."
+        sleep 3
+    fi
+}
+done
 
 # Wait for Celery worker to exit and handle signals
 wait $CELERY_PID
