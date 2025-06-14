@@ -160,6 +160,23 @@ organization_id = organization_id or request_org_id
 5. Check firewall rules if running in a cloud environment
 6. For GKE deployments, see the [GKE Troubleshooting Guide](gke-troubleshooting.md)
 
+### Error: Missing API Keys for Model Evaluation
+
+**Symptoms**: Tasks fail with errors like "GEMINI_API_KEY environment variable is required"
+
+**Cause**: Model evaluation tasks require API keys for external AI services
+
+**Solution**:
+1. Ensure the following environment variables are set:
+   - `GEMINI_API_KEY`: For Google Gemini models
+   - `GEMINI_MODEL_NAME`: Gemini model name (e.g., "gemini-1.5-pro")
+   - `AZURE_OPENAI_ENDPOINT`: Azure OpenAI endpoint URL
+   - `AZURE_OPENAI_API_KEY`: Azure OpenAI API key
+   - `AZURE_OPENAI_DEPLOYMENT_NAME`: Your Azure deployment name
+   - `AZURE_OPENAI_API_VERSION`: API version (e.g., "2024-02-01")
+2. For GKE deployments, add these to your GitHub secrets
+3. Verify environment variables using the debug endpoint: `curl localhost:8080/debug/env`
+
 ### Error: Test runs stuck in "IN_PROGRESS" status
 
 **Symptoms**: Test configurations start but never complete, remain in progress indefinitely

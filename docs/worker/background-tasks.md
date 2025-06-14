@@ -44,6 +44,14 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 # Production (Redis with TLS)
 BROKER_URL=rediss://:password@redis-host:6378/0?ssl_cert_reqs=CERT_NONE
 CELERY_RESULT_BACKEND=rediss://:password@redis-host:6378/1?ssl_cert_reqs=CERT_NONE
+
+# Model API Keys (required for evaluation tasks)
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL_NAME=gemini-1.5-pro
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+AZURE_OPENAI_API_KEY=your_azure_openai_key
+AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
+AZURE_OPENAI_API_VERSION=2024-02-01
 ```
 
 **Note:** The `rediss://` protocol indicates Redis with TLS/SSL encryption. The `ssl_cert_reqs=CERT_NONE` parameter is used when connecting to managed Redis services that use self-signed certificates.
