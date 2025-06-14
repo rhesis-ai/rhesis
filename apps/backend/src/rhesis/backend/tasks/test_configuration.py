@@ -55,12 +55,24 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
         # Get test configuration with tenant context
         test_config = get_test_configuration(db, test_configuration_id)
         
-        # Create test run with proper tracking
-        test_run = create_test_run(
-            db,
-            test_config,
-            {"id": self.request.id}
-        )
+        # CRITICAL: Check for existing test run BEFORE creating a new one
+        # This prevents task retries from creating multiple test runs
+        existing_test_run = get_test_run_by_config(db, test_configuration_id)
+        if existing_test_run:
+            self.log_with_context('info', 
+                                 f"Found existing test run for configuration {test_configuration_id}",
+                                 existing_test_run_id=str(existing_test_run.id))
+            
+            # Use the existing test run instead of creating a new one
+            test_run = existing_test_run
+        else:
+            # Only create a new test run if none exists
+            self.log_with_context('info', f"Creating new test run for configuration {test_configuration_id}")
+            test_run = create_test_run(
+                db,
+                test_config,
+                {"id": self.request.id}
+            )
         
         # Execute test cases in parallel
         result = execute_test_cases(db, test_config, test_run)
