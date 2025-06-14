@@ -28,6 +28,14 @@ This directory contains documentation related to the Rhesis worker system, which
 
 ## Quick Start Guides
 
+### For Worker Registration Issues
+If workers aren't processing tasks or seem disconnected:
+
+1. **Check Worker Status**: Create and run `check_workers.py` (see [Worker Registration](troubleshooting.md#worker-registration-and-status-checking))
+2. **Quick Status**: `python -c "from rhesis.backend.worker import app; print('Workers:', list(app.control.inspect().active().keys()) if app.control.inspect().active() else 'None')"`
+3. **Test Redis Connection**: Verify broker connectivity
+4. **Scale Workers**: `kubectl scale deployment rhesis-worker --replicas=0/2 -n <namespace>` (for GKE)
+
 ### For GKE Worker Issues
 If you're experiencing deployment or connectivity issues:
 
@@ -35,7 +43,8 @@ If you're experiencing deployment or connectivity issues:
 2. **Check Pod Status**: `kubectl get pods -n <namespace>`
 3. **Check Logs**: `kubectl logs <pod> -c worker -n <namespace> --tail=100`
 4. **Test Health Endpoints**: `kubectl exec -it <pod> -- curl localhost:8080/debug`
-5. **Full Diagnostics**: See [GKE Troubleshooting Guide](gke-troubleshooting.md) and [Logging Guide](logging.md)
+5. **Check Worker Registration**: Use [Worker Registration Checking](gke-troubleshooting.md#worker-registration-checking)
+6. **Full Diagnostics**: See [GKE Troubleshooting Guide](gke-troubleshooting.md) and [Logging Guide](logging.md)
 
 ### For Chord Monitoring Issues
 If you're experiencing chord-related issues:
