@@ -267,7 +267,7 @@ done
 ### Common Warning Patterns
 ```bash
 # TLS connection delay (normal for Redis TLS)
-⚠️  TLS detected in broker URL, adjusting timeouts to 5 seconds
+⚠️  TLS detected in broker URL, adjusting timeouts to 10 seconds
 
 # Chord retries (may indicate failed subtasks)
 [WARNING/MainProcess] Chord unlock task chord_unlock[...] retry: Retry in 1.0s

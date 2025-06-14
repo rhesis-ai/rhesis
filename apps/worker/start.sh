@@ -244,7 +244,16 @@ echo "✅ Celery worker is stable after 10 seconds"
 # Test worker connectivity
 echo ""
 echo "=== Worker Connectivity Test ==="
-timeout 10 python -c "
+# Use same timeout logic as broker test
+if [[ "$BROKER_URL" == rediss://* ]]; then
+    CONNECTIVITY_TIMEOUT=15
+    echo "Using TLS timeout: ${CONNECTIVITY_TIMEOUT}s"
+else
+    CONNECTIVITY_TIMEOUT=10
+    echo "Using standard timeout: ${CONNECTIVITY_TIMEOUT}s"
+fi
+
+timeout $CONNECTIVITY_TIMEOUT python -c "
 import sys
 try:
     from rhesis.backend.worker import app

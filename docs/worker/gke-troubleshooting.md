@@ -28,10 +28,11 @@ The worker includes several debugging endpoints:
 |----------|---------|----------|
 | `/ping` | Basic connectivity | Quick server test |
 | `/health/basic` | Server health (no dependencies) | Readiness probe |
-| `/health` | Full health (includes Celery + Redis) | Liveness probe |
+| `/health` | **Lightweight** health (Celery + Redis, no worker ping) | Liveness probe |
 | `/debug` | Comprehensive system info | General debugging |
 | `/debug/env` | Environment variables (sanitized) | Config issues |
 | `/debug/redis` | Redis connectivity details | Connection problems |
+| `/debug/detailed` | **Slow** health check with worker ping | Deep troubleshooting |
 
 ## Common Troubleshooting Commands
 
@@ -94,6 +95,9 @@ kubectl exec -it <pod-name> -n <namespace> -- curl http://localhost:8080/debug/r
 
 # Environment variables (sanitized)
 kubectl exec -it <pod-name> -n <namespace> -- curl http://localhost:8080/debug/env | jq
+
+# Detailed health check with worker ping (may be slow)
+kubectl exec -it <pod-name> -n <namespace> -- curl -m 15 http://localhost:8080/debug/detailed | jq
 ```
 
 ## Common Issues and Solutions
@@ -138,10 +142,13 @@ kubectl exec -it <pod-name> -n <namespace> -- curl http://localhost:8080/debug
 }
 ```
 
+**Note:** As of the latest update, the main `/health` endpoint uses a **lightweight check** that doesn't ping workers. If you're still seeing timeouts:
+
 **Solutions:**
-- Increase liveness probe timeout in deployment.yaml
-- Check for TLS handshake delays
-- Verify DNS resolution for Redis hostname
+- Check Redis connectivity specifically: `curl localhost:8080/debug/redis`
+- Use detailed health check to test worker ping: `curl localhost:8080/debug/detailed`
+- The `/health` endpoint should now be much faster since it doesn't wait for worker responses
+- If `/health` is still slow, it's likely a Redis connection issue, not worker startup
 
 #### C. Environment Configuration
 ```bash

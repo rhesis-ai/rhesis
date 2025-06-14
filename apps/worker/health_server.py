@@ -33,6 +33,8 @@ class HealthHandler(BaseHTTPRequestHandler):
             self._handle_debug_env()
         elif self.path == '/debug/redis':
             self._handle_debug_redis()
+        elif self.path == '/debug/detailed':
+            self._handle_debug_detailed()
         else:
             self._handle_not_found()
     
@@ -201,6 +203,35 @@ class HealthHandler(BaseHTTPRequestHandler):
             logger.error(f"Error in Redis debug handler: {e}")
             self._send_error_response(500, f"Redis debug error: {str(e)}")
     
+    def _handle_debug_detailed(self):
+        """Handle detailed health check including worker ping"""
+        try:
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            
+            # Run the detailed health check with celery inspect ping
+            celery_detailed = self.check_celery_health_detailed()
+            redis_debug = self._get_redis_debug_info()
+            celery_debug = self._get_celery_debug_info()
+            
+            response_data = {
+                "detailed_health_check": celery_detailed,
+                "redis_debug": redis_debug,
+                "celery_debug": celery_debug,
+                "timestamp": datetime.now().isoformat(),
+                "warning": "This endpoint uses 'celery inspect ping' which may be slow during startup"
+            }
+            
+            response_body = json.dumps(response_data, indent=2).encode()
+            self._safe_write(response_body)
+            
+        except Exception as e:
+            logger.error(f"Error in detailed debug handler: {e}")
+            self._send_error_response(500, f"Detailed debug error: {str(e)}")
+    
     def _handle_not_found(self):
         """Handle 404 requests with error handling"""
         try:
@@ -227,62 +258,105 @@ class HealthHandler(BaseHTTPRequestHandler):
             logger.warning(f"Unexpected error writing response: {e}")
     
     def check_celery_health(self):
-        """Check if Celery worker is running and operational - TLS-aware version"""
+        """Check if Celery worker is running and operational - lightweight version"""
         try:
-            # Use a faster, more lightweight check
-            # First check if we can import the app
+            # Import check
             import rhesis.backend.worker
             
-            # For TLS connections, we need to be more patient and robust
-            is_tls = self._is_tls_connection()
-            timeout = 5 if is_tls else 3  # Longer timeout for TLS
-            
-            # Test Redis connectivity first (faster than celery inspect)
-            redis_healthy = self._test_redis_connection()
-            
-            # Test broker connectivity first before running celery inspect
+            # Test broker connectivity (this is the main requirement)
             broker_test = self._test_redis_connection()
             if broker_test != "connected":
                 return False, {
-                    "message": "Broker connection failed before Celery test",
-                    "connection_type": "TLS" if is_tls else "standard",
+                    "message": "Broker connection failed",
                     "broker_status": broker_test,
                     "last_check": datetime.now().isoformat()
                 }
             
-            # Quick ping with appropriate timeout for connection type
+            # Test if we can create app and access its configuration
+            app = rhesis.backend.worker.app
+            
+            # Basic app validation - fast checks only
+            if not app.conf.broker_url:
+                return False, {"message": "Celery app has no broker URL configured"}
+            
+            # Fast health check: broker connectivity + app importability
+            # The slow `celery inspect ping` is moved to /debug endpoint for detailed debugging
+            
+            return True, {
+                "message": "Celery app is healthy and broker is connected",
+                "broker_connectivity": broker_test,
+                "app_name": app.main,
+                "broker_configured": bool(app.conf.broker_url),
+                "task_count": len(app.tasks),
+                "last_check": datetime.now().isoformat(),
+                "health_check_type": "lightweight"
+            }
+                
+        except ImportError as e:
+            logger.error(f"Failed to import Celery app: {e}")
+            return False, {"message": f"Failed to import Celery app: {str(e)}"}
+        except Exception as e:
+            logger.error(f"Error checking Celery health: {e}")
+            return False, {"message": f"Error checking Celery health: {str(e)}"}
+    
+    def check_celery_health_detailed(self):
+        """Detailed Celery health check with worker ping - used for debugging only"""
+        try:
+            import rhesis.backend.worker
+            
+            # For TLS connections, we need to be more patient and robust
+            is_tls = self._is_tls_connection()
+            timeout = 10 if is_tls else 3  # Longer timeout for TLS handshake
+            
+            # Test Redis connectivity first
+            redis_healthy = self._test_redis_connection()
+            
+            # Test broker connectivity first before running celery inspect
+            if redis_healthy != "connected":
+                return False, {
+                    "message": "Broker connection failed before Celery test",
+                    "connection_type": "TLS" if is_tls else "standard",
+                    "broker_status": redis_healthy,
+                    "last_check": datetime.now().isoformat()
+                }
+            
+            # Heavy operation: ping actual workers (only used for detailed debugging)
             result = subprocess.run(
                 ["celery", "-A", "rhesis.backend.worker.app", "inspect", "ping"],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                env=os.environ.copy()  # Ensure all env vars are passed
+                env=os.environ.copy()
             )
             
             # If ping was successful, it should contain a pong response
             if result.returncode == 0 and "pong" in result.stdout:
                 return True, {
-                    "message": "Celery worker is responding",
+                    "message": "Celery worker is responding to ping",
                     "connection_type": "TLS" if is_tls else "standard",
                     "redis_connectivity": redis_healthy,
+                    "worker_ping_successful": True,
                     "last_check": datetime.now().isoformat(),
-                    "response_time": f"< {timeout}s"
+                    "response_time": f"< {timeout}s",
+                    "health_check_type": "detailed_with_ping"
                 }
             else:
                 return False, {
-                    "message": "Celery worker is not responding properly",
+                    "message": "Celery worker is not responding to ping",
                     "connection_type": "TLS" if is_tls else "standard",
                     "redis_connectivity": redis_healthy,
+                    "worker_ping_successful": False,
                     "return_code": result.returncode,
                     "stdout": result.stdout[:200] if result.stdout else "No output",
                     "stderr": result.stderr[:200] if result.stderr else "No error"
                 }
                 
         except subprocess.TimeoutExpired:
-            logger.warning(f"Celery health check timed out after {timeout}s")
+            logger.warning(f"Detailed Celery health check timed out after {timeout}s")
             return False, {
-                "message": f"Celery health check timed out after {timeout} seconds",
-                "connection_type": "TLS" if self._is_tls_connection() else "standard"
+                "message": f"Detailed Celery health check timed out after {timeout} seconds",
+                "connection_type": "TLS" if self._is_tls_connection() else "standard",
+                "timeout_on": "celery_inspect_ping"
             }
         except FileNotFoundError:
             logger.error("Celery command not found")
@@ -291,8 +365,8 @@ class HealthHandler(BaseHTTPRequestHandler):
             logger.error(f"Failed to import Celery app: {e}")
             return False, {"message": f"Failed to import Celery app: {str(e)}"}
         except Exception as e:
-            logger.error(f"Error checking Celery health: {e}")
-            return False, {"message": f"Error checking Celery health: {str(e)}"}
+            logger.error(f"Error checking detailed Celery health: {e}")
+            return False, {"message": f"Error checking detailed Celery health: {str(e)}"}
     
     def _is_tls_connection(self):
         """Check if we're using TLS connections (rediss://)"""
