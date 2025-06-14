@@ -86,7 +86,7 @@ jobs:
         id: set_env
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.TF_VAR_REGION }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION }}" >> $GITHUB_ENV
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             echo "SERVICE_NAME=rhesis-worker" >> $GITHUB_ENV
             echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker" >> $GITHUB_ENV
@@ -125,6 +125,8 @@ jobs:
       ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
       
     steps:
+      - uses: actions/checkout@v4
+
       - name: Create and validate service account key file
         id: sa_key
         run: |
@@ -150,49 +152,141 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ secrets.REGION }}" >> $GITHUB_ENV
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            echo "SERVICE_NAME=rhesis-worker" >> $GITHUB_ENV
+            echo "CLUSTER_NAME=rhesis-worker" >> $GITHUB_ENV
+            echo "NAMESPACE=rhesis-worker" >> $GITHUB_ENV
             echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker" >> $GITHUB_ENV
           else
-            echo "SERVICE_NAME=rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "CLUSTER_NAME=rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "NAMESPACE=rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
             echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
           fi
-          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
-      - name: Deploy to Cloud Run
+      - name: Create or get GKE Autopilot cluster
+        run: |
+          # Check if cluster exists
+          if ! gcloud container clusters describe ${{ env.CLUSTER_NAME }} --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
+            echo "Creating GKE Autopilot cluster..."
+            gcloud container clusters create-auto ${{ env.CLUSTER_NAME }} \
+              --region=${{ env.REGION }} \
+              --project=${{ env.PROJECT_ID }} \
+              --network=default \
+              --subnetwork=default \
+              --release-channel=regular \
+              --enable-ip-alias \
+              --workload-pool=${{ env.PROJECT_ID }}.svc.id.goog
+          else
+            echo "Cluster ${{ env.CLUSTER_NAME }} already exists"
+          fi
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}
+
+      - name: Setup Workload Identity
+        run: |
+          # Create Kubernetes service account binding with Google service account
+          gcloud iam service-accounts add-iam-policy-binding \
+            --role roles/iam.workloadIdentityUser \
+            --member "serviceAccount:${{ env.PROJECT_ID }}.svc.id.goog[${{ env.NAMESPACE }}/rhesis-worker-sa]" \
+            ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create or update secrets
+        run: |
+          kubectl create secret generic rhesis-worker-secrets \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=BROKER_URL="${{ secrets.BROKER_URL }}" \
+            --from-literal=CELERY_RESULT_BACKEND="${{ secrets.CELERY_RESULT_BACKEND }}" \
+            --from-literal=SQLALCHEMY_DATABASE_URL="${{ secrets.SQLALCHEMY_DATABASE_URL }}" \
+            --from-literal=SQLALCHEMY_DB_MODE="${{ secrets.SQLALCHEMY_DB_MODE }}" \
+            --from-literal=SQLALCHEMY_DB_DRIVER="${{ secrets.SQLALCHEMY_DB_DRIVER }}" \
+            --from-literal=SQLALCHEMY_DB_USER="${{ secrets.SQLALCHEMY_DB_USER }}" \
+            --from-literal=SQLALCHEMY_DB_PASS="${{ secrets.SQLALCHEMY_DB_PASS }}" \
+            --from-literal=SQLALCHEMY_DB_HOST="${{ secrets.SQLALCHEMY_DB_HOST || '127.0.0.1' }}" \
+            --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
+            --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
+            --from-literal=CELERY_WORKER_LOGLEVEL="${{ secrets.LOG_LEVEL || 'INFO' }}" \
+            --from-literal=CELERY_WORKER_CONCURRENCY="${{ secrets.CELERY_WORKER_CONCURRENCY || '8' }}" \
+            --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+            --from-literal=GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
+            --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
+            --from-literal=AZURE_OPENAI_ENDPOINT="${{ secrets.AZURE_OPENAI_ENDPOINT }}" \
+            --from-literal=AZURE_OPENAI_API_KEY="${{ secrets.AZURE_OPENAI_API_KEY }}" \
+            --from-literal=AZURE_OPENAI_DEPLOYMENT_NAME="${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}" \
+            --from-literal=AZURE_OPENAI_API_VERSION="${{ secrets.AZURE_OPENAI_API_VERSION }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to GKE
         run: |
           echo "Deploying image: ${{ env.IMAGE_NAME }}:latest"
-          echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.IMAGE_NAME }}:latest \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --no-allow-unauthenticated \
-            --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
-            --min-instances=1 \
-            --max-instances=10 \
-            --memory=2Gi \
-            --cpu=1 \
-            --concurrency=1000 \
-            --timeout=3600s \
-            --cpu-throttling \
-            --set-env-vars="$(cat <<EOF
-          BROKER_URL=${{ secrets.BROKER_URL }},
-          CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
-          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
-          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
-          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
-          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
-          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
-          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
-          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
-          LOG_LEVEL=${{ secrets.LOG_LEVEL }},
-          CELERY_WORKER_LOGLEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},
-          CELERY_WORKER_CONCURRENCY=${{ secrets.CELERY_WORKER_CONCURRENCY || '8' }}
+          echo "Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}"
+          
+          # Update kustomization with correct image and environment
+          cd apps/worker/k8s
+          
+          # Update deployment with actual values
+          sed -i "s|gcr.io/PROJECT_ID/rhesis-worker|${{ env.IMAGE_NAME }}|g" deployment.yaml
+          sed -i "s|PROJECT_ID:REGION:CLOUDSQL_INSTANCE|${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}|g" deployment.yaml
+          sed -i "s|GCP_SERVICE_ACCOUNT_EMAIL|${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}|g" serviceaccount.yaml
+          
+          # Update kustomization for environment
+          cat > kustomization.yaml << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          
+          resources:
+          - deployment.yaml
+          - service.yaml
+          - serviceaccount.yaml
+          - networkpolicy.yaml
+          
+          labels:
+          - includeSelectors: true
+            pairs:
+              environment: ${{ env.ENVIRONMENT }}
+          
+          namespace: ${{ env.NAMESPACE }}
+          
+          images:
+          - name: ${{ env.IMAGE_NAME }}
+            newTag: latest
           EOF
-          )"
+          
+          # Apply manifests
+          kubectl apply -k . --namespace=${{ env.NAMESPACE }}
+          
+          # Wait for deployment to be ready
+          echo "Waiting for deployment to be ready..."
+          if ! kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s; then
+            echo "❌ Deployment failed to become ready. Debugging information:"
+            echo ""
+            echo "=== Pod Status ==="
+            kubectl get pods --namespace=${{ env.NAMESPACE }} -o wide
+            echo ""
+            echo "=== Pod Events ==="
+            kubectl get events --namespace=${{ env.NAMESPACE }} --sort-by='.lastTimestamp' | tail -20
+            echo ""
+            echo "=== Pod Logs (if any pods exist) ==="
+            for pod in $(kubectl get pods --namespace=${{ env.NAMESPACE }} -o jsonpath='{.items[*].metadata.name}'); do
+              echo "--- Logs for $pod ---"
+              kubectl logs $pod --namespace=${{ env.NAMESPACE }} --tail=50 || echo "No logs available"
+              echo ""
+            done
+            exit 1
+          fi
+          
+          echo "✅ Deployment completed successfully"

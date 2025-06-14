@@ -13,6 +13,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
 
 interface ProjectOption {
@@ -47,6 +48,7 @@ export default function ExecuteTestSetDrawer({
   const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const notifications = useNotifications();
 
   // Fetch projects and endpoints when drawer opens
   useEffect(() => {
@@ -164,6 +166,12 @@ export default function ExecuteTestSetDrawer({
       
       // Execute test set against the selected endpoint
       await testSetsClient.executeTestSet(testSetId, selectedEndpoint);
+      
+      // Show success notification
+      notifications.show('Test set execution started successfully!', { 
+        severity: 'success',
+        autoHideDuration: 5000
+      });
       
       // Close drawer on success
       onClose();

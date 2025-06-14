@@ -20,12 +20,14 @@ from rhesis.backend.app.services.test import (
 )
 from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
+    execute_test_set_on_endpoint,
     get_test_set_stats,
     get_test_set_test_stats,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
+from rhesis.backend.tasks import task_launcher
 
 # Create the detailed schema for TestSet and Test
 TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
@@ -306,105 +308,19 @@ async def execute_test_set(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Submit a test set for execution against an endpoint."""
-    logger.info(
-        f"Starting test set execution for identifier: {test_set_identifier} "
-        f"and endpoint: {endpoint_id}, user: {current_user.id if current_user else 'None'}"
-    )
-
     try:
-        # Validate input parameters
-        logger.debug(f"Validating input parameters: test_set_identifier={test_set_identifier}, endpoint_id={endpoint_id}")
-        if not test_set_identifier:
-            raise HTTPException(status_code=400, detail="test_set_identifier is required")
-        if not endpoint_id:
-            raise HTTPException(status_code=400, detail="endpoint_id is required")
-
-        # Resolve test set
-        logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-        try:
-            db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
-            logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
-        except HTTPException as e:
-            logger.error(f"Failed to resolve test set {test_set_identifier}: {e.detail}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error resolving test set {test_set_identifier}: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Error resolving test set: {str(e)}")
-
-        # Verify endpoint exists
-        logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-        try:
-            db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id)
-            if not db_endpoint:
-                logger.error(f"Endpoint not found: {endpoint_id}")
-                raise HTTPException(status_code=404, detail=f"Endpoint not found: {endpoint_id}")
-            logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error verifying endpoint {endpoint_id}: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Error verifying endpoint: {str(e)}")
-
-        # Check if user has access to the test set
-        logger.debug(f"Checking user access to test set: user_org={current_user.organization_id}, test_set_org={db_test_set.organization_id}")
-        if str(current_user.organization_id) != str(db_test_set.organization_id):
-            logger.error(f"User {current_user.id} from org {current_user.organization_id} cannot access test set {db_test_set.id} from org {db_test_set.organization_id}")
-            raise HTTPException(status_code=403, detail="Access denied: test set belongs to different organization")
-
-        # Check if user has access to the endpoint
-        logger.debug(f"Checking user access to endpoint: user_org={current_user.organization_id}, endpoint_org={db_endpoint.organization_id}")
-        if str(current_user.organization_id) != str(db_endpoint.organization_id):
-            logger.error(f"User {current_user.id} from org {current_user.organization_id} cannot access endpoint {db_endpoint.id} from org {db_endpoint.organization_id}")
-            raise HTTPException(status_code=403, detail="Access denied: endpoint belongs to different organization")
-
-        # Create a test configuration for this execution
-        logger.debug(f"Creating test configuration for test_set_id={db_test_set.id}, endpoint_id={endpoint_id}, user_id={current_user.id}")
-        try:
-            test_config = schemas.TestConfigurationCreate(
-                endpoint_id=endpoint_id,
-                test_set_id=db_test_set.id,
-                user_id=current_user.id if current_user else None,
-            )
-            logger.debug(f"Test configuration schema created: {test_config}")
-            
-            db_test_config = crud.create_test_configuration(db=db, test_configuration=test_config)
-            logger.info(f"Created test configuration with ID: {db_test_config.id}")
-        except Exception as e:
-            logger.error(f"Failed to create test configuration: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to create test configuration: {str(e)}")
-
-        # Execute the test configuration
-        try:
-            from rhesis.backend.tasks.test_configuration import execute_test_configuration
-
-            logger.debug(f"Importing execute_test_configuration task successfully")
-            logger.debug(f"Submitting test configuration for execution: test_configuration_id={db_test_config.id}")
-            
-            result = execute_test_configuration.delay(test_configuration_id=str(db_test_config.id))
-            logger.info(f"Test configuration execution submitted with task ID: {result.id}")
-        except ImportError as e:
-            logger.error(f"Failed to import execute_test_configuration task: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Task execution service unavailable: {str(e)}")
-        except Exception as e:
-            logger.error(f"Failed to submit test configuration for execution: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to submit test configuration for execution: {str(e)}")
-
-        response_data = {
-            "status": "submitted",
-            "message": f"Test set execution started for {db_test_set.name}",
-            "test_set_id": str(db_test_set.id),
-            "test_set_name": db_test_set.name,
-            "endpoint_id": str(endpoint_id),
-            "endpoint_name": db_endpoint.name,
-            "test_configuration_id": str(db_test_config.id),
-            "task_id": result.id,
-        }
-        logger.info(f"Successfully initiated test set execution: {response_data}")
-        return response_data
-
-    except HTTPException:
-        # Re-raise HTTP exceptions as-is
-        raise
+        result = execute_test_set_on_endpoint(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            endpoint_id=endpoint_id,
+            current_user=current_user,
+        )
+        return result
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error in test set execution: {str(e)}", exc_info=True)
         raise HTTPException(

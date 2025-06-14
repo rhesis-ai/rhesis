@@ -19,11 +19,9 @@ def execute_test_cases(
     session: Session, test_config: TestConfiguration, test_run: TestRun
 ) -> Dict[str, Any]:
     """Execute test cases in parallel using Celery workers with Redis native chord support."""
-    # Using the service helper because it loads tests properly
+    
+    # Get test set and tests
     test_set = get_test_set(session, str(test_config.test_set_id))
-    start_time = datetime.utcnow()
-
-    # Retrieve all tests from the test set
     tests = test_set.tests
     
     if not tests:
@@ -38,7 +36,6 @@ def execute_test_cases(
     # Create tasks for parallel execution
     tasks = []
     for test in tests:
-        # Pass organization_id and user_id to ensure proper tenant context
         task = execute_single_test.s(
             test_config_id=str(test_config.id),
             test_run_id=str(test_run.id),
@@ -47,10 +44,10 @@ def execute_test_cases(
             organization_id=str(test_config.organization_id) if test_config.organization_id else None,
             user_id=str(test_config.user_id) if test_config.user_id else None,
         )
-        # Note: Using default queue routing
         tasks.append(task)
 
-    # Create the callback task with correct signature for Redis chord
+    # Create callback task
+    start_time = datetime.utcnow()
     callback = collect_results.s(
         start_time.isoformat(),
         str(test_config.id),
@@ -61,36 +58,23 @@ def execute_test_cases(
         user_id=str(test_config.user_id) if test_config.user_id else None,
     )
 
-    # Note: Using default queue routing
-
     # Execute the chord
     logger.info(f"Starting chord execution for test run {test_run.id} with {len(tasks)} tasks")
     job = chord(tasks, callback).apply_async()
+    logger.info(f"Chord created with ID: {job.id}")
     
-    logger.info(f"Chord job created successfully with ID: {job.id}")
-    if hasattr(job, 'parent'):
-        logger.info(f"Group ID: {job.parent.id if job.parent else 'None'}")
-    
-    # Update test run attributes to track chord execution
-    updated_attributes = test_run.attributes.copy()
-    updated_attributes.update({
+    # Update test run with chord information
+    attributes = test_run.attributes.copy() if test_run.attributes else {}
+    attributes.update({
         "chord_id": job.id,
         "chord_parent_id": job.parent.id if job.parent else None,
         "execution_mode": "redis_chord",
         "started_at": start_time.isoformat(),
         "total_tests": len(tasks),
-        "callback_task": callback.task,
-        "callback_queue": callback.options.get('queue', 'default'),
         "updated_at": datetime.utcnow().isoformat()
     })
     
-    # Update test run with chord information
-    update_data = {
-        "attributes": updated_attributes
-    }
-    crud.update_test_run(session, test_run.id, crud.schemas.TestRunUpdate(**update_data))
-    
-    logger.info(f"Chord execution initiated for test run {test_run.id}")
+    crud.update_test_run(session, test_run.id, crud.schemas.TestRunUpdate(attributes=attributes))
     
     return {
         "test_run_id": str(test_run.id),

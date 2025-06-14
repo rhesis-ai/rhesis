@@ -1,0 +1,168 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhesis-worker
+  labels:
+    app: rhesis-worker
+    component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rhesis-worker
+  template:
+    metadata:
+      labels:
+        app: rhesis-worker
+        component: worker
+    spec:
+      serviceAccountName: rhesis-worker-sa
+      containers:
+      - name: worker
+        image: gcr.io/PROJECT_ID/rhesis-worker:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        env:
+        - name: BROKER_URL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: BROKER_URL
+        - name: CELERY_RESULT_BACKEND
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_RESULT_BACKEND
+        - name: SQLALCHEMY_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DATABASE_URL
+        - name: SQLALCHEMY_DB_MODE
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_MODE
+        - name: SQLALCHEMY_DB_DRIVER
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_DRIVER
+        - name: SQLALCHEMY_DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_USER
+        - name: SQLALCHEMY_DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_PASS
+        - name: SQLALCHEMY_DB_HOST
+          value: "127.0.0.1"
+        - name: SQLALCHEMY_DB_PORT
+          value: "5432"
+        - name: USE_TCP_DATABASE
+          value: "true"
+        - name: SQLALCHEMY_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SQLALCHEMY_DB_NAME
+        - name: LOG_LEVEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: LOG_LEVEL
+        - name: CELERY_WORKER_LOGLEVEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_WORKER_LOGLEVEL
+        - name: CELERY_WORKER_CONCURRENCY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: CELERY_WORKER_CONCURRENCY
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: GEMINI_API_KEY
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: GOOGLE_API_KEY
+        - name: GEMINI_MODEL_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: GEMINI_MODEL_NAME
+        - name: AZURE_OPENAI_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: AZURE_OPENAI_ENDPOINT
+        - name: AZURE_OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: AZURE_OPENAI_API_KEY
+        - name: AZURE_OPENAI_DEPLOYMENT_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: AZURE_OPENAI_DEPLOYMENT_NAME
+        - name: AZURE_OPENAI_API_VERSION
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: AZURE_OPENAI_API_VERSION
+        ports:
+        - containerPort: 8080
+          name: health
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 180
+          periodSeconds: 60
+          timeoutSeconds: 20
+          failureThreshold: 5
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /health/basic
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 5
+          successThreshold: 1
+      
+      # Cloud SQL Auth Proxy sidecar
+      - name: cloudsql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
+        args:
+          - "--structured-logs"
+          - "--port=5432"
+          - "PROJECT_ID:REGION:CLOUDSQL_INSTANCE"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      restartPolicy: Always 
