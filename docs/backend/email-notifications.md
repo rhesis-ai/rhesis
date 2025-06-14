@@ -70,18 +70,69 @@ SMTP_PASSWORD=your-mailgun-smtp-password
 
 ### Selective Email Notifications
 
-**Important:** Email notifications are now **opt-in** to prevent spam when running parallel tasks. Only tasks that explicitly inherit from `EmailEnabledTask` will send email notifications.
+**Important:** Email notifications are now **opt-in** using the `@email_notification` decorator to prevent spam when running parallel tasks. Only tasks that explicitly use the decorator will send email notifications.
+
+### Email Notification Decorator
+
+#### Using the `@email_notification` Decorator
+
+The new decorator approach provides fine-grained control over email notifications:
+
+```python
+from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
+from rhesis.backend.notifications.email.template_service import EmailTemplate
+from rhesis.backend.worker import app
+
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="Task Complete: {task_name} - {status.title()}"
+)
+@app.task(base=BaseTask, name="your.user.facing.task", bind=True)
+@with_tenant_context
+def user_facing_task(self, params, db=None):
+    """This task will send email notifications using the specified template."""
+    # Your task logic here
+    return {"result": "success", "test_run_id": "optional-for-links"}
+```
+
+#### Available Email Templates
+
+```python
+from rhesis.backend.notifications.email.template_service import EmailTemplate
+
+# For general task completion
+@email_notification(template=EmailTemplate.TASK_COMPLETION)
+
+# For test execution summaries with detailed results
+@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
+```
+
+#### Custom Subject Templates
+
+You can customize the email subject using template variables:
+
+```python
+@email_notification(
+    template=EmailTemplate.TEST_EXECUTION_SUMMARY,
+    subject_template="Test Execution Complete: {test_set_name} - {status.title()}"
+)
+```
 
 ### Task Types
 
-#### 1. **EmailEnabledTask** - For User-Facing Tasks
-Use this for tasks that users directly submit and want to be notified about:
+#### 1. **Tasks with Email Notifications** - Using Decorator
+Use the decorator for tasks that users directly submit and want to be notified about:
 
 ```python
-from rhesis.backend.tasks.base import EmailEnabledTask, with_tenant_context
+from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
+from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.worker import app
 
-@app.task(base=EmailEnabledTask, name="your.user.facing.task", bind=True)
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="Task Complete: {task_name} - {status.title()}"
+)
+@app.task(base=BaseTask, name="your.user.facing.task", bind=True)
 @with_tenant_context
 def user_facing_task(self, params, db=None):
     """This task will send email notifications on completion."""
@@ -89,14 +140,14 @@ def user_facing_task(self, params, db=None):
     return {"result": "success", "test_run_id": "optional-for-links"}
 ```
 
-#### 2. **SilentTask** - For Background/Parallel Tasks
-Use this for tasks that run in parallel or as part of chords:
+#### 2. **Silent Tasks** - No Decorator
+Tasks without the decorator will not send email notifications:
 
 ```python
-from rhesis.backend.tasks.base import SilentTask, with_tenant_context
+from rhesis.backend.tasks.base import BaseTask, with_tenant_context
 from rhesis.backend.worker import app
 
-@app.task(base=SilentTask, name="your.background.task", bind=True)
+@app.task(base=BaseTask, name="your.background.task", bind=True)
 @with_tenant_context  
 def background_task(self, params, db=None):
     """This task will NOT send email notifications."""
@@ -104,29 +155,29 @@ def background_task(self, params, db=None):
     return {"result": "success"}
 ```
 
-#### 3. **BaseTask** - Default (No Emails)
-The default `BaseTask` does not send email notifications:
+#### 3. **Legacy EmailEnabledTask** - Still Supported
+The old `EmailEnabledTask` is still supported for backward compatibility:
 
 ```python
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import EmailEnabledTask, with_tenant_context
 from rhesis.backend.worker import app
 
-@app.task(base=BaseTask, name="your.regular.task", bind=True)
+@app.task(base=EmailEnabledTask, name="your.legacy.task", bind=True)
 @with_tenant_context
-def regular_task(self, params, db=None):
-    """This task will NOT send email notifications (default behavior)."""
+def legacy_task(self, params, db=None):
+    """This task will send basic task completion emails."""
     # Your task logic here
     return {"result": "success"}
 ```
 
 ### Chord Example
 
-When running tasks in parallel with chords, use different task types appropriately:
+When running tasks in parallel with chords, use the decorator appropriately:
 
 ```python
 from celery import chord
 
-# These run in parallel - no emails needed
+# These run in parallel - no emails needed (no decorator)
 parallel_tasks = [
     background_task.s(param1),
     background_task.s(param2),
@@ -134,7 +185,13 @@ parallel_tasks = [
 ]
 
 # This is the callback when all parallel tasks complete - send email
-callback = user_facing_task.s()
+@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
+@app.task(base=BaseTask, bind=True)
+def collect_results_task(self, results):
+    # Process results and return summary
+    return {"total_tests": 10, "tests_passed": 8, "tests_failed": 2}
+
+callback = collect_results_task.s()
 
 # Execute: parallel tasks run silently, only callback sends email
 result = chord(parallel_tasks)(callback)
@@ -142,54 +199,70 @@ result = chord(parallel_tasks)(callback)
 
 ### Current Task Configuration
 
-- ✅ **`execute_test_configuration`** - Uses `EmailEnabledTask` (sends emails)
-- ✅ **`email_notification_test`** - Uses `EmailEnabledTask` (sends emails)  
-- ✅ **Individual test execution tasks** - Use `BaseTask` or `SilentTask` (no emails)
-- ✅ **Utility tasks** - Use `BaseTask` (no emails)
+- ✅ **`collect_results`** - Uses `@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)` (sends detailed test summaries)
+- ✅ **`email_notification_test`** - Uses `@email_notification(template=EmailTemplate.TASK_COMPLETION)` (sends basic completion emails)  
+- ✅ **Individual test execution tasks** - No decorator (no emails)
+- ✅ **Utility tasks** - No decorator (no emails)
 
 ### Automatic Integration
 
-When a task that inherits from `EmailEnabledTask` completes (either successfully or fails permanently), the system:
+When a task with the `@email_notification` decorator completes (either successfully or fails permanently), the system:
 
 1. **Retrieves user information** from the task context
 2. **Skips placeholder emails** (internal system users)
 3. **Calculates execution time** if available
-4. **Generates email content** with task details and results
-5. **Sends both HTML and plain text** versions
-6. **Logs the outcome** without failing the task
+4. **Uses the specified template** to generate email content
+5. **Applies template variables** from task results and context
+6. **Sends HTML email** using the centralized email service
+7. **Logs the outcome** without failing the task
+
+### Template Variables
+
+The decorator automatically provides these variables to templates:
+
+- `recipient_name`: User's display name
+- `task_name`: Human-readable task name
+- `task_id`: Unique task identifier
+- `status`: Task completion status ('success' or 'failed')
+- `execution_time`: Formatted execution duration
+- `error_message`: Error details (for failed tasks)
+- `frontend_url`: Base URL for links
+- `completed_at`: Completion timestamp
+
+Additional variables can be provided by returning them from the task:
+
+```python
+@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
+@app.task(base=BaseTask, bind=True)
+def test_task(self):
+    # Task logic here
+    return {
+        'total_tests': 10,
+        'tests_passed': 8,
+        'tests_failed': 2,
+        'test_set_name': 'API Tests',
+        'project_name': 'My Project'
+    }
+```
 
 ### Task Integration
 
 ```python
-from rhesis.backend.tasks.base import EmailEnabledTask, with_tenant_context
+from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
+from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.worker import app
 
-@app.task(base=EmailEnabledTask, name="your.task.name", bind=True)
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="Task Complete: {task_name} - {status.title()}"
+)
+@app.task(base=BaseTask, name="your.task.name", bind=True)
 @with_tenant_context
 def your_task(self, your_params, db=None):
     """Your task automatically gets email notifications."""
     # Your task logic here
     return {"result": "success", "test_run_id": "optional-for-links"}
 ```
-
-### Email Content
-
-The system generates professional emails with:
-
-#### Success Notifications
-- ✅ Success indicator with green styling
-- Task name, ID, and completion timestamp
-- Execution time (if available)
-- Test run ID (if applicable)
-- Direct link to view results
-- Clean, responsive HTML design
-
-#### Failure Notifications  
-- ❌ Failure indicator with red styling
-- Task name, ID, and failure timestamp
-- Detailed error message
-- Execution time (if available)
-- Clean error formatting
 
 ## Email Service Architecture
 
@@ -257,7 +330,7 @@ Task Details:
 - Task Name: Execute Test Configuration
 - Task ID: 12345678-1234-5678-9012-123456789012
 - Status: Success
-- Completed At: 2024-01-15 14:30:25 UTC
+- Completed at: 2024-01-15 14:30:25 UTC
 - Execution Time: 2m 45s
 - Test Run ID: abcd1234-5678-9012-efgh-567890123456
 
