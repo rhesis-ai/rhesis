@@ -3,10 +3,11 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.worker import app
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context, EmailEnabledTask
+from rhesis.backend.tasks.base import BaseTask, with_tenant_context, EmailEnabledTask, email_notification
+from rhesis.backend.notifications.email.template_service import EmailTemplate
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.process_data", bind=True)
+@app.task(base=BaseTask, name="rhesis.backend.tasks.process_data", bind=True, display_name="Data Processing")
 def process_data(self, data: dict):
     """
     Example task that processes data.
@@ -23,7 +24,7 @@ def process_data(self, data: dict):
     return result
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.echo", bind=True)
+@app.task(base=BaseTask, name="rhesis.backend.tasks.echo", bind=True, display_name="Echo Test")
 def echo(self, message: str):
     """
     Echo task for testing.
@@ -38,7 +39,7 @@ def echo(self, message: str):
     return f"Message: {message}, Organization: {org_id}, User: {user_id}"
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_set_count", bind=True)
+@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_set_count", bind=True, display_name="Test Set Count")
 @with_tenant_context
 def get_test_set_count(self, db=None):
     """
@@ -72,7 +73,7 @@ def get_test_set_count(self, db=None):
     }
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration", bind=True)
+@app.task(base=BaseTask, name="rhesis.backend.tasks.get_test_configuration", bind=True, display_name="Test Configuration Retrieval")
 @with_tenant_context
 def get_test_configuration(self, test_configuration_id: str, db=None):
     """
@@ -103,7 +104,7 @@ def get_test_configuration(self, test_configuration_id: str, db=None):
     }
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example", bind=True)
+@app.task(base=BaseTask, name="rhesis.backend.tasks.manual_db_example", bind=True, display_name="Database Example")
 def manual_db_example(self):
     """
     Example of manually managing the database session in a task.
@@ -132,7 +133,11 @@ def manual_db_example(self):
     }
 
 
-@app.task(base=EmailEnabledTask, name="rhesis.backend.tasks.email_notification_test", bind=True)
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="Test Task Complete: {task_name} - {status.title()}"
+)
+@app.task(base=BaseTask, name="rhesis.backend.tasks.email_notification_test", bind=True, display_name="Email Notification Test")
 @with_tenant_context
 def email_notification_test(self, test_message: str = "Test message", message: str = None, db=None):
     """

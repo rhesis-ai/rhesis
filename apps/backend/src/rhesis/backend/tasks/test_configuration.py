@@ -28,7 +28,7 @@ from rhesis.backend.tasks.execution.run import (
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
 
 
-@app.task(base=SilentTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True)
+@app.task(base=SilentTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True, display_name="Test Configuration Execution")
 @with_tenant_context
 def execute_test_configuration(self, test_configuration_id: str, db=None):
     """
