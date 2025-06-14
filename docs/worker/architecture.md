@@ -29,7 +29,7 @@ The Rhesis platform consists of several interrelated components:
 ### How Tasks Flow Through the System
 
 1. **Backend API**: Endpoints receive client requests and enqueue asynchronous tasks
-2. **Broker**: PostgreSQL-based queue stores pending tasks
+2. **Broker**: Redis-based queue stores pending tasks (with TLS support)
 3. **Worker**: Processes tasks from the queue and executes business logic
 4. **Database**: Shared between backend and worker for storing and retrieving application data
 5. **SDK**: Provides shared utilities and models used by both components
@@ -83,8 +83,8 @@ TENANT_ENABLED=true
 LOG_LEVEL=INFO
 
 # Worker-specific variables
-BROKER_URL=sqla+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
-CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
+BROKER_URL=rediss://:password@redis-host:6378/0?ssl_cert_reqs=CERT_NONE
+CELERY_RESULT_BACKEND=rediss://:password@redis-host:6378/1?ssl_cert_reqs=CERT_NONE
 CELERY_WORKER_CONCURRENCY=8
 CELERY_WORKER_PREFETCH_MULTIPLIER=4
 ```

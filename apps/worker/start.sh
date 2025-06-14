@@ -4,13 +4,57 @@
 set -e
 
 # Print environment variables for debugging (excluding sensitive info)
-echo "Environment Configuration:"
+echo "=== Environment Configuration Debug ==="
 echo "BROKER_URL exists: $(if [ ! -z "$BROKER_URL" ]; then echo "yes"; else echo "no"; fi)"
 echo "CELERY_RESULT_BACKEND exists: $(if [ ! -z "$CELERY_RESULT_BACKEND" ]; then echo "yes"; else echo "no"; fi)"
 echo "SQLALCHEMY_DATABASE_URL exists: $(if [ ! -z "$SQLALCHEMY_DATABASE_URL" ]; then echo "yes"; else echo "no"; fi)"
 echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
 echo "Celery worker max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000}"
 echo "Celery worker log level: ${CELERY_WORKER_LOGLEVEL:-INFO}"
+
+# Enhanced TLS detection and debugging
+if [[ "$BROKER_URL" == rediss://* ]]; then
+    echo "🔒 TLS DETECTED: Broker URL uses rediss:// (TLS/SSL)"
+    echo "TLS Connection Type: Redis with SSL/TLS"
+elif [[ "$BROKER_URL" == redis://* ]]; then
+    echo "🔓 STANDARD: Broker URL uses redis:// (no TLS)"
+    echo "Connection Type: Standard Redis"
+else
+    echo "⚠️ UNKNOWN: Broker URL format not recognized"
+    echo "Broker URL prefix: $(echo "$BROKER_URL" | cut -d':' -f1)"
+fi
+
+# System and network debugging
+echo ""
+echo "=== System Debug Information ==="
+echo "Container hostname: $(hostname)"
+echo "Container IP: $(hostname -i 2>/dev/null || echo 'N/A')"
+echo "Python version: $(python --version)"
+echo "Current user: $(whoami)"
+echo "Working directory: $(pwd)"
+echo "Available memory: $(if command -v free >/dev/null 2>&1; then free -h | grep Mem | awk '{print $7}' 2>/dev/null || echo 'N/A'; else echo 'N/A (free command not available)'; fi)"
+echo "CPU cores: $(nproc 2>/dev/null || echo 'N/A')"
+
+# Test Python environment
+echo ""
+echo "=== Python Environment Debug ==="
+python -c "
+import sys
+import os
+print(f'Python executable: {sys.executable}')
+print(f'Python path entries: {len(sys.path)}')
+print(f'PYTHONPATH: {os.getenv(\"PYTHONPATH\", \"Not set\")}')
+try:
+    import redis
+    print(f'Redis module version: {redis.__version__ if hasattr(redis, \"__version__\") else \"available\"}')
+except ImportError:
+    print('❌ Redis module not available')
+try:
+    import celery
+    print(f'Celery module version: {celery.__version__ if hasattr(celery, \"__version__\") else \"available\"}')
+except ImportError:
+    print('❌ Celery module not available')
+"
 
 # Test Celery app import before starting worker
 echo "Testing Celery app import..."
@@ -28,27 +72,131 @@ except Exception as e:
     sys.exit(1)
 "
 
+# Override database URL for TCP connection if needed
+if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
+    echo "🔧 Overriding database URL for TCP connection..."
+    echo "Original SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}"
+    
+    # Construct TCP database URL from components
+    export SQLALCHEMY_DATABASE_URL="postgresql://${SQLALCHEMY_DB_USER:-}:${SQLALCHEMY_DB_PASS:-}@${SQLALCHEMY_DB_HOST:-127.0.0.1}:${SQLALCHEMY_DB_PORT:-5432}/${SQLALCHEMY_DB_NAME:-}"
+    echo "TCP SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}"
+    
+    # Also set individual components for consistency
+    echo "Database host: ${SQLALCHEMY_DB_HOST}"
+    echo "Database port: ${SQLALCHEMY_DB_PORT}"
+    echo "Database name: ${SQLALCHEMY_DB_NAME}"
+    echo "Database user: ${SQLALCHEMY_DB_USER}"
+fi
+
 # Test broker connectivity
 echo "Testing broker connectivity..."
-timeout 10 python -c "
+# Use longer timeout for TLS connections
+if [[ "$BROKER_URL" == rediss://* ]]; then
+    TIMEOUT=15
+    echo "Detected TLS connection (rediss://), using longer timeout: ${TIMEOUT}s"
+else
+    TIMEOUT=10
+    echo "Using standard timeout: ${TIMEOUT}s"
+fi
+
+timeout $TIMEOUT python -c "
 import sys
+import os
 try:
     from rhesis.backend.worker import app
+    print(f'Broker URL type: {\"TLS\" if os.getenv(\"BROKER_URL\", \"\").startswith(\"rediss://\") else \"standard\"}')
+    
+    # Test basic broker connection (lighter than worker ping)
     with app.connection() as conn:
         conn.connect()
-        print('✅ Broker connection successful')
+        # Test basic broker communication
+        conn.default_channel.basic_get('test_queue_connectivity_check', no_ack=True)
+        print('✅ Broker connection and communication successful')
 except Exception as e:
-    print(f'❌ Broker connection failed: {e}')
-    import traceback
-    traceback.print_exc()
+    print(f'⚠️ Broker connection warning: {e}')
+    print('Note: This is expected during startup - workers will retry connections')
+    # Don't exit here - let the worker handle retries
+" || echo "⚠️ Broker connection test completed (timeouts are normal during startup)"
+
+# Test database connectivity if TCP mode is enabled
+if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
+    echo "Testing database connectivity (TCP mode)..."
+    timeout 10 python -c "
+import sys
+try:
+    from sqlalchemy import create_engine, text
+    import os
+    
+    # Test database connection
+    db_url = os.getenv('SQLALCHEMY_DATABASE_URL')
+    print(f'Testing database connection: {db_url.replace(os.getenv(\"SQLALCHEMY_DB_PASS\", \"\"), \"***\")}')
+    
+    engine = create_engine(db_url, pool_pre_ping=True)
+    with engine.connect() as conn:
+        result = conn.execute(text('SELECT 1'))
+        print('✅ Database connection successful')
+except Exception as e:
+    print(f'❌ Database connection failed: {e}')
     sys.exit(1)
-" || echo "⚠️ Broker connection test timed out or failed"
+" || echo "⚠️ Database connection test timed out or failed"
+fi
 
 # Start the health check server
 echo "Starting health check server on port 8080..."
 python /app/health_server.py &
 HEALTH_SERVER_PID=$!
 echo "Health server started with PID: $HEALTH_SERVER_PID"
+
+# Wait a moment and verify health server is responding
+echo ""
+echo "=== Health Server Startup Verification ==="
+echo "Health server PID: $HEALTH_SERVER_PID"
+echo "Waiting for health server to be ready..."
+
+for i in {1..10}; do
+    # Check if process is still running first
+    if ! kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
+        echo "❌ Health server process died (PID: $HEALTH_SERVER_PID)"
+        echo "Checking process status..."
+        ps aux | grep health_server.py | grep -v grep || echo "No health server processes found"
+        break
+    fi
+    
+    # Test basic endpoint
+    if curl -f -s http://localhost:8080/health/basic > /dev/null 2>&1; then
+        echo "✅ Health server is responding to /health/basic"
+        
+        # Also test the ping endpoint
+        if curl -f -s http://localhost:8080/ping > /dev/null 2>&1; then
+            echo "✅ Health server is responding to /ping"
+        else
+            echo "⚠️ Health server not responding to /ping"
+        fi
+        
+        # Test debug endpoint availability
+        if curl -f -s http://localhost:8080/debug > /dev/null 2>&1; then
+            echo "✅ Debug endpoints are available"
+        else
+            echo "⚠️ Debug endpoints not available"
+        fi
+        break
+    fi
+    
+    echo "Waiting for health server... attempt $i/10"
+    sleep 1
+done
+
+# Verify all endpoints after startup
+echo ""
+echo "=== Health Server Endpoint Verification ==="
+echo "Available endpoints:"
+for endpoint in "ping" "health/basic" "health" "debug" "debug/env" "debug/redis"; do
+    if curl -f -s "http://localhost:8080/$endpoint" > /dev/null 2>&1; then
+        echo "  ✅ /$endpoint - responding"
+    else
+        echo "  ❌ /$endpoint - not responding"
+    fi
+done
 
 # Start Flower monitoring tool if ENABLE_FLOWER is set
 if [ "${ENABLE_FLOWER:-no}" = "yes" ]; then
@@ -85,33 +233,112 @@ forward_signal() {
 trap forward_signal SIGTERM SIGINT
 
 # Start Celery worker with configuration from environment variables
+echo ""
+echo "=== Celery Worker Startup ==="
 echo "Starting Celery worker with full output..."
-echo "Command: celery -A rhesis.backend.worker.app worker --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} --concurrency=${CELERY_WORKER_CONCURRENCY:-8} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} ${CELERY_WORKER_OPTS}"
 
-# Run celery worker in foreground first to see any immediate errors
-celery -A rhesis.backend.worker.app worker \
-    --queues=celery,execution \
-    --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} \
-    --concurrency=${CELERY_WORKER_CONCURRENCY:-8} \
-    --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \
-    --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} \
-    ${CELERY_WORKER_OPTS} &
+# Build the complete command
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} --concurrency=${CELERY_WORKER_CONCURRENCY:-8} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} ${CELERY_WORKER_OPTS}"
+
+echo "Command: $CELERY_CMD"
+echo "Queues: celery,execution"
+echo "Log level: ${CELERY_WORKER_LOGLEVEL:-INFO}"
+echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
+echo "Prefetch multiplier: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}"
+echo "Max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000}"
+echo "Additional opts: ${CELERY_WORKER_OPTS:-none}"
+
+# Run celery worker in background
+$CELERY_CMD &
 
 # Store Celery worker PID
 CELERY_PID=$!
 echo "Celery worker started with PID: $CELERY_PID"
 
-# Wait a moment and check if the worker is still running
+# Enhanced startup monitoring
+echo ""
+echo "=== Celery Worker Startup Monitoring ==="
+for i in {1..10}; do
+    if ! kill -0 $CELERY_PID 2>/dev/null; then
+        echo "❌ Celery worker died after ${i} seconds!"
+        wait $CELERY_PID
+        EXIT_CODE=$?
+        echo "Worker exit code: $EXIT_CODE"
+        
+        # Try to get more information about the failure
+        echo ""
+        echo "=== Failure Analysis ==="
+        echo "Checking system resources..."
+        free -h 2>/dev/null || echo "Memory info not available"
+        df -h 2>/dev/null || echo "Disk info not available"
+        echo "Checking for core dumps..."
+        ls -la core* 2>/dev/null || echo "No core dumps found"
+        
+        exit $EXIT_CODE
+    fi
+    
+    echo "Worker running... check $i/10 (PID: $CELERY_PID)"
+    sleep 1
+done
+
+echo "✅ Celery worker is stable after 10 seconds"
+
+# Test worker connectivity - wait for worker to be ready first
+echo ""
+echo "=== Worker Connectivity Test ==="
+echo "Waiting for worker to fully initialize before connectivity test..."
+
+# Give the worker time to fully start up
 sleep 5
-if ! kill -0 $CELERY_PID 2>/dev/null; then
-    echo "❌ Celery worker died immediately after startup!"
-    wait $CELERY_PID
-    EXIT_CODE=$?
-    echo "Worker exit code: $EXIT_CODE"
-    exit $EXIT_CODE
+
+# Use same timeout logic as broker test  
+if [[ "$BROKER_URL" == rediss://* ]]; then
+    CONNECTIVITY_TIMEOUT=20
+    echo "Using TLS timeout: ${CONNECTIVITY_TIMEOUT}s"
 else
-    echo "✅ Celery worker is running after 5 seconds"
+    CONNECTIVITY_TIMEOUT=15
+    echo "Using standard timeout: ${CONNECTIVITY_TIMEOUT}s"
 fi
+
+# Try multiple times with increasing delays
+for attempt in {1..3}; do
+    echo "Connectivity test attempt $attempt/3..."
+    
+    timeout $CONNECTIVITY_TIMEOUT python -c "
+import sys
+import time
+try:
+    from rhesis.backend.worker import app
+    
+    # Give a moment for workers to register
+    time.sleep(2)
+    
+    # Test if we can connect to our own worker  
+    result = app.control.inspect().ping()
+    if result:
+        print('✅ Worker is responding to ping')
+        print(f'Active workers: {list(result.keys())}')
+        print(f'Worker count: {len(result)}')
+        sys.exit(0)
+    else:
+        print('⚠️ No workers responded to ping (this may be normal during startup)')
+        sys.exit(1)
+except Exception as e:
+    print(f'❌ Worker connectivity test failed: {e}')
+    sys.exit(1)
+" && {
+    echo "✅ Worker connectivity confirmed!"
+    break
+} || {
+    if [ $attempt -eq 3 ]; then
+        echo "⚠️ Worker connectivity test failed after 3 attempts"
+        echo "Note: Workers may still be initializing - this is often normal"
+    else
+        echo "Retrying in 3 seconds..."
+        sleep 3
+    fi
+}
+done
 
 # Wait for Celery worker to exit and handle signals
 wait $CELERY_PID

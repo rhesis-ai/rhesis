@@ -150,13 +150,32 @@ organization_id = organization_id or request_org_id
 
 **Symptoms**: Worker fails to start or tasks are not being processed
 
-**Cause**: Connection to the PostgreSQL broker is not working
+**Cause**: Connection to the Redis broker is not working
 
 **Solution**:
-1. Check that PostgreSQL is running and accessible
-2. Verify that database credentials are correct
-3. Ensure that the PostgreSQL extension `pg_trgm` is installed
-4. Check firewall rules if running in a cloud environment
+1. Check that Redis is running and accessible
+2. Verify the `BROKER_URL` environment variable is correct
+3. For TLS connections (`rediss://`), ensure `ssl_cert_reqs=CERT_NONE` parameter is included
+4. Test Redis connectivity: `redis-cli -u "$BROKER_URL" ping`
+5. Check firewall rules if running in a cloud environment
+6. For GKE deployments, see the [GKE Troubleshooting Guide](gke-troubleshooting.md)
+
+### Error: Missing API Keys for Model Evaluation
+
+**Symptoms**: Tasks fail with errors like "GEMINI_API_KEY environment variable is required"
+
+**Cause**: Model evaluation tasks require API keys for external AI services
+
+**Solution**:
+1. Ensure the following environment variables are set:
+   - `GEMINI_API_KEY`: For Google Gemini models
+   - `GEMINI_MODEL_NAME`: Gemini model name (e.g., "gemini-1.5-pro")
+   - `AZURE_OPENAI_ENDPOINT`: Azure OpenAI endpoint URL
+   - `AZURE_OPENAI_API_KEY`: Azure OpenAI API key
+   - `AZURE_OPENAI_DEPLOYMENT_NAME`: Your Azure deployment name
+   - `AZURE_OPENAI_API_VERSION`: API version (e.g., "2024-02-01")
+2. For GKE deployments, add these to your GitHub secrets
+3. Verify environment variables using the debug endpoint: `curl localhost:8080/debug/env`
 
 ### Error: Test runs stuck in "IN_PROGRESS" status
 
@@ -168,6 +187,161 @@ organization_id = organization_id or request_org_id
 1. Check for stuck chords: `python -m rhesis.backend.tasks.execution.chord_monitor status`
 2. See [Chord Never Completing](chord-management.md#2-chord-never-completing) in the Chord Management Guide
 3. Review individual task results to ensure they're returning valid data
+
+## Worker Registration and Status Checking
+
+### Check Registered Workers
+
+Use this Python script to check if workers are properly registered with the Celery broker:
+
+```bash
+# Create check_workers.py in project root
+cat > check_workers.py << 'EOF'
+#!/usr/bin/env python3
+import os
+import sys
+from datetime import datetime
+
+sys.path.insert(0, 'apps/backend/src')
+
+try:
+    from rhesis.backend.worker import app as celery_app
+except ImportError as e:
+    print(f"❌ Import error: {e}")
+    sys.exit(1)
+
+def check_celery_workers():
+    print("🚀 CELERY WORKER CHECKER")
+    print("=" * 50)
+    print(f"⏰ Timestamp: {datetime.now().isoformat()}")
+    
+    try:
+        inspect = celery_app.control.inspect()
+        
+        # Check active workers
+        print("\n📋 Active Workers:")
+        active = inspect.active()
+        if active:
+            for worker_name, tasks in active.items():
+                print(f"  ✅ {worker_name}: {len(tasks)} active tasks")
+        else:
+            print("  ❌ No active workers found")
+        
+        # Check registered workers
+        print("\n📋 Registered Workers:")
+        registered = inspect.registered()
+        if registered:
+            for worker_name, tasks in registered.items():
+                print(f"  ✅ {worker_name}: {len(tasks)} registered tasks")
+        else:
+            print("  ❌ No registered workers found")
+        
+        # Check worker stats
+        print("\n📊 Worker Statistics:")
+        stats = inspect.stats()
+        if stats:
+            for worker_name, worker_stats in stats.items():
+                print(f"  📈 {worker_name}:")
+                print(f"    - Pool: {worker_stats.get('pool', {}).get('max-concurrency', 'unknown')} max concurrency")
+                print(f"    - Total tasks: {worker_stats.get('total', 'unknown')}")
+        else:
+            print("  ❌ No worker statistics available")
+        
+        return bool(active or registered)
+        
+    except Exception as e:
+        print(f"❌ Error checking Celery workers: {e}")
+        return False
+
+if __name__ == "__main__":
+    check_celery_workers()
+EOF
+
+chmod +x check_workers.py
+```
+
+**Usage:**
+```bash
+python check_workers.py
+```
+
+**Expected Output (healthy workers):**
+```
+🚀 CELERY WORKER CHECKER
+==================================================
+⏰ Timestamp: 2025-06-14T10:57:41.278363
+
+📋 Active Workers:
+  ✅ celery@worker-pod-abc123: 0 active tasks
+
+📋 Registered Workers:
+  ✅ celery@worker-pod-abc123: 12 registered tasks
+
+📊 Worker Statistics:
+  📈 celery@worker-pod-abc123:
+    - Pool: 8 max concurrency
+    - Total tasks: 0
+```
+
+**Expected Output (no workers):**
+```
+📋 Active Workers:
+  ❌ No active workers found
+
+📋 Registered Workers:
+  ❌ No registered workers found
+
+📊 Worker Statistics:
+  ❌ No worker statistics available
+```
+
+### Quick Worker Status Commands
+
+```bash
+# Check if any workers are running
+python -c "from rhesis.backend.worker import app; print('Workers:', list(app.control.inspect().active().keys()) if app.control.inspect().active() else 'None')"
+
+# Get worker statistics
+python -c "from rhesis.backend.worker import app; import json; print(json.dumps(app.control.inspect().stats(), indent=2))"
+
+# Check registered tasks
+python -c "from rhesis.backend.worker import app; registered = app.control.inspect().registered(); print(f'Registered tasks: {sum(len(tasks) for tasks in registered.values()) if registered else 0}')"
+```
+
+### Worker Connection Troubleshooting
+
+If no workers are found:
+
+1. **Check broker connectivity:**
+   ```bash
+   python -c "
+   import os
+   import redis
+   from urllib.parse import urlparse
+   
+   broker_url = os.getenv('BROKER_URL')
+   parsed = urlparse(broker_url)
+   r = redis.Redis(host=parsed.hostname, port=parsed.port, password=parsed.password, ssl=(parsed.scheme=='rediss'))
+   print('Redis ping:', r.ping())
+   "
+   ```
+
+2. **Verify worker processes are running:**
+   ```bash
+   # For local development
+   ps aux | grep celery
+   
+   # For Docker/Kubernetes
+   kubectl get pods -n <namespace>
+   kubectl logs <pod-name> -n <namespace>
+   ```
+
+3. **Check worker startup logs:**
+   ```bash
+   # Look for successful worker registration
+   grep -i "ready" /path/to/worker/logs
+   grep -i "connected" /path/to/worker/logs
+   ```
 
 ## Monitoring and Prevention
 
@@ -201,5 +375,6 @@ def worker_health_check():
 ## Related Documentation
 
 - **[Chord Management and Monitoring](chord-management.md)**: Comprehensive guide for chord-specific issues
+- **[GKE Troubleshooting Guide](gke-troubleshooting.md)**: Debugging workers in Google Kubernetes Engine
 - [Background Tasks and Processing](background-tasks.md): General task management information
 - [Architecture and Dependencies](architecture.md): System integration details 

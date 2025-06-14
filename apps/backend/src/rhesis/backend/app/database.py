@@ -20,7 +20,7 @@ SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
-    expire_on_commit=True,  # Expire objects after commit
+    expire_on_commit=False,  # Expire objects after commit
 )
 Base = declarative_base()
 
@@ -77,7 +77,7 @@ def _execute_set_tenant(
             # Validate UUID format before setting
             try:
                 UUID(organization_id)  # Validate it's a proper UUID
-                logger.debug(f"Setting app.current_organization to: {organization_id}")
+                #logger.debug(f"Setting app.current_organization to: {organization_id}")
                 if hasattr(connection, "execute"):  # SQLAlchemy session
                     connection.execute(
                         text("SELECT set_config('app.current_organization', :org_id, false)"),
@@ -93,14 +93,15 @@ def _execute_set_tenant(
             except (ValueError, TypeError) as uuid_error:
                 logger.debug(f"Invalid UUID format for organization_id: {organization_id}, error: {uuid_error}")
         else:
-            logger.debug("Not setting app.current_organization (empty or None)")
+            pass
+            # logger.debug("Not setting app.current_organization (empty or None)")
 
         # Only set if user_id is not None, not empty, and is a valid UUID format
         if user_id and user_id.strip() and user_id != "":
             # Validate UUID format before setting
             try:
                 UUID(user_id)  # Validate it's a proper UUID
-                logger.debug(f"Setting app.current_user to: {user_id}")
+                # logger.debug(f"Setting app.current_user to: {user_id}")
                 if hasattr(connection, "execute"):  # SQLAlchemy session
                     connection.execute(
                         text("SELECT set_config('app.current_user', :user_id, false)"),
@@ -113,7 +114,8 @@ def _execute_set_tenant(
             except (ValueError, TypeError) as uuid_error:
                 logger.debug(f"Invalid UUID format for user_id: {user_id}, error: {uuid_error}")
         else:
-            logger.debug("Not setting app.current_user (empty or None)")
+            pass
+            # logger.debug("Not setting app.current_user (empty or None)")
     except Exception as e:
         logger.error(f"Error setting tenant context: {e}")
         # Don't raise the exception - allow the operation to continue

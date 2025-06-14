@@ -26,5 +26,4 @@ class TestConfiguration(Base, OrganizationMixin):
     status = relationship("Status", back_populates="test_configurations")
     test_results = relationship("TestResult", back_populates="test_configuration")
     test_runs = relationship("TestRun", back_populates="test_configuration")
-    use_case = relationship("UseCase", back_populates="test_configurations")
     endpoint = relationship("Endpoint", back_populates="test_configurations")

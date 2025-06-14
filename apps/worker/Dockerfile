@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     gcc \
+    procps \
     && pip install --no-cache-dir uv \
     && apt-get purge -y gcc \
     && apt-get autoremove -y \
@@ -70,7 +71,7 @@ EXPOSE 8080
 
 # Cloud Run needs an HTTP health check, not a Celery inspect ping
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:8080/health/basic || exit 1
 
 # Set the startup script as the entry point
 CMD ["/app/start.sh"]
