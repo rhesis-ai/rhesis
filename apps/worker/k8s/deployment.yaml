@@ -95,6 +95,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: GEMINI_API_KEY
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: GOOGLE_API_KEY
         - name: GEMINI_MODEL_NAME
           valueFrom:
             secretKeyRef:
