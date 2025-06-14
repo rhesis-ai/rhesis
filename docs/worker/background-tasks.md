@@ -34,12 +34,19 @@ app.conf.update(
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
 ```
 
-The application uses PostgreSQL as both the broker and result backend:
+The application uses Redis as both the broker and result backend with TLS support:
 
+```bash
+# Development (local Redis)
+BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
+
+# Production (Redis with TLS)
+BROKER_URL=rediss://:password@redis-host:6378/0?ssl_cert_reqs=CERT_NONE
+CELERY_RESULT_BACKEND=rediss://:password@redis-host:6378/1?ssl_cert_reqs=CERT_NONE
 ```
-BROKER_URL=sqla+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
-CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
-```
+
+**Note:** The `rediss://` protocol indicates Redis with TLS/SSL encryption. The `ssl_cert_reqs=CERT_NONE` parameter is used when connecting to managed Redis services that use self-signed certificates.
 
 ## Base Task Class
 
@@ -304,22 +311,63 @@ def execute_test_configuration_endpoint(
 
 ## Worker Configuration
 
-Celery workers are configured with performance optimizations:
+Celery workers are configured with Redis-optimized performance settings:
 
 ```dockerfile
-# Default Celery configuration
+# Default Celery configuration optimized for Redis
 ENV CELERY_WORKER_CONCURRENCY=8 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
     CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
     CELERY_WORKER_LOGLEVEL=INFO \
-    CELERY_WORKER_OPTS="--without-heartbeat --without-gossip"
+    CELERY_WORKER_OPTS=""
+```
+
+### Redis-Specific Configuration
+
+The Celery app includes Redis-optimized settings:
+
+```python
+app.conf.update(
+    # Redis configuration with TLS support
+    broker_url=os.getenv("BROKER_URL", "redis://localhost:6379/0"),
+    result_backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1"),
+    
+    # Redis-optimized settings
+    result_expires=3600,  # 1 hour - shorter for Redis efficiency
+    result_compression="gzip",
+    
+    # Connection settings for Redis reliability
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_connection_max_retries=10,
+    
+    # Redis transport options for TLS connections
+    broker_transport_options={
+        'retry_on_timeout': True,
+        'connection_pool_kwargs': {
+            'retry_on_timeout': True,
+            'socket_connect_timeout': 30,
+            'socket_timeout': 30,
+        }
+    },
+    
+    result_backend_transport_options={
+        'retry_on_timeout': True,
+        'connection_pool_kwargs': {
+            'retry_on_timeout': True,
+            'socket_connect_timeout': 30,
+            'socket_timeout': 30,
+        }
+    },
+)
 ```
 
 The worker startup script applies these configurations:
 
 ```bash
-# Start Celery worker with configuration from environment variables
+# Start Celery worker with Redis-optimized settings
 celery -A rhesis.backend.worker.app worker \
+    --queues=celery,execution \
     --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} \
     --concurrency=${CELERY_WORKER_CONCURRENCY:-8} \
     --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \
