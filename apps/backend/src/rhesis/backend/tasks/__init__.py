@@ -2,7 +2,7 @@
 
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import BaseTask, EmailEnabledTask, SilentTask, with_tenant_context
 from rhesis.backend.tasks.enums import (
     DEFAULT_METRIC_WORKERS,
     DEFAULT_RESULT_STATUS,
@@ -11,10 +11,11 @@ from rhesis.backend.tasks.enums import (
     DEFAULT_RUN_STATUS_FAILED
 )
 from rhesis.backend.tasks.utils import increment_test_run_progress
+from rhesis.backend.tasks.email_service import email_service
 
 # Import task functions after BaseTask is defined to avoid circular imports
 # We use direct imports instead of relative imports to be explicit
-from rhesis.backend.tasks.example_task import echo, get_test_configuration, get_test_set_count, manual_db_example  # noqa: E402
+from rhesis.backend.tasks.example_task import echo, get_test_configuration, get_test_set_count, manual_db_example, email_notification_test  # noqa: E402
 from rhesis.backend.tasks.test_configuration import execute_test_configuration  # noqa: E402
 from rhesis.backend.tasks.test_set import count_test_sets  # noqa: E402
 
@@ -32,6 +33,8 @@ from rhesis.backend.tasks import example_task  # noqa
 __all__ = [
     # Classes
     "BaseTask",
+    "EmailEnabledTask",
+    "SilentTask",
     
     # Decorators
     "with_tenant_context",
@@ -40,6 +43,9 @@ __all__ = [
     "task_launcher",
     "increment_test_run_progress",
     
+    # Services
+    "email_service",
+    
     # Tasks
     "echo",
     "count_test_sets",
@@ -47,6 +53,7 @@ __all__ = [
     "get_test_configuration",
     "get_test_set_count",
     "manual_db_example",
+    "email_notification_test",
     
     # Constants
     "DEFAULT_METRIC_WORKERS",

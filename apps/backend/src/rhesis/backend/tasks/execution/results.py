@@ -7,12 +7,13 @@ from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.database import SessionLocal, set_tenant
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.logging.rhesis_logger import logger
+from rhesis.backend.tasks.base import EmailEnabledTask
 from rhesis.backend.tasks.execution.run import update_test_run_status
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.worker import app
 
 
-@app.task(bind=True, max_retries=3, retry_backoff=True, retry_backoff_max=60)
+@app.task(base=EmailEnabledTask, bind=True, max_retries=3, retry_backoff=True, retry_backoff_max=60)
 def collect_results(self, results, start_time, test_config_id, test_run_id, test_set_id, total_tests, organization_id=None, user_id=None):
     """
     Collect and aggregate results from test execution.
@@ -132,6 +133,61 @@ def collect_results(self, results, start_time, test_config_id, test_run_id, test
             
             crud.update_test_run(db, test_run.id, crud.schemas.TestRunUpdate(**update_data))
             logger.info(f"Successfully updated test run {test_run_id} with status {status}")
+            
+            # Send email notification with test execution summary
+            try:
+                # Get user for email notification
+                user = crud.get_user(db, UUID(user_id)) if user_id else None
+                if user and user.email and not user.email.endswith('@example.com'):
+                    
+                    # Calculate execution summary
+                    total_execution_time_seconds = int(total_execution_time_ms / 1000)
+                    minutes, seconds = divmod(total_execution_time_seconds, 60)
+                    execution_time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
+                    
+                    # Determine overall status for email
+                    email_status = "success" if status == RunStatus.COMPLETED.value else "failed"
+                    
+                    # Create detailed status message
+                    if status == RunStatus.COMPLETED.value:
+                        status_message = f"All {actual_completed} tests passed successfully"
+                        email_status = "success"
+                    elif status == RunStatus.PARTIAL.value:
+                        status_message = f"{actual_completed} tests passed, {actual_failed} tests failed"
+                        email_status = "partial"
+                    else:
+                        status_message = f"Test execution failed ({actual_failed} of {total_tests} tests failed)"
+                        email_status = "failed"
+                    
+                    # Import email service to use specialized method
+                    from rhesis.backend.tasks.email_service import email_service
+                    
+                    # Send the specialized test execution summary email
+                    success = email_service.send_test_execution_summary_email(
+                        recipient_email=user.email,
+                        recipient_name=user.name,
+                        task_name="Test Configuration Execution",
+                        task_id=self.request.id,
+                        status=email_status,
+                        total_tests=total_tests,
+                        tests_passed=actual_completed,
+                        tests_failed=actual_failed,
+                        execution_time=execution_time_str,
+                        test_run_id=test_run_id,
+                        status_details=status_message,
+                        frontend_url=None  # Will use default from environment
+                    )
+                    
+                    if success:
+                        logger.info(f"Test execution summary email sent for test run {test_run_id} to {user.email}")
+                    else:
+                        logger.warning(f"Failed to send test execution summary email for test run {test_run_id} to {user.email}")
+                else:
+                    logger.debug(f"Skipping email notification - no valid user email found")
+                    
+            except Exception as e:
+                # Don't fail the entire task if email fails
+                logger.error(f"Failed to send email notification for test run {test_run_id}: {str(e)}")
         else:
             logger.error(f"Test run {test_run_id} not found in database!")
 
