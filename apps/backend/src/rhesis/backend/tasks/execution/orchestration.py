@@ -46,18 +46,20 @@ def execute_test_cases(
         )
         tasks.append(task)
 
-    # Create callback task
-    start_time = datetime.utcnow()
+    # Create callback task with correct parameters and context for the decorator-based collect_results
     callback = collect_results.s(
-        start_time.isoformat(),
-        str(test_config.id),
-        str(test_run.id),
-        str(test_config.test_set_id),
-        len(tasks),
-        organization_id=str(test_config.organization_id) if test_config.organization_id else None,
-        user_id=str(test_config.user_id) if test_config.user_id else None,
+        str(test_run.id),  # test_run_id (after results parameter)
+    ).set(
+        # Pass context in headers so BaseTask.before_start can pick them up
+        headers={
+            'organization_id': str(test_config.organization_id) if test_config.organization_id else None,
+            'user_id': str(test_config.user_id) if test_config.user_id else None,
+        }
     )
 
+    # Record start time before chord execution
+    start_time = datetime.utcnow()
+    
     # Execute the chord
     logger.info(f"Starting chord execution for test run {test_run.id} with {len(tasks)} tasks")
     job = chord(tasks, callback).apply_async()

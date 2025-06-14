@@ -2,7 +2,8 @@
 
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import BaseTask, EmailEnabledTask, SilentTask, with_tenant_context, email_notification
+from rhesis.backend.worker import app
 from rhesis.backend.tasks.enums import (
     DEFAULT_METRIC_WORKERS,
     DEFAULT_RESULT_STATUS,
@@ -11,42 +12,60 @@ from rhesis.backend.tasks.enums import (
     DEFAULT_RUN_STATUS_FAILED
 )
 from rhesis.backend.tasks.utils import increment_test_run_progress
+from rhesis.backend.notifications import email_service
 
 # Import task functions after BaseTask is defined to avoid circular imports
-# We use direct imports instead of relative imports to be explicit
-from rhesis.backend.tasks.example_task import echo, get_test_configuration, get_test_set_count, manual_db_example  # noqa: E402
-from rhesis.backend.tasks.test_configuration import execute_test_configuration  # noqa: E402
-from rhesis.backend.tasks.test_set import count_test_sets  # noqa: E402
+from rhesis.backend.tasks.example_task import (
+    echo,
+    get_test_configuration,
+    get_test_set_count,
+    manual_db_example,
+    process_data,
+    email_notification_test,
+)
+from rhesis.backend.tasks.test_configuration import execute_test_configuration
+from rhesis.backend.tasks.execution.results import collect_results
+from rhesis.backend.tasks.test_set import count_test_sets
 
-# Import all tasks
-# Make sure to import any implemented tasks here to ensure they're discovered
-from rhesis.backend.tasks import test_configuration
-from rhesis.backend.tasks import test_set
+# Import all task modules to ensure they're registered with Celery
+from rhesis.backend.tasks import execution  # noqa: F401
+from rhesis.backend.tasks import example_task  # noqa: F401
+from rhesis.backend.tasks import test_configuration  # noqa: F401
+from rhesis.backend.tasks import test_set  # noqa: F401
 
 # Type variable for task functions
 T = TypeVar('T', bound=Callable)
 
-# Import so tasks are properly registered with Celery
-from rhesis.backend.tasks import example_task  # noqa
-
 __all__ = [
+    # Core task system
+    "app",
+    
     # Classes
     "BaseTask",
+    "EmailEnabledTask", 
+    "SilentTask",
     
     # Decorators
     "with_tenant_context",
+    "email_notification",
     
     # Helper functions
     "task_launcher",
     "increment_test_run_progress",
     
+    # Services
+    "email_service",
+    
     # Tasks
     "echo",
     "count_test_sets",
     "execute_test_configuration",
+    "collect_results",
     "get_test_configuration",
     "get_test_set_count",
     "manual_db_example",
+    "email_notification_test",
+    "process_data",
     
     # Constants
     "DEFAULT_METRIC_WORKERS",

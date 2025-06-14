@@ -64,6 +64,37 @@ def get_test_run_by_config(
         return None
 
 
+def get_test_run_by_task_id(
+    db: Session, 
+    task_id: str
+) -> Optional[Any]:
+    """
+    Get a test run by task ID from attributes.
+    This is used to find test runs created by a specific Celery task,
+    which is important for handling task retries correctly.
+    
+    Args:
+        db: Database session
+        task_id: Celery task ID
+        
+    Returns:
+        Test run with matching task_id in attributes, or None if not found
+    """
+    try:
+        # Get all test runs and filter by task_id in attributes
+        # Note: This is not the most efficient approach, but since we expect
+        # few test runs per task, it's acceptable for now
+        test_runs = crud.get_test_runs(db, limit=100)
+        
+        for test_run in test_runs:
+            if test_run.attributes and test_run.attributes.get("task_id") == task_id:
+                return test_run
+        
+        return None
+    except Exception:
+        return None
+
+
 def increment_test_run_progress(
     db: Session, 
     test_run_id: str, 
@@ -230,5 +261,45 @@ def validate_task_parameters(**params) -> Tuple[bool, Optional[str]]:
                     return False, f"Invalid UUID format for {param_name}: {param_value}"
     
     return True, None
+
+
+def format_execution_time(duration_seconds: float) -> str:
+    """
+    Format execution time in a user-friendly way.
+    
+    Args:
+        duration_seconds: Duration in seconds (can be float)
+        
+    Returns:
+        str: Formatted duration string
+        
+    Examples:
+        - 45.2 seconds -> "45.2 seconds"
+        - 125.0 seconds -> "2.1 minutes"
+        - 3665.5 seconds -> "61.1 minutes"
+    """
+    if duration_seconds >= 60:
+        minutes = duration_seconds / 60
+        return f"{minutes:.1f} minutes"
+    else:
+        return f"{duration_seconds:.1f} seconds"
+
+
+def format_execution_time_from_ms(duration_ms: int) -> str:
+    """
+    Format execution time from milliseconds in a user-friendly way.
+    
+    Args:
+        duration_ms: Duration in milliseconds
+        
+    Returns:
+        str: Formatted duration string
+        
+    Examples:
+        - 45200 ms -> "45.2 seconds"
+        - 125000 ms -> "2.1 minutes"
+    """
+    duration_seconds = duration_ms / 1000
+    return format_execution_time(duration_seconds)
 
 

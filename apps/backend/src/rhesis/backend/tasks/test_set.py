@@ -9,7 +9,7 @@ from rhesis.backend.tasks.base import BaseTask, with_tenant_context
 logger = logging.getLogger(__name__)
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.count_test_sets", bind=True)
+@app.task(base=BaseTask, name="rhesis.backend.tasks.count_test_sets", bind=True, display_name="Test Set Count")
 @with_tenant_context
 def count_test_sets(self, db=None):
     """

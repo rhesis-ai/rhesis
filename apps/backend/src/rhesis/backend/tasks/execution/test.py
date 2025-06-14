@@ -2,14 +2,14 @@ from typing import Optional
 from uuid import UUID
 
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import SilentTask, with_tenant_context
 from rhesis.backend.tasks.execution.metrics_utils import get_behavior_metrics
 from rhesis.backend.tasks.execution.test_execution import execute_test
 from rhesis.backend.tasks.utils import increment_test_run_progress
 from rhesis.backend.worker import app
 
 
-@app.task(name="rhesis.backend.tasks.execute_single_test", base=BaseTask, bind=True)
+@app.task(name="rhesis.backend.tasks.execute_single_test", base=SilentTask, bind=True, display_name="Individual Test Execution")
 @with_tenant_context
 def execute_single_test(
     self,
