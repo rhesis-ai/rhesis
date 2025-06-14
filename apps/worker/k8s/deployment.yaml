@@ -129,7 +129,7 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 120
           periodSeconds: 45
-          timeoutSeconds: 20
+          timeoutSeconds: 10
           failureThreshold: 3
           successThreshold: 1
         readinessProbe:
