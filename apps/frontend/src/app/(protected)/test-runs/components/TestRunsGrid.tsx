@@ -157,13 +157,13 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
 
   // CSS for gentle glowing effect on progress status
   const progressGlowAnimation = {
-    animation: 'progressGlow 2s ease-in-out infinite alternate',
+    animation: 'progressGlow 3s ease-in-out infinite alternate',
     '@keyframes progressGlow': {
       '0%': {
-        boxShadow: '0 0 5px rgba(25, 118, 210, 0.5)',
+        boxShadow: '0 0 3px rgba(25, 118, 210, 0.3)',
       },
       '100%': {
-        boxShadow: '0 0 15px rgba(25, 118, 210, 0.8), 0 0 25px rgba(25, 118, 210, 0.4)',
+        boxShadow: '0 0 8px rgba(25, 118, 210, 0.5), 0 0 12px rgba(25, 118, 210, 0.2)',
       },
     },
   };
@@ -217,20 +217,17 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
             status?.toLowerCase() === 'running' ||
             status?.toLowerCase() === 'in_progress') {
           
-          // Try multiple possible timestamp fields
-          const startTime = row.started_at || row.created_at || row.updated_at;
+          // Look for timestamp fields in attributes first, then root level
+          const attributes = row.attributes || {};
+          const startTime = attributes.started_at || attributes.created_at || attributes.start_time || 
+                          attributes.execution_started_at || row.created_at || row.updated_at;
+          
           if (!startTime) {
-            console.log('No start time found for test run:', row.id, 'Available fields:', Object.keys(row));
-            return '';
+            return 'Calculating...';
           }
           
           const elapsedMs = getElapsedTime(startTime);
-          const formatted = formatExecutionTime(elapsedMs);
-          
-          // Debug log for troubleshooting
-          console.log('Progress run:', row.id, 'Status:', status, 'Start time:', startTime, 'Elapsed:', formatted);
-          
-          return formatted;
+          return formatExecutionTime(elapsedMs);
         }
         
         return '';

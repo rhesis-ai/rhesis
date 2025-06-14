@@ -9,7 +9,7 @@ from rhesis.backend.tasks.utils import increment_test_run_progress
 from rhesis.backend.worker import app
 
 
-@app.task(name="rhesis.backend.tasks.execute_single_test", base=SilentTask, bind=True)
+@app.task(name="rhesis.backend.tasks.execute_single_test", base=SilentTask, bind=True, display_name="Individual Test Execution")
 @with_tenant_context
 def execute_single_test(
     self,
