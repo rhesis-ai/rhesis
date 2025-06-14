@@ -3,7 +3,7 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.worker import app
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import BaseTask, with_tenant_context, EmailEnabledTask
 
 
 @app.task(base=BaseTask, name="rhesis.backend.tasks.process_data", bind=True)
@@ -129,4 +129,32 @@ def manual_db_example(self):
         "organization_id": org_id,
         "user_id": user_id,
         "results": results
+    }
+
+
+@app.task(base=EmailEnabledTask, name="rhesis.backend.tasks.email_notification_test", bind=True)
+@with_tenant_context
+def email_notification_test(self, test_message: str = "Test message", message: str = None, db=None):
+    """
+    Test task to verify email notifications are working.
+    This task will always succeed to test success notifications.
+    
+    Accepts both 'test_message' (preferred) and 'message' parameters for compatibility.
+    """
+    # Use message if test_message is default and message is provided
+    if test_message == "Test message" and message is not None:
+        test_message = message
+    
+    self.log_with_context('info', f"Starting email notification test", test_message=test_message)
+    
+    # Simulate some work
+    import time
+    time.sleep(2)
+    
+    self.log_with_context('info', f"Email notification test completed successfully")
+    
+    return {
+        "message": test_message,
+        "timestamp": "2024-01-01T00:00:00Z",
+        "status": "success"
     }

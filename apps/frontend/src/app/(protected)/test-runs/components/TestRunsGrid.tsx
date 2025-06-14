@@ -155,28 +155,15 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     return now.getTime() - start.getTime();
   }, [currentTime]);
 
-  // CSS for animated progress border
-  const progressBorderAnimation = {
-    position: 'relative',
-    overflow: 'hidden',
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: '-2px',
-      left: '-2px',
-      right: '-2px',
-      bottom: '-2px',
-      background: 'conic-gradient(from 0deg, #1976d2, #42a5f5, #90caf9, #1976d2)',
-      borderRadius: 'inherit',
-      zIndex: -1,
-      animation: 'progressSpin 2s linear infinite',
-    },
-    '@keyframes progressSpin': {
+  // CSS for gentle glowing effect on progress status
+  const progressGlowAnimation = {
+    animation: 'progressGlow 2s ease-in-out infinite alternate',
+    '@keyframes progressGlow': {
       '0%': {
-        transform: 'rotate(0deg)',
+        boxShadow: '0 0 5px rgba(25, 118, 210, 0.5)',
       },
       '100%': {
-        transform: 'rotate(360deg)',
+        boxShadow: '0 0 15px rgba(25, 118, 210, 0.8), 0 0 25px rgba(25, 118, 210, 0.4)',
       },
     },
   };
@@ -225,12 +212,25 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         }
         
         // For in-progress runs, show elapsed time since start
-        if (status?.toLowerCase() === 'progress' || status?.toLowerCase() === 'in progress' || status?.toLowerCase() === 'running') {
-          const startTime = row.created_at || row.started_at;
-          if (!startTime) return '';
+        if (status?.toLowerCase() === 'progress' || 
+            status?.toLowerCase() === 'in progress' || 
+            status?.toLowerCase() === 'running' ||
+            status?.toLowerCase() === 'in_progress') {
+          
+          // Try multiple possible timestamp fields
+          const startTime = row.started_at || row.created_at || row.updated_at;
+          if (!startTime) {
+            console.log('No start time found for test run:', row.id, 'Available fields:', Object.keys(row));
+            return '';
+          }
           
           const elapsedMs = getElapsedTime(startTime);
-          return formatExecutionTime(elapsedMs);
+          const formatted = formatExecutionTime(elapsedMs);
+          
+          // Debug log for troubleshooting
+          console.log('Progress run:', row.id, 'Status:', status, 'Start time:', startTime, 'Elapsed:', formatted);
+          
+          return formatted;
         }
         
         return '';
@@ -246,14 +246,15 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
 
         const isInProgress = status.toLowerCase() === 'progress' || 
                            status.toLowerCase() === 'in progress' || 
-                           status.toLowerCase() === 'running';
+                           status.toLowerCase() === 'running' ||
+                           status.toLowerCase() === 'in_progress';
 
         return (
           <Chip 
             label={status} 
             size="small" 
             variant="outlined"
-            sx={isInProgress ? progressBorderAnimation : {}}
+            sx={isInProgress ? progressGlowAnimation : {}}
           />
         );
       }
@@ -283,7 +284,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         );
       }
     }
-  ], [projectNames, formatExecutionTime, getElapsedTime, progressBorderAnimation]);
+  ], [projectNames, formatExecutionTime, getElapsedTime, progressGlowAnimation]);
 
   // Handle row click to navigate to test run details
   const handleRowClick = useCallback((params: any) => {

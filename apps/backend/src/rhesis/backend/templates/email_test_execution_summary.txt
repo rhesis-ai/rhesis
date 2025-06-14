@@ -1,0 +1,17 @@
+{greeting}
+
+Your test configuration execution has completed with status: {status_upper}
+
+Execution Summary:
+- Test Configuration: {task_name}
+- Total Tests: {total_tests}
+- Tests Passed: {tests_passed}
+- Tests Failed: {tests_failed}
+- Execution Time: {execution_time}
+- Status: {status_title}
+- Completed At: {completed_at} UTC{test_run_link}
+
+{status_details}
+
+Best regards,
+Rhesis AI Team 

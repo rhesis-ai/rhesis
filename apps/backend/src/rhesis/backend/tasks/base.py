@@ -2,6 +2,8 @@ from celery import Task
 from contextlib import contextmanager
 from functools import wraps
 from typing import Tuple, Optional
+import os
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -58,6 +60,9 @@ class BaseTask(Task):
     # Report started status
     track_started = True
     
+    # Email notification control - set to False for tasks that shouldn't send emails
+    send_email_notification = False
+
     def get_tenant_context(self) -> Tuple[Optional[str], Optional[str]]:
         """
         Get tenant context from task request in a consistent way.
@@ -143,6 +148,18 @@ class BaseTask(Task):
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful task completion with context information."""
         self.log_with_context('info', f"Task completed successfully", task_result_type=type(retval).__name__)
+        
+        # Send email notification for successful completion if enabled
+        if self.send_email_notification:
+            self.log_with_context('debug', f"Attempting to send success email notification")
+            email_kwargs = {}
+            if isinstance(retval, dict) and 'test_run_id' in retval:
+                email_kwargs['test_run_id'] = retval['test_run_id']
+            
+            self._send_task_completion_email('success', **email_kwargs)
+        else:
+            self.log_with_context('debug', f"Email notification disabled for this task type")
+        
         return super().on_success(retval, task_id, args, kwargs)
         
     def on_failure(self, exc, task_id, args, kwargs, einfo):
@@ -152,13 +169,18 @@ class BaseTask(Task):
         
         retries = getattr(self.request, 'retries', 0)
         
-        # Don't retry if this is a TestExecutionError
+        # Only send email notification if task permanently failed (not retrying) and email is enabled
         if isinstance(exc, TestExecutionError) or retries >= self.max_retries:
             self.log_with_context('error', 
                 f"Task permanently failed after {retries} attempts", 
                 error=str(exc), 
                 exception_type=type(exc).__name__
             )
+            # Send email notification for permanent failure if enabled
+            if self.send_email_notification:
+                self._send_task_completion_email('failed', error_message=str(exc))
+            else:
+                self.log_with_context('debug', f"Email notification disabled for this task type")
         else:
             self.log_with_context('warning',
                 f"Task failed (will retry, attempt {retries}/{self.max_retries})", 
@@ -188,3 +210,114 @@ class BaseTask(Task):
         self.validate_params(args, kwargs)
             
         return super().before_start(task_id, args, kwargs)
+    
+    def _get_user_info(self, user_id: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Get user email and name for notifications.
+        
+        Args:
+            user_id: The user ID to look up
+            
+        Returns:
+            Tuple of (email, name) or (None, None) if user not found
+        """
+        try:
+            from rhesis.backend.app import crud
+            
+            with self.get_db_session() as db:
+                user = crud.get_user(db, user_id)
+                if user:
+                    display_name = user.display_name if hasattr(user, 'display_name') else (user.name or user.given_name or user.email)
+                    return user.email, display_name
+                return None, None
+        except Exception as e:
+            self.log_with_context('warning', f"Failed to get user info for notifications", error=str(e))
+            return None, None
+    
+    def _send_task_completion_email(self, status: str, error_message: Optional[str] = None, **kwargs):
+        """
+        Send email notification for task completion.
+        
+        Args:
+            status: Task completion status ('success' or 'failed')
+            error_message: Error message if task failed
+            **kwargs: Additional context for the email (e.g., test_run_id)
+        """
+        try:
+            from rhesis.backend.tasks.email_service import email_service
+            
+            # Get user context
+            org_id, user_id = self.get_tenant_context()
+            
+            self.log_with_context('debug', f"Email notification process started", 
+                                status=status, org_id=org_id, user_id=user_id)
+            
+            if not user_id:
+                self.log_with_context('debug', "No user context available for email notification")
+                return
+            
+            # Get user information
+            self.log_with_context('debug', f"Looking up user information for user_id: {user_id}")
+            user_email, user_name = self._get_user_info(user_id)
+            
+            if not user_email:
+                self.log_with_context('warning', f"No email found for user {user_id}")
+                return
+                
+            self.log_with_context('debug', f"Found user email: {user_email}, name: {user_name}")
+            
+            # Skip placeholder emails (these are internal users without real emails)
+            if 'placeholder.rhesis.ai' in user_email:
+                self.log_with_context('debug', f"Skipping notification for placeholder email: {user_email}")
+                return
+            
+            # Calculate execution time if possible
+            execution_time = None
+            if hasattr(self.request, 'time_start') and self.request.time_start:
+                duration = datetime.utcnow().timestamp() - self.request.time_start
+                if duration > 60:
+                    execution_time = f"{duration // 60:.0f}m {duration % 60:.0f}s"
+                else:
+                    execution_time = f"{duration:.1f}s"
+            
+            self.log_with_context('debug', f"Calculated execution time: {execution_time}")
+            
+            # Get frontend URL for links
+            frontend_url = os.getenv('FRONTEND_URL', 'https://app.rhesis.ai')
+            self.log_with_context('debug', f"Using frontend URL: {frontend_url}")
+            
+            # Check if email service is configured
+            self.log_with_context('debug', f"Email service configured: {email_service.is_configured}")
+            
+            # Send the email
+            self.log_with_context('info', f"Sending {status} email notification to {user_email}")
+            success = email_service.send_task_completion_email(
+                recipient_email=user_email,
+                recipient_name=user_name,
+                task_name=self.name,
+                task_id=self.request.id,
+                status=status,
+                execution_time=execution_time,
+                error_message=error_message,
+                test_run_id=kwargs.get('test_run_id'),
+                frontend_url=frontend_url
+            )
+            
+            if success:
+                self.log_with_context('info', f"Email notification sent successfully to {user_email}")
+            else:
+                self.log_with_context('error', f"Email notification failed to send to {user_email}")
+            
+        except Exception as e:
+            # Don't fail the task if email sending fails
+            self.log_with_context('error', f"Failed to send task completion email", error=str(e))
+
+
+class EmailEnabledTask(BaseTask):
+    """Base task class with email notifications enabled (for user-facing tasks)."""
+    send_email_notification = True
+
+
+class SilentTask(BaseTask):
+    """Base task class with email notifications disabled (for background/parallel tasks)."""
+    send_email_notification = False
