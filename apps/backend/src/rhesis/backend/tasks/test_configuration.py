@@ -7,7 +7,7 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models import TestRun
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import SilentTask, with_tenant_context
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.tasks.utils import (
     get_test_run_by_config,
@@ -28,7 +28,7 @@ from rhesis.backend.tasks.execution.run import (
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True)
+@app.task(base=SilentTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True, display_name="Test Configuration Execution")
 @with_tenant_context
 def execute_test_configuration(self, test_configuration_id: str, db=None):
     """

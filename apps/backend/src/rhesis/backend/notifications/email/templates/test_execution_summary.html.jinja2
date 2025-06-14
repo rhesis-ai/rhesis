@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Test Execution Summary</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h2 style="color: #2c3e50; margin-top: 0;">
+            {% if status.lower() == "success" -%}
+            ✅ Test Execution Complete
+            {%- elif status.lower() == "partial" -%}
+            ⚠️ Test Execution Complete
+            {%- else -%}
+            ❌ Test Execution Complete
+            {%- endif %}
+        </h2>
+        <p>
+            {%- if recipient_name -%}
+            Hello {{ recipient_name }},
+            {%- else -%}
+            Hello,
+            {%- endif %}
+        </p>
+        <p>Your test configuration execution has completed with status: 
+            <strong style="color: {% if status.lower() == 'success' %}#28a745{% elif status.lower() == 'partial' %}#ffc107{% else %}#dc3545{% endif %};">
+                {{ status.upper() }}
+            </strong>
+        </p>
+    </div>
+    
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #495057; margin-top: 0;">Execution Summary</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Test Configuration:</td>
+                <td style="padding: 8px 0;">{{ task_name }}</td>
+            </tr>
+            {%- if project_name %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Project:</td>
+                <td style="padding: 8px 0;">{{ project_name }}</td>
+            </tr>
+            {%- endif %}
+            {%- if test_set_name %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Test Set:</td>
+                <td style="padding: 8px 0;">{{ test_set_name }}</td>
+            </tr>
+            {%- endif %}
+            {%- if endpoint_name %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Endpoint:</td>
+                <td style="padding: 8px 0;">
+                    {%- if endpoint_url -%}
+                    <a href="{{ endpoint_url }}" style="color: #007bff; text-decoration: none;">{{ endpoint_name }}</a>
+                    {%- else -%}
+                    {{ endpoint_name }}
+                    {%- endif -%}
+                </td>
+            </tr>
+            {%- endif %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Total Tests:</td>
+                <td style="padding: 8px 0;">{{ total_tests }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Tests Passed:</td>
+                <td style="padding: 8px 0; color: #28a745; font-weight: bold;">{{ tests_passed }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Tests Failed:</td>
+                <td style="padding: 8px 0; color: #dc3545; font-weight: bold;">{{ tests_failed }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Execution Time:</td>
+                <td style="padding: 8px 0;">{{ execution_time or "N/A" }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Status:</td>
+                <td style="padding: 8px 0; color: {% if status.lower() == 'success' %}#28a745{% elif status.lower() == 'partial' %}#ffc107{% else %}#dc3545{% endif %}; font-weight: bold;">
+                    {{ status.title() }}
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Completed at:</td>
+                <td style="padding: 8px 0;">{{ completed_at }} UTC</td>
+            </tr>
+        </table>
+    </div>
+    
+    {%- if status_details %}
+    <div style="background: {% if status.lower() == 'success' %}#d4edda{% elif status.lower() == 'partial' %}#fff3cd{% else %}#f8d7da{% endif %}; border: 1px solid {% if status.lower() == 'success' %}#c3e6cb{% elif status.lower() == 'partial' %}#ffeaa7{% else %}#f5c6cb{% endif %}; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: {% if status.lower() == 'success' %}#155724{% elif status.lower() == 'partial' %}#856404{% else %}#721c24{% endif %}; margin-top: 0;">Result Details</h3>
+        <p style="color: {% if status.lower() == 'success' %}#155724{% elif status.lower() == 'partial' %}#856404{% else %}#721c24{% endif %}; margin: 0;">{{ status_details }}</p>
+    </div>
+    {%- endif %}
+    
+    {%- if frontend_url and test_run_id %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ frontend_url }}/test-runs/{{ test_run_id }}" 
+           style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+            View Detailed Results
+        </a>
+    </div>
+    {%- endif %}
+    
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em;">
+        <p>Best regards,<br>Rhesis AI Team</p>
+    </div>
+</body>
+</html> 

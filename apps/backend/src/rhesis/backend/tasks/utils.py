@@ -263,3 +263,43 @@ def validate_task_parameters(**params) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
+def format_execution_time(duration_seconds: float) -> str:
+    """
+    Format execution time in a user-friendly way.
+    
+    Args:
+        duration_seconds: Duration in seconds (can be float)
+        
+    Returns:
+        str: Formatted duration string
+        
+    Examples:
+        - 45.2 seconds -> "45.2 seconds"
+        - 125.0 seconds -> "2.1 minutes"
+        - 3665.5 seconds -> "61.1 minutes"
+    """
+    if duration_seconds >= 60:
+        minutes = duration_seconds / 60
+        return f"{minutes:.1f} minutes"
+    else:
+        return f"{duration_seconds:.1f} seconds"
+
+
+def format_execution_time_from_ms(duration_ms: int) -> str:
+    """
+    Format execution time from milliseconds in a user-friendly way.
+    
+    Args:
+        duration_ms: Duration in milliseconds
+        
+    Returns:
+        str: Formatted duration string
+        
+    Examples:
+        - 45200 ms -> "45.2 seconds"
+        - 125000 ms -> "2.1 minutes"
+    """
+    duration_seconds = duration_ms / 1000
+    return format_execution_time(duration_seconds)
+
+
