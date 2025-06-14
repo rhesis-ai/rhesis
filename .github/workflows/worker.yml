@@ -5,11 +5,15 @@ on:
     branches: [ main ]
     paths:
       - 'apps/worker/**'
+      - 'apps/backend/**'
+      - 'sdk/**'
       - '.github/workflows/worker.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'apps/worker/**'
+      - 'apps/backend/**'
+      - 'sdk/**'
       - '.github/workflows/worker.yml'
   workflow_dispatch:
     inputs:
