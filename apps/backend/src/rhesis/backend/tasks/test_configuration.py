@@ -7,10 +7,11 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models import TestRun
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import SilentTask, with_tenant_context
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.tasks.utils import (
     get_test_run_by_config,
+    get_test_run_by_task_id,
     create_task_result,
     update_test_run_with_error,
     validate_task_parameters
@@ -27,7 +28,7 @@ from rhesis.backend.tasks.execution.run import (
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
 
 
-@app.task(base=BaseTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True)
+@app.task(base=SilentTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True, display_name="Test Configuration Execution")
 @with_tenant_context
 def execute_test_configuration(self, test_configuration_id: str, db=None):
     """
@@ -55,19 +56,23 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
         # Get test configuration with tenant context
         test_config = get_test_configuration(db, test_configuration_id)
         
-        # CRITICAL: Check for existing test run BEFORE creating a new one
-        # This prevents task retries from creating multiple test runs
-        existing_test_run = get_test_run_by_config(db, test_configuration_id)
+        # CRITICAL: Check for existing test run by TASK ID (not config ID)
+        # This allows multiple test runs per configuration but prevents task retries 
+        # from creating multiple test runs for the same task
+        existing_test_run = get_test_run_by_task_id(db, self.request.id)
         if existing_test_run:
             self.log_with_context('info', 
-                                 f"Found existing test run for configuration {test_configuration_id}",
-                                 existing_test_run_id=str(existing_test_run.id))
+                                 f"Found existing test run for task {self.request.id}",
+                                 existing_test_run_id=str(existing_test_run.id),
+                                 task_retry=True)
             
-            # Use the existing test run instead of creating a new one
+            # Use the existing test run (this handles task retries)
             test_run = existing_test_run
         else:
-            # Only create a new test run if none exists
-            self.log_with_context('info', f"Creating new test run for configuration {test_configuration_id}")
+            # Create a new test run for this task execution
+            self.log_with_context('info', 
+                                 f"Creating new test run for task {self.request.id}",
+                                 test_configuration_id=test_configuration_id)
             test_run = create_test_run(
                 db,
                 test_config,
@@ -78,11 +83,15 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
         result = execute_test_cases(db, test_config, test_run)
         
         # Use utility to create standardized result
+        # Remove test_run_id from result if present to avoid duplicate parameter
+        result_copy = result.copy()
+        result_copy.pop('test_run_id', None)
+        
         final_result = create_task_result(
             task_id=self.request.id,
             test_config_id=test_configuration_id,
             test_run_id=str(test_run.id),
-            **result
+            **result_copy
         )
         
         self.log_with_context('info', f"Test configuration execution completed successfully",
@@ -99,7 +108,8 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
                              exception_type=type(e).__name__)
         
         # Attempt to update test run status to failed using utility
-        test_run = get_test_run_by_config(db, test_configuration_id)
+        # Use task ID to find the specific test run created by this task
+        test_run = get_test_run_by_task_id(db, self.request.id)
         if test_run:
             success = update_test_run_with_error(db, test_run, str(e))
             if not success:

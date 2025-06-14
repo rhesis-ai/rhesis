@@ -125,6 +125,32 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: AZURE_OPENAI_API_VERSION
+        # SMTP configuration for email notifications
+        - name: SMTP_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SMTP_HOST
+        - name: SMTP_PORT
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SMTP_PORT
+        - name: SMTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SMTP_USER
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SMTP_PASSWORD
+        - name: FRONTEND_URL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: FRONTEND_URL
         ports:
         - containerPort: 8080
           name: health

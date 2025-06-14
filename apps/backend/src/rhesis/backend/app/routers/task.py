@@ -10,6 +10,7 @@ from rhesis.backend.app import schemas
 from rhesis.backend.app.schemas.task import TaskList, TaskPayload, TaskResponse, TaskStatus, TaskRevoke, WorkerInfo, WorkerStats, WorkerStatus, HealthCheck
 from rhesis.backend.worker import app as celery_app
 from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.example_task import email_notification_test
 
 router = APIRouter(
     prefix="/tasks",
@@ -55,6 +56,37 @@ async def get_stats(
     registered = inspector.registered()
 
     return {"stats": stats, "registered_tasks": registered, "total_tasks": len(celery_app.tasks)}
+
+
+@router.post("/email-notification-test", response_model=TaskResponse)
+async def test_email_notifications(
+    message: str = "Test email notification",
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(require_current_user_or_token)
+):
+    """
+    Test the email notification system by running a simple task that will send an email upon completion.
+    
+    This endpoint is useful for verifying that:
+    1. SMTP configuration is working in the worker
+    2. Email notifications are being sent on task completion
+    3. The email template and content are correct
+    """
+    try:
+        # Use task_launcher to handle context
+        result = task_launcher(
+            email_notification_test, 
+            test_message=message,
+            current_user=current_user
+        )
+        
+        return {
+            "task_id": result.id,
+            "message": "Email notification test task submitted. You should receive an email when it completes.",
+            "user_email": current_user.email if hasattr(current_user, 'email') else None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to submit email notification test: {str(e)}")
 
 
 @router.post("/{task_name}", response_model=TaskResponse)

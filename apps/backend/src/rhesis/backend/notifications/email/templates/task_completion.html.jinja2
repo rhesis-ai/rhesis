@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Task Completion Notification</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h2 style="color: #2c3e50; margin-top: 0;">
+            {% if status.lower() == 'success' -%}
+            ✅ Task Completed
+            {%- else -%}
+            ❌ Task Completed
+            {%- endif %}
+        </h2>
+        <p>
+            {%- if recipient_name -%}
+            Hello {{ recipient_name }},
+            {%- else -%}
+            Hello,
+            {%- endif %}
+        </p>
+        <p>Your task has completed with status: 
+            <strong style="color: {% if status.lower() == 'success' %}#28a745{% else %}#dc3545{% endif %};">
+                {{ status.upper() }}
+            </strong>
+        </p>
+    </div>
+    
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px;">
+        <h3 style="color: #495057; margin-top: 0;">Task Details</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Task Name:</td>
+                <td style="padding: 8px 0;">{{ task_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Task ID:</td>
+                <td style="padding: 8px 0; font-family: monospace; font-size: 0.9em;">{{ task_id }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Status:</td>
+                <td style="padding: 8px 0; color: {% if status.lower() == 'success' %}#28a745{% else %}#dc3545{% endif %}; font-weight: bold;">
+                    {{ status.title() }}
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Completed at:</td>
+                <td style="padding: 8px 0;">{{ completed_at }} UTC</td>
+            </tr>
+            {%- if execution_time %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Execution Time:</td>
+                <td style="padding: 8px 0;">{{ execution_time }}</td>
+            </tr>
+            {%- endif %}
+            {%- if test_run_id %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Test Run ID:</td>
+                <td style="padding: 8px 0; font-family: monospace; font-size: 0.9em;">{{ test_run_id }}</td>
+            </tr>
+            {%- endif %}
+        </table>
+    </div>
+
+    {%- if status.lower() == 'failed' and error_message %}
+    <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h3 style="color: #721c24; margin-top: 0;">Error Details</h3>
+        <pre style="color: #721c24; white-space: pre-wrap; font-family: monospace; font-size: 0.9em;">{{ error_message }}</pre>
+    </div>
+    {%- endif %}
+
+    {%- if frontend_url and test_run_id %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ frontend_url }}/test-runs/{{ test_run_id }}" 
+           style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+            View Results
+        </a>
+    </div>
+    {%- endif %}
+    
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em;">
+        <p>Best regards,<br>Rhesis AI Team</p>
+    </div>
+</body>
+</html> 
