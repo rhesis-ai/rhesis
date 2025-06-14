@@ -173,11 +173,28 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       headerAlign: 'right',
       valueGetter: (_, row) => {
         const status = row.status?.name || row.attributes?.status;
-        if (status?.toLowerCase() !== 'completed') return '';
         
-        const timeMs = row.attributes?.total_execution_time_ms;
-        if (!timeMs) return '';
-        return formatExecutionTime(timeMs);
+        // If status is Progress, show elapsed time from created_at
+        if (status?.toLowerCase() === 'progress') {
+          const createdAt = row.created_at;
+          if (createdAt) {
+            const now = new Date();
+            const created = new Date(createdAt);
+            const elapsedMs = now.getTime() - created.getTime();
+            return formatExecutionTime(elapsedMs);
+          }
+          return '';
+        }
+        
+        // If status is completed, show total execution time
+        if (status?.toLowerCase() === 'completed') {
+          const timeMs = row.attributes?.total_execution_time_ms;
+          if (!timeMs) return '';
+          return formatExecutionTime(timeMs);
+        }
+        
+        // For other statuses, return empty
+        return '';
       }
     },
     { 
