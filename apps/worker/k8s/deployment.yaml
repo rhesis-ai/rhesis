@@ -96,18 +96,22 @@ spec:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 10
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 45
+          timeoutSeconds: 20
           failureThreshold: 3
+          successThreshold: 1
         readinessProbe:
           httpGet:
-            path: /health
+            path: /health/basic
             port: 8080
-          initialDelaySeconds: 30
+            scheme: HTTP
+          initialDelaySeconds: 15
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
+          successThreshold: 1
       
       # Cloud SQL Auth Proxy sidecar
       - name: cloudsql-proxy
