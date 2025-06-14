@@ -32,7 +32,7 @@ echo "Container IP: $(hostname -i 2>/dev/null || echo 'N/A')"
 echo "Python version: $(python --version)"
 echo "Current user: $(whoami)"
 echo "Working directory: $(pwd)"
-echo "Available memory: $(free -h | grep Mem | awk '{print $7}' 2>/dev/null || echo 'N/A')"
+echo "Available memory: $(if command -v free >/dev/null 2>&1; then free -h | grep Mem | awk '{print $7}' 2>/dev/null || echo 'N/A'; else echo 'N/A (free command not available)'; fi)"
 echo "CPU cores: $(nproc 2>/dev/null || echo 'N/A')"
 
 # Test Python environment
