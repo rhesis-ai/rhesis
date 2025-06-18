@@ -1,12 +1,22 @@
 #!/bin/bash
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Check if NO_COLOR is set or if we should disable colors
+if [[ "${NO_COLOR:-}" != "" ]] || [[ "${TERM:-}" == "dumb" ]] || [[ ! -t 1 ]]; then
+  # Disable colors
+  RED=''
+  GREEN=''
+  YELLOW=''
+  BLUE=''
+  NC=''
+else
+  # Colors for output
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  BLUE='\033[0;34m'
+  NC='\033[0m' # No Color
+fi
 
 # Function to display usage information
 function show_usage() {
@@ -134,7 +144,11 @@ function set_secret() {
   fi
   
   echo -e "${GREEN}Setting secret:${NC} $secret_name for environment: $env"
-  echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO" --env "$env"
+  echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO" --env "$env" 2>/dev/null || {
+    echo -e "${RED}Failed to set secret $secret_name${NC}"
+    return 1
+  }
+  echo -e "${GREEN}✓ Set Actions secret $secret_name for $REPO${NC}"
 }
 
 # Function to set a repository-level secret
@@ -143,7 +157,11 @@ function set_repo_secret() {
   local secret_value=$2
   
   echo -e "${GREEN}Setting repository secret:${NC} $secret_name"
-  echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO"
+  echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO" 2>/dev/null || {
+    echo -e "${RED}Failed to set repository secret $secret_name${NC}"
+    return 1
+  }
+  echo -e "${GREEN}✓ Set repository secret $secret_name for $REPO${NC}"
 }
 
 # Set common secrets at repository level
