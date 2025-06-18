@@ -29,4 +29,10 @@ class RunStatus(str, Enum):
     PROGRESS = "Progress"
     COMPLETED = "Completed"
     PARTIAL = "Partial"  # Some tests completed, but some failed
-    FAILED = "Failed" 
+    FAILED = "Failed"
+
+
+class ExecutionMode(str, Enum):
+    """Enum for test execution modes."""
+    SEQUENTIAL = "Sequential"
+    PARALLEL = "Parallel" 
