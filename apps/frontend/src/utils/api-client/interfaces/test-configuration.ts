@@ -15,6 +15,7 @@ export interface TestConfigurationBase {
   user_id: UUID;
   organization_id?: UUID;
   status_id?: UUID;
+  attributes?: Record<string, any>;
 }
 
 export interface TestConfigurationCreate extends TestConfigurationBase {}
