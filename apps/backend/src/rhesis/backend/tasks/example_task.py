@@ -135,7 +135,7 @@ def manual_db_example(self):
 
 @email_notification(
     template=EmailTemplate.TASK_COMPLETION,
-    subject_template="Test Task Complete: {task_name} - {status.title()}"
+    subject_template="Test Task Complete: {task_name} - {status}"
 )
 @app.task(base=BaseTask, name="rhesis.backend.tasks.email_notification_test", bind=True, display_name="Email Notification Test")
 @with_tenant_context
