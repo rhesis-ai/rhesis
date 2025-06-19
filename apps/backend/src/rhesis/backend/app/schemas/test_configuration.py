@@ -16,6 +16,7 @@ class TestConfigurationBase(Base):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
+    attributes: Optional[dict] = None
 
 
 class TestConfigurationCreate(TestConfigurationBase):
