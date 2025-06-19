@@ -526,7 +526,7 @@ declare module '@/utils/api-client/client-factory' {
   // Define TestSetsClient interface based on usage
   interface TestSetsClient {
     getTestSets(params: Partial<PaginationParams> & { $filter?: string }): Promise<PaginatedResponse<TestSet>>;
-    executeTestSet(testSetId: string, endpointId: string): Promise<any>;
+    executeTestSet(testSetId: string, endpointId: string, testConfigurationAttributes?: { execution_mode?: string; [key: string]: any }): Promise<any>;
     getTestSetDetailStats(testSetId: string, params: { top: number; months: number; mode: string }): Promise<any>;
     getTestSetTests(testSetId: string, params: Partial<PaginationParams>): Promise<PaginatedResponse<TestDetail>>;
     disassociateTestsFromTestSet(testSetId: string, testIds: string[]): Promise<void>;
