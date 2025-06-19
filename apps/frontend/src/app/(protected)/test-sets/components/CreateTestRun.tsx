@@ -38,6 +38,10 @@ import {
   AccountTreeIcon
 } from '@/components/icons';
 
+// Import execution mode icons directly from Material-UI
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
+
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
   SmartToy: SmartToyIcon,
@@ -120,6 +124,7 @@ export default function CreateTestRun({
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
+  const [executionMode, setExecutionMode] = useState<string>('Parallel');
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -177,10 +182,19 @@ export default function CreateTestRun({
     setLoading(true);
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const endpointsClient = clientFactory.getEndpointsClient();
+      const testSetsClient = clientFactory.getTestSetsClient();
       
-      // Execute test sets for the selected endpoint
-      await endpointsClient.executeEndpoint(selectedEndpoint, selectedTestSetIds);
+      // Prepare test configuration attributes
+      const testConfigurationAttributes = {
+        execution_mode: executionMode
+      };
+      
+      // Execute each test set individually with test configuration attributes
+      const promises = selectedTestSetIds.map(testSetId => 
+        testSetsClient.executeTestSet(testSetId, selectedEndpoint, testConfigurationAttributes)
+      );
+      
+      await Promise.all(promises);
       
       onSuccess?.();
     } catch (error) {
@@ -199,7 +213,7 @@ export default function CreateTestRun({
   return (
     <>
       <Typography variant="subtitle2" color="text.secondary">
-        Test Run Details
+        Target
       </Typography>
 
       <FormControl fullWidth>
@@ -252,6 +266,44 @@ export default function CreateTestRun({
               </MenuItem>
             ))
           )}
+        </Select>
+      </FormControl>
+
+      <Divider sx={{ my: 2 }} />
+
+      <Typography variant="subtitle2" color="text.secondary">
+        Execution Options
+      </Typography>
+
+      <FormControl fullWidth>
+        <InputLabel>Execution Mode</InputLabel>
+        <Select
+          value={executionMode}
+          onChange={(e) => setExecutionMode(e.target.value)}
+          label="Execution Mode"
+        >
+          <MenuItem value="Parallel">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CallSplitIcon fontSize="small" />
+              <Box>
+                <Typography variant="body1">Parallel</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Tests run simultaneously for faster execution (default)
+                </Typography>
+              </Box>
+            </Box>
+          </MenuItem>
+          <MenuItem value="Sequential">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ArrowForwardIcon fontSize="small" />
+              <Box>
+                <Typography variant="body1">Sequential</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Tests run one after another, better for rate-limited endpoints
+                </Typography>
+              </Box>
+            </Box>
+          </MenuItem>
         </Select>
       </FormControl>
     </>

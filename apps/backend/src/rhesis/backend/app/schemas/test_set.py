@@ -120,3 +120,23 @@ class TestSetBulkDisassociateResponse(BaseModel):
     total_tests: int
     removed_associations: int
     message: str
+
+
+class TestSetExecutionRequest(BaseModel):
+    """Request model for test set execution with flexible execution options."""
+    execution_options: Optional[Dict[str, Any]] = None
+    
+    @validator('execution_options')
+    def validate_execution_options(cls, v):
+        if v is None:
+            return {"execution_mode": "Parallel"}
+            
+        # Validate execution_mode if provided
+        if "execution_mode" in v and v["execution_mode"] not in ["Parallel", "Sequential"]:
+            raise ValueError('execution_mode must be either "Parallel" or "Sequential"')
+            
+        # Set default execution_mode if not provided
+        if "execution_mode" not in v:
+            v["execution_mode"] = "Parallel"
+            
+        return v

@@ -304,16 +304,23 @@ async def get_test_set_tests(
 async def execute_test_set(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
+    test_configuration_attributes: schemas.TestSetExecutionRequest = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Submit a test set for execution against an endpoint."""
     try:
+        # Extract test configuration attributes from request body, default to Parallel mode
+        attributes = None
+        if test_configuration_attributes and test_configuration_attributes.execution_options:
+            attributes = test_configuration_attributes.execution_options
+            
         result = execute_test_set_on_endpoint(
             db=db,
             test_set_identifier=test_set_identifier,
             endpoint_id=endpoint_id,
             current_user=current_user,
+            test_configuration_attributes=attributes,
         )
         return result
         

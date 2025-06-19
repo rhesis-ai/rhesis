@@ -171,9 +171,17 @@ export class TestSetsClient extends BaseApiClient {
     });
   }
 
-  async executeTestSet(testSetId: string, endpointId: string): Promise<TestSet> {
+  async executeTestSet(
+    testSetId: string, 
+    endpointId: string, 
+    testConfigurationAttributes?: { execution_mode?: string; [key: string]: any }
+  ): Promise<TestSet> {
+    const requestBody = testConfigurationAttributes ? { execution_options: testConfigurationAttributes } : undefined;
+    
     return this.fetch<TestSet>(`${API_ENDPOINTS.testSets}/${testSetId}/execute/${endpointId}`, {
-      method: 'POST'
+      method: 'POST',
+      body: requestBody ? JSON.stringify(requestBody) : undefined,
+      headers: requestBody ? { 'Content-Type': 'application/json' } : undefined
     });
   }
   

@@ -8,7 +8,13 @@ import {
   TextField,
   FormControl,
   FormHelperText,
+  Divider,
+  Typography,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
+import { ArrowForward as ArrowForwardIcon, CallSplit as CallSplitIcon } from '@mui/icons-material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -41,13 +47,14 @@ export default function ExecuteTestSetDrawer({
   testSetId,
   sessionToken 
 }: ExecuteTestSetDrawerProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>();
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
   const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>();
+  const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
+  const [executionMode, setExecutionMode] = useState<string>('Parallel');
   const notifications = useNotifications();
 
   // Fetch projects and endpoints when drawer opens
@@ -164,8 +171,13 @@ export default function ExecuteTestSetDrawer({
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
       
-      // Execute test set against the selected endpoint
-      await testSetsClient.executeTestSet(testSetId, selectedEndpoint);
+      // Prepare test configuration attributes
+      const testConfigurationAttributes = {
+        execution_mode: executionMode
+      };
+      
+      // Execute test set against the selected endpoint with test configuration attributes
+      await testSetsClient.executeTestSet(testSetId, selectedEndpoint, testConfigurationAttributes);
       
       // Show success notification
       notifications.show('Test set execution started successfully!', { 
@@ -199,6 +211,10 @@ export default function ExecuteTestSetDrawer({
         </Box>
       ) : (
         <Stack spacing={3}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Execution Target
+          </Typography>
+
           <FormControl fullWidth>
             <Autocomplete
               options={projects}
@@ -272,6 +288,44 @@ export default function ExecuteTestSetDrawer({
             {filteredEndpoints.length === 0 && selectedProject && !loading && (
               <FormHelperText>No endpoints available for this project</FormHelperText>
             )}
+          </FormControl>
+
+          <Divider />
+
+          <Typography variant="subtitle2" color="text.secondary">
+            Configuration Options
+          </Typography> 
+
+          <FormControl fullWidth>
+            <InputLabel>Execution Mode</InputLabel>
+            <Select
+              value={executionMode}
+              onChange={(e) => setExecutionMode(e.target.value)}
+              label="Execution Mode"
+            >
+              <MenuItem value="Parallel">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CallSplitIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Parallel</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Tests run simultaneously for faster execution (default)
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value="Sequential">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ArrowForwardIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Sequential</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Tests run one after another, better for rate-limited endpoints
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+            </Select>
           </FormControl>
         </Stack>
       )}
