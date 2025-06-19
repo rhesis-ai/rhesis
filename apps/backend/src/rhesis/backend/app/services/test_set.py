@@ -436,6 +436,7 @@ def execute_test_set_on_endpoint(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
     current_user: models.User,
+    test_configuration_attributes: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration and submitting it for execution.
@@ -445,6 +446,7 @@ def execute_test_set_on_endpoint(
         test_set_identifier: Test set identifier (UUID, nano_id, or slug)
         endpoint_id: Endpoint UUID
         current_user: Current authenticated user
+        test_configuration_attributes: Optional attributes for test configuration
         
     Returns:
         Dict containing execution status and metadata
@@ -489,7 +491,7 @@ def execute_test_set_on_endpoint(
 
         # Create test configuration
         test_config_id = _create_test_configuration(
-            db, endpoint_id, db_test_set.id, current_user
+            db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes
         )
 
         # Submit for execution
@@ -545,7 +547,8 @@ def _create_test_configuration(
     db: Session, 
     endpoint_id: uuid.UUID, 
     test_set_id: uuid.UUID, 
-    current_user: models.User
+    current_user: models.User,
+    test_configuration_attributes: Dict[str, Any] = None
 ) -> str:
     """Create test configuration and return its ID as string."""
     from rhesis.backend.app import crud, schemas
@@ -555,11 +558,18 @@ def _create_test_configuration(
         f"endpoint_id={endpoint_id}, user_id={current_user.id}"
     )
     
+    # Prepare attributes with execution options
+    attributes = {}
+    if test_configuration_attributes:
+        attributes.update(test_configuration_attributes)
+        logger.debug(f"Adding execution options to test configuration: {test_configuration_attributes}")
+    
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,
         test_set_id=test_set_id,
         user_id=current_user.id,
         organization_id=current_user.organization_id,
+        attributes=attributes if attributes else None,
     )
     logger.debug(f"Test configuration schema created: {test_config}")
     
