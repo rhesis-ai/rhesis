@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import AddIcon from '@mui/icons-material/Add';
-import ViewListIcon from '@mui/icons-material/ViewList';
+import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { 
   GridColDef, 
@@ -94,51 +94,78 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
   // Column definitions
   const columns: GridColDef[] = React.useMemo(() => [
     { 
+      field: 'content', 
+      headerName: 'Content', 
+      flex: 5,
+      renderCell: (params) => {
+        const content = params.row.prompt?.content || params.row.content;
+        if (!content) return null;
+
+        return (
+          <Typography 
+            variant="body2" 
+            title={content}
+            sx={{ 
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {content}
+          </Typography>
+        );
+      }
+    },
+    { 
       field: 'behavior',
       headerName: 'Behavior', 
       flex: 1,
-      valueGetter: (_, row) => row.behavior?.name || ''
-    },
-    { 
-      field: 'test_type', 
-      headerName: 'Type', 
-      flex: 1,
-      valueGetter: (_, row) => row.test_type?.type_value || ''
+      renderCell: (params) => {
+        const behaviorName = params.row.behavior?.name;
+        if (!behaviorName) return null;
+
+        return (
+          <Chip 
+            label={behaviorName} 
+            size="small" 
+            variant="outlined"
+            color="primary"
+          />
+        );
+      }
     },
     { 
       field: 'topic', 
       headerName: 'Topic', 
       flex: 1,
-      valueGetter: (_, row) => row.topic?.name || ''
+      renderCell: (params) => {
+        const topicName = params.row.topic?.name;
+        if (!topicName) return null;
+
+        return (
+          <Chip 
+            label={topicName} 
+            size="small" 
+            variant="outlined"
+            color="default"
+          />
+        );
+      }
     },
     { 
       field: 'category', 
       headerName: 'Category', 
       flex: 1,
-      valueGetter: (_, row) => row.category?.name || ''
-    },
-    { 
-      field: 'priority', 
-      headerName: 'Priority', 
-      flex: 1,
-      valueGetter: (_, row) => {
-        const priorityLevel = row.priorityLevel;
-        return priorityLevel || 'Medium';
-      }
-    },
-    { 
-      field: 'status', 
-      headerName: 'Status', 
-      flex: 1,
       renderCell: (params) => {
-        const status = params.row.status;
-        if (!status) return null;
+        const categoryName = params.row.category?.name;
+        if (!categoryName) return null;
 
         return (
           <Chip 
-            label={status.name} 
+            label={categoryName} 
             size="small" 
-            variant="outlined" 
+            variant="outlined"
+            color="default"
           />
         );
       }
@@ -275,7 +302,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     if (selectedRows.length > 0) {
       buttons.push({
         label: 'Assign to Test Set',
-        icon: <ViewListIcon />,
+        icon: <ListIcon />,
         variant: 'contained' as const,
         onClick: handleCreateTestSet
       });
