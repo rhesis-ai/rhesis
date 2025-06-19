@@ -96,7 +96,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     { 
       field: 'content', 
       headerName: 'Content', 
-      flex: 5,
+      flex: 3,
       renderCell: (params) => {
         const content = params.row.prompt?.content || params.row.content;
         if (!content) return null;
