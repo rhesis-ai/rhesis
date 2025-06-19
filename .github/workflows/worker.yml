@@ -253,6 +253,9 @@ jobs:
           sed -i "s|PROJECT_ID:REGION:CLOUDSQL_INSTANCE|${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}|g" deployment.yaml
           sed -i "s|GCP_SERVICE_ACCOUNT_EMAIL|${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}|g" serviceaccount.yaml
           
+          # Always force pod restart by updating timestamp annotation
+          sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
+          
           # Update kustomization for environment
           cat > kustomization.yaml << EOF
           apiVersion: kustomize.config.k8s.io/v1beta1
