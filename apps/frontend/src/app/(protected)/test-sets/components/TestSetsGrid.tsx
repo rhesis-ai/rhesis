@@ -216,19 +216,19 @@ export default function TestSetsGrid({
     { 
       field: 'name',
       headerName: 'Name', 
-      flex: 2,
+      flex: 1.5,
       renderCell: (params) => <span style={{ fontWeight: 'medium' }}>{params.value}</span>
     },
     { 
       field: 'behaviors', 
       headerName: 'Behaviors', 
-      flex: 1,
+      flex: 1.0,
       renderCell: (params) => <ChipContainer items={params.value || []} />
     },
     { 
       field: 'categories', 
       headerName: 'Categories', 
-      flex: 1,
+      flex: 1.0,
       renderCell: (params) => <ChipContainer items={params.value || []} />
     },
     { field: 'totalTests', headerName: 'Tests', flex: 0.5 },
@@ -241,7 +241,7 @@ export default function TestSetsGrid({
     {
       field: 'assignee',
       headerName: 'Assignee',
-      flex: 1,
+      flex: 0.75,
       renderCell: (params) => {
         const assignee = params.value;
         if (!assignee) return '-';
