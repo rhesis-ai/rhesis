@@ -15,6 +15,9 @@ spec:
       labels:
         app: rhesis-worker
         component: worker
+      annotations:
+        # Always restart pods on every deployment
+        deployment-timestamp: "placeholder"
     spec:
       serviceAccountName: rhesis-worker-sa
       containers:
