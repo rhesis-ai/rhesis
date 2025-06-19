@@ -216,32 +216,32 @@ export default function TestSetsGrid({
     { 
       field: 'name',
       headerName: 'Name', 
-      flex: 1.5,
+      flex: 2,
       renderCell: (params) => <span style={{ fontWeight: 'medium' }}>{params.value}</span>
     },
     { 
       field: 'behaviors', 
       headerName: 'Behaviors', 
-      flex: 1.5,
+      flex: 1,
       renderCell: (params) => <ChipContainer items={params.value || []} />
     },
     { 
       field: 'categories', 
       headerName: 'Categories', 
-      flex: 1.5,
+      flex: 1,
       renderCell: (params) => <ChipContainer items={params.value || []} />
     },
     { field: 'totalTests', headerName: 'Tests', flex: 0.5 },
     { 
       field: 'status', 
       headerName: 'Status', 
-      flex: 0.75,
+      flex: 0.5,
       renderCell: (params) => <Chip label={params.value} size="small" variant="outlined" />
     },
     {
       field: 'assignee',
       headerName: 'Assignee',
-      flex: 0.75,
+      flex: 1,
       renderCell: (params) => {
         const assignee = params.value;
         if (!assignee) return '-';
