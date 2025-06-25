@@ -35,11 +35,14 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { Behavior } from '@/utils/api-client/interfaces/behavior';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { 
+  TestSetGenerationRequest, 
+  TestSetGenerationConfig, 
+  GenerationSample 
+} from '@/utils/api-client/interfaces/test-set';
 import StarIcon from '@mui/icons-material/Star';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
-import styles from '@/styles/ReviewSamples.module.css';
-
 // Types
 interface Sample {
   id: number;
@@ -656,6 +659,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
   const [configData, setConfigData] = useState(INITIAL_CONFIG);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const router = useRouter();
   const { show } = useNotifications();
 
@@ -727,10 +731,56 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
     setActiveStep(prev => prev - 1);
   }, []);
 
-  const handleFinish = useCallback(() => {
-    show('Test generation started. You will be notified when complete.', { severity: 'success' });
-    setTimeout(() => router.push('/tests'), 1000);
-  }, [router, show]);
+  const handleFinish = useCallback(async () => {
+    setIsFinishing(true);
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testSetsClient = apiFactory.getTestSetsClient();
+      
+      // Convert UI data to API format
+      const generationConfig: TestSetGenerationConfig = {
+        project_name: configData.project?.name,
+        behaviors: configData.behaviors,
+        purposes: configData.purposes,
+        test_type: configData.testType,
+        response_generation: configData.responseGeneration,
+        test_coverage: configData.testCoverage,
+        tags: configData.tags,
+        description: configData.description,
+      };
+      
+      const generationSamples: GenerationSample[] = samples.map(sample => ({
+        text: sample.text,
+        behavior: sample.behavior,
+        topic: sample.topic,
+        rating: sample.rating,
+        feedback: sample.feedback,
+      }));
+      
+      const request: TestSetGenerationRequest = {
+        config: generationConfig,
+        samples: generationSamples,
+        synthesizer_type: "prompt",
+        batch_size: 20,
+      };
+      
+      const response = await testSetsClient.generateTestSet(request);
+      
+      show(response.message, { severity: 'success' });
+      console.log('Test generation task started:', { 
+        taskId: response.task_id, 
+        estimatedTests: response.estimated_tests 
+      });
+      
+      setTimeout(() => router.push('/tests'), 2000);
+      
+    } catch (error) {
+      console.error('Failed to start test generation:', error);
+      show('Failed to start test generation. Please try again.', { severity: 'error' });
+    } finally {
+      setIsFinishing(false);
+    }
+  }, [sessionToken, configData, samples, router, show]);
 
   const renderStepContent = useMemo(() => {
     switch (activeStep) {
@@ -780,9 +830,14 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
           )}
           
           {activeStep === steps.length - 1 ? (
-            <Button variant="contained" onClick={handleFinish}>
+            <LoadingButton 
+              variant="contained" 
+              onClick={handleFinish}
+              loading={isFinishing}
+              disabled={isFinishing}
+            >
               Generate Tests
-            </Button>
+            </LoadingButton>
           ) : activeStep === 0 ? (
             <LoadingButton
               variant="contained"

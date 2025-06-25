@@ -224,4 +224,38 @@ export interface TestSetBulkDisassociateResponse {
   total_tests: number;
   removed_associations: number;
   message: string;
+}
+
+// Test set generation interfaces
+export interface GenerationSample {
+  text: string;
+  behavior: string;
+  topic: string;
+  rating?: number | null;
+  feedback?: string;
+}
+
+export interface TestSetGenerationConfig {
+  project_name?: string;
+  behaviors: string[];
+  purposes: string[];
+  test_type?: string;
+  response_generation?: string;
+  test_coverage?: string;
+  tags?: string[];
+  description: string;
+}
+
+export interface TestSetGenerationRequest {
+  config: TestSetGenerationConfig;
+  samples?: GenerationSample[];
+  synthesizer_type?: string;
+  num_tests?: number;
+  batch_size?: number;
+}
+
+export interface TestSetGenerationResponse {
+  task_id: string;
+  message: string;
+  estimated_tests: number;
 } 
