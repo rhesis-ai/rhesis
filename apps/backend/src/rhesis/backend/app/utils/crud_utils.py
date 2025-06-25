@@ -77,18 +77,23 @@ def _auto_populate_tenant_fields(db: Session, model: Type[T], item_data: Dict[st
     columns = inspect(model).columns.keys()
     populated_data = item_data.copy()
     
+    logger.debug(f"_auto_populate_tenant_fields - model: {model.__name__}, input data: {item_data}")
+    
     # Auto-populate organization_id
     if "organization_id" in columns and not populated_data.get("organization_id"):
         org_id = get_current_organization_id(db)
+        logger.debug(f"_auto_populate_tenant_fields - Auto-populating organization_id: '{org_id}'")
         if org_id:
             populated_data["organization_id"] = org_id
     
     # Auto-populate user_id
     if "user_id" in columns and not populated_data.get("user_id"):
         user_id = get_current_user_id(db)
+        logger.debug(f"_auto_populate_tenant_fields - Auto-populating user_id: '{user_id}'")
         if user_id:
             populated_data["user_id"] = user_id
     
+    logger.debug(f"_auto_populate_tenant_fields - Final populated data: {populated_data}")
     return populated_data
 
 
@@ -420,6 +425,8 @@ def get_or_create_status(db: Session, name: str, entity_type) -> Status:
 
 def get_or_create_type_lookup(db: Session, type_name: str, type_value: str) -> TypeLookup:
     """Get or create a type lookup with the specified type_name and type_value."""
+    logger.debug(f"get_or_create_type_lookup - Looking for type_name='{type_name}', type_value='{type_value}'")
+    
     # Try to find existing type lookup
     query = (
         QueryBuilder(db, TypeLookup)
@@ -433,16 +440,29 @@ def get_or_create_type_lookup(db: Session, type_name: str, type_value: str) -> T
         )
     )
 
-    existing_type = query.first()
-    if existing_type:
-        return existing_type
+    logger.debug(f"get_or_create_type_lookup - About to execute query for existing type")
+    try:
+        existing_type = query.first()
+        if existing_type:
+            logger.debug(f"get_or_create_type_lookup - Found existing type: {existing_type}")
+            return existing_type
+    except Exception as query_error:
+        logger.error(f"get_or_create_type_lookup - Error querying existing type: {query_error}")
+        raise
 
     # Create new type lookup
-    return create_item(
-        db=db, 
-        model=TypeLookup, 
-        item_data={"type_name": type_name, "type_value": type_value}
-    )
+    logger.debug(f"get_or_create_type_lookup - Creating new type lookup")
+    try:
+        result = create_item(
+            db=db, 
+            model=TypeLookup, 
+            item_data={"type_name": type_name, "type_value": type_value}
+        )
+        logger.debug(f"get_or_create_type_lookup - Created new type: {result}")
+        return result
+    except Exception as create_error:
+        logger.error(f"get_or_create_type_lookup - Error creating new type: {create_error}")
+        raise
 
 
 def get_or_create_topic(
