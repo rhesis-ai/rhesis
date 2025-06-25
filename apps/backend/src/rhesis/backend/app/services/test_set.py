@@ -117,6 +117,7 @@ def bulk_create_test_set(
     # Validate input UUIDs
     validation_error = validate_uuid_parameters(organization_id, user_id)
     if validation_error:
+        logger.error(f"bulk_create_test_set - UUID validation failed: {validation_error}")
         raise Exception(ERROR_BULK_CREATE_FAILED.format(entity="test set", error=validation_error))
 
     try:

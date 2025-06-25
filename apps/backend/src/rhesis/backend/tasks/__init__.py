@@ -13,6 +13,7 @@ from rhesis.backend.tasks.enums import (
 )
 from rhesis.backend.tasks.utils import increment_test_run_progress
 from rhesis.backend.notifications import email_service
+from rhesis.backend.logging import logger
 
 # Import task functions after BaseTask is defined to avoid circular imports
 from rhesis.backend.tasks.example_task import (
@@ -113,14 +114,18 @@ def task_launcher(task: T, *args: Any, current_user=None, **kwargs: Any):
             )
             return {"task_id": task.id}
     """
-    # Add user context to kwargs (these will be moved to headers by before_start)
+    # Prepare headers for tenant context (these won't interfere with task function signatures)
+    headers = {}
     if current_user is not None:
         if hasattr(current_user, 'id') and current_user.id is not None:
-            kwargs.setdefault('user_id', str(current_user.id))
+            headers['user_id'] = str(current_user.id)
         
         if hasattr(current_user, 'organization_id') and current_user.organization_id is not None:
-            kwargs.setdefault('organization_id', str(current_user.organization_id))
+            headers['organization_id'] = str(current_user.organization_id)
     
-    # Use delay() which is Celery's standard method for async task submission
-    # This avoids ChannelPromise issues and works reliably across all environments
-    return task.delay(*args, **kwargs)
+    # Use apply_async with headers to pass tenant context without affecting function signature
+    if headers:
+        return task.apply_async(args=args, kwargs=kwargs, headers=headers)
+    else:
+        # Fallback to delay() if no headers
+        return task.delay(*args, **kwargs)

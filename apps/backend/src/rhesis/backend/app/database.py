@@ -53,17 +53,21 @@ def get_current_organization_id(session: Session) -> Optional[UUID]:
     """Get the current organization ID from the database session."""
     try:
         result = session.execute(text('SHOW "app.current_organization";')).scalar()
+        logger.debug(f"get_current_organization_id - Raw result from DB: '{result}', type: {type(result)}")
         # Return None if result is None, empty string, or can't be converted to UUID
         if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
+            logger.debug(f"get_current_organization_id - Returning None for empty/None result: '{result}'")
             return None
         # Validate that result is a valid UUID format before converting
         try:
-            return UUID(result)
+            uuid_result = UUID(result)
+            logger.debug(f"get_current_organization_id - Returning valid UUID: {uuid_result}")
+            return uuid_result
         except (ValueError, TypeError):
-            logger.debug(f"Invalid UUID format for organization ID: {result}")
+            logger.debug(f"get_current_organization_id - Invalid UUID format for organization ID: {result}")
             return None
     except Exception as e:
-        logger.debug(f"Error getting current organization ID: {e}")
+        logger.debug(f"get_current_organization_id - Error getting current organization ID: {e}")
         return None
 
 
