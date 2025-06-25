@@ -207,9 +207,13 @@ def apply_organization_filter(db: Session, query: Query, model: Type[T]) -> Quer
     """Apply organization filter to query if model supports it"""
     if has_organization_id(model):
         current_org_id = get_current_organization_id(db)
+        logger.debug(f"apply_organization_filter - model: {model.__name__}, current_org_id: '{current_org_id}', type: {type(current_org_id)}")
         # Only apply filter if we have a valid organization ID
         if current_org_id is not None:
+            logger.debug(f"apply_organization_filter - Applying filter: {model.__name__}.organization_id == '{current_org_id}'")
             query = query.filter(model.organization_id == current_org_id)
+        else:
+            logger.debug(f"apply_organization_filter - No organization filter applied for {model.__name__}")
     return query
 
 

@@ -11,7 +11,11 @@ import {
   TestSetBulkAssociateRequest,
   TestSetBulkAssociateResponse,
   TestSetBulkDisassociateRequest,
-  TestSetBulkDisassociateResponse
+  TestSetBulkDisassociateResponse,
+  GenerationSample,
+  TestSetGenerationConfig,
+  TestSetGenerationRequest,
+  TestSetGenerationResponse
 } from './interfaces/test-set';
 import { TestDetail, PriorityLevel } from './interfaces/tests';
 import { StatusClient } from './status-client';
@@ -90,6 +94,13 @@ export class TestSetsClient extends BaseApiClient {
       result.priorityLevel = this.numericToPriorityString(result.priority);
     }
     return result;
+  }
+
+  async generateTestSet(request: TestSetGenerationRequest): Promise<TestSetGenerationResponse> {
+    return this.fetch<TestSetGenerationResponse>(`${API_ENDPOINTS.testSets}/generate`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 
   async getTestSets(params: TestSetsQueryParams = {}): Promise<PaginatedResponse<TestSet>> {
