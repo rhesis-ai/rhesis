@@ -242,19 +242,22 @@ class BaseTask(Task):
         
     def before_start(self, task_id, args, kwargs):
         """Add organization_id and user_id to task request context."""
-        # Move context from kwargs to request object
-        if 'organization_id' in kwargs:
-            self.request.organization_id = kwargs.pop('organization_id')
-        if 'user_id' in kwargs:  
-            self.request.user_id = kwargs.pop('user_id')
-            
-        # Headers take precedence over kwargs
+        # Get tenant context from headers (preferred) or kwargs (fallback)
         headers = getattr(self.request, 'headers', {}) or {}
+        
+        # Set tenant context from headers first (primary mechanism)
         if headers:
             if 'organization_id' in headers:
                 self.request.organization_id = headers['organization_id']
             if 'user_id' in headers:
                 self.request.user_id = headers['user_id']
+        
+        # Fallback: Copy context from kwargs to request object (for backward compatibility)
+        # This preserves tenant context for retries if it was passed via kwargs
+        if 'organization_id' in kwargs:
+            self.request.organization_id = kwargs['organization_id']
+        if 'user_id' in kwargs:  
+            self.request.user_id = kwargs['user_id']
         
         # Do a soft validation (warning only)
         self.validate_params(args, kwargs)
