@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   PieChart,
   Pie,
@@ -8,7 +8,44 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { Typography, Box, Card, CardContent } from '@mui/material';
-import { useChartColors } from './BaseChartColors';
+import { useChartColors } from '../layout/BaseChartColors';
+
+// Constants to replace magic numbers
+const CHART_CONSTANTS = {
+  FULL_CIRCLE: 360,
+  BOTTOM_AREA_START: 225,
+  BOTTOM_AREA_END: 315,
+  LABEL_RADIUS_MULTIPLIER: {
+    BOTTOM: 1.2,
+    NORMAL: 1.35
+  },
+  LABEL_LINE_RADIUS_MULTIPLIER: {
+    BOTTOM: 1.15,
+    NORMAL: 1.3
+  },
+  MIN_PERCENTAGE_THRESHOLD: 0.05,
+  RADIAN: Math.PI / 180,
+  LEGEND_HEIGHT: 20
+} as const;
+
+// Type definitions for better type safety
+interface LabelProps {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+  index: number;
+  name: string;
+}
+
+interface LabelLineProps {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  outerRadius: number;
+}
 
 interface DataItem {
   name: string;
@@ -83,33 +120,59 @@ export const pieChartUtils = {
           percentage: `${percentage}%` // Add percentage for tooltip
         };
       });
+  },
+
+  /**
+   * Validates component props
+   */
+  validateProps: (props: BasePieChartProps): void => {
+    if (props.data.length === 0) {
+      console.warn('BasePieChart: Empty data array provided');
+    }
+    if (props.height && props.height <= 0) {
+      console.error('BasePieChart: Height must be positive');
+    }
+    if (props.innerRadius && props.outerRadius && props.innerRadius >= props.outerRadius) {
+      console.error('BasePieChart: innerRadius must be less than outerRadius');
+    }
   }
 };
 
+// Helper function to check if angle is in bottom area
+const isInBottomArea = (angle: number): boolean => {
+  const normalizedAngle = ((angle % CHART_CONSTANTS.FULL_CIRCLE) + CHART_CONSTANTS.FULL_CIRCLE) % CHART_CONSTANTS.FULL_CIRCLE;
+  return normalizedAngle >= CHART_CONSTANTS.BOTTOM_AREA_START && normalizedAngle <= CHART_CONSTANTS.BOTTOM_AREA_END;
+};
+
 // Custom label rendering function to position labels closer to the chart segments
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: any) => {
-  // Calculate the position for the label
-  const RADIAN = Math.PI / 180;
-  // Position labels just outside the pie chart (20% beyond the outer radius)
-  const radius = outerRadius * 1.25;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
+  // Only show labels for segments with significant percentage (helps prevent overlap)
+  if (percent < CHART_CONSTANTS.MIN_PERCENTAGE_THRESHOLD) return null;
+  
+  // Check if the label would be in the bottom area where legend is positioned
+  const isBottomArea = isInBottomArea(midAngle);
+  
+  // Adjust radius based on position to avoid legend overlap
+  const radius = isBottomArea 
+    ? outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.BOTTOM 
+    : outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.NORMAL;
+  
+  const x = cx + radius * Math.cos(-midAngle * CHART_CONSTANTS.RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * CHART_CONSTANTS.RADIAN);
   
   // Determine if the label is on the right side or left side of the chart
   const isRightSide = x > cx;
-  
-  // Only show labels for segments with significant percentage (helps prevent overlap)
-  if (percent < 0.05) return null;
   
   return (
     <text 
       x={x} 
       y={y} 
-      fill="#333333" // Dark grey for better visibility on light backgrounds
+      fill="#333333"
       textAnchor={isRightSide ? "start" : "end"}
       dominantBaseline="central"
       fontSize="11px"
       fontWeight="bold"
+      aria-label={`${(percent * 100).toFixed(0)}% of ${name}`}
     >
       {`${(percent * 100).toFixed(0)}%`}
     </text>
@@ -117,15 +180,20 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 };
 
 // Custom label line rendering function
-const renderCustomizedLabelLine = ({ cx, cy, midAngle, outerRadius }: any) => {
-  const RADIAN = Math.PI / 180;
-  const startRadius = outerRadius + 2;
-  const endRadius = outerRadius * 1.2;
+const renderCustomizedLabelLine = ({ cx, cy, midAngle, outerRadius }: LabelLineProps) => {
+  // Check if the label would be in the bottom area where legend is positioned
+  const isBottomArea = isInBottomArea(midAngle);
   
-  const x1 = cx + startRadius * Math.cos(-midAngle * RADIAN);
-  const y1 = cy + startRadius * Math.sin(-midAngle * RADIAN);
-  const x2 = cx + endRadius * Math.cos(-midAngle * RADIAN);
-  const y2 = cy + endRadius * Math.sin(-midAngle * RADIAN);
+  // Adjust end radius based on position to match label positioning
+  const startRadius = outerRadius + 2;
+  const endRadius = isBottomArea 
+    ? outerRadius * CHART_CONSTANTS.LABEL_LINE_RADIUS_MULTIPLIER.BOTTOM 
+    : outerRadius * CHART_CONSTANTS.LABEL_LINE_RADIUS_MULTIPLIER.NORMAL;
+  
+  const x1 = cx + startRadius * Math.cos(-midAngle * CHART_CONSTANTS.RADIAN);
+  const y1 = cy + startRadius * Math.sin(-midAngle * CHART_CONSTANTS.RADIAN);
+  const x2 = cx + endRadius * Math.cos(-midAngle * CHART_CONSTANTS.RADIAN);
+  const y2 = cy + endRadius * Math.sin(-midAngle * CHART_CONSTANTS.RADIAN);
   
   return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#ccc" strokeWidth={1} />;
 };
@@ -149,29 +217,85 @@ export default function BasePieChart({
   },
   tooltipProps = { contentStyle: { fontSize: '10px' } }
 }: BasePieChartProps) {
+  // Validate props in development
+  if (process.env.NODE_ENV === 'development') {
+    pieChartUtils.validateProps({ data, title, colors, colorPalette, useThemeColors, height, innerRadius, outerRadius, showPercentage, legendProps, tooltipProps });
+  }
+
   // Get theme colors
   const { palettes } = useChartColors();
   
-  // Decide which color palette to use
-  // Priority: 1. Custom colors 2. Theme palette specified 3. Default theme pie palette
-  const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE'];
-  const chartColors = colors || (useThemeColors ? (palettes[colorPalette] || defaultColors) : defaultColors);
+  // Memoize chart colors calculation
+  const chartColors = useMemo(() => {
+    const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE'];
+    return colors || (useThemeColors ? (palettes[colorPalette] || defaultColors) : defaultColors);
+  }, [colors, useThemeColors, palettes, colorPalette]);
+
+  // Memoize chart dimensions calculation
+  const chartDimensions = useMemo(() => {
+    const adjustedHeight = height + CHART_CONSTANTS.LEGEND_HEIGHT;
+    const chartHeight = height - (showPercentage ? 5 : 3);
+    const cyPercentage = (chartHeight / adjustedHeight) * 50;
+    
+    return {
+      adjustedHeight,
+      chartHeight,
+      cyPercentage
+    };
+  }, [height, showPercentage]);
+
+  // Memoize enhanced legend props
+  const enhancedLegendProps = useMemo(() => ({
+    ...legendProps,
+    wrapperStyle: { 
+      ...legendProps.wrapperStyle,
+      marginTop: '5px',
+      marginBottom: '0px',
+      paddingBottom: '2px'
+    }
+  }), [legendProps]);
+
+  // Memoize data lookup for better tooltip performance
+  const dataLookup = useMemo(() => {
+    return new Map(data.map(item => [item.name, item]));
+  }, [data]);
+
+  // Optimized tooltip formatter
+  const tooltipFormatter = useCallback((value: any, name: any) => {
+    const item = dataLookup.get(name);
+    return [value, item?.fullName || name];
+  }, [dataLookup]);
   
   return (
     <Card sx={{ height: '100%' }}>
-      <CardContent sx={{ p: 0.5, height: '100%', display: 'flex', flexDirection: 'column', '&:last-child': { pb: 0.5 } }}>
+      <CardContent sx={{ 
+        p: 0.5, 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        '&:last-child': { pb: 0.25 }
+      }}>
         {title && (
-          <Typography variant="subtitle1" sx={{ mb: 1, fontSize: '0.875rem', px: 0.5, textAlign: 'center', fontWeight: 'bold' }}>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ mb: 1, fontSize: '0.875rem', px: 0.5, textAlign: 'center', fontWeight: 'bold' }}
+            component="h3"
+            role="heading"
+            aria-level={3}
+          >
             {title}
           </Typography>
         )}
         <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ResponsiveContainer width="100%" height={height}>
-            <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+          <ResponsiveContainer width="100%" height={chartDimensions.adjustedHeight}>
+            <PieChart 
+              margin={{ top: 20, right: 30, bottom: 15, left: 30 }}
+              height={chartDimensions.adjustedHeight}
+            >
               <Pie
                 data={data}
                 cx="50%"
-                cy="50%"
+                cy={`${chartDimensions.cyPercentage}%`}
                 innerRadius={innerRadius}
                 outerRadius={outerRadius}
                 paddingAngle={2}
@@ -189,12 +313,9 @@ export default function BasePieChart({
               </Pie>
               <Tooltip 
                 {...tooltipProps} 
-                formatter={(value, name, props) => {
-                  const item = data.find(d => d.name === name);
-                  return [value, item?.fullName || name];
-                }}
+                formatter={tooltipFormatter}
               />
-              <Legend {...legendProps} />
+              <Legend {...enhancedLegendProps} />
             </PieChart>
           </ResponsiveContainer>
         </Box>
