@@ -134,7 +134,7 @@ export default function CreateTestRun({
         // Fetch projects
         const projectsClient = clientFactory.getProjectsClient();
         const projectsData = await projectsClient.getProjects({
-          sortOrder: 'asc'
+          sort_order: 'asc'
         });
         setProjects(projectsData.data || []);
       } catch (error) {

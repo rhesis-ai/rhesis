@@ -65,12 +65,12 @@ export default function MetricDetailPage() {
         const modelsClient = clientFactory.getModelsClient();
         
         const [metricData, modelsData] = await Promise.all([
-          metricsClient.getMetric(identifier),
-          modelsClient.getModels({ limit: 100 })
+          metricsClient.getMetric(identifier as UUID),
+          modelsClient.getModels({ limit: 100, skip: 0 })
         ]);
         
         setMetric(metricData);
-        setModels(modelsData.models || []);
+        setModels(modelsData.data || []);
       } catch (error) {
         console.error('Error fetching data:', error);
         notifications.show('Failed to load metric details', { severity: 'error' });
@@ -157,8 +157,9 @@ export default function MetricDetailPage() {
 
       console.log('Sending update data:', dataToSend);
       
-      const updatedMetric = await metricsClient.updateMetric(metric.id, dataToSend);
-      setMetric(updatedMetric);
+      await metricsClient.updateMetric(metric.id, dataToSend);
+      const updatedMetric = await metricsClient.getMetric(metric.id);
+      setMetric(updatedMetric as MetricDetail);
       setIsEditing(null);
       setEditData({});
       notifications.show('Metric updated successfully', { severity: 'success' });
@@ -700,10 +701,10 @@ export default function MetricDetailPage() {
                 try {
                   const clientFactory = new ApiClientFactory(session.session_token);
                   const metricsClient = clientFactory.getMetricsClient();
-                  await metricsClient.updateMetric(identifier, updateData);
+                  await metricsClient.updateMetric(identifier as UUID, updateData);
                   
                   // Refresh metric data after successful update
-                  const updatedMetric = await metricsClient.getMetric(identifier);
+                  const updatedMetric = await metricsClient.getMetric(identifier as UUID);
                   setMetric(updatedMetric);
                   
                   notifications.show(`${fieldName} updated successfully`, { severity: 'success' });

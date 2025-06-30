@@ -99,7 +99,7 @@ export default function NewMetricPage() {
         setIsLoadingModels(true);
         const apiClient = new ApiClientFactory(session.session_token);
         const modelsClient = apiClient.getModelsClient();
-        const response = await modelsClient.getModels({ sort_by: 'name', sort_order: 'asc' });
+        const response = await modelsClient.getModels({ sort_by: 'name', sort_order: 'asc', skip: 0, limit: 100 });
         setModels(response.data || []); // Use .data instead of .items
       } catch (error) {
         console.error('Failed to fetch models:', error);

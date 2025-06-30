@@ -52,8 +52,8 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
       const response = await tokensClientRef.current.listTokens({
         skip,
         limit: paginationModel.pageSize,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sort_by: 'created_at',
+        sort_order: 'desc'
       });
       
       setTokens(response.data);

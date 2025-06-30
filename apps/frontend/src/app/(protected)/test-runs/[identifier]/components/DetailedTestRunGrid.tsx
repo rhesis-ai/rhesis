@@ -57,8 +57,8 @@ export default function DetailedTestRunGrid({ testRunId, sessionToken, open, onC
           filter: `test_run_id eq '${testRunId}'`,
           skip: skip,
           limit: paginationModel.pageSize,
-          sortBy: 'created_at',
-          sortOrder: 'desc'
+          sort_by: 'created_at',
+          sort_order: 'desc'
         });
         
         const results = response.data;

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { TestSet, TestSetCreate } from '@/utils/api-client/interfaces/test-set';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
@@ -39,9 +39,9 @@ export default function TestSetWorkflowSection({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
       const { id, status_details, user, owner, assignee, organization, ...rest } = updateData;
-      const processedData: Partial<TestSet> = {
+      const processedData: Partial<TestSetCreate> = {
         ...rest,
-        tags: updateData.tags?.map(tag => tag.name) as any
+        tags: updateData.tags?.map(tag => (typeof tag === 'string' ? tag : tag.name))
       };
       await testSetsClient.updateTestSet(testSetId, processedData);
       notifications.show(`${fieldName} updated successfully`, { severity: 'success' });
