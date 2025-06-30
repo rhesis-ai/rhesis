@@ -6,7 +6,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetStatsResponse } from '@/utils/api-client/interfaces/test-set';
 import { useSession } from 'next-auth/react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { useChartColors } from '@/components/common/BaseChartColors';
+import { useChartColors } from '@/components/layout/BaseChartColors';
 
 // Fallback data for charts when no data is available
 const FALLBACK_DATA = {
