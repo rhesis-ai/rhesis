@@ -34,8 +34,8 @@ export default function RecentTestsGrid({ sessionToken }: RecentTestsGridProps) 
       const response = await client.getTests({ 
         skip, 
         limit,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sort_by: 'created_at',
+        sort_order: 'desc'
       });
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);

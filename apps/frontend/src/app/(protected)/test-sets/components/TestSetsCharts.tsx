@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { BasePieChart, BaseLineChart, BaseChartsGrid } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSetDetailStatsResponse } from '@/utils/api-client/interfaces/test-set';
+import { TestSetStatsResponse } from '@/utils/api-client/interfaces/test-set';
 import { useSession } from 'next-auth/react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useChartColors } from '@/components/common/BaseChartColors';
@@ -50,8 +50,8 @@ const calculateYAxisDomain = (data: { count: number }[]): [number, number] => {
 
 export default function TestSetsCharts() {
   const { data: session } = useSession();
-  const [testSetStats, setTestSetStats] = useState<TestSetDetailStatsResponse | null>(null);
-  const [topicsStats, setTopicsStats] = useState<TestSetDetailStatsResponse | null>(null);
+  const [testSetStats, setTestSetStats] = useState<TestSetStatsResponse | null>(null);
+  const [topicsStats, setTopicsStats] = useState<TestSetStatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const dataFetchedRef = useRef(false);

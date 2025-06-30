@@ -12,9 +12,9 @@ export interface PaginationParams {
   /** Maximum number of items to return */
   limit: number;
   /** Field to sort by */
-  sortBy?: string;
+  sort_by?: string;
   /** Sort order ('asc' or 'desc') */
-  sortOrder?: 'asc' | 'desc';
+  sort_order?: 'asc' | 'desc';
 }
 
 export interface PaginationMetadata {

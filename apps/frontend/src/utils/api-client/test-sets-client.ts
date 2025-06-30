@@ -28,8 +28,8 @@ interface TestSetsQueryParams extends Partial<PaginationParams> {
 const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 50,  // Update default limit to match requirement
-  sortBy: 'created_at',
-  sortOrder: 'desc'
+      sort_by: 'created_at',
+    sort_order: 'desc'
 };
 
 /**

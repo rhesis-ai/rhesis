@@ -84,8 +84,8 @@ export default function LatestTestRunsGrid({ sessionToken }: LatestTestRunsGridP
       const response = await testRunsClient.getTestRuns({ 
         skip,
         limit,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sort_by: 'created_at',
+        sort_order: 'desc'
       });
       
       setTestRuns(response.data);

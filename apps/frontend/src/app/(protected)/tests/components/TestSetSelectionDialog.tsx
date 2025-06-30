@@ -38,8 +38,8 @@ export default function TestSetSelectionDialog({
         const clientFactory = new ApiClientFactory(sessionToken);
         const testSetsClient = clientFactory.getTestSetsClient();
         const sets = await testSetsClient.getTestSets({
-          sortBy: 'name',
-          sortOrder: 'asc'
+          sort_by: 'name',
+          sort_order: 'asc'
         });
         setTestSets(sets.data);
       } catch (error) {

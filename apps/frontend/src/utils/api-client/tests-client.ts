@@ -17,8 +17,8 @@ import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 50,
-  sortBy: 'created_at',
-  sortOrder: 'desc'
+  sort_by: 'created_at',
+  sort_order: 'desc'
 };
 
 export interface TestsResponse {

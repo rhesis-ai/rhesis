@@ -140,8 +140,8 @@ export default function TestSetsGrid({
         const response = await testSetsClient.getTestSets({ 
           skip: 0,
           limit: paginationModel.pageSize,
-          sortBy: 'created_at',
-          sortOrder: 'desc'
+          sort_by: 'created_at',
+          sort_order: 'desc'
         });
         
         setTestSets(response.data);
@@ -172,10 +172,10 @@ export default function TestSetsGrid({
       const limit = paginationModel.pageSize;
       
       const response = await testSetsClient.getTestSets({ 
-        skip, 
-        limit,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+                  skip, 
+          limit,
+          sort_by: 'created_at',
+          sort_order: 'desc'
       });
       
       setTestSets(response.data);

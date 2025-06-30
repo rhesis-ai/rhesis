@@ -22,8 +22,8 @@ export default async function TestSetsPage() {
     const response = await testSetsClient.getTestSets({
       skip: 0,
       limit: 25,
-      sortBy: 'created_at',
-      sortOrder: 'desc'
+      sort_by: 'created_at',
+      sort_order: 'desc'
     });
     
     // Now, for each test set with a status_id, fetch status details

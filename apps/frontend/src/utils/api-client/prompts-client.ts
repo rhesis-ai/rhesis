@@ -10,8 +10,8 @@ export class PromptsClient extends BaseApiClient {
   async getPrompts(options: {
     skip?: number;
     limit?: number;
-    sortBy?: string;
-    sortOrder?: string;
+    sort_by?: string;
+    sort_order?: string;
     topic_id?: string;
     behavior_id?: string;
     category_id?: string;
@@ -20,8 +20,8 @@ export class PromptsClient extends BaseApiClient {
     const queryParams = new URLSearchParams();
     if (options.skip !== undefined) queryParams.append('skip', options.skip.toString());
     if (options.limit !== undefined) queryParams.append('limit', options.limit.toString());
-    if (options.sortBy) queryParams.append('sort_by', options.sortBy);
-    if (options.sortOrder) queryParams.append('sort_order', options.sortOrder);
+    if (options.sort_by) queryParams.append('sort_by', options.sort_by);
+    if (options.sort_order) queryParams.append('sort_order', options.sort_order);
     if (options.topic_id) queryParams.append('topic_id', options.topic_id);
     if (options.behavior_id) queryParams.append('behavior_id', options.behavior_id);
     if (options.category_id) queryParams.append('category_id', options.category_id);

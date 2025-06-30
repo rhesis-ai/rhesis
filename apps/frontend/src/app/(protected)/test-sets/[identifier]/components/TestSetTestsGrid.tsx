@@ -46,8 +46,8 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
       const response = await testSetsClient.getTestSetTests(testSetId, {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sortBy: 'topic',
-        sortOrder: 'asc'
+        sort_by: 'topic',
+        sort_order: 'asc'
       });
       
       if (isMounted.current) {
