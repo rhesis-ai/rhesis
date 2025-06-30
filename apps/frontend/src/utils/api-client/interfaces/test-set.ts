@@ -172,6 +172,11 @@ export interface TestData {
   category: string;
   topic: string;
   test_configuration?: Record<string, any>;
+  assignee_id?: UUID;
+  owner_id?: UUID;
+  status?: string;
+  priority?: number;
+  metadata?: Record<string, any>;
 }
 
 // Bulk test set creation request
@@ -179,6 +184,9 @@ export interface TestSetBulkCreate {
   name: string;
   description?: string;
   short_description?: string;
+  owner_id?: UUID;
+  assignee_id?: UUID;
+  priority?: number;
   tests: TestData[];
 }
 

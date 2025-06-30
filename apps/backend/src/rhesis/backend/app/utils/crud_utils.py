@@ -332,6 +332,16 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
         # Models using content as identifier
         if "content" in search_data:
             search_filters.append(model.content == search_data["content"])
+            
+        # For Prompt models, also consider expected_response as part of the unique identifier
+        # This prevents reusing prompts with same content but different expected responses
+        if model.__name__ == "Prompt" and "expected_response" in search_data:
+            # Handle both None and actual string values for expected_response
+            expected_response = search_data["expected_response"]
+            if expected_response is None:
+                search_filters.append(model.expected_response.is_(None))
+            else:
+                search_filters.append(model.expected_response == expected_response)
     else:
         # Standard models using common identifying fields
         for field in IDENTIFYING_FIELDS:
