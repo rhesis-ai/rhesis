@@ -1,19 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Box, Tooltip, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestResultDetail, MetricResult } from '@/utils/api-client/interfaces/test-results';
-import { Prompt } from '@/utils/api-client/interfaces/prompt';
-import { Behavior } from '@/utils/api-client/interfaces/behavior';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { DataGrid, GridColDef, GridPaginationModel, GridRenderCellParams, GridColumnGroupingModel, GridRowParams } from '@mui/x-data-grid';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import { useRouter } from 'next/navigation';
-import { UUID } from 'crypto';
 import styles from '@/styles/DetailedTestRunGrid.module.css';
+import { useTestRunData } from '../hooks/useTestRunData';
 
 interface DetailedTestRunGridProps {
   testRunId: string;
@@ -22,125 +18,45 @@ interface DetailedTestRunGridProps {
   onClose: () => void;
 }
 
-interface BehaviorWithMetrics extends Behavior {
-  metrics: MetricDetail[];
-}
-
 export default function DetailedTestRunGrid({ testRunId, sessionToken, open, onClose }: DetailedTestRunGridProps) {
   const router = useRouter();
-  const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
-  const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
-  const [loading, setLoading] = useState(true);
-  const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(0);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 25,
   });
 
-  useEffect(() => {
-    if (!open) return;
+  const { testResults, prompts, behaviors, loading, totalCount, error } = useTestRunData({
+    testRunId,
+    sessionToken,
+    paginationModel,
+    enabled: open, // Only fetch data when modal is open
+  });
 
-    const fetchTestResults = async () => {
-      try {
-        setLoading(true);
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testResultsClient = apiFactory.getTestResultsClient();
-        const promptsClient = apiFactory.getPromptsClient();
-        const behaviorClient = apiFactory.getBehaviorClient();
-        
-        // Calculate skip based on pagination model
-        const skip = paginationModel.page * paginationModel.pageSize;
-        
-        // Fetch test results with pagination parameters
-        const response = await testResultsClient.getTestResults({
-          filter: `test_run_id eq '${testRunId}'`,
-          skip: skip,
-          limit: paginationModel.pageSize,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-        });
-        
-        const results = response.data;
-        setTotalCount(response.pagination.totalCount);
-        
-        // Get unique prompt IDs
-        const promptIds = [...new Set(results.filter((r: TestResultDetail) => r.prompt_id).map((r: TestResultDetail) => r.prompt_id!))];
-        
-        // Fetch all prompts in parallel
-        const promptsData = await Promise.all(
-          promptIds.map((id: string) => promptsClient.getPrompt(id))
-        );
-        
-        // Create a map of prompt ID to prompt data
-        const promptsMap = promptsData.reduce((acc, prompt) => {
-          acc[prompt.id] = prompt;
-          return acc;
-        }, {} as Record<string, Prompt>);
-
-        // Fetch all behaviors
-        const behaviorsData = await behaviorClient.getBehaviors({
-          sort_by: 'name',
-          sort_order: 'asc'
-        });
-
-        // Fetch metrics for each behavior
-        const behaviorsWithMetrics = await Promise.all(
-          behaviorsData.map(async (behavior) => {
-            try {
-              // Type assertion needed due to type definition mismatch
-              const behaviorMetrics = await (behaviorClient as any).getBehaviorMetrics(behavior.id as UUID);
-              return {
-                ...behavior,
-                metrics: behaviorMetrics
-              };
-            } catch (error) {
-              console.error(`Error fetching metrics for behavior ${behavior.id}:`, error);
-              return {
-                ...behavior,
-                metrics: []
-              };
-            }
-          })
-        );
-
-        // Filter out behaviors that have no metrics
-        const behaviorsWithMetricsFiltered = behaviorsWithMetrics.filter(behavior => behavior.metrics.length > 0);
-        
-        setBehaviors(behaviorsWithMetricsFiltered);
-        setPrompts(promptsMap);
-        setTestResults(results);
-      } catch (error) {
-        console.error('Error fetching test results:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTestResults();
-  }, [testRunId, sessionToken, paginationModel, open]);
-
-  const handlePaginationModelChange = (newModel: GridPaginationModel) => {
+  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
     setPaginationModel(newModel);
-  };
+  }, []);
 
-  const handleRowClick = (params: GridRowParams<TestResultDetail>) => {
+  const handleRowClick = useCallback((params: GridRowParams<TestResultDetail>) => {
     if (params.row.test_id) {
       router.push(`/tests/${params.row.test_id}`);
     }
-  };
+  }, [router]);
 
-  const renderMetricCell = (params: GridRenderCellParams) => {
+  const renderMetricCell = useCallback((params: GridRenderCellParams) => {
     const value = params.value;
     if (value === 'N/A') return value;
     
-    const { status, score, threshold, reason } = value as { 
+    const { status, score, threshold, reference_score, reason } = value as { 
       status: string; 
-      score: number; 
-      threshold: number; 
+      score: number | string; 
+      threshold?: number; 
+      reference_score?: string;
       reason: string;
     };
     const isPassed = status === 'Passed';
+    
+    // Determine if this is a binary/categorical metric (has reference_score) or numeric (has threshold)
+    const isBinaryOrCategorical = reference_score !== undefined;
     
     return (
       <Box
@@ -167,12 +83,17 @@ export default function DetailedTestRunGrid({ testRunId, sessionToken, open, onC
             )}
           </Box>
         </Tooltip>
-        <span className={styles.metricScore}>{`${score.toFixed(1)}/${threshold.toFixed(1)}`}</span>
+        <span className={styles.metricScore}>
+          {isBinaryOrCategorical 
+            ? `${score} (${reference_score})`  // For binary/categorical: show "actual (expected)"
+            : `${typeof score === 'number' ? score.toFixed(1) : score}/${threshold?.toFixed(1) || 'N/A'}`  // For numeric: show "score/threshold"
+          }
+        </span>
       </Box>
     );
-  };
+  }, []);
 
-  const baseColumns: GridColDef<TestResultDetail>[] = [
+  const baseColumns: GridColDef<TestResultDetail>[] = useMemo(() => [
     {
       field: 'prompt_name',
       headerName: 'Test',
@@ -219,49 +140,66 @@ export default function DetailedTestRunGrid({ testRunId, sessionToken, open, onC
         );
       },
     },
-  ];
+  ], [prompts]);
 
   // Create metric columns grouped by behavior
-  const metricColumns: GridColDef<TestResultDetail>[] = [];
-  const columnGroupingModel: GridColumnGroupingModel = [];
+  const { metricColumns, columnGroupingModel } = useMemo(() => {
+    const metricCols: GridColDef<TestResultDetail>[] = [];
+    const grouping: GridColumnGroupingModel = [];
 
-  behaviors.forEach((behavior) => {
-    if (behavior.metrics.length === 0) return;
+    behaviors.forEach((behavior) => {
+      if (behavior.metrics.length === 0) return;
 
-    // Create columns for each metric in this behavior
-    const behaviorMetricColumns = behavior.metrics.map((metric) => ({
-      field: `${behavior.id}_${metric.id}`,
-      headerName: metric.name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-      width: 140,
-      renderCell: renderMetricCell,
-      valueGetter: (_value: any, row: TestResultDetail) => {
-        const testMetrics = row.test_metrics?.metrics;
-        if (!testMetrics) return 'N/A';
-        
-        const metricResult = testMetrics[metric.name];
-        if (!metricResult) return 'N/A';
-        
-        return {
-          status: metricResult.is_successful ? 'Passed' : 'Failed',
-          score: metricResult.score,
-          threshold: metricResult.threshold,
-          reason: metricResult.reason
-        };
-      },
-    }));
+      // Create columns for each metric in this behavior
+      const behaviorMetricColumns = behavior.metrics.map((metric) => ({
+        field: `${behavior.id}_${metric.id}`,
+        headerName: metric.name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+        width: 140,
+        renderCell: renderMetricCell,
+        valueGetter: (_value: any, row: TestResultDetail) => {
+          const testMetrics = row.test_metrics?.metrics;
+          if (!testMetrics) return 'N/A';
+          
+          const metricResult = testMetrics[metric.name];
+          if (!metricResult) return 'N/A';
+          
+          return {
+            status: metricResult.is_successful ? 'Passed' : 'Failed',
+            score: metricResult.score,
+            threshold: metricResult.threshold,
+            reference_score: metricResult.reference_score,
+            reason: metricResult.reason
+          };
+        },
+      }));
 
-    metricColumns.push(...behaviorMetricColumns);
+      metricCols.push(...behaviorMetricColumns);
 
-    // Add column group for this behavior
-    columnGroupingModel.push({
-      groupId: behavior.id,
-      headerName: behavior.name,
-      description: behavior.description || undefined,
-      children: behaviorMetricColumns.map(col => ({ field: col.field }))
+      // Add column group for this behavior
+      grouping.push({
+        groupId: behavior.id,
+        headerName: behavior.name,
+        description: behavior.description || undefined,
+        children: behaviorMetricColumns.map(col => ({ field: col.field }))
+      });
     });
-  });
 
-  const columns = [...baseColumns, ...metricColumns];
+    return { metricColumns: metricCols, columnGroupingModel: grouping };
+  }, [behaviors, renderMetricCell]);
+
+  const columns = useMemo(() => [...baseColumns, ...metricColumns], [baseColumns, metricColumns]);
+
+  if (error) {
+    return (
+      <Dialog open={open} onClose={onClose}>
+        <DialogContent>
+          <Box sx={{ p: 2, textAlign: 'center', color: 'error.main' }}>
+            Error: {error}
+          </Box>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog 
@@ -274,55 +212,64 @@ export default function DetailedTestRunGrid({ testRunId, sessionToken, open, onC
           width: '95vw',
           height: '90vh',
           maxWidth: 'none',
-          maxHeight: 'none'
-        }
+          maxHeight: 'none',
+        },
       }}
     >
-      <DialogTitle className={styles.dialogTitle}>
-        View Details
-        <IconButton onClick={onClose} size="small">
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        pb: 1 
+      }}>
+        Detailed Test Run Results
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent className={styles.dialogContent}>
-        <Box className={styles.detailedGrid}>
-          <DataGrid
-            rows={testResults}
-            columns={columns}
-            columnGroupingModel={columnGroupingModel}
-            loading={loading}
-            pageSizeOptions={[10, 25, 50, 100]}
-            paginationModel={paginationModel}
-            onPaginationModelChange={handlePaginationModelChange}
-            getRowId={(row) => row.id}
-            density="compact"
-            disableRowSelectionOnClick
-            disableMultipleRowSelection
-            disableColumnSelector
-            disableColumnMenu
-            disableColumnFilter
-            disableColumnResize
-            disableDensitySelector
-            hideFooterSelectedRowCount
-            paginationMode="server"
-            rowCount={totalCount}
-            onRowClick={handleRowClick}
-            sx={{
-              '& .MuiDataGrid-cell:focus': {
-                outline: 'none',
+      <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
+        <DataGrid
+          rows={testResults}
+          columns={columns}
+          loading={loading}
+          pageSizeOptions={[10, 25, 50]}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          getRowId={(row) => row.id}
+          onRowClick={handleRowClick}
+          density="compact"
+          disableRowSelectionOnClick
+          disableMultipleRowSelection
+          paginationMode="server"
+          rowCount={totalCount}
+          columnGroupingModel={columnGroupingModel}
+          sx={{
+            border: 'none',
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: 'action.hover',
               },
-              '& .MuiDataGrid-cell:focus-within': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeader:focus': {
-                outline: 'none',
-              },
-              '& .MuiDataGrid-columnHeader:focus-within': {
-                outline: 'none',
-              },
-            }}
-          />
-        </Box>
+            },
+            '& .MuiDataGrid-columnHeaders': {
+              backgroundColor: 'background.paper',
+              borderBottom: '2px solid',
+              borderBottomColor: 'divider',
+            },
+            '& .bold-header': {
+              fontWeight: 'bold',
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 'bold',
+            },
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
