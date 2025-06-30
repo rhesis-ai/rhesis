@@ -338,18 +338,26 @@ class MetricEvaluator:
                 reference_score=metric_config.reference_score
             )
             
-            # Store results
+            # Store results - structure depends on metric type
             processed_result = {
                 "score": result.score,
                 "reason": result.details.get("reason", f"Score: {result.score}"),
                 "is_successful": is_successful,
-                "threshold": metric_config.threshold,
                 "backend": backend,
                 "name": metric_config.name,
                 "class_name": class_name,  # Include class_name for identification
                 "description": description,
             }
-            logger.debug(f"Completed metric '{class_name}' with score {result.score:.2f}")
+            
+            # Add threshold or reference_score based on metric type
+            if metric_config.threshold is not None:
+                # Numeric metric - include threshold
+                processed_result["threshold"] = metric_config.threshold
+            elif metric_config.reference_score is not None:
+                # Binary/categorical metric - include reference_score
+                processed_result["reference_score"] = metric_config.reference_score
+            
+            logger.debug(f"Completed metric '{class_name}' with score {result.score}")
             return processed_result
 
         except Exception as exc:
@@ -361,11 +369,10 @@ class MetricEvaluator:
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
             
             # Store error information in results
-            return {
+            error_result = {
                 "score": 0.0,
                 "reason": f"Error: {str(exc)}",
                 "is_successful": False,
-                "threshold": metric_config.threshold,
                 "backend": backend,
                 "name": metric_config.name,
                 "class_name": class_name,  # Include class_name for identification
@@ -373,3 +380,11 @@ class MetricEvaluator:
                 "error": str(exc),
                 "exception_type": type(exc).__name__,
             }
+            
+            # Add threshold or reference_score for error results too
+            if metric_config.threshold is not None:
+                error_result["threshold"] = metric_config.threshold
+            elif metric_config.reference_score is not None:
+                error_result["reference_score"] = metric_config.reference_score
+            
+            return error_result

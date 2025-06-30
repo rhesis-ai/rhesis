@@ -79,6 +79,17 @@ def read_test_run(
     return db_test_run
 
 
+@router.get("/{test_run_id}/behaviors", response_model=List[schemas.Behavior])
+def get_test_run_behaviors(
+    test_run_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
+    """Get behaviors that have test results for this test run"""
+    behaviors = crud.get_test_run_behaviors(db, test_run_id=test_run_id)
+    return behaviors
+
+
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
 def update_test_run(
     test_run_id: UUID,
