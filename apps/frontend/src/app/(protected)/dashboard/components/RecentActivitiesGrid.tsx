@@ -82,8 +82,8 @@ export default function RecentActivitiesGrid({ sessionToken }: RecentActivitiesG
       const response = await client.getTests({ 
         skip, 
         limit,
-        sortBy: 'updated_at',
-        sortOrder: 'desc'
+        sort_by: 'updated_at',
+        sort_order: 'desc'
       });
       setActivities(response.data);
       setTotalCount(response.pagination.totalCount);

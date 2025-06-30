@@ -39,8 +39,8 @@ export default function RecentTestSetsGrid({ sessionToken }: RecentTestSetsGridP
       const response = await testSetsClient.getTestSets({
         skip,
         limit,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sort_by: 'created_at',
+        sort_order: 'desc'
       });
       
       setTestSets(response.data);

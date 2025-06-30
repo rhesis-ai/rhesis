@@ -86,8 +86,8 @@ export default function TrialDrawer({
         try {
           const projectsClient = clientFactory.getProjectsClient();
           const projectsData = await projectsClient.getProjects({ 
-            sortBy: 'name', 
-            sortOrder: 'asc',
+            sort_by: 'name', 
+            sort_order: 'asc',
             limit: 100
           });
           
@@ -123,8 +123,8 @@ export default function TrialDrawer({
         try {
           const endpointsClient = clientFactory.getEndpointsClient();
           const endpointsResponse = await endpointsClient.getEndpoints({
-            sortBy: 'name',
-            sortOrder: 'asc',
+            sort_by: 'name',
+            sort_order: 'asc',
             limit: 100
           });
           

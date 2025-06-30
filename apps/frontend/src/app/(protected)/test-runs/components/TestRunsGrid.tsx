@@ -83,8 +83,8 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       const response = await testRunsClient.getTestRuns({
         skip,
         limit,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sort_by: 'created_at',
+        sort_order: 'desc'
       });
       
       if (isMounted.current) {
@@ -156,7 +156,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
   }, [currentTime]);
 
   // CSS for gentle glowing effect on progress status
-  const progressGlowAnimation = {
+  const progressGlowAnimation = React.useMemo(() => ({
     animation: 'progressGlow 3s ease-in-out infinite alternate',
     '@keyframes progressGlow': {
       '0%': {
@@ -166,7 +166,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         boxShadow: '0 0 8px rgba(25, 118, 210, 0.5), 0 0 12px rgba(25, 118, 210, 0.2)',
       },
     },
-  };
+  }), []);
 
   const columns: GridColDef[] = React.useMemo(() => [
     { 
@@ -275,7 +275,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         );
       }
     }
-  ], [projectNames, formatExecutionTime, getElapsedTime, progressGlowAnimation]);
+  ], [formatExecutionTime, progressGlowAnimation]);
 
   // Handle row click to navigate to test run details
   const handleRowClick = useCallback((params: any) => {
