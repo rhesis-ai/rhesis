@@ -42,15 +42,11 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             # Prepare request components
             method, headers, request_body, url = self._prepare_request(db, endpoint, input_data)
             
-            # Log outgoing request
-            self._log_outgoing_request(method, url, headers, request_body)
-            
             # Make request and handle response
             response = self._make_request_without_raise(self.request_handlers[method], url, headers, request_body)
             
             # Log response summary
-            logger.info(f"Response received: {response.status_code} {response.reason}")
-            logger.info(f"Response content length: {len(response.text) if response.text else 0}")
+            logger.info(f"Response received: {response.status_code}")
             
             # Handle different response scenarios
             if response.status_code >= 400:
@@ -79,7 +75,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
     def _prepare_request(self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any]) -> tuple:
         """Prepare all request components."""
-        logger.info(f"Invoking endpoint {endpoint.name} with input_data: {json.dumps(input_data, indent=2)}")
+        logger.info(f"Invoking endpoint: {endpoint.name}")
         
         # Get method and validate
         method = (endpoint.method or "POST").upper()
@@ -88,44 +84,17 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         # Prepare headers and body
         headers = self._prepare_headers(db, endpoint)
-        logger.info(f"Prepared headers: {json.dumps(headers, indent=2)}")
-
         request_body = self.template_renderer.render(endpoint.request_body_template or {}, input_data)
-        logger.info(f"Rendered request body: {json.dumps(request_body, indent=2)}")
 
         # Build URL
         url = endpoint.url + (endpoint.endpoint_path or "")
-        logger.info(f"Making {method} request to URL: {url}")
+        logger.info(f"Making {method} request to: {url}")
         
         return method, headers, request_body, url
 
-    def _log_outgoing_request(self, method: str, url: str, headers: Dict, body: Any):
-        """Log outgoing request details."""
-        logger.info("=== OUTGOING REQUEST ===")
-        logger.info(f"Method: {method}")
-        logger.info(f"URL: {url}")
-        logger.info(f"Headers: {json.dumps(headers, indent=2)}")
-        logger.info(f"Body: {json.dumps(body, indent=2)}")
-        logger.info("========================")
 
-    def _log_error_details(self, error_title: str, url: str, method: str, headers: Dict, 
-                          request_body: Any, response: requests.Response, additional_info: Dict = None):
-        """Log detailed error information."""
-        logger.error(f"=== {error_title} ===")
-        logger.error(f"Failed request to {url}")
-        logger.error("REQUEST DETAILS:")
-        logger.error(f"  Method: {method}")
-        logger.error(f"  URL: {url}")
-        logger.error(f"  Headers: {json.dumps(headers, indent=2)}")
-        logger.error(f"  Body: {json.dumps(request_body, indent=2)}")
-        logger.error("RESPONSE DETAILS:")
-        logger.error(f"  Status Code: {response.status_code}")
-        logger.error(f"  Response Headers: {json.dumps(dict(response.headers), indent=2)}")
-        logger.error(f"  Raw Response Content: '{response.text}'")
-        if additional_info:
-            for key, value in additional_info.items():
-                logger.error(f"  {key}: {value}")
-        logger.error("=" * (len(error_title) + 8))
+
+
 
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
         """Create request details dictionary."""
@@ -150,7 +119,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     def _handle_http_error(self, response: requests.Response, method: str, url: str, 
                           headers: Dict, request_body: Any) -> Dict:
         """Handle HTTP error responses."""
-        self._log_error_details("HTTP ERROR", url, method, headers, request_body, response)
+        logger.error(f"HTTP {response.status_code} error from {url}: {response.reason}")
         
         error_output = f"HTTP {response.status_code} error from endpoint: {response.reason}"
         if response.text:
@@ -172,21 +141,13 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         """Handle successful response with JSON parsing."""
         try:
             response_data = response.json()
-            #logger.info(f"Raw response data: {json.dumps(response_data, indent=2)}")
-            #logger.info(f"Response mappings: {json.dumps(endpoint.response_mappings or {}, indent=2)}")
             
             mapped_response = self.response_mapper.map_response(response_data, endpoint.response_mappings or {})
-            #logger.info(f"Mapped response: {json.dumps(mapped_response, indent=2)}")
+            logger.debug(f"Final mapped response: {json.dumps(mapped_response, indent=2)}")
             
             return mapped_response
         except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:
-            # Log detailed error information
-            additional_info = {
-                "Response Content Length": len(response.text) if response.text else 0,
-                "JSON Error": str(json_error)
-            }
-            self._log_error_details("JSON PARSING ERROR", url, method, headers, request_body, 
-                                  response, additional_info)
+            logger.error(f"JSON parsing error from {url}: {str(json_error)}")
             
             # Create error response
             error_message = "Empty response received from endpoint" if not response.text else "Invalid JSON response from endpoint"

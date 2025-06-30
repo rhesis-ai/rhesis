@@ -10,28 +10,19 @@ git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis/sdk
 ```
 
-2. Install dependencies and development tools using [uv](https://github.com/astral-sh/uv) and [Hatch](https://hatch.pypa.io/):
-```bash
-uv pip install hatch
-uv sync --extra dev
-uv pip install -e .
-```
-This will:
-- Sync all dependencies, including development dependencies (such as Sphinx for docs)
-- Install the SDK package in editable mode
-
-## Python Version Requirements
+2. Make sure you have the right Python available:
 
 The Rhesis SDK requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
 
 ```bash
-# Install pyenv
-curl https://pyenv.run | bash
 
 # Install build dependencies (Ubuntu/Debian)
 sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
 libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
 libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
+
+# Install pyenv
+curl https://pyenv.run | bash
 
 # Install Python 3.10
 pyenv install 3.10.17
@@ -39,7 +30,16 @@ pyenv install 3.10.17
 # Set local Python version
 pyenv local 3.10.17
 
-# Create a fresh virtual environment with UV
+```
+
+3. Install dependencies and development tools using [uv](https://github.com/astral-sh/uv) and [Hatch](https://hatch.pypa.io/).
+
+
+4. Create a fresh virtual environment with UV:
+
+Navigate to the SDK folder, create and install the environment.
+
+```bash
 uv venv
 
 # Activate the virtual environment
@@ -47,6 +47,19 @@ source .venv/bin/activate
 ```
 
 This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
+
+
+5. Install `hatch` and the Rhesis SDK library itself in development:
+
+```bash
+uv pip install hatch
+uv sync --extra dev
+uv pip install -e .
+```
+
+This will:
+- Sync all dependencies, including development dependencies (such as Sphinx for docs)
+- Install the SDK package in editable mode
 
 ## Development Workflow
 
