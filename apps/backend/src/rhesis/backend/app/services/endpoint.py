@@ -152,11 +152,11 @@ if __name__ == "__main__":
 Usage examples:
 
 1. Basic usage with required org and user IDs:
-python -m rhesis.app.services.endpoint "your-endpoint-id" --org-id "org-uuid" --user-id "user-uuid"
+python -m rhesis.backend.app.services.endpoint "your-endpoint-id" --org-id "org-uuid" --user-id "user-uuid"
 
 2. With custom input:
-python -m rhesis.app.services.endpoint "your-endpoint-id" -i "What's the weather like?" --org-id "org-uuid" --user-id "user-uuid"
+python -m rhesis.backend.app.services.endpoint "your-endpoint-id" -i "What's the weather like?" --org-id "org-uuid" --user-id "user-uuid"
 
 3. With all parameters:
-python -m rhesis.app.services.endpoint "your-endpoint-id" -i "Hello" -s "custom-session-123" --org-id "org-uuid" --user-id "user-uuid"
+python -m rhesis.backend.app.services.endpoint "your-endpoint-id" -i "Hello" -s "custom-session-123" --org-id "org-uuid" --user-id "user-uuid"
 """
