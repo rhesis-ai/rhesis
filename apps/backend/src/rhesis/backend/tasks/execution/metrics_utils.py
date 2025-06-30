@@ -50,14 +50,34 @@ def create_metric_config_from_model(metric: Metric) -> Optional[Dict]:
         "name": metric.name or f"Metric_{metric.id}",
         "class_name": metric.class_name,
         "backend": backend,
-        "threshold": metric.threshold if metric.threshold is not None else 0.5,
         "description": metric.description or f"Metric evaluation for {metric.class_name}",
         "parameters": {}
     }
     
+    # Handle different score types properly
+    score_type = getattr(metric, 'score_type', 'numeric')
+    if score_type == 'binary' or score_type == 'categorical':
+        # For binary/categorical metrics, use reference_score instead of threshold
+        if metric.reference_score is not None:
+            metric_config["reference_score"] = metric.reference_score
+        elif score_type == 'binary':
+            # Default reference score for binary metrics
+            metric_config["reference_score"] = "True"
+        else:
+            # Categorical metrics require a reference score
+            logger.warning(f"Categorical metric {metric.id} is missing reference_score")
+            metric_config["reference_score"] = "excellent"  # fallback
+    else:
+        # For numeric metrics, use threshold
+        metric_config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
+    
     # Add threshold_operator if it exists in the database
     if hasattr(metric, 'threshold_operator') and metric.threshold_operator:
         metric_config["threshold_operator"] = metric.threshold_operator
+    
+    # Add score_type to parameters for RhesisPromptMetric
+    if score_type:
+        metric_config["parameters"]["score_type"] = score_type
     
     # Optional parameter mapping - only add parameters if they exist
     optional_params = {
