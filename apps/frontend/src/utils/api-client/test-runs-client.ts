@@ -6,6 +6,7 @@ import {
   TestRunUpdate, 
   TestRunDetail
 } from './interfaces/test-run';
+import { Behavior } from './interfaces/behavior';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 type TestRunsQueryParams = Partial<PaginationParams> & {
@@ -50,6 +51,10 @@ export class TestRunsClient extends BaseApiClient {
 
   async getTestRun(id: string): Promise<TestRunDetail> {
     return this.fetch<TestRunDetail>(`${API_ENDPOINTS.testRuns}/${id}`);
+  }
+
+  async getTestRunBehaviors(testRunId: string): Promise<Behavior[]> {
+    return this.fetch<Behavior[]>(`${API_ENDPOINTS.testRuns}/${testRunId}/behaviors`);
   }
 
   async createTestRun(testRun: TestRunCreate): Promise<TestRun> {

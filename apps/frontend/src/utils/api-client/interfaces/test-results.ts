@@ -4,10 +4,11 @@ import { Tag } from './tag';
 
 // Metric interfaces
 export interface MetricResult {
-  score: number;
+  score: number | string;
   reason: string;
   backend: string;
-  threshold: number;
+  threshold?: number;
+  reference_score?: string;
   description: string;
   is_successful: boolean;
 }
