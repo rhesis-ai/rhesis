@@ -36,8 +36,8 @@ export default function EndpointsPage() {
       const response = await endpointsClient.getEndpoints({
         skip,
         limit: paginationModel.pageSize,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sort_by: 'created_at',
+        sort_order: 'desc'
       });
       
       setEndpoints(response.data);

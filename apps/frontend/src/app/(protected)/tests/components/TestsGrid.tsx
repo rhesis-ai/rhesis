@@ -65,8 +65,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       const response = await testsClient.getTests({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sortBy: 'created_at',
-        sortOrder: 'desc'
+        sort_by: 'created_at',
+        sort_order: 'desc'
       });
       
       setTests(response.data);

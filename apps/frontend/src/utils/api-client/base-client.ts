@@ -178,8 +178,8 @@ export class BaseApiClient {
     const queryParams = new URLSearchParams();
     if (params.skip !== undefined) queryParams.append('skip', params.skip.toString());
     if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
-    if (params.sortBy) queryParams.append('sort_by', params.sortBy);
-    if (params.sortOrder) queryParams.append('sort_order', params.sortOrder);
+    if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params.$filter) queryParams.append('$filter', params.$filter);
 
     const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;

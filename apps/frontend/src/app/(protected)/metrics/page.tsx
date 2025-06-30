@@ -283,8 +283,8 @@ export default function MetricsPage() {
           metricClient.getMetrics({
             skip: 0,
             limit: 100,
-            sortBy: 'created_at',
-            sortOrder: 'desc'
+                    sort_by: 'created_at',
+        sort_order: 'desc'
           }),
           typeLookupClient.getTypeLookups({
             skip: 0,
