@@ -22,7 +22,6 @@ class TestSetBase(Base):
     is_published: Optional[bool] = False
     organization_id: Optional[UUID4] = None
     visibility: Optional[str] = None
-    status_id: Optional[UUID4] = None
 
 
 class TestSetCreate(TestSetBase):
@@ -41,6 +40,9 @@ class TestSet(TestSetBase):
 class TestPrompt(BaseModel):
     content: str
     language_code: str = "en"
+    demographic: Optional[str] = None
+    dimension: Optional[str] = None
+    expected_response: Optional[str] = None
 
 
 class TestData(BaseModel):
@@ -48,7 +50,26 @@ class TestData(BaseModel):
     behavior: str
     category: str
     topic: str
+    test_configuration: Optional[Dict[str, Any]] = None
+    assignee_id: Optional[UUID4] = None
+    owner_id: Optional[UUID4] = None
+    status: Optional[str] = None
+    priority: Optional[int] = None
     metadata: Dict[str, Any] = {}
+
+    @validator('assignee_id', 'owner_id')
+    def validate_uuid(cls, v):
+        if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
+            return None
+        # Additional validation for UUID format
+        try:
+            from uuid import UUID
+            if isinstance(v, str):
+                UUID(v)  # This will raise ValueError if invalid
+            return v
+        except (ValueError, TypeError):
+            # If it's not a valid UUID, return None instead of raising an error
+            return None
 
 
 class TestSetBulkCreate(BaseModel):

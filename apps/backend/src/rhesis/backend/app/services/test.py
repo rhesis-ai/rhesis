@@ -237,22 +237,27 @@ def create_entity_with_status(
     # Get the string value from EntityType enum and convert to lowercase
     entity_type_str = entity_type.value.lower()
     
-    status = get_or_create_status(
-        db=db,
-        name=defaults[entity_type_str]["status"],
-        entity_type=EntityType.GENERAL,
-    )
+    # Prepare base entity data
+    entity_data = {
+        "name": name,
+        "organization_id": organization_id,
+        "user_id": user_id,
+        **extra_fields,
+    }
+    
+    # Only add status_id if the model has a status_id field
+    if hasattr(model, 'status_id'):
+        status = get_or_create_status(
+            db=db,
+            name=defaults[entity_type_str]["status"],
+            entity_type=EntityType.GENERAL,
+        )
+        entity_data["status_id"] = status.id
 
     return get_or_create_entity(
         db=db,
         model=model,
-        entity_data={
-            "name": name,
-            "organization_id": organization_id,
-            "user_id": user_id,
-            "status_id": status.id,
-            **extra_fields,
-        },
+        entity_data=entity_data,
     )
 
 

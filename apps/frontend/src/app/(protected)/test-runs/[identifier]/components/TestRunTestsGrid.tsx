@@ -1,137 +1,49 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Box, Tooltip, Button } from '@mui/material';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { formatDate } from '@/utils/date';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { TestResult, TestResultDetail, MetricResult } from '@/utils/api-client/interfaces/test-results';
-import { Prompt } from '@/utils/api-client/interfaces/prompt';
-import { Behavior } from '@/utils/api-client/interfaces/behavior';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { GridColDef, GridPaginationModel, GridRenderCellParams, GridRowParams } from '@mui/x-data-grid';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useRouter } from 'next/navigation';
-import { UUID } from 'crypto';
 import DetailedTestRunGrid from './DetailedTestRunGrid';
+import { useTestRunData } from '../hooks/useTestRunData';
 
 interface TestRunTestsGridProps {
   testRunId: string;
   sessionToken: string;
 }
 
-interface BehaviorWithMetrics extends Behavior {
-  metrics: MetricDetail[];
-}
-
 export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTestsGridProps) {
   const router = useRouter();
-  const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
-  const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
-  const [loading, setLoading] = useState(true);
-  const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(0);
   const [detailedViewOpen, setDetailedViewOpen] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 10,
   });
 
-  useEffect(() => {
-    const fetchTestResults = async () => {
-      try {
-        setLoading(true);
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testResultsClient = apiFactory.getTestResultsClient();
-        const promptsClient = apiFactory.getPromptsClient();
-        const behaviorClient = apiFactory.getBehaviorClient();
-        
-        // Calculate skip based on pagination model
-        const skip = paginationModel.page * paginationModel.pageSize;
-        
-        // Fetch test results with pagination parameters
-        const response = await testResultsClient.getTestResults({
-          filter: `test_run_id eq '${testRunId}'`,
-          skip: skip,
-          limit: paginationModel.pageSize,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-        });
-        
-        const results = response.data;
-        setTotalCount(response.pagination.totalCount);
-        
-        // Get unique prompt IDs
-        const promptIds = [...new Set(results.filter((r: TestResultDetail) => r.prompt_id).map((r: TestResultDetail) => r.prompt_id!))];
-        
-        // Fetch all prompts in parallel
-        const promptsData = await Promise.all(
-          promptIds.map((id: string) => promptsClient.getPrompt(id))
-        );
-        
-        // Create a map of prompt ID to prompt data
-        const promptsMap = promptsData.reduce((acc, prompt) => {
-          acc[prompt.id] = prompt;
-          return acc;
-        }, {} as Record<string, Prompt>);
+  const { testResults, prompts, behaviors, loading, totalCount, error } = useTestRunData({
+    testRunId,
+    sessionToken,
+    paginationModel,
+  });
 
-        // Fetch all behaviors
-        const behaviorsData = await behaviorClient.getBehaviors({
-          sort_by: 'name',
-          sort_order: 'asc'
-        });
-
-        // Fetch metrics for each behavior
-        const behaviorsWithMetrics = await Promise.all(
-          behaviorsData.map(async (behavior) => {
-            try {
-              // Type assertion needed due to type definition mismatch
-              const behaviorMetrics = await (behaviorClient as any).getBehaviorMetrics(behavior.id as UUID);
-              return {
-                ...behavior,
-                metrics: behaviorMetrics
-              };
-            } catch (error) {
-              console.error(`Error fetching metrics for behavior ${behavior.id}:`, error);
-              return {
-                ...behavior,
-                metrics: []
-              };
-            }
-          })
-        );
-
-        // Filter out behaviors that have no metrics
-        const behaviorsWithMetricsFiltered = behaviorsWithMetrics.filter(behavior => behavior.metrics.length > 0);
-        
-        setBehaviors(behaviorsWithMetricsFiltered);
-        setPrompts(promptsMap);
-        setTestResults(results);
-      } catch (error) {
-        console.error('Error fetching test results:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTestResults();
-  }, [testRunId, sessionToken, paginationModel]);
-
-  const handlePaginationModelChange = (newModel: GridPaginationModel) => {
+  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
     setPaginationModel(newModel);
-  };
+  }, []);
 
-  const handleRowClick = (params: GridRowParams<TestResultDetail>) => {
+  const handleRowClick = useCallback((params: GridRowParams<TestResultDetail>) => {
     if (params.row.test_id) {
       router.push(`/tests/${params.row.test_id}`);
     }
-  };
+  }, [router]);
 
-  const renderBehaviorCell = (params: GridRenderCellParams) => {
+  const renderBehaviorCell = useCallback((params: GridRenderCellParams) => {
     const value = params.value;
     if (value === 'N/A') return value;
     
@@ -175,9 +87,9 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
         <span>{`(${passedMetrics}/${totalMetrics})`}</span>
       </Box>
     );
-  };
+  }, []);
 
-  const baseColumns: GridColDef<TestResultDetail>[] = [
+  const baseColumns: GridColDef<TestResultDetail>[] = useMemo(() => [
     {
       field: 'prompt_name',
       headerName: 'Test',
@@ -222,9 +134,9 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
         );
       },
     },
-  ];
+  ], [prompts]);
 
-  const behaviorColumns: GridColDef<TestResultDetail>[] = behaviors.map((behavior) => ({
+  const behaviorColumns: GridColDef<TestResultDetail>[] = useMemo(() => behaviors.map((behavior) => ({
     field: behavior.id,
     headerName: '',
     width: 180,
@@ -273,11 +185,11 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
         failedMetrics
       };
     },
-  }));
+  })), [behaviors, renderBehaviorCell]);
 
-  const columns = [...baseColumns, ...behaviorColumns];
+  const columns = useMemo(() => [...baseColumns, ...behaviorColumns], [baseColumns, behaviorColumns]);
 
-  const customToolbarContent = (
+  const customToolbarContent = useMemo(() => (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
       <Button
         variant="outlined"
@@ -288,7 +200,15 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
         View Details
       </Button>
     </Box>
-  );
+  ), []);
+
+  if (error) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center', color: 'error.main' }}>
+        Error: {error}
+      </Box>
+    );
+  }
 
   return (
     <Box>
