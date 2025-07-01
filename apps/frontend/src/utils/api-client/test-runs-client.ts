@@ -8,6 +8,7 @@ import {
 } from './interfaces/test-run';
 import { Behavior } from './interfaces/behavior';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
+import { joinUrl } from '@/utils/url';
 
 type TestRunsQueryParams = Partial<PaginationParams> & {
   test_configuration_id?: string;
@@ -83,5 +84,33 @@ export class TestRunsClient extends BaseApiClient {
       ...params,
       test_configuration_id: testConfigurationId
     });
+  }
+
+  async downloadTestRun(testRunId: string): Promise<Blob> {
+    return this.fetchBlob(`${API_ENDPOINTS.testRuns}/${testRunId}/download`);
+  }
+
+  protected async fetchBlob(
+    endpoint: keyof typeof API_ENDPOINTS | string,
+    options: RequestInit = {}
+  ): Promise<Blob> {
+    const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const url = joinUrl(this.baseUrl, path);
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+
+    return response.blob();
   }
 } 

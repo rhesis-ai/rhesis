@@ -89,6 +89,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(testSet.description || '');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { data: session } = useSession();
   
   if (!session) {
@@ -126,6 +127,33 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
     }
   };
 
+  const handleDownloadTestSet = async () => {
+    if (!sessionToken) return;
+    
+    setIsDownloading(true);
+    try {
+      const clientFactory: ApiClientFactory = new ApiClientFactory(sessionToken);
+      const testSetsClient = clientFactory.getTestSetsClient();
+      
+      const blob = await testSetsClient.downloadTestSet(testSet.id);
+      
+      // Create a download link and trigger the download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `test_set_${testSet.id}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading test set:', error);
+      // You might want to show a user-friendly error message here
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   // Extract metadata from testSet
   const behaviors = testSet.attributes?.metadata?.behaviors || [];
   const categories = testSet.attributes?.metadata?.categories || [];
@@ -146,8 +174,10 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
         <Button
           variant="outlined"
           startIcon={<DownloadIcon />}
+          onClick={handleDownloadTestSet}
+          disabled={isDownloading}
         >
-          Download Test Set
+          {isDownloading ? 'Downloading...' : 'Download Test Set'}
         </Button>
       </Box>
 
