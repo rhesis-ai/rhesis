@@ -2,6 +2,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -9,6 +10,7 @@ from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.app.services.test_run import get_test_results_for_test_run, test_run_results_to_csv
 
 # Create the detailed schema for TestRun
 TestRunDetailSchema = create_detailed_schema(
@@ -125,3 +127,42 @@ def delete_test_run(
         raise HTTPException(status_code=403, detail="Not authorized to delete this test run")
 
     return crud.delete_test_run(db=db, test_run_id=test_run_id)
+
+
+@router.get("/{test_run_id}/download", response_class=StreamingResponse)
+def download_test_run_results(
+    test_run_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
+    """Download test run results as CSV"""
+    try:
+        # Check if test run exists and user has access
+        db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
+        if db_test_run is None:
+            raise HTTPException(status_code=404, detail="Test run not found")
+
+        # Check if the user has permission to access this test run
+        if db_test_run.user_id != current_user.id and not current_user.is_superuser:
+            raise HTTPException(status_code=403, detail="Not authorized to access this test run")
+
+        # Get test results data
+        test_results_data = get_test_results_for_test_run(db, test_run_id)
+
+        # Convert to CSV
+        csv_data = test_run_results_to_csv(test_results_data)
+
+        # Create response
+        response = StreamingResponse(iter([csv_data]), media_type="text/csv")
+        response.headers["Content-Disposition"] = (
+            f"attachment; filename=test_run_{test_run_id}_results.csv"
+        )
+        return response
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to download test run results for {test_run_id}: {str(e)}",
+        )

@@ -10,9 +10,12 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useRouter } from 'next/navigation';
 import DetailedTestRunGrid from './DetailedTestRunGrid';
 import { useTestRunData } from '../hooks/useTestRunData';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TestRunTestsGridProps {
   testRunId: string;
@@ -21,7 +24,9 @@ interface TestRunTestsGridProps {
 
 export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTestsGridProps) {
   const router = useRouter();
+  const notifications = useNotifications();
   const [detailedViewOpen, setDetailedViewOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 10,
@@ -42,6 +47,31 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
       router.push(`/tests/${params.row.test_id}`);
     }
   }, [router]);
+
+  const handleDownloadTestRun = useCallback(async () => {
+    setIsDownloading(true);
+    try {
+      const testRunsClient = new ApiClientFactory(sessionToken).getTestRunsClient();
+      const blob = await testRunsClient.downloadTestRun(testRunId);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `test_run_${testRunId}_results.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      notifications.show('Test run results downloaded successfully', { severity: 'success' });
+    } catch (error) {
+      console.error('Error downloading test run:', error);
+      notifications.show('Failed to download test run results', { severity: 'error' });
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [testRunId, sessionToken, notifications]);
 
   const renderBehaviorCell = useCallback((params: GridRenderCellParams) => {
     const value = params.value;
@@ -190,7 +220,7 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
   const columns = useMemo(() => [...baseColumns, ...behaviorColumns], [baseColumns, behaviorColumns]);
 
   const customToolbarContent = useMemo(() => (
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, p: 1 }}>
       <Button
         variant="outlined"
         startIcon={<VisibilityIcon />}
@@ -199,8 +229,17 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
       >
         View Details
       </Button>
+      <Button
+        variant="outlined"
+        startIcon={<DownloadIcon />}
+        onClick={handleDownloadTestRun}
+        disabled={isDownloading}
+        size="small"
+      >
+        {isDownloading ? 'Downloading...' : 'Download'}
+      </Button>
     </Box>
-  ), []);
+  ), [handleDownloadTestRun, isDownloading]);
 
   if (error) {
     return (

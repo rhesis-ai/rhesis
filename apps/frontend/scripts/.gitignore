@@ -1,0 +1,4 @@
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
+*.tsbuildinfo
