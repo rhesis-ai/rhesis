@@ -449,7 +449,7 @@ def download_test_set_prompts(
         db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
 
         # Get prompts
-        prompts = get_prompts_for_test_set(db_test_set.id, db)
+        prompts = get_prompts_for_test_set(db, db_test_set.id)
 
         # Check if prompts list is empty before trying to create CSV
         if not prompts:
@@ -593,7 +593,7 @@ def download_test_set_prompts_csv(
         db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
 
         # Get prompts
-        prompts = get_prompts_for_test_set(db_test_set.id, db)
+        prompts = get_prompts_for_test_set(db, db_test_set.id)
 
         try:
             csv_data = prompts_to_csv(prompts)
