@@ -1,5 +1,6 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
+import { joinUrl } from '@/utils/url';
 import { 
   TestSet, 
   TestSetCreate, 
@@ -235,5 +236,62 @@ export class TestSetsClient extends BaseApiClient {
         cache: 'no-store'
       }
     );
+  }
+
+  async downloadTestSet(testSetId: string): Promise<Blob> {
+    return this.fetchBlob(`${API_ENDPOINTS.testSets}/${testSetId}/download`);
+  }
+
+  protected async fetchBlob(
+    endpoint: keyof typeof API_ENDPOINTS | string,
+    options: RequestInit = {}
+  ): Promise<Blob> {
+    const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const url = joinUrl(this.baseUrl, path);
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      let errorMessage = '';
+      let errorData: any;
+      
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          errorData = await response.json();
+          if (errorData.detail) {
+            errorMessage = Array.isArray(errorData.detail) 
+              ? errorData.detail.map((err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`).join(', ')
+              : errorData.detail;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = JSON.stringify(errorData, null, 2);
+          }
+        } else {
+          errorMessage = await response.text();
+        }
+      } catch (parseError) {
+        errorMessage = await response.text();
+      }
+      
+      const error = new Error(`API error: ${response.status} - ${errorMessage}`) as Error & { 
+        status?: number;
+        data?: any;
+      };
+      error.status = response.status;
+      error.data = errorData;
+      throw error;
+    }
+
+    return response.blob();
   }
 } 
