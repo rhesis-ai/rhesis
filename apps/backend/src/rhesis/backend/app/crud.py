@@ -1064,6 +1064,41 @@ def get_test_runs(
     return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
 
 
+def get_test_run_behaviors(
+    db: Session, test_run_id: uuid.UUID
+) -> List[models.Behavior]:
+    """Get behaviors that have test results for a specific test run"""
+    # Verify the test run exists
+    test_run = get_test_run(db, test_run_id)
+    if not test_run:
+        raise ValueError(f"Test run with id {test_run_id} not found")
+    
+    # Get unique behavior IDs from tests that have results in this test run
+    behavior_ids_query = (
+        db.query(models.Test.behavior_id)
+        .join(models.TestResult, models.Test.id == models.TestResult.test_id)
+        .filter(
+            models.TestResult.test_run_id == test_run_id,
+            models.Test.behavior_id.isnot(None)  # Only tests that have a behavior
+        )
+        .distinct()
+    )
+    
+    behavior_ids = [row[0] for row in behavior_ids_query.all()]
+    
+    if not behavior_ids:
+        return []
+    
+    # Get the actual behavior objects with proper filtering
+    return (
+        QueryBuilder(db, models.Behavior)
+        .with_visibility_filter()
+        .with_custom_filter(lambda q: q.filter(models.Behavior.id.in_(behavior_ids)))
+        .with_sorting("name", "asc")
+        .all()
+    )
+
+
 def create_test_run(db: Session, test_run: schemas.TestRunCreate) -> models.TestRun:
     """Create a new test run with automatic name generation if no name is provided"""
     

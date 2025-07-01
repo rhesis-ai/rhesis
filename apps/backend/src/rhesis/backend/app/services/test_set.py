@@ -21,6 +21,7 @@ from rhesis.backend.app.services.test import bulk_create_test_set_associations, 
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.app.utils.uuid_utils import (
     ensure_owner_id,
+    sanitize_uuid_field,
     validate_uuid_list,
     validate_uuid_parameters,
 )
@@ -139,6 +140,10 @@ def bulk_create_test_set(
                 type_value=defaults["test_set"]["license_type"],
             )
 
+            # Sanitize UUID fields for test set
+            raw_owner_id = getattr(test_set_data, 'owner_id', None)
+            raw_assignee_id = getattr(test_set_data, 'assignee_id', None)
+            
             # Create test set with minimal attributes
             test_set = models.TestSet(
                 name=test_set_data.name,
@@ -148,8 +153,8 @@ def bulk_create_test_set(
                 license_type_id=license_type.id,
                 user_id=user_id,
                 organization_id=organization_id,
-                owner_id=ensure_owner_id(getattr(test_set_data, 'owner_id', None), user_id),
-                assignee_id=getattr(test_set_data, 'assignee_id', None),  # Keep as None if not provided
+                owner_id=ensure_owner_id(raw_owner_id, user_id),
+                assignee_id=sanitize_uuid_field(raw_assignee_id),  # Sanitize assignee_id
                 priority=getattr(test_set_data, 'priority', None) or defaults["test_set"]["priority"],
                 visibility=defaults["test_set"]["visibility"],
                 attributes={},  # Will be updated after tests are created
