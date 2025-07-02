@@ -126,37 +126,13 @@ export default function TestSetsGrid({
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
 
-  // Initial data fetch if needed
+  // Set initial data from props
   useEffect(() => {
-    const fetchInitialData = async () => {
-      if (!sessionToken && !session?.session_token) return;
-      
-      try {
-        setLoading(true);
-        const token = sessionToken || session?.session_token;
-        const clientFactory = new ApiClientFactory(token!);
-        const testSetsClient = clientFactory.getTestSetsClient();
-        
-        const response = await testSetsClient.getTestSets({ 
-          skip: 0,
-          limit: paginationModel.pageSize,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-        });
-        
-        setTestSets(response.data);
-        setTotalCount(response.pagination.totalCount);
-      } catch (error) {
-        console.error('Error fetching initial test sets:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!initialTestSets.length) {
-      fetchInitialData();
+    if (initialTestSets.length > 0) {
+      setTestSets(initialTestSets);
+      setTotalCount(initialTotalCount || initialTestSets.length);
     }
-  }, [sessionToken, session, initialTestSets, paginationModel.pageSize]);
+  }, [initialTestSets, initialTotalCount]);
 
   const fetchTestSets = useCallback(async () => {
     if (!sessionToken && !session?.session_token) return;
@@ -188,10 +164,9 @@ export default function TestSetsGrid({
   }, [sessionToken, session, paginationModel]);
 
   useEffect(() => {
-    if (initialTestSets.length > 0) return;
-    
+    // Always fetch when pagination changes
     fetchTestSets();
-  }, [initialTestSets.length, fetchTestSets, paginationModel.page, paginationModel.pageSize]);
+  }, [fetchTestSets, paginationModel.page, paginationModel.pageSize]);
 
   const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
     setPaginationModel(newModel);
