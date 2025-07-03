@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { auth } from './auth'
-import { PROTECTED_PATHS, isPublicPath, isSuperuserPath, ONBOARDING_PATH } from './constants/paths'
+import { isPublicPath, ONBOARDING_PATH } from './constants/paths'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -29,11 +29,6 @@ export async function middleware(request: NextRequest) {
   if (pathname === ONBOARDING_PATH) {
     // Still check for auth though
     console.log('🔑 Onboarding path detected, checking auth only...')
-  } else {
-    // Check for superuser paths
-    if (isSuperuserPath(pathname)) {
-      console.log('🔒 Superuser path detected, checking session...')
-    }
   }
 
   // If not public, check for session
