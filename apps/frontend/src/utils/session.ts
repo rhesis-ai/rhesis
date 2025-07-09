@@ -1,11 +1,13 @@
-import { cookies } from 'next/headers';
+'use client';
+
 import { API_CONFIG } from './api-client/config';
 
 export interface User {
   id: string;
-  email: string;
   name: string;
-  picture?: string;
+  email: string;
+  image?: string;
+  organization_id?: string;
 }
 
 export interface Session {
@@ -13,7 +15,12 @@ export interface Session {
 }
 
 export async function getSession(): Promise<Session | null> {
-  const token = (await cookies()).get('rhesis_session_token')?.value;
+  // Get session token from cookie
+  const token = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('next-auth.session-token='))
+    ?.split('=')[1];
+
   if (!token) return null;
 
   try {
@@ -42,4 +49,43 @@ export async function getSession(): Promise<Session | null> {
     console.error('Session error:', error);
     return null;
   }
+}
+
+export async function clearAllSessionData() {
+  // List of all cookies to clear
+  const cookiesToClear = [
+    'next-auth.session-token',
+    'next-auth.csrf-token',
+    'next-auth.callback-url',
+    'next-auth.pkce.code-verifier',
+    'next-auth.pkce.state',
+    'session',
+    'authjs.session-token',
+    'authjs.csrf-token',
+    'authjs.callback-url',
+    '__Host-next-auth.csrf-token',
+    '__Secure-next-auth.callback-url',
+    '__Secure-next-auth.session-token',
+  ];
+
+  // Clear cookies with both domain and non-domain options
+  cookiesToClear.forEach(name => {
+    // Clear without domain (for development)
+    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
+    
+    // Clear with domain (for production)
+    if (process.env.NODE_ENV === 'production') {
+      document.cookie = `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
+    }
+  });
+
+  // Clear any local storage items
+  localStorage.removeItem('next-auth.message');
+  localStorage.removeItem('next-auth.callback-url');
+  
+  // Add a delay before redirecting to ensure cookies are cleared
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Force reload to clear any in-memory state and redirect to login
+  window.location.href = '/auth/signin?post_logout=true';
 } 
