@@ -92,7 +92,7 @@ export async function clearAllSessionData() {
   // Add a delay before redirecting to ensure cookies are cleared
   await new Promise(resolve => setTimeout(resolve, 500));
   
-  console.log('🟡 [DEBUG] Redirecting to /auth/signin?post_logout=true');
-  // Force reload to clear any in-memory state and redirect to login
-  window.location.href = '/auth/signin?post_logout=true';
+  console.log('🟡 [DEBUG] Redirecting to home page /');
+  // Force reload to clear any in-memory state and redirect to home page
+  window.location.href = '/';
 } 

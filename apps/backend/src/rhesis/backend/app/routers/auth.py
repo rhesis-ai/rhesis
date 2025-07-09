@@ -103,19 +103,14 @@ async def logout(request: Request, post_logout: bool = False):
     # Clear session data
     request.session.clear()
 
-    # Construct Auth0 logout URL
-    auth0_domain = os.getenv("AUTH0_DOMAIN")
-    client_id = os.getenv("AUTH0_CLIENT_ID")
-    # Use FRONTEND_URL environment variable for returnTo
+    # Get frontend URL from environment variable
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    
+    # Redirect directly to the frontend home page
+    return_to_url = frontend_url + "/"
 
-    # If post_logout is True, return to root, otherwise use the frontend URL
-    return_to_url = frontend_url + ("/" if post_logout else "")
-
-    # Redirect to Auth0 logout endpoint
-    logout_url = f"https://{auth0_domain}/v2/logout?client_id={client_id}&returnTo={return_to_url}"
-
-    return RedirectResponse(url=logout_url)
+    # Redirect directly to frontend home page instead of Auth0 logout
+    return RedirectResponse(url=return_to_url)
 
 @router.get("/verify")
 async def verify_auth(

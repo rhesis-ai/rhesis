@@ -7,7 +7,7 @@ import { clearAllSessionData } from '@/utils/session';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<string>('Hang on...');
+  const [status, setStatus] = useState<string>('Hang tight...');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,15 +23,16 @@ export default function SignIn() {
         console.log('🟢 [DEBUG] Error param:', errorParam, 'Post logout:', postLogout);
         
         if (errorParam === 'session_expired') {
-          console.log('🟢 [DEBUG] Session expired detected, calling clearAllSessionData');
-          // Clear all session data if session has expired
-          clearAllSessionData();
-          return; // clearAllSessionData will handle the redirect
+          console.log('🟢 [DEBUG] Session expired detected, redirecting to home');
+          // Redirect to home page for expired sessions
+          window.location.href = '/';
+          return;
         }
 
         if (postLogout === 'true') {
-          console.log('🟢 [DEBUG] Post logout redirect detected');
-          setStatus('Logout successful. Please sign in again.');
+          console.log('🟢 [DEBUG] Post logout redirect detected, redirecting to home');
+          // Redirect to home page after logout
+          window.location.href = '/';
           return;
         }
 
@@ -55,9 +56,16 @@ export default function SignIn() {
           return;
         }
 
+        // If no token and no special parameters, show authentication required message
+        const returnTo = searchParams.get('return_to');
+        if (returnTo) {
+          setStatus('Please sign in to continue.');
+        } else {
+          setStatus('Redirecting to login...');
+        }
+
         // If no token, redirect to backend login
         console.log('🟢 [DEBUG] No token found, redirecting to backend login');
-        setStatus('Redirecting to login...');
         const currentUrl = window.location.href;
         window.location.replace(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login?return_to=${encodeURIComponent(currentUrl)}`

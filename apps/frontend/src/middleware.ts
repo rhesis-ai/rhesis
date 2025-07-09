@@ -116,19 +116,20 @@ export async function middleware(request: NextRequest) {
     const sessionToken = getSessionTokenFromRequest(request);
     if (!sessionToken) {
       console.log('❌ No session token found');
+      // For users accessing protected routes without any authentication,
+      // redirect to signin with return_to parameter for seamless experience
       const signInUrl = new URL('/auth/signin', request.url);
       signInUrl.searchParams.set('return_to', pathname);
-      return createSessionClearingResponse(signInUrl);
+      return NextResponse.redirect(signInUrl);
     }
 
     // Verify session token with backend
     const isValidBackendSession = await verifySessionWithBackend(sessionToken);
     if (!isValidBackendSession) {
       console.log('❌ Backend session validation failed');
-      const signInUrl = new URL('/auth/signin', request.url);
-      signInUrl.searchParams.set('return_to', pathname);
-      signInUrl.searchParams.set('error', 'session_expired');
-      return createSessionClearingResponse(signInUrl);
+      // For users with expired/invalid sessions (they were previously authenticated),
+      // redirect to home page to complete the signout flow
+      return createSessionClearingResponse(new URL('/', request.url));
     }
 
     // Get session data from auth
@@ -145,7 +146,7 @@ export async function middleware(request: NextRequest) {
 
     console.log('✅ Valid session found');
     return NextResponse.next();
-  } catch (error) {
+  } catch (error: any) {
     const err = error as Error;
     
     console.log('🚨 Auth Error in middleware:', {
@@ -158,9 +159,8 @@ export async function middleware(request: NextRequest) {
     
     if (err.message?.includes('UntrustedHost')) {
       console.log('❌ UntrustedHost error detected');
-      const signInUrl = new URL('/auth/signin', request.url);
-      signInUrl.searchParams.set('return_to', pathname);
-      return createSessionClearingResponse(signInUrl);
+      // For untrusted host errors, redirect to home page with session clearing
+      return createSessionClearingResponse(new URL('/', request.url));
     }
     
     const isJWTError = err.message?.includes('JWTSessionError') || 
@@ -169,10 +169,8 @@ export async function middleware(request: NextRequest) {
     
     if (isJWTError) {
       console.log('❌ JWT Session Error detected');
-      const signInUrl = new URL('/auth/signin', request.url);
-      signInUrl.searchParams.set('return_to', pathname);
-      signInUrl.searchParams.set('error', 'session_expired');
-      return createSessionClearingResponse(signInUrl);
+      // For JWT errors (expired/invalid sessions), redirect to home page with session clearing
+      return createSessionClearingResponse(new URL('/', request.url));
     }
     
     throw error;

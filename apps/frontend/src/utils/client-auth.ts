@@ -12,8 +12,8 @@ export async function handleClientSignOut() {
     console.log('🔴 [DEBUG] clearAllSessionData() completed successfully');
   } catch (error) {
     console.error('🔴 [DEBUG] Error during sign out:', error);
-    // Fallback redirect to login
-    console.log('🔴 [DEBUG] Fallback redirect to /auth/signin');
-    window.location.href = '/auth/signin';
+    // Fallback redirect to home page
+    console.log('🔴 [DEBUG] Fallback redirect to /');
+    window.location.href = '/';
   }
 } 
