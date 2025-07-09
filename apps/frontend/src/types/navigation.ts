@@ -9,6 +9,7 @@ export interface NavigationPageItem {
   icon?: React.ReactNode;
   action?: React.ReactNode;
   children?: NavigationPageItem[];
+  requireSuperuser?: boolean;
 }
 
 export interface NavigationHeaderItem {

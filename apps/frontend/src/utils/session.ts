@@ -52,6 +52,8 @@ export async function getSession(): Promise<Session | null> {
 }
 
 export async function clearAllSessionData() {
+  console.log('🟡 [DEBUG] clearAllSessionData called - starting session cleanup');
+  
   // List of all cookies to clear
   const cookiesToClear = [
     'next-auth.session-token',
@@ -68,6 +70,8 @@ export async function clearAllSessionData() {
     '__Secure-next-auth.session-token',
   ];
 
+  console.log('🟡 [DEBUG] Clearing cookies:', cookiesToClear);
+
   // Clear cookies with both domain and non-domain options
   cookiesToClear.forEach(name => {
     // Clear without domain (for development)
@@ -79,13 +83,16 @@ export async function clearAllSessionData() {
     }
   });
 
+  console.log('🟡 [DEBUG] Clearing localStorage items');
   // Clear any local storage items
   localStorage.removeItem('next-auth.message');
   localStorage.removeItem('next-auth.callback-url');
   
+  console.log('🟡 [DEBUG] Adding 500ms delay before redirect');
   // Add a delay before redirecting to ensure cookies are cleared
   await new Promise(resolve => setTimeout(resolve, 500));
   
+  console.log('🟡 [DEBUG] Redirecting to /auth/signin?post_logout=true');
   // Force reload to clear any in-memory state and redirect to login
   window.location.href = '/auth/signin?post_logout=true';
 } 
