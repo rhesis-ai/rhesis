@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.models.user import User
 
 router = APIRouter(
     prefix="/tags",
@@ -21,7 +22,7 @@ router = APIRouter(
 def create_tag(
     tag: schemas.TagCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     return crud.create_tag(db=db, tag=tag)
 
@@ -36,7 +37,7 @@ def read_tags(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all tags with their related objects"""
     return crud.get_tags(
@@ -48,7 +49,7 @@ def read_tags(
 def read_tag(
     tag_id: str,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     db_tag = crud.get_tag(db, tag_id=tag_id)
     if db_tag is None:
@@ -60,7 +61,7 @@ def read_tag(
 def delete_tag(
     tag_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     db_tag = crud.delete_tag(db, tag_id=tag_id)
     if db_tag is None:
@@ -73,7 +74,7 @@ def update_tag(
     tag_id: uuid.UUID,
     tag: schemas.TagUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     db_tag = crud.update_tag(db, tag_id=tag_id, tag=tag)
     if db_tag is None:
@@ -87,7 +88,7 @@ def assign_tag_to_entity(
     entity_id: uuid.UUID,
     tag: schemas.TagCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Assign a tag to a specific entity"""
     # Set the user_id and organization_id from the current user
@@ -108,7 +109,7 @@ def remove_tag_from_entity(
     entity_id: uuid.UUID,
     tag_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Remove a tag from a specific entity"""
     try:

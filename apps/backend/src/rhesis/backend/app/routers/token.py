@@ -7,7 +7,8 @@ from pydantic import UUID4
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.auth.auth_utils import generate_api_token, require_current_user_or_token
+from rhesis.backend.app.auth.token_utils import generate_api_token
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.token import TokenCreate, TokenRead, TokenUpdate

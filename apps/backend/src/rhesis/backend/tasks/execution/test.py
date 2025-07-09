@@ -7,6 +7,7 @@ from rhesis.backend.tasks.execution.metrics_utils import get_behavior_metrics
 from rhesis.backend.tasks.execution.test_execution import execute_test
 from rhesis.backend.tasks.utils import increment_test_run_progress
 from rhesis.backend.worker import app
+from rhesis.backend.app.auth.user_utils import get_current_user
 
 
 @app.task(name="rhesis.backend.tasks.execute_single_test", base=SilentTask, bind=True, display_name="Individual Test Execution")

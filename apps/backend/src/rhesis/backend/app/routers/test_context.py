@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.models.user import User
 
 router = APIRouter(
     prefix="/test-contexts",
@@ -20,7 +21,7 @@ router = APIRouter(
 def create_test_context(
     test_context: schemas.TestContextCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Create a new test context"""
     # Verify that the test exists
@@ -39,7 +40,7 @@ def read_test_contexts(
     limit: int = 100,
     test_id: Optional[UUID] = None,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all test contexts or filter by test_id"""
     if test_id:
@@ -53,7 +54,7 @@ def read_test_contexts(
 def read_test_context(
     test_context_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get a specific test context by ID"""
     db_test_context = crud.get_test_context(db, test_context_id=test_context_id)
@@ -67,7 +68,7 @@ def update_test_context(
     test_context_id: UUID,
     test_context: schemas.TestContextUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Update a test context"""
     db_test_context = crud.get_test_context(db, test_context_id=test_context_id)
@@ -89,7 +90,7 @@ def update_test_context(
 def delete_test_context(
     test_context_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Delete a test context"""
     db_test_context = crud.get_test_context(db, test_context_id=test_context_id)

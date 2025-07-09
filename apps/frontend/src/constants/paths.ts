@@ -1,22 +1,3 @@
-export const PROTECTED_PATHS = {
-  SUPERUSER: [
-    '/projects-legacy',
-    '/projects',
-    '/organizations/team',
-    '/organizations/risks',
-    '/organizations/knowledge',
-    '/runs',
-    '/metrics',
-    '/reports',
-    '/integrations'
-    // Add other superuser-only paths here
-  ],
-  // You can add other path categories here
-  // Example:
-  // ADMIN: ['/admin', '/settings'],
-  // PREMIUM: ['/premium-features']
-} as const;
-
 // Define onboarding path constant
 export const ONBOARDING_PATH = '/onboarding';
 
@@ -44,12 +25,6 @@ export const PUBLIC_PATHS = [
   '/auth/signout',
   '/auth/session',
 ] as const;
-
-// Helper functions if needed
-export const isSuperuserPath = (path: string): boolean => 
-  PROTECTED_PATHS.SUPERUSER.some(protectedPath => 
-    path.startsWith(protectedPath)
-  );
 
 export function isPublicPath(path: string): boolean {
   // Check exact matches

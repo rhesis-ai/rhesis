@@ -2,7 +2,7 @@ import base64
 import os
 import secrets
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -55,20 +55,58 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> O
     return user
 
 
+def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) -> Dict[str, Any]:
+    """
+    Verify and decode a JWT token with explicit expiration checks.
+    Returns the decoded payload if valid, raises JWTError if not.
+    """
+    try:
+        # Verify the JWT token with explicit expiration check
+        payload = jwt.decode(
+            token, 
+            secret_key, 
+            algorithms=[algorithm],
+            options={
+                "verify_exp": True,  # Explicitly verify expiration
+                "verify_iat": True,  # Verify issued at time
+                "require_exp": True,  # Require expiration time
+                "require_iat": True,  # Require issued at time
+            }
+        )
+        
+        # Check if it's a session token
+        if payload.get("type") != "session":
+            logger.warning(f"Invalid token type: {payload.get('type')}")
+            raise JWTError("Invalid token type")
+
+        # Log successful verification
+        if "user" in payload:
+            logger.debug(f"JWT token validated for user: {payload['user'].get('email')}")
+            logger.debug(f"Token expiration: {datetime.fromtimestamp(payload['exp'], tz=timezone.utc)}")
+        
+        return payload
+        
+    except JWTError as e:
+        logger.error(f"JWT validation error: {str(e)}")
+        if "Expired token" in str(e):
+            logger.warning("JWT token has expired")
+        raise
+
 async def get_user_from_jwt(
     token: str, db: Session, secret_key: str, algorithm: str = ALGORITHM
 ) -> Optional[User]:
     """Get user from JWT token"""
     try:
-        payload = jwt.decode(token, secret_key, algorithms=[algorithm])
-        if payload.get("type") != "session":
-            return None
+        payload = verify_jwt_token(token, secret_key, algorithm)
         user_info = payload.get("user", {})
         user_id = user_info.get("id")
+        
         if user_id:
             return get_user_by_id(db, user_id)
+            
     except JWTError:
         return None
+        
     return None
 
 

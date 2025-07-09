@@ -1,6 +1,7 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 import { PaginationParams, PaginatedResponse, PaginationMetadata } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
+import { clearAllSessionData } from '../session';
 
 interface RetryConfig {
   maxAttempts: number;
@@ -15,6 +16,9 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxDelayMs: 10000,
   backoffMultiplier: 2,
 };
+
+// Flag to prevent multiple simultaneous session clearing
+let isSessionClearing = false;
 
 export class BaseApiClient {
   protected baseUrl: string;
@@ -48,6 +52,14 @@ export class BaseApiClient {
   }
 
   private isRetryableError(error: any): boolean {
+    // Don't retry authentication errors
+    if (error instanceof Error && 'status' in error) {
+      const status = (error as any).status;
+      if (status === 401 || status === 403) {
+        return false;
+      }
+    }
+    
     // Retry on network errors and 5xx server errors
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
       return true;
@@ -57,6 +69,39 @@ export class BaseApiClient {
       return status >= 500 && status < 600;
     }
     return false;
+  }
+
+  private async handleUnauthorizedError(): Promise<never> {
+    // Prevent multiple simultaneous session clearing
+    if (isSessionClearing) {
+      throw new Error('Session clearing already in progress');
+    }
+    
+    isSessionClearing = true;
+    
+    try {
+      console.log('🔴 Unauthorized error detected in API client, clearing session...');
+      
+      // Only clear session if we're in a browser environment
+      if (typeof window !== 'undefined') {
+        // Add a delay to ensure any pending operations complete
+        await this.delay(500);
+        await clearAllSessionData(); // This now redirects to home page
+        
+        // This line should never be reached as clearAllSessionData redirects
+        throw new Error('Unauthorized - session cleared');
+      } else {
+        throw new Error('Unauthorized - server side');
+      }
+    } catch (error) {
+      console.error('Error during session clearing:', error);
+      throw error; // Re-throw to ensure error handling continues
+    } finally {
+      // Reset the flag after a delay
+      setTimeout(() => {
+        isSessionClearing = false;
+      }, 2000);
+    }
   }
 
   /**
@@ -131,6 +176,12 @@ export class BaseApiClient {
           };
           error.status = response.status;
           error.data = errorData;
+          
+          // Handle authentication errors
+          if (response.status === 401 || response.status === 403) {
+            return await this.handleUnauthorizedError();
+          }
+          
           throw error;
         }
 
@@ -142,6 +193,11 @@ export class BaseApiClient {
         return response.json();
       } catch (error: any) {
         lastError = error;
+        
+        // Handle authentication errors immediately without retrying
+        if (error.status === 401 || error.status === 403) {
+          return await this.handleUnauthorizedError();
+        }
         
         // If this is the last attempt or error is not retryable, throw the error
         if (attempt === this.retryConfig.maxAttempts || !this.isRetryableError(error)) {
@@ -217,6 +273,12 @@ export class BaseApiClient {
       };
       error.status = response.status;
       error.data = errorData;
+      
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        return await this.handleUnauthorizedError();
+      }
+      
       throw error;
     }
 

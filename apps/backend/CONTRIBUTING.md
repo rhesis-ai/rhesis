@@ -2,24 +2,6 @@
 
 Thank you for your interest in contributing to the Rhesis backend! This document provides guidelines and instructions for contributing.
 
-## Development Setup
-
-1. Clone the repository:
-```bash
-git clone https://github.com/rhesis-ai/rhesis.git
-cd apps/backend
-```
-
-2. Install dependencies and development tools using [uv](https://github.com/astral-sh/uv) and [Hatch](https://hatch.pypa.io/):
-```bash
-uv pip install hatch
-uv sync --extra dev
-uv pip install -e .
-```
-This will:
-- Sync all dependencies, including development dependencies (such as Sphinx for docs)
-- Install the backend package in editable mode
-
 ## Python Version Requirements
 
 The Rhesis backend requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
@@ -47,6 +29,24 @@ source .venv/bin/activate
 ```
 
 This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
+
+## Development Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/rhesis-ai/rhesis.git
+cd apps/backend
+```
+
+2. Install dependencies and development tools using [uv](https://github.com/astral-sh/uv) and [Hatch](https://hatch.pypa.io/):
+```bash
+uv pip install hatch
+uv sync --extra dev
+uv pip install -e .
+```
+This will:
+- Sync all dependencies, including development dependencies (such as Sphinx for docs)
+- Install the backend package in editable mode
 
 ## Development Workflow
 

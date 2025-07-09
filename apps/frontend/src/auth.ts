@@ -6,6 +6,7 @@ import type { User } from 'next-auth';
 import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { AdapterSession } from 'next-auth/adapters';
+import { SESSION_DURATION_MS, SESSION_DURATION_SECONDS } from './constants/auth';
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error('NEXTAUTH_SECRET environment variable is not set. Please check your environment configuration.');
@@ -68,32 +69,22 @@ export const authConfig: NextAuthConfig = {
           console.error('Auth error:', error);
           return null;
         }
-      },
+      }
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: SESSION_DURATION_SECONDS,
   },
   jwt: {
     encode: async ({ secret, token }) => {
       if (!token) return "";
       try {
-        // console.log('Encoding token input:', {
-        //   type: typeof token,
-        //   isString: typeof token === 'string',
-        //   value: token
-        // });
-
-        // Return the token as is if it's already a string
         if (typeof token === 'string') {
-          //console.log('Returning string token as is');
           return token;
         }
-        // Otherwise, stringify it
         const stringified = JSON.stringify(token);
-        //console.log('Stringified token:', stringified);
         return stringified;
       } catch (error) {
         console.error('JWT encode error:', error);
@@ -103,27 +94,15 @@ export const authConfig: NextAuthConfig = {
     decode: async ({ secret, token }) => {
       if (!token) return null;
       try {
-        // console.log('Decoding token input:', {
-        //   type: typeof token,
-        //   isString: typeof token === 'string',
-        //   value: token
-        // });
-
-        // If it's not a string, return as is
         if (typeof token !== 'string') {
-          //console.log('Returning non-string token as is');
           return token;
         }
 
-        // If it's a JSON string
         if (token.startsWith('{')) {
-          //console.log('Parsing JSON string token');
           return JSON.parse(token);
         }
 
-        // If it's a JWT token (contains two dots)
         if (token.includes('.')) {
-          //console.log('Detected JWT token, decoding payload');
           const [, payloadBase64] = token.split('.');
           try {
             const payload = Buffer.from(payloadBase64, 'base64url').toString('utf-8');
@@ -135,12 +114,10 @@ export const authConfig: NextAuthConfig = {
             };
           } catch (jwtError) {
             console.error('JWT parsing error:', jwtError);
-            // If JWT parsing fails, try parsing as JSON
             return JSON.parse(token);
           }
         }
 
-        console.log('Returning string token as is');
         return token;
       } catch (error) {
         console.error('JWT decode error:', error);
@@ -163,7 +140,7 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }: SessionCallbackParams) {
       const updatedSession = {
         ...session,
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        expires: new Date(Date.now() + SESSION_DURATION_MS).toISOString()
       };
       
       if (token.user) {
@@ -178,23 +155,8 @@ export const authConfig: NextAuthConfig = {
     },
     async redirect({ url, baseUrl }) {
       if (url.includes('/api/auth/signout')) {
-        // Clear frontend cookies first
-        if (typeof window !== 'undefined') {
-          document.cookie = 'next-auth.session-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-          if (process.env.NODE_ENV === 'production') {
-            document.cookie = 'next-auth.session-token=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-          }
-        }
-        
-        const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-        const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || baseUrl;
-
-        // Redirect to the main landing page which contains your custom login UI
-        const customLoginUrl = `${frontendUrl}/`;
-        
-        // Send users to your custom login page after logout
-        const returnUrl = `${backendUrl}/auth/logout?redirect_url=${encodeURIComponent(customLoginUrl)}`;
-        return returnUrl;
+        // Redirect directly to home page after signout
+        return `${baseUrl}/`;
       }
       
       return url.startsWith(baseUrl) ? url : baseUrl;
@@ -202,8 +164,6 @@ export const authConfig: NextAuthConfig = {
   },
   events: {
     async signOut() {
-      // The cookie clearing is now handled in the redirect callback
-      // to ensure it happens before the backend redirect
     }
   },
   pages: {
@@ -219,7 +179,7 @@ export const authConfig: NextAuthConfig = {
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60, // 24 hours in seconds
+        maxAge: SESSION_DURATION_SECONDS,
         domain: process.env.NODE_ENV === 'production' ? 'rhesis.ai' : undefined
       }
     }
