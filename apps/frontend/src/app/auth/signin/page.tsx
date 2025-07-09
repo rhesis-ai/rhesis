@@ -3,16 +3,24 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CircularProgress, Box, Typography, Container } from '@mui/material';
+import { clearAllSessionData } from '@/utils/session';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<string>('Initializing...');
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     const handleAuth = async () => {
       try {
+        // Check for session expiration error
+        const errorParam = searchParams.get('error');
+        if (errorParam === 'session_expired') {
+          // Clear all session data if session has expired
+          clearAllSessionData();
+          return; // clearAllSessionData will handle the redirect
+        }
+
         const incomingToken = searchParams.get('session_token');
         
         if (incomingToken) {
@@ -50,32 +58,23 @@ export default function SignIn() {
 
   return (
     <Container maxWidth="sm">
-      <Box 
-        sx={{ 
-          minHeight: '100vh',
-          display: 'flex', 
+      <Box
+        sx={{
+          mt: 8,
+          display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
-          gap: 2
+          gap: 2,
         }}
       >
-        {error ? (
-          <>
-            <Typography color="error.main" gutterBottom>
-              {error}
-            </Typography>
-            {debugInfo && (
-              <Typography variant="body2" component="pre" sx={{ mt: 2 }}>
-                Debug info: {JSON.stringify(debugInfo, null, 2)}
-              </Typography>
-            )}
-          </>
-        ) : (
-          <>
-            <CircularProgress />
-            <Typography>{status}</Typography>
-          </>
+        <CircularProgress />
+        <Typography variant="h6" align="center">
+          {status}
+        </Typography>
+        {error && (
+          <Typography color="error" align="center">
+            {error}
+          </Typography>
         )}
       </Box>
     </Container>
