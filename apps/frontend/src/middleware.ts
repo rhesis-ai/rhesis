@@ -77,13 +77,19 @@ function createSessionClearingResponse(url: URL): NextResponse {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   
+  console.log('🟠 [DEBUG] Middleware called for pathname:', pathname);
+  
   // At the top of the middleware function, after pathname declaration
   const isPostLogout = request.nextUrl.searchParams.get('post_logout') === 'true';
+  
+  console.log('🟠 [DEBUG] Is post logout:', isPostLogout);
 
   // Prevent redirect loops by always allowing access to signin page
   if (pathname.startsWith('/auth/signin')) {
+    console.log('🟠 [DEBUG] Auth signin path detected');
     // If this is a post-logout redirect, force return_to to root
     if (isPostLogout) {
+      console.log('🟠 [DEBUG] Post logout redirect, clearing session cookies');
       const signInUrl = new URL('/auth/signin', request.url);
       signInUrl.searchParams.set('return_to', '/');
       return createSessionClearingResponse(signInUrl);
@@ -93,6 +99,7 @@ export async function middleware(request: NextRequest) {
 
   // Allow public paths without auth checks
   if (isPublicPath(pathname)) {
+    console.log('🟠 [DEBUG] Public path detected, allowing access');
     return NextResponse.next()
   }
 

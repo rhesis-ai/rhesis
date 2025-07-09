@@ -155,13 +155,6 @@ export const authConfig: NextAuthConfig = {
     },
     async redirect({ url, baseUrl }) {
       if (url.includes('/api/auth/signout')) {
-        if (typeof window !== 'undefined') {
-          document.cookie = 'next-auth.session-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-          if (process.env.NODE_ENV === 'production') {
-            document.cookie = 'next-auth.session-token=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-          }
-        }
-        
         const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
         const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || baseUrl;
         const customLoginUrl = `${frontendUrl}/`;
