@@ -21,6 +21,7 @@ from rhesis.backend.metrics.base import MetricConfig
 from rhesis.backend.metrics.config import load_default_metrics
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
+from rhesis.backend.app.auth.user_utils import get_current_user
 
 
 def setup_tenant_context(db: Session, organization_id: Optional[str], user_id: Optional[str]) -> None:

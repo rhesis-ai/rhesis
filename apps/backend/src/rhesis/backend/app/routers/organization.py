@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.auth_utils import (
+from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )

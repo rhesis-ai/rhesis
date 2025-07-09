@@ -5,6 +5,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.worker import app
 from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.app.auth.token_validation import validate_token
 
 # Import SDK components for test generation
 from rhesis.sdk.entities.test_set import TestSet as SDKTestSet

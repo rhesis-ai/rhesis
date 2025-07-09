@@ -6,11 +6,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.app.services.test_run import get_test_results_for_test_run, test_run_results_to_csv
+from rhesis.backend.app.models.user import User
 
 # Create the detailed schema for TestRun
 TestRunDetailSchema = create_detailed_schema(
@@ -35,7 +36,7 @@ router = APIRouter(
 def create_test_run(
     test_run: schemas.TestRunCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Create a new test run"""
     # Set the user_id to the current user if not provided
@@ -59,7 +60,7 @@ def read_test_runs(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all test runs with their related objects"""
     test_runs = crud.get_test_runs(
@@ -72,7 +73,7 @@ def read_test_runs(
 def read_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get a specific test run by ID with its related objects"""
     db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
@@ -85,7 +86,7 @@ def read_test_run(
 def get_test_run_behaviors(
     test_run_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get behaviors that have test results for this test run"""
     behaviors = crud.get_test_run_behaviors(db, test_run_id=test_run_id)
@@ -97,7 +98,7 @@ def update_test_run(
     test_run_id: UUID,
     test_run: schemas.TestRunUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Update a test run"""
     db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
@@ -115,7 +116,7 @@ def update_test_run(
 def delete_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Delete a test run"""
     db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
@@ -133,7 +134,7 @@ def delete_test_run(
 def download_test_run_results(
     test_run_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Download test run results as CSV"""
     try:

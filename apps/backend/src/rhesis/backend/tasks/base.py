@@ -12,6 +12,7 @@ from rhesis.backend.app.database import (
     set_tenant,
     maintain_tenant_context,
 )
+from rhesis.backend.app.auth.user_utils import get_current_user
 from rhesis.backend.tasks.enums import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_BACKOFF_MAX

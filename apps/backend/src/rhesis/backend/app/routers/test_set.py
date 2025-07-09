@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.auth.decorators import check_resource_permission
 from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.database import get_db

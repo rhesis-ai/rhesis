@@ -3,10 +3,16 @@ This module contains the main entry point for test configuration execution,
 with detailed implementation in the execution/ directory modules.
 """
 
+from datetime import datetime
+from typing import Dict, Any, Optional, Tuple
 from uuid import UUID
 
+from sqlalchemy.orm import Session
+
 from rhesis.backend.app import crud
-from rhesis.backend.app.models import TestRun
+from rhesis.backend.app.models.test_configuration import TestConfiguration
+from rhesis.backend.app.models.test_run import TestRun
+from rhesis.backend.worker import app
 from rhesis.backend.tasks.base import SilentTask, with_tenant_context
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.tasks.utils import (
@@ -16,9 +22,6 @@ from rhesis.backend.tasks.utils import (
     update_test_run_with_error,
     validate_task_parameters
 )
-from rhesis.backend.worker import app
-
-# Import only the functionality needed for this module
 from rhesis.backend.tasks.execution.config import get_test_configuration
 from rhesis.backend.tasks.execution.run import (
     TestExecutionError,
@@ -26,6 +29,8 @@ from rhesis.backend.tasks.execution.run import (
     update_test_run_status
 )
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
+from rhesis.backend.logging.rhesis_logger import logger
+from rhesis.backend.app.auth.user_utils import get_current_user
 
 
 @app.task(base=SilentTask, name="rhesis.backend.tasks.execute_test_configuration", bind=True, display_name="Test Configuration Execution")
