@@ -9,6 +9,7 @@ from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.database import get_db
 from rhesis.backend.logging import logger
+from rhesis.backend.app.auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES, FRONTEND_DOMAINS
 from rhesis.backend.app.auth.oauth import oauth, get_auth0_user_info, extract_user_data
 from rhesis.backend.app.auth.token_utils import create_session_token, get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.user_utils import find_or_create_user
@@ -18,14 +19,6 @@ router = APIRouter(
     prefix="/auth",
     tags=["authentication"],
 )
-
-# Constants
-ACCESS_TOKEN_EXPIRE_MINUTES = 1 # set to 1 for testing
-FRONTEND_DOMAINS = [
-    "app.rhesis.ai",
-    "dev-app.rhesis.ai",  # development environment
-    "localhost:3000",  # development
-]
 
 
 @router.get("/login")
