@@ -86,7 +86,7 @@ export class BaseApiClient {
       if (typeof window !== 'undefined') {
         // Add a delay to ensure any pending operations complete
         await this.delay(500);
-        await clearAllSessionData(); // Now properly awaited
+        await clearAllSessionData(); // This now redirects to home page
         
         // This line should never be reached as clearAllSessionData redirects
         throw new Error('Unauthorized - session cleared');

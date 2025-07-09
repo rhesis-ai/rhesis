@@ -155,11 +155,8 @@ export const authConfig: NextAuthConfig = {
     },
     async redirect({ url, baseUrl }) {
       if (url.includes('/api/auth/signout')) {
-        const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-        const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || baseUrl;
-        const customLoginUrl = `${frontendUrl}/`;
-        const returnUrl = `${backendUrl}/auth/logout?redirect_url=${encodeURIComponent(customLoginUrl)}`;
-        return returnUrl;
+        // Redirect directly to home page after signout
+        return `${baseUrl}/`;
       }
       
       return url.startsWith(baseUrl) ? url : baseUrl;
