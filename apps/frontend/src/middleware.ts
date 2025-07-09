@@ -1,27 +1,105 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { auth } from './auth'
-import { PROTECTED_PATHS, isPublicPath, isSuperuserPath, ONBOARDING_PATH } from './constants/paths'
+import { isPublicPath, ONBOARDING_PATH } from './constants/paths'
+
+// Helper function to verify token with backend
+async function verifySessionWithBackend(sessionToken: string) {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/verify?session_token=${sessionToken}`,
+      {
+        headers: {
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    return data.authenticated && data.user;
+  } catch (error) {
+    console.error('Backend session verification failed:', error);
+    return false;
+  }
+}
+
+// Helper function to get session token from request
+function getSessionTokenFromRequest(request: NextRequest): string | null {
+  const sessionCookie = request.cookies.get('next-auth.session-token');
+  return sessionCookie?.value || null;
+}
+
+// Helper function to create a response that clears session cookies
+function createSessionClearingResponse(url: URL): NextResponse {
+  const response = NextResponse.redirect(url);
+  
+  // List of cookies to clear
+  const cookiesToClear = [
+    'next-auth.session-token',
+    'next-auth.csrf-token',
+    'next-auth.callback-url',
+    'next-auth.pkce.code-verifier',
+    'next-auth.pkce.state',
+    'session',
+    'authjs.session-token',
+    'authjs.csrf-token',
+    'authjs.callback-url',
+    '__Host-next-auth.csrf-token',
+    '__Secure-next-auth.callback-url',
+    '__Secure-next-auth.session-token',
+  ];
+
+  // Clear each cookie
+  cookiesToClear.forEach(name => {
+    // Delete the cookie
+    response.cookies.delete(name);
+    
+    // For production environment, also set an expired cookie with domain
+    if (process.env.NODE_ENV === 'production') {
+      response.cookies.set(name, '', {
+        domain: 'rhesis.ai',
+        path: '/',
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 0,
+        expires: new Date(0)
+      });
+    }
+  });
+
+  return response;
+}
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   
+  console.log('🟠 [DEBUG] Middleware called for pathname:', pathname);
+  
   // At the top of the middleware function, after pathname declaration
   const isPostLogout = request.nextUrl.searchParams.get('post_logout') === 'true';
+  
+  console.log('🟠 [DEBUG] Is post logout:', isPostLogout);
 
   // Prevent redirect loops by always allowing access to signin page
   if (pathname.startsWith('/auth/signin')) {
+    console.log('🟠 [DEBUG] Auth signin path detected');
     // If this is a post-logout redirect, force return_to to root
     if (isPostLogout) {
+      console.log('🟠 [DEBUG] Post logout redirect, clearing session cookies');
       const signInUrl = new URL('/auth/signin', request.url);
       signInUrl.searchParams.set('return_to', '/');
-      return NextResponse.redirect(signInUrl);
+      return createSessionClearingResponse(signInUrl);
     }
     return NextResponse.next();
   }
 
   // Allow public paths without auth checks
   if (isPublicPath(pathname)) {
+    console.log('🟠 [DEBUG] Public path detected, allowing access');
     return NextResponse.next()
   }
 
@@ -29,53 +107,47 @@ export async function middleware(request: NextRequest) {
   if (pathname === ONBOARDING_PATH) {
     // Still check for auth though
     console.log('🔑 Onboarding path detected, checking auth only...')
-  } else {
-    // Check for superuser paths
-    if (isSuperuserPath(pathname)) {
-      console.log('🔒 Superuser path detected, checking session...')
-    }
   }
 
   // If not public, check for session
   console.log('🔒 Protected path detected, checking session...')
   try {
-    console.log('Calling auth()...')
-    const session = await auth()
-    
-    // More thorough session validation
-    const isValidSession = session && 
-      session.user?.id && 
-      session.user?.email && 
-      session.session_token;
-
-    if (!isValidSession) {
-      console.log('❌ Session validation failed:', {
-        hasSession: !!session,
-        hasUserId: !!session?.user?.id,
-        hasEmail: !!session?.user?.email,
-        hasToken: !!session?.session_token
-      })
-      const signInUrl = new URL('/auth/signin', request.url)
-      signInUrl.searchParams.set('return_to', pathname)
-      return NextResponse.redirect(signInUrl)
+    // Get session token from request
+    const sessionToken = getSessionTokenFromRequest(request);
+    if (!sessionToken) {
+      console.log('❌ No session token found');
+      // For users accessing protected routes without any authentication,
+      // redirect to signin with return_to parameter for seamless experience
+      const signInUrl = new URL('/auth/signin', request.url);
+      signInUrl.searchParams.set('return_to', pathname);
+      return NextResponse.redirect(signInUrl);
     }
 
-    // If user has organization_id and tries to access onboarding, redirect to dashboard
-    if (pathname === ONBOARDING_PATH && session.user?.organization_id) {
-      console.log('⚠️ User already has organization, redirecting to dashboard');
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+    // Verify session token with backend
+    const isValidBackendSession = await verifySessionWithBackend(sessionToken);
+    if (!isValidBackendSession) {
+      console.log('❌ Backend session validation failed');
+      // For users with expired/invalid sessions (they were previously authenticated),
+      // redirect to home page to complete the signout flow
+      return createSessionClearingResponse(new URL('/', request.url));
     }
 
-    // Check organization_id - but only if not already going to onboarding
-    if (pathname !== ONBOARDING_PATH && !session.user?.organization_id) {
+    // Get session data from auth
+    const session = await auth();
+    if (!session?.user?.organization_id && pathname !== ONBOARDING_PATH) {
       console.log('⚠️ No organization_id found, redirecting to onboarding');
-      return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url))
+      return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url));
     }
 
-    console.log('✅ Valid session found')
-    return NextResponse.next()
-  } catch (error) {
-    const err = error as Error
+    if (pathname === ONBOARDING_PATH && session?.user?.organization_id) {
+      console.log('⚠️ User already has organization, redirecting to dashboard');
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    console.log('✅ Valid session found');
+    return NextResponse.next();
+  } catch (error: any) {
+    const err = error as Error;
     
     console.log('🚨 Auth Error in middleware:', {
       type: typeof err,
@@ -83,28 +155,25 @@ export async function middleware(request: NextRequest) {
       message: err.message,
       cause: err.cause,
       stack: err.stack
-    })
+    });
     
     if (err.message?.includes('UntrustedHost')) {
-      console.log('❌ UntrustedHost error detected')
-      const signInUrl = new URL('/auth/signin', request.url)
-      signInUrl.searchParams.set('return_to', pathname)
-      return NextResponse.redirect(signInUrl)
+      console.log('❌ UntrustedHost error detected');
+      // For untrusted host errors, redirect to home page with session clearing
+      return createSessionClearingResponse(new URL('/', request.url));
     }
     
     const isJWTError = err.message?.includes('JWTSessionError') || 
                       err.name === 'JWTSessionError' ||
-                      (err.cause as Error)?.message?.includes('no matching decryption secret')
+                      (err.cause as Error)?.message?.includes('no matching decryption secret');
     
     if (isJWTError) {
-      console.log('❌ JWT Session Error detected')
-      const signInUrl = new URL('/auth/signin', request.url)
-      signInUrl.searchParams.set('return_to', pathname)
-      signInUrl.searchParams.set('error', 'session_expired')
-      return NextResponse.redirect(signInUrl)
+      console.log('❌ JWT Session Error detected');
+      // For JWT errors (expired/invalid sessions), redirect to home page with session clearing
+      return createSessionClearingResponse(new URL('/', request.url));
     }
     
-    throw error
+    throw error;
   }
 }
 

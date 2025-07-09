@@ -2,20 +2,44 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CircularProgress, Box, Typography, Container } from '@mui/material';
+import { CircularProgress, Box, Typography } from '@mui/material';
+import { clearAllSessionData } from '@/utils/session';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<string>('Initializing...');
+  const [status, setStatus] = useState<string>('Hang tight...');
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     const handleAuth = async () => {
       try {
+        console.log('🟢 [DEBUG] SignIn page - handleAuth called');
+        console.log('🟢 [DEBUG] Search params:', Object.fromEntries(searchParams.entries()));
+        
+        // Check for session expiration error
+        const errorParam = searchParams.get('error');
+        const postLogout = searchParams.get('post_logout');
+        
+        console.log('🟢 [DEBUG] Error param:', errorParam, 'Post logout:', postLogout);
+        
+        if (errorParam === 'session_expired') {
+          console.log('🟢 [DEBUG] Session expired detected, redirecting to home');
+          // Redirect to home page for expired sessions
+          window.location.href = '/';
+          return;
+        }
+
+        if (postLogout === 'true') {
+          console.log('🟢 [DEBUG] Post logout redirect detected, redirecting to home');
+          // Redirect to home page after logout
+          window.location.href = '/';
+          return;
+        }
+
         const incomingToken = searchParams.get('session_token');
         
         if (incomingToken) {
+          console.log('🟢 [DEBUG] Incoming session token detected, setting cookie');
           setStatus('Verifying session token...');
           
           // Set cookie with proper domain
@@ -27,12 +51,21 @@ export default function SignIn() {
           
           setStatus('Authentication successful, redirecting...');
           const returnTo = searchParams.get('return_to') || '/dashboard';
+          console.log('🟢 [DEBUG] Redirecting to:', returnTo);
           window.location.href = returnTo;
           return;
         }
 
+        // If no token and no special parameters, show authentication required message
+        const returnTo = searchParams.get('return_to');
+        if (returnTo) {
+          setStatus('Please sign in to continue.');
+        } else {
+          setStatus('Redirecting to login...');
+        }
+
         // If no token, redirect to backend login
-        setStatus('Redirecting to login...');
+        console.log('🟢 [DEBUG] No token found, redirecting to backend login');
         const currentUrl = window.location.href;
         window.location.replace(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login?return_to=${encodeURIComponent(currentUrl)}`
@@ -40,8 +73,8 @@ export default function SignIn() {
 
       } catch (error) {
         const err = error as Error;
+        console.error('🟢 [DEBUG] Auth error:', err);
         setError(`Authentication error: ${err.message}`);
-        console.error('Auth error:', err);
       }
     };
 
@@ -49,35 +82,26 @@ export default function SignIn() {
   }, [searchParams]);
 
   return (
-    <Container maxWidth="sm">
-      <Box 
-        sx={{ 
-          minHeight: '100vh',
-          display: 'flex', 
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 2
-        }}
-      >
-        {error ? (
-          <>
-            <Typography color="error.main" gutterBottom>
-              {error}
-            </Typography>
-            {debugInfo && (
-              <Typography variant="body2" component="pre" sx={{ mt: 2 }}>
-                Debug info: {JSON.stringify(debugInfo, null, 2)}
-              </Typography>
-            )}
-          </>
-        ) : (
-          <>
-            <CircularProgress />
-            <Typography>{status}</Typography>
-          </>
-        )}
-      </Box>
-    </Container>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        gap: 2,
+        bgcolor: 'background.default',
+      }}
+    >
+      <CircularProgress />
+      <Typography variant="body1" align="center">
+        {status}
+      </Typography>
+      {error && (
+        <Typography color="error" align="center">
+          {error}
+        </Typography>
+      )}
+    </Box>
   );
 }

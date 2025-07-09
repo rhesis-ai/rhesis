@@ -19,7 +19,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
-from rhesis.backend.app.auth.auth_utils import require_current_user, require_current_user_or_token
+from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
 from rhesis.backend.app.database import Base, engine
 from rhesis.backend.app.routers import routers
 from rhesis.backend.logging import logger

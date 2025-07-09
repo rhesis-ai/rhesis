@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.auth_utils import require_current_user_or_token
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.app.models.user import User
 
 # Create the detailed schema for Metric
 MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
@@ -25,7 +26,7 @@ router = APIRouter(
 def create_metric(
     metric: schemas.MetricCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Create a new metric"""
     # Set the owner to the current user if not provided
@@ -44,7 +45,7 @@ def read_metrics(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all metrics with their related objects"""
     metrics = crud.get_metrics(
@@ -57,7 +58,7 @@ def read_metrics(
 def read_metric(
     metric_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get a specific metric by ID with its related objects"""
     db_metric = crud.get_metric(db, metric_id=metric_id)
@@ -71,7 +72,7 @@ def update_metric(
     metric_id: UUID,
     metric: schemas.MetricUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Update a metric"""
     db_metric = crud.get_metric(db, metric_id=metric_id)
@@ -89,7 +90,7 @@ def update_metric(
 def delete_metric(
     metric_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Delete a metric"""
     db_metric = crud.get_metric(db, metric_id=metric_id)
@@ -108,7 +109,7 @@ def add_behavior_to_metric(
     metric_id: UUID,
     behavior_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Add a behavior to a metric"""
     # Check if the metric exists and user has permission
@@ -139,7 +140,7 @@ def remove_behavior_from_metric(
     metric_id: UUID,
     behavior_id: UUID,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Remove a behavior from a metric"""
     # Check if the metric exists and user has permission
@@ -175,7 +176,7 @@ def read_metric_behaviors(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all behaviors associated with a metric"""
     try:
