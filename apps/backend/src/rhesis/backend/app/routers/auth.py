@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.auth.auth_utils import ALGORITHM, get_secret_key
+from rhesis.backend.app.auth.auth_utils import ALGORITHM, get_secret_key, verify_jwt_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.logging import logger
@@ -32,7 +32,7 @@ router = APIRouter(
 )
 
 # Constants
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 1 # set to 1 for testing
 FRONTEND_DOMAINS = [
     "app.rhesis.ai",
     "dev-app.rhesis.ai",  # development environment
@@ -314,25 +314,26 @@ async def verify_auth(
     logger.info(f"Verify request received. Token: {session_token[:8]}...")
 
     try:
-        # Verify the JWT token
-        payload = jwt.decode(session_token, secret_key, algorithms=[ALGORITHM])
-
-        # Check if it's a session token
-        if payload.get("type") != "session":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type"
-            )
-
+        # Use the shared verification function
+        payload = verify_jwt_token(session_token, secret_key)
+        
         # Return the user info from the token
         return {"authenticated": True, "user": payload["user"], "return_to": return_to}
 
     except JWTError as e:
         logger.error(f"JWT verification failed: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    except HTTPException:
-        raise
+        if "Expired token" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Token has expired"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid token"
+        )
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Authentication failed"
         )
