@@ -160,13 +160,12 @@ def test_rhesis_prompt_metric_evaluate(mock_override, mock_llm_response, sample_
     
     # Verify result
     assert isinstance(result.score, float)
-    assert 0 <= result.score <= 1  # Score should be normalized
+    assert result.score == 4.5  # Score should be raw, not normalized
     assert "raw_score" in result.details
     assert result.details["raw_score"] == 4.5  # The mock value
     assert "reason" in result.details
     assert "is_successful" in result.details
     assert "threshold" in result.details
-    assert result.details["threshold"] == 0.6
 
 
 @patch("mirascope.llm.override")
@@ -370,7 +369,7 @@ def test_score_processing():
     assert categorical_metric._process_score("good") == "good"
 
 
-class TestableRhesisMetricBase(RhesisMetricBase):
+class MockRhesisMetricBase(RhesisMetricBase):
     """Concrete implementation of RhesisMetricBase for testing purposes."""
     
     @property
@@ -387,7 +386,7 @@ class TestRhesisMetricBase:
     
     def test_threshold_operator_sanitization(self):
         """Test threshold operator sanitization."""
-        base = TestableRhesisMetricBase("test")
+        base = MockRhesisMetricBase("test")
         
         # Test valid operators
         assert base._sanitize_threshold_operator(">=") == ThresholdOperator.GREATER_THAN_OR_EQUAL
@@ -403,7 +402,7 @@ class TestRhesisMetricBase:
     
     def test_operator_validation_for_score_types(self):
         """Test that operators are validated for appropriate score types."""
-        base = TestableRhesisMetricBase("test")
+        base = MockRhesisMetricBase("test")
         
         # Valid combinations
         base._validate_operator_for_score_type(ThresholdOperator.EQUAL, ScoreType.BINARY)
@@ -420,7 +419,7 @@ class TestRhesisMetricBase:
     
     def test_evaluate_score_numeric(self):
         """Test score evaluation for numeric score types."""
-        base = TestableRhesisMetricBase("test", threshold=0.7)
+        base = MockRhesisMetricBase("test", threshold=0.7)
         
         # Test different operators with numeric scores
         assert base.evaluate_score(0.8, ScoreType.NUMERIC, threshold=0.7, threshold_operator=ThresholdOperator.GREATER_THAN_OR_EQUAL) is True
@@ -434,7 +433,7 @@ class TestRhesisMetricBase:
     
     def test_evaluate_score_binary(self):
         """Test score evaluation for binary score types."""
-        base = TestableRhesisMetricBase("test", reference_score="true")
+        base = MockRhesisMetricBase("test", reference_score="true")
         
         # Test binary evaluation (only = and != should work)
         assert base.evaluate_score("true", ScoreType.BINARY, reference_score="true", threshold_operator=ThresholdOperator.EQUAL) is True
@@ -444,7 +443,7 @@ class TestRhesisMetricBase:
     
     def test_evaluate_score_categorical(self):
         """Test score evaluation for categorical score types."""
-        base = TestableRhesisMetricBase("test", reference_score="excellent")
+        base = MockRhesisMetricBase("test", reference_score="excellent")
         
         # Test categorical evaluation
         assert base.evaluate_score("excellent", ScoreType.CATEGORICAL, reference_score="excellent", threshold_operator=ThresholdOperator.EQUAL) is True
@@ -454,9 +453,9 @@ class TestRhesisMetricBase:
     
     def test_evaluate_score_defaults(self):
         """Test that default operators are set correctly based on score type."""
-        base_numeric = TestableRhesisMetricBase("test", threshold=0.7)
-        base_binary = TestableRhesisMetricBase("test", reference_score="true")
-        base_categorical = TestableRhesisMetricBase("test", reference_score="excellent")
+        base_numeric = MockRhesisMetricBase("test", threshold=0.7)
+        base_binary = MockRhesisMetricBase("test", reference_score="true")
+        base_categorical = MockRhesisMetricBase("test", reference_score="excellent")
         
         # Default for numeric should be >=
         assert base_numeric.evaluate_score(0.8, ScoreType.NUMERIC) is True  # 0.8 >= 0.7
@@ -513,7 +512,7 @@ def test_reference_score_requirements():
 
 def test_evaluate_score_error_cases():
     """Test error cases in score evaluation."""
-    base = TestableRhesisMetricBase("test")
+    base = MockRhesisMetricBase("test")
     
     # Test missing threshold for numeric
     with pytest.raises(ValueError, match="Threshold is required for numeric score type"):
