@@ -24,7 +24,6 @@ class TemplateService:
     def __init__(self):
         # Get template directory path
         self.template_dir = Path(__file__).parent / "templates"
-        logger.info(f"TemplateService initialized with template directory: {self.template_dir}")
     
         # Initialize Jinja2 environment
         self.jinja_env = jinja2.Environment(
