@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.types import (
+from rhesis.backend.metrics.constants import (
     ScoreType,
     ThresholdOperator,
     OPERATOR_MAP,
@@ -150,7 +150,7 @@ class ScoreEvaluator:
         if score_type == ScoreType.NUMERIC:
             return self._evaluate_numeric_score(score, threshold, sanitized_operator)
         else:  # BINARY or CATEGORICAL
-            return self._evaluate_categorical_score(score, reference_score, threshold, sanitized_operator)
+            return self._evaluate_categorical_score(score, reference_score, threshold, sanitized_operator, score_type)
 
     def _evaluate_numeric_score(
         self,
@@ -178,8 +178,7 @@ class ScoreEvaluator:
         
         # Validate threshold is provided for numeric scores
         if threshold is None:
-            logger.warning("Threshold is required for numeric score type but was not provided")
-            return False
+            raise ValueError("Threshold is required for numeric score type")
         
         # Use operator module for comparison
         op_func = OPERATOR_MAP.get(threshold_operator)
@@ -195,7 +194,8 @@ class ScoreEvaluator:
         score: Union[str, float, int],
         reference_score: Optional[str],
         threshold: Optional[float],
-        threshold_operator: ThresholdOperator
+        threshold_operator: ThresholdOperator,
+        score_type: ScoreType
     ) -> bool:
         """
         Evaluate binary/categorical scores against reference score using the specified operator.
@@ -205,6 +205,7 @@ class ScoreEvaluator:
             reference_score: The reference score to compare against
             threshold: The threshold (used as reference if reference_score not provided)
             threshold_operator: The comparison operator
+            score_type: The score type (BINARY or CATEGORICAL)
             
         Returns:
             bool: True if the score meets the criteria
@@ -214,8 +215,9 @@ class ScoreEvaluator:
             if threshold is not None:
                 reference_value = str(threshold)
             else:
-                logger.warning("Reference score or threshold is required for binary/categorical score type but was not provided")
-                return False
+                # Use the actual score type to determine the error message
+                score_type_name = score_type.value.lower()
+                raise ValueError(f"Reference score is required for {score_type_name} score type")
         else:
             reference_value = reference_score
         
