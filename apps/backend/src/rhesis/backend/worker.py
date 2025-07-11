@@ -107,10 +107,6 @@ app.conf.update(
     ],
 )
 
-# Print configuration for debugging
-print(f"Celery app created with Redis broker: {app.conf.broker_url}")
-print(f"Redis result backend: {app.conf.result_backend}")
-
 # Auto-discover tasks
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
 

@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.base import BaseMetric, MetricResult, MetricType
-from rhesis.backend.metrics.types import ScoreType, ThresholdOperator
+from rhesis.backend.metrics.constants import ScoreType, ThresholdOperator
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 
 
@@ -32,6 +32,49 @@ class RhesisMetricBase(BaseMetric):
     def reference_score(self, value: Optional[str]):
         self._reference_score = value
     
+    def _sanitize_threshold_operator(self, threshold_operator: Union[ThresholdOperator, str, None]) -> Optional[ThresholdOperator]:
+        """
+        Sanitize and validate the threshold operator.
+        Delegates to the score evaluator's implementation.
+        
+        Args:
+            threshold_operator: The threshold operator to sanitize
+            
+        Returns:
+            ThresholdOperator: Sanitized and validated threshold operator, or None if invalid
+            
+        Raises:
+            ValueError: If the operator is invalid
+        """
+        result = self._score_evaluator._sanitize_threshold_operator(threshold_operator)
+        if result is None and threshold_operator is not None:
+            raise ValueError(f"Invalid threshold operator: {threshold_operator}")
+        return result
+    
+    def _validate_operator_for_score_type(self, threshold_operator: ThresholdOperator, score_type: ScoreType) -> bool:
+        """
+        Validate that the threshold operator is appropriate for the score type.
+        Delegates to the score evaluator's implementation and raises exception if invalid.
+        
+        Args:
+            threshold_operator: The threshold operator to validate
+            score_type: The score type to validate against
+            
+        Returns:
+            bool: True if the operator is valid for the score type
+            
+        Raises:
+            ValueError: If the operator is not valid for the score type
+        """
+        is_valid = self._score_evaluator._validate_operator_for_score_type(threshold_operator, score_type)
+        if not is_valid:
+            from rhesis.backend.metrics.constants import VALID_OPERATORS_BY_SCORE_TYPE
+            valid_operators = VALID_OPERATORS_BY_SCORE_TYPE.get(score_type, set())
+            valid_ops_str = ', '.join([op.value for op in valid_operators])
+            raise ValueError(f"Operator '{threshold_operator.value}' is not valid for score type '{score_type.value}'. "
+                           f"Valid operators for {score_type.value} are: {valid_ops_str}")
+        return is_valid
+
     def evaluate_score(
         self, 
         score: Union[float, str, int], 
