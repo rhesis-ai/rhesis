@@ -17,8 +17,6 @@ class EmailService:
     def __init__(self):
         self.smtp_service = SMTPService()
         self.template_service = TemplateService()
-        
-        logger.info("EmailService initialized with SMTP and Template services")
     
     @property
     def is_configured(self) -> bool:

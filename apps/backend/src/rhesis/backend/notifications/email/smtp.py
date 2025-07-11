@@ -21,10 +21,6 @@ class SMTPService:
         self.smtp_password = os.getenv("SMTP_PASSWORD")
         self.from_email = os.getenv("FROM_EMAIL", "engineering@rhesis.ai")
         
-        # Log SMTP configuration (without passwords)
-        logger.info(f"SMTPService initialized with SMTP_HOST: {self.smtp_host}, SMTP_PORT: {self.smtp_port}, SMTP_USER: {self.smtp_user}, SMTP_PASSWORD: {'[SET]' if self.smtp_password else '[NOT SET]'}")
-        logger.info(f"FROM_EMAIL: {self.from_email}")
-        
         # Check if all required SMTP configurations are present
         self.is_configured = all([
             self.smtp_host,
@@ -35,8 +31,6 @@ class SMTPService:
         if not self.is_configured:
             logger.warning("SMTP configuration incomplete. Email notifications will be disabled.")
             logger.warning(f"Missing SMTP config - HOST: {bool(self.smtp_host)}, USER: {bool(self.smtp_user)}, PASSWORD: {bool(self.smtp_password)}")
-        else:
-            logger.info("SMTP configuration complete. Email notifications enabled.")
     
     def send_message(self, msg: MIMEMultipart, recipient_email: str, task_id: str) -> bool:
         """
