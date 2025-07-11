@@ -5,22 +5,23 @@ from .config.loader import MetricConfigLoader
 from .evaluator import MetricEvaluator as Evaluator
 from .factory import MetricFactory
 from .score_evaluator import ScoreEvaluator
-from .types import ScoreType, ThresholdOperator, OPERATOR_MAP, VALID_OPERATORS_BY_SCORE_TYPE
+from .constants import ScoreType, ThresholdOperator, OPERATOR_MAP, VALID_OPERATORS_BY_SCORE_TYPE
 from .utils import run_evaluation, diagnose_invalid_metric
 from .rhesis import (  # Re-export Rhesis metrics
     RhesisMetricBase,
     RhesisMetricFactory,
     RhesisPromptMetric,
 )
-from .deepeval import (  # Re-export DeepEval metrics
-    DeepEvalMetricBase,
-    DeepEvalMetricFactory,
-    DeepEvalAnswerRelevancy,
-    DeepEvalFaithfulness,
-    DeepEvalContextualRelevancy,
-    DeepEvalContextualPrecision,
-    DeepEvalContextualRecall,
-)
+# Lazy import to avoid circular dependencies
+# from .deepeval import (  # Re-export DeepEval metrics
+#     DeepEvalMetricBase,
+#     DeepEvalMetricFactory,
+#     DeepEvalAnswerRelevancy,
+#     DeepEvalFaithfulness,
+#     DeepEvalContextualRelevancy,
+#     DeepEvalContextualPrecision,
+#     DeepEvalContextualRecall,
+# )
 from .ragas import (  # Re-export Ragas metrics
     RagasMetricBase,
     RagasMetricFactory,
@@ -53,14 +54,14 @@ __all__ = [
     "RhesisMetricFactory",
     "RhesisPromptMetric",
     
-    # DeepEval metrics
-    "DeepEvalMetricBase",
-    "DeepEvalMetricFactory",
-    "DeepEvalAnswerRelevancy",
-    "DeepEvalFaithfulness",
-    "DeepEvalContextualRelevancy",
-    "DeepEvalContextualPrecision",
-    "DeepEvalContextualRecall",
+    # DeepEval metrics (commented out to avoid circular imports)
+    # "DeepEvalMetricBase",
+    # "DeepEvalMetricFactory", 
+    # "DeepEvalAnswerRelevancy",
+    # "DeepEvalFaithfulness",
+    # "DeepEvalContextualRelevancy",
+    # "DeepEvalContextualPrecision",
+    # "DeepEvalContextualRecall",
     
     # Ragas metrics
     "RagasMetricBase",
