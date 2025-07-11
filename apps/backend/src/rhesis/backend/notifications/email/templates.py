@@ -20,7 +20,6 @@ class TemplateService:
     def __init__(self):
         # Get template directory path
         self.template_dir = Path(__file__).parent / "templates"
-        logger.info(f"TemplateService initialized with template directory: {self.template_dir}")
     
     def load_template(self, template_name: str) -> str:
         """Load email template from file."""
