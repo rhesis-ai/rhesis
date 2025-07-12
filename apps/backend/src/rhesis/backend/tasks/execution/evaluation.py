@@ -1,8 +1,15 @@
+"""
+Evaluation orchestration for prompt responses.
+
+This module handles the coordination of metric evaluation using extracted responses
+from endpoint invocations.
+"""
 from typing import Dict, List, Any, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.metrics.base import MetricConfig
+from .response_extractor import extract_response_with_fallback
 
 
 def evaluate_prompt_response(
@@ -13,29 +20,28 @@ def evaluate_prompt_response(
     result: Dict,
     metrics: List[Union[Dict[str, Any], MetricConfig]],
 ) -> Dict:
-    """Evaluate prompt response using different metrics."""
+    """
+    Evaluate prompt response using different metrics.
+    
+    Args:
+        metrics_evaluator: The metrics evaluator instance
+        prompt_content: The original prompt content
+        expected_response: The expected response for comparison
+        context: List of context strings
+        result: The response dictionary from endpoint invocation
+        metrics: List of metric configurations to use for evaluation
+        
+    Returns:
+        Dictionary containing the evaluation results
+    """
     metrics_results = {}
     
     # Debug: Log the result structure
     logger.info(f"DEBUG: Result structure for evaluation: {result}")
     
-    # Handle the new error structure from REST invoker
-    if result and result.get("error", False):
-        # If there's an error, use the error message as the actual response
-        actual_response = result.get("message", "Unknown error occurred")
-        logger.info(f"Using error message as response for evaluation: {actual_response}")
-    else:
-        # For successful responses, extract the output
-        if result and not result.get("error", False):
-            # New success structure: {"error": false, "data": {...}}
-            actual_response = result.get("data", {}).get("output", "") if isinstance(result.get("data"), dict) else result.get("data", "")
-            # Fallback to old structure if data doesn't contain output
-            if not actual_response:
-                actual_response = result.get("output", "") if result else ""
-        else:
-            # Fallback for old structure or empty result
-            actual_response = result.get("output", "") if result else ""
-
+    # Extract actual_response using the fallback hierarchy
+    actual_response = extract_response_with_fallback(result)
+    
     # Debug: Log the extracted actual_response
     logger.info(f"DEBUG: Extracted actual_response for metrics: '{actual_response}' (type: {type(actual_response)})")
 
