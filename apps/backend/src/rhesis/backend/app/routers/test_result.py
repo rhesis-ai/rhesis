@@ -96,7 +96,7 @@ def delete_test_result(
         raise HTTPException(status_code=404, detail="Test result not found")
 
     # Check if the user has permission to delete this test result
-    if db_test_result.user_id != current_user.id and not current_user.is_admin:
+    if db_test_result.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
     return crud.delete_test_result(db=db, test_result_id=test_result_id)

@@ -2,7 +2,7 @@
 
 import React, { useRef, useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { TestRunDetail, TestRunCreate } from '@/utils/api-client/interfaces/test-run';
+import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { Autocomplete, TextField, Box, Avatar, Typography, Divider, Stack } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -12,6 +12,7 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { TestConfigurationCreate } from '@/utils/api-client/interfaces/test-configuration';
 import PersonIcon from '@mui/icons-material/Person';
 import { UUID } from 'crypto';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TestRunDrawerProps {
   open: boolean;
@@ -28,6 +29,7 @@ export default function TestRunDrawer({
   testRun,
   onSuccess 
 }: TestRunDrawerProps) {
+  const notifications = useNotifications();
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
   const [assignee, setAssignee] = React.useState<User | null>(null);
@@ -175,7 +177,6 @@ export default function TestRunDrawer({
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const testConfigurationsClient = clientFactory.getTestConfigurationsClient();
-      const testRunsClient = clientFactory.getTestRunsClient();
 
       // Create test configuration
       const testConfigurationData: TestConfigurationCreate = {
@@ -188,21 +189,11 @@ export default function TestRunDrawer({
       // Create the test configuration
       const testConfiguration = await testConfigurationsClient.createTestConfiguration(testConfigurationData);
 
-      // Execute the test configuration
+      // Execute the test configuration (this automatically creates a test run)
       await testConfigurationsClient.executeTestConfiguration(testConfiguration.id);
 
-      // Create test run
-      const testRunData: TestRunCreate = {
-        name: `Test Run for ${testSet.name}`,
-        test_configuration_id: testConfiguration.id as UUID,
-        owner_id: owner?.id,
-        assignee_id: assignee?.id,
-        organization_id: endpoint.organization_id as UUID,
-        user_id: getCurrentUserId() as UUID
-      };
-
-      // Create the test run
-      await testRunsClient.createTestRun(testRunData);
+      // Show success notification
+      notifications.show('Test execution started successfully', { severity: 'success' });
 
       onSuccess?.();
       onClose();
