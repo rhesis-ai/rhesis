@@ -16,12 +16,24 @@ export interface Session {
 
 export async function getSession(): Promise<Session | null> {
   // Get session token from cookie
-  const token = document.cookie
+  const cookieValue = document.cookie
     .split('; ')
     .find(row => row.startsWith('next-auth.session-token='))
     ?.split('=')[1];
 
-  if (!token) return null;
+  if (!cookieValue) return null;
+
+  // Extract the actual JWT token from the session data
+  let token = cookieValue;
+  try {
+    const sessionData = JSON.parse(decodeURIComponent(cookieValue));
+    if (sessionData && typeof sessionData === 'object' && sessionData.session_token) {
+      token = sessionData.session_token;
+    }
+  } catch (error) {
+    // If JSON parsing fails, treat as direct token
+    console.log('⚠️ [DEBUG] Session cookie is not JSON, treating as direct token');
+  }
 
   try {
     const response = await fetch(
