@@ -33,11 +33,8 @@ export default function ToolsPage() {
             <Chip 
               label="Coming soon" 
               size="small" 
-              color="default"
-              sx={{ 
-                bgcolor: 'grey.200',
-                color: 'text.secondary'
-              }}
+              color="secondary"
+              variant="outlined"
             />
           </Box>
           

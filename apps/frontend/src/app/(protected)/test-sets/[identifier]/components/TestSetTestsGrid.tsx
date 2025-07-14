@@ -105,6 +105,24 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
       }
     },
     { 
+      field: 'behavior',
+      headerName: 'Behavior', 
+      flex: 1,
+      renderCell: (params) => {
+        const behaviorName = params.row.behavior?.name;
+        if (!behaviorName) return null;
+
+        return (
+          <Chip
+            label={behaviorName}
+            variant="outlined"
+            size="small"
+            color="primary"
+          />
+        );
+      }
+    },
+    { 
       field: 'topic', 
       headerName: 'Topic', 
       flex: 1,
@@ -117,14 +135,7 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
             label={topicName}
             variant="outlined"
             size="small"
-            sx={{ 
-              backgroundColor: 'rgba(158, 158, 158, 0.08)',
-              borderColor: 'rgba(158, 158, 158, 0.3)',
-              color: 'rgba(97, 97, 97, 1)',
-              '&:hover': {
-                backgroundColor: 'rgba(158, 158, 158, 0.12)',
-              }
-            }}
+            color="secondary"
           />
         );
       }
