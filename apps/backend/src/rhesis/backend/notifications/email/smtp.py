@@ -57,26 +57,17 @@ class SMTPService:
             # Choose connection method based on port
             if self.smtp_port == 465:
                 # Port 465 requires SSL from the start
-                logger.debug("Using SMTP_SSL for port 465")
                 with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=30) as server:
                     server.set_debuglevel(0)  # Set to 1 for debug output
-                    logger.debug("SSL connection established, logging in")
                     server.login(self.smtp_user, self.smtp_password)
-                    logger.debug("SMTP login successful, sending message")
                     server.send_message(msg)
-                    logger.debug("Message sent successfully")
             else:
                 # Port 587 (and others) use STARTTLS
-                logger.debug(f"Using SMTP with STARTTLS for port {self.smtp_port}")
                 with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as server:
                     server.set_debuglevel(0)  # Set to 1 for debug output
-                    logger.debug("SMTP connection established, starting TLS")
                     server.starttls()
-                    logger.debug("TLS started, logging in")
                     server.login(self.smtp_user, self.smtp_password)
-                    logger.debug("SMTP login successful, sending message")
                     server.send_message(msg)
-                    logger.debug("Message sent successfully")
             
             logger.info(f"Email sent successfully to {recipient_email} for task {task_id}")
             return True
