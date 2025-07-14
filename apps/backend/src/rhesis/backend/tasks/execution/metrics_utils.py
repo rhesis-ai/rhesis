@@ -33,6 +33,10 @@ def create_metric_config_from_model(metric: Metric) -> Optional[Dict]:
     
     backend = backend_mapping.get(backend_raw, backend_raw)
     
+    # Special handling for Rhesis metrics - should always use rhesis backend
+    if metric.class_name and metric.class_name.startswith("Rhesis"):
+        backend = "rhesis"
+    
     # Validate that we have essential metric information
     if not metric.class_name:
         logger.warning(f"Metric {metric.id} is missing class_name, skipping")
