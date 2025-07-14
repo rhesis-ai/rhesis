@@ -142,7 +142,7 @@ def execute_test_configuration_endpoint(
         raise HTTPException(status_code=404, detail="Test configuration not found")
 
     # Check if the user has permission to execute this test configuration
-    if db_test_configuration.user_id != current_user.id and not current_user.is_admin:
+    if db_test_configuration.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=403, detail="Not authorized to execute this test configuration"
         )
