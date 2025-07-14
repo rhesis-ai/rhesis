@@ -53,14 +53,7 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
             label={item}
             variant="outlined"
             size="small"
-            sx={{ 
-              backgroundColor: 'rgba(158, 158, 158, 0.08)',
-              borderColor: 'rgba(158, 158, 158, 0.3)',
-              color: 'rgba(97, 97, 97, 1)',
-              '&:hover': {
-                backgroundColor: 'rgba(158, 158, 158, 0.12)',
-              }
-            }}
+            color="secondary"
           />
         ))}
         {remainingCount > 0 && (
@@ -68,14 +61,9 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
             label={`+${remainingCount}`}
             variant="outlined"
             size="small"
+            color="secondary"
             sx={{ 
-              backgroundColor: 'rgba(117, 117, 117, 0.08)',
-              borderColor: 'rgba(117, 117, 117, 0.3)',
-              color: 'rgba(66, 66, 66, 1)',
               fontWeight: 'medium',
-              '&:hover': {
-                backgroundColor: 'rgba(117, 117, 117, 0.12)',
-              }
             }}
           />
         )}

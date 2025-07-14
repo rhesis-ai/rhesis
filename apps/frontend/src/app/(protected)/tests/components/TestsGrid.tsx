@@ -147,7 +147,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
             label={topicName} 
             size="small" 
             variant="outlined"
-            color="default"
+            color="secondary"
           />
         );
       }
@@ -165,7 +165,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
             label={categoryName} 
             size="small" 
             variant="outlined"
-            color="default"
+            color="secondary"
           />
         );
       }

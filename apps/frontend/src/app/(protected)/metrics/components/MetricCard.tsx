@@ -184,21 +184,21 @@ export default function MetricCard({
               icon={getBackendIcon(backend || '')}
               label={capitalizedBackend}
               size="small"
-              color="default"
+              color="secondary"
               variant="outlined"
             />
             <Chip 
               icon={getMetricTypeIcon(metricType || '')}
               label={getMetricTypeDisplay(metricType || '')}
               size="small"
-              color="default"
+              color="secondary"
               variant="outlined"
             />
             <Chip 
               icon={getScoreTypeIcon(scoreType || '')}
               label={capitalizedScoreType}
               size="small"
-              color="default"
+              color="secondary"
               variant="outlined"
             />
           </Box>
