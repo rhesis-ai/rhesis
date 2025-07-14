@@ -81,6 +81,12 @@ export const authConfig: NextAuthConfig = {
     encode: async ({ secret, token }) => {
       if (!token) return "";
       try {
+        // If token has a session_token field, use it directly (it's already a JWT)
+        if (token.session_token && typeof token.session_token === 'string') {
+          return token.session_token;
+        }
+        
+        // Otherwise, encode as JSON for backward compatibility
         if (typeof token === 'string') {
           return token;
         }
@@ -98,11 +104,8 @@ export const authConfig: NextAuthConfig = {
           return token;
         }
 
-        if (token.startsWith('{')) {
-          return JSON.parse(token);
-        }
-
-        if (token.includes('.')) {
+        // If it's a JWT token (contains dots), decode it
+        if (token.includes('.') && token.split('.').length === 3) {
           const [, payloadBase64] = token.split('.');
           try {
             const payload = Buffer.from(payloadBase64, 'base64url').toString('utf-8');
@@ -114,8 +117,13 @@ export const authConfig: NextAuthConfig = {
             };
           } catch (jwtError) {
             console.error('JWT parsing error:', jwtError);
-            return JSON.parse(token);
+            // If JWT parsing fails, fall back to JSON parsing
           }
+        }
+
+        // Try to parse as JSON
+        if (token.startsWith('{')) {
+          return JSON.parse(token);
         }
 
         return token;
