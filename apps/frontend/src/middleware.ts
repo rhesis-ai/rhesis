@@ -30,7 +30,25 @@ async function verifySessionWithBackend(sessionToken: string) {
 // Helper function to get session token from request
 function getSessionTokenFromRequest(request: NextRequest): string | null {
   const sessionCookie = request.cookies.get('next-auth.session-token');
-  return sessionCookie?.value || null;
+  if (!sessionCookie?.value) return null;
+  
+  const cookieValue = sessionCookie.value;
+  
+  // Try to parse as JSON first (NextAuth.js stores session data as JSON)
+  try {
+    const sessionData = JSON.parse(cookieValue);
+    // Extract the actual JWT token from the session data
+    if (sessionData && typeof sessionData === 'object' && sessionData.session_token) {
+      return sessionData.session_token;
+    }
+  } catch (error) {
+    // If JSON parsing fails, it might be a direct JWT token
+    console.log('⚠️ [DEBUG] Session cookie is not JSON, treating as direct token');
+  }
+  
+  // If it's not JSON or doesn't have session_token field, return as is
+  // This handles cases where the token is stored directly
+  return cookieValue;
 }
 
 // Helper function to create a response that clears session cookies
