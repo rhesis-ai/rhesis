@@ -39,7 +39,7 @@ function AuthErrorFallback() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.push('/auth/signin');
+      router.push('/');
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -56,7 +56,7 @@ function AuthErrorFallback() {
         </Typography>
         <Button 
           variant="contained" 
-          onClick={() => router.push('/auth/signin')}
+          onClick={() => router.push('/')}
         >
           Sign In Now
         </Button>
