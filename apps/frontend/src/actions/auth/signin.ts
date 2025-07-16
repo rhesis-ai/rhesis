@@ -2,7 +2,7 @@
 
 import { AuthError } from 'next-auth';
 import type { AuthProvider } from '@toolpad/core';
-import { handleSignIn } from '../auth';
+import { redirect } from 'next/navigation';
 
 export interface SignInResult {
   error?: string;
@@ -15,13 +15,10 @@ export async function handleProviderSignIn(
   callbackUrl?: string
 ): Promise<SignInResult | void> {
   try {
-    return await handleSignIn(provider.id, {      
-      ...(formData && {
-        email: formData.get('email'),
-        password: formData.get('password')
-      }),      
-      redirectTo: callbackUrl ?? '/',
-    });
+    // Redirect to home page for unified login experience
+    // The callbackUrl can be passed as a URL parameter if needed
+    const redirectUrl = callbackUrl ? `/?return_to=${encodeURIComponent(callbackUrl)}` : '/';
+    redirect(redirectUrl);
   } catch (error) {
     if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
       throw error;
