@@ -72,30 +72,42 @@ export class BaseApiClient {
   }
 
   private async handleUnauthorizedError(): Promise<never> {
-    // Prevent multiple simultaneous session clearing
+    // On server side, just throw a clean unauthorized error
+    // Let the middleware handle the redirection
+    if (typeof window === 'undefined') {
+      throw new Error('Unauthorized');
+    }
+
+    // Prevent multiple simultaneous session clearing on client side
     if (isSessionClearing) {
-      throw new Error('Session clearing already in progress');
+      // Instead of throwing an error, just wait and throw unauthorized
+      await this.delay(1000);
+      throw new Error('Unauthorized');
     }
     
     isSessionClearing = true;
     
     try {
-      console.log('🔴 Unauthorized error detected in API client, clearing session...');
+      console.log('🔴 Unauthorized error detected in API client, checking current location...');
       
-      // Only clear session if we're in a browser environment
-      if (typeof window !== 'undefined') {
-        // Add a delay to ensure any pending operations complete
-        await this.delay(500);
-        await clearAllSessionData(); // This now redirects to home page
-        
-        // This line should never be reached as clearAllSessionData redirects
-        throw new Error('Unauthorized - session cleared');
-      } else {
-        throw new Error('Unauthorized - server side');
+      // Don't interfere if we're already on logout/signin pages
+      const currentPath = window.location.pathname;
+      if (currentPath.includes('/auth/signout') || currentPath.includes('/auth/signin') || currentPath === '/') {
+        console.log('🔴 Already on auth page, skipping session clearing');
+        throw new Error('Unauthorized');
       }
+      
+      console.log('🔴 Clearing session due to unauthorized API response...');
+      
+      // Add a delay to ensure any pending operations complete
+      await this.delay(500);
+      await clearAllSessionData(); // This now redirects to home page
+      
+      // This line should never be reached as clearAllSessionData redirects
+      throw new Error('Unauthorized - session cleared');
     } catch (error) {
       console.error('Error during session clearing:', error);
-      throw error; // Re-throw to ensure error handling continues
+      throw new Error('Unauthorized'); // Throw clean error instead of re-throwing complex error
     } finally {
       // Reset the flag after a delay
       setTimeout(() => {

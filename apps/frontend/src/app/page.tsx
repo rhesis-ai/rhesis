@@ -14,9 +14,9 @@ import {
   useTheme
 } from '@mui/material';
 import Image from 'next/image';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
 // Import Material UI icons
 import SpeedIcon from '@mui/icons-material/Speed';
@@ -34,18 +34,45 @@ export default function LandingPage() {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [sessionExpired, setSessionExpired] = useState(false);
   
   useEffect(() => {
-    if (status === 'authenticated' && session) {
+    // Check if user was redirected due to session expiration or forced logout
+    const urlParams = new URLSearchParams(window.location.search);
+    const isSessionExpired = urlParams.get('session_expired') === 'true';
+    const isForcedLogout = urlParams.get('force_logout') === 'true';
+    
+    if (isSessionExpired || isForcedLogout) {
+      setSessionExpired(true);
+      // Clear the parameters from URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('session_expired');
+      newUrl.searchParams.delete('force_logout');
+      window.history.replaceState({}, '', newUrl.toString());
+      
+      // If there's still a session showing as authenticated but we know it's expired/invalid,
+      // properly sign out to clear client-side session data
+      if (status === 'authenticated') {
+        console.log('🔴 [DEBUG] Home page detected authenticated session but forced logout, calling signOut');
+        signOut({ 
+          redirect: false,
+          callbackUrl: '/' 
+        });
+        return;
+      }
+    }
+    
+    // Only redirect to dashboard if user is authenticated and session is not expired
+    if (status === 'authenticated' && session && !sessionExpired) {
       router.replace('/dashboard');
     }
-  }, [session, status, router]);
+  }, [session, status, router, sessionExpired]);
 
   if (status === 'loading') {
     return null;
   }
 
-  if (status === 'authenticated' && session) {
+  if (status === 'authenticated' && session && !sessionExpired) {
     return (
       <Grid container component="main" sx={{ height: '100vh' }}>
         {/* Left side - Background image and content - same as unauthenticated view */}
