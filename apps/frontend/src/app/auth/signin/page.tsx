@@ -56,20 +56,17 @@ export default function SignIn() {
           return;
         }
 
-        // If no token and no special parameters, show authentication required message
+        // If no token and no special parameters, redirect to home page for unified login experience
         const returnTo = searchParams.get('return_to');
-        if (returnTo) {
-          setStatus('Please sign in to continue.');
-        } else {
-          setStatus('Redirecting to login...');
-        }
+        setStatus('Redirecting to login...');
 
-        // If no token, redirect to backend login
-        console.log('🟢 [DEBUG] No token found, redirecting to backend login');
-        const currentUrl = window.location.href;
-        window.location.replace(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login?return_to=${encodeURIComponent(currentUrl)}`
-        );
+        // Redirect to home page which has the unified login experience
+        console.log('🟢 [DEBUG] No token found, redirecting to home page for unified login');
+        const homeUrl = new URL('/', window.location.origin);
+        if (returnTo) {
+          homeUrl.searchParams.set('return_to', returnTo);
+        }
+        window.location.replace(homeUrl.toString());
 
       } catch (error) {
         const err = error as Error;
