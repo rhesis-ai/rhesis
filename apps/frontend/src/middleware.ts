@@ -135,10 +135,11 @@ export async function middleware(request: NextRequest) {
     if (!sessionToken) {
       console.log('❌ No session token found');
       // For users accessing protected routes without any authentication,
-      // redirect to signin with return_to parameter for seamless experience
-      const signInUrl = new URL('/auth/signin', request.url);
-      signInUrl.searchParams.set('return_to', pathname);
-      return NextResponse.redirect(signInUrl);
+      // redirect to home page which has the unified login experience
+      const homeUrl = new URL('/', request.url);
+      homeUrl.searchParams.set('return_to', pathname);
+      homeUrl.searchParams.set('session_expired', 'true');
+      return NextResponse.redirect(homeUrl);
     }
 
     // Verify session token with backend
@@ -147,7 +148,9 @@ export async function middleware(request: NextRequest) {
       console.log('❌ Backend session validation failed');
       // For users with expired/invalid sessions (they were previously authenticated),
       // redirect to home page to complete the signout flow
-      return createSessionClearingResponse(new URL('/', request.url));
+      const homeUrl = new URL('/', request.url);
+      homeUrl.searchParams.set('session_expired', 'true');
+      return createSessionClearingResponse(homeUrl);
     }
 
     // Get session data from auth
@@ -178,7 +181,9 @@ export async function middleware(request: NextRequest) {
     if (err.message?.includes('UntrustedHost')) {
       console.log('❌ UntrustedHost error detected');
       // For untrusted host errors, redirect to home page with session clearing
-      return createSessionClearingResponse(new URL('/', request.url));
+      const homeUrl = new URL('/', request.url);
+      homeUrl.searchParams.set('session_expired', 'true');
+      return createSessionClearingResponse(homeUrl);
     }
     
     const isJWTError = err.message?.includes('JWTSessionError') || 
@@ -188,7 +193,9 @@ export async function middleware(request: NextRequest) {
     if (isJWTError) {
       console.log('❌ JWT Session Error detected');
       // For JWT errors (expired/invalid sessions), redirect to home page with session clearing
-      return createSessionClearingResponse(new URL('/', request.url));
+      const homeUrl = new URL('/', request.url);
+      homeUrl.searchParams.set('session_expired', 'true');
+      return createSessionClearingResponse(homeUrl);
     }
     
     throw error;

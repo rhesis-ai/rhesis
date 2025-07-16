@@ -72,9 +72,17 @@ export class BaseApiClient {
   }
 
   private async handleUnauthorizedError(): Promise<never> {
-    // Prevent multiple simultaneous session clearing
+    // On server side, just throw a clean unauthorized error
+    // Let the middleware handle the redirection
+    if (typeof window === 'undefined') {
+      throw new Error('Unauthorized');
+    }
+
+    // Prevent multiple simultaneous session clearing on client side
     if (isSessionClearing) {
-      throw new Error('Session clearing already in progress');
+      // Instead of throwing an error, just wait and throw unauthorized
+      await this.delay(1000);
+      throw new Error('Unauthorized');
     }
     
     isSessionClearing = true;
@@ -82,20 +90,15 @@ export class BaseApiClient {
     try {
       console.log('🔴 Unauthorized error detected in API client, clearing session...');
       
-      // Only clear session if we're in a browser environment
-      if (typeof window !== 'undefined') {
-        // Add a delay to ensure any pending operations complete
-        await this.delay(500);
-        await clearAllSessionData(); // This now redirects to home page
-        
-        // This line should never be reached as clearAllSessionData redirects
-        throw new Error('Unauthorized - session cleared');
-      } else {
-        throw new Error('Unauthorized - server side');
-      }
+      // Add a delay to ensure any pending operations complete
+      await this.delay(500);
+      await clearAllSessionData(); // This now redirects to home page
+      
+      // This line should never be reached as clearAllSessionData redirects
+      throw new Error('Unauthorized - session cleared');
     } catch (error) {
       console.error('Error during session clearing:', error);
-      throw error; // Re-throw to ensure error handling continues
+      throw new Error('Unauthorized'); // Throw clean error instead of re-throwing complex error
     } finally {
       // Reset the flag after a delay
       setTimeout(() => {
