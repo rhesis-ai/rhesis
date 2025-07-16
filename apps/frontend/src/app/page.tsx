@@ -37,25 +37,32 @@ export default function LandingPage() {
   const [sessionExpired, setSessionExpired] = useState(false);
   
   useEffect(() => {
-    // Check if user was redirected due to session expiration
+    // Check if user was redirected due to session expiration or forced logout
     const urlParams = new URLSearchParams(window.location.search);
     const isSessionExpired = urlParams.get('session_expired') === 'true';
+    const isForcedLogout = urlParams.get('force_logout') === 'true';
     
-    if (isSessionExpired) {
+    if (isSessionExpired || isForcedLogout) {
       setSessionExpired(true);
-      // Clear the session expired parameter from URL
+      // Clear the parameters from URL
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('session_expired');
+      newUrl.searchParams.delete('force_logout');
       window.history.replaceState({}, '', newUrl.toString());
       
-      // If there's still a session showing as authenticated but we know it's expired,
+      // If there's still a session showing as authenticated but we know it's expired/invalid,
       // properly sign out to clear client-side session data
       if (status === 'authenticated') {
-        signOut({ redirect: false });
+        console.log('🔴 [DEBUG] Home page detected authenticated session but forced logout, calling signOut');
+        signOut({ 
+          redirect: false,
+          callbackUrl: '/' 
+        });
         return;
       }
     }
     
+    // Only redirect to dashboard if user is authenticated and session is not expired
     if (status === 'authenticated' && session && !sessionExpired) {
       router.replace('/dashboard');
     }

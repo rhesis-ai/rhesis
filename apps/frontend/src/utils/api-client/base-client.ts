@@ -88,7 +88,16 @@ export class BaseApiClient {
     isSessionClearing = true;
     
     try {
-      console.log('🔴 Unauthorized error detected in API client, clearing session...');
+      console.log('🔴 Unauthorized error detected in API client, checking current location...');
+      
+      // Don't interfere if we're already on logout/signin pages
+      const currentPath = window.location.pathname;
+      if (currentPath.includes('/auth/signout') || currentPath.includes('/auth/signin') || currentPath === '/') {
+        console.log('🔴 Already on auth page, skipping session clearing');
+        throw new Error('Unauthorized');
+      }
+      
+      console.log('🔴 Clearing session due to unauthorized API response...');
       
       // Add a delay to ensure any pending operations complete
       await this.delay(500);
