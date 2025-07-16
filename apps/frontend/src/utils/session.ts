@@ -66,7 +66,23 @@ export async function getSession(): Promise<Session | null> {
 export async function clearAllSessionData() {
   console.log('🟡 [DEBUG] clearAllSessionData called - starting session cleanup');
   
-  // List of all cookies to clear
+  // Step 1: Call backend logout endpoint to clear server-side session
+  try {
+    console.log('🟡 [DEBUG] Calling backend logout endpoint');
+    const response = await fetch(`${API_CONFIG.baseUrl}/auth/logout`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    console.log('🟡 [DEBUG] Backend logout response status:', response.status);
+  } catch (error) {
+    console.warn('🟡 [DEBUG] Backend logout failed (continuing with frontend cleanup):', error);
+    // Continue with frontend cleanup even if backend fails
+  }
+  
+  // Step 2: Clear all frontend cookies
   const cookiesToClear = [
     'next-auth.session-token',
     'next-auth.csrf-token',
@@ -80,6 +96,11 @@ export async function clearAllSessionData() {
     '__Host-next-auth.csrf-token',
     '__Secure-next-auth.callback-url',
     '__Secure-next-auth.session-token',
+    // Additional possible cookie variations
+    'next-auth.state',
+    'authjs.state',
+    'next-auth.nonce',
+    'authjs.nonce',
   ];
 
   console.log('🟡 [DEBUG] Clearing cookies:', cookiesToClear);
@@ -92,17 +113,22 @@ export async function clearAllSessionData() {
     // Clear with domain (for production)
     if (process.env.NODE_ENV === 'production') {
       document.cookie = `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
+      // Also try with leading dot for broader domain coverage
+      document.cookie = `${name}=; domain=.rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
     }
   });
 
   console.log('🟡 [DEBUG] Clearing localStorage items');
-  // Clear any local storage items
+  // Step 3: Clear any local storage items
   localStorage.removeItem('next-auth.message');
   localStorage.removeItem('next-auth.callback-url');
   
-  console.log('🟡 [DEBUG] Adding 500ms delay before redirect');
-  // Add a delay before redirecting to ensure cookies are cleared
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Step 4: Clear any session storage items
+  sessionStorage.clear();
+  
+  console.log('🟡 [DEBUG] Adding 800ms delay before redirect to ensure cleanup completion');
+  // Add a longer delay before redirecting to ensure all cleanup is completed
+  await new Promise(resolve => setTimeout(resolve, 800));
   
   console.log('🟡 [DEBUG] Redirecting to home page /');
   // Force reload to clear any in-memory state and redirect to home page
