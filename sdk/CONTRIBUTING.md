@@ -14,6 +14,7 @@ cd rhesis/sdk
 
 The Rhesis SDK requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
 
+Linux (Ubuntu/Debian) 
 ```bash
 
 # Install build dependencies (Ubuntu/Debian)
@@ -21,15 +22,54 @@ sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-de
 libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
 libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
 
+# Then install Python
 # Install pyenv
 curl https://pyenv.run | bash
+
+# Initialize pyenv in your shell
+echo -e '\n# pyenv setup\nexport PATH="$HOME/.pyenv/bin:$PATH"\neval "$(pyenv init --path)"\neval "$(pyenv init -)"' >> ~/.zshrc
+
+# Reload your shell
+source ~/.zshrc
 
 # Install Python 3.10
 pyenv install 3.10.17
 
 # Set local Python version
 pyenv local 3.10.17
+```
 
+macOS
+```bash
+# Install required libraries using Homebrew
+brew install openssl readline sqlite3 xz zlib tcl-tk
+
+# Then install Python
+# Install pyenv
+curl https://pyenv.run | bash
+
+# Initialize pyenv in your shell
+echo -e '\n# pyenv setup\nexport PATH="$HOME/.pyenv/bin:$PATH"\neval "$(pyenv init --path)"\neval "$(pyenv init -)"' >> ~/.zshrc
+
+# Reload your shell
+source ~/.zshrc
+
+# Install Python 3.10
+pyenv install 3.10.17
+
+# Set local Python version
+pyenv local 3.10.17
+```
+
+macOS Troubleshooting
+On Apple Silicon (M1/M2/M3), Homebrew is usually installed in `/opt/homebrew` (you can confirm this with `brew --prefix`). This could lead to `pyenv install` failing to locate system libraries like OpenSSL or SQLite. In this case, you can manually set the following environment variables before installing Python:
+
+```bash
+export LDFLAGS="-L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/readline/lib -L/opt/homebrew/opt/sqlite/lib -L/opt/homebrew/opt/zlib/lib -L/opt/homebrew/opt/xz/lib”
+
+export CPPFLAGS="-I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/readline/include -I/opt/homebrew/opt/sqlite/include -I/opt/homebrew/opt/zlib/include -I/opt/homebrew/opt/xz/include”
+
+export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/readline/lib/pkgconfig:/opt/homebrew/opt/sqlite/lib/pkgconfig:/opt/homebrew/opt/zlib/lib/pkgconfig:/opt/homebrew/opt/xz/lib/pkgconfig”
 ```
 
 3. Install dependencies and development tools using [uv](https://github.com/astral-sh/uv) and [Hatch](https://hatch.pypa.io/).
