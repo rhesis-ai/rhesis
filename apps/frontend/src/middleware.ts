@@ -52,14 +52,19 @@ function getSessionTokenFromRequest(request: NextRequest): string | null {
 }
 
 // Helper function to create a response that clears session cookies
-async function createSessionClearingResponse(url: URL, shouldCallBackendLogout: boolean = false): Promise<NextResponse> {
+async function createSessionClearingResponse(url: URL, shouldCallBackendLogout: boolean = false, sessionToken?: string): Promise<NextResponse> {
   const response = NextResponse.redirect(url);
   
   // If requested, call backend logout first to clear server-side session
   if (shouldCallBackendLogout) {
     try {
       console.log('🟠 [DEBUG] Middleware calling backend logout for session expiration');
-      await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/logout`, {
+      const logoutUrl = new URL('/auth/logout', process.env.NEXT_PUBLIC_API_BASE_URL);
+      if (sessionToken) {
+        logoutUrl.searchParams.set('session_token', sessionToken);
+      }
+      
+      await fetch(logoutUrl.toString(), {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -198,7 +203,7 @@ export async function middleware(request: NextRequest) {
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('session_expired', 'true');
       homeUrl.searchParams.set('force_logout', 'true');
-      return await createSessionClearingResponse(homeUrl, true); // Call backend logout
+      return await createSessionClearingResponse(homeUrl, true, sessionToken); // Call backend logout with session token
     }
 
     // Get session data from auth
@@ -231,7 +236,7 @@ export async function middleware(request: NextRequest) {
       // For untrusted host errors, redirect to home page with session clearing
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('session_expired', 'true');
-      return await createSessionClearingResponse(homeUrl, true); // Call backend logout
+      return await createSessionClearingResponse(homeUrl, true, getSessionTokenFromRequest(request) || undefined); // Call backend logout
     }
     
     const isJWTError = err.message?.includes('JWTSessionError') || 
@@ -243,7 +248,7 @@ export async function middleware(request: NextRequest) {
       // For JWT errors (expired/invalid sessions), redirect to home page with session clearing
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('session_expired', 'true');
-      return await createSessionClearingResponse(homeUrl, true); // Call backend logout
+      return await createSessionClearingResponse(homeUrl, true, getSessionTokenFromRequest(request) || undefined); // Call backend logout
     }
     
     throw error;

@@ -91,10 +91,30 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/logout")
-async def logout(request: Request, post_logout: bool = False):
+async def logout(request: Request, post_logout: bool = False, session_token: str = None, db: Session = Depends(get_db)):
     """Log out the user and clear their session"""
     # Clear session data
     request.session.clear()
+    
+    # If session token is provided, validate it and clear any related server-side data
+    if session_token:
+        try:
+            secret_key = get_secret_key()
+            payload = verify_jwt_token(session_token, secret_key)
+            user_info = payload.get("user", {})
+            user_id = user_info.get("id")
+            
+            if user_id:
+                logger.info(f"Logout called for user {user_id} via JWT token")
+                # Here you could add additional cleanup if needed
+                # For example, invalidating refresh tokens, clearing user-specific cache, etc.
+                
+        except JWTError as e:
+            logger.warning(f"Invalid session token provided during logout: {str(e)}")
+            # Continue with logout even if token is invalid
+        except Exception as e:
+            logger.error(f"Error processing session token during logout: {str(e)}")
+            # Continue with logout even if there's an error
 
     # Get frontend URL from environment variable
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
