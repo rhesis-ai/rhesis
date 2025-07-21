@@ -35,6 +35,7 @@ export default function LandingPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [backendSessionValid, setBackendSessionValid] = useState<boolean | null>(null);
   
   useEffect(() => {
     // Check if user was redirected due to session expiration or forced logout
@@ -44,35 +45,67 @@ export default function LandingPage() {
     
     if (isSessionExpired || isForcedLogout) {
       setSessionExpired(true);
+      setBackendSessionValid(false);
       // Clear the parameters from URL
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('session_expired');
       newUrl.searchParams.delete('force_logout');
       window.history.replaceState({}, '', newUrl.toString());
       
-      // If there's still a session showing as authenticated but we know it's expired/invalid,
-      // properly sign out to clear client-side session data
       if (status === 'authenticated') {
-        console.log('🔴 [DEBUG] Home page detected authenticated session but forced logout, calling signOut');
-        signOut({ 
-          redirect: false,
-          callbackUrl: '/' 
-        });
-        return;
+        signOut({ redirect: false, callbackUrl: '/' });
       }
+      return;
     }
     
-    // Only redirect to dashboard if user is authenticated and session is not expired
-    if (status === 'authenticated' && session && !sessionExpired) {
-      router.replace('/dashboard');
+    // Validate backend session immediately when user appears authenticated
+    if (status === 'authenticated' && session && !sessionExpired && backendSessionValid === null) {
+      const validateBackendSession = async () => {
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/verify?session_token=${session.session_token}`,
+            { headers: { Accept: 'application/json' } }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.authenticated && data.user) {
+              setBackendSessionValid(true);
+              router.replace('/dashboard');
+              return;
+            }
+          }
+
+          // Backend session invalid - call backend logout to clean up, then frontend logout
+          try {
+            await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/logout`, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+            });
+          } catch (logoutError) {
+            console.warn('Backend logout failed:', logoutError);
+          }
+
+          setBackendSessionValid(false);
+          setSessionExpired(true);
+          signOut({ redirect: false, callbackUrl: '/' });
+        } catch (error) {
+          console.error('Backend session validation error:', error);
+          setBackendSessionValid(false);
+          setSessionExpired(true);
+          signOut({ redirect: false, callbackUrl: '/' });
+        }
+      };
+
+      validateBackendSession();
     }
-  }, [session, status, router, sessionExpired]);
+  }, [session, status, router, sessionExpired, backendSessionValid, signOut]);
 
   if (status === 'loading') {
     return null;
   }
 
-  if (status === 'authenticated' && session && !sessionExpired) {
+  if (status === 'authenticated' && session && !sessionExpired && backendSessionValid === true) {
     return (
       <Grid container component="main" sx={{ height: '100vh' }}>
         {/* Left side - Background image and content - same as unauthenticated view */}
