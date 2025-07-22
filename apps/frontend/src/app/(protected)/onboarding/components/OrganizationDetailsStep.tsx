@@ -4,10 +4,10 @@ import {
   TextField,
   Button,
   Typography,
-  Grid,
   CircularProgress,
   Snackbar,
-  Alert
+  Alert,
+  Stack
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
@@ -38,9 +38,9 @@ export default function OrganizationDetailsStep({
   updateFormData,
   onNext
 }: OrganizationDetailsStepProps) {
-  const { data: session, status: sessionStatus, update: updateSession } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [loading, setLoading] = useState(true);
-  const [savingUser, setSavingUser] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState({
@@ -48,9 +48,6 @@ export default function OrganizationDetailsStep({
     lastName: false,
     organizationName: false
   });
-
-  // Skip user profile updates, we'll update user in final step
-  const [skipUserUpdate, setSkipUserUpdate] = useState(true);
 
   // Prefill form with user data from session
   useEffect(() => {
@@ -113,10 +110,9 @@ export default function OrganizationDetailsStep({
 
   const validateForm = () => {
     const newErrors = {
-      firstName: !formData.firstName,
-      lastName: !formData.lastName,
-      organizationName: !formData.organizationName
-      // website is optional, so no validation required
+      firstName: !formData.firstName.trim(),
+      lastName: !formData.lastName.trim(),
+      organizationName: !formData.organizationName.trim()
     };
     
     setErrors(newErrors);
@@ -126,33 +122,35 @@ export default function OrganizationDetailsStep({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (validateForm()) {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      // Store form data in sessionStorage without updating user profile
+      // This allows other components to access the user's name information
       try {
-        setSavingUser(true);
-        
-        // Store form data in sessionStorage without updating user profile
-        // This allows other components to access the user's name information
-        try {
-          const userData = {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            fullName: `${formData.firstName} ${formData.lastName}`,
-            organizationName: formData.organizationName,
-            website: formData.website || ''
-          };
-          sessionStorage.setItem('onboardingUserData', JSON.stringify(userData));
-        } catch (storageError) {
-          console.error('Error storing user data in session storage:', storageError);
-        }
-        
-        // Proceed to next step without updating user profile
-        onNext();
-      } catch (error) {
-        console.error('Error during form submission:', error);
-        setErrorMessage('Failed to submit form. Please try again.');
-      } finally {
-        setSavingUser(false);
+        const userData = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          fullName: `${formData.firstName} ${formData.lastName}`,
+          organizationName: formData.organizationName,
+          website: formData.website || ''
+        };
+        sessionStorage.setItem('onboardingUserData', JSON.stringify(userData));
+      } catch (storageError) {
+        console.error('Error storing user data in session storage:', storageError);
       }
+      
+      // Proceed to next step without updating user profile
+      onNext();
+    } catch (error) {
+      console.error('Error during form submission:', error);
+      setErrorMessage('Failed to submit form. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -171,96 +169,97 @@ export default function OrganizationDetailsStep({
     setSuccessMessage(null);
   };
 
-  if (loading || savingUser) {
+  if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 4 }}>
-      <Typography variant="h6" gutterBottom align="center">
-        Help us get to know you and your organization
-      </Typography>
-      
-      <Typography variant="body1" align="center" sx={{ mb: 3 }}>
-        We need these details to set up your workspace and personalize your experience.
-      </Typography>
-      
-      <Grid container spacing={3} sx={{ mt: 1 }}>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="First Name"
-            name="firstName"
-            value={formData.firstName}
-            onChange={handleChange}
-            required
-            error={errors.firstName}
-            helperText={errors.firstName ? 'First name is required' : ''}
-          />
-        </Grid>
+    <Box component="form" onSubmit={handleSubmit}>
+      {/* Header Section */}
+      <Box textAlign="center" mb={4}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          Help us get to know you and your organization
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          We need these details to set up your workspace and personalize your experience.
+        </Typography>
+      </Box>
+
+      {/* Form Fields */}
+      <Stack spacing={3}>
+        <TextField
+          fullWidth
+          label="First Name"
+          name="firstName"
+          value={formData.firstName}
+          onChange={handleChange}
+          required
+          error={errors.firstName}
+          helperText={errors.firstName ? 'First name is required' : ''}
+          variant="outlined"
+        />
         
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Last Name"
-            name="lastName"
-            value={formData.lastName}
-            onChange={handleChange}
-            required
-            error={errors.lastName}
-            helperText={errors.lastName ? 'Last name is required' : ''}
-          />
-        </Grid>
+        <TextField
+          fullWidth
+          label="Last Name"
+          name="lastName"
+          value={formData.lastName}
+          onChange={handleChange}
+          required
+          error={errors.lastName}
+          helperText={errors.lastName ? 'Last name is required' : ''}
+          variant="outlined"
+        />
         
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Organization Name"
-            name="organizationName"
-            value={formData.organizationName}
-            onChange={handleChange}
-            required
-            error={errors.organizationName}
-            helperText={errors.organizationName ? 'Organization name is required' : ''}
-          />
-        </Grid>
+        <TextField
+          fullWidth
+          label="Organization Name"
+          name="organizationName"
+          value={formData.organizationName}
+          onChange={handleChange}
+          required
+          error={errors.organizationName}
+          helperText={errors.organizationName ? 'Organization name is required' : ''}
+          variant="outlined"
+        />
         
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Website URL (Optional)"
-            name="website"
-            value={formData.website}
-            onChange={handleChange}
-            placeholder="https://example.com"
-          />
-        </Grid>
-      </Grid>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
+        <TextField
+          fullWidth
+          label="Website URL (Optional)"
+          name="website"
+          value={formData.website}
+          onChange={handleChange}
+          placeholder="https://example.com"
+          variant="outlined"
+        />
+      </Stack>
+
+      {/* Action Buttons */}
+      <Box display="flex" justifyContent="flex-end" mt={4}>
         <Button 
           type="submit"
           variant="contained"
           color="primary"
-          disabled={savingUser}
-          startIcon={savingUser ? <CircularProgress size={20} color="inherit" /> : null}
+          disabled={isSubmitting}
+          startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
+          size="large"
         >
-          {savingUser ? 'Saving...' : 'Next'}
+          {isSubmitting ? 'Saving...' : 'Next'}
         </Button>
       </Box>
 
-      {/* Error/Success notifications */}
+      {/* Notifications */}
       <Snackbar 
         open={!!errorMessage} 
         autoHideDuration={6000} 
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity="error" sx={{ width: '100%' }}>
+        <Alert onClose={handleCloseSnackbar} severity="error">
           {errorMessage}
         </Alert>
       </Snackbar>
@@ -271,7 +270,7 @@ export default function OrganizationDetailsStep({
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
+        <Alert onClose={handleCloseSnackbar} severity="success">
           {successMessage}
         </Alert>
       </Snackbar>

@@ -11,13 +11,15 @@ import {
   StepLabel,
   Typography,
   Container,
+  Stack
 } from '@mui/material';
 import OrganizationDetailsStep from './OrganizationDetailsStep';
+import InviteTeamStep from './InviteTeamStep';
 import FinishStep from './FinishStep';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
 import { UUID } from 'crypto';
-import { UserUpdate } from '@/utils/api-client/interfaces/user';
+import { UserUpdate, UserCreate } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 type OnboardingStatus = 'idle' | 'creating_organization' | 'updating_user' | 'loading_initial_data';
@@ -35,7 +37,7 @@ interface OnboardingPageClientProps {
   userId: UUID;
 }
 
-const steps = ['Organization Details', 'Finish'];
+const steps = ['Organization Details', 'Invite Team', 'Finish'];
 
 export default function OnboardingPageClient({ sessionToken, userId }: OnboardingPageClientProps) {
   const router = useRouter();
@@ -120,6 +122,72 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
           document.cookie = `next-auth.session-token=${response.session_token}; ${cookieOptions}`;
         }
 
+        // Create invited users and send invitation emails now that we have the organization
+        try {
+          const validEmails = formData.invites
+            .filter(invite => invite.email.trim())
+            .map(invite => invite.email.trim());
+          
+          if (validEmails.length > 0) {
+            const invitationResults: Array<{ email: string; success: boolean; error?: string }> = [];
+            
+            const createUserPromises = validEmails.map(async (email) => {
+              const userData = {
+                email: email,
+                organization_id: organization.id as UUID,
+                is_active: true,
+                send_invite: true  // This will trigger the invitation email
+              };
+              
+              try {
+                const user = await usersClient.createUser(userData);
+                invitationResults.push({ email, success: true });
+                return user;
+              } catch (error: any) {
+                let errorMessage = 'Unknown error';
+                
+                // Extract meaningful error messages
+                if (error?.message) {
+                  errorMessage = error.message;
+                } else if (error?.detail) {
+                  errorMessage = error.detail;
+                } else if (typeof error === 'string') {
+                  errorMessage = error;
+                }
+                
+                console.error(`Failed to create user with email ${email}:`, error);
+                invitationResults.push({ email, success: false, error: errorMessage });
+                return null;
+              }
+            });
+            
+            // Create all users in parallel
+            const createdUsers = await Promise.all(createUserPromises);
+            const successCount = createdUsers.filter(user => user !== null).length;
+            const failedCount = validEmails.length - successCount;
+            
+            // Provide detailed feedback
+            if (successCount > 0 && failedCount === 0) {
+              notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}!`, { severity: 'success' });
+            } else if (successCount > 0 && failedCount > 0) {
+              notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}. ${failedCount} invitation${failedCount === 1 ? '' : 's'} failed.`, { severity: 'warning' });
+              
+              // Show specific errors for failed invitations
+              const failedInvitations = invitationResults.filter(result => !result.success);
+              failedInvitations.forEach(failed => {
+                notifications.show(`Failed to invite ${failed.email}: ${failed.error}`, { severity: 'error' });
+              });
+            } else if (failedCount > 0) {
+              notifications.show(`Failed to send all ${failedCount} invitation${failedCount === 1 ? '' : 's'}. Please try again.`, { severity: 'error' });
+            }
+          }
+        } catch (error: any) {
+          console.error('Error creating invited users:', error);
+          const errorMessage = error?.message || error?.detail || 'Unknown error occurred while sending invitations';
+          notifications.show(`Warning: ${errorMessage}`, { severity: 'warning' });
+          // Don't block onboarding completion for user creation errors
+        }
+
         try {
           setOnboardingStatus('loading_initial_data');
           const initDataResponse = await organizationsClient.loadInitialData(organization.id);
@@ -170,6 +238,15 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
         );
       case 1:
         return (
+          <InviteTeamStep
+            formData={formData}
+            updateFormData={updateFormData}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 2:
+        return (
           <FinishStep
             formData={formData}
             onComplete={handleComplete}
@@ -184,29 +261,38 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
   };
 
   return (
-    <Container maxWidth="lg">
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 4, 
-          borderRadius: 2,
-          width: '100%',
-          maxWidth: 800,
-          mx: 'auto'
-        }}
-      >
-        <Box sx={{ width: '100%', mb: 4 }}>
-          <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+    <Container maxWidth="md">
+      <Box py={4}>
+        {/* Header */}
+        <Box textAlign="center" mb={4}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Welcome to Rhesis
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Let&apos;s get your workspace set up in just a few steps
+          </Typography>
+        </Box>
+
+        {/* Stepper */}
+        <Box mb={4}>
+          <Paper elevation={0}>
+            <Box p={3}>
+              <Stepper activeStep={activeStep} alternativeLabel>
+                {steps.map((label) => (
+                  <Step key={label}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+            </Box>
+          </Paper>
         </Box>
         
-        {renderStep()}
-      </Paper>
+        {/* Step Content */}
+        <Box>
+          {renderStep()}
+        </Box>
+      </Box>
     </Container>
   );
 } 
