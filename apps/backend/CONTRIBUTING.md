@@ -38,7 +38,23 @@ git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 ```
 
-2. **Set up the backend** dependencies:
+2. **Install GitHub CLI** (required for automated PR creation):
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install gh
+
+# macOS
+brew install gh
+
+# Or download from: https://cli.github.com/
+```
+
+3. **Authenticate with GitHub**:
+```bash
+gh auth login
+```
+
+4. **Set up the backend** dependencies:
 ```bash
 cd apps/backend
 uv pip install hatch
@@ -60,6 +76,33 @@ The repository includes a unified CLI tool for managing development servers:
 ```
 
 Run these commands from the repository root. The CLI provides a consistent interface for starting both services with beautiful, colorful output and proper error handling.
+
+## Automated PR Creation Tool
+
+The repository includes an intelligent PR creation tool that streamlines the pull request process:
+
+```bash
+.github/pr [base-branch]
+```
+
+**Features:**
+- 🎯 **Smart title generation** - Automatically formats branch names into proper titles
+- 📝 **Detailed descriptions** - Includes commit summaries, changed files, and checklists
+- 🔤 **Proper capitalization** - Handles technical abbreviations (API, UI, DB, etc.)
+- ✅ **Ready-to-use templates** - Pre-filled checklists and sections
+- 🌐 **Browser integration** - Option to open PR in browser after creation
+
+**Prerequisites:**
+- GitHub CLI (`gh`) must be installed and authenticated (see setup steps above)
+- Must be run from a feature branch (not main/master)
+
+**Examples:**
+```bash
+.github/pr          # Create PR against main branch
+.github/pr develop  # Create PR against develop branch
+```
+
+**Note:** If GitHub CLI is not installed, the tool will display an error and guide you to install it first.
 
 ## Development Workflow
 
@@ -113,6 +156,12 @@ git commit -m "feat: your descriptive commit message"
 ```bash
 git push origin feature/your-feature-name
 ```
+
+7. **Create a Pull Request** using the automated PR tool:
+```bash
+.github/pr
+```
+This tool will automatically generate a professional PR with proper title formatting, detailed description, commit summaries, and a comprehensive checklist.
 
 ## Pull Request Guidelines
 
