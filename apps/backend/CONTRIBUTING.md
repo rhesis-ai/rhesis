@@ -111,6 +111,100 @@ All formatting and linting is handled by Ruff. Use the Makefile targets for a co
 - Include docstrings for new functions and classes
 - Keep the README.md up to date with any user-facing changes
 
+## Cloud Database Setup (Google Cloud SQL)
+
+For developers working with cloud-based databases on Google Cloud, you'll need to set up the Cloud SQL Proxy to securely connect to the database.
+
+### Prerequisites
+
+1. **Google Cloud CLI**: Install the [gcloud CLI tool](https://cloud.google.com/sdk/docs/install)
+2. **Project Access**: Ensure you have access to the Google Cloud project and appropriate permissions
+
+### Generating Credentials
+
+1. **Authenticate with Google Cloud**:
+```bash
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+2. **Create a Service Account** (if not already created):
+```bash
+gcloud iam service-accounts create sql-proxy-service \
+    --description="Service account for Cloud SQL Proxy" \
+    --display-name="SQL Proxy Service Account"
+```
+
+3. **Grant necessary permissions**:
+```bash
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:sql-proxy-service@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/cloudsql.client"
+```
+
+4. **Generate and download the credentials file**:
+```bash
+gcloud iam service-accounts keys create sql-proxy-key.json \
+    --iam-account=sql-proxy-service@YOUR_PROJECT_ID.iam.gserviceaccount.com
+```
+
+### Setting Up the Database Proxy
+
+1. **Copy the credentials file** to the infrastructure scripts directory:
+```bash
+cp sql-proxy-key.json rhesis/infrastructure/scripts/
+```
+
+2. **Install the database proxy service**:
+```bash
+cd rhesis/infrastructure/scripts
+sudo ./setup-db-proxy-service.sh install
+```
+
+3. **Start the proxy service**:
+```bash
+sudo ./setup-db-proxy-service.sh start
+```
+
+4. **Verify the service is running**:
+```bash
+sudo ./setup-db-proxy-service.sh status
+```
+
+### Managing the Proxy Service
+
+- **View logs**: `sudo ./setup-db-proxy-service.sh logs`
+- **Follow logs in real-time**: `sudo ./setup-db-proxy-service.sh follow-logs`
+- **Restart service**: `sudo ./setup-db-proxy-service.sh restart`
+- **Stop service**: `sudo ./setup-db-proxy-service.sh stop`
+- **Uninstall service**: `sudo ./setup-db-proxy-service.sh uninstall`
+
+### Environment Configuration
+
+Update your `.env` file to use the Unix socket created by the proxy:
+
+```bash
+# For Cloud SQL via Unix socket
+DB_HOST=/cloudsql/YOUR_PROJECT_ID:REGION:INSTANCE_ID
+DB_PORT=5432
+DB_NAME=your_database_name
+DB_USER=your_username
+DB_PASSWORD=your_password
+```
+
+### Security Notes
+
+- **Never commit** the `sql-proxy-key.json` file to version control
+- **Rotate credentials** periodically for security
+- **Use least privilege** - only grant necessary permissions to the service account
+- **Monitor access** through Google Cloud Console audit logs
+
+### Troubleshooting
+
+- **Connection issues**: Check if the proxy service is running with `sudo systemctl status db-proxy`
+- **Permission errors**: Verify the service account has `roles/cloudsql.client` role
+- **Instance connection**: Ensure the Cloud SQL instance allows connections and is in the correct region
+
 ## Questions or Need Help?
 
 If you have questions or need help with the contribution process:
