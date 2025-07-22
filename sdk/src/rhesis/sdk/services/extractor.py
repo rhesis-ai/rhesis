@@ -22,6 +22,7 @@ class DocumentExtractor:
             ".adoc",  # AsciiDoc
             ".html", ".xhtml",  # HTML formats
             ".csv",  # CSV files
+            ".txt",  # Plain text files
             # Image formats
             ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp",
             # Schema-specific formats
@@ -103,6 +104,11 @@ class DocumentExtractor:
             )
 
         try:
+            # Special handling for plain text files - read directly
+            if file_extension == ".txt":
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    return file.read().strip()
+            
             # Use Docling to extract text from the file
             from docling.document_converter import DocumentConverter
             
