@@ -40,7 +40,7 @@ fi
 
 # Start Cloud SQL Proxy
 echo -e "${GREEN}🚀 Starting Cloud SQL Proxy...${NC}"
-./cloud-sql-proxy --credentials-file ./sql-proxy-key.json --unix-socket=/cloudsql "$INSTANCE_CONNECTION_NAME"
+./cloud-sql-proxy -credential_file ./sql-proxy-key.json -dir /cloudsql -instances="$INSTANCE_CONNECTION_NAME"
 
 
 echo -e "${YELLOW}💫 Done!${NC}"

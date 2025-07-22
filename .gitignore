@@ -237,6 +237,9 @@ infrastructure/scripts/service-secrets-config.sh
 *terraform*key*.json
 *deployer*key*.json
 
+# Cloud SQL Proxy binary
+**cloud-sql-proxy
+
 # Terraform variables
 infrastructure/scripts/*/*.tfvars
 

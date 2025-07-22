@@ -155,18 +155,25 @@ gcloud iam service-accounts keys create sql-proxy-key.json \
 cp sql-proxy-key.json rhesis/infrastructure/scripts/
 ```
 
-2. **Install the database proxy service**:
+2. **Download the Cloud SQL Proxy binary** (if not already present):
+```bash
+cd rhesis/infrastructure/scripts
+wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud-sql-proxy
+chmod +x cloud-sql-proxy
+```
+
+3. **Install the database proxy service**:
 ```bash
 cd rhesis/infrastructure/scripts
 sudo ./setup-db-proxy-service.sh install
 ```
 
-3. **Start the proxy service**:
+4. **Start the proxy service**:
 ```bash
 sudo ./setup-db-proxy-service.sh start
 ```
 
-4. **Verify the service is running**:
+5. **Verify the service is running**:
 ```bash
 sudo ./setup-db-proxy-service.sh status
 ```
