@@ -390,7 +390,8 @@ def get_or_create_entity(db: Session, model: Type[T], entity_data: Union[Dict[st
         search_filters = _build_search_filters_for_model(model, search_data)
         
         # Search for existing entity if we have sufficient filters
-        if len(search_filters) > 1:  # Need at least organization_id and one identifying field
+        # The base query already includes organization filtering, so we just need identifying fields
+        if len(search_filters) >= 1:  # Need at least one identifying field
             db_entity = query.with_custom_filter(
                 lambda q: q.filter(*search_filters)
             ).first()
@@ -490,8 +491,12 @@ def get_or_create_topic(
     commit: bool = True,
 ) -> Topic:
     """Get or create a topic with optional entity type, description, and status."""
-    # Prepare topic data
-    topic_data = {"name": name, "description": description}
+    # Prepare topic data - only include non-None values
+    topic_data = {"name": name}
+    
+    # Add description only if provided
+    if description is not None:
+        topic_data["description"] = description
     
     # Add entity type if provided
     if entity_type:
@@ -518,8 +523,12 @@ def get_or_create_category(
     commit: bool = True,
 ) -> Category:
     """Get or create a category with optional entity type, description, and status."""
-    # Prepare category data
-    category_data = {"name": name, "description": description}
+    # Prepare category data - only include non-None values
+    category_data = {"name": name}
+    
+    # Add description only if provided
+    if description is not None:
+        category_data["description"] = description
     
     # Add entity type if provided
     if entity_type:
@@ -545,8 +554,12 @@ def get_or_create_behavior(
     commit: bool = True,
 ) -> Behavior:
     """Get or create a behavior with optional description and status."""
-    # Prepare behavior data
-    behavior_data = {"name": name, "description": description}
+    # Prepare behavior data - only include non-None values
+    behavior_data = {"name": name}
+    
+    # Add description only if provided
+    if description is not None:
+        behavior_data["description"] = description
     
     # Add status if provided
     if status:
