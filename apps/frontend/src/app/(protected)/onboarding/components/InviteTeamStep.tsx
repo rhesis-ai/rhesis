@@ -34,20 +34,57 @@ export default function InviteTeamStep({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [errors, setErrors] = useState<{ [key: number]: boolean }>({});
+  const [errors, setErrors] = useState<{ [key: number]: { hasError: boolean; message: string } }>({});
 
   // Email validation regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  // Maximum number of team members that can be invited
+  const MAX_TEAM_MEMBERS = 10;
 
   const validateForm = () => {
-    const newErrors: { [key: number]: boolean } = {};
+    const newErrors: { [key: number]: { hasError: boolean; message: string } } = {};
     let hasError = false;
     
-    // Only validate non-empty emails
+    // Check maximum team size
+    const nonEmptyInvites = formData.invites.filter(invite => invite.email.trim());
+    if (nonEmptyInvites.length > MAX_TEAM_MEMBERS) {
+      setErrorMessage(`You can invite a maximum of ${MAX_TEAM_MEMBERS} team members during onboarding.`);
+      return false;
+    }
+    
+    // Get all non-empty emails for duplicate checking
+    const emailsToCheck = formData.invites
+      .map((invite, index) => ({ email: invite.email.trim().toLowerCase(), index }))
+      .filter(item => item.email);
+    
+    // Check for duplicates
+    const seenEmails = new Set<string>();
+    const duplicateEmails = new Set<string>();
+    
+    emailsToCheck.forEach(({ email, index }) => {
+      if (seenEmails.has(email)) {
+        duplicateEmails.add(email);
+      } else {
+        seenEmails.add(email);
+      }
+    });
+    
+    // Validate each email
     formData.invites.forEach((invite, index) => {
-      if (invite.email.trim() && !emailRegex.test(invite.email.trim())) {
-        newErrors[index] = true;
-        hasError = true;
+      const trimmedEmail = invite.email.trim();
+      
+      if (trimmedEmail) {
+        // Check email format
+        if (!emailRegex.test(trimmedEmail)) {
+          newErrors[index] = { hasError: true, message: 'Please enter a valid email address' };
+          hasError = true;
+        }
+        // Check for duplicates
+        else if (duplicateEmails.has(trimmedEmail.toLowerCase())) {
+          newErrors[index] = { hasError: true, message: 'This email address is already added' };
+          hasError = true;
+        }
       }
     });
     
@@ -89,6 +126,11 @@ export default function InviteTeamStep({
   };
 
   const addEmailField = () => {
+    if (formData.invites.length >= MAX_TEAM_MEMBERS) {
+      setErrorMessage(`You can invite a maximum of ${MAX_TEAM_MEMBERS} team members during onboarding.`);
+      return;
+    }
+    
     updateFormData({
       invites: [...formData.invites, { email: '' }]
     });
@@ -122,6 +164,9 @@ export default function InviteTeamStep({
         <Typography variant="body1" color="text.secondary">
           Invite colleagues to join your organization. You can skip this step and add team members later.
         </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          You can invite up to {MAX_TEAM_MEMBERS} team members during onboarding.
+        </Typography>
       </Box>
 
       {/* Form Fields */}
@@ -133,8 +178,8 @@ export default function InviteTeamStep({
               label="Email Address"
               value={invite.email}
               onChange={(e) => handleEmailChange(index, e.target.value)}
-              error={Boolean(errors[index])}
-              helperText={errors[index] ? 'Please enter a valid email address' : ''}
+              error={Boolean(errors[index]?.hasError)}
+              helperText={errors[index]?.message || ''}
               placeholder="colleague@company.com"
               variant="outlined"
             />
@@ -156,8 +201,11 @@ export default function InviteTeamStep({
             onClick={addEmailField}
             variant="outlined"
             size="medium"
+            disabled={formData.invites.length >= MAX_TEAM_MEMBERS}
           >
-            Add Another Email
+            {formData.invites.length >= MAX_TEAM_MEMBERS 
+              ? `Maximum ${MAX_TEAM_MEMBERS} invites reached` 
+              : 'Add Another Email'}
           </Button>
         </Box>
       </Stack>

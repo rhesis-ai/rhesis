@@ -47,6 +47,8 @@ dependencies = [
     "mirascope==1.24.0",
     "protobuf>=5.29.4",
     "proto-plus>=1.26.1",
+    "email-validator>=2.0.0",
+    "slowapi>=0.1.9",
 ]
 
 [build-system]
