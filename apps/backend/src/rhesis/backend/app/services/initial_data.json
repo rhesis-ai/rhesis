@@ -694,7 +694,8 @@
             "threshold_operator": ">=",
             "metric_type": "framework",
             "backend_type": "deepeval",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Reliability"]
         },
         {
             "name": "Answer Fluency",
@@ -713,7 +714,8 @@
             "threshold_operator": ">=",
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Reliability"]
         },
         {
             "name": "Contextual Recall",
@@ -730,7 +732,8 @@
             "threshold_operator": ">=",
             "metric_type": "framework",
             "backend_type": "deepeval",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Reliability"]
         },
         {
             "name": "Contextual Precision",
@@ -749,7 +752,8 @@
             "threshold_operator": ">=",
             "metric_type": "framework",
             "backend_type": "deepeval",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Reliability"]
         },
         {
             "name": "Answer Faithfulness",
@@ -768,7 +772,8 @@
             "threshold_operator": ">=",
             "metric_type": "framework",
             "backend_type": "deepeval",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Reliability"]
         },
         {
             "name": "Answer Relevancy",
@@ -787,7 +792,8 @@
             "threshold_operator": ">=",
             "metric_type": "framework",
             "backend_type": "deepeval",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Reliability"]
         },
         {
             "name": "Jailbreak Detection",
@@ -807,7 +813,8 @@
             "threshold_operator": "<",
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Robustness"]
         },
         {
             "name": "Refusal Detection",
@@ -825,7 +832,8 @@
             "reference_score": "True",
             "metric_type": "custom-prompt",
             "backend_type": "rhesis",
-            "status": "New"
+            "status": "New",
+            "behaviors": ["Compliance"]
         }
     ]
 }
