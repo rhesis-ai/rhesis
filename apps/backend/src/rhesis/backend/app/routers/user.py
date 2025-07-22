@@ -36,11 +36,8 @@ async def create_user(
     # Extract send_invite flag before creating user (since it's not part of the model)
     send_invite = user.send_invite
     
-    # Remove send_invite from user data before creating user (it's not part of the database model)
-    user_data = user.model_copy(exclude={'send_invite'})
-    
-    # Create the user
-    created_user = crud.create_user(db=db, user=user_data)
+    # Create the user (crud function will automatically exclude send_invite)
+    created_user = crud.create_user(db=db, user=user)
     
     # Send invitation email if requested
     if send_invite and email_service.is_configured:
@@ -101,12 +98,11 @@ async def test_invitation_email(
             send_invite=True
         )
         
-        # Extract send_invite and create user data without it
+        # Extract send_invite flag
         send_invite = test_user_data.send_invite
-        user_data_for_db = test_user_data.model_copy(exclude={'send_invite'})
         
-        # Create the user
-        created_user = crud.create_user(db=db, user=user_data_for_db)
+        # Create the user (crud function will automatically exclude send_invite)
+        created_user = crud.create_user(db=db, user=test_user_data)
         
         # Send invitation email if requested
         if send_invite and email_service.is_configured:
