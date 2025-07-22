@@ -11,13 +11,15 @@ import {
   StepLabel,
   Typography,
   Container,
+  Stack
 } from '@mui/material';
 import OrganizationDetailsStep from './OrganizationDetailsStep';
+import InviteTeamStep from './InviteTeamStep';
 import FinishStep from './FinishStep';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
 import { UUID } from 'crypto';
-import { UserUpdate } from '@/utils/api-client/interfaces/user';
+import { UserUpdate, UserCreate } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 type OnboardingStatus = 'idle' | 'creating_organization' | 'updating_user' | 'loading_initial_data';
@@ -35,7 +37,7 @@ interface OnboardingPageClientProps {
   userId: UUID;
 }
 
-const steps = ['Organization Details', 'Finish'];
+const steps = ['Organization Details', 'Invite Team', 'Finish'];
 
 export default function OnboardingPageClient({ sessionToken, userId }: OnboardingPageClientProps) {
   const router = useRouter();
@@ -120,6 +122,43 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
           document.cookie = `next-auth.session-token=${response.session_token}; ${cookieOptions}`;
         }
 
+        // Create invited users and send invitation emails now that we have the organization
+        try {
+          const validEmails = formData.invites
+            .filter(invite => invite.email.trim())
+            .map(invite => invite.email.trim());
+          
+          if (validEmails.length > 0) {
+            const createUserPromises = validEmails.map(async (email) => {
+              const userData = {
+                email: email,
+                organization_id: organization.id as UUID,
+                is_active: true,
+                send_invite: true  // This will trigger the invitation email
+              };
+              
+              try {
+                return await usersClient.createUser(userData);
+              } catch (error) {
+                console.error(`Failed to create user with email ${email}:`, error);
+                // Don't throw error here to avoid blocking the onboarding process
+                return null;
+              }
+            });
+            
+            // Create all users in parallel
+            const createdUsers = await Promise.all(createUserPromises);
+            const successCount = createdUsers.filter(user => user !== null).length;
+            
+            if (successCount > 0) {
+              notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'} and sent invitation emails!`, { severity: 'success' });
+            }
+          }
+        } catch (error) {
+          console.error('Error creating invited users:', error);
+          // Don't block onboarding completion for user creation errors
+        }
+
         try {
           setOnboardingStatus('loading_initial_data');
           const initDataResponse = await organizationsClient.loadInitialData(organization.id);
@@ -170,6 +209,15 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
         );
       case 1:
         return (
+          <InviteTeamStep
+            formData={formData}
+            updateFormData={updateFormData}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 2:
+        return (
           <FinishStep
             formData={formData}
             onComplete={handleComplete}
@@ -184,29 +232,38 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
   };
 
   return (
-    <Container maxWidth="lg">
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 4, 
-          borderRadius: 2,
-          width: '100%',
-          maxWidth: 800,
-          mx: 'auto'
-        }}
-      >
-        <Box sx={{ width: '100%', mb: 4 }}>
-          <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+    <Container maxWidth="md">
+      <Box py={4}>
+        {/* Header */}
+        <Box textAlign="center" mb={4}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Welcome to Rhesis
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Let's get your workspace set up in just a few steps
+          </Typography>
+        </Box>
+
+        {/* Stepper */}
+        <Box mb={4}>
+          <Paper elevation={0}>
+            <Box p={3}>
+              <Stepper activeStep={activeStep} alternativeLabel>
+                {steps.map((label) => (
+                  <Step key={label}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+            </Box>
+          </Paper>
         </Box>
         
-        {renderStep()}
-      </Paper>
+        {/* Step Content */}
+        <Box>
+          {renderStep()}
+        </Box>
+      </Box>
     </Container>
   );
 } 
