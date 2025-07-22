@@ -32,18 +32,32 @@ Please read and follow our [Code of Conduct](../../CODE_OF_CONDUCT.md) to mainta
    ```bash
    git remote add upstream https://github.com/rhesis-ai/rhesis.git
    ```
-4. **Navigate to frontend directory and install dependencies**:
+4. **Install GitHub CLI** (required for automated PR creation):
+   ```bash
+   # Ubuntu/Debian
+   sudo apt update && sudo apt install gh
+   
+   # macOS
+   brew install gh
+   
+   # Or download from: https://cli.github.com/
+   ```
+5. **Authenticate with GitHub**:
+   ```bash
+   gh auth login
+   ```
+6. **Navigate to frontend directory and install dependencies**:
    ```bash
    cd apps/frontend
    npm install
    ```
-5. **Set up environment variables**:
+7. **Set up environment variables**:
    ```bash
    cp .env.example .env.local
    ```
    Fill in the necessary values in `.env.local`
 
-6. **Start the development server** (choose one method):
+8. **Start the development server** (choose one method):
 
    **Option A: Use the unified CLI from repository root:**
    ```bash
@@ -72,6 +86,33 @@ The repository includes a unified CLI tool for managing development servers:
 ```
 
 Run these commands from the repository root. The CLI provides a consistent interface for starting both services with beautiful, colorful output and proper error handling.
+
+## Automated PR Creation Tool
+
+The repository includes an intelligent PR creation tool that streamlines the pull request process:
+
+```bash
+.github/pr [base-branch]
+```
+
+**Features:**
+- 🎯 **Smart title generation** - Automatically formats branch names into proper titles
+- 📝 **Detailed descriptions** - Includes commit summaries, changed files, and checklists
+- 🔤 **Proper capitalization** - Handles technical abbreviations (API, UI, DB, etc.)
+- ✅ **Ready-to-use templates** - Pre-filled checklists and sections
+- 🌐 **Browser integration** - Option to open PR in browser after creation
+
+**Prerequisites:**
+- GitHub CLI (`gh`) must be installed and authenticated (see setup steps above)
+- Must be run from a feature branch (not main/master)
+
+**Examples:**
+```bash
+.github/pr          # Create PR against main branch
+.github/pr develop  # Create PR against develop branch
+```
+
+**Note:** If GitHub CLI is not installed, the tool will display an error and guide you to install it first.
 
 ## Development Workflow
 
@@ -109,7 +150,13 @@ Run these commands from the repository root. The CLI provides a consistent inter
    git push origin feature/your-feature-name
    ```
 
-6. **Create a pull request** from your fork to the main repository
+6. **Create a pull request** using the automated PR tool:
+   ```bash
+   .github/pr
+   ```
+   This tool will automatically generate a professional PR with proper title formatting, detailed description, commit summaries, and a comprehensive checklist.
+
+7. **Submit the pull request** from your fork to the main repository
 
 ## Code Style and Standards
 
@@ -210,10 +257,11 @@ All components should be accessible:
 
 1. Ensure your code passes all tests and linting
 2. Update documentation if needed
-3. Include screenshots for UI changes
-4. Link to any related issues
-5. Request review from at least one maintainer
-6. Address review comments promptly
+3. **Use the automated PR tool** (`.github/pr`) for consistent PR formatting
+4. Include screenshots for UI changes
+5. Link to any related issues
+6. Request review from at least one maintainer
+7. Address review comments promptly
 
 ## Documentation
 
