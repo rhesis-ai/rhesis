@@ -19,7 +19,7 @@ class UserBase(Base):
 
 
 class UserCreate(UserBase):
-    pass
+    send_invite: Optional[bool] = False
 
 
 class UserUpdate(UserBase):
