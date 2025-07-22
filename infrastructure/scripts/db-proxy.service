@@ -1,0 +1,33 @@
+[Unit]
+Description=Database Proxy Service
+Documentation=https://github.com/your-org/your-repo
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+User=__USER__
+Group=__GROUP__
+WorkingDirectory=__WORKING_DIRECTORY__
+ExecStart=__SCRIPT_PATH__
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=db-proxy
+
+# Environment variables (add any your script needs)
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# Environment=DB_HOST=localhost
+# Environment=DB_PORT=5432
+
+# Resource limits (optional)
+LimitNOFILE=65536
+MemoryLimit=1G
+
+# Security settings (optional but recommended)
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target 
