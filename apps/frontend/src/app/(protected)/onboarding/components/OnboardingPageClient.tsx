@@ -240,7 +240,7 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
             Welcome to Rhesis
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Let's get your workspace set up in just a few steps
+            Let&apos;s get your workspace set up in just a few steps
           </Typography>
         </Box>
 
