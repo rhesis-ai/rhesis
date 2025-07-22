@@ -35,11 +35,12 @@ This ensures you're using a clean Python environment without potential conflicts
 1. Clone the repository:
 ```bash
 git clone https://github.com/rhesis-ai/rhesis.git
-cd apps/backend
+cd rhesis
 ```
 
-2. Install dependencies and development tools using [uv](https://github.com/astral-sh/uv) and [Hatch](https://hatch.pypa.io/):
+2. **Set up the backend** dependencies:
 ```bash
+cd apps/backend
 uv pip install hatch
 uv sync --extra dev
 uv pip install -e .
@@ -47,6 +48,18 @@ uv pip install -e .
 This will:
 - Sync all dependencies, including development dependencies (such as Sphinx for docs)
 - Install the backend package in editable mode
+
+## RH CLI Tool
+
+The repository includes a unified CLI tool for managing development servers:
+
+```bash
+./rh backend start    # Start the backend server
+./rh frontend start   # Start the frontend server
+./rh help            # Show available commands
+```
+
+Run these commands from the repository root. The CLI provides a consistent interface for starting both services with beautiful, colorful output and proper error handling.
 
 ## Development Workflow
 
@@ -60,7 +73,25 @@ git checkout -b feature/your-feature-name
 pre-commit install
 ```
 
-3. Make your changes and ensure all checks pass (if a Makefile is present, use it):
+3. **Start the development server** (choose one method):
+
+   **Option A: Use the unified CLI from repository root:**
+   ```bash
+   ./rh backend start
+   ```
+
+   **Option B: Use the backend start script directly:**
+   ```bash
+   cd apps/backend
+   ./start.sh
+   ```
+
+   **Option C: Run manually:**
+   ```bash
+   uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload
+   ```
+
+4. Make your changes and ensure all checks pass (if a Makefile is present, use it):
 ```bash
 make format      # Format code with Ruff
 make lint        # Lint code with Ruff
@@ -72,13 +103,13 @@ Or run all checks at once:
 make all
 ```
 
-4. Commit your changes:
+5. Commit your changes:
 ```bash
 git add .
 git commit -m "feat: your descriptive commit message"
 ```
 
-5. Push your changes and create a Pull Request:
+6. Push your changes and create a Pull Request:
 ```bash
 git push origin feature/your-feature-name
 ```
