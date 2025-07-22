@@ -83,4 +83,57 @@ class EmailService:
         Returns:
             set: Set of variable names required by the template
         """
-        return self.template_service.get_template_variables(template) 
+        return self.template_service.get_template_variables(template)
+    
+    def send_team_invitation_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        organization_name: str,
+        organization_website: Optional[str],
+        inviter_name: str,
+        inviter_email: str,
+        frontend_url: Optional[str] = None
+    ) -> bool:
+        """
+        Send a team invitation email to a new user.
+        
+        Args:
+            recipient_email: Email address of the person being invited
+            recipient_name: Name of the person being invited (optional)
+            organization_name: Name of the organization they're being invited to
+            organization_website: Website of the organization (optional)
+            inviter_name: Name of the person sending the invitation
+            inviter_email: Email of the person sending the invitation
+            frontend_url: URL to the frontend application
+            
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        if not self.is_configured:
+            logger.warning(f"Cannot send invitation email to {recipient_email}: SMTP not configured")
+            return False
+        
+        # Set default frontend URL if not provided
+        if not frontend_url:
+            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+        
+        subject = f"You're invited to join {organization_name} on Rhesis AI!"
+        
+        template_variables = {
+            'recipient_email': recipient_email,
+            'recipient_name': recipient_name or '',
+            'organization_name': organization_name,
+            'organization_website': organization_website or '',
+            'inviter_name': inviter_name,
+            'inviter_email': inviter_email,
+            'frontend_url': frontend_url
+        }
+        
+        return self.send_email(
+            template=EmailTemplate.TEAM_INVITATION,
+            recipient_email=recipient_email,
+            subject=subject,
+            template_variables=template_variables,
+            task_id="team_invitation"
+        ) 

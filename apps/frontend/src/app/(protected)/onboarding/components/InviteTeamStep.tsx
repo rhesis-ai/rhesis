@@ -4,11 +4,15 @@ import {
   TextField,
   Button,
   Typography,
-  Grid,
-  IconButton
+  IconButton,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  Stack
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useState } from 'react';
 
 interface FormData {
   invites: { email: string }[];
@@ -27,20 +31,60 @@ export default function InviteTeamStep({
   onNext,
   onBack
 }: InviteTeamStepProps) {
-  const [errors, setErrors] = React.useState<{ [key: number]: boolean }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ [key: number]: { hasError: boolean; message: string } }>({});
 
   // Email validation regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  // Maximum number of team members that can be invited
+  const MAX_TEAM_MEMBERS = 10;
 
   const validateForm = () => {
-    const newErrors: { [key: number]: boolean } = {};
+    const newErrors: { [key: number]: { hasError: boolean; message: string } } = {};
     let hasError = false;
     
-    // Only validate non-empty emails
+    // Check maximum team size
+    const nonEmptyInvites = formData.invites.filter(invite => invite.email.trim());
+    if (nonEmptyInvites.length > MAX_TEAM_MEMBERS) {
+      setErrorMessage(`You can invite a maximum of ${MAX_TEAM_MEMBERS} team members during onboarding.`);
+      return false;
+    }
+    
+    // Get all non-empty emails for duplicate checking
+    const emailsToCheck = formData.invites
+      .map((invite, index) => ({ email: invite.email.trim().toLowerCase(), index }))
+      .filter(item => item.email);
+    
+    // Check for duplicates
+    const seenEmails = new Set<string>();
+    const duplicateEmails = new Set<string>();
+    
+    emailsToCheck.forEach(({ email, index }) => {
+      if (seenEmails.has(email)) {
+        duplicateEmails.add(email);
+      } else {
+        seenEmails.add(email);
+      }
+    });
+    
+    // Validate each email
     formData.invites.forEach((invite, index) => {
-      if (invite.email && !emailRegex.test(invite.email)) {
-        newErrors[index] = true;
-        hasError = true;
+      const trimmedEmail = invite.email.trim();
+      
+      if (trimmedEmail) {
+        // Check email format
+        if (!emailRegex.test(trimmedEmail)) {
+          newErrors[index] = { hasError: true, message: 'Please enter a valid email address' };
+          hasError = true;
+        }
+        // Check for duplicates
+        else if (duplicateEmails.has(trimmedEmail.toLowerCase())) {
+          newErrors[index] = { hasError: true, message: 'This email address is already added' };
+          hasError = true;
+        }
       }
     });
     
@@ -48,11 +92,23 @@ export default function InviteTeamStep({
     return !hasError;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (validateForm()) {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      // Proceed to next step
       onNext();
+    } catch (error) {
+      console.error('Error during form submission:', error);
+      setErrorMessage('Failed to submit form. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -70,6 +126,11 @@ export default function InviteTeamStep({
   };
 
   const addEmailField = () => {
+    if (formData.invites.length >= MAX_TEAM_MEMBERS) {
+      setErrorMessage(`You can invite a maximum of ${MAX_TEAM_MEMBERS} team members during onboarding.`);
+      return;
+    }
+    
     updateFormData({
       invites: [...formData.invites, { email: '' }]
     });
@@ -88,63 +149,110 @@ export default function InviteTeamStep({
     }
   };
 
+  const handleCloseSnackbar = () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 4 }}>
-      <Typography variant="h6" gutterBottom align="center">
-        Invite Team Members
-      </Typography>
-      
-      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 3 }}>
-        Invite colleagues to join your organization
-      </Typography>
-      
-      {formData.invites.map((invite, index) => (
-        <Grid container spacing={2} key={index} alignItems="center" sx={{ mb: 2 }}>
-          <Grid item xs>
+    <Box component="form" onSubmit={handleSubmit}>
+      {/* Header Section */}
+      <Box textAlign="center" mb={4}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          Invite Team Members
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Invite colleagues to join your organization. You can skip this step and add team members later.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          You can invite up to {MAX_TEAM_MEMBERS} team members during onboarding.
+        </Typography>
+      </Box>
+
+      {/* Form Fields */}
+      <Stack spacing={3}>
+        {formData.invites.map((invite, index) => (
+          <Box key={index} display="flex" alignItems="flex-start" gap={2}>
             <TextField
               fullWidth
               label="Email Address"
               value={invite.email}
               onChange={(e) => handleEmailChange(index, e.target.value)}
-              error={Boolean(errors[index])}
-              helperText={errors[index] ? 'Please enter a valid email address' : ''}
+              error={Boolean(errors[index]?.hasError)}
+              helperText={errors[index]?.message || ''}
               placeholder="colleague@company.com"
+              variant="outlined"
             />
-          </Grid>
-          {formData.invites.length > 1 && (
-            <Grid item>
+            {formData.invites.length > 1 && (
               <IconButton 
                 onClick={() => removeEmailField(index)}
                 color="error"
-                size="small"
+                size="large"
               >
                 <DeleteIcon />
               </IconButton>
-            </Grid>
-          )}
-        </Grid>
-      ))}
-      
-      <Button
-        startIcon={<AddIcon />}
-        onClick={addEmailField}
-        sx={{ mt: 1, mb: 4 }}
-      >
-        Add Another
-      </Button>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-        <Button onClick={onBack}>
+            )}
+          </Box>
+        ))}
+        
+        <Box display="flex" justifyContent="flex-start">
+          <Button
+            startIcon={<AddIcon />}
+            onClick={addEmailField}
+            variant="outlined"
+            size="medium"
+            disabled={formData.invites.length >= MAX_TEAM_MEMBERS}
+          >
+            {formData.invites.length >= MAX_TEAM_MEMBERS 
+              ? `Maximum ${MAX_TEAM_MEMBERS} invites reached` 
+              : 'Add Another Email'}
+          </Button>
+        </Box>
+      </Stack>
+
+      {/* Action Buttons */}
+      <Box display="flex" justifyContent="space-between" mt={4}>
+        <Button 
+          onClick={onBack}
+          disabled={isSubmitting}
+          size="large"
+        >
           Back
         </Button>
         <Button 
           type="submit"
           variant="contained"
           color="primary"
+          disabled={isSubmitting}
+          startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
+          size="large"
         >
-          Next
+          {isSubmitting ? 'Saving...' : 'Next'}
         </Button>
       </Box>
+
+      {/* Notifications */}
+      <Snackbar 
+        open={!!errorMessage} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="error">
+          {errorMessage}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar 
+        open={!!successMessage} 
+        autoHideDuration={4000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="success">
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 } 

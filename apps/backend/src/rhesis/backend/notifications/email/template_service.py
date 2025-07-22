@@ -16,6 +16,7 @@ class EmailTemplate(Enum):
     """Available email templates."""
     TASK_COMPLETION = "task_completion.html.jinja2"
     TEST_EXECUTION_SUMMARY = "test_execution_summary.html.jinja2"
+    TEAM_INVITATION = "team_invitation.html.jinja2"
 
 
 class TemplateService:
@@ -47,6 +48,10 @@ class TemplateService:
                 'total_tests', 'tests_passed', 'tests_failed', 'execution_time',
                 'test_run_id', 'status_details', 'frontend_url', 'test_set_name',
                 'endpoint_name', 'endpoint_url', 'project_name'
+            },
+            EmailTemplate.TEAM_INVITATION: {
+                'recipient_name', 'recipient_email', 'organization_name', 'organization_website',
+                'inviter_name', 'inviter_email', 'frontend_url'
             }
         }
     

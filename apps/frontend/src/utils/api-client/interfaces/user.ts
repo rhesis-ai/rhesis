@@ -21,6 +21,7 @@ export interface UserCreate {
   picture?: string;
   is_active?: boolean;
   organization_id?: UUID;
+  send_invite?: boolean;
 }
 
 export interface UserUpdate {
