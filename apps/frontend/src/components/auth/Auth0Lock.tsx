@@ -136,7 +136,7 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             fullWidth
             size="medium"
             startIcon={<MicrosoftIcon />}
-            onClick={() => handleLogin('microsoft')}
+            onClick={() => handleLogin('windowslive')}
           >
             Continue with Microsoft
           </Button>
