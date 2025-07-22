@@ -1,0 +1,107 @@
+#!/bin/bash
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m' # No Color
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Function to display help
+show_help() {
+    echo -e "${CYAN}"
+    echo "  ____  _   _ _____ ____ ___ ____  "
+    echo " |  _ \| | | | ____/ ___|_ _/ ___| "
+    echo " | |_) | |_| |  _| \___ \| |\___ \ "
+    echo " |  _ <|  _  | |___ ___) | | ___) |"
+    echo " |_| \_\_| |_|_____|____/___|____/ "
+    echo -e "${NC}"
+    echo ""
+    echo -e "${WHITE}Rhesis CLI - Development Server Manager${NC}"
+    echo -e "${PURPLE}════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${YELLOW}Usage:${NC}"
+    echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server"
+    echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server"
+    echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
+    echo ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo -e "  ${BLUE}./rh backend start${NC}"
+    echo -e "  ${BLUE}./rh frontend start${NC}"
+    echo ""
+}
+
+# Function to start backend
+start_backend() {
+    echo -e "${GREEN}🔧 Starting Rhesis Backend...${NC}"
+    cd "$SCRIPT_DIR/apps/backend" || {
+        echo -e "${RED}❌ Error: Backend directory not found${NC}"
+        exit 1
+    }
+    
+    if [ -f "start.sh" ]; then
+        ./start.sh
+    else
+        echo -e "${RED}❌ Error: Backend start.sh not found${NC}"
+        exit 1
+    fi
+}
+
+# Function to start frontend
+start_frontend() {
+    echo -e "${GREEN}🌐 Starting Rhesis Frontend...${NC}"
+    cd "$SCRIPT_DIR/apps/frontend" || {
+        echo -e "${RED}❌ Error: Frontend directory not found${NC}"
+        exit 1
+    }
+    
+    if [ -f "start.sh" ]; then
+        ./start.sh
+    else
+        echo -e "${RED}❌ Error: Frontend start.sh not found${NC}"
+        exit 1
+    fi
+}
+
+# Parse command line arguments
+case "$1" in
+    "backend")
+        case "$2" in
+            "start")
+                start_backend
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown backend command: $2${NC}"
+                echo -e "${YELLOW}Use: ./rh backend start${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    "frontend")
+        case "$2" in
+            "start")
+                start_frontend
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown frontend command: $2${NC}"
+                echo -e "${YELLOW}Use: ./rh frontend start${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    "help"|"--help"|"-h"|"")
+        show_help
+        ;;
+    *)
+        echo -e "${RED}❌ Unknown command: $1${NC}"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac 
