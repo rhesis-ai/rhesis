@@ -122,14 +122,16 @@ def _prepare_update_data(db: Session, model: Type[T], item_data: Union[Dict[str,
     return data
 
 
-def _create_db_item_with_transaction(db: Session, model: Type[T], item_data: Dict[str, Any]) -> T:
+def _create_db_item_with_transaction(db: Session, model: Type[T], item_data: Dict[str, Any], commit: bool = True) -> T:
     """Create database item within a transaction."""
     db_item = model(**item_data)
     
     db.add(db_item)
     db.flush()  # Flush to get the ID and other generated values
     db.refresh(db_item)  # Refresh to ensure we have all generated values
-    db.commit()
+    
+    if commit:
+        db.commit()
     
     return db_item
 
@@ -206,7 +208,7 @@ def get_items_detail(
         )
 
 
-def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], BaseModel]) -> T:
+def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], BaseModel], commit: bool = True) -> T:
     """
     Create a new item with automatic data preparation and tenant context management.
     
@@ -214,6 +216,7 @@ def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], Ba
         db: Database session
         model: SQLAlchemy model class
         item_data: Item data as dict or Pydantic model
+        commit: Whether to commit the transaction (default: True)
         
     Returns:
         Created database item
@@ -223,7 +226,7 @@ def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], Ba
     
     # Create item within transaction
     with maintain_tenant_context(db):
-        return _create_db_item_with_transaction(db, model, prepared_data)
+        return _create_db_item_with_transaction(db, model, prepared_data, commit=commit)
 
 
 def update_item(
@@ -351,7 +354,7 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
     return search_filters
 
 
-def get_or_create_entity(db: Session, model: Type[T], entity_data: Union[Dict[str, Any], BaseModel]) -> T:
+def get_or_create_entity(db: Session, model: Type[T], entity_data: Union[Dict[str, Any], BaseModel], commit: bool = True) -> T:
     """
     Get or create an entity based on identifying fields.
     
@@ -362,6 +365,7 @@ def get_or_create_entity(db: Session, model: Type[T], entity_data: Union[Dict[st
         db: Database session
         model: SQLAlchemy model class
         entity_data: Entity data as dict or Pydantic model
+        commit: Whether to commit the transaction when creating (default: True)
         
     Returns:
         Existing or newly created entity
@@ -394,21 +398,21 @@ def get_or_create_entity(db: Session, model: Type[T], entity_data: Union[Dict[st
                 return db_entity
         
         # Create new entity if not found
-        return create_item(db, model, entity_data)
+        return create_item(db, model, entity_data, commit=commit)
 
 
 # ============================================================================
 # Specialized Helper Functions
 # ============================================================================
 
-def get_or_create_status(db: Session, name: str, entity_type) -> Status:
+def get_or_create_status(db: Session, name: str, entity_type, commit: bool = True) -> Status:
     """Get or create a status with the specified name and entity type."""
     # Handle EntityType enum or string
     entity_type_value = entity_type.value if hasattr(entity_type, 'value') else entity_type
     
     # Get or create the entity type lookup
     entity_type_lookup = get_or_create_type_lookup(
-        db=db, type_name="EntityType", type_value=entity_type_value
+        db=db, type_name="EntityType", type_value=entity_type_value, commit=commit
     )
 
     # Try to find existing status
@@ -429,11 +433,12 @@ def get_or_create_status(db: Session, name: str, entity_type) -> Status:
     return create_item(
         db=db, 
         model=Status, 
-        item_data={"name": name, "entity_type_id": entity_type_lookup.id}
+        item_data={"name": name, "entity_type_id": entity_type_lookup.id},
+        commit=commit
     )
 
 
-def get_or_create_type_lookup(db: Session, type_name: str, type_value: str) -> TypeLookup:
+def get_or_create_type_lookup(db: Session, type_name: str, type_value: str, commit: bool = True) -> TypeLookup:
     """Get or create a type lookup with the specified type_name and type_value."""
     logger.debug(f"get_or_create_type_lookup - Looking for type_name='{type_name}', type_value='{type_value}'")
     
@@ -466,7 +471,8 @@ def get_or_create_type_lookup(db: Session, type_name: str, type_value: str) -> T
         result = create_item(
             db=db, 
             model=TypeLookup, 
-            item_data={"type_name": type_name, "type_value": type_value}
+            item_data={"type_name": type_name, "type_value": type_value},
+            commit=commit
         )
         logger.debug(f"get_or_create_type_lookup - Created new type: {result}")
         return result
@@ -481,6 +487,7 @@ def get_or_create_topic(
     entity_type: str | None = None,
     description: str | None = None,
     status: str | None = None,
+    commit: bool = True,
 ) -> Topic:
     """Get or create a topic with optional entity type, description, and status."""
     # Prepare topic data
@@ -489,17 +496,17 @@ def get_or_create_topic(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type
+            db=db, type_name="EntityType", type_value=entity_type, commit=commit
         )
         topic_data["entity_type_id"] = entity_type_lookup.id
     
     # Add status if provided
     if status:
-        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL)
+        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL, commit=commit)
         topic_data["status_id"] = status_obj.id
     
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Topic, topic_data)
+    return get_or_create_entity(db, Topic, topic_data, commit=commit)
 
 
 def get_or_create_category(
@@ -508,6 +515,7 @@ def get_or_create_category(
     entity_type: str | None = None,
     description: str | None = None,
     status: str | None = None,
+    commit: bool = True,
 ) -> Category:
     """Get or create a category with optional entity type, description, and status."""
     # Prepare category data
@@ -516,17 +524,17 @@ def get_or_create_category(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type
+            db=db, type_name="EntityType", type_value=entity_type, commit=commit
         )
         category_data["entity_type_id"] = entity_type_lookup.id
     
     # Add status if provided
     if status:
-        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL)
+        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL, commit=commit)
         category_data["status_id"] = status_obj.id
     
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Category, category_data)
+    return get_or_create_entity(db, Category, category_data, commit=commit)
 
 
 def get_or_create_behavior(
@@ -534,6 +542,7 @@ def get_or_create_behavior(
     name: str,
     description: str | None = None,
     status: str | None = None,
+    commit: bool = True,
 ) -> Behavior:
     """Get or create a behavior with optional description and status."""
     # Prepare behavior data
@@ -541,8 +550,8 @@ def get_or_create_behavior(
     
     # Add status if provided
     if status:
-        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL)
+        status_obj = get_or_create_status(db=db, name=status, entity_type=EntityType.GENERAL, commit=commit)
         behavior_data["status_id"] = status_obj.id
     
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Behavior, behavior_data)
+    return get_or_create_entity(db, Behavior, behavior_data, commit=commit)
