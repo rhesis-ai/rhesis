@@ -129,6 +129,8 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
             .map(invite => invite.email.trim());
           
           if (validEmails.length > 0) {
+            const invitationResults: Array<{ email: string; success: boolean; error?: string }> = [];
+            
             const createUserPromises = validEmails.map(async (email) => {
               const userData = {
                 email: email,
@@ -138,10 +140,23 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
               };
               
               try {
-                return await usersClient.createUser(userData);
-              } catch (error) {
+                const user = await usersClient.createUser(userData);
+                invitationResults.push({ email, success: true });
+                return user;
+              } catch (error: any) {
+                let errorMessage = 'Unknown error';
+                
+                // Extract meaningful error messages
+                if (error?.message) {
+                  errorMessage = error.message;
+                } else if (error?.detail) {
+                  errorMessage = error.detail;
+                } else if (typeof error === 'string') {
+                  errorMessage = error;
+                }
+                
                 console.error(`Failed to create user with email ${email}:`, error);
-                // Don't throw error here to avoid blocking the onboarding process
+                invitationResults.push({ email, success: false, error: errorMessage });
                 return null;
               }
             });
@@ -149,13 +164,27 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
             // Create all users in parallel
             const createdUsers = await Promise.all(createUserPromises);
             const successCount = createdUsers.filter(user => user !== null).length;
+            const failedCount = validEmails.length - successCount;
             
-            if (successCount > 0) {
-              notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'} and sent invitation emails!`, { severity: 'success' });
+            // Provide detailed feedback
+            if (successCount > 0 && failedCount === 0) {
+              notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}!`, { severity: 'success' });
+            } else if (successCount > 0 && failedCount > 0) {
+              notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}. ${failedCount} invitation${failedCount === 1 ? '' : 's'} failed.`, { severity: 'warning' });
+              
+              // Show specific errors for failed invitations
+              const failedInvitations = invitationResults.filter(result => !result.success);
+              failedInvitations.forEach(failed => {
+                notifications.show(`Failed to invite ${failed.email}: ${failed.error}`, { severity: 'error' });
+              });
+            } else if (failedCount > 0) {
+              notifications.show(`Failed to send all ${failedCount} invitation${failedCount === 1 ? '' : 's'}. Please try again.`, { severity: 'error' });
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error creating invited users:', error);
+          const errorMessage = error?.message || error?.detail || 'Unknown error occurred while sending invitations';
+          notifications.show(`Warning: ${errorMessage}`, { severity: 'warning' });
           // Don't block onboarding completion for user creation errors
         }
 
