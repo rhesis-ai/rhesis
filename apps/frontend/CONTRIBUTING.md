@@ -26,14 +26,15 @@ Please read and follow our [Code of Conduct](../../CODE_OF_CONDUCT.md) to mainta
 2. **Clone your fork** locally:
    ```bash
    git clone https://github.com/YOUR-USERNAME/rhesis.git
-   cd rhesis/apps/frontend
+   cd rhesis
    ```
 3. **Set up the upstream remote**:
    ```bash
    git remote add upstream https://github.com/rhesis-ai/rhesis.git
    ```
-4. **Install dependencies**:
+4. **Navigate to frontend directory and install dependencies**:
    ```bash
+   cd apps/frontend
    npm install
    ```
 5. **Set up environment variables**:
@@ -41,6 +42,36 @@ Please read and follow our [Code of Conduct](../../CODE_OF_CONDUCT.md) to mainta
    cp .env.example .env.local
    ```
    Fill in the necessary values in `.env.local`
+
+6. **Start the development server** (choose one method):
+
+   **Option A: Use the unified CLI from repository root:**
+   ```bash
+   ./rh frontend start
+   ```
+
+   **Option B: Use the frontend start script directly:**
+   ```bash
+   cd apps/frontend
+   ./start.sh
+   ```
+
+   **Option C: Run manually:**
+   ```bash
+   npm run dev --host
+   ```
+
+## RH CLI Tool
+
+The repository includes a unified CLI tool for managing development servers:
+
+```bash
+./rh frontend start   # Start the frontend server
+./rh backend start    # Start the backend server
+./rh help            # Show available commands
+```
+
+Run these commands from the repository root. The CLI provides a consistent interface for starting both services with beautiful, colorful output and proper error handling.
 
 ## Development Workflow
 
