@@ -99,7 +99,7 @@ export default function LandingPage() {
 
       validateBackendSession();
     }
-  }, [session, status, router, sessionExpired, backendSessionValid, signOut]);
+  }, [session, status, router, sessionExpired, backendSessionValid]);
 
   if (status === 'loading') {
     return null;

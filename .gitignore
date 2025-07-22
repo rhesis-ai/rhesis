@@ -230,6 +230,9 @@ infrastructure/scripts/service-secrets-config.sh
 !infrastructure/scripts/service-secrets-config.sh.example
 !infrastructure/scripts/service-secrets-create.sh
 
+# Anything with a -key.json
+*-key.json
+
 # Terraform service account keys
 *terraform*key*.json
 *deployer*key*.json
