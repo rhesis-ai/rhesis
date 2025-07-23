@@ -109,7 +109,6 @@ generate_title() {
         # Convert abbreviation to lowercase for matching, then replace with uppercase
         local lower_abbrev=$(echo "$abbrev" | tr '[:upper:]' '[:lower:]')
         # Use word boundaries to match whole words only
-        title=$(echo "$title" | sed "s/\b${lower_abbrev^}\b/${abbrev}/g")
         title=$(echo "$title" | sed "s/\b${lower_abbrev}\b/${abbrev}/g")
         title=$(echo "$title" | sed "s/\b${abbrev}\b/${abbrev}/g")
     done
