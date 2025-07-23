@@ -83,7 +83,7 @@ export default function TestSetDrawer({
         ]);
 
         setStatuses(fetchedStatuses);
-        setUsers(fetchedUsers);
+        setUsers(fetchedUsers.data);
 
         // Set initial values if editing
         if (testSet) {
@@ -92,17 +92,17 @@ export default function TestSetDrawer({
             setStatus(currentStatus || null);
           }
           if (testSet.assignee_id) {
-            const currentAssignee = fetchedUsers.find(u => u.id === testSet.assignee_id);
+            const currentAssignee = fetchedUsers.data.find(u => u.id === testSet.assignee_id);
             setAssignee(currentAssignee || null);
           }
           if (testSet.owner_id) {
-            const currentOwner = fetchedUsers.find(u => u.id === testSet.owner_id);
+            const currentOwner = fetchedUsers.data.find(u => u.id === testSet.owner_id);
             setOwner(currentOwner || null);
           }
         } else {
           // Set default owner as current user for new test sets
           if (currentUserId) {
-            const currentUser = fetchedUsers.find(u => u.id === currentUserId);
+            const currentUser = fetchedUsers.data.find(u => u.id === currentUserId);
             setOwner(currentUser || null);
           }
         }

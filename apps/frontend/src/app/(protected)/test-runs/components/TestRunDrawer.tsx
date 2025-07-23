@@ -112,18 +112,18 @@ export default function TestRunDrawer({
           // Set initial values if editing
           if (testRun) {
             if (testRun.assignee_id) {
-              const currentAssignee = fetchedUsers.find(u => u.id === testRun.assignee_id);
+              const currentAssignee = fetchedUsers.data.find(u => u.id === testRun.assignee_id);
               setAssignee(currentAssignee || null);
             }
             if (testRun.owner_id) {
-              const currentOwner = fetchedUsers.find(u => u.id === testRun.owner_id);
+              const currentOwner = fetchedUsers.data.find(u => u.id === testRun.owner_id);
               setOwner(currentOwner || null);
             }
             // Add test set, project and endpoint initialization if available in testRun
           } else {
             // Set default owner as current user for new test runs
             if (currentUserId) {
-              const currentUser = fetchedUsers.find(u => u.id === currentUserId);
+              const currentUser = fetchedUsers.data.find(u => u.id === currentUserId);
               setOwner(currentUser || null);
             }
           }

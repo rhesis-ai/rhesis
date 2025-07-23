@@ -175,7 +175,7 @@ export default function UpdateTest({
         setStatuses(statusesData);
         
         // Transform users into options with display names
-        const transformedUsers = usersData.map(user => ({
+        const transformedUsers = usersData.data.map(user => ({
           ...user,
           displayName: user.name || `${user.given_name || ''} ${user.family_name || ''}`.trim() || user.email
         }));
