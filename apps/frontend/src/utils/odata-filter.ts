@@ -127,26 +127,16 @@ export function convertGridFilterModelToOData(filterModel: GridFilterModel): str
     return '';
   }
 
-  console.log('Converting filter model to OData:', filterModel);
-
   const filterExpressions = filterModel.items
-    .map(item => {
-      const expression = convertFilterItemToOData(item);
-      console.log(`Filter item ${JSON.stringify(item)} -> "${expression}"`);
-      return expression;
-    })
+    .map(item => convertFilterItemToOData(item))
     .filter(expr => expr !== '');
 
   if (filterExpressions.length === 0) {
-    console.log('No valid filter expressions generated');
     return '';
   }
 
   // Join multiple filters with AND (MUI DataGrid typically uses AND by default)
   // Note: linkOperator might not be available in all versions, so we default to 'and'
   const linkOperator = (filterModel as any).linkOperator || 'and';
-  const result = filterExpressions.join(` ${linkOperator} `);
-  
-  console.log(`Final OData filter: "${result}"`);
-  return result;
+  return filterExpressions.join(` ${linkOperator} `);
 } 
