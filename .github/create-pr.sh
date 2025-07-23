@@ -90,35 +90,30 @@ generate_title() {
     
     # Extract title based on branch type
     if [[ $CURRENT_BRANCH == feature/* ]]; then
-        title=$(echo "$CURRENT_BRANCH" | sed 's/feature\///g' | sed 's/[_-]/ /g')
+        title=${CURRENT_BRANCH#feature/}
     elif [[ $CURRENT_BRANCH == fix/* ]]; then
-        local branch_part=$(echo "$CURRENT_BRANCH" | sed 's/fix\///g' | sed 's/[_-]/ /g')
-        title="Fix: $branch_part"
+        title="Fix: ${CURRENT_BRANCH#fix/}"
     elif [[ $CURRENT_BRANCH == hotfix/* ]]; then
-        local branch_part=$(echo "$CURRENT_BRANCH" | sed 's/hotfix\///g' | sed 's/[_-]/ /g')
-        title="Hotfix: $branch_part"
+        title="Hotfix: ${CURRENT_BRANCH#hotfix/}"
     else
-        title=$(echo "$CURRENT_BRANCH" | sed 's/[_-]/ /g')
+        title=$CURRENT_BRANCH
     fi
-    
-    # Convert to title case (capitalize first letter of each word)
-    title=$(echo "$title" | sed 's/\b\w/\U&/g')
-    
-    # Apply proper capitalization for abbreviations
-    for abbrev in "${abbreviations[@]}"; do
-        # Lowercase version
-        local lower_abbrev=$(echo "$abbrev" | tr '[:upper:]' '[:lower:]')
-        # Capitalized (Title case)
-        local capitalized_abbrev=$(echo "$lower_abbrev" | sed 's/^./\U&/')
-        # Uppercase version
-        local upper_abbrev=$(echo "$abbrev" | tr '[:lower:]' '[:upper:]')
 
-        # Replace all known case variants with the correct $abbrev
-        for variant in "$lower_abbrev" "$capitalized_abbrev" "$upper_abbrev"; do
+    # Replace dashes and underscores with spaces
+    title=$(echo "$title" | tr '_-' '  ')
+
+    # Convert to title case (capitalize first letter of each word)
+    title=$(echo "$title" | perl -pe 's/\b(\w)/\u$1/g')
+
+    # Fix known abbreviations
+    for abbrev in "${abbreviations[@]}"; do
+        local lower=$(echo "$abbrev" | tr '[:upper:]' '[:lower:]')
+        local capitalized=$(echo "$lower" | sed 's/^./\U&/')
+        for variant in "$lower" "$capitalized" "$abbrev"; do
             title=$(echo "$title" | sed "s/\b$variant\b/$abbrev/g")
         done
     done
-    
+
     echo "$title"
 }
 
