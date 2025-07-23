@@ -154,7 +154,7 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
         if (isMounted) {
-          setUsers(fetchedUsers);
+          setUsers(fetchedUsers.data);
         }
       } catch (error) {
         console.error('Failed to fetch users:', error);

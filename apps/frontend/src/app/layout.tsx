@@ -72,19 +72,19 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
       children: [
         {
           kind: 'page',
-          segment: 'organizations/team',
+          segment: 'team',
           title: 'Team',
           icon: <GroupIcon />,
         },
         {
           kind: 'page',
-          segment: 'organizations/risks',
+          segment: 'risks',
           title: 'Risks',
           icon: <WarningAmberIcon />,
         },
         {
           kind: 'page',
-          segment: 'organizations/knowledge',
+          segment: 'knowledge',
           title: 'Knowledge',
           icon: <MenuBookIcon />,
           requireSuperuser: true,

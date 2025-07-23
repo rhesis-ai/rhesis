@@ -135,7 +135,7 @@ export default function ProjectEditDrawer({ open, onClose, project, onSave, sess
       try {
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
-        setUsers(fetchedUsers);
+        setUsers(fetchedUsers.data);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       }
