@@ -70,11 +70,11 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       // Convert filter model to OData filter string
       const filterString = convertGridFilterModelToOData(filterModel);
       
-      const apiParams = {
+      const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
-        sort_order: 'desc' as const,
+        sort_order: 'desc',
         ...(filterString && { filter: filterString })
       };
       
