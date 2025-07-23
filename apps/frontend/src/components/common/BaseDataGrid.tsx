@@ -104,9 +104,6 @@ interface BaseDataGridProps {
   pageSizeOptions?: number[];
   // Quick filter props
   enableQuickFilter?: boolean;
-  // Server-side filtering props
-  serverSideFiltering?: boolean;
-  onFilterModelChange?: (model: GridFilterModel) => void;
 }
 
 // Create a styled version of DataGrid with bold headers
@@ -168,9 +165,7 @@ export default function BaseDataGrid({
   paginationModel,
   onPaginationModelChange,
   pageSizeOptions = [10, 25, 50],
-  enableQuickFilter = false,
-  serverSideFiltering = false,
-  onFilterModelChange
+  enableQuickFilter = false
 }: BaseDataGridProps) {
   const router = useRouter();
   const apiRef = useGridApiRef();
@@ -467,7 +462,6 @@ export default function BaseDataGrid({
           pagination
           paginationMode={serverSidePagination ? "server" : "client"}
           rowCount={serverSidePagination ? totalRows : undefined}
-          {...(density && { density })}
           paginationModel={paginationModel}
           onPaginationModelChange={onPaginationModelChange}
           pageSizeOptions={pageSizeOptions}
@@ -476,32 +470,29 @@ export default function BaseDataGrid({
           loading={loading}
           onRowClick={enableEditing ? undefined : (linkPath || onRowClick) ? handleRowClickWithLink : undefined}
           disableMultipleRowSelection={disableMultipleRowSelection}
+          {...(density && { density })}
           {...(serverSideFiltering && {
             filterMode: "server",
-            onFilterModelChange: onFilterModelChange,
+            onFilterModelChange,
             slots: { toolbar: CustomToolbarWithFilters }
           })}
           {...(enableQuickFilter && !serverSideFiltering && {
             slots: { toolbar: CustomToolbar }
           })}
           {...(enableEditing && {
-            editMode: editMode,
-            processRowUpdate: processRowUpdate,
-            onProcessRowUpdateError: onProcessRowUpdateError,
-            isCellEditable: isCellEditable,
+            editMode,
+            processRowUpdate,
+            onProcessRowUpdateError,
+            isCellEditable,
           })}
           {...(onRowSelectionModelChange && {
-            onRowSelectionModelChange: onRowSelectionModelChange,
+            onRowSelectionModelChange,
           })}
           {...(rowSelectionModel !== undefined && {
-            rowSelectionModel: rowSelectionModel,
+            rowSelectionModel,
           })}
           {...(disableRowSelectionOnClick && {
-            disableRowSelectionOnClick: disableRowSelectionOnClick,
-          })}
-          {...(serverSideFiltering && {
-            filterMode: "server",
-            onFilterModelChange: onFilterModelChange,
+            disableRowSelectionOnClick,
           })}
         />
       </Paper>
