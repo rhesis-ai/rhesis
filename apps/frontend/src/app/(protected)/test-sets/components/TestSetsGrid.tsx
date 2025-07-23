@@ -147,12 +147,14 @@ export default function TestSetsGrid({
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
       
-      const response = await testSetsClient.getTestSets({ 
-                  skip, 
-          limit,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-      });
+      const apiParams = {
+        skip, 
+        limit,
+        sort_by: 'created_at',
+        sort_order: 'desc' as const,
+      };
+      
+      const response = await testSetsClient.getTestSets(apiParams);
       
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
@@ -198,27 +200,32 @@ export default function TestSetsGrid({
       field: 'behaviors', 
       headerName: 'Behaviors', 
       flex: 1.0,
-      renderCell: (params) => <ChipContainer items={params.value || []} />
+      renderCell: (params) => <ChipContainer items={params.row.behaviors || []} />
     },
     { 
       field: 'categories', 
       headerName: 'Categories', 
       flex: 1.0,
-      renderCell: (params) => <ChipContainer items={params.value || []} />
+      renderCell: (params) => <ChipContainer items={params.row.categories || []} />
     },
-    { field: 'totalTests', headerName: 'Tests', flex: 0.5 },
+    { 
+      field: 'totalTests', 
+      headerName: 'Tests', 
+      flex: 0.5,
+      valueGetter: (_, row) => row.totalTests
+    },
     { 
       field: 'status', 
       headerName: 'Status', 
       flex: 0.5,
-      renderCell: (params) => <Chip label={params.value} size="small" variant="outlined" color="secondary" />
+      renderCell: (params) => <Chip label={params.row.status} size="small" variant="outlined" color="secondary" />
     },
     {
       field: 'assignee',
       headerName: 'Assignee',
       flex: 0.75,
       renderCell: (params) => {
-        const assignee = params.value;
+        const assignee = params.row.assignee;
         if (!assignee) return '-';
         
         const displayName = assignee.name || 
