@@ -7,7 +7,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { 
   GridColDef, 
   GridRowSelectionModel, 
-  GridPaginationModel
+  GridPaginationModel,
+  GridFilterModel
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ import TestSetSelectionDialog from './TestSetSelectionDialog';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { convertGridFilterModelToOData } from '@/utils/odata-filter';
 
 
 interface TestsTableProps {
@@ -42,6 +44,9 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     page: 0,
     pageSize: 25,
   });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestDetail | undefined>();
   const [testSetDialogOpen, setTestSetDialogOpen] = useState(false);
@@ -62,24 +67,35 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       const clientFactory = new ApiClientFactory(sessionToken);
       const testsClient = clientFactory.getTestsClient();
       
-      const response = await testsClient.getTests({
+      // Convert filter model to OData filter string
+      const filterString = convertGridFilterModelToOData(filterModel);
+      console.log('Filter model:', filterModel);
+      console.log('Converted OData filter string:', filterString);
+      
+      const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
-        sort_order: 'desc'
-      });
+        sort_order: 'desc' as const,
+        ...(filterString && { filter: filterString })
+      };
+      
+      console.log('API call parameters:', apiParams);
+      
+      const response = await testsClient.getTests(apiParams);
       
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
       
       setError(null);
     } catch (error) {
+      console.error('Error fetching tests:', error);
       setError('Failed to load tests');
       setTests([]);
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, paginationModel.page, paginationModel.pageSize]);
+  }, [sessionToken, paginationModel.page, paginationModel.pageSize, filterModel]);
 
   // Initial data fetch
   useEffect(() => {
@@ -91,10 +107,18 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     setPaginationModel(newModel);
   }, []);
 
+  // Handle filter change
+  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
+    console.log('Filter model changed:', newModel);
+    setFilterModel(newModel);
+    // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
   // Column definitions
   const columns: GridColDef[] = React.useMemo(() => [
     { 
-      field: 'content', 
+      field: 'prompt.content', 
       headerName: 'Content', 
       flex: 3,
       renderCell: (params) => {
@@ -117,7 +141,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       }
     },
     { 
-      field: 'behavior',
+      field: 'behavior.name',
       headerName: 'Behavior', 
       flex: 1,
       renderCell: (params) => {
@@ -135,7 +159,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       }
     },
     { 
-      field: 'topic', 
+      field: 'topic.name', 
       headerName: 'Topic', 
       flex: 1,
       renderCell: (params) => {
@@ -153,7 +177,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       }
     },
     { 
-      field: 'category', 
+      field: 'category.name', 
       headerName: 'Category', 
       flex: 1,
       renderCell: (params) => {
@@ -171,7 +195,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       }
     },
     { 
-      field: 'assignee', 
+      field: 'assignee.name', 
       headerName: 'Assignee', 
       flex: 1,
       renderCell: (params) => {
@@ -351,6 +375,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
+        serverSideFiltering={true}
+        onFilterModelChange={handleFilterModelChange}
       />
 
       {sessionToken && (
