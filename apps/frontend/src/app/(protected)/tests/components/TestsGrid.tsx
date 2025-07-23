@@ -121,6 +121,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'prompt.content', 
       headerName: 'Content', 
       flex: 3,
+      filterable: true,
+      valueGetter: (value, row) => row.prompt?.content || '',
       renderCell: (params) => {
         const content = params.row.prompt?.content || params.row.content;
         if (!content) return null;
@@ -144,6 +146,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'behavior.name',
       headerName: 'Behavior', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => row.behavior?.name || '',
       renderCell: (params) => {
         const behaviorName = params.row.behavior?.name;
         if (!behaviorName) return null;
@@ -162,6 +166,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'topic.name', 
       headerName: 'Topic', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => row.topic?.name || '',
       renderCell: (params) => {
         const topicName = params.row.topic?.name;
         if (!topicName) return null;
@@ -180,6 +186,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'category.name', 
       headerName: 'Category', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => row.category?.name || '',
       renderCell: (params) => {
         const categoryName = params.row.category?.name;
         if (!categoryName) return null;
@@ -198,6 +206,14 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'assignee.name', 
       headerName: 'Assignee', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => {
+        const assignee = row.assignee;
+        if (!assignee) return '';
+        return assignee.name || 
+          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
+          assignee.email || '';
+      },
       renderCell: (params) => {
         const assignee = params.row.assignee;
         if (!assignee) return null;
@@ -377,6 +393,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         pageSizeOptions={[10, 25, 50]}
         serverSideFiltering={true}
         onFilterModelChange={handleFilterModelChange}
+        showToolbar={true}
       />
 
       {sessionToken && (

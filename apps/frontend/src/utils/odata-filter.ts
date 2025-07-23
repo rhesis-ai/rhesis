@@ -38,6 +38,7 @@ export function createWildcardSearchFilter(searchTerm: string): string {
 
 /**
  * Converts a MUI DataGrid filter item to an OData filter expression
+ * Optimized for Tests filtering with simple navigation patterns
  */
 function convertFilterItemToOData(item: GridFilterItem): string {
   const { field, operator, value } = item;
@@ -48,9 +49,9 @@ function convertFilterItemToOData(item: GridFilterItem): string {
 
   // Convert dot notation to OData relationship syntax
   // e.g., 'behavior.name' becomes 'behavior/name'
-  const odataField = field.replace(/\./g, '/');
+  let odataField = field.replace(/\./g, '/');
 
-  // Handle different operators
+  // Handle different operators following the official OData guide patterns
   switch (operator) {
     case 'contains':
       return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
@@ -63,10 +64,18 @@ function convertFilterItemToOData(item: GridFilterItem): string {
     
     case 'equals':
     case '=':
+      // For string fields, use case-insensitive comparison
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
+      }
       return `${odataField} eq '${escapeODataValue(value)}'`;
     
     case 'not':
     case '!=':
+      // For string fields, use case-insensitive comparison
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
+      }
       return `${odataField} ne '${escapeODataValue(value)}'`;
     
     case 'greaterThan':
@@ -111,22 +120,33 @@ function escapeODataValue(value: any): string {
 
 /**
  * Converts a MUI DataGrid filter model to an OData filter expression
+ * Optimized for Tests filtering
  */
 export function convertGridFilterModelToOData(filterModel: GridFilterModel): string {
   if (!filterModel.items || filterModel.items.length === 0) {
     return '';
   }
 
+  console.log('Converting filter model to OData:', filterModel);
+
   const filterExpressions = filterModel.items
-    .map(item => convertFilterItemToOData(item))
+    .map(item => {
+      const expression = convertFilterItemToOData(item);
+      console.log(`Filter item ${JSON.stringify(item)} -> "${expression}"`);
+      return expression;
+    })
     .filter(expr => expr !== '');
 
   if (filterExpressions.length === 0) {
+    console.log('No valid filter expressions generated');
     return '';
   }
 
   // Join multiple filters with AND (MUI DataGrid typically uses AND by default)
   // Note: linkOperator might not be available in all versions, so we default to 'and'
   const linkOperator = (filterModel as any).linkOperator || 'and';
-  return filterExpressions.join(` ${linkOperator} `);
+  const result = filterExpressions.join(` ${linkOperator} `);
+  
+  console.log(`Final OData filter: "${result}"`);
+  return result;
 } 

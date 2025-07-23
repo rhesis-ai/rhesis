@@ -308,6 +308,15 @@ export default function BaseDataGrid({
     );
   };
 
+  const CustomToolbarWithFilters = () => {
+    return (
+      <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <GridToolbar />
+        <GridToolbarQuickFilter debounceMs={300} />
+      </Box>
+    );
+  };
+
   if (!isInitialized) {
     return (
       <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -464,9 +473,10 @@ export default function BaseDataGrid({
           disableMultipleRowSelection={disableMultipleRowSelection}
           {...(serverSideFiltering && {
             filterMode: "server",
-            onFilterModelChange: onFilterModelChange
+            onFilterModelChange: onFilterModelChange,
+            slots: { toolbar: CustomToolbarWithFilters }
           })}
-          {...(enableQuickFilter && {
+          {...(enableQuickFilter && !serverSideFiltering && {
             slots: { toolbar: CustomToolbar }
           })}
           {...(enableEditing && {
