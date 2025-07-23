@@ -163,7 +163,7 @@ export default function ProjectDetailsStep({
       try {
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
-        setUsers(fetchedUsers);
+        setUsers(fetchedUsers.data);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       } finally {
