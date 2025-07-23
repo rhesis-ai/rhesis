@@ -87,6 +87,22 @@ const getDesignTokens = (mode: PaletteMode) => ({
         },
       },
     },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          // Fix text button colors in dark mode
+          '&.MuiButton-textPrimary': {
+            color: mode === 'dark' ? '#1D2939' : undefined,
+            '&:hover': {
+              color: mode === 'dark' ? '#1D2939' : undefined,
+            },
+            '& .MuiSvgIcon-root': {
+              color: mode === 'dark' ? '#1D2939' : undefined,
+            },
+          },
+        },
+      },
+    },
 
     
   },
