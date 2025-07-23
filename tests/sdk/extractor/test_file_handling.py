@@ -1,8 +1,7 @@
-"""Tests for the DocumentExtractor class."""
+"""Tests for DocumentExtractor file handling functionality."""
 
 import os
 import tempfile
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -10,8 +9,8 @@ import pytest
 from rhesis.sdk.services.extractor import DocumentExtractor
 
 
-class TestDocumentExtractor:
-    """Test cases for DocumentExtractor class."""
+class TestDocumentExtractorFileHandling:
+    """Test cases for DocumentExtractor file handling."""
 
     def setup_method(self):
         """Set up test fixtures."""
@@ -33,20 +32,6 @@ class TestDocumentExtractor:
         }
         assert self.extractor.supported_extensions == expected_extensions
 
-    def test_extract_with_content(self):
-        """Test extraction when content is provided directly."""
-        documents = [
-            {
-                "name": "test_doc",
-                "description": "Test document",
-                "content": "This is test content",
-                "path": ""
-            }
-        ]
-
-        result = self.extractor.extract(documents)
-        assert result == {"test_doc": "This is test content"}
-
     def test_extract_with_file_path(self):
         """Test extraction from file path."""
         documents = [
@@ -64,59 +49,6 @@ class TestDocumentExtractor:
 
         assert result == {"test_doc": "Extracted text from PDF"}
         mock_extract.assert_called_once_with("/path/to/test.pdf")
-
-    def test_extract_mixed_content_and_path(self):
-        """Test extraction with mixed content and path documents."""
-        documents = [
-            {
-                "name": "content_doc",
-                "description": "Document with content",
-                "content": "Direct content",
-                "path": ""
-            },
-            {
-                "name": "file_doc",
-                "description": "Document from file",
-                "path": "/path/to/test.png",
-                "content": ""
-            }
-        ]
-
-        with patch.object(self.extractor, '_extract_from_file') as mock_extract:
-            mock_extract.return_value = "Extracted text from PNG"
-            result = self.extractor.extract(documents)
-
-        expected = {
-            "content_doc": "Direct content",
-            "file_doc": "Extracted text from PNG"
-        }
-        assert result == expected
-
-    def test_extract_missing_name(self):
-        """Test extraction with missing document name."""
-        documents = [
-            {
-                "description": "Test document",
-                "content": "Test content"
-            }
-        ]
-
-        with pytest.raises(ValueError, match="Document must have a 'name' field"):
-            self.extractor.extract(documents)
-
-    def test_extract_empty_document(self):
-        """Test extraction with empty document (no content or path)."""
-        documents = [
-            {
-                "name": "empty_doc",
-                "description": "Empty document",
-                "content": "",
-                "path": ""
-            }
-        ]
-
-        with pytest.raises(ValueError, match="Document 'empty_doc' must have either 'content' or 'path' field"):
-            self.extractor.extract(documents)
 
     def test_extract_file_not_found(self):
         """Test extraction when file is not found."""
@@ -276,33 +208,6 @@ class TestDocumentExtractor:
         # Ensure it returns a copy, not the original
         assert extensions is not self.extractor.supported_extensions
 
-    def test_extract_with_none_values(self):
-        """Test extraction with None values in document fields."""
-        documents = [
-            {
-                "name": "test_doc",
-                "description": "Test document",
-                "content": None,
-                "path": None
-            }
-        ]
-
-        with pytest.raises(ValueError, match="Document 'test_doc' must have either 'content' or 'path' field"):
-            self.extractor.extract(documents)
-
-    def test_extract_with_missing_fields(self):
-        """Test extraction with missing optional fields."""
-        documents = [
-            {
-                "name": "test_doc",
-                "description": "Test document"
-                # Missing content and path fields
-            }
-        ]
-
-        with pytest.raises(ValueError, match="Document 'test_doc' must have either 'content' or 'path' field"):
-            self.extractor.extract(documents)
-
     def test_supported_file_types(self):
         """Test that all supported file types are properly handled."""
         supported_types = [
@@ -340,77 +245,29 @@ class TestDocumentExtractor:
             finally:
                 os.unlink(temp_file_path)
 
-    def test_extract_real_pdf_file(self):
-        """Test extraction with a real PDF file (if available)."""
-        # This test can be used to test with actual PDF files
-        # Create a simple PDF for testing
-        try:
-            from reportlab.pdfgen import canvas
-            from reportlab.lib.pagesizes import letter
-        except ImportError:
-            pytest.skip("reportlab not available for creating test PDF")
-
-        # Create a simple test PDF
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
-            temp_file_path = temp_file.name
-
-        try:
-            # Create a simple PDF with some text
-            c = canvas.Canvas(temp_file_path, pagesize=letter)
-            c.drawString(100, 750, "This is a test PDF document.")
-            c.drawString(100, 730, "It contains some sample text for extraction.")
-            c.drawString(100, 710, "DocumentExtractor should be able to extract this text.")
-            c.save()
-
-            # Test extraction
-            documents = [
-                {
-                    "name": "test_pdf",
-                    "description": "Real PDF test document",
-                    "path": temp_file_path,
-                    "content": ""
-                }
-            ]
-
-            result = self.extractor.extract(documents)
-            
-            # Check that we got some text back
-            assert "test_pdf" in result
-            extracted_text = result["test_pdf"]
-            assert len(extracted_text) > 0
-            # The exact text might vary depending on Docling's processing
-            # but we should get something back
-            print(f"Extracted text from real PDF: {extracted_text[:100]}...")
-
-        except Exception as e:
-            pytest.skip(f"Could not test with real PDF: {e}")
-        finally:
-            if os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
-
     def test_extract_with_manual_pdf_path(self):
         """Manual test method for testing with your own PDF file."""
         # This test is skipped by default but can be enabled for manual testing
         pytest.skip("Manual test - enable by removing this line and providing a PDF path")
+
+        # Set your PDF path here directly
+        pdf_path = "/path/to/your/pdf"  # Replace with your actual PDF path
+                
+        if not pdf_path or not os.path.exists(pdf_path):
+            pytest.skip(f"PDF file not found: {pdf_path}")
         
-        # Uncomment and modify the path below to test with your own PDF
-        # pdf_path = "/path/to/your/test.pdf"
-        # 
-        # if not os.path.exists(pdf_path):
-        #     pytest.skip(f"PDF file not found: {pdf_path}")
-        # 
-        # documents = [
-        #     {
-        #         "name": "manual_test_pdf",
-        #         "description": "Manual test PDF",
-        #         "path": pdf_path,
-        #         "content": ""
-        #     }
-        # ]
-        # 
-        # result = self.extractor.extract(documents)
-        # assert "manual_test_pdf" in result
-        # extracted_text = result["manual_test_pdf"]
-        # print(f"Extracted text length: {len(extracted_text)}")
-        # print(f"First 200 characters: {extracted_text[:200]}...")
-        # assert len(extracted_text) > 0 
+        documents = [
+            {
+                "name": "manual_test_pdf",
+                "description": "Manual test PDF",
+                "path": pdf_path,
+                "content": ""
+            }
+        ]
+        
+        result = self.extractor.extract(documents)
+        assert "manual_test_pdf" in result
+        extracted_text = result["manual_test_pdf"]
+        print(f"Extracted text length: {len(extracted_text)}")
+        print(f"First 200 characters: {extracted_text[:200]}...")
+        assert len(extracted_text) > 0
