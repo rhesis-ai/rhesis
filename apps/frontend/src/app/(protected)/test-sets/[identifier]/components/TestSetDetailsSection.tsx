@@ -194,6 +194,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
         
         {!isEditingDescription ? (
           <Button
+            variant="text"
             startIcon={<EditIcon />}
             onClick={handleEditDescription}
             sx={{ 
@@ -207,7 +208,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
               }
             }}
           >
-            Edit
+            Edit Description
           </Button>
         ) : (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
