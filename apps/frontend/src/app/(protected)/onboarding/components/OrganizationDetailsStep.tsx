@@ -43,6 +43,7 @@ export default function OrganizationDetailsStep({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [hasAttemptedPrefill, setHasAttemptedPrefill] = useState(false);
   const [errors, setErrors] = useState({
     firstName: false,
     lastName: false,
@@ -53,60 +54,76 @@ export default function OrganizationDetailsStep({
   useEffect(() => {
     if (sessionStatus === 'loading') return;
     
-    // Only attempt to prefill if the user session exists
-    if (session?.user) {
+    // Only attempt to prefill once and if the user session exists
+    if (session?.user && !hasAttemptedPrefill) {
       try {
-        // Only prefill if form fields are empty (avoid overwriting user edits)
-        if (!formData.firstName || !formData.lastName) {
-          const data: Partial<FormData> = {};
-          
-          // Log the user object to check what fields are actually available
-          console.log('Session user data:', session.user);
-          
-          // Access potential Auth0 properties
-          const extendedUser = session.user as unknown as ExtendedUser;
-          
+        const data: Partial<FormData> = {};
+        
+        // Log the user object to check what fields are actually available
+        console.log('Session user data:', session.user);
+        
+        // Access potential Auth0 properties
+        const extendedUser = session.user as unknown as ExtendedUser;
+        
+        // Helper function to check if a string looks like an email
+        const looksLikeEmail = (str: string): boolean => {
+          return str.includes('@') && str.includes('.');
+        };
+        
+        // Only prefill firstName if it's currently empty
+        if (!formData.firstName) {
           // First try to use given_name for firstName if available
-          if (extendedUser.given_name && !formData.firstName) {
+          if (extendedUser.given_name) {
             data.firstName = extendedUser.given_name;
             console.log('Using given_name for firstName:', data.firstName);
           } 
-          // Fall back to name parsing if given_name is not available
-          else if (session.user.name && !formData.firstName) {
+          // Fall back to name parsing if given_name is not available, but only if name doesn't look like an email
+          else if (session.user.name && !looksLikeEmail(session.user.name)) {
             const nameParts = session.user.name.split(' ');
             if (nameParts.length > 0) {
               data.firstName = nameParts[0];
               console.log('Using split name for firstName:', data.firstName);
             }
+          } else if (session.user.name && looksLikeEmail(session.user.name)) {
+            console.log('Skipping name parsing because name looks like an email:', session.user.name);
           }
-          
+        }
+        
+        // Only prefill lastName if it's currently empty
+        if (!formData.lastName) {
           // First try to use family_name for lastName if available
-          if (extendedUser.family_name && !formData.lastName) {
+          if (extendedUser.family_name) {
             data.lastName = extendedUser.family_name;
             console.log('Using family_name for lastName:', data.lastName);
           } 
-          // Fall back to name parsing if family_name is not available
-          else if (session.user.name && !formData.lastName) {
+          // Fall back to name parsing if family_name is not available, but only if name doesn't look like an email
+          else if (session.user.name && !looksLikeEmail(session.user.name)) {
             const nameParts = session.user.name.split(' ');
             if (nameParts.length > 1) {
               data.lastName = nameParts.slice(1).join(' ');
               console.log('Using split name for lastName:', data.lastName);
             }
-          }
-          
-          // Update form data with the user info
-          if (Object.keys(data).length > 0) {
-            updateFormData(data);
+          } else if (session.user.name && looksLikeEmail(session.user.name)) {
+            console.log('Skipping name parsing because name looks like an email:', session.user.name);
           }
         }
+        
+        // Update form data with the user info
+        if (Object.keys(data).length > 0) {
+          updateFormData(data);
+        }
+        
+        // Mark that we've attempted prefilling
+        setHasAttemptedPrefill(true);
       } catch (error) {
         console.error('Error processing user session data:', error);
+        setHasAttemptedPrefill(true);
       }
     }
     
     // Always set loading to false when done
     setLoading(false);
-  }, [session, sessionStatus, formData.firstName, formData.lastName, updateFormData]);
+  }, [session, sessionStatus, formData.firstName, formData.lastName, updateFormData, hasAttemptedPrefill]);
 
   const validateForm = () => {
     const newErrors = {
