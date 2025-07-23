@@ -69,8 +69,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       
       // Convert filter model to OData filter string
       const filterString = convertGridFilterModelToOData(filterModel);
-      console.log('Filter model:', filterModel);
-      console.log('Converted OData filter string:', filterString);
       
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -79,8 +77,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         sort_order: 'desc' as const,
         ...(filterString && { filter: filterString })
       };
-      
-      console.log('API call parameters:', apiParams);
       
       const response = await testsClient.getTests(apiParams);
       
@@ -109,7 +105,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
 
   // Handle filter change
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
-    console.log('Filter model changed:', newModel);
     setFilterModel(newModel);
     // Reset to first page when filters change
     setPaginationModel(prev => ({ ...prev, page: 0 }));
