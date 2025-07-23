@@ -99,3 +99,18 @@ cp apps/backend/.env.example apps/backend/.env
 2. Edit the `.env` file with your specific configuration values.
 
 For Docker, follow the same process but create an `.env.docker` file that's compatible with container environments.
+
+## Documentation
+
+### API Query Guide
+
+The Rhesis backend supports OData filtering for powerful querying capabilities. See the [OData Query Guide](../../docs/backend/odata-guide.md) for comprehensive documentation including:
+
+- Basic comparison operators (eq, ne, gt, lt, etc.)
+- String functions (contains, startswith, endswith, tolower, toupper)
+- Navigation properties for filtering across relationships
+- Logical operators (and, or, not) with complex expressions
+- Advanced features like sorting and pagination
+- Best practices and complete examples
+
+All examples in the guide have been tested and verified to work with the current implementation.
