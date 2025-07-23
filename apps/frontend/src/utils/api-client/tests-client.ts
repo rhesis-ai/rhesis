@@ -66,12 +66,16 @@ export class TestsClient extends BaseApiClient {
     return result;
   }
 
-  async getTests(params?: PaginationParams): Promise<PaginatedResponse<TestDetail>> {
-    const paginationParams = { ...DEFAULT_PAGINATION, ...params };
+  async getTests(params?: PaginationParams & { filter?: string }): Promise<PaginatedResponse<TestDetail>> {
+    const { filter, ...paginationParams } = params || {};
+    const finalParams = { ...DEFAULT_PAGINATION, ...paginationParams };
     
     const response = await this.fetchPaginated<TestDetail>(
       API_ENDPOINTS.tests,
-      paginationParams,
+      {
+        ...finalParams,
+        ...(filter && { $filter: filter })
+      },
       {
         cache: 'no-store'
       }
