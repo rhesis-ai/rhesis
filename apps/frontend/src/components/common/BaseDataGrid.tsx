@@ -104,6 +104,9 @@ interface BaseDataGridProps {
   pageSizeOptions?: number[];
   // Quick filter props
   enableQuickFilter?: boolean;
+  // Server-side filtering props
+  serverSideFiltering?: boolean;
+  onFilterModelChange?: (model: GridFilterModel) => void;
 }
 
 // Create a styled version of DataGrid with bold headers
@@ -165,7 +168,9 @@ export default function BaseDataGrid({
   paginationModel,
   onPaginationModelChange,
   pageSizeOptions = [10, 25, 50],
-  enableQuickFilter = false
+  enableQuickFilter = false,
+  serverSideFiltering = false,
+  onFilterModelChange
 }: BaseDataGridProps) {
   const router = useRouter();
   const apiRef = useGridApiRef();
@@ -303,6 +308,15 @@ export default function BaseDataGrid({
   const CustomToolbar = () => {
     return (
       <Box sx={{ p: 1, display: 'flex', justifyContent: 'flex-end' }}>
+        <GridToolbarQuickFilter debounceMs={300} />
+      </Box>
+    );
+  };
+
+  const CustomToolbarWithFilters = () => {
+    return (
+      <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <GridToolbar />
         <GridToolbarQuickFilter debounceMs={300} />
       </Box>
     );
@@ -462,7 +476,12 @@ export default function BaseDataGrid({
           loading={loading}
           onRowClick={enableEditing ? undefined : (linkPath || onRowClick) ? handleRowClickWithLink : undefined}
           disableMultipleRowSelection={disableMultipleRowSelection}
-          {...(enableQuickFilter && {
+          {...(serverSideFiltering && {
+            filterMode: "server",
+            onFilterModelChange: onFilterModelChange,
+            slots: { toolbar: CustomToolbarWithFilters }
+          })}
+          {...(enableQuickFilter && !serverSideFiltering && {
             slots: { toolbar: CustomToolbar }
           })}
           {...(enableEditing && {
