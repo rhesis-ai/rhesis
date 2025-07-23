@@ -57,6 +57,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     };
   }, []);
 
+
+
   // Data fetching function
   const fetchTests = useCallback(async () => {
     if (!sessionToken) return;
@@ -80,6 +82,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       
       const response = await testsClient.getTests(apiParams);
       
+      console.log('API response:', response);
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
       

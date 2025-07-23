@@ -89,6 +89,9 @@ interface BaseDataGridProps {
   filters?: FilterConfig[];
   filterHandler?: (filteredRows: any[]) => void;
   customToolbarContent?: ReactNode;
+  // Server-side filtering props
+  serverSideFiltering?: boolean;
+  onFilterModelChange?: (model: GridFilterModel) => void;
   // Link related props
   linkPath?: string;
   linkField?: string;
@@ -156,6 +159,8 @@ export default function BaseDataGrid({
   filters,
   filterHandler,
   customToolbarContent,
+  serverSideFiltering = false,
+  onFilterModelChange,
   linkPath,
   linkField = 'id',
   serverSidePagination = false,
@@ -493,6 +498,10 @@ export default function BaseDataGrid({
           })}
           {...(disableRowSelectionOnClick && {
             disableRowSelectionOnClick: disableRowSelectionOnClick,
+          })}
+          {...(serverSideFiltering && {
+            filterMode: "server",
+            onFilterModelChange: onFilterModelChange,
           })}
         />
       </Paper>

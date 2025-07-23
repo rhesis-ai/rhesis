@@ -138,7 +138,7 @@ export default function BaseWorkflowSection({
         
         // Transform users into options with display names
         const transformedUsers = fetchedUsers
-          .filter(user => user.is_active) // Only show active users
+          .data.filter(user => user.is_active) // Only show active users
           .map(user => ({
             ...user,
             displayName: user.name || `${user.given_name || ''} ${user.family_name || ''}`.trim() || user.email
