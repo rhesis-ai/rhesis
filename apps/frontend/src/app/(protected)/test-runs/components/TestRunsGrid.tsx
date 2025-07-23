@@ -80,12 +80,14 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       const clientFactory = new ApiClientFactory(sessionToken);
       const testRunsClient = clientFactory.getTestRunsClient();
       
-      const response = await testRunsClient.getTestRuns({
+      const apiParams = {
         skip,
         limit,
         sort_by: 'created_at',
-        sort_order: 'desc'
-      });
+        sort_order: 'desc' as const,
+      };
+      
+      const response = await testRunsClient.getTestRuns(apiParams);
       
       if (isMounted.current) {
         setTestRuns(response.data);

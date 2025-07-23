@@ -1,7 +1,44 @@
 import { GridFilterModel, GridFilterItem } from '@mui/x-data-grid';
 
 /**
+ * Creates a wildcard search filter that searches across all major text fields
+ * This simulates a $search functionality by using OR conditions across multiple fields
+ */
+export function createWildcardSearchFilter(searchTerm: string): string {
+  if (!searchTerm || searchTerm.trim() === '') {
+    return '';
+  }
+
+  const escapedTerm = escapeODataValue(searchTerm.trim());
+  
+  // Define all the searchable fields for tests
+  const searchableFields = [
+    'behavior/name',
+    'topic/name', 
+    'category/name',
+    'prompt/content',
+    'assignee/name',
+    'assignee/email',
+    'assignee/given_name',
+    'assignee/family_name',
+    'owner/name',
+    'owner/email',
+    'owner/given_name', 
+    'owner/family_name'
+  ];
+
+  // Create contains conditions for each field
+  const conditions = searchableFields.map(field => 
+    `contains(tolower(${field}), tolower('${escapedTerm}'))`
+  );
+
+  // Join all conditions with OR
+  return conditions.join(' or ');
+}
+
+/**
  * Converts a MUI DataGrid filter item to an OData filter expression
+ * Optimized for Tests filtering with simple navigation patterns
  */
 function convertFilterItemToOData(item: GridFilterItem): string {
   const { field, operator, value } = item;
@@ -12,9 +49,9 @@ function convertFilterItemToOData(item: GridFilterItem): string {
 
   // Convert dot notation to OData relationship syntax
   // e.g., 'behavior.name' becomes 'behavior/name'
-  const odataField = field.replace(/\./g, '/');
+  let odataField = field.replace(/\./g, '/');
 
-  // Handle different operators
+  // Handle different operators following the official OData guide patterns
   switch (operator) {
     case 'contains':
       return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
@@ -28,23 +65,35 @@ function convertFilterItemToOData(item: GridFilterItem): string {
     case 'equals':
     case '=':
     case 'is':
+      // For string fields, use case-insensitive comparison
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
+      }
       return `${odataField} eq '${escapeODataValue(value)}'`;
     
     case 'not':
     case '!=':
+      // For string fields, use case-insensitive comparison
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
+      }
       return `${odataField} ne '${escapeODataValue(value)}'`;
     
+    case 'greaterThan':
     case '>':
-      return `${odataField} gt '${escapeODataValue(value)}'`;
+      return `${odataField} gt ${escapeODataValue(value)}`;
     
+    case 'greaterThanOrEqual':
     case '>=':
-      return `${odataField} ge '${escapeODataValue(value)}'`;
+      return `${odataField} ge ${escapeODataValue(value)}`;
     
+    case 'lessThan':
     case '<':
-      return `${odataField} lt '${escapeODataValue(value)}'`;
+      return `${odataField} lt ${escapeODataValue(value)}`;
     
+    case 'lessThanOrEqual':
     case '<=':
-      return `${odataField} le '${escapeODataValue(value)}'`;
+      return `${odataField} le ${escapeODataValue(value)}`;
     
     case 'isEmpty':
       return `${odataField} eq null or ${odataField} eq ''`;
@@ -78,7 +127,8 @@ function escapeODataValue(value: any): string {
 }
 
 /**
- * Converts a MUI DataGrid GridFilterModel to an OData $filter expression
+ * Converts a MUI DataGrid filter model to an OData filter expression
+ * Optimized for Tests filtering
  */
 export function convertGridFilterModelToOData(filterModel: GridFilterModel): string {
   if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
