@@ -5,13 +5,14 @@ from jinja2 import Template
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.utils import extract_json_from_text, clean_and_validate_tests
 
 
 class PromptSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a prompt using LLM."""
 
-    def __init__(self, prompt: str, batch_size: int = 20, system_prompt: Optional[str] = None):
+    def __init__(self, prompt: str, batch_size: int = 20, system_prompt: Optional[str] = None, documents: Optional[List[Dict]] = None):
         """
         Initialize the PromptSynthesizer.
 
@@ -19,9 +20,26 @@ class PromptSynthesizer(TestSetSynthesizer):
             prompt: The generation prompt to use
             batch_size: Maximum number of tests to generate in a single LLM call (reduced default for stability)
             system_prompt: Optional custom system prompt template to override the default
+            documents: Optional list of documents to extract content from. Each document should have:
+                - name (str): Unique identifier or label for the document
+                - description (str): Short description of the document's purpose or content
+                - path (str): Local file path (optional, can be empty if content is provided)
+                - content (str): Pre-provided document content (optional)
         """
         super().__init__(batch_size=batch_size)
         self.prompt = prompt
+        self.documents = documents or []
+        
+        # Initialize document extractor for processing document files
+        self.document_extractor = DocumentExtractor()
+        
+        # Extract content from documents if provided
+        self.extracted_documents = {}
+        if self.documents:
+            try:
+                self.extracted_documents = self.document_extractor.extract(self.documents)
+            except Exception as e:
+                print(f"Warning: Failed to extract some documents: {e}")
 
         if system_prompt:
             self.system_prompt = Template(system_prompt)
@@ -33,8 +51,18 @@ class PromptSynthesizer(TestSetSynthesizer):
 
     def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
+        # Prepare document context for the prompt
+        document_context = ""
+        if self.extracted_documents:
+            document_context = "\n\n".join([
+                f"Document '{name}':\n{content}"
+                for name, content in self.extracted_documents.items()
+            ])
+        
         formatted_prompt = self.system_prompt.render(
-            generation_prompt=self.prompt, num_tests=num_tests
+            generation_prompt=self.prompt, 
+            num_tests=num_tests,
+            document_context=document_context
         )
 
         max_attempts = 3
@@ -89,6 +117,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                             "metadata": {
                                 "generated_by": "PromptSynthesizer",
                                 "attempt": attempt + 1,
+                                "documents_used": list(self.extracted_documents.keys()) if self.extracted_documents else [],
                             },
                         }
                         for test in valid_test_cases[:num_tests]
@@ -158,6 +187,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                 "requested_tests": num_tests,
                 "batch_size": self.batch_size,
                 "synthesizer": "PromptSynthesizer",
+                "documents_used": list(self.extracted_documents.keys()) if self.extracted_documents else [],
             },
         )
 
