@@ -1,4 +1,5 @@
 from test_utils import create_temp_document, cleanup_file
+from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
 
 
