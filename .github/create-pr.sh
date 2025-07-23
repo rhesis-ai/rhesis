@@ -106,11 +106,17 @@ generate_title() {
     
     # Apply proper capitalization for abbreviations
     for abbrev in "${abbreviations[@]}"; do
-        # Convert abbreviation to lowercase for matching, then replace with uppercase
+        # Lowercase version
         local lower_abbrev=$(echo "$abbrev" | tr '[:upper:]' '[:lower:]')
-        # Use word boundaries to match whole words only
-        title=$(echo "$title" | sed "s/\b${lower_abbrev}\b/${abbrev}/g")
-        title=$(echo "$title" | sed "s/\b${abbrev}\b/${abbrev}/g")
+        # Capitalized (Title case)
+        local capitalized_abbrev=$(echo "$lower_abbrev" | sed 's/^./\U&/')
+        # Uppercase version
+        local upper_abbrev=$(echo "$abbrev" | tr '[:lower:]' '[:upper:]')
+
+        # Replace all known case variants with the correct $abbrev
+        for variant in "$lower_abbrev" "$capitalized_abbrev" "$upper_abbrev"; do
+            title=$(echo "$title" | sed "s/\b$variant\b/$abbrev/g")
+        done
     done
     
     echo "$title"
