@@ -453,7 +453,6 @@ export default function BaseDataGrid({
           pagination
           paginationMode={serverSidePagination ? "server" : "client"}
           rowCount={serverSidePagination ? totalRows : undefined}
-          {...(density && { density })}
           paginationModel={paginationModel}
           onPaginationModelChange={onPaginationModelChange}
           pageSizeOptions={pageSizeOptions}
@@ -462,27 +461,28 @@ export default function BaseDataGrid({
           loading={loading}
           onRowClick={enableEditing ? undefined : (linkPath || onRowClick) ? handleRowClickWithLink : undefined}
           disableMultipleRowSelection={disableMultipleRowSelection}
+          {...(density && { density })}
           {...(enableQuickFilter && {
             slots: { toolbar: CustomToolbar }
           })}
           {...(enableEditing && {
-            editMode: editMode,
-            processRowUpdate: processRowUpdate,
-            onProcessRowUpdateError: onProcessRowUpdateError,
-            isCellEditable: isCellEditable,
+            editMode,
+            processRowUpdate,
+            onProcessRowUpdateError,
+            isCellEditable,
           })}
           {...(onRowSelectionModelChange && {
-            onRowSelectionModelChange: onRowSelectionModelChange,
+            onRowSelectionModelChange,
           })}
           {...(rowSelectionModel !== undefined && {
-            rowSelectionModel: rowSelectionModel,
+            rowSelectionModel,
           })}
           {...(disableRowSelectionOnClick && {
-            disableRowSelectionOnClick: disableRowSelectionOnClick,
+            disableRowSelectionOnClick,
           })}
           {...(serverSideFiltering && {
             filterMode: "server",
-            onFilterModelChange: onFilterModelChange,
+            onFilterModelChange,
           })}
         />
       </Paper>
