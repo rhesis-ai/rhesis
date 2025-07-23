@@ -520,7 +520,7 @@ export default function EndpointForm() {
                     sx={{
                       '& .MuiToggleButton-root.Mui-selected': {
                         backgroundColor: 'primary.main',
-                        color: 'common.white',
+                        color: 'primary.contrastText',
                         '&:hover': {
                           backgroundColor: 'primary.dark',
                         },
