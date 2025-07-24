@@ -81,3 +81,16 @@ lint-fix = "rhesis.scripts:lint_fix_code"
 [tool.pytest.ini_options]
 testpaths = ["../../tests/backend"]
 pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-o asyncio_default_fixture_loop_scope=function"
+filterwarnings = [
+    "ignore::pytest.PytestDeprecationWarning:pytest_asyncio.plugin"
+]
+markers = [
+    "unit: fast tests with mocked dependencies",
+    "integration: tests with real external services", 
+    "slow: tests that take >5 seconds",
+    "ai: tests involving AI model calls",
+    "critical: core functionality tests",
+    "security: security and vulnerability tests"
+]
