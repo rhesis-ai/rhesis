@@ -185,7 +185,7 @@ For detailed information about the release process, see **[RELEASING.md](RELEASI
 #### Quick Examples
 
 ```bash
-# Individual component release
+# Individual component release (updates versions and changelogs only)
 ./.github/release backend --minor
 
 # Multiple components
