@@ -166,21 +166,37 @@ For more complex scenarios:
 
 This repository includes automation scripts and tools for GitHub workflows and repository management located in the `.github/` directory.
 
+> **📋 For comprehensive release information, see [RELEASING.md](RELEASING.md)**
+
 ### 🚀 PR Creation Script
 
 #### `create-pr.sh`
 
 An intelligent script that automates the creation of pull requests by analyzing your current branch and generating meaningful titles and descriptions.
 
-#### Features
+### 🏷️ Release Management Script
 
-- ✅ **Automatic title generation** based on branch naming conventions
-- ✅ **Smart abbreviation handling** (API, DEV, STG, PROD, UI, UX, etc.)
-- ✅ **Rich PR descriptions** with commit details, file changes, and checklists
-- ✅ **Smart branch detection** (feature/, fix/, hotfix/ prefixes)
-- ✅ **Interactive browser opening** option
-- ✅ **Error handling** and validation
-- ✅ **Colorized output** for better UX
+#### `release`
+
+A comprehensive release automation tool that manages version bumping, changelog generation, and tagging for individual components and platform-wide releases.
+
+For detailed information about the release process, see **[RELEASING.md](RELEASING.md)**.
+
+#### Quick Examples
+
+```bash
+# Individual component release
+./.github/release backend --minor
+
+# Multiple components
+./.github/release backend --minor frontend --patch
+
+# All components + platform
+./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
+
+# Always test first
+./.github/release --dry-run backend --minor
+```
 
 #### Usage
 
@@ -258,12 +274,15 @@ The script creates a comprehensive PR description including:
 [SUCCESS] URL: https://github.com/rhesis-ai/rhesis/pull/36
 ```
 
+
+
 ### 📁 Automation Directory Structure
 
 ```
 .github/
 ├── create-pr.sh        # Main PR automation script
 ├── pr                  # Short alias for create-pr.sh
+├── release             # Main release management script
 ├── workflows/          # GitHub Actions workflows
 └── actions/            # Custom GitHub Actions
 ```
