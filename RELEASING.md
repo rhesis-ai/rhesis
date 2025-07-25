@@ -50,7 +50,7 @@ The Rhesis release tool (`.github/release`) is a Python-based automation script 
 ### Individual Component Release
 
 ```bash
-# Release a single component
+# Release a single component (updates versions and changelogs only)
 ./.github/release backend --minor
 
 # Release multiple components
@@ -289,11 +289,10 @@ The release tool automatically:
 
 1. **Setup API key** for enhanced changelogs
 2. **Run dry run** to preview changes
-3. **Execute release** command
+3. **Execute release** command (updates versions and changelogs only)
 4. **Review changes** (git status, git diff)
-5. **Commit changes** with descriptive message
-6. **Push tags** and changes to remote
-7. **Create GitHub releases** if needed
+5. **Create PR** with version updates
+6. **After PR merge**, create tags and GitHub releases using separate tooling
 
 ### Example Complete Workflow
 
@@ -304,23 +303,26 @@ echo "GEMINI_API_KEY=your_api_key_here" >> .env
 # Step 2: Preview the release
 ./.github/release --dry-run backend --minor frontend --patch
 
-# Step 3: Execute the release
+# Step 3: Execute the release (updates versions and changelogs only)
 ./.github/release backend --minor frontend --patch
 
 # Step 4: Review generated changes
 git status
 git diff
-git log --oneline -5
-git tag -l | tail -5
 
-# Step 5: Commit the version and changelog updates
+# Step 5: Create PR with version updates
 git add .
-git commit -m "Release: backend v0.2.0, frontend v0.1.1"
+git commit -m "Prepare release: backend v0.2.0, frontend v0.1.1"
+git push origin feature/release-backend-frontend
+./.github/create-pr.sh
 
-# Step 6: Push everything to remote
-git push && git push --tags
+# Step 6: After PR is merged, create tags manually or with separate tooling
+git checkout main && git pull
+git tag -a backend-v0.2.0 -m "Release backend version 0.2.0"
+git tag -a frontend-v0.1.1 -m "Release frontend version 0.1.1"
+git push --tags
 
-# Step 7: Create GitHub releases (optional)
+# Step 7: Create GitHub releases
 gh release create backend-v0.2.0 --generate-notes
 gh release create frontend-v0.1.1 --generate-notes
 ```
@@ -401,4 +403,4 @@ For issues with the release tool:
 
 ---
 
-**Note**: This release tool creates tags locally but does not push them automatically. This design ensures you can review all changes before making them public. Always remember to push your tags after reviewing: `git push && git push --tags`. 
+**Note**: This release tool only updates versions and changelogs - it does NOT create git tags. This ensures a clean PR-first workflow where version changes are reviewed before any tagging occurs. Create tags manually or with separate tooling after PR merge. 
