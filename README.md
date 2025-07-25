@@ -223,6 +223,10 @@ Our team reviews PRs regularly and provides feedback. We follow a code of conduc
 
 For detailed guidelines, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### 🚀 Releases
+
+For information about releasing Rhesis components and platform versions, see our [Release Guide](RELEASING.md).
+
 ### Community Meetings
 
 We host community calls where we discuss roadmap, feature requests, and showcase community contributions. Join our Discord server for announcements.
