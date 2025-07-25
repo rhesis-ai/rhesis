@@ -9,6 +9,7 @@ This guide covers the complete release process for the Rhesis platform, includin
 - [⚡ Quick Start](#quick-start)
 - [📦 Component Management](#component-management)
 - [🎯 Platform Releases](#platform-releases)
+- [🚀 Publishing Releases](#publishing-releases)
 - [💡 Release Examples](#release-examples)
 - [🔧 Prerequisites](#prerequisites)
 - [⚙️ Configuration](#configuration)
@@ -44,6 +45,7 @@ The Rhesis release tool (`.github/release`) is a Python-based automation script 
 - 🧠 **Smart environment detection** (uses SDK virtual environment when available)
 - 👀 **Dry run mode** to preview changes
 - 🛡️ **Rollback-safe operations** with comprehensive validation
+- 🚀 **Publishing to GitHub** with automatic tag creation and releases
 
 ## ⚡ Quick Start
 
@@ -88,6 +90,23 @@ git checkout -b release/backend-v0.2.0
 # → Creates branch: release/v1.0.0
 ```
 
+### 🚀 Publishing Releases
+
+Once you're on a release branch and ready to publish:
+
+```bash
+# Preview what would be published
+./.github/release --publish --dry-run
+# → Shows which tags would be created and GitHub releases would be made
+
+# Publish the release (creates tags and GitHub releases)
+./.github/release --publish
+# → Asks for confirmation before creating tags and GitHub releases
+# → Creates git tags for each component
+# → Pushes tags to remote repository
+# → Creates GitHub releases (requires gh CLI)
+```
+
 ### 👀 Dry Run (Recommended)
 
 Always test first:
@@ -96,6 +115,10 @@ Always test first:
 # Preview what would happen (shows branch name that would be created)
 ./.github/release --dry-run backend --minor frontend --patch
 # → Would create release branch: release/backend-v0.2.0-frontend-v0.1.1
+
+# Preview what would be published
+./.github/release --publish --dry-run
+# → Shows which tags and GitHub releases would be created
 ```
 
 ## 📦 Component Management
@@ -132,6 +155,52 @@ Platform releases coordinate multiple components and create a snapshot of the en
 ./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
 # → Updates: All component versions AND platform version
 ```
+
+## 🚀 Publishing Releases
+
+The publishing feature automates the creation of git tags and GitHub releases based on your current release branch.
+
+### 🎯 How Publishing Works
+
+1. **Branch Detection**: Automatically detects the current release branch
+2. **Component Parsing**: Extracts component names and versions from the branch name
+3. **Tag Checking**: Compares with existing remote tags to avoid duplicates
+4. **User Confirmation**: Shows what will be published and asks for confirmation
+5. **Tag Creation**: Creates annotated git tags for each component
+6. **Remote Push**: Pushes all tags to the remote repository
+7. **GitHub Releases**: Creates GitHub releases with auto-generated notes
+
+### 📝 Branch Name Patterns
+
+The publishing system understands these release branch patterns:
+
+| Branch Pattern | Components Published | Example |
+|----------------|---------------------|---------|
+| `release/backend-v1.0.0` | Single component | backend v1.0.0 |
+| `release/v1.0.0` | Platform + all current components | Platform v1.0.0 + all components at their current versions |
+| `release/multi-v1.0.0` | All components with matching version | All components that have version 1.0.0 |
+| `release/multi-a1b2c3` | Components with different versions | Determined by reading current version files |
+
+### 🏷️ Tag Naming Convention
+
+Tags follow this naming convention:
+
+- **Component tags**: `{component}-v{version}` (e.g., `backend-v1.0.0`)
+- **Platform tags**: `v{version}` (e.g., `v1.0.0`)
+
+### ⚠️ Prerequisites for Publishing
+
+1. **Git Repository**: Must be in a git repository
+2. **Release Branch**: Must be on a branch starting with `release/`
+3. **GitHub CLI** (optional): Install `gh` CLI for GitHub release creation
+4. **Remote Access**: Must have push access to the repository
+
+### 🔒 Safety Features
+
+- **Confirmation Required**: Always asks for user confirmation before publishing
+- **Duplicate Prevention**: Skips tags that already exist on remote
+- **Dry Run Support**: Use `--dry-run` to preview without making changes
+- **Error Handling**: Continues with other releases if one fails
 
 ### 🎨 Release Patterns
 
@@ -461,15 +530,57 @@ git commit -m "Prepare release: backend v0.2.0, frontend v0.1.1"
 git push origin $(git branch --show-current)
 ./.github/create-pr.sh
 
-# Step 6: After PR is merged, create tags manually or with separate tooling
+# Step 6: After PR is merged, switch to the release branch and publish
 git checkout main && git pull
-git tag -a backend-v0.2.0 -m "Release backend version 0.2.0"
-git tag -a frontend-v0.1.1 -m "Release frontend version 0.1.1"
-git push --tags
+git checkout release/backend-v0.2.0-frontend-v0.1.1
 
-# Step 7: Create GitHub releases
-gh release create backend-v0.2.0 --generate-notes
-gh release create frontend-v0.1.1 --generate-notes
+# Step 7: Preview what would be published
+./.github/release --publish --dry-run
+# → Shows: backend-v0.2.0, frontend-v0.1.1
+
+# Step 8: Publish the release (creates tags and GitHub releases)
+./.github/release --publish
+# → Creates and pushes tags: backend-v0.2.0, frontend-v0.1.1
+# → Creates GitHub releases with auto-generated notes
+```
+
+### 🚀 Publishing Examples
+
+#### 📦 Single Component Publishing
+
+```bash
+# On release branch: release/backend-v1.0.0
+./.github/release --publish --dry-run
+# → Shows: Would create backend-v1.0.0
+
+./.github/release --publish
+# → Creates tag: backend-v1.0.0
+# → Creates GitHub release: Backend v1.0.0
+```
+
+#### 🌐 Platform Release Publishing
+
+```bash
+# On release branch: release/v1.0.0
+./.github/release --publish --dry-run
+# → Shows: Would create v1.0.0, backend-v1.0.0, frontend-v1.0.0, etc.
+
+./.github/release --publish
+# → Creates platform tag: v1.0.0
+# → Creates component tags for all components
+# → Creates GitHub releases for platform and all components
+```
+
+#### 🎯 Multi-Component Publishing
+
+```bash
+# On release branch: release/multi-v0.5.0
+./.github/release --publish --dry-run
+# → Shows: Would create tags for all components with version 0.5.0
+
+./.github/release --publish
+# → Creates tags for all matching components
+# → Creates GitHub releases for each component
 ```
 
 ## 🔍 Troubleshooting
@@ -548,4 +659,9 @@ For issues with the release tool:
 
 ---
 
-**📌 Note**: This release tool only updates versions and changelogs - it does NOT create git tags. This ensures a clean PR-first workflow where version changes are reviewed before any tagging occurs. Create tags manually or with separate tooling after PR merge. 🚀 
+**📌 Note**: The release tool supports two modes:
+
+1. **Preparation Mode** (default): Updates versions and changelogs, creates release branches for PR-first workflow
+2. **Publishing Mode** (`--publish`): Creates git tags and GitHub releases from existing release branches
+
+This ensures a clean workflow where version changes are reviewed in PRs before any tagging occurs. Use `--publish` after PR merge to create tags and releases. 🚀 
