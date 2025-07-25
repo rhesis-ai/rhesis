@@ -461,7 +461,7 @@ Return ONLY the changelog section without any additional text or explanations.""
         }
         
         try:
-            url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={self.gemini_api_key}'
+            url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key={self.gemini_api_key}'
             req = urllib.request.Request(url)
             req.add_header('Content-Type', 'application/json')
             
@@ -596,28 +596,7 @@ See individual component changelogs for detailed changes:
         success(f"Updated platform changelog: {self.platform_changelog}")
         return True
 
-    def create_git_tag(self, component: str, version: str) -> bool:
-        """Create git tag for component"""
-        if component == "platform":
-            tag_name = f"v{version}"
-        else:
-            tag_name = f"{component}-v{version}"
-        
-        if self.dry_run:
-            info(f"Would create git tag: {tag_name}")
-            return True
-        
-        try:
-            tag_message = f"Release {component} version {version}"
-            subprocess.run(
-                ["git", "tag", "-a", tag_name, "-m", tag_message],
-                check=True
-            )
-            success(f"Created git tag: {tag_name}")
-            return True
-        except subprocess.CalledProcessError as e:
-            error(f"Failed to create git tag {tag_name}: {e}")
-            return False
+
 
     def process_releases(self) -> bool:
         """Process all releases"""
@@ -677,9 +656,7 @@ See individual component changelogs for detailed changes:
                 if not self.update_component_changelog(component, new_version, changelog_content):
                     return False
             
-            # Create git tags
-            if not self.create_git_tag(component, new_version):
-                return False
+            info(f"Version and changelog updated for {component} v{new_version}")
             
             success(f"Completed release for {component} v{new_version}")
             print()
@@ -717,9 +694,9 @@ See individual component changelogs for detailed changes:
             print()
             info("Next steps:")
             info("1. Review the changes made to version files and changelogs")
-            info('2. Commit the changes: git add . && git commit -m "Release: <description>"')
-            info("3. Push the changes and tags: git push && git push --tags")
-            info("4. Create GitHub releases for the new tags if needed")
+            info('2. Commit the changes: git add . && git commit -m "Prepare release: <description>"')
+            info("3. Create PR: git push origin <branch> && ./.github/create-pr.sh")
+            info("4. After PR merge, create tags and releases using separate tooling")
         
         return True
 
@@ -747,6 +724,7 @@ Version Types:
     
     parser.add_argument('--dry-run', action='store_true',
                        help='Show what would be done without making changes')
+
     parser.add_argument('--gemini-key', type=str,
                        help='Gemini API key for changelog generation')
     
