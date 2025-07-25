@@ -12,6 +12,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.0] - 2025-07-25
+
+### Added
+- Added `documents` parameter to `PromptSynthesizer` for enhanced document handling.
+- Added `DocumentExtractor` class with support for `.txt` files.
+- Added synthesizer factory to SDK for easier synthesizer creation.
+- Added custom behavior informed by prompt to `PromptSynthesizer`.
+
+### Changed
+- Adjusted `PromptSynthesizer` to allow custom behaviors.
+
+### Fixed
+- Corrected typos and formatting errors in documentation and code.
+
+### Removed
+- Removed tag creation from the release script.
+
+### Documentation
+- Updated `CONTRIBUTING.md` to include MacOS setup instructions.
+- Updated general documentation.
+
 - Ongoing development within the main repo structure
 - Integration with other main repo components
 
