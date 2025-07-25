@@ -1,25 +1,22 @@
-#!/bin/bash
+#!/usr/bin/env python3
+"""
+Rhesis Platform Release Tool
 
-# Rhesis Platform Release Tool (Bash Wrapper)
-# This script is a simple wrapper around the Python release script
+This script manages releases for individual components and platform-wide releases
+with automatic version bumping, changelog generation, and git tagging.
 
-set -e
+This is a modular version that imports functionality from the release_tools/ directory.
+"""
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_SCRIPT="$SCRIPT_DIR/release.py"
+import sys
+from pathlib import Path
 
-# Check if Python script exists
-if [[ ! -f "$PYTHON_SCRIPT" ]]; then
-    echo "Error: Python release script not found at $PYTHON_SCRIPT"
-    exit 1
-fi
+# Add the .github directory to the Python path so we can import the release_tools module
+github_dir = Path(__file__).parent
+sys.path.insert(0, str(github_dir))
 
-# Check if Python script is executable
-if [[ ! -x "$PYTHON_SCRIPT" ]]; then
-    echo "Error: Python release script is not executable. Run: chmod +x $PYTHON_SCRIPT"
-    exit 1
-fi
+# Import and run the CLI
+from release_tools.cli import main
 
-# Execute the Python script with all arguments
-exec "$PYTHON_SCRIPT" "$@" 
+if __name__ == '__main__':
+    main() 
