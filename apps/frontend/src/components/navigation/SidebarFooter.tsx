@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import FeedbackModal from '../common/FeedbackModal';
+import AppVersion from '../common/AppVersion';
 
 export default function SidebarFooter() {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
@@ -38,7 +39,14 @@ export default function SidebarFooter() {
             textTransform: 'none',
           }}
         >
-          <Typography variant="body2">Provide Feedback</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+            <Typography variant="body2">Provide Feedback</Typography>
+            <AppVersion 
+              variant="caption"
+              color="text.disabled"
+              sx={{ opacity: 0.6, marginLeft: 'auto' }}
+            />
+          </Box>
         </Button>
       </Box>
       
