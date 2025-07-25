@@ -185,17 +185,23 @@ For detailed information about the release process, see **[RELEASING.md](RELEASI
 #### Quick Examples
 
 ```bash
+# The release script automatically creates appropriate release branches
+
 # Individual component release (updates versions and changelogs only)
 ./.github/release backend --minor
+# → Creates branch: release/backend-v0.2.0
 
 # Multiple components
 ./.github/release backend --minor frontend --patch
+# → Creates branch: release/backend-v0.2.0-frontend-v0.1.1 (or release/multi-a1b2c3)
 
 # All components + platform
 ./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
+# → Creates branch: release/v0.2.0
 
-# Always test first
+# Always test first (shows what branch would be created)
 ./.github/release --dry-run backend --minor
+# → Would create release branch: release/backend-v0.2.0
 ```
 
 #### Usage
