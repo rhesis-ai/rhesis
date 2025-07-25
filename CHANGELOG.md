@@ -24,6 +24,41 @@ This release includes the following component versions:
 ### Summary of Changes
 
 **Backend v0.2.0:**
+- Enhanced team invitation process with improved security, validation, rate limiting, and email uniqueness checks.
+- Implemented email-based notification system for test execution results.
+- Improved test execution framework with sequential execution, configuration options, and enhanced task orchestration using Redis.
+- Fixed issues related to OData filtering validation, JWT expiration, test set downloads, and score calculation for metrics.
+
+**Frontend v0.2.0:**
+- Added version information display to the frontend.
+- Introduced a new team invitation flow with enhanced security and validation, including email uniqueness checks, rate limiting, and max team size.
+- Improved session management with server logout upon session expiration and redirection to the home page.
+- Numerous bug fixes and UI improvements across various components, including test sets, test runs, endpoints, and dark mode contrast.
+
+**SDK v0.2.0:**
+- Added support for `.txt` files to the `DocumentExtractor`.
+- Introduced `documents` parameter to `PromptSynthesizer` for enhanced document handling.
+- Added functionality for custom behaviors informed by prompts to the `PromptSynthesizer`.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
+## [0.2.0] - 2025-07-25
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.0**
+- **Frontend 0.2.0**
+- **SDK 0.2.0**
+
+### Summary of Changes
+
+**Backend v0.2.0:**
 Version 0.2.0 introduces a new team invitation feature with improved security and validation, including email uniqueness checks, rate limiting, and team size restrictions. This release also includes significant refactoring and improvements to the test execution and evaluation process, leveraging Redis for worker infrastructure and adding email-based notifications for test completion.
 
 **Frontend v0.2.0:**

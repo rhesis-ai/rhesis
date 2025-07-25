@@ -1,6 +1,6 @@
 {
     "name": "rhesis-app",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "scripts": {
         "dev": "next dev --turbo -H 0.0.0.0 -p 3000",
         "build": "npm run clean && next build",
@@ -10,7 +10,7 @@
         "prebuild": "npm run type-check && npm run lint",
         "clean": "rm -rf .next",
         "version:patch": "npm version patch",
-        "version:minor": "npm version minor", 
+        "version:minor": "npm version minor",
         "version:major": "npm version major",
         "version:check": "echo \"Current version: $(node -p \\\"require('./package.json').version\\\")\""
     },
