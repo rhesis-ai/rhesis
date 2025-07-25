@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.1.9"
+version = "0.2.0"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -99,7 +99,7 @@ line-ending = "auto"
 known-first-party = ["rhesis.sdk"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "0.2.0"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
