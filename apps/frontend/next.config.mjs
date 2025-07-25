@@ -3,6 +3,7 @@ process.env.NODE_OPTIONS = '--max-old-space-size=4096';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +40,11 @@ const nextConfig = {
       'date-fns',
       'lodash'
     ],
+  },
+
+  // Environment variables available to the client
+  env: {
+    APP_VERSION: JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version,
   },
 
   // Development-specific: configure on-demand entries to reduce caching
