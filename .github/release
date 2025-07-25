@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Rhesis Platform Release Tool (Bash Wrapper)
+# This script is a simple wrapper around the Python release script
+
+set -e
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_SCRIPT="$SCRIPT_DIR/release.py"
+
+# Check if Python script exists
+if [[ ! -f "$PYTHON_SCRIPT" ]]; then
+    echo "Error: Python release script not found at $PYTHON_SCRIPT"
+    exit 1
+fi
+
+# Check if Python script is executable
+if [[ ! -x "$PYTHON_SCRIPT" ]]; then
+    echo "Error: Python release script is not executable. Run: chmod +x $PYTHON_SCRIPT"
+    exit 1
+fi
+
+# Execute the Python script with all arguments
+exec "$PYTHON_SCRIPT" "$@" 
