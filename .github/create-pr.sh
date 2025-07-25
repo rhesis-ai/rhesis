@@ -177,6 +177,7 @@ if PR_URL=$(gh pr create \
     --head "$CURRENT_BRANCH" \
     --title "$PR_TITLE" \
     --body "$PR_DESCRIPTION" \
+    --assignee "@me" \
     2>&1); then
     success "Pull request created successfully!"
     success "URL: $PR_URL"
