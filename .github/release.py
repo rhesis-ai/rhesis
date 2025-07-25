@@ -61,10 +61,11 @@ class ComponentConfig:
 class ReleaseManager:
     """Main release management class"""
     
-    def __init__(self, repo_root: Path, dry_run: bool = False, gemini_api_key: str = ""):
+    def __init__(self, repo_root: Path, dry_run: bool = False, gemini_api_key: str = "", no_branch: bool = False):
         self.repo_root = repo_root
         self.dry_run = dry_run
         self.gemini_api_key = gemini_api_key
+        self.no_branch = no_branch
         
         # Component configurations
         self.components = {
@@ -95,6 +96,12 @@ class ReleaseManager:
         self.component_versions: Dict[str, str] = {}
         self.component_bumps: Dict[str, str] = {}
 
+    def format_component_name(self, component: str) -> str:
+        """Format component name with proper capitalization"""
+        if component.lower() == "sdk":
+            return "SDK"
+        return component.title()
+
     def setup_python_env(self) -> bool:
         """Setup Python environment with TOML support"""
         # Try to use SDK virtual environment first
@@ -123,12 +130,12 @@ class ReleaseManager:
         except ImportError:
             pass
         
-        # Try to install using uv
+        # Try to install tomli using uv if not already available
         if self._command_exists("uv") and (self.repo_root / "sdk" / "pyproject.toml").exists():
-            warn("Installing tomli using uv in SDK environment...")
+            info("Installing tomli using uv in SDK environment")
             try:
                 result = subprocess.run(
-                    ["uv", "add", "tomli", "tomli-w"], 
+                    ["uv", "add", "tomli"], 
                     cwd=self.repo_root / "sdk",
                     capture_output=True,
                     text=True
@@ -139,9 +146,9 @@ class ReleaseManager:
             except Exception as e:
                 warn(f"Failed to install with uv: {e}")
         
-        error("No TOML library available. Please install tomli or toml:")
-        error("  - For SDK: cd sdk && uv add tomli tomli-w")
-        error("  - Globally: pip3 install tomli tomli-w")
+        error("No TOML library available. Please install tomli:")
+        error("  - For SDK: cd sdk && uv add tomli")
+        error("  - Globally: pip3 install tomli")
         return False
 
     def _command_exists(self, command: str) -> bool:
@@ -440,7 +447,7 @@ class ReleaseManager:
             for commit in commits
         ])
         
-        prompt = f"""Generate a professional changelog entry for version {version} of the {component} component in a software project.
+        prompt = f"""Generate a professional changelog entry for version {version} of the {self.format_component_name(component)} component in a software project.
 
 Based on these commits since the last release{f' ({last_tag})' if last_tag else ''}:
 
@@ -448,7 +455,9 @@ Based on these commits since the last release{f' ({last_tag})' if last_tag else 
 
 Please format the output as a markdown changelog section following the 'Keep a Changelog' format. Include appropriate categories like Added, Changed, Fixed, Removed, etc. Be concise but informative. Focus on user-facing changes and improvements.
 
-Return ONLY the changelog section without any additional text or explanations."""
+Do NOT include the version header line (## [version] - date) - only return the content sections (### Added, ### Changed, etc.). 
+
+Return ONLY the changelog content without any additional text or explanations."""
 
         data = {
             'contents': [{
@@ -478,6 +487,56 @@ Return ONLY the changelog section without any additional text or explanations.""
             return None
         except Exception as e:
             warn(f"Failed to generate changelog with LLM: {e}")
+            return None
+
+    def generate_component_summary_with_llm(self, component: str, version: str, 
+                                          commits: List[Dict[str, str]], last_tag: Optional[str]) -> Optional[str]:
+        """Generate a brief component summary for platform changelog using Gemini API"""
+        if not self.gemini_api_key:
+            return None
+        
+        commits_text = "\n".join([
+            f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})"
+            for commit in commits
+        ])
+        
+        prompt = f"""Generate a brief bullet point summary of changes for version {version} of the {self.format_component_name(component)} component.
+
+Based on these commits since the last release{f' ({last_tag})' if last_tag else ''}:
+
+{commits_text}
+
+Focus on the most important user-facing changes and improvements. Format as 2-4 bullet points using simple dashes (-). Keep each point concise and informative.
+
+Return ONLY the bullet points without any additional text or explanations."""
+
+        data = {
+            'contents': [{
+                'parts': [{'text': prompt}]
+            }],
+            'generationConfig': {
+                'temperature': 0.3,
+                'maxOutputTokens': 512
+            }
+        }
+        
+        try:
+            url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key={self.gemini_api_key}'
+            req = urllib.request.Request(url)
+            req.add_header('Content-Type', 'application/json')
+            
+            with urllib.request.urlopen(req, json.dumps(data).encode()) as response:
+                result = json.loads(response.read().decode())
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    return result['candidates'][0]['content']['parts'][0]['text'].strip()
+                else:
+                    return None
+                    
+        except urllib.error.HTTPError as e:
+            warn(f"Failed to generate component summary with LLM: HTTP {e.code} - {e.reason}")
+            return None
+        except Exception as e:
+            warn(f"Failed to generate component summary with LLM: {e}")
             return None
 
     def generate_fallback_changelog(self, version: str, commits: List[Dict[str, str]]) -> str:
@@ -513,7 +572,7 @@ Return ONLY the changelog section without any additional text or explanations.""
         if not changelog_path.exists():
             changelog_path.parent.mkdir(parents=True, exist_ok=True)
             
-            header = f"""# {component.title()} Changelog
+            header = f"""# {self.format_component_name(component)} Changelog
 
 All notable changes to the {component} component will be documented in this file.
 
@@ -547,6 +606,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         """Update platform changelog"""
         if self.dry_run:
             info(f"Would update platform changelog: {self.platform_changelog}")
+            info("Platform changelog would include LLM-generated summaries for each component")
             return True
         
         changelog_path = self.repo_root / self.platform_changelog
@@ -563,18 +623,42 @@ This release includes the following component versions:
         # Add component versions
         for component, version in self.component_versions.items():
             if component != "platform":
-                platform_entry += f"- **{component.title()} {version}**\n"
+                platform_entry += f"- **{self.format_component_name(component)} {version}**\n"
         
-        platform_entry += """
-### Summary of Changes
-
-See individual component changelogs for detailed changes:
-"""
+        platform_entry += "\n### Summary of Changes\n\n"
+        
+        # Generate summaries for each component
+        for component, version in self.component_versions.items():
+            if component != "platform":
+                # Get commit history for this component
+                last_tag = self.get_last_tag(component)
+                commits = self.get_commits_since_tag(component, last_tag)
+                
+                component_name = self.format_component_name(component)
+                platform_entry += f"**{component_name} v{version}:**\n"
+                
+                # Try to generate LLM summary
+                summary = None
+                if self.gemini_api_key and commits:
+                    summary = self.generate_component_summary_with_llm(
+                        component, version, commits, last_tag
+                    )
+                
+                if summary:
+                    platform_entry += f"{summary}\n\n"
+                elif commits:
+                    # Fallback to first few commit messages
+                    commit_msgs = [commit['message'] for commit in commits[:3]]
+                    platform_entry += f"Key changes include: {', '.join(commit_msgs[:2])}{'...' if len(commits) > 2 else ''}.\n\n"
+                else:
+                    platform_entry += "Initial release or no significant changes.\n\n"
+        
+        platform_entry += "See individual component changelogs for detailed changes:\n"
         
         for component in self.component_versions:
             if component != "platform" and component in self.components:
                 changelog_path_rel = self.components[component].changelog_path
-                platform_entry += f"- [{component.title()} Changelog]({changelog_path_rel})\n"
+                platform_entry += f"- [{self.format_component_name(component)} Changelog]({changelog_path_rel})\n"
         
         platform_entry += "\n"
         
@@ -596,7 +680,102 @@ See individual component changelogs for detailed changes:
         success(f"Updated platform changelog: {self.platform_changelog}")
         return True
 
-
+    def create_release_branch(self) -> bool:
+        """Create appropriate release branch based on components and versions"""
+        # Check if we're on main branch
+        try:
+            current_branch = subprocess.run(
+                ["git", "branch", "--show-current"],
+                capture_output=True, text=True, check=True
+            ).stdout.strip()
+        except subprocess.CalledProcessError:
+            error("Failed to get current branch")
+            return False
+        
+        # If already on a release branch, skip creation
+        if current_branch.startswith("release/"):
+            info(f"Already on release branch: {current_branch}")
+            return True
+        
+        # If not on main, warn but continue
+        if current_branch != "main":
+            warn(f"Not on main branch (currently on: {current_branch})")
+            if not self.dry_run:
+                response = input("Continue anyway? (y/N): ").strip().lower()
+                if response != 'y':
+                    info("Release cancelled")
+                    return False
+        
+        # Generate branch name based on release components
+        branch_name = self.generate_branch_name()
+        
+        if self.dry_run:
+            info(f"Would create release branch: {branch_name}")
+            return True
+        
+        # Check if branch already exists
+        try:
+            subprocess.run(
+                ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"],
+                capture_output=True, check=True
+            )
+            error(f"Branch {branch_name} already exists")
+            return False
+        except subprocess.CalledProcessError:
+            # Branch doesn't exist, which is what we want
+            pass
+        
+        # Create and checkout the branch
+        try:
+            subprocess.run(["git", "checkout", "-b", branch_name], check=True)
+            success(f"Created and switched to branch: {branch_name}")
+            return True
+        except subprocess.CalledProcessError as e:
+            error(f"Failed to create branch {branch_name}: {e}")
+            return False
+    
+    def generate_branch_name(self) -> str:
+        """Generate appropriate branch name based on release components"""
+        import hashlib
+        
+        # Get target versions for all components
+        component_versions = []
+        unique_versions = set()
+        
+        for component, bump_type in self.component_bumps.items():
+            current_version = self.get_current_version(component)
+            if not current_version:
+                continue
+            new_version = self.bump_version(current_version, bump_type)
+            component_versions.append((component, new_version))
+            unique_versions.add(new_version)
+        
+        # Determine branch naming strategy
+        if len(component_versions) == 1:
+            # Single component
+            component, version = component_versions[0]
+            if component == "platform":
+                return f"release/v{version}"
+            else:
+                return f"release/{component}-v{version}"
+        
+        elif "platform" in [comp for comp, _ in component_versions]:
+            # Platform release
+            platform_version = next(ver for comp, ver in component_versions if comp == "platform")
+            return f"release/v{platform_version}"
+        
+        elif len(unique_versions) == 1:
+            # Multiple components, same version
+            version = unique_versions.pop()
+            return f"release/multi-v{version}"
+        
+        else:
+            # Multiple components, different versions
+            # Use a short hash of component names for uniqueness
+            component_names = sorted([comp for comp, _ in component_versions])
+            hash_input = "-".join(component_names)
+            short_hash = hashlib.md5(hash_input.encode()).hexdigest()[:6]
+            return f"release/multi-{short_hash}"
 
     def process_releases(self) -> bool:
         """Process all releases"""
@@ -644,9 +823,13 @@ See individual component changelogs for detailed changes:
                 
                 # Try LLM generation first
                 if self.gemini_api_key:
-                    changelog_content = self.generate_changelog_with_llm(
+                    llm_content = self.generate_changelog_with_llm(
                         component, new_version, commits, last_tag
                     )
+                    if llm_content:
+                        # Add proper header with current date to LLM-generated content
+                        date = datetime.now().strftime("%Y-%m-%d")
+                        changelog_content = f"## [{new_version}] - {date}\n\n{llm_content.strip()}\n"
                 
                 # Fall back to basic changelog if LLM failed
                 if not changelog_content:
@@ -676,6 +859,11 @@ See individual component changelogs for detailed changes:
         if not self.check_prerequisites():
             return False
         
+        # Create release branch if needed (unless --no-branch specified)
+        if not self.no_branch:
+            if not self.create_release_branch():
+                return False
+        
         log("Rhesis Platform Release Tool")
         log(f"Repository: {self.repo_root}")
         
@@ -695,7 +883,7 @@ See individual component changelogs for detailed changes:
             info("Next steps:")
             info("1. Review the changes made to version files and changelogs")
             info('2. Commit the changes: git add . && git commit -m "Prepare release: <description>"')
-            info("3. Create PR: git push origin <branch> && ./.github/create-pr.sh")
+            info("3. Push and create PR: git push origin $(git branch --show-current) && ./.github/create-pr.sh")
             info("4. After PR merge, create tags and releases using separate tooling")
         
         return True
@@ -710,6 +898,7 @@ def main():
 Examples:
   %(prog)s backend --minor frontend --patch sdk --major
   %(prog)s --dry-run backend --patch frontend --minor platform --major
+  %(prog)s --no-branch sdk --patch  # Skip branch creation
 
 Components:
   backend, frontend, worker, chatbot, polyphemus, sdk
@@ -724,6 +913,8 @@ Version Types:
     
     parser.add_argument('--dry-run', action='store_true',
                        help='Show what would be done without making changes')
+    parser.add_argument('--no-branch', action='store_true',
+                       help='Skip automatic release branch creation')
 
     parser.add_argument('--gemini-key', type=str,
                        help='Gemini API key for changelog generation')
@@ -769,7 +960,7 @@ Version Types:
         return 1
     
     # Create release manager and run
-    manager = ReleaseManager(repo_root, args.dry_run, gemini_key)
+    manager = ReleaseManager(repo_root, args.dry_run, gemini_key, args.no_branch)
     
     try:
         success = manager.run(component_bumps)

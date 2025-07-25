@@ -50,20 +50,33 @@ The Rhesis release tool (`.github/release`) is a Python-based automation script 
 ### Individual Component Release
 
 ```bash
-# Release a single component (updates versions and changelogs only)
+# Single component
 ./.github/release backend --minor
+# → Creates branch: release/backend-v0.2.0
 
-# Release multiple components
+# Multiple components (no platform)
 ./.github/release backend --minor frontend --patch sdk --major
+# → Creates branch: release/multi-a1b2c3 (or release/multi-v0.2.0 if same version)
+# → Platform version remains unchanged
+
+# Manual branch management (if preferred)
+git checkout -b release/backend-v0.2.0
+./.github/release --no-branch backend --minor
 ```
 
 ### Platform-Wide Release
 
 ```bash
-# Release all components with same bump type
+# Full coordinated release (all components + platform)
 ./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
+# → Creates branch: release/v0.2.0
 
-# Release all components with different bump types
+# Platform-only release (just platform version)
+./.github/release platform --minor
+# → Creates branch: release/v0.2.0
+# → Only updates platform, NOT individual components
+
+# Major platform release with mixed component updates
 ./.github/release \
   backend --major \
   frontend --minor \
@@ -72,6 +85,7 @@ The Rhesis release tool (`.github/release`) is a Python-based automation script 
   polyphemus --minor \
   sdk --minor \
   platform --major
+# → Creates branch: release/v1.0.0
 ```
 
 ### Dry Run (Recommended)
@@ -79,8 +93,9 @@ The Rhesis release tool (`.github/release`) is a Python-based automation script 
 Always test first:
 
 ```bash
-# Preview what would happen
+# Preview what would happen (shows branch name that would be created)
 ./.github/release --dry-run backend --minor frontend --patch
+# → Would create release branch: release/backend-v0.2.0-frontend-v0.1.1
 ```
 
 ## Component Management
@@ -103,6 +118,55 @@ Each component maintains:
 
 Platform releases coordinate multiple components and create a snapshot of the entire system.
 
+### ⚠️ **Important: Platform-Only Behavior**
+
+**Platform releases do NOT automatically bump all components!**
+
+```bash
+# This ONLY bumps the platform version (VERSION file)
+./.github/release platform --minor
+# → Updates: VERSION (0.1.9 → 0.2.0) and CHANGELOG.md
+# → Does NOT bump: backend, frontend, worker, chatbot, polyphemus, sdk
+
+# To bump ALL components + platform, specify them explicitly:
+./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
+# → Updates: All component versions AND platform version
+```
+
+### Release Patterns
+
+#### **Platform-Only Release**
+Use when you want to create a platform version that references existing component versions:
+```bash
+./.github/release platform --minor
+# → Creates release/v0.2.0
+# → References current component versions in platform changelog
+```
+
+#### **Full Coordinated Release**
+Use when all components should be updated together:
+```bash
+./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
+# → Creates release/v0.2.0
+# → Updates ALL component versions + platform version
+```
+
+#### **Mixed Release (with Platform)**
+Use when specific components and platform need updates:
+```bash
+./.github/release backend --major sdk --minor platform --major
+# → Creates release/v1.0.0
+# → Updates backend, sdk, and platform versions
+```
+
+#### **Component-Only Release**
+Use when only specific components need updates (no platform bump):
+```bash
+./.github/release backend --major sdk --minor
+# → Creates release/multi-a1b2c3
+# → Updates ONLY backend and SDK, platform version unchanged
+```
+
 ### When to Use Platform Releases
 
 - **Major milestones**: Stable, tested combinations of all components
@@ -112,9 +176,9 @@ Platform releases coordinate multiple components and create a snapshot of the en
 
 ### Platform Release Process
 
-1. **Component Tags**: Creates individual tags for each component (`backend-v1.2.0`, etc.)
-2. **Platform Tag**: Creates a platform-wide tag (`v1.0.0`)
-3. **Unified Changelog**: Updates main changelog with component version summary
+1. **Component Updates**: Only updates explicitly specified components
+2. **Platform Version**: Updates VERSION file and main CHANGELOG.md
+3. **Unified Changelog**: Summarizes changes from updated components
 4. **Cross-references**: Links to individual component changelogs
 
 ## Release Examples
@@ -124,6 +188,7 @@ Platform releases coordinate multiple components and create a snapshot of the en
 ```bash
 # Fix critical bug in backend only
 ./.github/release backend --patch
+# → Creates branch: release/backend-v0.1.10
 ```
 
 ### Scenario 2: Feature Release
@@ -131,6 +196,7 @@ Platform releases coordinate multiple components and create a snapshot of the en
 ```bash
 # New features in multiple components
 ./.github/release backend --minor frontend --minor sdk --minor
+# → Creates branch: release/multi-v0.2.0
 ```
 
 ### Scenario 3: Coordinated Platform Release
@@ -145,18 +211,95 @@ Platform releases coordinate multiple components and create a snapshot of the en
   polyphemus --minor \
   sdk --minor \
   platform --minor
+# → Creates branch: release/v0.2.0
 ```
 
-### Scenario 4: Mixed Component Updates
+### Scenario 3b: Platform-Only Release
 
 ```bash
-# Different teams, different changes
+# Platform milestone without component updates
+./.github/release platform --minor
+# → Creates branch: release/v0.2.0
+# → Updates only platform version, references existing component versions
+```
+
+### Scenario 4: Mixed Component Updates (with Platform)
+
+```bash
+# Different teams, different changes + platform update
 ./.github/release \
   backend --major \    # Breaking API changes
   frontend --patch \   # UI bug fixes
   sdk --minor \        # New utility functions
   platform --major     # Overall breaking changes
+# → Creates branch: release/v1.0.0
 ```
+
+### Scenario 5: Component-Only Updates (No Platform)
+
+```bash
+# Update specific components without bumping platform
+./.github/release backend --major frontend --patch sdk --minor
+# → Creates branch: release/multi-a1b2c3
+# → Updates only specified components, platform version unchanged
+```
+
+## Automatic Branch Creation
+
+### How It Works
+
+The release tool automatically creates appropriately named release branches based on the components and versions being released:
+
+#### Single Component Releases
+```bash
+./.github/release backend --minor       # → release/backend-v0.2.0
+./.github/release frontend --patch      # → release/frontend-v0.1.1  
+./.github/release sdk --major          # → release/sdk-v1.0.0
+```
+
+#### Multiple Component Releases
+```bash
+./.github/release backend --minor frontend --minor  # → release/multi-v0.2.0 (same version, no platform)
+./.github/release backend --minor frontend --patch  # → release/multi-a1b2c3 (different versions, no platform)
+```
+
+#### Platform Releases
+```bash
+./.github/release platform --minor      # → release/v0.2.0 (platform only)
+./.github/release platform --major      # → release/v1.0.0 (platform only)
+
+# Full platform release (all components + platform)
+./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
+# → release/v0.2.0
+```
+
+### Branch Naming Logic
+
+The script automatically determines the appropriate branch name:
+
+1. **Single component**: `release/{component}-v{new_version}`
+2. **Platform release**: `release/v{platform_version}` 
+3. **Multiple components, same version**: `release/multi-v{version}`
+4. **Multiple components, different versions**: `release/multi-{hash}`
+
+### Manual Branch Control
+
+If you prefer to manage branches manually:
+
+```bash
+# Create your own branch first
+git checkout -b release/my-custom-name
+
+# Then use --no-branch flag
+./.github/release --no-branch backend --minor
+```
+
+### Benefits
+
+✅ **Zero manual work**: No need to predict versions or create branches  
+✅ **Consistent naming**: Always follows the same pattern  
+✅ **Descriptive branches**: Clear what's being released  
+✅ **Git history**: Easy to understand in branch lists  
 
 ## Prerequisites
 
@@ -237,6 +380,7 @@ All changelogs follow the [Keep a Changelog](https://keepachangelog.com/en/1.0.0
 
 Options:
   --dry-run              Show what would be done without making changes
+  --no-branch            Skip automatic release branch creation
   --gemini-key KEY       Gemini API key for changelog generation
   --help                 Show help message
 
@@ -287,9 +431,9 @@ The release tool automatically:
 
 ### Release Workflow
 
-1. **Setup API key** for enhanced changelogs
+1. **Setup API key** for enhanced changelogs (one-time setup)
 2. **Run dry run** to preview changes
-3. **Execute release** command (updates versions and changelogs only)
+3. **Execute release** command (automatically creates branch, updates versions and changelogs)
 4. **Review changes** (git status, git diff)
 5. **Create PR** with version updates
 6. **After PR merge**, create tags and GitHub releases using separate tooling
@@ -303,8 +447,9 @@ echo "GEMINI_API_KEY=your_api_key_here" >> .env
 # Step 2: Preview the release
 ./.github/release --dry-run backend --minor frontend --patch
 
-# Step 3: Execute the release (updates versions and changelogs only)
+# Step 3: Execute the release (automatically creates branch, updates versions and changelogs)
 ./.github/release backend --minor frontend --patch
+# → Creates branch: release/backend-v0.2.0-frontend-v0.1.1
 
 # Step 4: Review generated changes
 git status
@@ -313,7 +458,7 @@ git diff
 # Step 5: Create PR with version updates
 git add .
 git commit -m "Prepare release: backend v0.2.0, frontend v0.1.1"
-git push origin feature/release-backend-frontend
+git push origin $(git branch --show-current)
 ./.github/create-pr.sh
 
 # Step 6: After PR is merged, create tags manually or with separate tooling
