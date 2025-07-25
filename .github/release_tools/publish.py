@@ -7,12 +7,65 @@ import subprocess
 import json
 import urllib.request
 import urllib.error
+import sys
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from .config import COMPONENTS, PLATFORM_VERSION_FILE, format_component_name
 from .version import get_current_version
 from .utils import info, warn, error, success, log
+
+
+def _try_auto_environment_setup() -> bool:
+    """Try to automatically set up the correct environment"""
+    # Check if we're already in a virtual environment
+    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+        return False  # Already in virtual env, but still having issues
+    
+    # Check for UV virtual environment in common locations
+    venv_locations = [
+        Path(".venv"),           # Project root
+        Path("../.venv"),        # Parent directory (common with UV)
+        Path("venv"),            # Alternative name
+        Path("../venv"),         # Parent alternative
+    ]
+    
+    for venv_path in venv_locations:
+        if venv_path.exists() and (venv_path / "bin" / "activate").exists():
+            warn(f"Virtual environment detected at: {venv_path.resolve()}")
+            warn("Attempting to auto-run in virtual environment...")
+            
+            # Try to re-run the current command in the virtual environment
+            try:
+                # Get the current command arguments
+                current_cmd = sys.argv
+                script_path = current_cmd[0]
+                args = current_cmd[1:]
+                
+                # Build the command to run in the virtual environment
+                venv_python = venv_path / "bin" / "python3"
+                if not venv_python.exists():
+                    venv_python = venv_path / "bin" / "python"
+                
+                if not venv_python.exists():
+                    warn(f"Virtual environment Python not found in: {venv_path}")
+                    continue
+                
+                cmd = [str(venv_python), script_path] + args
+                
+                info(f"Auto-running in virtual environment...")
+                info(f"Command: {' '.join(cmd)}")
+                
+                # Execute in the virtual environment
+                result = subprocess.run(cmd, cwd=os.getcwd())
+                sys.exit(result.returncode)
+                
+            except Exception as e:
+                warn(f"Failed to auto-activate virtual environment at {venv_path}: {e}")
+                continue
+    
+    return False
 
 
 def get_current_branch() -> Optional[str]:
@@ -48,7 +101,14 @@ def parse_release_branch_components(branch_name: str, repo_root: Path) -> Dict[s
                 current_version = get_current_version(component, repo_root)
                 if current_version and current_version != "0.1.0":  # Skip default versions
                     components_versions[component] = current_version
-            except Exception:
+                elif current_version == "0.1.0":
+                    info(f"Component {component} has default version 0.1.0 - skipping")
+            except Exception as e:
+                if "TOML parser not available" in str(e):
+                    # Re-raise TOML parser errors to trigger auto-environment setup
+                    raise e
+                warn(f"Failed to get version for component {component}: {e}")
+                warn(f"Skipping component {component} due to version detection failure")
                 continue
                 
     elif "-v" in release_part:
@@ -84,7 +144,14 @@ def parse_release_branch_components(branch_name: str, repo_root: Path) -> Dict[s
                 current_version = get_current_version(component, repo_root)
                 if current_version and current_version != "0.1.0":
                     components_versions[component] = current_version
-            except Exception:
+                elif current_version == "0.1.0":
+                    info(f"Component {component} has default version 0.1.0 - skipping")
+            except Exception as e:
+                if "TOML parser not available" in str(e):
+                    # Re-raise TOML parser errors to trigger auto-environment setup
+                    raise e
+                warn(f"Failed to get version for component {component}: {e}")
+                warn(f"Skipping component {component} due to version detection failure")
                 continue
         
         # Check platform version
@@ -92,8 +159,9 @@ def parse_release_branch_components(branch_name: str, repo_root: Path) -> Dict[s
             platform_version = get_current_version("platform", repo_root)
             if platform_version and platform_version != "0.0.0":
                 components_versions["platform"] = platform_version
-        except Exception:
-            pass
+        except Exception as e:
+            warn(f"Failed to get platform version: {e}")
+            warn("Skipping platform due to version detection failure")
     
     return components_versions
 
@@ -164,10 +232,11 @@ def create_and_push_tag(component: str, version: str, dry_run: bool = False) -> 
         return False
 
 
-def create_github_release(component: str, version: str, tag_name: str, dry_run: bool = False) -> bool:
+def create_github_release(component: str, version: str, tag_name: str, dry_run: bool = False, set_as_latest: bool = False) -> bool:
     """Create a GitHub release for a component"""
     if dry_run:
-        info(f"Would create GitHub release for {tag_name}")
+        latest_info = " (marked as latest)" if set_as_latest else ""
+        info(f"Would create GitHub release for {tag_name}{latest_info}")
         return True
     
     try:
@@ -176,13 +245,20 @@ def create_github_release(component: str, version: str, tag_name: str, dry_run: 
         if result.returncode == 0:
             # Use GitHub CLI
             release_title = f"{format_component_name(component)} v{version}"
-            subprocess.run([
+            cmd = [
                 "gh", "release", "create", tag_name,
                 "--title", release_title,
                 "--generate-notes"
-            ], check=True)
+            ]
             
-            success(f"Created GitHub release: {tag_name}")
+            # Add latest flag for platform releases
+            if set_as_latest:
+                cmd.append("--latest")
+            
+            subprocess.run(cmd, check=True)
+            
+            latest_info = " (marked as latest)" if set_as_latest else ""
+            success(f"Created GitHub release: {tag_name}{latest_info}")
             return True
         else:
             warn("GitHub CLI (gh) not found. Skipping GitHub release creation.")
@@ -202,17 +278,35 @@ def confirm_publish_action(components_to_publish: Dict[str, str], remote_tags: L
     
     info("The following actions will be performed:")
     
-    tags_to_create = []
+    # Separate platform from other components for proper display ordering
+    platform_actions = []
+    other_actions = []
+    
     for component, version in components_to_publish.items():
         tag_name = generate_tag_name(component, version)
         if tag_name not in remote_tags:
-            tags_to_create.append((component, version, tag_name))
-            info(f"  • Create and push tag: {tag_name}")
-            info(f"  • Create GitHub release: {tag_name}")
+            action_info = [f"Create and push tag: {tag_name}"]
+            if component == "platform":
+                action_info.append(f"Create GitHub release: {tag_name} (marked as latest)")
+                platform_actions.extend([f"  • {action}" for action in action_info])
+            else:
+                action_info.append(f"Create GitHub release: {tag_name}")
+                other_actions.extend([f"  • {action}" for action in action_info])
         else:
             info(f"  • Skip {tag_name} (already exists)")
     
-    if not tags_to_create:
+    # Display other components first, then platform
+    for action in other_actions:
+        info(action)
+    
+    if platform_actions:
+        if other_actions:
+            info("  • --- Platform release (created last) ---")
+        for action in platform_actions:
+            info(action)
+    
+    tags_to_create = len(other_actions) // 2 + len(platform_actions) // 2  # Each component has 2 actions
+    if tags_to_create == 0:
         warn("No new tags to create. All component versions already have tags.")
         return False
     
@@ -239,7 +333,47 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
     info(f"Current branch: {current_branch}")
     
     # Parse components from branch
-    components_to_publish = parse_release_branch_components(current_branch, repo_root)
+    try:
+        components_to_publish = parse_release_branch_components(current_branch, repo_root)
+    except Exception as e:
+        if "TOML parser not available" in str(e):
+            error("Environment setup issue detected!")
+            
+            # Try automatic environment setup first
+            if _try_auto_environment_setup():
+                return True  # Script will re-run in correct environment
+            
+            # If auto-environment setup failed, try installing libraries directly
+            from .version import _try_install_toml_libraries
+            warn("Attempting to install TOML libraries in current environment...")
+            
+            if _try_install_toml_libraries():
+                info("TOML libraries installed successfully! Retrying component detection...")
+                try:
+                    components_to_publish = parse_release_branch_components(current_branch, repo_root)
+                    # If successful, continue with the rest of the function below
+                except Exception as retry_e:
+                    error(f"Still failed after installing libraries: {retry_e}")
+                    return False
+            else:
+                # Manual instructions as final fallback
+                error("Automatic installation failed. Please set up your environment manually:")
+                error("1. Activate your virtual environment:")
+                error("   source .venv/bin/activate  # for UV")
+                error("   conda activate <env-name>  # for Conda") 
+                error("   poetry shell               # for Poetry")
+                error("2. Install required libraries:")
+                error("   pip install tomli tomli-w")
+                error("3. Re-run the release command")
+                return False
+        else:
+            error(f"Failed to parse release components: {e}")
+            return False
+    
+    # Check if we successfully got components (either initially or after auto-installation)
+    if 'components_to_publish' not in locals():
+        error("Failed to detect components for publishing")
+        return False
     
     if not components_to_publish:
         error("No components found to publish")
@@ -258,12 +392,24 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
     tags_to_create = []
     tags_to_skip = []
     
+    # Separate platform from other components for ordering
+    platform_version = None
+    other_components = []
+    
     for component, version in components_to_publish.items():
         tag_name = generate_tag_name(component, version)
         if tag_name not in remote_tags:
-            tags_to_create.append((component, version, tag_name))
+            if component == "platform":
+                platform_version = (component, version, tag_name)
+            else:
+                other_components.append((component, version, tag_name))
         else:
             tags_to_skip.append(tag_name)
+    
+    # Order components: other components first, then platform last
+    tags_to_create = other_components
+    if platform_version:
+        tags_to_create.append(platform_version)
     
     if tags_to_skip:
         info("Tags that already exist (will be skipped):")
@@ -279,7 +425,8 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
         for component, version, tag_name in tags_to_create:
             info(f"  {tag_name}")
             info(f"    • Create and push tag")
-            info(f"    • Create GitHub release")
+            latest_info = " (marked as latest)" if component == "platform" else ""
+            info(f"    • Create GitHub release{latest_info}")
         return True
     
     # Ask for confirmation
@@ -290,6 +437,10 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
     # Create and push tags
     print()
     log("Creating and pushing tags...")
+    
+    # Inform user about ordering if platform is included
+    if platform_version:
+        info("Note: Platform release will be created last and marked as latest")
     
     created_tags = []
     for component, version, tag_name in tags_to_create:
@@ -304,7 +455,9 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
     log("Creating GitHub releases...")
     
     for component, version, tag_name in created_tags:
-        if not create_github_release(component, version, tag_name, dry_run):
+        # Determine if the component is the platform and if it should be marked as latest
+        is_platform = component == "platform"
+        if not create_github_release(component, version, tag_name, dry_run, set_as_latest=is_platform):
             warn(f"Failed to create GitHub release for {tag_name}")
             # Continue with other releases even if one fails
     
