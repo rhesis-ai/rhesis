@@ -57,13 +57,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     };
   }, []);
 
-  // Handle filter change
-  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
-    console.log('Filter model changed:', newModel);
-    setFilterModel(newModel);
-    // Reset to first page when filters change
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
+
 
   // Data fetching function
   const fetchTests = useCallback(async () => {
@@ -77,8 +71,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       
       // Convert filter model to OData filter string
       const filterString = convertGridFilterModelToOData(filterModel);
-      console.log('Filter model:', filterModel);
-      console.log('Converted OData filter string:', filterString);
       
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
@@ -87,8 +79,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         sort_order: 'desc',
         ...(filterString && { filter: filterString })
       };
-      
-      console.log('API call parameters:', apiParams);
       
       const response = await testsClient.getTests(apiParams);
       
@@ -116,12 +106,21 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     setPaginationModel(newModel);
   }, []);
 
+  // Handle filter change
+  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
+    setFilterModel(newModel);
+    // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
   // Column definitions
   const columns: GridColDef[] = React.useMemo(() => [
     { 
       field: 'prompt.content', 
       headerName: 'Content', 
       flex: 3,
+      filterable: true,
+      valueGetter: (value, row) => row.prompt?.content || '',
       renderCell: (params) => {
         const content = params.row.prompt?.content || params.row.content;
         if (!content) return null;
@@ -145,6 +144,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'behavior.name',
       headerName: 'Behavior', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => row.behavior?.name || '',
       renderCell: (params) => {
         const behaviorName = params.row.behavior?.name;
         if (!behaviorName) return null;
@@ -163,6 +164,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'topic.name', 
       headerName: 'Topic', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => row.topic?.name || '',
       renderCell: (params) => {
         const topicName = params.row.topic?.name;
         if (!topicName) return null;
@@ -181,6 +184,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'category.name', 
       headerName: 'Category', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => row.category?.name || '',
       renderCell: (params) => {
         const categoryName = params.row.category?.name;
         if (!categoryName) return null;
@@ -199,6 +204,14 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       field: 'assignee.name', 
       headerName: 'Assignee', 
       flex: 1,
+      filterable: true,
+      valueGetter: (value, row) => {
+        const assignee = row.assignee;
+        if (!assignee) return '';
+        return assignee.name || 
+          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
+          assignee.email || '';
+      },
       renderCell: (params) => {
         const assignee = params.row.assignee;
         if (!assignee) return null;
@@ -378,6 +391,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         pageSizeOptions={[10, 25, 50]}
         serverSideFiltering={true}
         onFilterModelChange={handleFilterModelChange}
+        showToolbar={true}
       />
 
       {sessionToken && (

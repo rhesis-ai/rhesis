@@ -14,7 +14,7 @@ cd rhesis/sdk
 
 The Rhesis SDK requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
 
-Linux (Ubuntu/Debian) 
+#### Linux (Ubuntu/Debian) 
 ```bash
 
 # Install build dependencies (Ubuntu/Debian)
@@ -39,7 +39,7 @@ pyenv install 3.10.17
 pyenv local 3.10.17
 ```
 
-macOS
+#### macOS
 ```bash
 # Install required libraries using Homebrew
 brew install openssl readline sqlite3 xz zlib tcl-tk
@@ -61,23 +61,19 @@ pyenv install 3.10.17
 pyenv local 3.10.17
 ```
 
-macOS Troubleshooting
+##### macOS Troubleshooting
 On Apple Silicon (M1/M2/M3), Homebrew is usually installed in `/opt/homebrew` (you can confirm this with `brew --prefix`). This could lead to `pyenv install` failing to locate system libraries like OpenSSL or SQLite. In this case, you can manually set the following environment variables before installing Python:
 
 ```bash
-export LDFLAGS="-L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/readline/lib -L/opt/homebrew/opt/sqlite/lib -L/opt/homebrew/opt/zlib/lib -L/opt/homebrew/opt/xz/lib”
+export LDFLAGS="-L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/readline/lib -L/opt/homebrew/opt/sqlite/lib -L/opt/homebrew/opt/zlib/lib -L/opt/homebrew/opt/xz/lib"
 
-export CPPFLAGS="-I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/readline/include -I/opt/homebrew/opt/sqlite/include -I/opt/homebrew/opt/zlib/include -I/opt/homebrew/opt/xz/include”
+export CPPFLAGS="-I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/readline/include -I/opt/homebrew/opt/sqlite/include -I/opt/homebrew/opt/zlib/include -I/opt/homebrew/opt/xz/include"
 
-export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/readline/lib/pkgconfig:/opt/homebrew/opt/sqlite/lib/pkgconfig:/opt/homebrew/opt/zlib/lib/pkgconfig:/opt/homebrew/opt/xz/lib/pkgconfig”
+export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/readline/lib/pkgconfig:/opt/homebrew/opt/sqlite/lib/pkgconfig:/opt/homebrew/opt/zlib/lib/pkgconfig:/opt/homebrew/opt/xz/lib/pkgconfig"
 ```
 
-3. Install dependencies and development tools using [uv](https://github.com/astral-sh/uv) and [Hatch](https://hatch.pypa.io/).
 
-
-4. Create a fresh virtual environment with UV:
-
-Navigate to the SDK folder, create and install the environment.
+3. Navigate to the SDK folder, create, install and activate the environment with UV.
 
 ```bash
 uv venv
@@ -89,7 +85,7 @@ source .venv/bin/activate
 This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
 
 
-5. Install `hatch` and the Rhesis SDK library itself in development:
+4. Install `hatch` and the Rhesis SDK library itself in development:
 
 ```bash
 uv pip install hatch
