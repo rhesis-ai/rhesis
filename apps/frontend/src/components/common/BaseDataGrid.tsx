@@ -308,6 +308,15 @@ export default function BaseDataGrid({
     );
   };
 
+  const CustomToolbarWithFilters = () => {
+    return (
+      <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <GridToolbar />
+        <GridToolbarQuickFilter debounceMs={300} />
+      </Box>
+    );
+  };
+
   if (!isInitialized) {
     return (
       <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -453,7 +462,6 @@ export default function BaseDataGrid({
           pagination
           paginationMode={serverSidePagination ? "server" : "client"}
           rowCount={serverSidePagination ? totalRows : undefined}
-          {...(density && { density })}
           paginationModel={paginationModel}
           onPaginationModelChange={onPaginationModelChange}
           pageSizeOptions={pageSizeOptions}
@@ -462,27 +470,29 @@ export default function BaseDataGrid({
           loading={loading}
           onRowClick={enableEditing ? undefined : (linkPath || onRowClick) ? handleRowClickWithLink : undefined}
           disableMultipleRowSelection={disableMultipleRowSelection}
-          {...(enableQuickFilter && {
+          {...(density && { density })}
+          {...(serverSideFiltering && {
+            filterMode: "server",
+            onFilterModelChange,
+            slots: { toolbar: CustomToolbarWithFilters }
+          })}
+          {...(enableQuickFilter && !serverSideFiltering && {
             slots: { toolbar: CustomToolbar }
           })}
           {...(enableEditing && {
-            editMode: editMode,
-            processRowUpdate: processRowUpdate,
-            onProcessRowUpdateError: onProcessRowUpdateError,
-            isCellEditable: isCellEditable,
+            editMode,
+            processRowUpdate,
+            onProcessRowUpdateError,
+            isCellEditable,
           })}
           {...(onRowSelectionModelChange && {
-            onRowSelectionModelChange: onRowSelectionModelChange,
+            onRowSelectionModelChange,
           })}
           {...(rowSelectionModel !== undefined && {
-            rowSelectionModel: rowSelectionModel,
+            rowSelectionModel,
           })}
           {...(disableRowSelectionOnClick && {
-            disableRowSelectionOnClick: disableRowSelectionOnClick,
-          })}
-          {...(serverSideFiltering && {
-            filterMode: "server",
-            onFilterModelChange: onFilterModelChange,
+            disableRowSelectionOnClick,
           })}
         />
       </Paper>
