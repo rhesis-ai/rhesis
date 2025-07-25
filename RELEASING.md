@@ -195,6 +195,13 @@ Tags follow this naming convention:
 3. **GitHub CLI** (optional): Install `gh` CLI for GitHub release creation
 4. **Remote Access**: Must have push access to the repository
 
+### 🔧 Helpful Tools
+
+The repository includes several tools to streamline the release process:
+- **`./.github/release`** - Main release tool for version management and publishing
+- **`./.github/create-pr.sh`** - Creates pull requests with proper templates
+- **`./.github/pr`** - Alternative PR creation tool
+
 ### 🔒 Safety Features
 
 - **Confirmation Required**: Always asks for user confirmation before publishing
@@ -528,7 +535,10 @@ git diff
 git add .
 git commit -m "Prepare release: backend v0.2.0, frontend v0.1.1"
 git push origin $(git branch --show-current)
+
+# Create PR using available tools
 ./.github/create-pr.sh
+# OR use the pr tool: ./.github/pr
 
 # Step 6: After PR is merged, switch to the release branch and publish
 git checkout main && git pull

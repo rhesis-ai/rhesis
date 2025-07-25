@@ -159,7 +159,8 @@ class ReleaseProcessor:
             info("Next steps:")
             info("1. Review the changes made to version files and changelogs")
             info('2. Commit the changes: git add . && git commit -m "Prepare release: <description>"')
-            info("3. Push and create PR: git push origin $(git branch --show-current) && ./.github/create-pr.sh")
-            info("4. After PR merge, create tags and releases using separate tooling")
+            info("3. Push and create PR: git push origin $(git branch --show-current)")
+            info("   • Use ./.github/create-pr.sh or ./.github/pr to create the PR")
+            info("4. After PR merge, use --publish to create tags and GitHub releases")
         
         return True 
