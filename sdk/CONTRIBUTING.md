@@ -1,20 +1,20 @@
-# Contributing to Rhesis SDK
+# 📦 Contributing to Rhesis SDK
 
-Thank you for your interest in contributing to Rhesis SDK! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Rhesis SDK! This document provides guidelines and instructions for contributing to our Python SDK.
 
-## Development Setup
+## ⚡ Development Setup
 
-1. Clone the repository:
+1. 📥 **Clone the repository**:
 ```bash
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis/sdk
 ```
 
-2. Make sure you have the right Python available:
+2. 🐍 **Make sure you have the right Python available**:
 
 The Rhesis SDK requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
 
-#### Linux (Ubuntu/Debian) 
+#### 🐧 Linux (Ubuntu/Debian) 
 ```bash
 
 # Install build dependencies (Ubuntu/Debian)
@@ -39,7 +39,7 @@ pyenv install 3.10.17
 pyenv local 3.10.17
 ```
 
-#### macOS
+#### 🍎 macOS
 ```bash
 # Install required libraries using Homebrew
 brew install openssl readline sqlite3 xz zlib tcl-tk
@@ -61,7 +61,7 @@ pyenv install 3.10.17
 pyenv local 3.10.17
 ```
 
-##### macOS Troubleshooting
+##### 🔧 macOS Troubleshooting
 On Apple Silicon (M1/M2/M3), Homebrew is usually installed in `/opt/homebrew` (you can confirm this with `brew --prefix`). This could lead to `pyenv install` failing to locate system libraries like OpenSSL or SQLite. In this case, you can manually set the following environment variables before installing Python:
 
 ```bash
@@ -73,7 +73,7 @@ export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/
 ```
 
 
-3. Navigate to the SDK folder, create, install and activate the environment with UV.
+3. 📂 **Navigate to the SDK folder, create, install and activate the environment with UV**:
 
 ```bash
 uv venv
@@ -84,8 +84,7 @@ source .venv/bin/activate
 
 This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
 
-
-4. Install `hatch` and the Rhesis SDK library itself in development:
+4. 📦 **Install `hatch` and the Rhesis SDK library itself in development**:
 
 ```bash
 uv pip install hatch
@@ -97,19 +96,19 @@ This will:
 - Sync all dependencies, including development dependencies (such as Sphinx for docs)
 - Install the SDK package in editable mode
 
-## Development Workflow
+## 🔄 Development Workflow
 
-1. Create a new branch for your feature:
+1. 🌿 **Create a new branch for your feature**:
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
-2. Enable pre-commit hooks:
+2. 🪝 **Enable pre-commit hooks**:
 ```bash
 pre-commit install
 ```
 
-3. Make your changes and ensure all checks pass using the Makefile:
+3. ✍️ **Make your changes and ensure all checks pass using the Makefile**:
 ```bash
 make format      # Format code with Ruff
 make lint        # Lint code with Ruff
@@ -121,25 +120,25 @@ Or run all checks at once:
 make all
 ```
 
-4. Commit your changes:
+4. 📝 **Commit your changes**:
 ```bash
 git add .
 git commit -m "feat: your descriptive commit message"
 ```
 
-5. Push your changes and create a Pull Request:
+5. 📤 **Push your changes and create a Pull Request**:
 ```bash
 git push origin feature/your-feature-name
 ```
 
-## Pull Request Guidelines
+## 📨 Pull Request Guidelines
 
-- Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages
-- Include tests for new features
-- Update documentation as needed
-- Ensure all checks pass before requesting review
+- ✅ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages
+- 🧪 Include tests for new features
+- 📚 Update documentation as needed
+- ✔️ Ensure all checks pass before requesting review
 
-## Code Style
+## 🎨 Code Style
 
 We use several tools to maintain code quality:
 - [Ruff](https://docs.astral.sh/ruff/) for code formatting and linting
@@ -148,19 +147,19 @@ We use several tools to maintain code quality:
 
 All formatting and linting is handled by Ruff. Use the Makefile targets for a consistent workflow.
 
-## Testing
+## 🧪 Testing
 
-- Write tests for all new features and bug fixes
-- Tests should be placed in the `../tests/sdk/` directory
-- Run the test suite with `make test` from the `sdk` directory
+- ✍️ Write tests for all new features and bug fixes
+- 📁 Tests should be placed in the `../tests/sdk/` directory
+- 🏃 Run the test suite with `make test` from the `sdk` directory
 
-## Documentation
+## 📚 Documentation
 
-- Update documentation for any changed functionality
-- Include docstrings for new functions and classes
-- Keep the README.md up to date with any user-facing changes
+- 📝 Update documentation for any changed functionality
+- 💬 Include docstrings for new functions and classes
+- 🔄 Keep the README.md up to date with any user-facing changes
 
-## Dependency Locking
+## 🔒 Dependency Locking
 
 We use `uv lock` to generate a lock file for reproducible installs. By default, `uv lock` only locks main dependencies. To include dev dependencies (and any other optional groups), use the `--extra` flag:
 
@@ -179,13 +178,13 @@ uv lock --extra dev --extra docs
 | `uv lock --extra dev`                   |      ✅        |      ✅        |        ❌          |
 | `uv lock --extra dev --extra docs`      |      ✅        |      ✅        |        ✅          |
 
-**Best Practice:**
-- Always use `uv lock --extra dev` to ensure your lock file includes all development dependencies.
-- Add more `--extra` flags as needed for other optional dependency groups.
+**✨ Best Practice:**
+- ✅ Always use `uv lock --extra dev` to ensure your lock file includes all development dependencies.
+- ➕ Add more `--extra` flags as needed for other optional dependency groups.
 
-## Questions or Need Help?
+## ❓ Questions or Need Help?
 
 If you have questions or need help with the contribution process:
-- Contact us at support@rhesis.ai
-- Create an issue in the repository
-- Check our [documentation](https://docs.rhesis.ai) 
+- 📧 Contact us at support@rhesis.ai
+- 🐛 Create an issue in the repository
+- 📖 Check our [documentation](https://docs.rhesis.ai) 
