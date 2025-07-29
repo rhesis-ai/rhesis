@@ -9,7 +9,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-SOCKET_FILE="/cloudsql/playground-437609:us-central1/nocodb-db/.s.PGSQL.5432"
+SOCKET_FILE="/tmp/cloudsql/playground-437609:us-central1/nocodb-db/.s.PGSQL.5432"
 INSTANCE_CONNECTION_NAME="playground-437609:us-central1:nocodb-db"
 
 # Find and kill any existing Cloud SQL Proxy processes
@@ -20,10 +20,10 @@ if [ -n "$EXISTING_PID" ]; then
     sleep 2  # Give it time to stop
 fi
 
-# Clean up all connections under /cloudsql
-echo -e "${PURPLE}🧹 Cleaning up /cloudsql directory...${NC}"
-if [ -d "/cloudsql" ]; then
-    rm -rf /cloudsql/*
+# Clean up all connections under /tmp/cloudsql
+echo -e "${PURPLE}🧹 Cleaning up /tmp/cloudsql directory...${NC}"
+if [ -d "/tmp/cloudsql" ]; then
+    rm -rf /tmp/cloudsql/*
     sleep 1  # Give the system a moment to release the files
 fi
 
@@ -40,7 +40,7 @@ fi
 
 # Start Cloud SQL Proxy
 echo -e "${GREEN}🚀 Starting Cloud SQL Proxy...${NC}"
-./cloud-sql-proxy -credential_file ./sql-proxy-key.json -dir /cloudsql -instances="$INSTANCE_CONNECTION_NAME"
+./cloud-sql-proxy -credential_file ./sql-proxy-key.json -dir /tmp/cloudsql -instances="$INSTANCE_CONNECTION_NAME"
 
 
 echo -e "${YELLOW}💫 Done!${NC}"
