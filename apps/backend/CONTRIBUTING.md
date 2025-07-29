@@ -54,16 +54,30 @@ brew install gh
 gh auth login
 ```
 
-4. 📦 **Set up the backend dependencies**:
-```bash
-cd apps/backend
-uv pip install hatch
-uv sync --extra dev
-uv pip install -e .
-```
-This will:
-- Sync all dependencies, including development dependencies (such as Sphinx for docs)
-- Install the backend package in editable mode
+4. 📦 **Set up the backend environment and dependencies**:
+
+   **⚠️ Important**: You must create and activate a Python virtual environment before installing dependencies.
+
+   ```bash
+   cd apps/backend
+   
+   # Create a fresh virtual environment with UV
+   uv venv
+   
+   # Activate the virtual environment
+   source .venv/bin/activate
+   
+   # Install dependencies
+   uv pip install hatch
+   uv sync --extra dev
+   uv pip install -e .
+   uv pip install -e ../../sdk
+   ```
+   This will:
+   - Create a clean Python virtual environment for the backend
+   - Sync all dependencies, including development dependencies (such as Sphinx for docs)
+   - Install the backend package in editable mode
+   - Install the Rhesis SDK package (required for backend operation)
 
 ## ☁️ Cloud Database Setup (Currently Required for Backend)
 
