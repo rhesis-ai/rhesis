@@ -132,19 +132,19 @@ gcloud config set project YOUR_PROJECT_ID
 
 1. **Copy the credentials file** to the infrastructure scripts directory:
 ```bash
-cp sql-proxy-key.json rhesis/infrastructure/scripts/
+cp sql-proxy-key.json <repo root>/infrastructure/scripts/
 ```
 
 2. **Download the Cloud SQL Proxy binary** (if not already present):
 ```bash
-cd rhesis/infrastructure/scripts
+cd  <repo root>/infrastructure/scripts
 wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud-sql-proxy
 chmod +x cloud-sql-proxy
 ```
 
 3. **Install the database proxy service**:
 ```bash
-cd rhesis/infrastructure/scripts
+cd <repo root>/infrastructure/scripts
 sudo ./setup-db-proxy-service.sh install
 ```
 
@@ -164,21 +164,40 @@ sudo ./setup-db-proxy-service.sh status
 
 1. **Copy the credentials file** to the infrastructure scripts directory:
 ```bash
-cp sql-proxy-key.json rhesis/infrastructure/scripts/
+cp sql-proxy-key.json <repo root>/infrastructure/scripts/
 ```
 
 2. **Download the Cloud SQL Proxy binary for macOS** (if not already present):
-```bash
-cd rhesis/infrastructure/scripts
-wget https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64 -O cloud-sql-proxy
-chmod +x cloud-sql-proxy
-```
 
-3. **Run the database proxy directly** (each time you need it):
-```bash
-cd rhesis/infrastructure/scripts
-./db-proxy.sh
-```
+   **First, check your Mac's architecture:**
+   ```bash
+   uname -m
+   ```
+   
+   **Then download the correct version based on your result:**
+   
+   **For Apple Silicon Macs (M1/M2/M3) - if `uname -m` shows `arm64`:**
+   ```bash
+   cd <repo root>/infrastructure/scripts
+   curl -L https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.arm64 -o cloud-sql-proxy
+   chmod +x cloud-sql-proxy
+   ```
+   
+   **For Intel Macs - if `uname -m` shows `x86_64`:**
+   ```bash
+   cd <repo root>/infrastructure/scripts
+   curl -L https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64 -o cloud-sql-proxy
+   chmod +x cloud-sql-proxy
+   ```
+
+3. **Verify the download and run the database proxy:**
+   ```bash
+   # Verify the binary works
+   ./cloud-sql-proxy --version
+   
+   # Run the database proxy directly (each time you need it)
+   ./db-proxy.sh
+   ```
 
 **Important for macOS users**: You'll need to run `./db-proxy.sh` each time you start development, as it doesn't install as a persistent service like on Linux.
 
@@ -249,7 +268,11 @@ DB_PASSWORD=your_password
 #### For macOS Users
 - **Connection issues**: Ensure `./db-proxy.sh` is running in a terminal and hasn't stopped
 - **Permission errors**: Verify the service account has `roles/cloudsql.client` role
-- **Binary issues**: Make sure you downloaded the correct macOS binary (`cloud_sql_proxy.darwin.amd64`)
+- **Binary issues**: 
+  - Check your Mac's architecture with `uname -m`
+  - For Apple Silicon (arm64): Use `cloud_sql_proxy.darwin.arm64`
+  - For Intel (x86_64): Use `cloud_sql_proxy.darwin.amd64`
+  - If you get "Bad CPU type in executable", you downloaded the wrong architecture
 - **Instance connection**: Ensure the Cloud SQL instance allows connections and is in the correct region
 
 ### Additional Options for macOS Users
