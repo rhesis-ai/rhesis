@@ -73,6 +73,11 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
+dev = [
+    "pytest>=8.3.4",
+    "mypy==1.15.0"
+]
+
 [project.scripts]
 format = "rhesis.scripts:format_code"
 lint = "rhesis.scripts:lint_code"
