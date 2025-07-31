@@ -24,11 +24,12 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
     if email:
         user = crud.get_user_by_email(db, email)
         if user:
-            # Found user by email - only update profile info, not auth0_id
+            # Found user by email - update profile info and auth0_id
             user.name = user_profile["name"]
             user.given_name = user_profile["given_name"]
             user.family_name = user_profile["family_name"]
             user.picture = user_profile["picture"]
+            user.auth0_id = auth0_id
             db.commit()
             return user
 
