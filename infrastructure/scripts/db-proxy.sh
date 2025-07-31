@@ -9,7 +9,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-SOCKET_FILE="/tmp/cloudsql/playground-437609:us-central1/nocodb-db/.s.PGSQL.5432"
+SOCKET_FILE="/tmp/cloudsql/playground-437609:us-central1:nocodb-db/.s.PGSQL.5432"
 INSTANCE_CONNECTION_NAME="playground-437609:us-central1:nocodb-db"
 
 # Find and kill any existing Cloud SQL Proxy processes

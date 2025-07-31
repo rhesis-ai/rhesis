@@ -27,7 +27,7 @@ MemoryLimit=1G
 
 # Security settings (optional but recommended)
 NoNewPrivileges=yes
-PrivateTmp=yes
+# PrivateTmp=yes  # Disabled - socket files need to be accessible system-wide
 
 [Install]
 WantedBy=multi-user.target 
