@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 
 from pydantic import UUID4, field_validator, Field
 
@@ -16,6 +17,7 @@ class UserBase(Base):
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
     organization_id: Optional[UUID4] = None
+    last_login_at: Optional[datetime] = None
     
     @field_validator('email')
     @classmethod
