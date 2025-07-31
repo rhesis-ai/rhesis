@@ -79,7 +79,7 @@ def run_migrations_online():
     url = config.get_main_option("sqlalchemy.url")
 
     # If we're running locally with Cloud SQL Proxy
-    if os.getenv("SQLALCHEMY_DB_HOST", "").startswith("/cloudsql"):
+    if os.getenv("SQLALCHEMY_DB_HOST", "").startswith(("/cloudsql", "/tmp/cloudsql")):
         # Modify the connection string for local Unix socket
         unix_socket = os.getenv("SQLALCHEMY_DB_HOST")
         url = f"postgresql://{url_tokens['SQLALCHEMY_DB_USER']}:{url_tokens['SQLALCHEMY_DB_PASS']}@/{url_tokens['SQLALCHEMY_DB_NAME']}?host={unix_socket}"
