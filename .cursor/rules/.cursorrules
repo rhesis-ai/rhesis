@@ -328,6 +328,48 @@ def test_sdk_handles_api_error():
 - **Test docstrings**: Use doctest for simple examples
 - **Version compatibility**: Test against supported Python versions
 
+## React Best Practices
+
+### useEffect Dependency Management
+- **Avoid infinite loops**: Be careful with dependency arrays to prevent infinite re-renders
+- **Specific object properties**: Use `session?.session_token` instead of `session` in dependencies
+- **Avoid circular dependencies**: Don't include functions that depend on state updated inside the same effect
+- **Move logic inside effect**: When a function creates circular dependencies, move the logic inside the effect as a local function
+
+#### Common Patterns:
+```javascript
+// ✅ GOOD: Use specific property
+useEffect(() => {
+  if (session?.session_token) {
+    fetchData(session.session_token);
+  }
+}, [session?.session_token]); // Only re-run when token changes
+
+// ❌ BAD: Using entire object
+useEffect(() => {
+  if (session?.session_token) {
+    fetchData(session.session_token);
+  }
+}, [session]); // Re-runs whenever any session property changes
+
+// ✅ GOOD: Move dependent logic inside effect
+useEffect(() => {
+  const getCurrentUserId = () => {
+    // Logic that depends on state
+    return users.find(u => u.id === tokenUserId)?.id;
+  };
+  
+  const userId = getCurrentUserId();
+  // Use userId...
+}, [sessionToken, users]); // Only essential dependencies
+
+// ❌ BAD: Function in dependencies that depends on updated state
+useEffect(() => {
+  const userId = getCurrentUserId();
+  // Use userId...
+}, [getCurrentUserId]); // Circular dependency if getCurrentUserId depends on state updated here
+```
+
 ## API interactions
 
 - If interacting with the backend API, always check the interfaces first under ./utils/api-client.
