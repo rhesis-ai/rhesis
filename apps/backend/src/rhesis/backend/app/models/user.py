@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.models.guid import GUID
@@ -19,6 +19,7 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)  # Admin flag
     auth0_id = Column(String, nullable=True)
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
+    last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in
 
     # Relationship to subscriptions
     subscriptions = relationship("Subscription", back_populates="user")
@@ -109,9 +110,15 @@ class User(Base):
             "picture": self.picture,
             "is_active": self.is_active,
             "is_superuser": self.is_superuser,
+            "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "User":
         """Create a User instance from session data"""
+        # Handle datetime field conversion if present
+        if "last_login_at" in data and data["last_login_at"]:
+            from datetime import datetime
+            if isinstance(data["last_login_at"], str):
+                data["last_login_at"] = datetime.fromisoformat(data["last_login_at"])
         return cls(**data)
