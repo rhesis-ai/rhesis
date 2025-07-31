@@ -106,7 +106,7 @@ export default function TestSetsCharts() {
     if (session?.session_token) {
       fetchTestSetStats();
     }
-  }, [session]);
+  }, [session?.session_token]);
 
   // Generate line chart data for total test sets, using history data if available
   const generateTotalTestSetsData = () => {

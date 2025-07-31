@@ -44,24 +44,6 @@ export default function TestSetDrawer({
   const [statuses, setStatuses] = React.useState<Status[]>([]);
   const [users, setUsers] = React.useState<User[]>([]);
 
-  // Get current user from token
-  const getCurrentUserId = useCallback(() => {
-    try {
-      const [, payloadBase64] = sessionToken.split('.');
-      // Add padding if needed
-      const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
-      const pad = base64.length % 4;
-      const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
-      
-      const payload = JSON.parse(Buffer.from(paddedBase64, 'base64').toString('utf-8'));
-      const currentUser = users.find(user => user.id === payload.user?.id);
-      return currentUser?.id;
-    } catch (err) {
-      console.error('Error decoding JWT token:', err);
-      return undefined;
-    }
-  }, [sessionToken, users]);
-
   // Load statuses and users
   React.useEffect(() => {
     const loadData = async () => {
@@ -72,7 +54,6 @@ export default function TestSetDrawer({
       const usersClient = clientFactory.getUsersClient();
 
       try {
-        const currentUserId = getCurrentUserId();
         const [fetchedStatuses, fetchedUsers] = await Promise.all([
           statusClient.getStatuses({ 
             entity_type: 'TestSet',
@@ -84,6 +65,25 @@ export default function TestSetDrawer({
 
         setStatuses(fetchedStatuses);
         setUsers(fetchedUsers.data);
+
+        // Get current user ID from JWT token
+        const getCurrentUserIdFromToken = () => {
+          try {
+            const [, payloadBase64] = sessionToken.split('.');
+            // Add padding if needed
+            const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = base64.length % 4;
+            const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
+            
+            const payload = JSON.parse(Buffer.from(paddedBase64, 'base64').toString('utf-8'));
+            return payload.user?.id;
+          } catch (err) {
+            console.error('Error decoding JWT token:', err);
+            return undefined;
+          }
+        };
+
+        const currentUserId = getCurrentUserIdFromToken();
 
         // Set initial values if editing
         if (testSet) {
@@ -113,7 +113,7 @@ export default function TestSetDrawer({
     };
 
     loadData();
-  }, [sessionToken, testSet, getCurrentUserId]);
+  }, [sessionToken, testSet]);
 
   const handleSave = async () => {
     if (!sessionToken) return;
