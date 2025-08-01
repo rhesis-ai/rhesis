@@ -1,7 +1,6 @@
 from typing import List, Optional, Dict, Any
 
-from pydantic import BaseModel
-
+from pydantic import BaseModel, Field
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -23,9 +22,27 @@ class ChatRequest(BaseModel):
     stream: bool = False
 
 
+class DocumentSpecification(BaseModel):
+    """Specification for a document that can be referenced by path or contain direct content."""
+    name: str
+    description: Optional[str] = None
+    content: Optional[str] = Field(None, description="Direct text content of the document")
+    path: Optional[str] = Field(None, description="File path to the document")
+
+
 class GenerateTestsRequest(BaseModel):
+    """
+    Request for generating tests with optional document context.
+    
+    Used by the JSON endpoint (/generate/tests/json).
+    For file uploads, use the form-based endpoint (/generate/tests).
+    """
     prompt: str
-    num_tests: int = 5
+    num_tests: Optional[int] = 5
+    documents: Optional[List[DocumentSpecification]] = Field(
+        None, 
+        description="Document specifications (metadata). For file uploads, use the form-based endpoint."
+    )
 
 
 class TestPrompt(BaseModel):

@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from typing import List, Optional
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_form_document_processor, get_json_document_processor, DocumentProcessor
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest, 
@@ -128,32 +130,121 @@ async def create_chat_completion_endpoint(request: dict):
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
-    request: GenerateTestsRequest,
+    prompt: str = Form(...),
+    num_tests: Optional[int] = Form(5),
+    document_processor: DocumentProcessor = Depends(get_form_document_processor),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Generate test cases using the prompt synthesizer.
+    Generate test cases using the prompt synthesizer with optional document context.
+
+    This endpoint accepts form data to support file uploads along with the request parameters.
 
     Args:
-        request: The request containing the prompt and number of tests
+        prompt: The generation prompt to use
+        num_tests: Number of test cases to generate (default: 5)
+        documents: Optional JSON string containing document specifications with structure:
+            [
+                {
+                    "name": "string (required)",
+                    "description": "string (optional)", 
+                    "content": "string (optional - direct text content)",
+                    "path": "string (optional - file path reference)"
+                }
+            ]
+        files: Optional uploaded files to use as additional document context
         db: Database session
         current_user: Current authenticated user
 
     Returns:
         GenerateTestsResponse: The generated test cases
-    """
-    try:
-        prompt = request.prompt
-        num_tests = request.num_tests
         
-        if not prompt:
-            raise HTTPException(status_code=400, detail="prompt is required")
-            
-        test_cases = await generate_tests(db, current_user, prompt, num_tests)
+    Example usage:
+        Form data with document specifications:
+        ```
+        curl -X POST "/generate/tests" \\
+          -F "prompt=Generate math tests" \\
+          -F "num_tests=3" \\
+          -F 'documents=[{
+                "name": "curriculum", 
+                "description": "Grade 5 math curriculum guidelines",
+                "content": "Focus on addition and subtraction word problems"
+              }]' \\
+          -F "files=@textbook.pdf"
+        ```
+    """
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    
+    # Use the document processor with automatic cleanup
+    async with document_processor as processed_documents:
+        test_cases = await generate_tests(
+            db, 
+            current_user, 
+            prompt, 
+            num_tests, 
+            processed_documents
+        )
         return {"tests": test_cases}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/generate/tests/json", response_model=GenerateTestsResponse)
+async def generate_tests_json_endpoint(
+    request: GenerateTestsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Generate test cases using JSON request (no file upload support).
+
+    This endpoint accepts pure JSON requests for programmatic usage.
+    For file uploads, use the /generate/tests endpoint instead.
+
+    Args:
+        request: The request containing the prompt, num_tests, and optional documents
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        GenerateTestsResponse: The generated test cases
+        
+    Example JSON request:
+        ```json
+        {
+          "prompt": "Generate science tests",
+          "num_tests": 5,
+          "documents": [
+            {
+              "name": "chemistry_basics",
+              "description": "Introduction to basic chemistry concepts",
+              "content": "Atoms, molecules, periodic table fundamentals"
+            },
+            {
+              "name": "lab_procedures", 
+              "description": "Standard laboratory safety procedures",
+              "path": "/path/to/lab_safety.txt"
+            }
+          ]
+        }
+        ```
+    """
+    if not request.prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    
+    # Get document processor for JSON documents
+    document_processor = await get_json_document_processor(request.documents)
+    
+    # Use the document processor with automatic cleanup
+    async with document_processor as processed_documents:
+        test_cases = await generate_tests(
+            db, 
+            current_user, 
+            request.prompt, 
+            request.num_tests, 
+            processed_documents
+        )
+        return {"tests": test_cases}
 
 
 @router.post("/generate/text", response_model=TextResponse)
