@@ -6,6 +6,15 @@ Thank you for your interest in contributing to the Rhesis backend! 🎉 This doc
 
 The Rhesis backend requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions.
 
+### 📥 First, Clone the Repository
+
+Before setting up Python, clone the repository so you can install everything in the correct location:
+
+```bash
+git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis/apps/backend
+```
+
 ### 🍎 macOS Installation
 
 **Prerequisites**: Ensure you have [Homebrew](https://brew.sh/) and Xcode Command Line Tools installed.
@@ -41,12 +50,6 @@ pyenv local 3.10.17   # Sets for current directory only
 
 # Verify installation
 python --version
-
-# Create a fresh virtual environment with UV
-uv venv
-
-# Activate the virtual environment
-source .venv/bin/activate
 ```
 
 ### 🐧 Linux Installation
@@ -75,11 +78,8 @@ pyenv install 3.10.17
 # Set local Python version
 pyenv local 3.10.17
 
-# Create a fresh virtual environment with UV
-uv venv
-
-# Activate the virtual environment
-source .venv/bin/activate
+# Verify installation
+python --version
 ```
 
 **Important Notes:**
@@ -89,15 +89,68 @@ source .venv/bin/activate
 
 This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
 
-## ⚡ Development Setup
+## ⚡ UV Installation & Python Environment Setup
 
-1. 📥 **Clone the repository**:
+UV is a fast Python package installer and resolver that we use for dependency management and virtual environments. Install UV after setting up Python with pyenv.
+
+### 🍎 macOS UV Installation
+
 ```bash
-git clone https://github.com/rhesis-ai/rhesis.git
-cd rhesis
+# Install UV via Homebrew (recommended)
+brew install uv
+
+# Or install via curl (alternative method)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Verify installation
+uv --version
 ```
 
-2. 🛠️ **Install GitHub CLI** (required for automated PR creation):
+### 🐧 Linux UV Installation
+
+```bash
+# Install UV via curl (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add UV to your PATH (the installer usually does this automatically)
+# If needed, add this line to your ~/.bashrc or ~/.zshrc:
+# export PATH="$HOME/.local/bin:$PATH"
+
+# Reload your shell
+source ~/.bashrc  # or ~/.zshrc
+
+# Verify installation
+uv --version
+```
+
+### 🐍 Create Virtual Environment
+
+After installing UV, create and activate a virtual environment in the backend directory:
+
+```bash
+# Create a fresh virtual environment with UV
+uv venv
+
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Verify you're in the virtual environment
+which python
+python --version
+```
+
+**Important Notes:**
+- **Virtual environments**: Always activate your virtual environment before installing packages or running the backend
+- **Deactivation**: Use `deactivate` command to exit the virtual environment when done
+- **Reactivation**: Run `source .venv/bin/activate` each time you start working on the project
+
+## ⚡ Development Setup
+
+**Prerequisites**: You should have already completed:
+- [Python Version Requirements](#python-version-requirements) - Repository cloned and Python/pyenv set up
+- [UV Installation & Python Environment Setup](#uv-installation--python-environment-setup) - UV installed and virtual environment created
+
+1. 🛠️ **Install GitHub CLI** (required for automated PR creation):
 ```bash
 # Ubuntu/Debian
 sudo apt update && sudo apt install gh
@@ -108,23 +161,18 @@ brew install gh
 # Or download from: https://cli.github.com/
 ```
 
-3. 🔐 **Authenticate with GitHub**:
+2. 🔐 **Authenticate with GitHub**:
 ```bash
 gh auth login
 ```
 
-4. 📦 **Set up the backend environment and dependencies**:
+3. 📦 **Install backend dependencies**:
 
-   **⚠️ Important**: You must create and activate a Python virtual environment before installing dependencies.
+   **⚠️ Important**: Ensure your virtual environment is activated before installing dependencies.
 
    ```bash
-   cd apps/backend
-   
-   # Create a fresh virtual environment with UV
-   uv venv
-   
-   # Activate the virtual environment
-   source .venv/bin/activate
+   # Verify you're in the virtual environment (should show .venv path)
+   which python
    
    # Install dependencies
    uv pip install hatch
@@ -133,7 +181,7 @@ gh auth login
    uv pip install -e ../../sdk
    ```
    This will:
-   - Create a clean Python virtual environment for the backend
+   - Install the Hatch build tool
    - Sync all dependencies, including development dependencies (such as Sphinx for docs)
    - Install the backend package in editable mode
    - Install the Rhesis SDK package (required for backend operation)
@@ -400,12 +448,12 @@ pre-commit install
 
    **Option A: Use the unified CLI from repository root:**
    ```bash
+   cd ../../  # Navigate back to repository root
    ./rh backend start
    ```
 
-   **Option B: Use the backend start script directly:**
+   **Option B: Use the backend start script directly (recommended since you're already in apps/backend):**
    ```bash
-   cd apps/backend
    ./start.sh
    ```
 
