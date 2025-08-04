@@ -180,10 +180,9 @@ gh auth login
    uv pip install -e ../../sdk
    ```
    This will:
-   - Install the Hatch build tool
-   - Sync all dependencies, including development dependencies (such as Sphinx for docs)
-   - Install the backend package in editable mode
-   - Install the Rhesis SDK package (required for backend operation)
+   - **Sync dependencies**: Install all project dependencies, including development dependencies (such as Sphinx for docs, testing tools, linters)
+   - **Install backend in editable mode** (`-e .`): The `-e` flag installs the current package (the `.` refers to current directory) in "editable" or "development" mode, meaning changes to the source code are immediately reflected without reinstalling
+   - **Install Rhesis SDK dependency** (`-e ../../sdk`): The backend depends on the Rhesis SDK for client communication, data models, and shared utilities. Installing it in editable mode allows you to modify both backend and SDK code simultaneously during development
 
 ## ☁️ Cloud Database Setup (Currently Required for Backend)
 
