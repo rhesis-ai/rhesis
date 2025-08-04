@@ -1,72 +1,107 @@
-# Rhesis Application
+# 🚀 Rhesis Backend
 
 ## Description
 
 Rhesis is an application that provides an interface for managing and testing various LLM configurations, prompts, templates, categories, responses, benchmarks, and test results.
 
-## Setup
+## 📚 Getting Started
+
+**📋 For comprehensive setup instructions, see the [CONTRIBUTING.md](CONTRIBUTING.md) guide.**
+
+### Quick Start
 
 1. Clone the repository:
 
 ```sh
 git clone <repository_url>
-cd rhesis
-
+cd rhesis/apps/backend
 ```
 
-## Python Requirements
+## 🐍 Python Requirements
 
-Rhesis backend requires **Python 3.10** or newer. We recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
+The Rhesis backend requires **Python 3.10** or newer. 
 
+**📋 For detailed platform-specific Python and pyenv setup instructions, see [Python Version Requirements](CONTRIBUTING.md#python-version-requirements) in CONTRIBUTING.md.**
+
+### 🍎 macOS Quick Setup
 ```sh
-# Install pyenv
-curl https://pyenv.run | bash
-
-# Install build dependencies (Ubuntu/Debian)
-sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
-libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
-libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
-
-# Install Python 3.10
+brew install pyenv
 pyenv install 3.10.17
-
-# Set local Python version for backend
-cd apps/backend
 pyenv local 3.10.17
-
-# Create a virtual environment with UV
-uv venv
 ```
 
-## Working with UV
-
-[UV](https://github.com/astral-sh/uv) is a Python package installer and resolver that's used in this project. Here's how to use it:
-
+### 🐧 Linux Quick Setup  
 ```sh
-# Install the project in development mode
-uv pip install -e .
-
-# Install a specific package
-uv pip install <package_name>
-
-# Install requirements
-uv pip install -r requirements.txt
-
-# Update dependencies
-uv pip install --upgrade <package_name>
+curl https://pyenv.run | bash
+# Install build dependencies (🐧 Ubuntu/Debian)
+sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+libbz2-dev libreadline-dev libsqlite3-dev curl llvm libncurses5-dev \
+libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
+pyenv install 3.10.17
+pyenv local 3.10.17
 ```
 
-## Running the Backend Locally
+## ⚡ UV Installation & Environment Setup
 
-### Running Directly with Uvicorn
+[UV](https://github.com/astral-sh/uv) is a fast Python package installer and resolver used for dependency management.
 
-After installing dependencies, you can run the backend directly using uvicorn:
+**📋 For detailed UV installation instructions, see [UV Installation & Python Environment Setup](CONTRIBUTING.md#uv-installation--python-environment-setup) in CONTRIBUTING.md.**
 
+### Quick UV Setup
+
+**🍎 macOS**
+```sh
+brew install uv
+```
+
+**🐧 Linux**  
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Create Environment & Install Dependencies
+```sh
+# Create and activate virtual environment
+uv venv
+source .venv/bin/activate
+
+# Install dependencies
+uv sync --extra dev
+uv pip install -e .
+uv pip install -e ../../sdk
+```
+
+## ☁️ Database Setup (Required)
+
+**⚠️ Important**: The backend requires a database connection to run.
+
+**📋 For complete database setup instructions including Cloud SQL Proxy configuration, see [Cloud Database Setup](CONTRIBUTING.md#cloud-database-setup-currently-required-for-backend) in CONTRIBUTING.md.**
+
+Quick summary:
+1. Set up Google Cloud CLI and authentication
+2. Download Cloud SQL Proxy binary (platform-specific)
+3. Configure database proxy service
+4. Set up environment variables
+
+## 🚀 Running the Backend Locally
+
+**📋 For complete development workflow, see [Development Workflow](CONTRIBUTING.md#development-workflow) in CONTRIBUTING.md.**
+
+### Option A: Use the Start Script (Recommended)
+```sh
+./start.sh
+```
+
+### Option B: Use the CLI Tool
+```sh
+cd ../../  # Navigate to repository root
+./rh backend start
+```
+
+### Option C: Run Directly with Uvicorn
 ```sh
 uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload
 ```
-
-The `--reload` flag enables auto-reloading when code changes are detected, which is useful during development.
 
 ### Running with Docker
 
@@ -87,20 +122,49 @@ This command:
 - Uses environment variables from `.env.docker`
 - Adds a host entry that allows the container to communicate with services on your host machine
 
-### Environment Variables
+## 🔧 Environment Configuration
 
-The backend requires certain environment variables to be set. For local development:
+**⚠️ Required**: The environment must be properly configured before the backend can run.
 
-1. Copy the example environment file: 
+**📋 For complete environment setup, see [Environment Configuration](CONTRIBUTING.md#environment-configuration) in CONTRIBUTING.md.**
+
+### Quick Setup
+
+**Option 1: Retrieve from Google Cloud Secrets Manager (Recommended)**
 ```sh
-cp apps/backend/.env.example apps/backend/.env
+gcloud secrets versions access latest --secret="env-backend" > .env
 ```
 
-2. Edit the `.env` file with your specific configuration values.
+**Option 2: Manual Configuration**
+```sh
+cp .env.example .env
+# Edit .env with your specific configuration values
+```
 
-For Docker, follow the same process but create an `.env.docker` file that's compatible with container environments.
+**Note**: The `.env` file contains essential configuration including database credentials, API keys, and other environment-specific settings.
 
-## Documentation
+## 📋 Need Help?
+
+### Complete Setup Guide
+For comprehensive setup instructions including:
+- 🐍 Detailed Python/pyenv installation for your platform
+- ⚡ UV installation and virtual environment setup  
+- ☁️ Cloud database configuration and proxy setup
+- 🔐 Secret Manager and environment configuration
+- 🛠️ Development workflow and tools
+- 🔄 Pull request creation and best practices
+- 🧪 Testing and code quality checks
+
+**👉 See the [CONTRIBUTING.md](CONTRIBUTING.md) guide**
+
+### Quick Reference
+- **Start the server**: `./start.sh` or `./rh backend start`
+- **Run tests**: `make test`
+- **Format code**: `make format`
+- **Lint code**: `make lint`
+- **All checks**: `make all`
+
+## 📚 Documentation
 
 ### API Query Guide
 

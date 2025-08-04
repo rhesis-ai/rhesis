@@ -58,7 +58,7 @@ python --version
 # Install pyenv
 curl https://pyenv.run | bash
 
-# Install build dependencies (Ubuntu/Debian)
+# Install build dependencies (🐧 Ubuntu/Debian)
 sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
 libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
 libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
@@ -152,10 +152,10 @@ python --version
 
 1. 🛠️ **Install GitHub CLI** (required for automated PR creation):
 ```bash
-# Ubuntu/Debian
+# 🐧 Ubuntu/Debian
 sudo apt update && sudo apt install gh
 
-# macOS
+# 🍎 macOS
 brew install gh
 
 # Or download from: https://cli.github.com/
@@ -234,11 +234,11 @@ gcloud config set project YOUR_PROJECT_ID
 ### Setting Up the Database Proxy
 
 **⚠️ Important Binary Distinction**: 
-- **Linux users**: Use `cloud_sql_proxy.linux.amd64` 
-- **macOS users**: Use `cloud_sql_proxy.darwin.arm64` (Apple Silicon) or `cloud_sql_proxy.darwin.amd64` (Intel)
+- **🐧 Linux users**: Use `cloud_sql_proxy.linux.amd64` 
+- **🍎 macOS users**: Use `cloud_sql_proxy.darwin.arm64` (Apple Silicon) or `cloud_sql_proxy.darwin.amd64` (Intel)
 - **These are different binaries** - using the wrong one will result in "Bad CPU type" or similar errors.
 
-#### For Linux Users (Automated Service Setup)
+#### 🐧 For Linux Users (Automated Service Setup)
 
 1. **Copy the credentials file** to the infrastructure scripts directory:
 ```bash
@@ -270,7 +270,7 @@ sudo ./setup-db-proxy-service.sh start
 sudo ./setup-db-proxy-service.sh status
 ```
 
-#### For macOS Users (Manual Proxy Execution)
+#### 🍎 For macOS Users (Manual Proxy Execution)
 
 **Note**: macOS users cannot use `setup-db-proxy-service.sh` as it creates Linux systemd services. Instead, use the direct proxy script:
 
@@ -317,7 +317,7 @@ cp sql-proxy-key.json <repo root>/infrastructure/scripts/
 
 **Important for macOS users**: You'll need to run `./db-proxy.sh` each time you start development, as it doesn't install as a persistent service like on Linux.
 
-### Managing the Proxy Service (Linux Only)
+### 🐧 Managing the Proxy Service (Linux Only)
 
 For Linux users who installed the proxy as a service:
 
@@ -376,12 +376,12 @@ DB_PASSWORD=your_password
 
 ### Troubleshooting
 
-#### For Linux Users
+#### 🐧 For Linux Users
 - **Connection issues**: Check if the proxy service is running with `sudo systemctl status db-proxy`
 - **Permission errors**: Verify the service account has `roles/cloudsql.client` role
 - **Instance connection**: Ensure the Cloud SQL instance allows connections and is in the correct region
 
-#### For macOS Users
+#### 🍎 For macOS Users
 - **Connection issues**: Ensure `./db-proxy.sh` is running in a terminal and hasn't stopped
 - **Permission errors**: Verify the service account has `roles/cloudsql.client` role
 - **Binary compatibility issues**: 
@@ -392,7 +392,7 @@ DB_PASSWORD=your_password
   - If you get "Bad CPU type in executable", you downloaded the wrong architecture or OS binary
 - **Instance connection**: Ensure the Cloud SQL instance allows connections and is in the correct region
 
-### Additional Options for macOS Users
+### 🍎 Additional Options for macOS Users
 
 If the direct `db-proxy.sh` method above doesn't work for your setup, you can:
 1. **Use Docker**: Run the backend in a Docker container with Linux
