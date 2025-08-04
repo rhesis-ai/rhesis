@@ -3,7 +3,6 @@
 from fastapi import UploadFile, HTTPException
 import tempfile
 import os
-import mimetypes
 from typing import List, Dict, Optional
 from pathlib import Path
 
@@ -55,7 +54,6 @@ class DocumentHandler:
                     # Get file info for description
                     filename = file.filename
                     file_ext = os.path.splitext(filename)[1].lower()
-                    mime_type, _ = mimetypes.guess_type(filename)
                     
                     # Create temporary file
                     temp_file = tempfile.NamedTemporaryFile(
@@ -72,7 +70,7 @@ class DocumentHandler:
                     # Add to documents list
                     processed_docs.append({
                         "name": filename,
-                        "description": self._get_file_description(filename, file_ext, mime_type),
+                        "description": f"Uploaded file: {filename}",
                         "path": temp_file.name
                     })
                     
@@ -85,24 +83,6 @@ class DocumentHandler:
         
         return processed_docs
 
-    def _get_file_description(self, filename: str, extension: str, mime_type: Optional[str]) -> str:
-        """Generate a descriptive string for the uploaded file."""
-        file_type = "document"
-        if mime_type:
-            if 'pdf' in mime_type:
-                file_type = "PDF document"
-            elif 'text' in mime_type:
-                file_type = "text document"
-            elif 'word' in mime_type or 'officedocument' in mime_type:
-                file_type = "Word document"
-            elif 'spreadsheet' in mime_type:
-                file_type = "spreadsheet"
-            elif 'presentation' in mime_type:
-                file_type = "presentation"
-            elif 'image' in mime_type:
-                file_type = "image"
-        
-        return f"Uploaded {file_type}: {filename} - Contains content for test generation"
 
     def cleanup(self):
         """Clean up any temporary files created during document processing."""
