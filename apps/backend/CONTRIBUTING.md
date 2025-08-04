@@ -248,7 +248,7 @@ cp sql-proxy-key.json <repo root>/infrastructure/scripts/
 2. **Download the Cloud SQL Proxy binary for Linux** (if not already present):
 ```bash
 cd <repo root>/infrastructure/scripts
-wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud-sql-proxy
+curl -L https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -o cloud-sql-proxy
 chmod +x cloud-sql-proxy
 ```
 
