@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Dict, List, Optional
 import asyncio
 from functools import partial
 
@@ -14,15 +14,22 @@ from rhesis.backend.app.crud import get_user_tokens
 from rhesis.backend.app.models.user import User
 
 
-async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 5) -> Dict:
+async def generate_tests(
+    db: Session, 
+    user: User, 
+    prompt: str, 
+    num_tests: int = 5, 
+    documents: Optional[List[Dict]] = None
+) -> Dict:
     """
-    Generate tests using the prompt synthesizer.
+    Generate tests using the prompt synthesizer with optional document context.
 
     Args:
         db: Database session
         user: Current user
         prompt: The generation prompt to use
         num_tests: Number of test cases to generate (default: 5)
+        documents: Optional list of documents to use for context
 
     Returns:
         Dict: The generated test set as a dictionary
@@ -44,7 +51,11 @@ async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 
 
     print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
     
-    synthesizer = PromptSynthesizer(prompt=prompt)
+    # Create synthesizer with documents support
+    synthesizer = PromptSynthesizer(
+        prompt=prompt,
+        documents=documents
+    )
 
     # Run the potentially blocking operation in a separate thread
     # to avoid blocking the event loop

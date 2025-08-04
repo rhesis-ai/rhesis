@@ -3,6 +3,7 @@
 from fastapi import UploadFile, HTTPException
 import tempfile
 import os
+import mimetypes
 from typing import List, Dict, Optional
 from pathlib import Path
 
@@ -23,48 +24,26 @@ class DocumentHandler:
         Process document specifications and files into the format expected by PromptSynthesizer.
         
         Args:
-            documents: List of document specifications (name, description, path/content)
+            documents: List of document specifications (name, description, content)
             files: Optional list of uploaded files
             
         Returns:
             List of processed document specifications
             
         Raises:
-            HTTPException: If document path not found or processing fails
+            HTTPException: If document processing fails or required fields are missing
         """
         processed_docs = []
         
-        # Process document specifications from request
+        # Process JSON documents
         if documents:
             for doc in documents:
-                # Validate document has required fields
-                if not doc.get('name'):
+                if not doc.get('name') or not doc.get('content') or not doc.get('description'):
                     raise HTTPException(
                         status_code=400, 
-                        detail="Document must have a 'name' field"
+                        detail=f"Document must have 'name', 'content', and 'description' fields"
                     )
-                
-                # If document has content, use it directly
-                if doc.get('content'):
-                    processed_docs.append(doc)
-                    continue
-                    
-                # If document has a path, validate it exists
-                if doc.get('path'):
-                    path = Path(doc['path'])
-                    if not path.exists():
-                        raise HTTPException(
-                            status_code=400, 
-                            detail=f"Document path not found: {doc['path']}"
-                        )
-                    processed_docs.append(doc)
-                    continue
-                
-                # Neither content nor path provided
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Document '{doc['name']}' must have either 'content' or 'path' field"
-                )
+                processed_docs.append(doc)
 
         # Process uploaded files
         if files:
@@ -73,35 +52,57 @@ class DocumentHandler:
                     continue
                     
                 try:
-                    # Create temporary file with appropriate extension
+                    # Get file info for description
+                    filename = file.filename
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    mime_type, _ = mimetypes.guess_type(filename)
+                    
+                    # Create temporary file
                     temp_file = tempfile.NamedTemporaryFile(
                         delete=False,
-                        suffix=os.path.splitext(file.filename)[1]
+                        suffix=file_ext
                     )
                     self._temp_files.append(temp_file.name)
                     
-                    # Write uploaded content to temporary file
+                    # Write uploaded content to temp file
                     content = await file.read()
                     temp_file.write(content)
                     temp_file.close()
                     
-                    # Add to documents list with temp file path
+                    # Add to documents list
                     processed_docs.append({
-                        "name": file.filename,
-                        "description": f"Uploaded file: {file.filename}",
-                        "path": temp_file.name,
-                        "content": None
+                        "name": filename,
+                        "description": self._get_file_description(filename, file_ext, mime_type),
+                        "path": temp_file.name
                     })
                     
                 except Exception as e:
-                    # Clean up any temp files created before the error
                     self.cleanup()
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Failed to process uploaded file '{file.filename}': {str(e)}"
+                        detail=f"Failed to process uploaded file '{filename}': {str(e)}"
                     )
         
         return processed_docs
+
+    def _get_file_description(self, filename: str, extension: str, mime_type: Optional[str]) -> str:
+        """Generate a descriptive string for the uploaded file."""
+        file_type = "document"
+        if mime_type:
+            if 'pdf' in mime_type:
+                file_type = "PDF document"
+            elif 'text' in mime_type:
+                file_type = "text document"
+            elif 'word' in mime_type or 'officedocument' in mime_type:
+                file_type = "Word document"
+            elif 'spreadsheet' in mime_type:
+                file_type = "spreadsheet"
+            elif 'presentation' in mime_type:
+                file_type = "presentation"
+            elif 'image' in mime_type:
+                file_type = "image"
+        
+        return f"Uploaded {file_type}: {filename} - Contains content for test generation"
 
     def cleanup(self):
         """Clean up any temporary files created during document processing."""

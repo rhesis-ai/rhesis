@@ -25,46 +25,26 @@ def get_endpoint_service() -> EndpointService:
     return EndpointService() 
 
 async def process_form_documents(
-    documents: Optional[str] = Form(None),
     files: Optional[List[UploadFile]] = File(None),
 ) -> Tuple[List[Dict], DocumentHandler]:
     """
-    FastAPI dependency that processes documents from form data.
+    FastAPI dependency that processes uploaded files.
     
     Args:
-        documents: JSON string containing document specifications
         files: List of uploaded files
         
     Returns:
         Tuple of (processed_documents, document_handler)
         
     Raises:
-        HTTPException: If JSON parsing fails or document processing fails
+        HTTPException: If file processing fails
     """
     handler = DocumentHandler()
     
     try:
-        # Parse documents JSON string if provided
-        parsed_documents = None
-        if documents:
-            try:
-                doc_data = json.loads(documents)
-                parsed_documents = [DocumentSpecification(**doc) for doc in doc_data]
-            except (json.JSONDecodeError, ValueError) as e:
-                handler.cleanup()
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid JSON in documents parameter: {str(e)}"
-                )
-        
-        # Convert DocumentSpecification objects to dictionaries
-        document_dicts = None
-        if parsed_documents:
-            document_dicts = [doc.dict() for doc in parsed_documents]
-        
-        # Process documents and files
+        # Process files only
         processed_documents = await handler.process_documents(
-            documents=document_dicts,
+            documents=None,  # No JSON documents for file upload endpoint
             files=files
         )
         
@@ -84,21 +64,36 @@ async def process_json_documents(
     Process documents from DocumentSpecification objects (for JSON endpoints).
     
     Args:
-        documents: List of DocumentSpecification objects
+        documents: List of DocumentSpecification objects with content and description
         
     Returns:
         Tuple of (processed_documents, document_handler)
+        
+    Raises:
+        HTTPException: If document processing fails or required fields are missing
     """
     handler = DocumentHandler()
     
     try:
         document_dicts = None
         if documents:
+            # Validate that all documents have required fields
+            for doc in documents:
+                if not doc.content:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Document '{doc.name}' must have 'content' field"
+                    )
+                if not doc.description:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Document '{doc.name}' must have 'description' field"
+                    )
             document_dicts = [doc.dict() for doc in documents]
         
         processed_documents = await handler.process_documents(
             documents=document_dicts,
-            files=None
+            files=None  # No file uploads for JSON endpoint
         )
         
         return processed_documents, handler

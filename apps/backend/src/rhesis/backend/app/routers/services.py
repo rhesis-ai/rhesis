@@ -128,67 +128,6 @@ async def create_chat_completion_endpoint(request: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/generate/tests", response_model=GenerateTestsResponse)
-async def generate_tests_endpoint(
-    prompt: str = Form(...),
-    num_tests: Optional[int] = Form(5),
-    document_processor: DocumentProcessor = Depends(get_form_document_processor),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """
-    Generate test cases using the prompt synthesizer with optional document context.
-
-    This endpoint accepts form data to support file uploads along with the request parameters.
-
-    Args:
-        prompt: The generation prompt to use
-        num_tests: Number of test cases to generate (default: 5)
-        documents: Optional JSON string containing document specifications with structure:
-            [
-                {
-                    "name": "string (required)",
-                    "description": "string (optional)", 
-                    "content": "string (optional - direct text content)",
-                    "path": "string (optional - file path reference)"
-                }
-            ]
-        files: Optional uploaded files to use as additional document context
-        db: Database session
-        current_user: Current authenticated user
-
-    Returns:
-        GenerateTestsResponse: The generated test cases
-        
-    Example usage:
-        Form data with document specifications:
-        ```
-        curl -X POST "/generate/tests" \\
-          -F "prompt=Generate math tests" \\
-          -F "num_tests=3" \\
-          -F 'documents=[{
-                "name": "curriculum", 
-                "description": "Grade 5 math curriculum guidelines",
-                "content": "Focus on addition and subtraction word problems"
-              }]' \\
-          -F "files=@textbook.pdf"
-        ```
-    """
-    if not prompt:
-        raise HTTPException(status_code=400, detail="prompt is required")
-    
-    # Use the document processor with automatic cleanup
-    async with document_processor as processed_documents:
-        test_cases = await generate_tests(
-            db, 
-            current_user, 
-            prompt, 
-            num_tests, 
-            processed_documents
-        )
-        return {"tests": test_cases}
-
-
 @router.post("/generate/tests/json", response_model=GenerateTestsResponse)
 async def generate_tests_json_endpoint(
     request: GenerateTestsRequest,
@@ -196,43 +135,51 @@ async def generate_tests_json_endpoint(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Generate test cases using JSON request (no file upload support).
+    Generate insurance test cases using either a prompt alone or with additional content.
 
-    This endpoint accepts pure JSON requests for programmatic usage.
-    For file uploads, use the /generate/tests endpoint instead.
+    This endpoint supports two modes:
+    1. Prompt-only: Generate tests based solely on the prompt
+    2. Content-based: Generate tests using the prompt and provided document content
 
     Args:
-        request: The request containing the prompt, num_tests, and optional documents
+        request: The request containing:
+            - prompt: Description of test scenarios to generate
+            - num_tests: Number of test cases to generate (default: 5)
+            - documents: Optional list of documents with content (for content-based generation)
         db: Database session
         current_user: Current authenticated user
 
     Returns:
-        GenerateTestsResponse: The generated test cases
+        GenerateTestsResponse: The generated test cases with prompts and expected behaviors
         
-    Example JSON request:
+    Example 1 - Prompt-only generation:
         ```json
         {
-          "prompt": "Generate science tests",
+          "prompt": "Generate test cases for verifying auto insurance coverage limits",
+          "num_tests": 5
+        }
+        ```
+
+    Example 2 - Content-based generation:
+        ```json
+        {
+          "prompt": "Generate test cases for handling life insurance beneficiary changes",
           "num_tests": 5,
           "documents": [
             {
-              "name": "chemistry_basics",
-              "description": "Introduction to basic chemistry concepts",
-              "content": "Atoms, molecules, periodic table fundamentals"
-            },
-            {
-              "name": "lab_procedures", 
-              "description": "Standard laboratory safety procedures",
-              "path": "/path/to/lab_safety.txt"
+              "name": "beneficiary_policy",
+              "description": "Life insurance beneficiary change procedures",
+              "content": "1. Policy holders may change beneficiaries at any time..."
             }
           ]
         }
         ```
+
     """
     if not request.prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
     
-    # Get document processor for JSON documents
+    # Get document processor for JSON documents (might be None for prompt-only)
     document_processor = await get_json_document_processor(request.documents)
     
     # Use the document processor with automatic cleanup
@@ -242,6 +189,58 @@ async def generate_tests_json_endpoint(
             current_user, 
             request.prompt, 
             request.num_tests, 
+            processed_documents
+        )
+        return {"tests": test_cases}
+
+
+@router.post("/generate/tests/files", response_model=GenerateTestsResponse)
+async def generate_tests_files_endpoint(
+    prompt: str = Form(...),
+    num_tests: Optional[int] = Form(5),
+    files: List[UploadFile] = File(...),  # Make files required
+    document_processor: DocumentProcessor = Depends(get_form_document_processor),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Generate test cases from uploaded documents.
+
+    This endpoint is specifically designed for generating tests based on actual documents that you upload. Use this when you have existing files (PDFs, docs, etc.) that contain the content you want to base your tests on.
+
+    Args:
+        prompt: The generation prompt describing what kind of tests to generate
+        num_tests: Number of test cases to generate (default: 5)
+        files: Documents to use as context (required, supports various formats like PDF, DOCX, etc.)
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        GenerateTestsResponse: The generated test cases with prompts and expected behaviors
+        
+    Example usage:
+        Upload documents for test generation:
+        ```
+        curl -X POST "/generate/tests/files" \
+          -F "prompt=Generate test cases to verify compliance with our auto insurance policy" \
+          -F "num_tests=3" \
+          -F "files=@auto_insurance_policy.pdf" \
+          -F "files=@claims_procedures.docx"
+        ```
+    """
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    
+    if not files:
+        raise HTTPException(status_code=400, detail="at least one file is required")
+    
+    # Use the document processor with automatic cleanup
+    async with document_processor as processed_documents:
+        test_cases = await generate_tests(
+            db, 
+            current_user, 
+            prompt, 
+            num_tests, 
             processed_documents
         )
         return {"tests": test_cases}

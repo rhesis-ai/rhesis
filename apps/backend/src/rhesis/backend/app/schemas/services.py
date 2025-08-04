@@ -23,25 +23,32 @@ class ChatRequest(BaseModel):
 
 
 class DocumentSpecification(BaseModel):
-    """Specification for a document that can be referenced by path or contain direct content."""
+    """Specification for a document that contains content."""
     name: str
-    description: Optional[str] = None
-    content: Optional[str] = Field(None, description="Direct text content of the document")
-    path: Optional[str] = Field(None, description="File path to the document")
+    description: str
+    content: str
 
 
 class GenerateTestsRequest(BaseModel):
     """
-    Request for generating tests with optional document context.
+    Request for generating insurance test cases, supporting two modes:
+    1. Prompt-only: Generate tests based solely on the prompt
+    2. Content-based: Generate tests using both prompt and provided document content
     
     Used by the JSON endpoint (/generate/tests/json).
-    For file uploads, use the form-based endpoint (/generate/tests).
+    For file-based generation, use the /generate/tests/files endpoint.
     """
-    prompt: str
-    num_tests: Optional[int] = 5
+    prompt: str = Field(
+        ...,
+        description="The prompt describing what kind of tests to generate (e.g., 'Generate tests for auto insurance claims')"
+    )
+    num_tests: Optional[int] = Field(
+        5,
+        description="Number of test cases to generate (default: 5)"
+    )
     documents: Optional[List[DocumentSpecification]] = Field(
         None, 
-        description="Document specifications (metadata). For file uploads, use the form-based endpoint."
+        description="Optional document specifications with content. If not provided, generates tests based on prompt only."
     )
 
 
