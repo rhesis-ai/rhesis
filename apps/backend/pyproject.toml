@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "ruff>=0.11.6",
-    "hatch>=1.14.1",
     "fastapi",
     "uvicorn",
     "sqlalchemy",
@@ -73,9 +72,19 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
+[project.optional-dependencies]
 dev = [
+    "hatch>=1.14.1",
     "pytest>=8.3.4",
-    "mypy==1.15.0"
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.12.0",
+    "mypy>=1.15.0",
+    "coverage>=7.6.0",
+    "pre-commit>=4.0.0",
+    "bandit>=1.8.0",
+    "pytest-xdist>=3.6.0",
+    "factory-boy>=3.3.0",
 ]
 
 [project.scripts]
