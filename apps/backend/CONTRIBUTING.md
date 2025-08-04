@@ -128,6 +128,9 @@ uv --version
 After installing UV, create and activate a virtual environment in the backend directory:
 
 ```bash
+# Navigate to the backend directory
+cd apps/backend
+
 # Create a fresh virtual environment with UV
 uv venv
 
@@ -142,7 +145,7 @@ python --version
 **Important Notes:**
 - **Virtual environments**: Always activate your virtual environment before installing packages or running the backend
 - **Deactivation**: Use `deactivate` command to exit the virtual environment when done
-- **Reactivation**: Run `source .venv/bin/activate` each time you start working on the project
+- **Reactivation**: Run `source .venv/bin/activate` each time you start working on the project (from the `apps/backend` directory)
 
 ## ⚡ Development Setup
 
@@ -171,6 +174,12 @@ gh auth login
    **⚠️ Important**: Ensure your virtual environment is activated before installing dependencies.
 
    ```bash
+   # Navigate to the backend directory (if not already there)
+   cd apps/backend
+   
+   # Activate the virtual environment
+   source .venv/bin/activate
+   
    # Verify you're in the virtual environment (should show .venv path)
    which python
    
@@ -338,6 +347,9 @@ For Linux users who installed the proxy as a service:
 The complete `.env` file can be retrieved from Google Cloud Secrets Manager:
 
 ```bash
+# Navigate to the backend directory
+cd apps/backend
+
 # Retrieve the .env file from Secrets Manager
 gcloud secrets versions access latest --secret="env-backend" > .env
 
@@ -347,10 +359,17 @@ ls -la .env
 
 #### Option 2: Manual Configuration
 
-If configuring manually, update your `.env` file to use the Unix socket created by the proxy:
+If configuring manually, create and update your `.env` file in the backend directory:
 
 ```bash
-# For Cloud SQL via Unix socket
+# Navigate to the backend directory
+cd apps/backend
+
+# Copy the example file (if it exists)
+cp .env.example .env
+
+# Edit the .env file with your configuration
+# For Cloud SQL via Unix socket, include:
 DB_HOST=/cloudsql/YOUR_PROJECT_ID:REGION:INSTANCE_ID
 DB_PORT=5432
 DB_NAME=your_database_name
@@ -401,21 +420,37 @@ If the direct `db-proxy.sh` method above doesn't work for your setup, you can:
 
 ## 🔧 RH CLI Tool
 
-The repository includes a unified CLI tool for managing development servers:
+The repository includes a unified CLI tool for managing development servers.
+
+**⚠️ Important**: These commands must be run from the **repository root** (not from `apps/backend`):
 
 ```bash
+# Navigate to the repository root first
+cd ../../  # If you're in apps/backend
+# OR
+cd <repo root>
+
+# Then run the CLI commands
 ./rh backend start    # Start the backend server
 ./rh frontend start   # Start the frontend server
 ./rh help            # Show available commands
 ```
 
-Run these commands from the repository root. The CLI provides a consistent interface for starting both services with beautiful, colorful output and proper error handling.
+The CLI provides a consistent interface for starting both services with beautiful, colorful output and proper error handling.
 
 ## 🤖 Automated PR Creation Tool
 
-The repository includes an intelligent PR creation tool that streamlines the pull request process:
+The repository includes an intelligent PR creation tool that streamlines the pull request process.
+
+**⚠️ Important**: This tool must be run from the **repository root** (not from `apps/backend`):
 
 ```bash
+# Navigate to the repository root first
+cd ../../  # If you're in apps/backend
+# OR
+cd <repo root>
+
+# Then run the PR creation tool
 .github/pr [base-branch]
 ```
 
@@ -432,6 +467,7 @@ The repository includes an intelligent PR creation tool that streamlines the pul
 
 **Examples:**
 ```bash
+# From the repository root
 .github/pr          # Create PR against main branch
 .github/pr develop  # Create PR against develop branch
 ```
@@ -443,6 +479,12 @@ The repository includes an intelligent PR creation tool that streamlines the pul
 **📋 Prerequisites**: Before starting development, ensure you have completed:
 1. [Cloud Database Setup](#cloud-database-setup-currently-required-for-backend) - Currently required as the backend needs a database connection to run (local database support coming in the future)
 2. [Environment Configuration](#environment-configuration) - The `.env` file must be properly configured with all required variables
+
+**⚠️ Important**: Always ensure your virtual environment is activated when working with backend code:
+```bash
+cd apps/backend
+source .venv/bin/activate
+```
 
 1. 🌿 **Create a new branch for your feature**:
 ```bash
@@ -464,16 +506,28 @@ pre-commit install
 
    **Option B: Use the backend start script directly (recommended since you're already in apps/backend):**
    ```bash
+   # Ensure virtual environment is activated
+   source .venv/bin/activate
+   
    ./start.sh
    ```
 
    **Option C: Run manually:**
    ```bash
+   # From the backend directory, ensure virtual environment is activated
+   source .venv/bin/activate
+   
    uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload
    ```
 
 4. Make your changes and ensure all checks pass (if a Makefile is present, use it):
 ```bash
+# Navigate to the backend directory (if not already there)
+cd apps/backend
+
+# Ensure virtual environment is activated
+source .venv/bin/activate
+
 make format      # Format code with Ruff
 make lint        # Lint code with Ruff
 make type-check  # Type check with mypy
@@ -481,6 +535,8 @@ make test        # Run tests
 ```
 Or run all checks at once:
 ```bash
+# From the backend directory, ensure virtual environment is activated
+source .venv/bin/activate
 make all
 ```
 
@@ -497,6 +553,10 @@ git push origin feature/your-feature-name
 
 7. **Create a Pull Request** using the automated PR tool:
 ```bash
+# Navigate to the repository root first
+cd ../../  # If you're in apps/backend
+
+# Then create the PR
 .github/pr
 ```
 This tool will automatically generate a professional PR with proper title formatting, detailed description, commit summaries, and a comprehensive checklist.
