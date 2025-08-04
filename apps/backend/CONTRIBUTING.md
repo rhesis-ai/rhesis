@@ -175,7 +175,6 @@ gh auth login
    which python
    
    # Install dependencies
-   uv pip install hatch
    uv sync --extra dev
    uv pip install -e .
    uv pip install -e ../../sdk
