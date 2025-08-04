@@ -164,9 +164,9 @@ python --version
    uv pip install -e .
    ```
    This will:
-   - Install the Hatch build tool
-   - Sync all dependencies, including development dependencies (such as Sphinx for docs)
-   - Install the SDK package in editable mode
+   - **Install Hatch build tool**: Required for building and managing the SDK package
+   - **Sync dependencies**: Install all project dependencies, including development dependencies (such as Sphinx for docs, testing tools, linters)
+   - **Install SDK in editable mode** (`-e .`): The `-e` flag installs the current package (the `.` refers to current directory) in "editable" or "development" mode, meaning changes to the source code are immediately reflected without reinstalling
 
 ## 🔄 Development Workflow
 
