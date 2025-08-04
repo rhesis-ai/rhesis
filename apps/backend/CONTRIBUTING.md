@@ -4,7 +4,52 @@ Thank you for your interest in contributing to the Rhesis backend! 🎉 This doc
 
 ## 🐍 Python Version Requirements
 
-The Rhesis backend requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions:
+The Rhesis backend requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions.
+
+### 🍎 macOS Installation
+
+**Prerequisites**: Ensure you have [Homebrew](https://brew.sh/) and Xcode Command Line Tools installed.
+
+```bash
+# Install pyenv via Homebrew
+brew install pyenv
+
+# Install required dependency
+brew install xz
+
+# Configure your shell (choose one based on your shell)
+# For zsh (default on macOS Catalina+):
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zprofile
+echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zprofile
+echo 'eval "$(pyenv init -)"' >> ~/.zprofile
+
+# For bash:
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bash_profile
+echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bash_profile
+echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
+
+# Reload your shell configuration
+source ~/.zprofile  # or source ~/.bash_profile for bash
+
+# Install Python 3.10
+pyenv install 3.10.17
+
+# Set global or local Python version
+pyenv global 3.10.17  # Sets as default for all projects
+# OR
+pyenv local 3.10.17   # Sets for current directory only
+
+# Verify installation
+python --version
+
+# Create a fresh virtual environment with UV
+uv venv
+
+# Activate the virtual environment
+source .venv/bin/activate
+```
+
+### 🐧 Linux Installation
 
 ```bash
 # Install pyenv
@@ -14,6 +59,15 @@ curl https://pyenv.run | bash
 sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
 libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
 libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
+
+# Add pyenv to your shell (the installer usually does this automatically)
+# If needed, add these lines to your ~/.bashrc or ~/.zshrc:
+# export PYENV_ROOT="$HOME/.pyenv"
+# [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+# eval "$(pyenv init -)"
+
+# Reload your shell
+source ~/.bashrc  # or ~/.zshrc
 
 # Install Python 3.10
 pyenv install 3.10.17
@@ -27,6 +81,11 @@ uv venv
 # Activate the virtual environment
 source .venv/bin/activate
 ```
+
+**Important Notes:**
+- **macOS users**: If you encounter permission issues, you may need to run `xcode-select --install` to ensure Xcode Command Line Tools are properly installed
+- **Shell configuration**: Changes to shell configuration files won't take effect until you restart your terminal or run the `source` command
+- **Verification**: Always verify your Python version with `python --version` after installation
 
 This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
 
