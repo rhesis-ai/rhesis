@@ -233,6 +233,11 @@ gcloud config set project YOUR_PROJECT_ID
 
 ### Setting Up the Database Proxy
 
+**⚠️ Important Binary Distinction**: 
+- **Linux users**: Use `cloud_sql_proxy.linux.amd64` 
+- **macOS users**: Use `cloud_sql_proxy.darwin.arm64` (Apple Silicon) or `cloud_sql_proxy.darwin.amd64` (Intel)
+- **These are different binaries** - using the wrong one will result in "Bad CPU type" or similar errors.
+
 #### For Linux Users (Automated Service Setup)
 
 1. **Copy the credentials file** to the infrastructure scripts directory:
@@ -240,12 +245,14 @@ gcloud config set project YOUR_PROJECT_ID
 cp sql-proxy-key.json <repo root>/infrastructure/scripts/
 ```
 
-2. **Download the Cloud SQL Proxy binary** (if not already present):
+2. **Download the Cloud SQL Proxy binary for Linux** (if not already present):
 ```bash
-cd  <repo root>/infrastructure/scripts
+cd <repo root>/infrastructure/scripts
 wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud-sql-proxy
 chmod +x cloud-sql-proxy
 ```
+
+   **Note**: This downloads the **Linux AMD64 binary**. macOS users should follow the macOS-specific instructions below.
 
 3. **Install the database proxy service**:
 ```bash
@@ -274,12 +281,14 @@ cp sql-proxy-key.json <repo root>/infrastructure/scripts/
 
 2. **Download the Cloud SQL Proxy binary for macOS** (if not already present):
 
+   **⚠️ Important**: macOS requires a **different binary** than Linux. Choose the correct macOS binary for your Mac's architecture.
+
    **First, check your Mac's architecture:**
    ```bash
    uname -m
    ```
    
-   **Then download the correct version based on your result:**
+   **Then download the correct macOS binary based on your result:**
    
    **For Apple Silicon Macs (M1/M2/M3) - if `uname -m` shows `arm64`:**
    ```bash
@@ -294,6 +303,8 @@ cp sql-proxy-key.json <repo root>/infrastructure/scripts/
    curl -L https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64 -o cloud-sql-proxy
    chmod +x cloud-sql-proxy
    ```
+
+   **Note**: These are **macOS-specific binaries** (`.darwin.arm64` or `.darwin.amd64`), which are different from the Linux binary (`.linux.amd64`) used in the Linux setup above.
 
 3. **Verify the download and run the database proxy:**
    ```bash
@@ -373,11 +384,12 @@ DB_PASSWORD=your_password
 #### For macOS Users
 - **Connection issues**: Ensure `./db-proxy.sh` is running in a terminal and hasn't stopped
 - **Permission errors**: Verify the service account has `roles/cloudsql.client` role
-- **Binary issues**: 
-  - Check your Mac's architecture with `uname -m`
-  - For Apple Silicon (arm64): Use `cloud_sql_proxy.darwin.arm64`
-  - For Intel (x86_64): Use `cloud_sql_proxy.darwin.amd64`
-  - If you get "Bad CPU type in executable", you downloaded the wrong architecture
+- **Binary compatibility issues**: 
+  - **Wrong architecture**: Check your Mac's architecture with `uname -m`
+    - For Apple Silicon (arm64): Use `cloud_sql_proxy.darwin.arm64`
+    - For Intel (x86_64): Use `cloud_sql_proxy.darwin.amd64`
+  - **Wrong OS binary**: Ensure you downloaded the macOS binary (`.darwin.*`), not the Linux binary (`.linux.amd64`)
+  - If you get "Bad CPU type in executable", you downloaded the wrong architecture or OS binary
 - **Instance connection**: Ensure the Cloud SQL instance allows connections and is in the correct region
 
 ### Additional Options for macOS Users
