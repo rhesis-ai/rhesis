@@ -19,10 +19,10 @@ def upgrade() -> None:
         sa.Column("token", sa.String(), nullable=False),
         sa.Column("token_type", sa.String(), nullable=False),
         sa.Column("expires_at", sa.DateTime(), nullable=False),
-        sa.Column("user_id", rhesis.app.models.guid.GUID(), nullable=False),
+        sa.Column("user_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
         sa.Column(
             "id",
-            rhesis.app.models.guid.GUID(),
+            rhesis.backend.app.models.guid.GUID(),
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
