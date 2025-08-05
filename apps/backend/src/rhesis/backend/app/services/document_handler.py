@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import UploadFile
 
 class DocumentHandler:
-    """Handles temporary document storage with automatic cleanup using async context manager."""
+    """Handles temporary document storage with explicit cleanup."""
     
     def __init__(self, temp_dir: Optional[str] = None, max_file_size: int = 5 * 1024 * 1024):  # 5MB default
         """
@@ -21,14 +21,6 @@ class DocumentHandler:
         
         # Ensure temp directory exists
         os.makedirs(self.temp_dir, exist_ok=True)
-
-    async def __aenter__(self):
-        """Async context manager entry."""
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Cleanup saved files on context exit."""
-        await self.cleanup()
 
     async def save_file(self, file: UploadFile) -> str:
         """
@@ -90,11 +82,24 @@ class DocumentHandler:
             
         return full_path
 
-    async def cleanup(self) -> None:
-        """Remove all files created by this handler instance."""
-        for filename in self._saved_files:
-            try:
-                os.remove(os.path.join(self.temp_dir, filename))
-            except OSError:
-                pass  # Ignore errors during cleanup
-        self._saved_files.clear()
+    async def cleanup(self, filename: Optional[str] = None) -> None:
+        """
+        Remove specified file or all files created by this handler instance.
+        
+        Args:
+            filename: Optional specific file to cleanup. If None, cleans up all files.
+        """
+        if filename is not None:
+            if filename in self._saved_files:
+                try:
+                    os.remove(os.path.join(self.temp_dir, filename))
+                    self._saved_files.remove(filename)
+                except OSError:
+                    pass  # Ignore errors during cleanup
+        else:
+            for fname in self._saved_files.copy():
+                try:
+                    os.remove(os.path.join(self.temp_dir, fname))
+                except OSError:
+                    pass  # Ignore errors during cleanup
+            self._saved_files.clear()
