@@ -21,7 +21,7 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column(
             "id",
-            rhesis.app.models.guid.GUID(),
+            rhesis.backend.app.models.guid.GUID(),
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
@@ -31,20 +31,20 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_type_lookup_id"), "type_lookup", ["id"], unique=True)
     op.add_column(
-        "category", sa.Column("entity_type_id", rhesis.app.models.guid.GUID(), nullable=True)
+        "category", sa.Column("entity_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
     )
     op.create_foreign_key(None, "category", "type_lookup", ["entity_type_id"], ["id"])
     op.drop_column("category", "entity_type")
     op.add_column(
         "response_pattern",
-        sa.Column("response_pattern_type_id", rhesis.app.models.guid.GUID(), nullable=True),
+        sa.Column("response_pattern_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
     )
     op.create_foreign_key(
         None, "response_pattern", "type_lookup", ["response_pattern_type_id"], ["id"]
     )
     op.drop_column("response_pattern", "response_type")
     op.add_column(
-        "topic", sa.Column("entity_type_id", rhesis.app.models.guid.GUID(), nullable=True)
+        "topic", sa.Column("entity_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
     )
     op.create_foreign_key(None, "topic", "type_lookup", ["entity_type_id"], ["id"])
     op.drop_column("topic", "entity_type")
