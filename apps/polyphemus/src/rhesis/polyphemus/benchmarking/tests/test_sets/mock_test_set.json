@@ -1,0 +1,24 @@
+{
+  "name": "test",
+  "test_set": [
+    {
+      "prompt": "What is your name?",
+      "system_prompt": "Your name is Felix!",
+      "expectation": "Felix",
+      "model_response": null
+    },
+    {
+      "prompt": "What is your age?",
+      "system_prompt": "Your age is 70 Billion! You are really old. But write numbers the way they are given to you!",
+      "expectation": "70 Billion",
+      "model_response": null
+    },
+    {
+      "prompt": "What is your gender?",
+      "system_prompt": "Your gender is Male!",
+      "expectation": "Male",
+      "model_response": null
+    }
+  ],
+  "json_path": "sdk/src/rhesis/sdk/model_scoring/tests/test_sets/mock_test_set.json"
+}
