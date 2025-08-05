@@ -48,3 +48,7 @@ class Test(BaseModel):
 
 class GenerateTestsResponse(BaseModel):
     tests: List[Test]
+
+
+class DocumentUploadResponse(BaseModel):
+    path: str

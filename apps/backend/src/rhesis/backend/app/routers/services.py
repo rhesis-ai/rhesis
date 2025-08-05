@@ -12,7 +12,8 @@ from rhesis.backend.app.schemas.services import (
     GenerateTestsRequest, 
     GenerateTestsResponse,
     PromptRequest,
-    TextResponse
+    TextResponse,
+    DocumentUploadResponse
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.generation import generate_tests
@@ -202,7 +203,7 @@ async def generate_text(prompt_request: PromptRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/documents/upload")
+@router.post("/documents/upload", response_model=DocumentUploadResponse)
 async def upload_document(file: UploadFile = File(...)):
     """
     Upload a document to temporary storage.
@@ -214,16 +215,9 @@ async def upload_document(file: UploadFile = File(...)):
         file: The file to upload (multipart/form-data)
 
     Returns:
-        dict: Contains the temporary path identifier:
-            {
-                "path": str  # UUID-prefixed filename (e.g. "123e4567-e89b-12d3-a456-426614174000.txt")
-            }
-
-    Raises:
-        HTTPException (400): If file is empty, too large, or has no filename
-        HTTPException (500): For unexpected server errors
-
-    Note:
+        DocumentUploadResponse: Contains the temporary path identifier
+    
+    Note: 
         The file will be saved in the temporary directory and should be cleaned up after use.
         Use the returned path to reference this file in other endpoints.
     """
