@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+import os
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -20,6 +21,7 @@ from rhesis.backend.app.services.gemini_client import (
     get_chat_response,
     get_json_response,
 )
+from rhesis.backend.app.services.document_handler import DocumentHandler
 
 router = APIRouter(
     prefix="/services",
@@ -198,3 +200,33 @@ async def generate_text(prompt_request: PromptRequest):
         return TextResponse(text=response)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/documents/upload")
+async def upload_document(file: UploadFile = File(...)):
+    """
+    Upload a document to temporary storage.
+
+    The file will be saved in a temporary directory with a UUID prefix to avoid naming conflicts.
+    Maximum file size is 5MB.
+
+    Args:
+        file: The file to upload (multipart/form-data)
+
+    Returns:
+        dict: Contains the temporary path identifier:
+            {
+                "path": str  # UUID-prefixed filename (e.g. "123e4567-e89b-12d3-a456-426614174000.txt")
+            }
+
+    Raises:
+        HTTPException (400): If file is empty, too large, or has no filename
+        HTTPException (500): For unexpected server errors
+
+    Note:
+        The file will be saved in the temporary directory and should be cleaned up after use.
+        Use the returned path to reference this file in other endpoints.
+    """
+    handler = DocumentHandler()
+    path = await handler.save_file(file)
+    return {"path": path}
