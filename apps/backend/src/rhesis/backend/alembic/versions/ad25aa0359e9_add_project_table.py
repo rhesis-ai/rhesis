@@ -19,12 +19,12 @@ def upgrade() -> None:
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=True),
-        sa.Column("user_id", rhesis.app.models.guid.GUID(), nullable=True),
-        sa.Column("owner_id", rhesis.app.models.guid.GUID(), nullable=True),
-        sa.Column("organization_id", rhesis.app.models.guid.GUID(), nullable=True),
+        sa.Column("user_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
+        sa.Column("owner_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
+        sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
         sa.Column(
             "id",
-            rhesis.app.models.guid.GUID(),
+            rhesis.backend.app.models.guid.GUID(),
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
@@ -46,7 +46,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_project_id"), "project", ["id"], unique=True)
-    op.add_column("endpoint", sa.Column("project_id", rhesis.app.models.guid.GUID(), nullable=True))
+    op.add_column("endpoint", sa.Column("project_id", rhesis.backend.app.models.guid.GUID(), nullable=True))
     op.create_foreign_key(None, "endpoint", "project", ["project_id"], ["id"])
     # ### end Alembic commands ###
 
