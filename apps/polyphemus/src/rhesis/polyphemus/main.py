@@ -2,9 +2,9 @@ import logging
 import gc
 from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
-from .models import ModelLoader
-from .api import router
-from .utils import ProcessTimeMiddleware
+from rhesis.polyphemus.models import ModelLoader
+from rhesis.polyphemus.api import router
+from rhesis.polyphemus.utils import ProcessTimeMiddleware
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
