@@ -16,7 +16,7 @@ from rhesis.backend.app.constants import (
 from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.services.stats import get_entity_stats, get_related_stats
+from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.app.utils.uuid_utils import (
@@ -195,8 +195,8 @@ def get_test_set_stats(
     """
     Get comprehensive statistics about test sets.
     """
-    return get_entity_stats(
-        db=db,
+    calculator = StatsCalculator(db)
+    return calculator.get_entity_stats(
         entity_model=models.TestSet,
         organization_id=current_user_organization_id,
         top=top,
@@ -222,16 +222,16 @@ def get_test_set_test_stats(
         months: Number of months to include in historical stats (default: 6)
     """
 
-    return get_related_stats(
-        db=db,
+    calculator = StatsCalculator(db)
+    return calculator.get_related_stats(
         entity_model=models.TestSet,
-        entity_id=test_set_id,
         related_model=models.Test,
         relationship_attr="tests",
+        entity_id=test_set_id,
         organization_id=current_user_organization_id,
         top=top,
-        months=months,
         category_columns=["priority"],  # Only priority is treated as a category field
+        months=months,
     )
 
 
