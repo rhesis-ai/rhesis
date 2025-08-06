@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, model_validator
 
 
 class PromptRequest(BaseModel):
@@ -29,16 +29,11 @@ class Document(BaseModel):
     path: Optional[str] = None
     content: Optional[str] = None
 
-    @field_validator("path", "content", mode="after")
-    def require_path_or_content(cls, v, values, field):
-        # Only run this check once, for one of the fields
-        if field.name == "content":
-            path = values.get("path")
-            content = v
-            if not path and not content:
-                raise ValueError("Either 'path' or 'content' must be provided.")
-        return v
-
+    @model_validator(mode='after')
+    def require_path_or_content(self):
+        if not self.path and not self.content:
+            raise ValueError('Either path or content must be provided')
+        return self
 
 class GenerateTestsRequest(BaseModel):
     prompt: str
