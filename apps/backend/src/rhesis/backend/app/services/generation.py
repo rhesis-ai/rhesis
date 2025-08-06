@@ -14,7 +14,13 @@ from rhesis.backend.app.crud import get_user_tokens
 from rhesis.backend.app.models.user import User
 
 
-async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 5) -> Dict:
+async def generate_tests(
+    db: Session, 
+    user: User, 
+    prompt: str, 
+    num_tests: int = 5,
+    documents: Optional[List[Dict]] = None
+) -> Dict:
     """
     Generate tests using the prompt synthesizer.
 
@@ -23,6 +29,11 @@ async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 
         user: Current user
         prompt: The generation prompt to use
         num_tests: Number of test cases to generate (default: 5)
+        documents: Optional list of document objects. Each document should contain:
+            - name (str): Unique identifier or label for the document
+            - description (str): Short description of the document's purpose or content
+            - path (str): Local file path from upload endpoint
+            - content (str): Pre-provided document content (optional)
 
     Returns:
         Dict: The generated test set as a dictionary
@@ -44,7 +55,7 @@ async def generate_tests(db: Session, user: User, prompt: str, num_tests: int = 
 
     print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
     
-    synthesizer = PromptSynthesizer(prompt=prompt)
+    synthesizer = PromptSynthesizer(prompt=prompt, documents=documents)
 
     # Run the potentially blocking operation in a separate thread
     # to avoid blocking the event loop
