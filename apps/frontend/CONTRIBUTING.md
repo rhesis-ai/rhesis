@@ -171,8 +171,14 @@ Run these commands from the repository root. The CLI provides a consistent inter
 The repository includes an intelligent PR creation tool that streamlines the pull request process:
 
 ```bash
-.github/pr [base-branch]
+.github/pr [base-branch] [options]
 ```
+
+**🔍 New: Push Detection & Auto-Resolution**
+The tool now prevents common PR creation failures by detecting:
+- **Unpushed branches**: When your branch doesn't exist on remote
+- **Unpushed commits**: When you have local changes not pushed to remote
+- **Interactive prompting**: Clear options to push content before PR creation
 
 **Features:**
 - 🎯 **Smart title generation** - Automatically formats branch names into proper titles
@@ -180,6 +186,8 @@ The repository includes an intelligent PR creation tool that streamlines the pul
 - 🔤 **Proper capitalization** - Handles technical abbreviations (API, UI, DB, etc.)
 - ✅ **Ready-to-use templates** - Pre-filled checklists and sections
 - 🌐 **Browser integration** - Option to open PR in browser after creation
+- 🛡️ **Push validation** - Ensures all content is pushed before PR creation
+- 🚀 **Auto-push option** - Can push changes for you with confirmation
 
 **Prerequisites:**
 - GitHub CLI (`gh`) must be installed and authenticated (see setup steps above)
@@ -187,8 +195,10 @@ The repository includes an intelligent PR creation tool that streamlines the pul
 
 **Examples:**
 ```bash
-.github/pr          # Create PR against main branch
-.github/pr develop  # Create PR against develop branch
+.github/pr                  # Create PR against main branch (with push detection)
+.github/pr develop         # Create PR against develop branch
+.github/pr --force         # Skip push detection (advanced users)
+.github/pr --help          # Show all available options
 ```
 
 **Note:** If GitHub CLI is not installed, the tool will display an error and guide you to install it first.
@@ -235,7 +245,10 @@ The repository includes an intelligent PR creation tool that streamlines the pul
    ```bash
    .github/pr
    ```
-   This tool will automatically generate a professional PR with proper title formatting, detailed description, commit summaries, and a comprehensive checklist.
+   This tool will:
+   - 🔍 **Check if your changes are pushed** to remote
+   - 🤝 **Prompt you to push** if needed (with option to push automatically)
+   - 📝 **Generate a professional PR** with proper title formatting, detailed description, commit summaries, and comprehensive checklist
 
 7. **Submit the pull request** from your fork to the main repository
 
