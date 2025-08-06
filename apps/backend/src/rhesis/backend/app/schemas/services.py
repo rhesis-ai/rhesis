@@ -51,4 +51,4 @@ class GenerateTestsResponse(BaseModel):
 
 
 class DocumentUploadResponse(BaseModel):
-    path: str
+    filename: str
