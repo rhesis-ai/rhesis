@@ -215,12 +215,12 @@ async def upload_document(document: UploadFile = File(...)):
         document: The document to upload (multipart/form-data)
 
     Returns:
-        DocumentUploadResponse: Contains the temporary filename identifier
+        DocumentUploadResponse: Contains the full path to the uploaded document
     
     Note: 
         The document will be saved in the temporary directory and should be cleaned up after use.
-        Use the returned filename to reference this document in other endpoints.
+        Use the returned path to reference this document in other endpoints.
     """
     handler = DocumentHandler()
-    filename = await handler.save_document(document)
-    return {"filename": filename}
+    path = await handler.save_document(document)
+    return {"path": path}
