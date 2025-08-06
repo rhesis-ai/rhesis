@@ -216,7 +216,7 @@ generate_title() {
         "API" "REST" "HTTP" "HTTPS" "URL" "URI" "GRPC"
         "UI" "UX" "CSS" "HTML" "JS" "TS" "JSX" "TSX"
         "DB" "SQL" "AWS" "GCP" "AZURE" "K8S" "DOCKER"
-        "CI" "CD" "QA" "QC"
+        "CI" "CD" "QA" "QC" "PR"
         "JWT" "AUTH" "OAUTH" "SSO" "LDAP"
         "JSON" "XML" "YAML" "YML" "CSV" "PDF"
         "SDK" "CLI" "GUI" "IDE" "VM" "VPC" "DNS"
