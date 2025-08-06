@@ -160,9 +160,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# VS Code
-#  This ignores the .vscode/ folder which is used by Visual Studio Code to store its settings.
-.vscode/
 
 # Report JSON
 #  This ignores the json report file being created
