@@ -163,7 +163,7 @@ prompt_and_push() {
         case $choice in
             1)
                 log "Pushing $push_type to remote..."
-                if git push origin "$CURRENT_BRANCH"; then
+                if git push -u origin "$CURRENT_BRANCH"; then
                     success "Successfully pushed $push_type to remote!"
                     return 0
                 else
@@ -174,7 +174,7 @@ prompt_and_push() {
                 ;;
             2)
                 log "Exiting. Please push your $push_type manually:"
-                echo "  git push origin $CURRENT_BRANCH"
+                echo "  git push -u origin $CURRENT_BRANCH"
                 echo "Then run this script again to create the PR."
                 exit 0
                 ;;
