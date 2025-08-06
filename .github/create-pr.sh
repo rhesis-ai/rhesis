@@ -325,36 +325,80 @@ PR_TITLE=$(generate_title)
 PR_DESCRIPTION=$(generate_description)
 
 log "Generated PR title: $PR_TITLE"
-log "Creating PR..."
 
-# Create the PR
-if PR_URL=$(gh pr create \
-    --base "$BASE_BRANCH" \
-    --head "$CURRENT_BRANCH" \
-    --title "$PR_TITLE" \
-    --body "$PR_DESCRIPTION" \
-    --assignee "@me" \
-    2>&1); then
-    success "Pull request created successfully!"
-    success "URL: $PR_URL"
-    
-    # Ask if user wants to open the PR in browser
-    read -p "Would you like to open the PR in your browser? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        gh pr view --web
+# Check if PR already exists
+check_existing_pr() {
+    # Try to get existing PR for this branch
+    if gh pr view "$CURRENT_BRANCH" --json url 2>/dev/null | grep -q "url"; then
+        return 0  # PR exists
+    else
+        return 1  # PR doesn't exist
+    fi
+}
+
+# Update existing PR
+update_existing_pr() {
+    log "Updating existing PR..."
+    if gh pr edit "$CURRENT_BRANCH" \
+        --title "$PR_TITLE" \
+        --body "$PR_DESCRIPTION" 2>/dev/null; then
+        success "Pull request updated successfully!"
+        PR_URL=$(gh pr view "$CURRENT_BRANCH" --json url --jq '.url' 2>/dev/null || gh pr view "$CURRENT_BRANCH" 2>/dev/null | head -1)
+        success "URL: $PR_URL"
+        return 0
+    else
+        error "Failed to update existing PR"
+        return 1
+    fi
+}
+
+# Create or update the PR
+if check_existing_pr; then
+    log "Found existing PR for branch '$CURRENT_BRANCH'"
+    if update_existing_pr; then
+        PR_UPDATED=true
+    else
+        exit 1
     fi
 else
-    error "Failed to create PR: $PR_URL"
-    exit 1
+    log "Creating new PR..."
+    # Create the PR
+    if PR_URL=$(gh pr create \
+        --base "$BASE_BRANCH" \
+        --head "$CURRENT_BRANCH" \
+        --title "$PR_TITLE" \
+        --body "$PR_DESCRIPTION" \
+        --assignee "@me" \
+        2>&1); then
+        success "Pull request created successfully!"
+        success "URL: $PR_URL"
+        PR_UPDATED=false
+    else
+        error "Failed to create PR: $PR_URL"
+        exit 1
+    fi
+fi
+
+# Ask if user wants to open the PR in browser
+read -p "Would you like to open the PR in your browser? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    gh pr view --web
 fi
 
 # Display summary
 echo
-log "PR Summary:"
+if [ "$PR_UPDATED" = true ]; then
+    log "PR Update Summary:"
+    echo "  • Action: Updated existing PR"
+else
+    log "PR Creation Summary:"
+    echo "  • Action: Created new PR"
+fi
 echo "  • Title: $PR_TITLE"
 echo "  • Base: $BASE_BRANCH → Head: $CURRENT_BRANCH"
 echo "  • Commits: $COMMIT_COUNT"
 echo "  • Files changed: $FILE_COUNT"
+echo "  • URL: $PR_URL"
 echo
 success "Done! 🎉" 
