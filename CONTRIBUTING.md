@@ -176,11 +176,11 @@ This repository includes automation scripts and tools for GitHub workflows and r
 
 An intelligent script that automates the creation of pull requests by analyzing your current branch and generating meaningful titles and descriptions. 
 
-**🔍 New: Push Detection & Auto-Resolution**
-The script now includes smart detection for unpushed content:
-- **Branch Detection**: Automatically detects if your branch doesn't exist on remote
-- **Change Detection**: Identifies local commits that haven't been pushed
+**🔍 Enhanced Features**
+The script now includes smart detection and update capabilities:
+- **Push Detection**: Automatically detects if your branch or changes aren't pushed
 - **Interactive Prompting**: Offers clear options to push content before PR creation
+- **PR Update**: Updates existing PRs instead of failing when PR already exists
 - **Force Mode**: Skip detection with `--force` flag for advanced users
 
 ### 🏷️ Release Management Script
@@ -282,6 +282,13 @@ What would you like to do? (1/2):
 ```
 ℹ️  [PR-Creator] Branch and all changes are already pushed to remote.
 ℹ️  [PR-Creator] Generated PR title: New Functionality
+```
+
+**Scenario 4: PR already exists**
+```
+ℹ️  [PR-Creator] Found existing PR for branch 'feature/new-functionality'
+ℹ️  [PR-Creator] Updating existing PR...
+✅  [SUCCESS] Pull request updated successfully!
 ```
 
 #### Branch Naming Conventions
