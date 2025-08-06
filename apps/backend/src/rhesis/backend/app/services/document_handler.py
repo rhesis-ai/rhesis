@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import UploadFile
 
 class DocumentHandler:
-    """Handles temporary document storage with explicit cleanup."""
+    """Handles temporary document storage without registry - relies on UUID uniqueness."""
     
     def __init__(self, temp_dir: Optional[str] = None, max_size: int = 5 * 1024 * 1024):  # 5MB default
         """
@@ -17,7 +17,6 @@ class DocumentHandler:
         """
         self.temp_dir = temp_dir or os.path.join(os.path.dirname(__file__), "temp")
         self.max_size = max_size
-        self._saved_documents = set()
         
         # Ensure temp directory exists
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -30,7 +29,7 @@ class DocumentHandler:
             document: FastAPI UploadFile object
             
         Returns:
-            str: Temporary path (e.g. 'uuid_filename.ext')
+            str: Temporary filename (e.g. 'uuid_filename.ext')
             
         Raises:
             ValueError: If document size exceeds limit or is empty
@@ -48,60 +47,45 @@ class DocumentHandler:
         # Reset document position after reading
         await document.seek(0)
         
-        # Generate unique identifier
+        # Generate unique filename
         ext = Path(document.filename).suffix
-        document_id = f"{uuid.uuid4().hex}{ext}"
-        path = os.path.join(self.temp_dir, document_id)
+        filename = f"{uuid.uuid4().hex}{ext}"
+        full_path = os.path.join(self.temp_dir, filename)
         
         # Save document
-        with open(path, "wb") as f:
+        with open(full_path, "wb") as f:
             f.write(content)
             
-        self._saved_documents.add(document_id)
-        return document_id
+        return filename
 
-    def get_path(self, document_id: str) -> str:
+    def get_path(self, filename: str) -> str:
         """
         Get full path for a temporary document.
         
         Args:
-            document_id: The temporary identifier returned by save_document
+            filename: The temporary filename returned by save_document
             
         Returns:
             str: Full path to the temporary document
             
         Raises:
-            FileNotFoundError: If document doesn't exist or wasn't created by this handler
+            FileNotFoundError: If document doesn't exist
         """
-        if document_id not in self._saved_documents:
-            raise FileNotFoundError(f"Document {document_id} not found or not created by this handler")
+        full_path = os.path.join(self.temp_dir, filename)
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Document {filename} not found")
             
-        path = os.path.join(self.temp_dir, document_id)
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Document {document_id} no longer exists")
-            
-        return path
+        return full_path
 
-    async def cleanup(self, document_id: Optional[str] = None) -> None:
+    async def cleanup(self, filename: str) -> None:
         """
-        Remove specified document or all documents created by this handler instance.
+        Remove specified document.
         
         Args:
-            document_id: Optional specific document to cleanup. If None, cleans up all documents.
+            filename: Document filename to cleanup.
         """
-        if document_id is not None:
-            if document_id in self._saved_documents:
-                try:
-                    path = os.path.join(self.temp_dir, document_id)
-                    os.remove(path)
-                    self._saved_documents.remove(document_id)
-                except OSError:
-                    pass  # Ignore errors during cleanup
-        else:
-            for doc_id in self._saved_documents.copy():
-                try:
-                    path = os.path.join(self.temp_dir, doc_id)
-                    os.remove(path)
-                except OSError:
-                    pass  # Ignore errors during cleanup
-            self._saved_documents.clear()
+        full_path = os.path.join(self.temp_dir, filename)
+        try:
+            os.remove(full_path)
+        except OSError:
+            pass  # File already gone or permission error
