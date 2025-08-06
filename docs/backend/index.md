@@ -9,6 +9,7 @@ Welcome to the Rhesis Backend documentation. This guide provides comprehensive i
 - [Architecture Overview](./architecture.md)
 - [Database Models](./database-models.md)
 - [API Structure](./api-structure.md)
+- [Test Result Statistics API](./test-result-stats.md)
 - [Authentication](./authentication.md)
 - [Multi-tenancy](./multi-tenancy.md)
 - [Background Tasks](./background-tasks.md)

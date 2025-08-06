@@ -1,67 +1,16 @@
+"""Main statistics calculator class with improved maintainability."""
+
 from datetime import datetime, timedelta
-import time
-from contextlib import contextmanager
-from dataclasses import dataclass
 from operator import itemgetter
-from typing import Dict, List, Tuple, Type, Optional, Any, Generator
+from typing import Dict, List, Tuple, Type, Optional, Any
 
 from sqlalchemy import extract, func, inspect
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.sql import Select
 
 from rhesis.backend.app.models import TypeLookup
-
-
-# ============================================================================
-# Configuration and Data Classes
-# ============================================================================
-
-@dataclass
-class StatsConfig:
-    """Configuration for stats calculations"""
-    default_top_items: Optional[int] = None
-    default_months: int = 6
-    enable_timing: bool = True
-    enable_debug_logging: bool = True
-
-
-@dataclass
-class DimensionInfo:
-    """Information about a model dimension"""
-    name: str
-    model: Type
-    join_column: Any
-    entity_column: Any
-    extra_filters: Optional[Any] = None
-
-
-@dataclass
-class StatsResult:
-    """Result structure for stats calculations"""
-    total: int
-    stats: Dict[str, Any]
-    history: Dict[str, Any]
-    metadata: Dict[str, Any]
-
-
-# ============================================================================
-# Utility Functions and Context Managers
-# ============================================================================
-
-@contextmanager
-def timer(operation_name: str, enabled: bool = True) -> Generator[None, None, None]:
-    """Context manager for timing operations"""
-    if not enabled:
-        yield
-        return
-    
-    start_time = time.time()
-    print(f"Starting {operation_name}")
-    try:
-        yield
-    finally:
-        elapsed = time.time() - start_time
-        print(f"{operation_name} took {elapsed:.3f}s")
+from .config import StatsConfig, DimensionInfo, StatsResult
+from .utils import timer
 
 
 class StatsCalculator:
@@ -508,25 +457,3 @@ class StatsCalculator:
             "history": result.history,
             "metadata": result.metadata,
         }
-
-
-# ============================================================================
-# Backwards Compatibility Functions (maintain existing API)
-# ============================================================================
-
-def get_entity_stats(db: Session, entity_model: Type, organization_id: str | None = None,
-                    top: int | None = None, category_columns: List[str] | None = None,
-                    months: int = 6) -> Dict:
-    """Backwards compatible function for existing API"""
-    calculator = StatsCalculator(db)
-    return calculator.get_entity_stats(entity_model, organization_id, top, category_columns, months)
-
-
-def get_related_stats(db: Session, entity_model: Type, related_model: Type, relationship_attr: str,
-                     entity_id: str | None = None, organization_id: str | None = None,
-                     top: int | None = None, category_columns: List[str] | None = None,
-                     months: int = 6) -> Dict:
-    """Backwards compatible function for existing API"""
-    calculator = StatsCalculator(db)
-    return calculator.get_related_stats(entity_model, related_model, relationship_attr,
-                                      entity_id, organization_id, top, category_columns, months)
