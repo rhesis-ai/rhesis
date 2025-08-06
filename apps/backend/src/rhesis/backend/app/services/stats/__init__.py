@@ -14,7 +14,7 @@ from .calculator import StatsCalculator
 from .utils import timer
 
 # Specialized functions
-from .test_results import get_test_result_stats
+from .test_result import get_test_result_stats
 
 __all__ = [
     # Core classes
