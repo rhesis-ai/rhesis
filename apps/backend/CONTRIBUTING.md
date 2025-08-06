@@ -454,11 +454,11 @@ cd <repo root>
 .github/pr [base-branch] [options]
 ```
 
-**🔍 New: Push Detection & Auto-Resolution**
-The tool now prevents common PR creation failures by detecting:
-- **Unpushed branches**: When your branch doesn't exist on remote
-- **Unpushed commits**: When you have local changes not pushed to remote
-- **Interactive prompting**: Clear options to push content before PR creation
+**🔍 Enhanced Features**
+The tool now prevents common PR creation failures and handles updates:
+- **Push Detection**: Detects unpushed branches and commits
+- **Interactive Prompting**: Clear options to push content before PR creation
+- **PR Updates**: Updates existing PRs instead of failing when PR already exists
 
 **Features:**
 - 🎯 **Smart title generation** - Automatically formats branch names into proper titles
