@@ -102,8 +102,25 @@ generate_title() {
     # Replace dashes and underscores with spaces
     title=$(echo "$title" | tr '_-' '  ')
 
-    # Convert to title case (capitalize first letter of each word)
+    # Convert to title case (capitalize first letter of each word, except conjunctions/prepositions)
+    # First, capitalize all words
     title=$(echo "$title" | perl -pe 's/\b(\w)/\u$1/g')
+    
+    # Then lowercase common conjunctions, prepositions, and articles (except if they're the first word)
+    local lowercase_words=(
+        "and" "or" "but" "nor" "for" "so" "yet"
+        "a" "an" "the"
+        "at" "by" "for" "in" "of" "on" "to" "up" "as" "is"
+        "with" "from" "into" "onto" "upon" "over" "under"
+        "above" "below" "across" "through" "during" "before" "after"
+        "against" "between" "among" "within" "without" "toward" "towards"
+    )
+    
+    for word in "${lowercase_words[@]}"; do
+        local cap_word=$(echo "$word" | sed 's/^./\U&/')
+        # Only lowercase if it's NOT the first word of the title (preceded by space)
+        title=$(echo "$title" | sed "s/\([[:space:]]\)$cap_word\b/\1$word/g")
+    done
 
     # Fix known abbreviations
     for abbrev in "${abbreviations[@]}"; do
