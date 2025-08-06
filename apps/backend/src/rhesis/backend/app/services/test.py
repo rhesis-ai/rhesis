@@ -13,7 +13,7 @@ from rhesis.backend.app.constants import (
 )
 from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.services.stats import get_entity_stats
+from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
     get_or_create_status,
@@ -43,8 +43,8 @@ def get_test_stats(
         top: Optional number of top items to show per dimension
         months: Number of months to include in historical stats (default: 6)
     """
-    return get_entity_stats(
-        db=db,
+    calculator = StatsCalculator(db)
+    return calculator.get_entity_stats(
         entity_model=models.Test,
         organization_id=current_user_organization_id,
         top=top,
