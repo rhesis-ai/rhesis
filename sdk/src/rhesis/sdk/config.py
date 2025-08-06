@@ -3,7 +3,7 @@ import sys
 from typing import Optional, Any, Callable, TypeVar
 
 # Default values
-DEFAULT_BASE_URL = "https://api.rhesis.com"
+DEFAULT_BASE_URL = "https://api.rhesis.ai"
 
 # Module level variables
 api_key: Optional[str] = None
