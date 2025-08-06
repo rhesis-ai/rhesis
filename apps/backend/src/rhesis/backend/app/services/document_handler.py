@@ -29,7 +29,7 @@ class DocumentHandler:
             document: FastAPI UploadFile object
             
         Returns:
-            str: Temporary filename (e.g. 'uuid_filename.ext')
+            str: Full path to the saved document (e.g. '/tmp/temp/uuid_filename.ext')
             
         Raises:
             ValueError: If document size exceeds limit or is empty
@@ -56,36 +56,16 @@ class DocumentHandler:
         with open(full_path, "wb") as f:
             f.write(content)
             
-        return filename
-
-    def get_path(self, filename: str) -> str:
-        """
-        Get full path for a temporary document.
-        
-        Args:
-            filename: The temporary filename returned by save_document
-            
-        Returns:
-            str: Full path to the temporary document
-            
-        Raises:
-            FileNotFoundError: If document doesn't exist
-        """
-        full_path = os.path.join(self.temp_dir, filename)
-        if not os.path.exists(full_path):
-            raise FileNotFoundError(f"Document {filename} not found")
-            
         return full_path
 
-    async def cleanup(self, filename: str) -> None:
+    async def cleanup(self, path: str) -> None:
         """
-        Remove specified document.
+        Remove document at the specified path.
         
         Args:
-            filename: Document filename to cleanup.
+            path: Full path to the document to cleanup.
         """
-        full_path = os.path.join(self.temp_dir, filename)
         try:
-            os.remove(full_path)
+            os.remove(path)
         except OSError:
             pass  # File already gone or permission error
