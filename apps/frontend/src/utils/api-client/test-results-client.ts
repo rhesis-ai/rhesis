@@ -5,9 +5,10 @@ import {
   TestResultCreate,
   TestResultUpdate,
   TestResultDetail,
-  TestResultStats
+  TestResultStats,
+  TestResultsStats
 } from './interfaces/test-results';
-import { StatsOptions } from './interfaces/common';
+import { StatsOptions, TestResultsStatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -65,6 +66,7 @@ export class TestResultsClient extends BaseApiClient {
     });
   }
 
+  // Legacy method for backward compatibility
   async getTestResultStats(options: StatsOptions = {}): Promise<TestResultStats> {
     const queryParams = new URLSearchParams();
     if (options.top !== undefined) queryParams.append('top', options.top.toString());
@@ -77,6 +79,78 @@ export class TestResultsClient extends BaseApiClient {
       : `${API_ENDPOINTS.testResults}/stats`;
 
     return this.fetch<TestResultStats>(url, {
+      cache: 'no-store'
+    });
+  }
+
+  // Comprehensive stats method with full API support
+  async getComprehensiveTestResultsStats(options: TestResultsStatsOptions = {}): Promise<TestResultsStats> {
+    const queryParams = new URLSearchParams();
+    
+    // Data mode
+    if (options.mode !== undefined) queryParams.append('mode', options.mode);
+    
+    // Time range options
+    if (options.months !== undefined) queryParams.append('months', options.months.toString());
+    if (options.start_date !== undefined) queryParams.append('start_date', options.start_date);
+    if (options.end_date !== undefined) queryParams.append('end_date', options.end_date);
+    
+    // Test-level filters (multiple values support)
+    if (options.test_set_ids) {
+      options.test_set_ids.forEach(id => queryParams.append('test_set_ids', id));
+    }
+    if (options.behavior_ids) {
+      options.behavior_ids.forEach(id => queryParams.append('behavior_ids', id));
+    }
+    if (options.category_ids) {
+      options.category_ids.forEach(id => queryParams.append('category_ids', id));
+    }
+    if (options.topic_ids) {
+      options.topic_ids.forEach(id => queryParams.append('topic_ids', id));
+    }
+    if (options.status_ids) {
+      options.status_ids.forEach(id => queryParams.append('status_ids', id));
+    }
+    if (options.test_ids) {
+      options.test_ids.forEach(id => queryParams.append('test_ids', id));
+    }
+    if (options.test_type_ids) {
+      options.test_type_ids.forEach(id => queryParams.append('test_type_ids', id));
+    }
+    
+    // Test run filters
+    if (options.test_run_id !== undefined) queryParams.append('test_run_id', options.test_run_id);
+    if (options.test_run_ids) {
+      options.test_run_ids.forEach(id => queryParams.append('test_run_ids', id));
+    }
+    
+    // User-related filters
+    if (options.user_ids) {
+      options.user_ids.forEach(id => queryParams.append('user_ids', id));
+    }
+    if (options.assignee_ids) {
+      options.assignee_ids.forEach(id => queryParams.append('assignee_ids', id));
+    }
+    if (options.owner_ids) {
+      options.owner_ids.forEach(id => queryParams.append('owner_ids', id));
+    }
+    
+    // Other filters
+    if (options.prompt_ids) {
+      options.prompt_ids.forEach(id => queryParams.append('prompt_ids', id));
+    }
+    if (options.priority_min !== undefined) queryParams.append('priority_min', options.priority_min.toString());
+    if (options.priority_max !== undefined) queryParams.append('priority_max', options.priority_max.toString());
+    if (options.tags) {
+      options.tags.forEach(tag => queryParams.append('tags', tag));
+    }
+
+    const queryString = queryParams.toString();
+    const url = queryString 
+      ? `${API_ENDPOINTS.testResults}/stats?${queryString}` 
+      : `${API_ENDPOINTS.testResults}/stats`;
+
+    return this.fetch<TestResultsStats>(url, {
       cache: 'no-store'
     });
   }
