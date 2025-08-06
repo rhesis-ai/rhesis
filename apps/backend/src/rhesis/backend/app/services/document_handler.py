@@ -7,99 +7,101 @@ from fastapi import UploadFile
 class DocumentHandler:
     """Handles temporary document storage with explicit cleanup."""
     
-    def __init__(self, temp_dir: Optional[str] = None, max_file_size: int = 5 * 1024 * 1024):  # 5MB default
+    def __init__(self, temp_dir: Optional[str] = None, max_size: int = 5 * 1024 * 1024):  # 5MB default
         """
-        Initialize DocumentHandler with configurable temp directory and max file size.
+        Initialize DocumentHandler with configurable temp directory and max size.
         
         Args:
             temp_dir: Optional custom temp directory path. If None, uses system temp dir
-            max_file_size: Maximum allowed file size in bytes (default 5MB)
+            max_size: Maximum allowed document size in bytes (default 5MB)
         """
         self.temp_dir = temp_dir or os.path.join(os.path.dirname(__file__), "temp")
-        self.max_file_size = max_file_size
-        self._saved_files = set()
+        self.max_size = max_size
+        self._saved_documents = set()
         
         # Ensure temp directory exists
         os.makedirs(self.temp_dir, exist_ok=True)
 
-    async def save_file(self, file: UploadFile) -> str:
+    async def save_document(self, document: UploadFile) -> str:
         """
-        Save uploaded file to temporary location with UUID prefix.
+        Save uploaded document to temporary location with UUID prefix.
         
         Args:
-            file: FastAPI UploadFile object
+            document: FastAPI UploadFile object
             
         Returns:
             str: Temporary path (e.g. 'uuid_filename.ext')
             
         Raises:
-            ValueError: If file size exceeds limit or file is empty
+            ValueError: If document size exceeds limit or is empty
         """
-        if not file.filename:
-            raise ValueError("File has no name")
+        if not document.filename:
+            raise ValueError("Document has no name")
             
-        # Read file content to check size
-        content = await file.read()
-        if len(content) > self.max_file_size:
-            raise ValueError(f"File size exceeds limit of {self.max_file_size} bytes")
+        # Read document content to check size
+        content = await document.read()
+        if len(content) > self.max_size:
+            raise ValueError(f"Document size exceeds limit of {self.max_size} bytes")
         if len(content) == 0:
-            raise ValueError("File is empty")
+            raise ValueError("Document is empty")
             
-        # Reset file position after reading
-        await file.seek(0)
+        # Reset document position after reading
+        await document.seek(0)
         
-        # Generate unique filename
-        ext = Path(file.filename).suffix
-        temp_filename = f"{uuid.uuid4().hex}{ext}"
-        temp_path = os.path.join(self.temp_dir, temp_filename)
+        # Generate unique identifier
+        ext = Path(document.filename).suffix
+        document_id = f"{uuid.uuid4().hex}{ext}"
+        path = os.path.join(self.temp_dir, document_id)
         
-        # Save file
-        with open(temp_path, "wb") as f:
+        # Save document
+        with open(path, "wb") as f:
             f.write(content)
             
-        self._saved_files.add(temp_filename)
-        return temp_filename
+        self._saved_documents.add(document_id)
+        return document_id
 
-    def get_path(self, filename: str) -> str:
+    def get_path(self, document_id: str) -> str:
         """
-        Get full path for a temporary file.
+        Get full path for a temporary document.
         
         Args:
-            filename: The temporary filename returned by save_file
+            document_id: The temporary identifier returned by save_document
             
         Returns:
-            str: Full path to the temporary file
+            str: Full path to the temporary document
             
         Raises:
-            FileNotFoundError: If file doesn't exist or wasn't created by this handler
+            FileNotFoundError: If document doesn't exist or wasn't created by this handler
         """
-        if filename not in self._saved_files:
-            raise FileNotFoundError(f"File {filename} not found or not created by this handler")
+        if document_id not in self._saved_documents:
+            raise FileNotFoundError(f"Document {document_id} not found or not created by this handler")
             
-        full_path = os.path.join(self.temp_dir, filename)
-        if not os.path.exists(full_path):
-            raise FileNotFoundError(f"File {filename} no longer exists")
+        path = os.path.join(self.temp_dir, document_id)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Document {document_id} no longer exists")
             
-        return full_path
+        return path
 
-    async def cleanup(self, filename: Optional[str] = None) -> None:
+    async def cleanup(self, document_id: Optional[str] = None) -> None:
         """
-        Remove specified file or all files created by this handler instance.
+        Remove specified document or all documents created by this handler instance.
         
         Args:
-            filename: Optional specific file to cleanup. If None, cleans up all files.
+            document_id: Optional specific document to cleanup. If None, cleans up all documents.
         """
-        if filename is not None:
-            if filename in self._saved_files:
+        if document_id is not None:
+            if document_id in self._saved_documents:
                 try:
-                    os.remove(os.path.join(self.temp_dir, filename))
-                    self._saved_files.remove(filename)
+                    path = os.path.join(self.temp_dir, document_id)
+                    os.remove(path)
+                    self._saved_documents.remove(document_id)
                 except OSError:
                     pass  # Ignore errors during cleanup
         else:
-            for fname in self._saved_files.copy():
+            for doc_id in self._saved_documents.copy():
                 try:
-                    os.remove(os.path.join(self.temp_dir, fname))
+                    path = os.path.join(self.temp_dir, doc_id)
+                    os.remove(path)
                 except OSError:
                     pass  # Ignore errors during cleanup
-            self._saved_files.clear()
+            self._saved_documents.clear()

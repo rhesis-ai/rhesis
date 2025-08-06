@@ -204,23 +204,23 @@ async def generate_text(prompt_request: PromptRequest):
 
 
 @router.post("/documents/upload", response_model=DocumentUploadResponse)
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(document: UploadFile = File(...)):
     """
     Upload a document to temporary storage.
 
-    The file will be saved in a temporary directory with a UUID prefix to avoid naming conflicts.
-    Maximum file size is 5MB.
+    The document will be saved in a temporary directory with a UUID prefix to avoid naming conflicts.
+    Maximum document size is 5MB.
 
     Args:
-        file: The file to upload (multipart/form-data)
+        document: The document to upload (multipart/form-data)
 
     Returns:
         DocumentUploadResponse: Contains the temporary path identifier
     
     Note: 
-        The file will be saved in the temporary directory and should be cleaned up after use.
-        Use the returned path to reference this file in other endpoints.
+        The document will be saved in the temporary directory and should be cleaned up after use.
+        Use the returned path to reference this document in other endpoints.
     """
     handler = DocumentHandler()
-    path = await handler.save_file(file)
+    path = await handler.save_document(document)
     return {"path": path}
