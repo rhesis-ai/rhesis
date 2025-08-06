@@ -174,7 +174,14 @@ This repository includes automation scripts and tools for GitHub workflows and r
 
 #### 📝 `create-pr.sh`
 
-An intelligent script that automates the creation of pull requests by analyzing your current branch and generating meaningful titles and descriptions.
+An intelligent script that automates the creation of pull requests by analyzing your current branch and generating meaningful titles and descriptions. 
+
+**🔍 Enhanced Features**
+The script now includes smart detection and update capabilities:
+- **Push Detection**: Automatically detects if your branch or changes aren't pushed
+- **Interactive Prompting**: Offers clear options to push content before PR creation
+- **PR Update**: Updates existing PRs instead of failing when PR already exists
+- **Force Mode**: Skip detection with `--force` flag for advanced users
 
 ### 🏷️ Release Management Script
 
@@ -215,8 +222,16 @@ For detailed information about the release process, see **[RELEASING.md](RELEASI
 # Compare to a different base branch
 ./.github/create-pr.sh develop
 
-# Short alias
+# Skip push detection (for advanced users)
+./.github/create-pr.sh --force
+
+# Get help and see all options
+./.github/create-pr.sh --help
+
+# Short alias (supports all options)
 ./.github/pr
+./.github/pr --force
+./.github/pr develop --force
 ```
 
 #### Prerequisites
@@ -228,10 +243,53 @@ For detailed information about the release process, see **[RELEASING.md](RELEASI
 #### What it does
 
 1. **Validates environment**: Checks for gh CLI and git repository
-2. **Analyzes changes**: Gets commit history and file changes between branches
-3. **Generates content**: Creates intelligent PR title and comprehensive description
-4. **Creates PR**: Uses gh CLI to create the pull request
-5. **Provides summary**: Shows PR details and optionally opens in browser
+2. **🔍 Detects unpushed content**: Checks if branch/changes exist on remote (unless `--force` is used)
+3. **🤝 Interactive resolution**: Prompts to push content if needed, with options to push now or exit
+4. **Analyzes changes**: Gets commit history and file changes between branches
+5. **Generates content**: Creates intelligent PR title and comprehensive description
+6. **Creates PR**: Uses gh CLI to create the pull request
+7. **Provides summary**: Shows PR details and optionally opens in browser
+
+#### 🚨 Push Detection Scenarios
+
+The script will detect and handle these common scenarios:
+
+**Scenario 1: Branch doesn't exist on remote**
+```
+⚠️  [WARNING] The branch 'feature/new-functionality' doesn't exist on the remote repository.
+   This means the entire branch needs to be pushed before creating a PR.
+
+Options:
+  1) Push now and continue with PR creation
+  2) Exit and push manually later
+
+What would you like to do? (1/2):
+```
+
+**Scenario 2: Branch exists but has unpushed commits**
+```
+⚠️  [WARNING] There are unpushed commits on branch 'feature/new-functionality'.
+   You have local commits that haven't been pushed to the remote repository.
+
+Options:
+  1) Push now and continue with PR creation
+  2) Exit and push manually later
+
+What would you like to do? (1/2):
+```
+
+**Scenario 3: Everything is up to date**
+```
+ℹ️  [PR-Creator] Branch and all changes are already pushed to remote.
+ℹ️  [PR-Creator] Generated PR title: New Functionality
+```
+
+**Scenario 4: PR already exists**
+```
+ℹ️  [PR-Creator] Found existing PR for branch 'feature/new-functionality'
+ℹ️  [PR-Creator] Updating existing PR...
+✅  [SUCCESS] Pull request updated successfully!
+```
 
 #### Branch Naming Conventions
 
@@ -252,7 +310,7 @@ The script intelligently handles different branch naming patterns and properly c
 - **Frontend**: UI, UX, CSS, HTML, JS, TS, JSX, TSX
 - **Backend**: DB, SQL, JWT, AUTH, OAUTH, SSO, LDAP
 - **Data**: JSON, XML, YAML, YML, CSV, PDF
-- **DevOps**: CI, CD, QA, QC
+- **DevOps**: CI, CD, QA, QC, PR
 - **Tools**: SDK, CLI, GUI, IDE, VM, VPC, DNS
 - **Business**: CRM, ERP, SAAS, PAAS, IAAS
 - **Tech**: ML, AI, NLP, OCR, IOT, AR, VR
