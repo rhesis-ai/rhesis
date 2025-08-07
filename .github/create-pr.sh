@@ -59,14 +59,14 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "Usage: $0 [BASE_BRANCH] [OPTIONS]"
             echo ""
-            echo "Creates a GitHub Pull Request from the current branch to BASE_BRANCH (default: main)"
+            echo "Creates a GitHub Pull Request from the current branch to BASE_BRANCH (default: origin/main)"
             echo ""
             echo "Options:"
             echo "  -f, --force     Skip push detection and create PR immediately"
             echo "  -h, --help      Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0              # Create PR to main branch"
+            echo "  $0              # Create PR to origin/main branch"
             echo "  $0 develop      # Create PR to develop branch"
             echo "  $0 --force      # Skip push checks and create PR immediately"
             exit 0
@@ -80,7 +80,7 @@ done
 
 # Get current branch
 CURRENT_BRANCH=$(git branch --show-current)
-BASE_BRANCH=${BASE_BRANCH:-main}
+BASE_BRANCH=${BASE_BRANCH:-origin/main}
 
 if [ "$CURRENT_BRANCH" = "$BASE_BRANCH" ]; then
     error "You're already on the base branch ($BASE_BRANCH). Please switch to a feature branch."
@@ -91,7 +91,7 @@ log "Current branch: $CURRENT_BRANCH"
 log "Base branch: $BASE_BRANCH"
 
 # Check if there are commits to create PR for
-COMMIT_COUNT=$(git rev-list --count $BASE_BRANCH..$CURRENT_BRANCH 2>/dev/null || echo "0")
+COMMIT_COUNT=$(git rev-list --no-merges --first-parent --count $BASE_BRANCH..$CURRENT_BRANCH 2>/dev/null || echo "0")
 
 if [ "$COMMIT_COUNT" = "0" ]; then
     error "No commits found between $BASE_BRANCH and $CURRENT_BRANCH."
@@ -202,10 +202,9 @@ else
     fi
 fi
 
-# Get commit information
-COMMITS=$(git log --pretty=format:"- %s (%h)" $BASE_BRANCH..$CURRENT_BRANCH)
-COMMIT_DETAILS=$(git log --pretty=format:"%h - %s (%an, %ar)" $BASE_BRANCH..$CURRENT_BRANCH)
-CHANGED_FILES=$(git diff --name-only $BASE_BRANCH..$CURRENT_BRANCH)
+# Get commit information    
+COMMIT_DETAILS=$(git log --pretty=format:"%h - %s (%an, %ar)" --first-parent --no-merges $BASE_BRANCH..$CURRENT_BRANCH)
+CHANGED_FILES=$(git log --first-parent --no-merges --format= --name-only $BASE_BRANCH..$CURRENT_BRANCH | sort -u)
 FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l)
 
 # Generate PR title based on branch name and commits
@@ -282,9 +281,6 @@ This PR introduces changes from the \`$CURRENT_BRANCH\` branch.
 
 <!-- Add a brief summary of the changes here -->
 
-## 🔄 Changes
-
-$COMMITS
 
 ## 📁 Files Changed ($FILE_COUNT files)
 
