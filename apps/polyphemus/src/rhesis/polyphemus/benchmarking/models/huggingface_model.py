@@ -144,5 +144,5 @@ class HuggingfaceModel(Model):
         )
 
     def get_recommended_request(self, prompt: str, system_prompt: Optional[str], additional_params: Optional[Dict[str, Any]]) -> Invocation:
-        additional_params.setdefault("max_new_tokens", 1)
+        additional_params.setdefault("max_new_tokens", 512)
         return Invocation(prompt=prompt, system_prompt=system_prompt, additional_params=additional_params)

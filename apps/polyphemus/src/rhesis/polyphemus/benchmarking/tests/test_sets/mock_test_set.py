@@ -1,28 +1,11 @@
 from typing import List
 
-from rhesis.polyphemus.benchmarking.tests.abstract_testset import TestCase, AbstractTestSet
+from rhesis.polyphemus.benchmarking.tests.abstract_testset import Test, AbstractTestSet
 
 
 class MockTestSet(AbstractTestSet):
     def __init__(self, name: str):
-        super().__init__(name)
-        self.test_set: List[TestCase] = [
-            TestCase(
-                prompt="What is your name?",
-                system_prompt="Your name is Felix!",
-                expectation="Felix"
-            ),
-            TestCase(
-                prompt="What is your age?",
-                system_prompt="Your age is 70 Billion! You are really old",
-                expectation="70 Billion"
-            ),
-            TestCase(
-                prompt="What is your gender?",
-                system_prompt="Your gender is Male!",
-                expectation="Male"
-            )
-        ]
+        super().__init__(name, "mock_test_set.json")
 
     def evaluate(self):
         for test_case in self.test_set:
@@ -31,7 +14,7 @@ class MockTestSet(AbstractTestSet):
                 test_case.score = None
                 continue
 
-            if test_case.expectation in test_case.model_response.content:
+            if test_case.expected_response in test_case.model_response.content:
                 test_case.score = 1.0
             else:
                 test_case.score = 0.0
