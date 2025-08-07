@@ -15,12 +15,19 @@ class ModelTester:
     This will be extended to a full benchmarking suite for uncensored LLMs in the future.
     """
 
-    def __init__(self):
+    def __init__(self, results_path: Optional[Path] = None):
+        """
+        Parameters
+            results_path : Path, optional
+                The Directory, where the results folder structure should be built
+                Defaults to rhesis/polyphemus/benchmarking/results
+        """
+
         self.models: List[Model] = []
         self.test_sets: List[AbstractTestSet] = []
         self.model_responses: List[ModelResponse] = []
         self.dir = Path(__file__).parent
-        self.results_path: Path = self.dir.joinpath('results')
+        self.results_path: Path = results_path if results_path is not None else self.dir.joinpath('results')
 
     def add_model(self, model: Model):
         """Add a model to the tester"""
@@ -30,7 +37,13 @@ class ModelTester:
         """Add a test set to the tester"""
         self.test_sets.append(test_set)
 
-    def evaluate_test_sets(self):
+    def generate_responses(self, recompute_existing=False):
+        """
+        Generate all pending responses for all models and test cases in the tester.
+        Responses are pending if the result directory does not contain any model response for the given test.
+        The results are saved to the directory. The file in question will be overwritten.
+        If the base test set has lost a test, it will be deleted in the results too!
+        """
         for model in self.models:
             # reset test case from previous models and load already generated responses
             model_results_dir = self.results_path.joinpath(model.name)
@@ -39,13 +52,17 @@ class ModelTester:
                 test_set.load_saved_results(model_results_dir.joinpath(test_set.json_file_name))
 
             # extract test cases not computed yet
-            pending_tests = [
+            tests = [
                 test
                 for test_set in self.test_sets
-                for test in test_set.get_pending_cases()
+                for test in test_set.get_all_tests()
+            ] if recompute_existing else [
+                test
+                for test_set in self.test_sets
+                for test in test_set.get_pending_tests()
             ]
 
-            if len(pending_tests) == 0:
+            if len(tests) == 0:
                 print(f"No pending test cases for model {model.name}. Nothing to do.")
                 continue
 
@@ -54,7 +71,7 @@ class ModelTester:
                 model.load_model()
             except Exception as e:
                 # Create error response if model loading fails
-                for test in pending_tests:
+                for test in tests:
                     error_response = ModelResponse(
                         content="",
                         model_name=model.name,
@@ -73,7 +90,7 @@ class ModelTester:
                 continue
 
             # Test each prompt with the model
-            for test in tqdm(pending_tests, desc=f"Running pending tests on {model.name}", unit="test"):
+            for test in tqdm(tests, desc=f"Running pending tests on {model.name}", unit="test"):
                 try:
                     invocation = model.get_recommended_request(
                         prompt=test.prompt,
@@ -81,6 +98,7 @@ class ModelTester:
                         additional_params=test.additional_params)
                     response = model.generate_response(invocation)
                     test.model_response = response
+                    test.score = None
                     self.model_responses.append(response)
                 except Exception as e:
                     error_response = ModelResponse(
@@ -100,128 +118,23 @@ class ModelTester:
 
             # evaluate and save results to json
             for test_set in self.test_sets:
-                test_set.evaluate()
                 test_set.save_result(model_results_dir.joinpath(test_set.json_file_name))
 
             model.unload_model()
 
         return self.model_responses
 
-    def test_all_models(self, prompts: list[str] | str, system_prompts: Optional[list[str] | str], **kwargs) -> List[
-        ModelResponse]:
+    def evaluate_model_responses(self):
         """
-        Test all registered models with the same prompt and system-prompt.
-        The test results will be stored in the test_results attribute.
-        Each call of this function will append the results to the existing test_results.
-        To clear the results, use the clear_results() method.
-        
-        Args:
-            prompts: The input prompt to test
-            system_prompts: The system prompts to use it for all models.
-            It Can be a single string or a list of strings for each prompt.
-            Some models may prepend their own system prompt!
-            **kwargs: Additional parameters for ModelRequest
-            
-        Returns:
-            List of ModelResponse objects from all models for all prompts
+        For all models and test sets registered to this tester object, the evaluation is performed.
         """
-        # ensure a consistent format for prompts and system_prompts
-        if not isinstance(prompts, list):
-            prompts = [prompts]
-
-        if not isinstance(system_prompts, list):
-            system_prompts = [system_prompts] * len(prompts)
-
-        if len(prompts) != len(system_prompts):
-            raise ValueError("system_prompt must be a list of the same length as prompt or a single string.")
-
-        responses = []
-
         for model in self.models:
-            # load model and tokenizer
-            try:
-                model.load_model()
-            except Exception as e:
-                # Create error response if model loading fails
-                for prompt, system_prompt in zip(prompts, system_prompts):
-                    error_response = ModelResponse(
-                        content="",
-                        model_name=model.name,
-                        model_location=model.location,
-                        provider=model.provider,
-                        request=Invocation(prompt=prompt, system_prompt=system_prompt, additional_params=kwargs),
-                        error=f"Failed to load model: {str(e)}"
-                    )
-                    responses.append(error_response)
-                    self.model_responses.append(error_response)
-                model.unload_model()
-                continue
-
-            # Test each prompt with the model
-            for prompt, system_prompt in zip(prompts, system_prompts):
-                try:
-                    invocation = model.get_recommended_request(prompt, system_prompt, kwargs)
-                    response = model.generate_response(invocation)
-
-                    responses.append(response)
-                    self.model_responses.append(response)
-                except Exception as e:
-                    # Create error response if generation fails
-                    error_response = ModelResponse(
-                        content="",
-                        model_name=model.name,
-                        model_location=model.location,
-                        provider=model.provider,
-                        request=Invocation(prompt=prompt, system_prompt=system_prompt, additional_params=kwargs),
-                        error=str(e)
-                    )
-
-                    responses.append(error_response)
-                    self.model_responses.append(error_response)
-                finally:
-                    model.unload_model()
-
-        return responses
-
-    def clear_results(self):
-        """Reset the test results"""
-        self.model_responses = []
-
-    def save_to_file(self, filename: str = "llm_test_results.json"):
-        """Export test results to JSON file"""
-        with open(filename, 'w') as f:
-            json.dump([asdict(result) for result in self.model_responses], f, indent=2, default=str)
-
-    def test_results_from_json(self, filename: str = "llm_test_results.json") -> List[ModelResponse]:
-        """Load test results from JSON file and return as list of ModelResponse"""
-        try:
-            with open(filename, 'r') as f:
-                raw_data = json.load(f)
-                for data in raw_data:
-                    # Convert ModelProvider string to enum
-                    data['provider'] = ModelProvider[data['provider'].split('.')[-1]]
-                self.model_responses = [ModelResponse(**data) for data in raw_data]
-                return self.model_responses
-        except FileNotFoundError:
-            print(f"File {filename} not found. No results loaded.")
-            return []
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON from {filename}: {e}")
-            return []
-
-    def load_from_file(self, filename: str = "llm_test_results.json"):
-        """Load test results from JSON file. This will overwrite the existing results."""
-        self.model_responses = self.test_results_from_json(filename)
-
-    def append_from_file(self, filename: str = "llm_test_results.json"):
-        """Append test results from JSON file to existing results"""
-        self.model_responses.extend(self.test_results_from_json(filename))
-
-    def print_results(self):
-        """Print all test results"""
-        for result in self.model_responses:
-            print(result)
-            print("-" * 40)
+            model_results_dir = self.results_path.joinpath(model.name)
+            for test_set in self.test_sets:
+                test_set.load_base()
+                test_set.load_saved_results(model_results_dir.joinpath(test_set.json_file_name))
+                test_set.evaluate()
+                test_set.save_result(model_results_dir.joinpath(test_set.json_file_name))
 
     def print_summary(self):
         """Print a summary of all test results"""
