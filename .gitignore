@@ -271,5 +271,9 @@ deepeval_telemetry.jsonl
 deepeval_telemetry.jsonl.gz
 deepeval_telemetry.jsonl.gz.part
 
+# Exclude .vscode/settings.json
+.vscode/*
+!.vscode/settings.json
+
 # Playground
 playground/*
