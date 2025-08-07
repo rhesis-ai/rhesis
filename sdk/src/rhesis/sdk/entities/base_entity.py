@@ -257,7 +257,7 @@ class BaseEntity:
             "Content-Type": "application/json",
         }
         
-        # Get OpenAPI schema
+        # Get OpenAPI schema 
         url = f"{client.base_url}/openapi.json"
         logger.debug(f"GET request to {url} for schema discovery")
         
