@@ -48,3 +48,8 @@ class Test(BaseModel):
 
 class GenerateTestsResponse(BaseModel):
     tests: List[Test]
+
+
+class DocumentUploadResponse(BaseModel):
+    """Response model for document upload endpoint. Returns the full path where the document is stored."""
+    path: str
