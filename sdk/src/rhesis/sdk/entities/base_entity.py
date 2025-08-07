@@ -237,7 +237,7 @@ class BaseEntity:
 
     @classmethod
     @handle_http_errors
-    def get_fields_names(cls) -> Optional[list[str]]:
+    def get_fields_with_types(cls) -> Optional[Dict[str, Any]]:
         """Get field names for this entity type using the OpenAPI schema.
         
         This method retrieves the OpenAPI schema from the API and extracts
@@ -245,11 +245,11 @@ class BaseEntity:
         and complete field information including types and descriptions.
         
         Returns:
-            Optional[list[str]]: List of field names if successful, None if failed.
+            Optional[Dict[str, Any]]: Dictionary of field names and their types if successful, None if failed.
             
         Example:
-            >>> field_names = Behavior.get_fields_names()
-            >>> print(field_names)  # ['id', 'name', 'description', 'status_id', ...]
+            >>> field_names_with_types = Behavior.get_fields_with_types()
+            >>> print(field_names_with_types)  # {'id': ['string'], 'name': ['string'], 'description': ['string'], 'status_id': ['string'], ...}
         """
         client = Client()
         headers = {
