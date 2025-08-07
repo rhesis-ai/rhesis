@@ -91,7 +91,7 @@ class AbstractTestSet(ABC):
         """
         pass
 
-    def evaluate(self):
+    def evaluate(self, recompute_existing: bool = False):
         """
         Runs the evaluation logic on all responses to the tests
         """
@@ -99,6 +99,9 @@ class AbstractTestSet(ABC):
             if test.model_response is None or test.model_response.error is not None:
                 print("No model response: Can't evaluate this test.")
                 test.score = None
+                continue
+
+            if not recompute_existing and test.score is not None:
                 continue
 
             self.evaluate_test(test)
