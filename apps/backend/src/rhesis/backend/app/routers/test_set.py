@@ -27,6 +27,7 @@ from rhesis.backend.app.services.test_set import (
 )
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.app.schemas.documents import Document
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_upload_test_set
@@ -73,6 +74,7 @@ class TestSetGenerationRequest(BaseModel):
     synthesizer_type: str = "prompt"
     num_tests: Optional[int] = None
     batch_size: int = 20
+    documents: Optional[List[Document]] = None
 
 
 class TestSetGenerationResponse(BaseModel):
@@ -247,6 +249,7 @@ async def generate_test_set(
             num_tests=test_count,
             batch_size=request.batch_size,
             prompt=generation_prompt,
+            documents=[doc.dict() for doc in request.documents] if request.documents else None,
         )
         
         logger.info(
