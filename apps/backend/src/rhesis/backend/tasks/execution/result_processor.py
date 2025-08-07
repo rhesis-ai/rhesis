@@ -25,7 +25,7 @@ def get_test_statistics(test_run: TestRun) -> Tuple[int, int, int]:
         Tuple of (total_tests, tests_passed, tests_failed)
     """
     # Get all test results for this test run
-    test_results = test_run.model_responses or []
+    test_results = test_run.test_results or []
     
     # Calculate summary statistics from test results
     total_tests = len(test_results)
