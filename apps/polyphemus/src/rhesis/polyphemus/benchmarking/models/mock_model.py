@@ -5,8 +5,8 @@ from rhesis.polyphemus.benchmarking.models.abstract_model import Model, ModelPro
 
 class MockModel(Model):
     """
-    Abstract base class for LLM models.
-    Provides a consistent interface for different LLM providers.
+    Mock model to show the usage of an Abstract Model
+    This model provides the interface, however, it doesn't have any functionality.
     """
 
     def __init__(self, name: str, location: str):
@@ -18,15 +18,13 @@ class MockModel(Model):
 
     def load_model(self):
         """
-        Load the model from its location.
-        This method should be implemented by subclasses to handle model loading.
+        If the model needs to be loaded, this method can be used to do so.
         """
         pass
 
     def unload_model(self):
         """
         Unload the model to free up resources.
-        This method should be implemented by subclasses to handle model unloading.
         """
         pass
 
