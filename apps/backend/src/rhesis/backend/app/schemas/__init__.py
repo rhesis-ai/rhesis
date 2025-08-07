@@ -23,7 +23,27 @@ from .response_pattern import (
 )
 from .risk import Risk, RiskBase, RiskCreate, RiskUpdate
 from .source import Source, SourceBase, SourceCreate, SourceUpdate
-from .stats import DimensionStats, EntityStats
+from .stats import (
+    DimensionStats, 
+    EntityStats, 
+    HistoricalStats,
+    MetricStats, 
+    OverallStats,
+    TestResultStats,
+    TestResultStatsAll,
+    TestResultStatsBehavior,
+    TestResultStatsCategory,
+    TestResultStatsMetadata,
+    TestResultStatsMetrics,
+    TestResultStatsOverall,
+    TestResultStatsResponse,
+    TestResultStatsSummary,
+    TestResultStatsTestRuns,
+    TestResultStatsTimeline,
+    TestResultStatsTopic,
+    TestRunSummary,
+    TimelineData,
+)
 from .status import Status, StatusBase, StatusCreate, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
 from .task import TaskList, TaskPayload, TaskResponse, TaskStatus, TaskRevoke, WorkerInfo, WorkerStats, WorkerStatus, HealthCheck
@@ -196,6 +216,23 @@ __all__ = [
     "TestContextUpdate",
     "EntityStats",
     "DimensionStats",
+    "HistoricalStats",
+    "MetricStats",
+    "OverallStats",
+    "TestResultStats",
+    "TestResultStatsAll",
+    "TestResultStatsBehavior",
+    "TestResultStatsCategory",
+    "TestResultStatsMetadata",
+    "TestResultStatsMetrics",
+    "TestResultStatsOverall",
+    "TestResultStatsResponse",
+    "TestResultStatsSummary",
+    "TestResultStatsTestRuns",
+    "TestResultStatsTimeline",
+    "TestResultStatsTopic",
+    "TestRunSummary",
+    "TimelineData",
     "Metric",
     "MetricBase",
     "MetricCreate",
