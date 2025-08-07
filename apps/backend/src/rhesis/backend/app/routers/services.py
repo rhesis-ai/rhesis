@@ -139,7 +139,13 @@ async def generate_tests_endpoint(
     Generate test cases using the prompt synthesizer.
 
     Args:
-        request: The request containing the prompt and number of tests
+        request: The request containing the prompt, number of tests, and optional documents
+            - Each document may contain:
+                - `name` (str): Identifier for the document.
+                - `description` (str): Short description of its purpose.
+                - `path` (str): Path to the uploaded document file.
+                - `content` (str, optional): Raw content of the document.
+                ⚠️ If both `path` and `content` are provided in a document, `content` will override `path`: the file at `path` will not be read or used.
         db: Database session
         current_user: Current authenticated user
 
@@ -149,14 +155,27 @@ async def generate_tests_endpoint(
     try:
         prompt = request.prompt
         num_tests = request.num_tests
+        documents = request.documents
         
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
-            
-        test_cases = await generate_tests(db, current_user, prompt, num_tests)
+        
+        # Convert Pydantic models to dicts
+        if documents:
+            documents_dict = [doc.dict() for doc in documents]
+
+        test_cases = await generate_tests(db, current_user, prompt, num_tests, documents_dict)
         return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        # Cleanup documents regardless of success or failure
+        if documents_dict:
+            handler = DocumentHandler()
+            for doc in documents_dict:
+                if doc.get('path'):
+                    await handler.cleanup(doc['path'])
 
 
 @router.post("/generate/text", response_model=TextResponse)
