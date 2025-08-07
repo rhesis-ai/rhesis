@@ -52,6 +52,7 @@ class HuggingfaceModel(Model):
             self.location,
         )
 
+    # noinspection PyBroadException
     def unload_model(self):
         """
         Aggressively unload the model and tokenizer to free up GPU/CPU memory.
@@ -100,6 +101,9 @@ class HuggingfaceModel(Model):
         torch.cuda.empty_cache()
 
     def generate_response(self, invocation: Invocation) -> ModelResponse:
+        """
+        Generate a response from the model for the given invocation.
+        """
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Model and tokenizer must be loaded before generating a response.")
 
@@ -144,5 +148,8 @@ class HuggingfaceModel(Model):
         )
 
     def get_recommended_request(self, prompt: str, system_prompt: Optional[str], additional_params: Optional[Dict[str, Any]]) -> Invocation:
+        """
+        Generate a recommended request for the given invocation.
+        """
         additional_params.setdefault("max_new_tokens", 512)
         return Invocation(prompt=prompt, system_prompt=system_prompt, additional_params=additional_params)
