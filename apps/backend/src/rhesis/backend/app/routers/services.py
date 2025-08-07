@@ -140,6 +140,12 @@ async def generate_tests_endpoint(
 
     Args:
         request: The request containing the prompt, number of tests, and optional documents
+            - Each document may contain:
+                - `name` (str): Identifier for the document.
+                - `description` (str): Short description of its purpose.
+                - `path` (str): Path to the uploaded document file.
+                - `content` (str, optional): Raw content of the document.
+                ⚠️ If both `path` and `content` are provided in a document, `content` will override `path`: the file at `path` will not be read or used.
         db: Database session
         current_user: Current authenticated user
 
@@ -170,6 +176,7 @@ async def generate_tests_endpoint(
             for doc in documents_dict:
                 if doc.get('path'):
                     await handler.cleanup(doc['path'])
+
 
 @router.post("/generate/text", response_model=TextResponse)
 async def generate_text(prompt_request: PromptRequest):
