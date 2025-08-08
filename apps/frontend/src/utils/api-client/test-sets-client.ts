@@ -163,7 +163,7 @@ export class TestSetsClient extends BaseApiClient {
         
         // Handle authentication errors
         if (rawResponse.status === 401 || rawResponse.status === 403) {
-          return await this.handleUnauthorizedError();
+          throw new Error('Unauthorized');
         }
         
         throw error;
