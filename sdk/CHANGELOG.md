@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-08-08
+
+### Added
+- Added `get_field_names_from_schema` method to the `BaseEntity` class. This method retrieves field names from the OpenAPI schema, enabling dynamic access to entity properties.
+
+### Changed
+- Updated the default base URL for the API endpoint.
+
+### Fixed
+- Fixed an issue with the default base URL for API endpoint.
+
+### Documentation
+- Improved the readability and logical flow of the contributing guide.
+- Enhanced the styling of the contributing guide for better user experience.
+
+
 ## [0.2.0] - 2025-07-25
 
 ### Added
