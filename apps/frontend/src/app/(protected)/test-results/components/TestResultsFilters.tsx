@@ -198,7 +198,7 @@ export default function TestResultsFilters({
               value={filters.test_run_ids?.[0] || ""}
               label="Test Run"
               onChange={(e) => handleTestRunChange(e.target.value)}
-              disabled={isLoadingTestRuns || (filters.test_set_ids?.[0] && testRuns.length === 0)}
+              disabled={isLoadingTestRuns || Boolean(filters.test_set_ids?.[0] && testRuns.length === 0)}
             >
               <MenuItem value="">All Test Runs</MenuItem>
               {testRuns.map((testRun) => (

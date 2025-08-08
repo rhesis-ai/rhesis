@@ -1,16 +1,20 @@
 [project]
 name = "rhesis-sdk"
-version = "0.2.0"
+version = "0.2.1"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     { name = "Engineering Team", email = "engineering@rhesis.ai" },
     { name = "Harry Cruz", email = "harry@rhesis.ai" },
-    { name = "Nicolai Bohn", email = "nicolai@rhesis.ai" }
+    { name = "Nicolai Bohn", email = "nicolai@rhesis.ai" },
 ]
-license = { text = "MIT" }
-keywords = ["llm", "testing", "ai", "machine-learning"]
+keywords = [
+    "llm",
+    "testing",
+    "ai",
+    "machine-learning",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -18,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Topic :: Software Development :: Testing",
-    "Topic :: Software Development :: Libraries :: Python Modules"
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "ipykernel>=6.29.5",
@@ -37,6 +41,9 @@ dependencies = [
     "tomli-w>=1.2.0",
 ]
 
+[project.license]
+text = "MIT"
+
 [project.urls]
 Homepage = "https://rhesis.ai"
 Repository = "https://github.com/rhesis-ai/rhesis"
@@ -47,9 +54,8 @@ Documentation = "https://rhesis-sdk.readthedocs.io"
 examples = [
     "jupyter",
     "matplotlib",
-    "pandas"
+    "pandas",
 ]
-
 dev = [
     "hatch>=1.14.1",
     "pytest>=8.3.4",
@@ -62,19 +68,25 @@ dev = [
     "sphinx>=8.1.3",
     "sphinx-autodoc-typehints>=3.0.1",
     "sphinx-rtd-theme>=3.0.2",
-    "myst-parser>=4.0.0"
+    "myst-parser>=4.0.0",
 ]
 
 [project.scripts]
 rhesis = "rhesis.sdk.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = [
+    "hatchling",
+]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/rhesis"]
-include = ["src/rhesis/py.typed"]
+packages = [
+    "src/rhesis",
+]
+include = [
+    "src/rhesis/py.typed",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -83,20 +95,30 @@ allow-direct-references = true
 line-length = 100
 
 [tool.ruff.lint]
-select = ["I", "E", "F"]  # I = isort, E = pycodestyle, F = pyflakes
+select = [
+    "I",
+    "E",
+    "F",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "F401",
+]
+"tests/*" = [
+    "S101",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "rhesis.sdk",
+]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
-"tests/*" = ["S101"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["rhesis.sdk"]
 
 [tool.mypy]
 python_version = "0.2.0"
@@ -111,12 +133,17 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
-packages = ["rhesis.sdk"]
-
-[[tool.mypy.overrides]]
-module = "pyarrow.*"
-ignore_missing_imports = true
+packages = [
+    "rhesis.sdk",
+]
+overrides = [
+    { module = "pyarrow.*", ignore_missing_imports = true },
+]
 
 [tool.pytest.ini_options]
-testpaths = ["../tests/sdk"]
-pythonpath = ["src"]
+testpaths = [
+    "../tests/sdk",
+]
+pythonpath = [
+    "src",
+]

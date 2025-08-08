@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-08-08
+
+### Added
+- Introduced Test Results functionality, allowing users to view and analyze test outcomes.
+- Added interfaces for handling test results statistics.
+
+### Fixed
+- Resolved an issue causing infinite loading for test sets.
+
+### Changed
+- Updated contributing guides to reflect new PR creation and update features.
+
+
 ## [0.2.0] - 2025-07-25
 
 ### Added
