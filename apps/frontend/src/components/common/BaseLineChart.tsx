@@ -130,10 +130,10 @@ export default function BaseLineChart({
           </Typography>
         )}
         <Box className={styles.chartContainer}>
-          <ResponsiveContainer width="99%" height={height}>
+          <ResponsiveContainer width="100%" height={height}>
             <LineChart 
               data={data} 
-              margin={{ top: 5, right: 5, bottom: 5, left: -20 }}
+              margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
             >
               {showGrid && <CartesianGrid strokeDasharray="3 3" />}
               <XAxis 

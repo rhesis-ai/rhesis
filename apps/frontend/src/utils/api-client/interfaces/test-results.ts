@@ -168,21 +168,43 @@ export interface TopicPassRates {
 }
 
 export interface TimelineDataPoint {
-  month: string;
-  total: number;
-  passed: number;
-  failed: number;
-  pass_rate: number;
+  date: string;
+  overall: {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  };
+  metrics?: Record<string, {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  }>;
 }
 
 export interface TestRunSummaryItem {
-  test_run_id: UUID;
+  id: UUID;
   name?: string;
+  created_at?: string;
+  total_tests?: number;
   total: number;
   passed: number;
   failed: number;
   pass_rate: number;
   started_at?: string;
+  overall?: {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  };
+  metrics?: Record<string, {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  }>;
 }
 
 export interface TestResultsStatsMetadata {
@@ -191,7 +213,9 @@ export interface TestResultsStatsMetadata {
   total_test_runs: number;
   start_date: string;
   end_date: string;
+  period?: string;
   organization_id: UUID;
+  test_run_id?: UUID | null;
   available_metrics?: string[];
   available_behaviors?: string[];
   available_categories?: string[];
