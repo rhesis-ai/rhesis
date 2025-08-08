@@ -143,7 +143,109 @@ export interface TestResultDetail extends TestResult {
   test?: TestReference;
 }
 
-// Stats interfaces for test results
+// Comprehensive stats interfaces based on API documentation
+export interface PassFailStats {
+  total: number;
+  passed: number;
+  failed: number;
+  pass_rate: number;
+}
+
+export interface MetricPassRates {
+  [metricName: string]: PassFailStats;
+}
+
+export interface BehaviorPassRates {
+  [behaviorName: string]: PassFailStats;
+}
+
+export interface CategoryPassRates {
+  [categoryName: string]: PassFailStats;
+}
+
+export interface TopicPassRates {
+  [topicName: string]: PassFailStats;
+}
+
+export interface TimelineDataPoint {
+  date: string;
+  overall: {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  };
+  metrics?: Record<string, {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  }>;
+}
+
+export interface TestRunSummaryItem {
+  id: UUID;
+  name?: string;
+  created_at?: string;
+  total_tests?: number;
+  total: number;
+  passed: number;
+  failed: number;
+  pass_rate: number;
+  started_at?: string;
+  overall?: {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  };
+  metrics?: Record<string, {
+    total: number;
+    passed: number;
+    failed: number;
+    pass_rate: number;
+  }>;
+}
+
+export interface TestResultsStatsMetadata {
+  mode: string;
+  total_test_results: number;
+  total_test_runs: number;
+  start_date: string;
+  end_date: string;
+  period?: string;
+  organization_id: UUID;
+  test_run_id?: UUID | null;
+  available_metrics?: string[];
+  available_behaviors?: string[];
+  available_categories?: string[];
+  available_topics?: string[];
+}
+
+// Main comprehensive stats interface
+export interface TestResultsStats {
+  // Core pass/fail statistics
+  overall_pass_rates?: PassFailStats;
+  
+  // Metric-level analysis
+  metric_pass_rates?: MetricPassRates;
+  
+  // Dimensional analysis
+  behavior_pass_rates?: BehaviorPassRates;
+  category_pass_rates?: CategoryPassRates;
+  topic_pass_rates?: TopicPassRates;
+  
+  // Time-based analysis
+  timeline?: TimelineDataPoint[];
+  
+  // Test run comparison
+  test_run_summary?: TestRunSummaryItem[];
+  
+  // Metadata
+  metadata: TestResultsStatsMetadata;
+}
+
+// Legacy interface for backward compatibility
 export interface TestResultStatsDimensionBreakdown {
   dimension: string;
   total: number;
