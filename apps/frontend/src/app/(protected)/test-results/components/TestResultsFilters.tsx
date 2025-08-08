@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Paper,
   Box,
@@ -16,10 +16,14 @@ import {
 } from '@mui/material';
 import { FilterList, Clear } from '@mui/icons-material';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
 interface TestResultsFiltersProps {
   onFiltersChange: (filters: Partial<TestResultsStatsOptions>) => void;
   initialFilters?: Partial<TestResultsStatsOptions>;
+  sessionToken: string;
 }
 
 const TIME_RANGES = [
@@ -31,9 +35,14 @@ const TIME_RANGES = [
 
 export default function TestResultsFilters({ 
   onFiltersChange, 
-  initialFilters = {} 
+  initialFilters = {},
+  sessionToken
 }: TestResultsFiltersProps) {
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>(initialFilters);
+  const [testSets, setTestSets] = useState<TestSet[]>([]);
+  const [testRuns, setTestRuns] = useState<TestRunDetail[]>([]);
+  const [isLoadingTestSets, setIsLoadingTestSets] = useState(false);
+  const [isLoadingTestRuns, setIsLoadingTestRuns] = useState(false);
 
   const updateFilters = useCallback((newFilters: Partial<TestResultsStatsOptions>) => {
     const updatedFilters = { ...filters, ...newFilters };
@@ -41,14 +50,87 @@ export default function TestResultsFilters({
     onFiltersChange(updatedFilters);
   }, [filters, onFiltersChange]);
 
+  // Load test sets
+  const loadTestSets = useCallback(async () => {
+    if (!sessionToken) return;
+    
+    try {
+      setIsLoadingTestSets(true);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testSetsClient = clientFactory.getTestSetsClient();
+      
+      const response = await testSetsClient.getTestSets({ limit: 100, has_runs: true });
+      setTestSets(response.data);
+    } catch (error) {
+      console.error('Failed to load test sets:', error);
+    } finally {
+      setIsLoadingTestSets(false);
+    }
+  }, [sessionToken]);
+
+  // Load test runs, optionally filtered by test set
+  const loadTestRuns = useCallback(async (testSetId?: string) => {
+    if (!sessionToken) return;
+    
+    try {
+      setIsLoadingTestRuns(true);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testRunsClient = clientFactory.getTestRunsClient();
+      
+      // Build filter for test runs based on test set if provided
+      let filter = '';
+      if (testSetId) {
+        filter = `test_configuration/test_set/id eq '${testSetId}'`;
+      }
+      
+      const response = await testRunsClient.getTestRuns({ 
+        limit: 100,
+        filter: filter || undefined 
+      });
+      setTestRuns(response.data);
+    } catch (error) {
+      console.error('Failed to load test runs:', error);
+    } finally {
+      setIsLoadingTestRuns(false);
+    }
+  }, [sessionToken]);
+
+  // Effect to load test sets on mount
+  useEffect(() => {
+    loadTestSets();
+  }, [loadTestSets]);
+
+  // Effect to reload test runs when test set filter changes
+  useEffect(() => {
+    const selectedTestSetId = filters.test_set_ids?.[0];
+    loadTestRuns(selectedTestSetId);
+  }, [filters.test_set_ids, loadTestRuns]);
+
   const handleTimeRangeChange = (months: number) => {
     updateFilters({ months, start_date: undefined, end_date: undefined });
+  };
+
+  const handleTestSetChange = (testSetId: string) => {
+    const newFilters: Partial<TestResultsStatsOptions> = {
+      test_set_ids: testSetId ? [testSetId] : undefined,
+      test_run_ids: undefined // Clear test run filter when test set changes
+    };
+    updateFilters(newFilters);
+  };
+
+  const handleTestRunChange = (testRunId: string) => {
+    const newFilters: Partial<TestResultsStatsOptions> = {
+      test_run_ids: testRunId ? [testRunId] : undefined
+    };
+    updateFilters(newFilters);
   };
 
   const clearFilters = () => {
     const clearedFilters: Partial<TestResultsStatsOptions> = { months: 6 };
     setFilters(clearedFilters);
     onFiltersChange(clearedFilters);
+    setTestRuns([]); // Clear test runs when clearing all filters
+    loadTestRuns(); // Reload all test runs
   };
 
   const hasActiveFilters = Object.keys(filters).some(key => 
@@ -88,44 +170,42 @@ export default function TestResultsFilters({
           </FormControl>
         </Grid>
 
-        {/* Test Run Filter - Placeholder for now */}
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth>
-            <InputLabel>Test Run</InputLabel>
-            <Select
-              value=""
-              label="Test Run"
-              disabled
-            >
-              <MenuItem value="">All Test Runs</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
-        {/* Test Set Filter - Placeholder for now */}
+        {/* Test Set Filter - First in order, now populated */}
         <Grid item xs={12} sm={6} md={3}>
           <FormControl fullWidth>
             <InputLabel>Test Set</InputLabel>
             <Select
-              value=""
+              value={filters.test_set_ids?.[0] || ""}
               label="Test Set"
-              disabled
+              onChange={(e) => handleTestSetChange(e.target.value)}
+              disabled={isLoadingTestSets}
             >
               <MenuItem value="">All Test Sets</MenuItem>
+              {testSets.map((testSet) => (
+                <MenuItem key={testSet.id} value={testSet.id}>
+                  {testSet.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Grid>
 
-        {/* Behavior Filter - Placeholder for now */}
+        {/* Test Run Filter - Second in order, filtered by test set */}
         <Grid item xs={12} sm={6} md={3}>
           <FormControl fullWidth>
-            <InputLabel>Behavior</InputLabel>
+            <InputLabel>Test Run</InputLabel>
             <Select
-              value=""
-              label="Behavior"
-              disabled
+              value={filters.test_run_ids?.[0] || ""}
+              label="Test Run"
+              onChange={(e) => handleTestRunChange(e.target.value)}
+              disabled={isLoadingTestRuns || (filters.test_set_ids?.[0] && testRuns.length === 0)}
             >
-              <MenuItem value="">All Behaviors</MenuItem>
+              <MenuItem value="">All Test Runs</MenuItem>
+              {testRuns.map((testRun) => (
+                <MenuItem key={testRun.id} value={testRun.id}>
+                  {testRun.name || `Test Run ${testRun.id.slice(0, 8)}`}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Grid>
@@ -137,12 +217,28 @@ export default function TestResultsFilters({
           <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
             Active filters:
           </Typography>
+          {filters.test_set_ids?.[0] && (
+            <Chip
+              key="test_set"
+              label={`Test Set: ${testSets.find(ts => ts.id === filters.test_set_ids?.[0])?.name || 'Unknown'}`}
+              size="small"
+              onDelete={() => updateFilters({ test_set_ids: undefined, test_run_ids: undefined })}
+            />
+          )}
+          {filters.test_run_ids?.[0] && (
+            <Chip
+              key="test_run"
+              label={`Test Run: ${testRuns.find(tr => tr.id === filters.test_run_ids?.[0])?.name || 'Unknown'}`}
+              size="small"
+              onDelete={() => updateFilters({ test_run_ids: undefined })}
+            />
+          )}
           {Object.entries(filters).map(([key, value]) => {
-            if (key === 'months' || !value) return null;
+            if (key === 'months' || key === 'test_set_ids' || key === 'test_run_ids' || !value) return null;
             return (
               <Chip
                 key={key}
-                label={`${key}: ${value}`}
+                label={`${key}: ${Array.isArray(value) ? value.join(', ') : value}`}
                 size="small"
                 onDelete={() => updateFilters({ [key]: undefined })}
               />

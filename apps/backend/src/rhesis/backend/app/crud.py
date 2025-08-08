@@ -291,20 +291,47 @@ def get_test_sets(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    has_runs: bool | None = None,
 ) -> List[models.TestSet]:
     """
     Get test sets with detail loading and proper filtering.
     Public test sets are visible regardless of organization.
     """
-    return (
+    query_builder = (
         QueryBuilder(db, models.TestSet)
         .with_joinedloads()
         .with_visibility_filter()  # This already handles public visibility correctly
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
-        .all()
     )
+    
+    # Add test runs filter if specified
+    if has_runs is not None:
+        def has_runs_filter(query):
+            from rhesis.backend.logging import logger
+            logger.info(f"Applying has_runs filter: {has_runs}")
+            
+            if has_runs:
+                # Only test sets that have test runs
+                filtered_query = query.join(models.TestConfiguration).join(models.TestRun).distinct()
+                logger.info("Applied filter for test sets WITH runs")
+                return filtered_query
+            else:
+                # Only test sets that don't have test runs
+                subquery = (
+                    db.query(models.TestSet.id)
+                    .join(models.TestConfiguration)
+                    .join(models.TestRun)
+                    .distinct()
+                    .subquery()
+                )
+                filtered_query = query.filter(~models.TestSet.id.in_(subquery))
+                logger.info("Applied filter for test sets WITHOUT runs")
+                return filtered_query
+        query_builder = query_builder.with_custom_filter(has_runs_filter)
+    
+    return query_builder.all()
 
 
 def create_test_set(db: Session, test_set: schemas.TestSetCreate) -> models.TestSet:

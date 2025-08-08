@@ -342,9 +342,10 @@ async def read_test_sets(
     response: Response,
     skip: int = 0,
     limit: int = 10,
-    order_by: str = "created_at",
-    order: str = "desc",
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    has_runs: bool | None = Query(None, description="Filter test sets by whether they have test runs"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -354,19 +355,27 @@ async def read_test_sets(
     Args:
         skip: Number of items to skip
         limit: Maximum number of items to return
-        order_by: Field to sort by
-        order: Sort order (asc/desc)
+        sort_by: Field to sort by
+        sort_order: Sort order (asc/desc)
         filter: OData filter string (use $filter in the query)
+        has_runs: Filter test sets by whether they have test runs.
+                 If True, only return test sets that have associated test runs.
+                 If False, only return test sets that don't have test runs.
+                 If None/omitted, return all test sets.
         db: Database session
         current_user: Current user
     """
+    from rhesis.backend.logging import logger
+    logger.info(f"test_sets endpoint called with has_runs={has_runs}")
+    
     return crud.get_test_sets(
         db=db,
         skip=skip,
         limit=limit,
-        sort_by=order_by,
-        sort_order=order,
+        sort_by=sort_by,
+        sort_order=sort_order,
         filter=filter,
+        has_runs=has_runs,
     )
 
 

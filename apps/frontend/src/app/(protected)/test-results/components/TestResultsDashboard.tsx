@@ -25,6 +25,7 @@ export default function TestResultsDashboard({ sessionToken }: TestResultsDashbo
       <TestResultsFilters 
         onFiltersChange={handleFiltersChange}
         initialFilters={filters}
+        sessionToken={sessionToken}
       />
 
       {/* Charts - Each chart makes its own API call in parallel */}
