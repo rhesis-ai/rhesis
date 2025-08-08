@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Warning as WarningIcon,
   Assessment as AssessmentIcon,
   Schedule as ScheduleIcon,
   Analytics as AnalyticsIcon
@@ -27,7 +29,31 @@ interface TestResultsSummaryProps {
   filters: Partial<TestResultsStatsOptions>;
 }
 
-
+// Helper function to get pass rate display properties based on percentage
+function getPassRateDisplay(passRate: number) {
+  if (passRate >= 80) {
+    return {
+      icon: CheckCircleIcon,
+      color: 'success.main' as const,
+      iconColor: 'success' as const,
+      stage: 'good'
+    };
+  } else if (passRate >= 50) {
+    return {
+      icon: WarningIcon,
+      color: 'warning.main' as const,
+      iconColor: 'warning' as const,
+      stage: 'medium'
+    };
+  } else {
+    return {
+      icon: CancelIcon,
+      color: 'error.main' as const,
+      iconColor: 'error' as const,
+      stage: 'poor'
+    };
+  }
+}
 
 export default function TestResultsSummary({ sessionToken, filters }: TestResultsSummaryProps) {
   const [data, setData] = useState<TestResultsStats | null>(null);
@@ -88,13 +114,17 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
   const totalPassed = test_run_summary?.reduce((sum, run) => sum + (run.overall?.passed || 0), 0) || 0;
   const totalFailed = test_run_summary?.reduce((sum, run) => sum + (run.overall?.failed || 0), 0) || 0;
   const overallPassRate = totalTests > 0 ? (totalPassed / totalTests) * 100 : 0;
+  
+  // Get display properties for pass rate
+  const passRateDisplay = getPassRateDisplay(overallPassRate);
 
-  // Get the most recent test run
-  const mostRecentRun = test_run_summary && test_run_summary.length > 0 
+  // Get the 5 most recent test runs
+  const recentTestRuns = test_run_summary && test_run_summary.length > 0 
     ? test_run_summary
         .filter(run => run.created_at) // Filter out runs without created_at
-        .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())[0]
-    : null;
+        .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
+        .slice(0, 5) // Take the 5 most recent
+    : [];
 
   return (
     <Box>
@@ -140,9 +170,9 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
           <Card sx={{ height: '100%', minHeight: 120 }}>
             <CardContent sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
               <Box display="flex" alignItems="center" gap={2}>
-                <CheckCircleIcon color="success" />
+                {React.createElement(passRateDisplay.icon, { color: passRateDisplay.iconColor })}
                 <Box>
-                  <Typography variant="h4" fontWeight="bold" color="success.main">
+                  <Typography variant="h4" fontWeight="bold" color={passRateDisplay.color}>
                     {overallPassRate.toFixed(1)}%
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -173,40 +203,58 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
         </Grid>
       </Grid>
 
-      {/* Most Recent Test Run */}
-      {mostRecentRun && (
+      {/* Recent Test Runs */}
+      {recentTestRuns.length > 0 && (
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Most Recent Test Run
+            Latest Test Runs ({recentTestRuns.length})
           </Typography>
-          <Box display="flex" alignItems="center" gap={2} mb={2}>
-            <Chip 
-              label={mostRecentRun.name} 
-              color="primary" 
-              variant="outlined"
-            />
-            <Typography variant="body2" color="text.secondary">
-              {mostRecentRun.created_at ? new Date(mostRecentRun.created_at).toLocaleString() : 'N/A'}
-            </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {recentTestRuns.map((run, index) => (
+              <Box 
+                key={run.id || index} 
+                sx={{ 
+                  p: 2, 
+                  border: 1, 
+                  borderColor: 'divider', 
+                  borderRadius: 1
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={2} mb={1}>
+                  <Chip 
+                    label={run.name || `Run ${index + 1}`} 
+                    color={index === 0 ? "primary" : "default"}
+                    variant={index === 0 ? "filled" : "outlined"}
+                    size="small"
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {run.created_at ? new Date(run.created_at).toLocaleString() : 'N/A'}
+                  </Typography>
+                  {index === 0 && (
+                    <Chip label="Most Recent" size="small" color="success" variant="outlined" />
+                  )}
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Total Tests</Typography>
+                    <Typography variant="body1" fontWeight="medium">{run.total_tests || 0}</Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Passed</Typography>
+                    <Typography variant="body1" fontWeight="medium" color="success.main">{run.overall?.passed || 0}</Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Failed</Typography>
+                    <Typography variant="body1" fontWeight="medium" color="error.main">{run.overall?.failed || 0}</Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Pass Rate</Typography>
+                    <Typography variant="body1" fontWeight="medium">{run.overall?.pass_rate?.toFixed(1) || '0.0'}%</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+            ))}
           </Box>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={3}>
-              <Typography variant="body2" color="text.secondary">Total Tests</Typography>
-              <Typography variant="h6">{mostRecentRun.total_tests || 0}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Typography variant="body2" color="text.secondary">Passed</Typography>
-              <Typography variant="h6" color="success.main">{mostRecentRun.overall?.passed || 0}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Typography variant="body2" color="text.secondary">Failed</Typography>
-              <Typography variant="h6" color="error.main">{mostRecentRun.overall?.failed || 0}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Typography variant="body2" color="text.secondary">Pass Rate</Typography>
-              <Typography variant="h6">{mostRecentRun.overall?.pass_rate?.toFixed(1) || '0.0'}%</Typography>
-            </Grid>
-          </Grid>
         </Paper>
       )}
 

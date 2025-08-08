@@ -24,6 +24,7 @@ import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 interface TestSetsQueryParams extends Partial<PaginationParams> {
   // Add any additional test-set specific query params here
+  has_runs?: boolean;
 }
 
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -105,17 +106,103 @@ export class TestSetsClient extends BaseApiClient {
   }
 
   async getTestSets(params: TestSetsQueryParams = {}): Promise<PaginatedResponse<TestSet>> {
-    const paginationParams = { ...DEFAULT_PAGINATION, ...params };
+    const { has_runs, ...paginationParams } = params;
+    const finalParams = { ...DEFAULT_PAGINATION, ...paginationParams };
     
-    const response = await this.fetchPaginated<TestSet>(
-      API_ENDPOINTS.testSets,
-      paginationParams,
-      {
-        cache: 'no-store'
+    let response: PaginatedResponse<TestSet>;
+    
+    if (has_runs !== undefined) {
+      // Build URL manually when has_runs is specified, as fetchPaginated doesn't support custom parameters
+      const queryParams = new URLSearchParams();
+      
+      // Add pagination parameters
+      if (finalParams.skip !== undefined) queryParams.append('skip', finalParams.skip.toString());
+      if (finalParams.limit !== undefined) queryParams.append('limit', finalParams.limit.toString());
+      if (finalParams.sort_by) queryParams.append('sort_by', finalParams.sort_by);
+      if (finalParams.sort_order) queryParams.append('sort_order', finalParams.sort_order);
+      
+      // Add has_runs parameter
+      queryParams.append('has_runs', has_runs.toString());
+      
+      const path = API_ENDPOINTS.testSets;
+      const queryString = queryParams.toString();
+      const url = joinUrl(this.baseUrl, queryString ? `${path}?${queryString}` : path);
+      console.log('Fetching test sets with has_runs filter:', url);
+      
+      // Use fetch to get raw response and construct paginated response manually
+      const rawResponse = await fetch(url, {
+        ...{cache: 'no-store'},
+        headers: {
+          ...this.getHeaders(),
+        },
+        credentials: 'include',
+      });
+
+      if (!rawResponse.ok) {
+        let errorMessage = '';
+        let errorData: any;
+        
+        try {
+          const contentType = rawResponse.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            errorData = await rawResponse.json();
+            errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+          } else {
+            errorMessage = await rawResponse.text();
+          }
+        } catch (parseError) {
+          errorMessage = await rawResponse.text();
+        }
+        
+        const error = new Error(`API error: ${rawResponse.status} - ${errorMessage}`) as Error & { 
+          status?: number;
+          data?: any;
+        };
+        error.status = rawResponse.status;
+        error.data = errorData;
+        
+        // Handle authentication errors
+        if (rawResponse.status === 401 || rawResponse.status === 403) {
+          return await this.handleUnauthorizedError();
+        }
+        
+        throw error;
       }
-    );
+
+      const totalCount = this.extractTotalCount(rawResponse);
+      const data = await rawResponse.json() as TestSet[];
+      const pageSize = finalParams.limit ?? 10;
+      const currentPage = Math.floor((finalParams.skip ?? 0) / pageSize);
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      response = {
+        data,
+        pagination: {
+          totalCount,
+          skip: finalParams.skip ?? 0,
+          limit: finalParams.limit ?? pageSize,
+          currentPage,
+          pageSize,
+          totalPages
+        }
+      };
+    } else {
+      // Use standard fetchPaginated when has_runs is not specified
+      response = await this.fetchPaginated<TestSet>(
+        API_ENDPOINTS.testSets,
+        finalParams,
+        {
+          cache: 'no-store'
+        }
+      );
+    }
 
     // Convert numeric priorities to string values
+    if (!response || !response.data) {
+      console.error('Invalid response from getTestSets:', response);
+      throw new Error('Invalid response structure from test sets API');
+    }
+    
     return {
       ...response,
       data: response.data.map(testSet => this.convertTestSetPriority(testSet))
