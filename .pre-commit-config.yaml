@@ -9,12 +9,12 @@ repos:
   - repo: local
     hooks:
         - id: sdk
-        name: format sdk
-        language: system
-        entry: make -C sdk format
-        files: ^sdk/
-        pass_filenames: false
-  
+          name  : format sdk
+          language: system
+          entry: make -C sdk format
+          files: ^sdk/
+          pass_filenames: false
+
 
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.8.0
@@ -26,4 +26,3 @@ repos:
   #         "pyarrow-stubs",
   #         "types-tqdm"
   #       ]
-
