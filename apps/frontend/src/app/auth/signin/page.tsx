@@ -19,11 +19,13 @@ export default function SignIn() {
         // Check for session expiration error
         const errorParam = searchParams.get('error');
         const postLogout = searchParams.get('post_logout');
+        const sessionExpired = searchParams.get('session_expired');
+        const forceLogout = searchParams.get('force_logout');
         
-        console.log('🟢 [DEBUG] Error param:', errorParam, 'Post logout:', postLogout);
+        console.log('🟢 [DEBUG] Error param:', errorParam, 'Post logout:', postLogout, 'Session expired:', sessionExpired, 'Force logout:', forceLogout);
         
-        if (errorParam === 'session_expired') {
-          console.log('🟢 [DEBUG] Session expired detected, redirecting to home');
+        if (errorParam === 'session_expired' || sessionExpired === 'true' || forceLogout === 'true') {
+          console.log('🟢 [DEBUG] Session expired/force logout detected, redirecting to home');
           // Redirect to home page for expired sessions
           window.location.href = '/';
           return;
@@ -38,21 +40,41 @@ export default function SignIn() {
 
         const incomingToken = searchParams.get('session_token');
         
+        console.log('🟢 [DEBUG] Checking for session token:', !!incomingToken);
+        console.log('🟢 [DEBUG] All search params:', Object.fromEntries(searchParams.entries()));
+        
         if (incomingToken) {
           console.log('🟢 [DEBUG] Incoming session token detected, setting cookie');
+          console.log('🟢 [DEBUG] Token length:', incomingToken.length);
           setStatus('Verifying session token...');
           
-          // Set cookie with proper domain
-          const cookieOptions = process.env.NODE_ENV === 'production' 
+          // Set cookie with proper domain - handle Docker environment
+          const isDocker = process.env.NODE_ENV === 'production' && window.location.hostname !== 'localhost';
+          const cookieOptions = isDocker
             ? `domain=rhesis.ai; path=/; secure; samesite=lax`
             : 'path=/; samesite=lax';
             
           document.cookie = `next-auth.session-token=${incomingToken}; ${cookieOptions}`;
           
+          console.log('🟢 [DEBUG] Set session cookie with options:', cookieOptions);
+          console.log('🟢 [DEBUG] Cookie set, checking if it was set correctly...');
+          
+          // Verify the cookie was set
+          setTimeout(() => {
+            const cookies = document.cookie.split(';').map(c => c.trim());
+            const sessionCookie = cookies.find(c => c.startsWith('next-auth.session-token='));
+            console.log('🟢 [DEBUG] All cookies:', cookies);
+            console.log('🟢 [DEBUG] Session cookie found:', !!sessionCookie);
+          }, 50);
+          
           setStatus('Authentication successful, redirecting...');
           const returnTo = searchParams.get('return_to') || '/dashboard';
           console.log('🟢 [DEBUG] Redirecting to:', returnTo);
-          window.location.href = returnTo;
+          
+          // Small delay to ensure cookie is set
+          setTimeout(() => {
+            window.location.href = returnTo;
+          }, 100);
           return;
         }
 

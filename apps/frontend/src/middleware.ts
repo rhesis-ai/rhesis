@@ -6,31 +6,58 @@ import { isPublicPath, ONBOARDING_PATH } from './constants/paths'
 // Helper function to verify token with backend
 async function verifySessionWithBackend(sessionToken: string) {
   try {
+    // Since we're running in Docker containers, always use the container name
+    const apiUrl = 'http://backend:8080';
+    
+    console.log('🟠 [DEBUG] Using API URL for verification:', apiUrl);
+    
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/verify?session_token=${sessionToken}`,
+      `${apiUrl}/auth/verify?session_token=${sessionToken}`,
       {
         headers: {
           Accept: 'application/json',
         },
+        // Add timeout for Docker environment
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       }
     );
 
     if (!response.ok) {
+      console.log('🟠 [DEBUG] Backend verification failed with status:', response.status);
       return false;
     }
 
     const data = await response.json();
     return data.authenticated && data.user;
   } catch (error) {
-    console.error('Backend session verification failed:', error);
+    console.error('🟠 [DEBUG] Backend session verification failed:', error);
     return false;
   }
 }
 
 // Helper function to get session token from request
 function getSessionTokenFromRequest(request: NextRequest): string | null {
-  const sessionCookie = request.cookies.get('next-auth.session-token');
-  if (!sessionCookie?.value) return null;
+  // Try multiple possible cookie names
+  const possibleCookies = [
+    'next-auth.session-token',
+    'session',
+    'authjs.session-token',
+    '__Secure-next-auth.session-token'
+  ];
+  
+  let sessionCookie = null;
+  for (const cookieName of possibleCookies) {
+    sessionCookie = request.cookies.get(cookieName);
+    if (sessionCookie?.value) {
+      console.log('🟠 [DEBUG] Found session cookie:', cookieName);
+      break;
+    }
+  }
+  
+  if (!sessionCookie?.value) {
+    console.log('🟠 [DEBUG] No session cookie found');
+    return null;
+  }
   
   const cookieValue = sessionCookie.value;
   
@@ -39,11 +66,12 @@ function getSessionTokenFromRequest(request: NextRequest): string | null {
     const sessionData = JSON.parse(cookieValue);
     // Extract the actual JWT token from the session data
     if (sessionData && typeof sessionData === 'object' && sessionData.session_token) {
+      console.log('🟠 [DEBUG] Extracted session_token from JSON');
       return sessionData.session_token;
     }
   } catch (error) {
     // If JSON parsing fails, it might be a direct JWT token
-    console.log('⚠️ [DEBUG] Session cookie is not JSON, treating as direct token');
+    console.log('🟠 [DEBUG] Session cookie is not JSON, treating as direct token');
   }
   
   // If it's not JSON or doesn't have session_token field, return as is
@@ -59,18 +87,26 @@ async function createSessionClearingResponse(url: URL, shouldCallBackendLogout: 
   if (shouldCallBackendLogout) {
     try {
       console.log('🟠 [DEBUG] Middleware calling backend logout for session expiration');
-      const logoutUrl = new URL('/auth/logout', process.env.NEXT_PUBLIC_API_BASE_URL);
+      // Since we're running in Docker containers, always use the container name
+      const apiUrl = 'http://backend:8080';
+      const logoutUrl = new URL('/auth/logout', apiUrl);
       if (sessionToken) {
         logoutUrl.searchParams.set('session_token', sessionToken);
       }
       
-      await fetch(logoutUrl.toString(), {
+      const logoutResponse = await fetch(logoutUrl.toString(), {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
+        signal: AbortSignal.timeout(3000), // 3 second timeout
       });
-      console.log('🟠 [DEBUG] Backend logout completed in middleware');
+      
+      if (logoutResponse.ok) {
+        console.log('🟠 [DEBUG] Backend logout completed in middleware');
+      } else {
+        console.warn('🟠 [DEBUG] Backend logout failed with status:', logoutResponse.status);
+      }
     } catch (error) {
       console.warn('🟠 [DEBUG] Backend logout failed in middleware (continuing with frontend cleanup):', error);
       // Continue with frontend cleanup even if backend fails
@@ -195,6 +231,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Verify session token with backend
+    console.log('🟠 [DEBUG] Verifying session token with backend...');
     const isValidBackendSession = await verifySessionWithBackend(sessionToken);
     if (!isValidBackendSession) {
       console.log('❌ Backend session validation failed - clearing all session data');
@@ -205,6 +242,8 @@ export async function middleware(request: NextRequest) {
       homeUrl.searchParams.set('force_logout', 'true');
       return await createSessionClearingResponse(homeUrl, true, sessionToken); // Call backend logout with session token
     }
+    
+    console.log('✅ Backend session validation successful');
 
     // Get session data from auth
     const session = await auth();
