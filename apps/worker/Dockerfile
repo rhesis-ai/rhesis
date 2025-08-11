@@ -20,8 +20,6 @@ RUN apt-get update && apt-get install -y \
     gcc \
     procps \
     && pip install --no-cache-dir uv \
-    && apt-get purge -y gcc \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy SDK directory
@@ -41,6 +39,11 @@ RUN uv pip install --system -r /app/requirements.txt && \
     uv pip install --system -e /app/sdk && \
     uv pip install --system -e /app/backend
 
+# Remove build dependencies after installing Python packages
+RUN apt-get purge -y gcc \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set Python path to find the modules
 ENV PYTHONPATH=/app
 
@@ -53,8 +56,13 @@ RUN useradd -m celery_user && \
 
 # Copy and set permissions for the startup script
 COPY apps/worker/start.sh /app/start.sh
+RUN chmod +x /app/start.sh && \
+    chmod +x /app/health_server.py && \
+    chown celery_user:celery_user /app/start.sh && \
+    chown celery_user:celery_user /app/health_server.py
+
+# Ensure the script is executable even after volume mounts
 RUN chmod +x /app/start.sh
-RUN chmod +x /app/health_server.py
 
 # Switch to non-root user
 USER celery_user
