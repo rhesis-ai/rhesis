@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     libpq5 \
+    postgresql-client \
+    curl \
     && pip install --no-cache-dir uv \
-    && apt-get purge -y build-essential libpq-dev \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only the dependency files for backend
@@ -32,10 +32,19 @@ RUN uv sync && uv pip install -e /app/sdk
 # Now copy the rest of your source (scripts, modules, etc.)
 COPY apps/backend/src /app/src
 
+# Copy the migration script
+COPY apps/backend/migrate.sh /app/migrate.sh
+
+# Remove build dependencies after installing Python packages
+RUN apt-get purge -y build-essential libpq-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user and remove .env files
 RUN adduser --disabled-password --gecos '' rhesis-user \
     && find /app -name ".env" -type f -delete \
-    && chown -R rhesis-user /app
+    && chown -R rhesis-user /app \
+    && chmod +x /app/migrate.sh
 
 # Switch to the non-root user
 USER rhesis-user
@@ -49,8 +58,21 @@ ENV PYTHONUNBUFFERED=1 \
 # Expose port
 EXPOSE 8080
 
-# Command to run the FastAPI application with Gunicorn
-CMD ["gunicorn", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8080", "rhesis.backend.app.main:app"]
+# Create startup script that runs migrations first
+RUN echo '#!/bin/bash\n\
+echo "🚀 Starting Rhesis Backend..."\n\
+\n\
+# Run database migrations\n\
+echo "🔄 Running database migrations..."\n\
+/app/migrate.sh\n\
+\n\
+# Start the FastAPI application\n\
+echo "🌐 Starting FastAPI application..."\n\
+exec gunicorn --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 rhesis.backend.app.main:app\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Command to run migrations and then the FastAPI application
+CMD ["/app/start.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
