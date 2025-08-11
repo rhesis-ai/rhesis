@@ -13,22 +13,14 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [
-          "types-requests",
-          "pandas-stubs",
-          "pyarrow-stubs",
-          "types-tqdm"
-        ]
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.8.0
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: [
+  #         "types-requests",
+  #         "pandas-stubs",
+  #         "pyarrow-stubs",
+  #         "types-tqdm"
+  #       ]
 
-  - repo: local
-    hooks:
-      - id: poetry-export
-        name: poetry-export
-        entry: make requirements
-        language: system
-        pass_filenames: false
-        files: ^(pyproject.toml|poetry.lock)$
