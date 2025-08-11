@@ -6,16 +6,16 @@ services:
     image: postgres:16-alpine
     container_name: rhesis-postgres
     environment:
-      POSTGRES_DB: rhesis_local_second_test
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: ${POSTGRES_DB:-rhesis_db}
+      POSTGRES_USER: ${POSTGRES_USER:-rhesis_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rhesis_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d rhesis_local_second_test"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rhesis_user} -d ${POSTGRES_DB:-rhesis_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,12 +45,12 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      - SQLALCHEMY_DATABASE_URL=postgresql://myuser:mypassword@postgres:5432/rhesis_local_second_test
-      - SQLALCHEMY_DB_DRIVER=postgresql
-      - SQLALCHEMY_DB_USER=myuser
-      - SQLALCHEMY_DB_PASS=mypassword
-      - SQLALCHEMY_DB_HOST=postgres
-      - SQLALCHEMY_DB_NAME=rhesis_local_second_test
+      - SQLALCHEMY_DATABASE_URL=${SQLALCHEMY_DATABASE_URL}
+      - SQLALCHEMY_DB_DRIVER=${SQLALCHEMY_DB_DRIVER:-postgresql}
+      - SQLALCHEMY_DB_USER=${SQLALCHEMY_DB_USER}
+      - SQLALCHEMY_DB_PASS=${SQLALCHEMY_DB_PASS}
+      - SQLALCHEMY_DB_HOST=${SQLALCHEMY_DB_HOST:-postgres}
+      - SQLALCHEMY_DB_NAME=${SQLALCHEMY_DB_NAME}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -69,8 +69,8 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - FROM_EMAIL=${FROM_EMAIL}
-      - FRONTEND_URL=http://localhost:3000
-      - BACKEND_URL=http://localhost:8080
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:8080}
     ports:
       - "8080:8080"
     depends_on:
