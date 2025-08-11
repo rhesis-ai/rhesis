@@ -6,12 +6,15 @@ repos:
       - id: end-of-file-fixer
       - id: check-merge-conflict
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.0
+  - repo: local
     hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+        - id: sdk
+        name: format sdk
+        language: system
+        entry: make -C sdk format
+        files: ^sdk/
+        pass_filenames: false
+  
 
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.8.0
