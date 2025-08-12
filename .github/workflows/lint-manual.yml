@@ -28,14 +28,25 @@ jobs:
       with:
         version: latest
 
-    - name: Install dependencies
+    - name: Install SDK dependencies
       run: |
         cd sdk
         uv sync --dev
 
-    - name: Run linting
+    - name: Install Backend dependencies
+      run: |
+        cd apps/backend
+        uv sync --dev
+
+    - name: Run SDK linting
       run: |
         cd sdk
+        make lint
+      continue-on-error: false
+
+    - name: Run Backend linting
+      run: |
+        cd apps/backend
         make lint
       continue-on-error: false
 
@@ -43,10 +54,10 @@ jobs:
       run: |
         echo "## Lint Check Results ✅" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Scope**: All Python files" >> $GITHUB_STEP_SUMMARY
+        echo "- **Scope**: SDK and Backend Python files" >> $GITHUB_STEP_SUMMARY
         echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: All checks passed successfully!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### What was checked:" >> $GITHUB_STEP_SUMMARY
-        echo "- Code formatting with ruff" >> $GITHUB_STEP_SUMMARY
-        echo "- Linting rules with ruff" >> $GITHUB_STEP_SUMMARY
+        echo "- **SDK**: Code formatting and linting with ruff" >> $GITHUB_STEP_SUMMARY
+        echo "- **Backend**: Code formatting and linting with ruff" >> $GITHUB_STEP_SUMMARY
