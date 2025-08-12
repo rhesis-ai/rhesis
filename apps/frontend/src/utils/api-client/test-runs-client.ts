@@ -26,17 +26,26 @@ export class TestRunsClient extends BaseApiClient {
   async getTestRuns(params: TestRunsQueryParams = {}): Promise<PaginatedResponse<TestRunDetail>> {
     const { test_configuration_id, filter, ...paginationParams } = params;
     
-    const queryParams = new URLSearchParams();
-    if (test_configuration_id) queryParams.append('test_configuration_id', test_configuration_id);
-    if (filter) queryParams.append('$filter', filter);
+    // Build the OData filter
+    let finalFilter = filter;
+    if (test_configuration_id) {
+      const configFilter = `test_configuration/id eq '${test_configuration_id}'`;
+      finalFilter = filter ? `(${filter}) and (${configFilter})` : configFilter;
+    }
     
-    const endpoint = queryParams.toString() 
-      ? `${API_ENDPOINTS.testRuns}?${queryParams.toString()}`
-      : API_ENDPOINTS.testRuns;
+    // Prepare parameters for fetchPaginated
+    const fetchParams = { 
+      ...DEFAULT_PAGINATION, 
+      ...paginationParams 
+    };
+    
+    if (finalFilter) {
+      (fetchParams as any).$filter = finalFilter;
+    }
 
     return this.fetchPaginated<TestRunDetail>(
-      endpoint,
-      { ...DEFAULT_PAGINATION, ...paginationParams },
+      API_ENDPOINTS.testRuns,
+      fetchParams,
       { cache: 'no-store' }
     );
   }

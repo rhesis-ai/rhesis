@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-08-08
+
+### Added
+- Added support for filtering test sets related to runs.
+- Added the ability to upload documents via the `/documents/upload` endpoint.
+- Added optional `documents` argument to the `/generate/tests` endpoint, allowing test generation based on provided documents.
+- Added response model and improved documentation for the `/documents/upload` endpoint.
+- Added router support for test result statistics.
+- Added new schema definition for test results.
+- Added "last login" functionality to user login.
+
+### Changed
+- Improved Document validation error messages.
+- Refactored the stats module to accommodate specifics of test results.
+- Refactored `test_results.py` to `test_result.py` for naming consistency and modularized the code.
+- Improved terminology consistency in document handling.
+- Updated contributing guides with PR update and creation functionalities, and macOS specificities.
+
+### Fixed
+- Fixed an issue where `None` documents were not handled correctly in the `/generate/tests` endpoint.
+- Fixed missing imports and migrated Document validator to Pydantic v2.
+- Fixed a GUID import path issue in Alembic migrations.
+- Fixed an issue ensuring all authenticated users via Auth0 have their `auth0_id` field populated.
+- Fixed Unix socket path.
+
+### Removed
+- Removed the standalone stats module.
+
+
 ## [0.2.0] - 2025-07-25
 
 ### Added

@@ -25,7 +25,7 @@ from .source import Source
 from .status import Status
 from .subscription import Subscription, SubscriptionPlan
 from .tag import Tag, TaggedItem
-from .test import Test
+from .test import Test, test_test_set_association
 from .test_configuration import TestConfiguration
 from .test_context import TestContext
 from .test_result import TestResult
@@ -74,4 +74,5 @@ __all__ = [
     "Test",
     "TestContext",
     "behavior_metric_association",
+    "test_test_set_association",
 ]

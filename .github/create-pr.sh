@@ -59,14 +59,14 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "Usage: $0 [BASE_BRANCH] [OPTIONS]"
             echo ""
-            echo "Creates a GitHub Pull Request from the current branch to BASE_BRANCH (default: main)"
+            echo "Creates a GitHub Pull Request from the current branch to BASE_BRANCH (default: origin/main)"
             echo ""
             echo "Options:"
             echo "  -f, --force     Skip push detection and create PR immediately"
             echo "  -h, --help      Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0              # Create PR to main branch"
+            echo "  $0              # Create PR to origin/main branch"
             echo "  $0 develop      # Create PR to develop branch"
             echo "  $0 --force      # Skip push checks and create PR immediately"
             exit 0
@@ -77,6 +77,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+
+# Set rhesis-ai/rhesis as default repository
+gh repo set-default rhesis-ai/rhesis
+
 
 # Get current branch
 CURRENT_BRANCH=$(git branch --show-current)
@@ -91,10 +96,10 @@ log "Current branch: $CURRENT_BRANCH"
 log "Base branch: $BASE_BRANCH"
 
 # Check if there are commits to create PR for
-COMMIT_COUNT=$(git rev-list --count $BASE_BRANCH..$CURRENT_BRANCH 2>/dev/null || echo "0")
+COMMIT_COUNT=$(git rev-list --no-merges --first-parent --count origin/$BASE_BRANCH..$CURRENT_BRANCH 2>/dev/null || echo "0")
 
 if [ "$COMMIT_COUNT" = "0" ]; then
-    error "No commits found between $BASE_BRANCH and $CURRENT_BRANCH."
+    error "No commits found between origin/$BASE_BRANCH and $CURRENT_BRANCH."
     exit 1
 fi
 
@@ -202,10 +207,9 @@ else
     fi
 fi
 
-# Get commit information
-COMMITS=$(git log --pretty=format:"- %s (%h)" $BASE_BRANCH..$CURRENT_BRANCH)
-COMMIT_DETAILS=$(git log --pretty=format:"%h - %s (%an, %ar)" $BASE_BRANCH..$CURRENT_BRANCH)
-CHANGED_FILES=$(git diff --name-only $BASE_BRANCH..$CURRENT_BRANCH)
+# Get commit information  
+COMMIT_DETAILS=$(git log --pretty=format:"%h - %s (%an, %ad)" --date='format:%Y-%m-%d %H:%M' --first-parent --no-merges origin/$BASE_BRANCH..$CURRENT_BRANCH)
+CHANGED_FILES=$(git log --first-parent --no-merges --format= --name-only origin/$BASE_BRANCH..$CURRENT_BRANCH | sort -u)
 FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l)
 
 # Generate PR title based on branch name and commits
@@ -282,9 +286,6 @@ This PR introduces changes from the \`$CURRENT_BRANCH\` branch.
 
 <!-- Add a brief summary of the changes here -->
 
-## 🔄 Changes
-
-$COMMITS
 
 ## 📁 Files Changed ($FILE_COUNT files)
 
@@ -365,7 +366,6 @@ else
     # Create the PR
     if PR_URL=$(gh pr create \
         --base "$BASE_BRANCH" \
-        --head "$CURRENT_BRANCH" \
         --title "$PR_TITLE" \
         --body "$PR_DESCRIPTION" \
         --assignee "@me" \
@@ -396,7 +396,7 @@ else
     echo "  • Action: Created new PR"
 fi
 echo "  • Title: $PR_TITLE"
-echo "  • Base: $BASE_BRANCH → Head: $CURRENT_BRANCH"
+echo "  • Base: origin/$BASE_BRANCH → Head: $CURRENT_BRANCH"
 echo "  • Commits: $COMMIT_COUNT"
 echo "  • Files changed: $FILE_COUNT"
 echo "  • URL: $PR_URL"
