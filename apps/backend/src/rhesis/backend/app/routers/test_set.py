@@ -285,9 +285,8 @@ async def generate_test_set(
         if request.documents:
             handler = DocumentHandler()
             for doc in request.documents:
-                if doc.get('path'):
-                    await handler.cleanup(doc['path'])
-
+                if doc.path:
+                    await handler.cleanup(doc.path)
 
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
