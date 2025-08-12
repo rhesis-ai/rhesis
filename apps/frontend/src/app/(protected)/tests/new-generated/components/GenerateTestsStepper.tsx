@@ -43,6 +43,8 @@ import {
 import StarIcon from '@mui/icons-material/Star';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DeleteIcon from '@mui/icons-material/Delete';
 // Types
 interface Sample {
   id: number;
@@ -51,6 +53,15 @@ interface Sample {
   topic: string;
   rating: number | null;
   feedback: string;
+}
+
+interface ProcessedDocument {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+  originalName: string;
+  status: 'uploading' | 'extracting' | 'generating' | 'completed' | 'error';
 }
 
 interface ConfigData {
@@ -356,7 +367,230 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
   );
 };
 
-// Step 2: Review Samples Component  
+// Step 2: Upload Documents Component
+const UploadDocuments = ({ 
+  sessionToken, 
+  documents, 
+  onDocumentsChange, 
+  onSubmit 
+}: {
+  sessionToken: string;
+  documents: ProcessedDocument[];
+  onDocumentsChange: (documents: ProcessedDocument[]) => void;
+  onSubmit: () => void;
+}) => {
+  const { show } = useNotifications();
+
+  const processDocument = useCallback(async (file: File) => {
+    const documentId = Math.random().toString(36).substr(2, 9);
+    
+    // Create initial document entry
+    const initialDoc: ProcessedDocument = {
+      id: documentId,
+      name: '',
+      description: '',
+      path: '',
+      originalName: file.name,
+      status: 'uploading'
+    };
+
+    // Add to documents list
+    onDocumentsChange([...documents, initialDoc]);
+
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const servicesClient = apiFactory.getServicesClient();
+
+      // Step 1: Upload document
+      const uploadResponse = await servicesClient.uploadDocument(file);
+      
+      // Update status to extracting
+      const updatedDocsAfterUpload = documents.map(doc => 
+        doc.id === documentId ? { ...doc, path: uploadResponse.path, status: 'extracting' as const } : doc
+      );
+      onDocumentsChange(updatedDocsAfterUpload);
+
+      // Step 2: Extract content (read file content for metadata generation)
+      const content = await file.text();
+
+      // Update status to generating metadata
+      const updatedDocsAfterExtract = updatedDocsAfterUpload.map(doc => 
+        doc.id === documentId ? { ...doc, status: 'generating' as const } : doc
+      );
+      onDocumentsChange(updatedDocsAfterExtract);
+
+      // Step 3: Generate metadata
+      const metadata = await servicesClient.generateDocumentMetadata(content);
+
+      // Update with final data
+      const updatedDocsAfterGenerate = updatedDocsAfterExtract.map(doc => 
+        doc.id === documentId ? {
+          ...doc,
+          name: metadata.name,
+          description: metadata.description,
+          status: 'completed' as const
+        } : doc
+      );
+      onDocumentsChange(updatedDocsAfterGenerate);
+
+      show(`Document "${file.name}" processed successfully`, { severity: 'success' });
+    } catch (error) {
+      console.error('Error processing document:', error);
+      
+      // Update status to error - need to get current documents state
+      const currentDocs = documents.find(d => d.id === documentId) ? documents : 
+        [...documents, { id: documentId, name: '', description: '', path: '', originalName: file.name, status: 'error' as const }];
+      
+      onDocumentsChange(currentDocs.map(doc => 
+        doc.id === documentId ? { ...doc, status: 'error' as const } : doc
+      ));
+      
+      show(`Failed to process document "${file.name}"`, { severity: 'error' });
+    }
+  }, [sessionToken, documents, onDocumentsChange, show]);
+
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files?.length) return;
+
+    // Process each file
+    for (const file of Array.from(files)) {
+      await processDocument(file);
+    }
+
+    // Reset input
+    event.target.value = '';
+  }, [processDocument]);
+
+  const handleDocumentUpdate = useCallback((id: string, field: 'name' | 'description', value: string) => {
+    onDocumentsChange(documents.map(doc => 
+      doc.id === id ? { ...doc, [field]: value } : doc
+    ));
+  }, [documents, onDocumentsChange]);
+
+  const handleRemoveDocument = useCallback((id: string) => {
+    onDocumentsChange(documents.filter(doc => doc.id !== id));
+  }, [documents, onDocumentsChange]);
+
+  const canProceed = documents.length === 0 || documents.every(doc => doc.status === 'completed');
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>Upload Documents</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Upload documents to enhance test generation. Documents will be processed automatically.
+      </Typography>
+
+      <Box sx={{ mb: 3 }}>
+        <input
+          type="file"
+          multiple
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+          id="document-upload"
+          accept=".pdf,.doc,.docx,.txt,.md,.html,.csv"
+        />
+        
+        <label htmlFor="document-upload">
+          <LoadingButton
+            component="span"
+            variant="contained"
+            startIcon={<UploadFileIcon />}
+            disabled={documents.some(doc => doc.status !== 'completed' && doc.status !== 'error')}
+          >
+            Upload Documents
+          </LoadingButton>
+        </label>
+      </Box>
+
+      {documents.length > 0 && (
+        <Stack spacing={2} sx={{ mb: 3 }}>
+          {documents.map((doc) => (
+            <Paper key={doc.id} sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <Typography variant="subtitle1">{doc.originalName}</Typography>
+                    <Chip
+                      label={doc.status}
+                      color={
+                        doc.status === 'completed' ? 'success' :
+                        doc.status === 'error' ? 'error' :
+                        'info'
+                      }
+                      size="small"
+                    />
+                    {doc.status !== 'uploading' && (
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => handleRemoveDocument(doc.id)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </Box>
+
+                  {doc.status === 'completed' && (
+                    <>
+                      <TextField
+                        fullWidth
+                        label="Generated Name"
+                        value={doc.name}
+                        onChange={(e) => handleDocumentUpdate(doc.id, 'name', e.target.value)}
+                        sx={{ mb: 2 }}
+                        size="small"
+                      />
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Generated Description"
+                        value={doc.description}
+                        onChange={(e) => handleDocumentUpdate(doc.id, 'description', e.target.value)}
+                        size="small"
+                      />
+                    </>
+                  )}
+
+                  {doc.status !== 'completed' && doc.status !== 'error' && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2" color="text.secondary">
+                        {doc.status === 'uploading' && 'Uploading...'}
+                        {doc.status === 'extracting' && 'Extracting content...'}
+                        {doc.status === 'generating' && 'Generating metadata...'}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {doc.status === 'error' && (
+                    <Alert severity="error" sx={{ mt: 1 }}>
+                      Failed to process this document. Please try uploading again.
+                    </Alert>
+                  )}
+                </Box>
+              </Box>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="contained"
+          onClick={onSubmit}
+          disabled={!canProceed}
+        >
+          {documents.length === 0 ? 'Skip Documents' : 'Continue'}
+        </Button>
+      </Box>
+    </Box>
+  );
+};
+
+// Step 3: Review Samples Component  
 const ReviewSamples = ({ 
   samples, 
   onSamplesChange,
@@ -611,8 +845,16 @@ const ReviewSamples = ({
   );
 };
 
-// Step 3: Confirm Generation Component
-const ConfirmGenerate = ({ samples, configData }: { samples: Sample[]; configData: ConfigData }) => {
+// Step 4: Confirm Generation Component
+const ConfirmGenerate = ({ 
+  samples, 
+  configData, 
+  documents 
+}: { 
+  samples: Sample[]; 
+  configData: ConfigData; 
+  documents: ProcessedDocument[];
+}) => {
   const ratedSamples = samples.filter(s => s.rating !== null);
   const averageRating = ratedSamples.length > 0 
     ? (ratedSamples.reduce((acc, s) => acc + (s.rating || 0), 0) / ratedSamples.length).toFixed(1)
@@ -634,6 +876,16 @@ const ConfirmGenerate = ({ samples, configData }: { samples: Sample[]; configDat
                 <Chip key={behavior} label={behavior} size="small" />
               ))}
             </Stack>
+            {documents.length > 0 && (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Documents</Typography>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                  {documents.map(doc => (
+                    <Chip key={doc.id} label={doc.name} size="small" variant="outlined" />
+                  ))}
+                </Stack>
+              </>
+            )}
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" color="text.secondary">Average Rating</Typography>
@@ -658,36 +910,37 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
   const [activeStep, setActiveStep] = useState(0);
   const [configData, setConfigData] = useState(INITIAL_CONFIG);
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const router = useRouter();
   const { show } = useNotifications();
 
-  const steps = ['Configure Generation', 'Review Samples', 'Confirm & Generate'];
+  const steps = ['Configure Generation', 'Upload Documents', 'Review Samples', 'Confirm & Generate'];
 
   const handleConfigSubmit = useCallback(async (config: ConfigData) => {
     setConfigData(config);
-    setActiveStep(1);
+    setActiveStep(1); // Move to document upload step
+  }, []);
+
+  const handleDocumentsSubmit = useCallback(async () => {
+    setActiveStep(2); // Move to review samples step
     setIsGenerating(true);
     
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
-      
-      // Debug: Check what the apiFactory looks like
-      console.log('ApiClientFactory instance:', apiFactory);
-      
       const servicesClient = apiFactory.getServicesClient();
       
-      // Debug: Check what the services client looks like
-      console.log('ServicesClient instance:', servicesClient);
-      console.log('ServicesClient methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(servicesClient)));
-      console.log('generateTests method:', servicesClient.generateTests);
-      
-      const generatedPrompt = generatePromptFromConfig(config);
+      const generatedPrompt = generatePromptFromConfig(configData);
       
       const requestPayload = {
         prompt: generatedPrompt,
-        num_tests: 5
+        num_tests: 5,
+        documents: documents.filter(doc => doc.status === 'completed').map(doc => ({
+          name: doc.name,
+          description: doc.description,
+          path: doc.path
+        }))
       };
       
       const response = await servicesClient.generateTests(requestPayload);
@@ -708,16 +961,16 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
         throw new Error('No tests generated in response');
       }
     } catch (error) {
-      console.error('Error in handleConfigSubmit:', error);
+      console.error('Error generating samples:', error);
       show('Failed to generate samples', { severity: 'error' });
-      setActiveStep(0);
+      setActiveStep(1); // Go back to documents step
     } finally {
       setIsGenerating(false);
     }
-  }, [sessionToken, show]);
+  }, [sessionToken, configData, documents, show]);
 
   const handleNext = useCallback(() => {
-    if (activeStep === 1) {
+    if (activeStep === 2) { // Review samples step
       const hasUnratedSamples = samples.some(s => s.rating === null);
       if (hasUnratedSamples) {
         show('Please rate all samples before proceeding', { severity: 'error' });
@@ -788,6 +1041,15 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
         return <ConfigureGeneration sessionToken={sessionToken} onSubmit={handleConfigSubmit} />;
       case 1:
         return (
+          <UploadDocuments 
+            sessionToken={sessionToken}
+            documents={documents}
+            onDocumentsChange={setDocuments}
+            onSubmit={handleDocumentsSubmit}
+          />
+        );
+      case 2:
+        return (
           <ReviewSamples 
             samples={samples}
             onSamplesChange={setSamples}
@@ -796,12 +1058,12 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
             isLoading={isGenerating}
           />
         );
-      case 2:
-        return <ConfirmGenerate samples={samples} configData={configData} />;
+      case 3:
+        return <ConfirmGenerate samples={samples} configData={configData} documents={documents} />;
       default:
         return null;
     }
-  }, [activeStep, sessionToken, handleConfigSubmit, samples, configData, isGenerating]);
+  }, [activeStep, sessionToken, handleConfigSubmit, handleDocumentsSubmit, documents, samples, configData, isGenerating]);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -841,13 +1103,15 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
           ) : activeStep === 0 ? (
             <LoadingButton
               variant="contained"
-              loading={isGenerating}
-              disabled={isGenerating}
+              loading={false}
+              disabled={false}
               form="generation-config-form"
               type="submit"
             >
-              Generate Samples
+              Next
             </LoadingButton>
+          ) : activeStep === 1 ? (
+            null // UploadDocuments component handles its own submit button
           ) : (
             <Button 
               variant="contained" 
