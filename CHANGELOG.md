@@ -9,8 +9,47 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 - [SDK Changelog](sdk/CHANGELOG.md)
 - [Backend Changelog](apps/backend/CHANGELOG.md)
 - [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
 
 ## [Unreleased]
+
+## [0.2.1] - 2025-08-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.1**
+- **Frontend 0.2.1**
+- **SDK 0.2.1**
+- **Polyphemus 0.1.0**
+
+### Summary of Changes
+
+**Backend v0.2.1:**
+- Added support for filtering test sets related to runs and document upload functionality via `/documents/upload` endpoint.
+- Enhanced test generation with optional documents parameter and improved response models.
+- Added test result statistics support and "last login" functionality.
+- Fixed document validation, GUID import issues, and Auth0 user handling.
+
+**Frontend v0.2.1:**
+- Introduced Test Results functionality for viewing and analyzing test outcomes.
+- Added interfaces for handling test results statistics.
+- Fixed infinite loading issues for test sets and updated contributing guides.
+
+**SDK v0.2.1:**
+- Added `get_field_names_from_schema` method to `BaseEntity` class for dynamic property access.
+- Updated default base URL for API endpoint and improved documentation.
+
+**Polyphemus v0.1.0:**
+- Initial release of the LLM inference and benchmarking service.
+- FastAPI-based REST API with Dolphin 3.0 Llama 3.1 8B model support.
+- Modular benchmarking suite and OWASP-based security test sets.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
 
 ## [0.2.0] - 2025-07-25
 

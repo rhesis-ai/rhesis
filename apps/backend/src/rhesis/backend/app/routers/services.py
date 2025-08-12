@@ -161,8 +161,7 @@ async def generate_tests_endpoint(
             raise HTTPException(status_code=400, detail="prompt is required")
         
         # Convert Pydantic models to dicts
-        if documents:
-            documents_dict = [doc.dict() for doc in documents]
+        documents_dict = [doc.dict() for doc in documents] if documents else None
 
         test_cases = await generate_tests(db, current_user, prompt, num_tests, documents_dict)
         return {"tests": test_cases}

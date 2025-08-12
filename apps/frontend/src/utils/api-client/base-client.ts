@@ -240,7 +240,7 @@ export class BaseApiClient {
    */
   protected async fetchPaginated<T>(
     endpoint: keyof typeof API_ENDPOINTS | string,
-    params: PaginationParams & { $filter?: string } = { skip: 0, limit: 10 },
+    params: PaginationParams & { $filter?: string } & Record<string, any> = { skip: 0, limit: 10 },
     options: RequestInit = {}
   ): Promise<PaginatedResponse<T>> {
     const queryParams = new URLSearchParams();
@@ -249,6 +249,14 @@ export class BaseApiClient {
     if (params.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params.$filter) queryParams.append('$filter', params.$filter);
+    
+    // Add any additional parameters (excluding the ones we've already handled)
+    const excludedParams = ['skip', 'limit', 'sort_by', 'sort_order', '$filter'];
+    Object.keys(params).forEach(key => {
+      if (!excludedParams.includes(key) && params[key] !== undefined) {
+        queryParams.append(key, params[key].toString());
+      }
+    });
 
     const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
     const queryString = queryParams.toString();
