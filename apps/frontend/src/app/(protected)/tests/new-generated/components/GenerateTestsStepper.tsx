@@ -376,7 +376,7 @@ const UploadDocuments = ({
 }: {
   sessionToken: string;
   documents: ProcessedDocument[];
-  onDocumentsChange: (documents: ProcessedDocument[]) => void;
+  onDocumentsChange: (documents: ProcessedDocument[] | ((prev: ProcessedDocument[]) => ProcessedDocument[])) => void;
   onSubmit: () => void;
 }) => {
   const { show } = useNotifications();
@@ -394,8 +394,8 @@ const UploadDocuments = ({
       status: 'uploading'
     };
 
-    // Add to documents list
-    onDocumentsChange([...documents, initialDoc]);
+    // Add to documents list using functional update
+    onDocumentsChange((prevDocs: ProcessedDocument[]) => [...prevDocs, initialDoc]);
 
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
@@ -404,50 +404,63 @@ const UploadDocuments = ({
       // Step 1: Upload document
       const uploadResponse = await servicesClient.uploadDocument(file);
       
-      // Update status to extracting
-      const updatedDocsAfterUpload = documents.map(doc => 
+      // Update status to extracting using functional update
+      onDocumentsChange((prevDocs: ProcessedDocument[]) => prevDocs.map((doc: ProcessedDocument) => 
         doc.id === documentId ? { ...doc, path: uploadResponse.path, status: 'extracting' as const } : doc
-      );
-      onDocumentsChange(updatedDocsAfterUpload);
+      ));
 
       // Step 2: Extract content (read file content for metadata generation)
       const content = await file.text();
 
-      // Update status to generating metadata
-      const updatedDocsAfterExtract = updatedDocsAfterUpload.map(doc => 
+      // Update status to generating metadata using functional update
+      onDocumentsChange((prevDocs: ProcessedDocument[]) => prevDocs.map((doc: ProcessedDocument) => 
         doc.id === documentId ? { ...doc, status: 'generating' as const } : doc
-      );
-      onDocumentsChange(updatedDocsAfterExtract);
+      ));
 
       // Step 3: Generate metadata
       const metadata = await servicesClient.generateDocumentMetadata(content);
 
-      // Update with final data
-      const updatedDocsAfterGenerate = updatedDocsAfterExtract.map(doc => 
+      // Update with final data using functional update
+      onDocumentsChange((prevDocs: ProcessedDocument[]) => prevDocs.map((doc: ProcessedDocument) => 
         doc.id === documentId ? {
           ...doc,
           name: metadata.name,
           description: metadata.description,
           status: 'completed' as const
         } : doc
-      );
-      onDocumentsChange(updatedDocsAfterGenerate);
+      ));
 
       show(`Document "${file.name}" processed successfully`, { severity: 'success' });
     } catch (error) {
       console.error('Error processing document:', error);
       
-      // Update status to error - need to get current documents state
-      const currentDocs = documents.find(d => d.id === documentId) ? documents : 
-        [...documents, { id: documentId, name: '', description: '', path: '', originalName: file.name, status: 'error' as const }];
-      
-      onDocumentsChange(currentDocs.map(doc => 
-        doc.id === documentId ? { ...doc, status: 'error' as const } : doc
-      ));
+      // Update status to error using functional update
+      onDocumentsChange((prevDocs: ProcessedDocument[]) => {
+        // Check if document exists in state
+        const docExists = prevDocs.some((d: ProcessedDocument) => d.id === documentId);
+        
+        // If document doesn't exist, add it with error status
+        if (!docExists) {
+          const errorDoc: ProcessedDocument = {
+            id: documentId,
+            name: '',
+            description: '',
+            path: '',
+            originalName: file.name,
+            status: 'error' as const
+          };
+          return [...prevDocs, errorDoc];
+        }
+        
+        // If document exists, update its status to error
+        return prevDocs.map((doc: ProcessedDocument) => 
+          doc.id === documentId ? { ...doc, status: 'error' as const } : doc
+        );
+      });
       
       show(`Failed to process document "${file.name}"`, { severity: 'error' });
     }
-  }, [sessionToken, documents, onDocumentsChange, show]);
+  }, [sessionToken, onDocumentsChange, show]);
 
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -488,7 +501,7 @@ const UploadDocuments = ({
           onChange={handleFileUpload}
           style={{ display: 'none' }}
           id="document-upload"
-          accept=".pdf,.doc,.docx,.txt,.md,.html,.csv"
+          accept=".pdf,.doc,.docx,.txt,.md,.html,.csv" // TODO: Add more file types, according to what is accepted by the extractor
         />
         
         <label htmlFor="document-upload">
