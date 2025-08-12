@@ -5,7 +5,6 @@ description = "Rhesis backend package"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "ruff>=0.11.6",
     "fastapi",
     "uvicorn",
     "sqlalchemy",
@@ -50,8 +49,9 @@ dependencies = [
     "slowapi>=0.1.9",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
+    "ruff>=0.11.6",
     "hatch>=1.14.1",
     "pytest>=8.3.4",
     "pytest-cov>=6.0.0",
