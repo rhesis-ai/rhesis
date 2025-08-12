@@ -71,5 +71,13 @@ class GenerateTestsResponse(BaseModel):
 
 
 class DocumentUploadResponse(BaseModel):
-    """Response model for document upload endpoint. Returns the full path where the document is stored."""
     path: str
+
+
+class ExtractDocumentRequest(BaseModel):
+    path: str
+
+
+class ExtractDocumentResponse(BaseModel):
+    content: str
+    format: str  
