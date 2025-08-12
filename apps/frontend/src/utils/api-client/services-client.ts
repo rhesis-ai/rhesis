@@ -33,6 +33,16 @@ interface TextResponse {
   text: string;
 }
 
+interface DocumentUploadResponse {
+  path: string;
+}
+
+interface DocumentMetadata {
+  name: string;
+  description: string;
+}
+
+
 export class ServicesClient extends BaseApiClient {
   async getGitHubContents(repo_url: string): Promise<string> {
     return this.fetch<string>(`${API_ENDPOINTS.services}/github/contents?repo_url=${encodeURIComponent(repo_url)}`);
@@ -83,6 +93,37 @@ export class ServicesClient extends BaseApiClient {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(request)
+  
     });
   }
+
+  async uploadDocument(file: File): Promise<DocumentUploadResponse> {
+    const formData = new FormData();
+    formData.append('document', file);
+
+    return this.fetch<DocumentUploadResponse>(`${API_ENDPOINTS.services}/documents/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {}
+    });
+  }
+
+  async generateDocumentMetadata(content: string): Promise<DocumentMetadata> {
+    const response = await this.generateText(`Generate a concise name and description for this document content: ${content}`);
+    
+    try {
+      const parsed = JSON.parse(response.text);
+      return {
+        name: parsed.name || 'Untitled Document',
+        description: parsed.description || ''
+      };
+    } catch {
+      const lines = response.text.split('\n');
+      return {
+        name: lines[0] || 'Untitled Document',
+        description: lines.slice(1).join('\n') || ''
+      };
+    }
+  }
+
 } 
