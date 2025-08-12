@@ -65,10 +65,7 @@ dev = [
     "factory-boy>=3.3.0",
 ]
 
-[project.scripts]
-format = "rhesis.scripts:format_code"
-lint = "rhesis.scripts:lint_code"
-lint-fix = "rhesis.scripts:lint_fix_code"
+
 
 [build-system]
 requires = [
