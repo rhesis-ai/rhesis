@@ -1,9 +1,10 @@
 """Utility functions for the Rhesis SDK."""
 
-from typing import Optional, Any, Dict, List, Union
-import tiktoken
 import json
 import re
+from typing import Any, Dict, List, Optional
+
+import tiktoken
 
 
 def count_tokens(text: str, encoding_name: str = "cl100k_base") -> Optional[int]:
@@ -38,32 +39,32 @@ def count_tokens(text: str, encoding_name: str = "cl100k_base") -> Optional[int]
 def extract_json_from_text(text: str, fallback_to_partial: bool = True) -> Dict[str, Any]:
     """
     Extract JSON from text that may contain markdown, extra text, or malformed JSON.
-    
+
     Args:
         text: The text containing JSON
         fallback_to_partial: Whether to attempt partial extraction if full parsing fails
-        
+
     Returns:
         Dict containing the parsed JSON
-        
+
     Raises:
         ValueError: If no valid JSON can be extracted
     """
     # Remove markdown code blocks
-    cleaned_text = re.sub(r'```json\s*', '', text)
-    cleaned_text = re.sub(r'```\s*$', '', cleaned_text)
-    
+    cleaned_text = re.sub(r"```json\s*", "", text)
+    cleaned_text = re.sub(r"```\s*$", "", cleaned_text)
+
     # Find the JSON object (look for the first { and last })
-    start_idx = cleaned_text.find('{')
-    end_idx = cleaned_text.rfind('}')
-    
+    start_idx = cleaned_text.find("{")
+    end_idx = cleaned_text.rfind("}")
+
     if start_idx == -1 or end_idx == -1:
         if fallback_to_partial:
             return extract_partial_json(text)
         raise ValueError("No valid JSON object found in text")
-    
-    json_text = cleaned_text[start_idx:end_idx + 1].strip()
-    
+
+    json_text = cleaned_text[start_idx : end_idx + 1].strip()
+
     try:
         return json.loads(json_text)
     except json.JSONDecodeError:
@@ -76,22 +77,22 @@ def extract_partial_json(text: str) -> Dict[str, Any]:
     """
     Extract partial JSON when full parsing fails.
     Attempts to find and parse individual objects or arrays.
-    
+
     Args:
         text: The text containing malformed JSON
-        
+
     Returns:
         Dict with extracted data, may contain empty structures
     """
     result = {}
-    
+
     # Try to extract common patterns
     patterns = {
-        'tests': r'"tests"\s*:\s*\[(.*?)\]',
-        'data': r'"data"\s*:\s*\[(.*?)\]',
-        'results': r'"results"\s*:\s*\[(.*?)\]',
+        "tests": r'"tests"\s*:\s*\[(.*?)\]',
+        "data": r'"data"\s*:\s*\[(.*?)\]',
+        "results": r'"results"\s*:\s*\[(.*?)\]',
     }
-    
+
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.DOTALL)
         if match:
@@ -100,29 +101,29 @@ def extract_partial_json(text: str) -> Dict[str, Any]:
             if objects:
                 result[key] = objects
                 break
-    
+
     return result if result else {"tests": []}
 
 
 def extract_objects_from_array(array_content: str) -> List[Dict[str, Any]]:
     """
     Extract individual JSON objects from array content.
-    
+
     Args:
         array_content: String content of a JSON array
-        
+
     Returns:
         List of parsed objects
     """
     objects = []
-    
+
     # Look for individual objects with common patterns
     object_patterns = [
         r'\{[^{}]*"prompt"[^{}]*\}',  # Objects with prompt field
         r'\{[^{}]*"content"[^{}]*\}',  # Objects with content field
-        r'\{[^{}]*"test"[^{}]*\}',     # Objects with test field
+        r'\{[^{}]*"test"[^{}]*\}',  # Objects with test field
     ]
-    
+
     for pattern in object_patterns:
         matches = re.findall(pattern, array_content, re.DOTALL)
         for match in matches:
@@ -132,18 +133,18 @@ def extract_objects_from_array(array_content: str) -> List[Dict[str, Any]]:
                     objects.append(obj)
             except json.JSONDecodeError:
                 continue
-    
+
     return objects
 
 
 def safe_json_loads(text: str, default: Any = None) -> Any:
     """
     Safely load JSON with fallback to default value.
-    
+
     Args:
         text: JSON string to parse
         default: Default value if parsing fails
-        
+
     Returns:
         Parsed JSON or default value
     """
@@ -156,46 +157,46 @@ def safe_json_loads(text: str, default: Any = None) -> Any:
 def validate_test_case(test_case: Dict[str, Any]) -> bool:
     """
     Validate that a test case has the required structure.
-    
+
     Args:
         test_case: Dictionary representing a test case
-        
+
     Returns:
         True if valid, False otherwise
     """
     if not isinstance(test_case, dict):
         return False
-    
+
     # Check for required prompt structure
     if "prompt" not in test_case:
         return False
-    
+
     prompt = test_case["prompt"]
     if not isinstance(prompt, dict):
         return False
-    
+
     if "content" not in prompt:
         return False
-    
+
     if not isinstance(prompt["content"], str) or not prompt["content"].strip():
         return False
-    
+
     return True
 
 
 def clean_and_validate_tests(tests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Clean and validate a list of test cases.
-    
+
     Args:
         tests: List of test case dictionaries
-        
+
     Returns:
         List of valid test cases
     """
     if not isinstance(tests, list):
         return []
-    
+
     valid_tests = []
     for test in tests:
         if validate_test_case(test):
@@ -205,10 +206,10 @@ def clean_and_validate_tests(tests: List[Dict[str, Any]]) -> List[Dict[str, Any]
                 "behavior": test.get("behavior", "Unknown"),
                 "category": test.get("category", "Unknown"),
                 "topic": test.get("topic", "General"),
-                **test  # Keep any additional fields
+                **test,  # Keep any additional fields
             }
             valid_tests.append(cleaned_test)
-    
+
     return valid_tests
 
 
@@ -224,4 +225,5 @@ def get_file_content(file_path: str) -> str:
 def ensure_directory_exists(directory_path: str) -> None:
     """Ensure a directory exists, creating it if necessary."""
     import os
+
     os.makedirs(directory_path, exist_ok=True)

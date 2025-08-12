@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 # Docling imports are done locally to avoid circular imports
 
@@ -17,14 +17,22 @@ class DocumentExtractor:
         self.supported_extensions = {
             # Document formats
             ".pdf",
-            ".docx", ".xlsx", ".pptx",  # MS Office formats
+            ".docx",
+            ".xlsx",
+            ".pptx",  # MS Office formats
             ".md",  # Markdown
             ".adoc",  # AsciiDoc
-            ".html", ".xhtml",  # HTML formats
+            ".html",
+            ".xhtml",  # HTML formats
             ".csv",  # CSV files
             ".txt",  # Plain text files
             # Image formats
-            ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".tiff",
+            ".bmp",
+            ".webp",
             # Schema-specific formats
             ".xml",  # USPTO XML, JATS XML
             ".json",  # Docling JSON
@@ -71,9 +79,7 @@ class DocumentExtractor:
                 continue
 
             # Neither content nor path provided
-            raise ValueError(
-                f"Document '{name}' must have either 'content' or 'path' field"
-            )
+            raise ValueError(f"Document '{name}' must have either 'content' or 'path' field")
 
         return extracted_texts
 
@@ -106,15 +112,15 @@ class DocumentExtractor:
         try:
             # Special handling for plain text files - read directly
             if file_extension == ".txt":
-                with open(file_path, 'r', encoding='utf-8') as file:
+                with open(file_path, "r", encoding="utf-8") as file:
                     return file.read().strip()
-            
+
             # Use Docling to extract text from the file
             from docling.document_converter import DocumentConverter
-            
+
             converter = DocumentConverter()
             result = converter.convert(file_path)
-            
+
             # Export to markdown and extract the text
             extracted_text = result.document.export_to_markdown()
             return extracted_text.strip() if extracted_text else ""
