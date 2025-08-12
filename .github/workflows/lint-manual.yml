@@ -1,0 +1,52 @@
+name: Manual Lint Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to check (defaults to current branch)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for git diff
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+      with:
+        version: latest
+
+    - name: Install dependencies
+      run: |
+        cd sdk
+        uv sync --dev
+
+    - name: Run linting
+      run: |
+        cd sdk
+        make lint
+      continue-on-error: false
+
+    - name: Lint Summary
+      run: |
+        echo "## Lint Check Results ✅" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Scope**: All Python files" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: All checks passed successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### What was checked:" >> $GITHUB_STEP_SUMMARY
+        echo "- Code formatting with ruff" >> $GITHUB_STEP_SUMMARY
+        echo "- Linting rules with ruff" >> $GITHUB_STEP_SUMMARY
