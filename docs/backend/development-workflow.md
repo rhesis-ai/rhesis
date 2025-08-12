@@ -31,7 +31,7 @@ The `--reload` flag enables auto-reloading when code changes are detected.
 The project uses `ruff` for code formatting. Format your code using:
 
 ```bash
-python -m rhesis.scripts format
+uv run --all-groups ruff format .
 ```
 
 This ensures consistent code style across the project.
@@ -41,13 +41,13 @@ This ensures consistent code style across the project.
 Run the linter to check for code quality issues:
 
 ```bash
-python -m rhesis.scripts lint
+uv run --all-groups ruff check .
 ```
 
 Fix automatically fixable issues:
 
 ```bash
-python -m rhesis.scripts lint-fix
+uv run --all-groups ruff check --fix .
 ```
 
 ### Type Checking

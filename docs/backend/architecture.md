@@ -19,7 +19,6 @@ The Rhesis backend is built with FastAPI, a modern Python web framework designed
 apps/backend/
 ├── src/
 │   └── rhesis/
-│       ├── scripts.py           # CLI utility scripts
 │       └── backend/
 │           ├── __init__.py      # Package initialization
 │           ├── app/             # Main application code
