@@ -101,11 +101,36 @@ export class ServicesClient extends BaseApiClient {
     const formData = new FormData();
     formData.append('document', file);
 
-    return this.fetch<DocumentUploadResponse>(`${API_ENDPOINTS.services}/documents/upload`, {
+    // For multipart/form-data, we need to override the default headers
+    // Create headers object without Content-Type so browser can set it correctly
+    const headers: Record<string, string> = {};
+    
+    // Add authorization if we have a session token (copied from BaseApiClient logic)
+    if (this.sessionToken) {
+      headers['Authorization'] = `Bearer ${this.sessionToken}`;
+    }
+
+    // Use direct fetch to avoid BaseApiClient's default Content-Type header
+    const path = `${this.baseUrl}/services/documents/upload`;
+    const response = await fetch(path, {
       method: 'POST',
       body: formData,
-      headers: {}
+      headers,
+      credentials: 'include'
     });
+
+    if (!response.ok) {
+      let errorMessage = '';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorData.message || 'Upload failed';
+      } catch {
+        errorMessage = await response.text();
+      }
+      throw new Error(`API error: ${response.status} - ${errorMessage}`);
+    }
+
+    return response.json() as Promise<DocumentUploadResponse>;
   }
 
   async generateDocumentMetadata(content: string): Promise<DocumentMetadata> {
