@@ -638,15 +638,16 @@ const ReviewSamples = ({
   onSamplesChange,
   sessionToken, 
   configData,
+  documents,
   isLoading = false
 }: {
   samples: Sample[];
   onSamplesChange: (samples: Sample[]) => void;
   sessionToken: string;
   configData: ConfigData;
+  documents: ProcessedDocument[];
   isLoading?: boolean;
-}) => {
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+}) => {  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [regenerating, setRegenerating] = useState<Set<number>>(new Set());
   const { show } = useNotifications();
 
@@ -668,17 +669,23 @@ const ReviewSamples = ({
     setIsLoadingMore(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
-      
-      // Debug: Check the services client here too
       const servicesClient = apiFactory.getServicesClient();
-      console.log('ServicesClient (loadMoreSamples):', servicesClient);
-      console.log('generateTests method exists:', typeof servicesClient.generateTests === 'function');
+      
+      // Create documents payload with content instead of paths
+      const documentPayload = documents
+        .filter(doc => doc.status === 'completed')
+        .map(doc => ({
+          name: doc.name,
+          description: doc.description,
+          content: doc.content
+        }));
       
       const response = await servicesClient.generateTests({
         prompt: generatePromptFromConfig(configData),
-        num_tests: 5
+        num_tests: 5,
+        documents: documentPayload
       });
-
+  
       if (response.tests?.length) {
         const newSamples: Sample[] = response.tests.map((test, index) => ({
           id: Math.max(...samples.map(s => s.id), 0) + index + 1,
@@ -698,7 +705,8 @@ const ReviewSamples = ({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [sessionToken, configData, samples, onSamplesChange, show]);
+  }, [sessionToken, configData, documents, samples, onSamplesChange, show]); 
+
 
   const regenerateSample = useCallback(async (sampleId: number) => {
     const sample = samples.find(s => s.id === sampleId);
@@ -1104,6 +1112,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
             onSamplesChange={setSamples}
             sessionToken={sessionToken}
             configData={configData}
+            documents={documents} 
             isLoading={isGenerating}
           />
         );
