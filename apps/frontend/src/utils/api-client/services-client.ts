@@ -43,6 +43,11 @@ interface DocumentMetadata {
 }
 
 
+interface ExtractDocumentResponse {
+  content: string;
+  format: string;
+}
+
 export class ServicesClient extends BaseApiClient {
   async getGitHubContents(repo_url: string): Promise<string> {
     return this.fetch<string>(`${API_ENDPOINTS.services}/github/contents?repo_url=${encodeURIComponent(repo_url)}`);
@@ -161,5 +166,12 @@ export class ServicesClient extends BaseApiClient {
       description: ''
     };
   }
+  }
+  
+  async extractDocument(path: string): Promise<ExtractDocumentResponse> {
+    return this.fetch<ExtractDocumentResponse>(`${API_ENDPOINTS.services}/documents/extract`, {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
   }
 }
