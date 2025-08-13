@@ -1,0 +1,35 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+        - id: sdk
+          name  : format sdk
+          language: system
+          entry: make -C sdk format
+          files: ^sdk/
+          pass_filenames: false
+
+        - id: backend
+          name  : format backend
+          language: system
+          entry: make -C apps/backend format
+          files: ^apps/backend/
+          pass_filenames: false
+
+
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.8.0
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: [
+  #         "types-requests",
+  #         "pandas-stubs",
+  #         "pyarrow-stubs",
+  #         "types-tqdm"
+  #       ]

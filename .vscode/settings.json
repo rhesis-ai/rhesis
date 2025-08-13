@@ -1,3 +1,14 @@
 {
     "python.envFile": "",
+    "editor.rulers": [
+        100
+    ],
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    }
 }
