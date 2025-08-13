@@ -60,9 +60,11 @@ interface ProcessedDocument {
   name: string;
   description: string;
   path: string;
+  content?: string; 
   originalName: string;
   status: 'uploading' | 'extracting' | 'generating' | 'completed' | 'error';
 }
+
 
 interface ConfigData {
   project: Project | null;
@@ -413,6 +415,7 @@ const UploadDocuments = ({
       name: '',
       description: '',
       path: '',
+      content: '',
       originalName: file.name,
       status: 'uploading'
     };
@@ -436,7 +439,11 @@ const UploadDocuments = ({
   
       // Update status to generating metadata
       onDocumentsChange((prevDocs: ProcessedDocument[]) => prevDocs.map((doc: ProcessedDocument) => 
-        doc.id === documentId ? { ...doc, status: 'generating' as const } : doc
+        doc.id === documentId ? { 
+          ...doc, 
+          content: extractResponse.content,  // Store the extracted content
+          status: 'generating' as const 
+        } : doc
       ));
   
       // Step 3: Generate metadata using the extracted content
@@ -465,6 +472,7 @@ const UploadDocuments = ({
             name: '',
             description: '',
             path: '',
+            content: '',
             originalName: file.name,
             status: 'error' as const
           };
@@ -957,51 +965,58 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
     setActiveStep(1); // Move to document upload step
   }, []);
 
-  const handleDocumentsSubmit = useCallback(async () => {
-    setActiveStep(2); // Move to review samples step
-    setIsGenerating(true);
-    
-    try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const servicesClient = apiFactory.getServicesClient();
-      
-      const generatedPrompt = generatePromptFromConfig(configData);
-      
-      const requestPayload = {
-        prompt: generatedPrompt,
-        num_tests: 5,
-        documents: documents.filter(doc => doc.status === 'completed').map(doc => ({
-          name: doc.name,
-          description: doc.description,
-          path: doc.path
-        }))
-      };
-      
-      const response = await servicesClient.generateTests(requestPayload);
 
-      if (response.tests?.length) {
-        const newSamples: Sample[] = response.tests.map((test, index) => ({
-          id: index + 1,
-          text: test.prompt.content,
-          behavior: test.behavior as 'Reliability' | 'Compliance',
-          topic: test.topic,
-          rating: null,
-          feedback: ''
-        }));
-        
-        setSamples(newSamples);
-        show('Samples generated successfully', { severity: 'success' });
-      } else {
-        throw new Error('No tests generated in response');
-      }
-    } catch (error) {
-      console.error('Error generating samples:', error);
-      show('Failed to generate samples', { severity: 'error' });
-      setActiveStep(1); // Go back to documents step
-    } finally {
-      setIsGenerating(false);
+  const handleDocumentsSubmit = useCallback(async () => {
+  setActiveStep(2); // Move to review samples step
+  setIsGenerating(true);
+  
+  try {
+    const apiFactory = new ApiClientFactory(sessionToken);
+    const servicesClient = apiFactory.getServicesClient();
+    
+    const generatedPrompt = generatePromptFromConfig(configData);
+    
+    // Create documents payload with content instead of paths
+    const documentPayload = documents
+      .filter(doc => doc.status === 'completed')
+      .map(doc => ({
+        name: doc.name,
+        description: doc.description,
+        content: doc.content
+      }));
+    
+    const requestPayload = {
+      prompt: generatedPrompt,
+      num_tests: 5,
+      documents: documentPayload
+    };
+    
+    const response = await servicesClient.generateTests(requestPayload);
+
+    if (response.tests?.length) {
+      const newSamples: Sample[] = response.tests.map((test, index) => ({
+        id: index + 1,
+        text: test.prompt.content,
+        behavior: test.behavior as 'Reliability' | 'Compliance',
+        topic: test.topic,
+        rating: null,
+        feedback: ''
+      }));
+      
+      setSamples(newSamples);
+      show('Samples generated successfully', { severity: 'success' });
+    } else {
+      throw new Error('No tests generated in response');
     }
-  }, [sessionToken, configData, documents, show]);
+  } catch (error) {
+    console.error('Error generating samples:', error);
+    show('Failed to generate samples', { severity: 'error' });
+    setActiveStep(1);
+  } finally {
+    setIsGenerating(false);
+  }
+}, [sessionToken, configData, documents, show]);
+
 
   const handleNext = useCallback(() => {
     if (activeStep === 2) { // Review samples step
