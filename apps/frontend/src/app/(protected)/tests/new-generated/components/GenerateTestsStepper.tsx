@@ -40,6 +40,7 @@ import {
   TestSetGenerationConfig, 
   GenerationSample 
 } from '@/utils/api-client/interfaces/test-set';
+import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
 import StarIcon from '@mui/icons-material/Star';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
@@ -55,15 +56,6 @@ interface Sample {
   feedback: string;
 }
 
-interface ProcessedDocument {
-  id: string;
-  name: string;
-  description: string;
-  path: string;
-  content?: string; 
-  originalName: string;
-  status: 'uploading' | 'extracting' | 'generating' | 'completed' | 'error';
-}
 
 
 interface ConfigData {

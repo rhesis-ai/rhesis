@@ -20,9 +20,12 @@ interface Test {
   metadata: TestMetadata;
 }
 
+import { Document } from './interfaces/documents';
+
 interface GenerateTestsRequest {
   prompt: string;
   num_tests?: number;
+  documents?: Document[];
 }
 
 interface GenerateTestsResponse {
@@ -33,15 +36,7 @@ interface TextResponse {
   text: string;
 }
 
-interface DocumentUploadResponse {
-  path: string;
-}
-
-interface DocumentMetadata {
-  name: string;
-  description: string;
-}
-
+import { DocumentUploadResponse, DocumentMetadata } from './interfaces/documents';
 
 interface ExtractDocumentResponse {
   content: string;
