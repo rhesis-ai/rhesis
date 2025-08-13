@@ -134,21 +134,32 @@ export class ServicesClient extends BaseApiClient {
   }
 
   async generateDocumentMetadata(content: string): Promise<DocumentMetadata> {
-    const response = await this.generateText(`Generate a concise name and description for this document content: ${content}`);
-    
-    try {
-      const parsed = JSON.parse(response.text);
-      return {
-        name: parsed.name || 'Untitled Document',
-        description: parsed.description || ''
-      };
-    } catch {
-      const lines = response.text.split('\n');
-      return {
-        name: lines[0] || 'Untitled Document',
-        description: lines.slice(1).join('\n') || ''
-      };
-    }
-  }
+    const structuredPrompt = `
+    Generate a concise name and description for this document content.
+    Format your response exactly like this:
+    Name: <a clear, concise title for the document>
+    Description: <a brief description of the document's content>
 
-} 
+    Document content: ${content}
+  `;
+  
+  const response = await this.generateText(structuredPrompt);
+  
+  try {
+    // First try to find the name and description using the structured format
+    const nameMatch = response.text.match(/Name:\s*([\s\S]+?)(?=\n|Description:|$)/);
+    const descriptionMatch = response.text.match(/Description:\s*([\s\S]+?)(?=\n|$)/);
+
+    return {
+      name: (nameMatch?.[1] || '').trim() || 'Untitled Document',
+      description: (descriptionMatch?.[1] || '').trim() || ''
+    };
+  } catch {
+    // Fallback to the old method if parsing fails
+    return {
+      name: 'Untitled Document',
+      description: ''
+    };
+  }
+  }
+}
