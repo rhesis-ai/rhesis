@@ -14,6 +14,7 @@ from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -27,6 +28,7 @@ from rhesis.backend.app.services.test_set import (
 )
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.app.schemas.documents import Document
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_upload_test_set
@@ -73,6 +75,7 @@ class TestSetGenerationRequest(BaseModel):
     synthesizer_type: str = "prompt"
     num_tests: Optional[int] = None
     batch_size: int = 20
+    documents: Optional[List[Document]] = None
 
 
 class TestSetGenerationResponse(BaseModel):
@@ -247,6 +250,7 @@ async def generate_test_set(
             num_tests=test_count,
             batch_size=request.batch_size,
             prompt=generation_prompt,
+            documents=[doc.dict() for doc in request.documents] if request.documents else None,
         )
         
         logger.info(
@@ -275,6 +279,14 @@ async def generate_test_set(
             status_code=500, 
             detail=f"Failed to start test set generation: {str(e)}"
         )
+    
+    finally:
+        # Cleanup documents regardless of success or failure
+        if request.documents:
+            handler = DocumentHandler()
+            for doc in request.documents:
+                if doc.path:
+                    await handler.cleanup(doc.path)
 
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
