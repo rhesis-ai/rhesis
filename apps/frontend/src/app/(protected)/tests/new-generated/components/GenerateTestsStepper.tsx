@@ -107,6 +107,29 @@ const INITIAL_CONFIG: ConfigData = {
   description: ""
 };
 
+// Add a constant for supported file types
+const SUPPORTED_FILE_EXTENSIONS = [
+  // Document formats
+  '.pdf',
+  '.docx', '.xlsx', '.pptx',
+  '.md',
+  '.adoc',
+  '.html', '.xhtml',
+  '.csv',
+  '.txt',
+  // Image formats
+  '.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp',
+  // Schema-specific formats
+  '.xml',
+  '.json'
+];
+
+// Create a helper function to check file type
+const isFileTypeSupported = (filename: string): boolean => {
+  const extension = filename.toLowerCase().slice(filename.lastIndexOf('.'));
+  return SUPPORTED_FILE_EXTENSIONS.includes(extension);
+};
+
 // Helper functions
 const getLabelText = (value: number) => {
   return `${value} Star${value !== 1 ? 's' : ''}, ${RATING_LABELS[value]}`;
@@ -501,7 +524,7 @@ const UploadDocuments = ({
           onChange={handleFileUpload}
           style={{ display: 'none' }}
           id="document-upload"
-          accept=".pdf,.doc,.docx,.txt,.md,.html,.csv" // TODO: Add more file types, according to what is accepted by the extractor
+          accept={SUPPORTED_FILE_EXTENSIONS.join(',')}
         />
         
         <label htmlFor="document-upload">
@@ -514,6 +537,9 @@ const UploadDocuments = ({
             Upload Documents
           </LoadingButton>
         </label>
+        <FormHelperText>
+          Supported formats: {SUPPORTED_FILE_EXTENSIONS.join(', ')}
+        </FormHelperText>
       </Box>
 
       {documents.length > 0 && (
