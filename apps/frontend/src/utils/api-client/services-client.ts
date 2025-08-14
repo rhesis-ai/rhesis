@@ -20,9 +20,12 @@ interface Test {
   metadata: TestMetadata;
 }
 
+import { Document } from './interfaces/documents';
+
 interface GenerateTestsRequest {
   prompt: string;
   num_tests?: number;
+  documents?: Document[];
 }
 
 interface GenerateTestsResponse {
@@ -31,6 +34,13 @@ interface GenerateTestsResponse {
 
 interface TextResponse {
   text: string;
+}
+
+import { DocumentUploadResponse, DocumentMetadata } from './interfaces/documents';
+
+interface ExtractDocumentResponse {
+  content: string;
+  format: string;
 }
 
 export class ServicesClient extends BaseApiClient {
@@ -83,6 +93,80 @@ export class ServicesClient extends BaseApiClient {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(request)
+  
     });
   }
-} 
+
+  async uploadDocument(file: File): Promise<DocumentUploadResponse> {
+    const formData = new FormData();
+    formData.append('document', file);
+
+    // For multipart/form-data, we need to override the default headers
+    // Create headers object without Content-Type so browser can set it correctly
+    const headers: Record<string, string> = {};
+    
+    // Add authorization if we have a session token (copied from BaseApiClient logic)
+    if (this.sessionToken) {
+      headers['Authorization'] = `Bearer ${this.sessionToken}`;
+    }
+
+    // Use direct fetch to avoid BaseApiClient's default Content-Type header
+    const path = `${this.baseUrl}/services/documents/upload`;
+    const response = await fetch(path, {
+      method: 'POST',
+      body: formData,
+      headers,
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      let errorMessage = '';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorData.message || 'Upload failed';
+      } catch {
+        errorMessage = await response.text();
+      }
+      throw new Error(`API error: ${response.status} - ${errorMessage}`);
+    }
+
+    return response.json() as Promise<DocumentUploadResponse>;
+  }
+
+  async generateDocumentMetadata(content: string): Promise<DocumentMetadata> {
+    const structuredPrompt = `
+    Generate a concise name and description for this document content.
+    Format your response exactly like this:
+    Name: <a clear, concise title for the document>
+    Description: <a brief description of the document's content>
+
+    Document content: ${content}
+  `;
+  
+  const response = await this.generateText(structuredPrompt);
+  
+  try {
+    // First try to find the name and description using the structured format
+    const nameMatch = response.text.match(/Name:\s*([\s\S]+?)(?=\n|Description:|$)/);
+    const descriptionMatch = response.text.match(/Description:\s*([\s\S]+?)(?=\n|$)/);
+
+    return {
+      name: (nameMatch?.[1] || '').trim() || 'Untitled Document',
+      description: (descriptionMatch?.[1] || '').trim() || ''
+    };
+  } catch {
+    // Fallback to the old method if parsing fails
+    return {
+      name: 'Untitled Document',
+      description: ''
+    };
+  }
+  }
+  
+  async extractDocument(path: string): Promise<ExtractDocumentResponse> {
+    return this.fetch<ExtractDocumentResponse>(`${API_ENDPOINTS.services}/documents/extract`, {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
+  }
+}
