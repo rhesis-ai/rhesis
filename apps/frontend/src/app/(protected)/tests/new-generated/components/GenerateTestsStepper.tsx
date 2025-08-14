@@ -970,6 +970,124 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
     setConfigData(config);
   }, []);
 
+  const handleDocumentsSubmit = useCallback(async () => {
+    setActiveStep(2); // Move to review samples step
+    setIsGenerating(true);
+    
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const servicesClient = apiFactory.getServicesClient();
+      
+      const generatedPrompt = generatePromptFromConfig(configData);
+      
+      // Create documents payload with content instead of paths
+      const documentPayload = documents
+        .filter(doc => doc.status === 'completed')
+        .map(doc => ({
+          name: doc.name,
+          description: doc.description,
+          content: doc.content
+        }));
+      
+      const requestPayload = {
+        prompt: generatedPrompt,
+        num_tests: 5,
+        documents: documentPayload
+      };
+      
+      const response = await servicesClient.generateTests(requestPayload);
+  
+      if (response.tests?.length) {
+        const newSamples: Sample[] = response.tests.map((test, index) => ({
+          id: index + 1,
+          text: test.prompt.content,
+          behavior: test.behavior as 'Reliability' | 'Compliance',
+          topic: test.topic,
+          rating: null,
+          feedback: ''
+        }));
+        
+        setSamples(newSamples);
+        show('Samples generated successfully', { severity: 'success' });
+      } else {
+        throw new Error('No tests generated in response');
+      }
+    } catch (error) {
+      console.error('Error generating samples:', error);
+      show('Failed to generate samples', { severity: 'error' });
+      setActiveStep(1);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [sessionToken, configData, documents, show]);
+  
+  
+    const handleNext = useCallback(() => {
+      if (activeStep === 2) { // Review samples step
+        const hasUnratedSamples = samples.some(s => s.rating === null);
+        if (hasUnratedSamples) {
+          show('Please rate all samples before proceeding', { severity: 'error' });
+          return;
+        }
+      }
+      setActiveStep(prev => prev + 1);
+    }, [activeStep, samples, show]);
+  
+    const handleBack = useCallback(() => {
+      setActiveStep(prev => prev - 1);
+    }, []);
+  
+    const handleFinish = useCallback(async () => {
+      setIsFinishing(true);
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const testSetsClient = apiFactory.getTestSetsClient();
+        
+        // Convert UI data to API format
+        const generationConfig: TestSetGenerationConfig = {
+          project_name: configData.project?.name,
+          behaviors: configData.behaviors,
+          purposes: configData.purposes,
+          test_type: configData.testType,
+          response_generation: configData.responseGeneration,
+          test_coverage: configData.testCoverage,
+          tags: configData.tags,
+          description: configData.description,
+        };
+        
+        const generationSamples: GenerationSample[] = samples.map(sample => ({
+          text: sample.text,
+          behavior: sample.behavior,
+          topic: sample.topic,
+          rating: sample.rating,
+          feedback: sample.feedback,
+        }));
+        
+        const request: TestSetGenerationRequest = {
+          config: generationConfig,
+          samples: generationSamples,
+          synthesizer_type: "prompt",
+          batch_size: 20,
+        };
+        
+        const response = await testSetsClient.generateTestSet(request);
+        
+        show(response.message, { severity: 'success' });
+        console.log('Test generation task started:', { 
+          taskId: response.task_id, 
+          estimatedTests: response.estimated_tests 
+        });
+        
+        setTimeout(() => router.push('/tests'), 2000);
+        
+      } catch (error) {
+        console.error('Failed to start test generation:', error);
+        show('Failed to start test generation. Please try again.', { severity: 'error' });
+      } finally {
+        setIsFinishing(false);
+      }
+    }, [sessionToken, configData, samples, router, show]);
+  
   const renderStepContent = useMemo(() => {
     switch (activeStep) {
       case 0:
