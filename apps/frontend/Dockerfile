@@ -31,6 +31,7 @@ RUN find . -name ".env*" -type f -delete
 # Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
     echo "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" >> .env && \
+    echo "BACKEND_URL=${BACKEND_URL}" >> .env && \
     echo "NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_DOMAIN=${NEXT_PUBLIC_AUTH0_DOMAIN}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_CLIENT_ID=${NEXT_PUBLIC_AUTH0_CLIENT_ID}" >> .env && \
@@ -55,7 +56,7 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # Set environment variables
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copy all necessary files from the builder stage

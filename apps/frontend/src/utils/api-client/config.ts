@@ -1,11 +1,24 @@
+// Determine the appropriate base URL based on environment
+// Use BACKEND_URL for server-side calls (container-to-container)
+// Use NEXT_PUBLIC_API_BASE_URL for client-side calls (browser-to-host)
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    // Server-side: use BACKEND_URL for container-to-container communication
+    return process.env.BACKEND_URL || 'http://backend:8080';
+  } else {
+    // Client-side: use NEXT_PUBLIC_API_BASE_URL for browser-to-host communication
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+  }
+};
+
 if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
   throw new Error('NEXT_PUBLIC_API_BASE_URL environment variable is not defined');
 }
 
-console.log('API_CONFIG: baseUrl set to:', process.env.NEXT_PUBLIC_API_BASE_URL);
+console.log('API_CONFIG: baseUrl set to:', getBaseUrl());
 
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+  baseUrl: getBaseUrl(),
   defaultHeaders: {
     'Content-Type': 'application/json',
   },
