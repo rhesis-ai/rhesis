@@ -508,7 +508,7 @@ const UploadDocuments = ({
     <Box>
       <Typography variant="h6" gutterBottom>Upload Documents</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Upload documents to enhance test generation. Documents will be processed automatically.
+      Select documents to add context to test generation (optional).
       </Typography>
 
       <Box sx={{ mb: 3 }}>
@@ -528,7 +528,7 @@ const UploadDocuments = ({
             startIcon={<UploadFileIcon />}
             disabled={documents.some(doc => doc.status !== 'completed' && doc.status !== 'error')}
           >
-            Upload Documents
+            Select Documents
           </LoadingButton>
         </label>
         <FormHelperText>
@@ -1035,7 +1035,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
       setActiveStep(prev => prev + 1);
     }
   }, [activeStep, documents, samples, show, handleDocumentsSubmit]);
-    
+
     const handleBack = useCallback(() => {
       setActiveStep(prev => prev - 1);
     }, []);
