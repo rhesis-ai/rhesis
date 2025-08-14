@@ -96,7 +96,7 @@ const INITIAL_CONFIG: ConfigData = {
   purposes: [],
   testType: "single_turn",
   responseGeneration: "prompt_only", 
-  testCoverage: "standard",
+  testCoverage: "focused",
   tags: [],
   description: ""
 };
@@ -347,9 +347,9 @@ const ConfigureGeneration = ({ sessionToken, onSubmit, configData, onConfigChang
             onChange={(e) => updateField('testCoverage', e.target.value)}
             sx={{ mb: 3 }}
           >
-            <MenuItem value="focused">Focused Coverage (100+ test cases)</MenuItem>
-            <MenuItem value="standard">Standard Coverage (1,000+ test cases)</MenuItem>
-            <MenuItem value="comprehensive">Comprehensive Coverage (5,000+ test cases)</MenuItem>
+            <MenuItem value="focused">Focused Coverage (100 test cases)</MenuItem>
+            <MenuItem value="standard">Standard Coverage (1,000 test cases)</MenuItem>
+            <MenuItem value="comprehensive">Comprehensive Coverage (5,000 test cases)</MenuItem>
           </TextField>
         </Grid>
 
