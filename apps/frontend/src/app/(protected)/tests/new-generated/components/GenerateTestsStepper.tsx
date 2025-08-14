@@ -1019,20 +1019,23 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
       );
       if (hasProcessingDocuments) {
         show('Please wait for all documents to finish processing', { severity: 'warning' });
-        return;
+        return; // ← Add this return
       }
       // Move to next step and generate samples
       handleDocumentsSubmit();
+      return; // ← Add this return to prevent further execution
     } else if (activeStep === 2) { // Review samples step
       const hasUnratedSamples = samples.some(s => s.rating === null);
       if (hasUnratedSamples) {
         show('Please rate all samples before proceeding', { severity: 'error' });
         return;
       }
+      setActiveStep(prev => prev + 1);
+    } else {
+      setActiveStep(prev => prev + 1);
     }
-    setActiveStep(prev => prev + 1);
   }, [activeStep, documents, samples, show, handleDocumentsSubmit]);
-  
+    
     const handleBack = useCallback(() => {
       setActiveStep(prev => prev - 1);
     }, []);
