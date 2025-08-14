@@ -1,4 +1,41 @@
-version: '3.8'
+
+# Define common configurations using YAML anchors
+x-common-database: &common-database
+  SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}
+  SQLALCHEMY_DB_DRIVER: ${SQLALCHEMY_DB_DRIVER:-postgresql}
+  SQLALCHEMY_DB_PORT: ${SQLALCHEMY_DB_PORT:-5432}
+  SQLALCHEMY_DB_USER: ${SQLALCHEMY_DB_USER}
+  SQLALCHEMY_DB_PASS: ${SQLALCHEMY_DB_PASS}
+  SQLALCHEMY_DB_HOST: ${SQLALCHEMY_DB_HOST:-postgres}
+  SQLALCHEMY_DB_NAME: ${SQLALCHEMY_DB_NAME}
+
+x-common-redis: &common-redis
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  BROKER_URL: ${BROKER_URL:-redis://redis:6379/0?ssl_cert_reqs=CERT_NONE}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1?ssl_cert_reqs=CERT_NONE}
+
+x-common-auth0: &common-auth0
+  AUTH0_DOMAIN: ${AUTH0_DOMAIN}
+  AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
+  AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID}
+  AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET}
+  AUTH0_SECRET_KEY: ${AUTH0_SECRET_KEY}
+
+x-common-smtp: &common-smtp
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_PORT: ${SMTP_PORT}
+  SMTP_USER: ${SMTP_USER}
+  SMTP_PASSWORD: ${SMTP_PASSWORD}
+  FROM_EMAIL: ${FROM_EMAIL}
+
+x-common-jwt: &common-jwt
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+  JWT_ALGORITHM: ${JWT_ALGORITHM}
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
+
+x-common-environment: &common-environment
+  ENVIRONMENT: development
+  LOG_LEVEL: DEBUG
 
 services:
   # PostgreSQL Database
@@ -45,32 +82,13 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      - SQLALCHEMY_DATABASE_URL=${SQLALCHEMY_DATABASE_URL}
-      - SQLALCHEMY_DB_DRIVER=${SQLALCHEMY_DB_DRIVER:-postgresql}
-      - SQLALCHEMY_DB_USER=${SQLALCHEMY_DB_USER}
-      - SQLALCHEMY_DB_PASS=${SQLALCHEMY_DB_PASS}
-      - SQLALCHEMY_DB_HOST=${SQLALCHEMY_DB_HOST:-postgres}
-      - SQLALCHEMY_DB_NAME=${SQLALCHEMY_DB_NAME}
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - ENVIRONMENT=development
-      - LOG_LEVEL=DEBUG
-      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
-      - AUTH0_AUDIENCE=${AUTH0_AUDIENCE}
-      - AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID}
-      - AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET}
-      - AUTH0_SECRET_KEY=${AUTH0_SECRET_KEY}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - JWT_ALGORITHM=${JWT_ALGORITHM}
-      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - FROM_EMAIL=${FROM_EMAIL}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - BACKEND_URL=${BACKEND_URL:-http://localhost:8080}
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment]
+      LOG_LEVEL: DEBUG
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     ports:
       - "8080:8080"
     depends_on:
@@ -90,6 +108,44 @@ services:
       retries: 3
       start_period: 60s
 
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: rhesis-worker
+    environment:
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-environment]
+      LOG_LEVEL: INFO
+      CELERY_WORKER_CONCURRENCY: 8
+      CELERY_WORKER_PREFETCH_MULTIPLIER: 4
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: 1000
+      CELERY_WORKER_LOGLEVEL: INFO
+      USE_TCP_DATABASE: true
+      ENABLE_FLOWER: no
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./sdk:/app/sdk
+      - ./apps/backend:/app/backend
+      - ./apps/worker:/app/worker
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/basic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   # Frontend
   frontend:
     build:
@@ -102,17 +158,19 @@ services:
         NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID}
     container_name: rhesis-frontend
     environment:
-      - PORT=3000
-      - NODE_ENV=development
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
-      - NEXT_PUBLIC_AUTH0_DOMAIN=${NEXT_PUBLIC_AUTH0_DOMAIN}
-      - NEXT_PUBLIC_AUTH0_CLIENT_ID=${NEXT_PUBLIC_AUTH0_CLIENT_ID}
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-      - NEXT_PUBLIC_APP_URL=http://localhost:3000
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - NEXT_TELEMETRY_DISABLED=1
+      <<: [*common-auth0]
+      PORT: 3000
+      NODE_ENV: development
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN}
+      NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      NEXT_TELEMETRY_DISABLED: 1
     ports:
       - "3000:3000"
     depends_on:
