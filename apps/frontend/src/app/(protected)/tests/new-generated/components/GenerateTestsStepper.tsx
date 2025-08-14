@@ -389,13 +389,11 @@ const ConfigureGeneration = ({ sessionToken, onSubmit, configData, onConfigChang
 const UploadDocuments = ({ 
   sessionToken, 
   documents, 
-  onDocumentsChange, 
-  onSubmit 
+  onDocumentsChange
 }: {
   sessionToken: string;
   documents: ProcessedDocument[];
   onDocumentsChange: (documents: ProcessedDocument[] | ((prev: ProcessedDocument[]) => ProcessedDocument[])) => void;
-  onSubmit: () => void;
 }) => {
   const { show } = useNotifications();
 
@@ -612,15 +610,6 @@ const UploadDocuments = ({
         </Stack>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          variant="contained"
-          onClick={onSubmit}
-          disabled={!canProceed}
-        >
-          {documents.length === 0 ? 'Skip Documents' : 'Continue'}
-        </Button>
-      </Box>
     </Box>
   );
 };
@@ -1022,16 +1011,27 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
   }, [sessionToken, configData, documents, show]);
   
   
-    const handleNext = useCallback(() => {
-      if (activeStep === 2) { // Review samples step
-        const hasUnratedSamples = samples.some(s => s.rating === null);
-        if (hasUnratedSamples) {
-          show('Please rate all samples before proceeding', { severity: 'error' });
-          return;
-        }
+  const handleNext = useCallback(() => {
+    if (activeStep === 1) { // Document upload step
+      // Check if there are any documents still processing
+      const hasProcessingDocuments = documents.some(doc => 
+        doc.status !== 'completed' && doc.status !== 'error'
+      );
+      if (hasProcessingDocuments) {
+        show('Please wait for all documents to finish processing', { severity: 'warning' });
+        return;
       }
-      setActiveStep(prev => prev + 1);
-    }, [activeStep, samples, show]);
+      // Move to next step and generate samples
+      handleDocumentsSubmit();
+    } else if (activeStep === 2) { // Review samples step
+      const hasUnratedSamples = samples.some(s => s.rating === null);
+      if (hasUnratedSamples) {
+        show('Please rate all samples before proceeding', { severity: 'error' });
+        return;
+      }
+    }
+    setActiveStep(prev => prev + 1);
+  }, [activeStep, documents, samples, show, handleDocumentsSubmit]);
   
     const handleBack = useCallback(() => {
       setActiveStep(prev => prev - 1);
@@ -1103,7 +1103,6 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
             sessionToken={sessionToken}
             documents={documents}
             onDocumentsChange={setDocuments}
-            onSubmit={handleDocumentsSubmit}
           />
         );
       case 2:
@@ -1159,23 +1158,13 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
             >
               Generate Tests
             </LoadingButton>
-          ) : activeStep === 0 ? (
-            <LoadingButton
-              variant="contained"
-              loading={false}
-              disabled={false}
-              form="generation-config-form"
-              type="submit"
-            >
-              Next
-            </LoadingButton>
-          ) : activeStep === 1 ? (
-            null // UploadDocuments component handles its own submit button
           ) : (
             <Button 
               variant="contained" 
               onClick={handleNext}
-              disabled={isGenerating}
+              disabled={isGenerating || (activeStep === 1 && documents.some(doc => 
+                doc.status !== 'completed' && doc.status !== 'error'
+              ))}
             >
               Next
             </Button>
@@ -1184,4 +1173,4 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
       </Box>
     </Container>
   );
-} 
+}
