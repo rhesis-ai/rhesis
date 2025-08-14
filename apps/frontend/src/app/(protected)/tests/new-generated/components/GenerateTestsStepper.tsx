@@ -143,11 +143,12 @@ const generatePromptFromConfig = (config: ConfigData): string => {
 };
 
 // Step 1: Configuration Component
-const ConfigureGeneration = ({ sessionToken, onSubmit }: { 
+const ConfigureGeneration = ({ sessionToken, onSubmit, configData, onConfigChange }: { 
   sessionToken: string; 
   onSubmit: (config: ConfigData) => void;
+  configData: ConfigData;
+  onConfigChange: (config: ConfigData) => void;
 }) => {
-  const [formData, setFormData] = useState(INITIAL_CONFIG);
   const [projects, setProjects] = useState<Project[]>([]);
   const [behaviors, setBehaviors] = useState<Behavior[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -172,7 +173,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
         setBehaviors(behaviorsData.filter(b => b?.id && b?.name?.trim()) || []);
       } catch (error) {
         if (mounted) {
-          console.error('Failed to load data:', error);
+          console.error('Failed to load configuration data:', error);
           show('Failed to load configuration data', { severity: 'error' });
         }
       } finally {
@@ -190,30 +191,30 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
   const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.project) newErrors.project = 'Project is required';
-    if (formData.behaviors.length === 0) newErrors.behaviors = 'At least one behavior must be selected';
-    if (formData.purposes.length === 0) newErrors.purposes = 'At least one purpose must be selected';
+    if (!configData.project) newErrors.project = 'Project is required';
+    if (configData.behaviors.length === 0) newErrors.behaviors = 'At least one behavior must be selected';
+    if (configData.purposes.length === 0) newErrors.purposes = 'At least one purpose must be selected';
     // Tags are optional
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!configData.description.trim()) newErrors.description = 'Description is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData]);
+  }, [configData]);
 
   // Form handlers
   const updateField = useCallback((field: keyof ConfigData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    onConfigChange({ ...configData, [field]: value });
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-  }, [errors]);
+  }, [configData, onConfigChange, errors]);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit(formData);
+      onSubmit(configData);
     }
-  }, [formData, validateForm, onSubmit]);
+  }, [configData, validateForm, onSubmit]);
 
   if (isLoading) {
     return (
@@ -234,7 +235,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
           <Autocomplete
             id="project-select"
             options={projects}
-            value={formData.project}
+            value={configData.project}
             onChange={(_, value) => updateField('project', value)}
             getOptionLabel={(option) => option.name}
             isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -259,7 +260,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
               id="behaviors-select"
               name="behaviors"
               multiple
-              value={formData.behaviors}
+              value={configData.behaviors}
               onChange={(e) => updateField('behaviors', e.target.value)}
               input={<OutlinedInput label="Behaviors" />}
               renderValue={(selected) => (
@@ -287,7 +288,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
               id="purposes-select"
               name="purposes"
               multiple
-              value={formData.purposes}
+              value={configData.purposes}
               onChange={(e) => updateField('purposes', e.target.value)}
               input={<OutlinedInput label="Purpose" />}
               renderValue={(selected) => (
@@ -315,7 +316,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
             select
             fullWidth
             label="Test Type"
-            value={formData.testType}
+            value={configData.testType}
             onChange={(e) => updateField('testType', e.target.value)}
             sx={{ mb: 3 }}
           >
@@ -328,7 +329,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
             select
             fullWidth
             label="Response Generation"
-            value={formData.responseGeneration}
+            value={configData.responseGeneration}
             onChange={(e) => updateField('responseGeneration', e.target.value)}
             sx={{ mb: 3 }}
           >
@@ -342,7 +343,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
             select
             fullWidth
             label="Test Coverage"
-            value={formData.testCoverage}
+            value={configData.testCoverage}
             onChange={(e) => updateField('testCoverage', e.target.value)}
             sx={{ mb: 3 }}
           >
@@ -356,7 +357,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
           <BaseTag
             id="aspects-tags"
             name="aspects"
-            value={formData.tags}
+            value={configData.tags}
             onChange={(value) => updateField('tags', value)}
             placeholder="Add aspects..."
             label="Aspects to cover"
@@ -372,7 +373,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit }: {
             multiline
             rows={4}
             label="Describe what you want to test"
-            value={formData.description}
+            value={configData.description}
             onChange={(e) => updateField('description', e.target.value)}
             required
             error={!!errors.description}
@@ -965,129 +966,19 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
     setActiveStep(1); // Move to document upload step
   }, []);
 
-
-  const handleDocumentsSubmit = useCallback(async () => {
-  setActiveStep(2); // Move to review samples step
-  setIsGenerating(true);
-  
-  try {
-    const apiFactory = new ApiClientFactory(sessionToken);
-    const servicesClient = apiFactory.getServicesClient();
-    
-    const generatedPrompt = generatePromptFromConfig(configData);
-    
-    // Create documents payload with content instead of paths
-    const documentPayload = documents
-      .filter(doc => doc.status === 'completed')
-      .map(doc => ({
-        name: doc.name,
-        description: doc.description,
-        content: doc.content
-      }));
-    
-    const requestPayload = {
-      prompt: generatedPrompt,
-      num_tests: 5,
-      documents: documentPayload
-    };
-    
-    const response = await servicesClient.generateTests(requestPayload);
-
-    if (response.tests?.length) {
-      const newSamples: Sample[] = response.tests.map((test, index) => ({
-        id: index + 1,
-        text: test.prompt.content,
-        behavior: test.behavior as 'Reliability' | 'Compliance',
-        topic: test.topic,
-        rating: null,
-        feedback: ''
-      }));
-      
-      setSamples(newSamples);
-      show('Samples generated successfully', { severity: 'success' });
-    } else {
-      throw new Error('No tests generated in response');
-    }
-  } catch (error) {
-    console.error('Error generating samples:', error);
-    show('Failed to generate samples', { severity: 'error' });
-    setActiveStep(1);
-  } finally {
-    setIsGenerating(false);
-  }
-}, [sessionToken, configData, documents, show]);
-
-
-  const handleNext = useCallback(() => {
-    if (activeStep === 2) { // Review samples step
-      const hasUnratedSamples = samples.some(s => s.rating === null);
-      if (hasUnratedSamples) {
-        show('Please rate all samples before proceeding', { severity: 'error' });
-        return;
-      }
-    }
-    setActiveStep(prev => prev + 1);
-  }, [activeStep, samples, show]);
-
-  const handleBack = useCallback(() => {
-    setActiveStep(prev => prev - 1);
+  const handleConfigChange = useCallback((config: ConfigData) => {
+    setConfigData(config);
   }, []);
-
-  const handleFinish = useCallback(async () => {
-    setIsFinishing(true);
-    try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = apiFactory.getTestSetsClient();
-      
-      // Convert UI data to API format
-      const generationConfig: TestSetGenerationConfig = {
-        project_name: configData.project?.name,
-        behaviors: configData.behaviors,
-        purposes: configData.purposes,
-        test_type: configData.testType,
-        response_generation: configData.responseGeneration,
-        test_coverage: configData.testCoverage,
-        tags: configData.tags,
-        description: configData.description,
-      };
-      
-      const generationSamples: GenerationSample[] = samples.map(sample => ({
-        text: sample.text,
-        behavior: sample.behavior,
-        topic: sample.topic,
-        rating: sample.rating,
-        feedback: sample.feedback,
-      }));
-      
-      const request: TestSetGenerationRequest = {
-        config: generationConfig,
-        samples: generationSamples,
-        synthesizer_type: "prompt",
-        batch_size: 20,
-      };
-      
-      const response = await testSetsClient.generateTestSet(request);
-      
-      show(response.message, { severity: 'success' });
-      console.log('Test generation task started:', { 
-        taskId: response.task_id, 
-        estimatedTests: response.estimated_tests 
-      });
-      
-      setTimeout(() => router.push('/tests'), 2000);
-      
-    } catch (error) {
-      console.error('Failed to start test generation:', error);
-      show('Failed to start test generation. Please try again.', { severity: 'error' });
-    } finally {
-      setIsFinishing(false);
-    }
-  }, [sessionToken, configData, samples, router, show]);
 
   const renderStepContent = useMemo(() => {
     switch (activeStep) {
       case 0:
-        return <ConfigureGeneration sessionToken={sessionToken} onSubmit={handleConfigSubmit} />;
+        return <ConfigureGeneration 
+          sessionToken={sessionToken} 
+          onSubmit={handleConfigSubmit} 
+          configData={configData}
+          onConfigChange={handleConfigChange}
+        />;
       case 1:
         return (
           <UploadDocuments 
@@ -1113,7 +1004,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
       default:
         return null;
     }
-  }, [activeStep, sessionToken, handleConfigSubmit, handleDocumentsSubmit, documents, samples, configData, isGenerating]);
+  }, [activeStep, sessionToken, handleConfigSubmit, handleConfigChange, documents, samples, configData, isGenerating]);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
