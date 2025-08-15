@@ -23,9 +23,9 @@ from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.database import set_tenant
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.evaluator import MetricEvaluator
-from rhesis.backend.metrics.base import MetricConfig
-from rhesis.backend.metrics.config import load_default_metrics
+from rhesis.sdk.metrics.evaluator import MetricEvaluator
+from rhesis.sdk.metrics.base import MetricConfig
+from rhesis.sdk.metrics.config import load_default_metrics
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
 from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
