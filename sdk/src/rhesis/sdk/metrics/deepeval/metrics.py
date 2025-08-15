@@ -8,8 +8,8 @@ from deepeval.metrics import (
     FaithfulnessMetric,
 )
 
-from rhesis.backend.metrics.base import MetricResult, retry_evaluation
-from rhesis.backend.metrics.deepeval.metric_base import DeepEvalMetricBase
+from rhesis.sdk.metrics.base import MetricResult, retry_evaluation
+from rhesis.sdk.metrics.deepeval.metric_base import DeepEvalMetricBase
 
 
 class DeepEvalAnswerRelevancy(DeepEvalMetricBase):

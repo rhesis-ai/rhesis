@@ -1,8 +1,8 @@
 from typing import Optional, Union
 
-from rhesis.backend.metrics.base import BaseMetric, MetricType
-from rhesis.backend.metrics.constants import ScoreType, ThresholdOperator
-from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+from rhesis.sdk.metrics.base import BaseMetric, MetricType
+from rhesis.sdk.metrics.constants import ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.score_evaluator import ScoreEvaluator
 
 
 class RhesisMetricBase(BaseMetric):
@@ -79,7 +79,7 @@ class RhesisMetricBase(BaseMetric):
             threshold_operator, score_type
         )
         if not is_valid:
-            from rhesis.backend.metrics.constants import VALID_OPERATORS_BY_SCORE_TYPE
+            from rhesis.sdk.metrics.constants import VALID_OPERATORS_BY_SCORE_TYPE
 
             valid_operators = VALID_OPERATORS_BY_SCORE_TYPE.get(score_type, set())
             valid_ops_str = ", ".join([op.value for op in valid_operators])

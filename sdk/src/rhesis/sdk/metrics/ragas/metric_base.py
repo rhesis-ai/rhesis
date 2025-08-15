@@ -1,4 +1,4 @@
-from rhesis.backend.metrics.base import BaseMetric, MetricType
+from rhesis.sdk.metrics.base import BaseMetric, MetricType
 
 
 class RagasMetricBase(BaseMetric):

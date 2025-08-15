@@ -1,13 +1,13 @@
 backends:
   deepeval:
-    module: "rhesis.backend.metrics.deepeval"
+    module: "rhesis.sdk.metrics.deepeval"
     factory: "DeepEvalMetricFactory"
   ragas:
-    module: "rhesis.backend.metrics.ragas"
+    module: "rhesis.sdk.metrics.ragas"
     factory: "RagasMetricFactory"
   rhesis:
-    module: "rhesis.backend.metrics.rhesis"
+    module: "rhesis.sdk.metrics.rhesis"
     factory: "RhesisMetricFactory"
   custom:
-    module: "rhesis.backend.metrics.rhesis"
-    factory: "RhesisMetricFactory" 
+    module: "rhesis.sdk.metrics.rhesis"
+    factory: "RhesisMetricFactory"

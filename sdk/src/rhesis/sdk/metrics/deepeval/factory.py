@@ -1,7 +1,7 @@
 from typing import List
 
-from rhesis.backend.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.backend.metrics.deepeval.metrics import (
+from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
+from rhesis.sdk.metrics.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalContextualPrecision,
     DeepEvalContextualRecall,

@@ -5,7 +5,7 @@ This file demonstrates how to use the updated DeepEval metrics with various
 models including Gemini, OpenAI, Anthropic, and others.
 """
 
-from rhesis.backend.metrics.deepeval.metrics import (
+from rhesis.sdk.metrics.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalContextualRelevancy,
     DeepEvalFaithfulness,
