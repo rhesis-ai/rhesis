@@ -398,9 +398,10 @@ class RhesisPromptMetric(RhesisMetricBase):
 
         except Exception as e:
             # Log the error for debugging with full traceback
+            import logging
             import traceback
 
-            from rhesis.backend.logging.rhesis_logger import logger
+            logger = logging.getLogger(__name__)
 
             error_msg = f"Error evaluating with {self.name}: {str(e)}"
             logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
