@@ -1,10 +1,6 @@
 # 🚀 Contributing to Rhesis Backend
 
-Thank you for your interest in contributing to the Rhesis backend! 🎉 This document provides comprehensive guidelines and instructions for contributing to our project.
-
-## 🐍 Python Version Requirements
-
-The Rhesis backend requires **Python 3.10** or newer. If you encounter issues with your system's Python version, we recommend using [pyenv](https://github.com/pyenv/pyenv) to manage Python versions.
+Thank you for your interest in contributing to the Rhesis backend! 🎉 This document provides guidelines for contributing to our project.
 
 ### 📥 First, Clone the Repository
 
@@ -12,186 +8,44 @@ Before setting up Python, clone the repository so you can install everything in 
 
 ```bash
 git clone https://github.com/rhesis-ai/rhesis.git
-cd rhesis/apps/backend
 ```
 
-### 🍎 macOS Installation
+### ⚡ Development Setup
 
-**Prerequisites**: Ensure you have [Homebrew](https://brew.sh/) and Xcode Command Line Tools installed.
+> **ℹ️ Please Read:**  
+Before contributing to the backend, **read the main [`CONTRIBUTING.md`](../CONTRIBUTING.md)** at the root of the repository. It contains essential guidelines for all contributors, including details on development workflow, code style, and tooling.
+
+**Before you start:**  
+- Install [`uv`](https://docs.astral.sh/uv/) for Python environment management.
+
+- **Formatting & Linting:**  
+  - Use [Ruff](https://docs.astral.sh/ruff/) for formatting and linting Python code.
+  - The use of Makefile targets (`make format`, `make lint`), pre-commit hooks, and the Ruff VS Code extension is described in the main `CONTRIBUTING.md` and is recommended for consistency.
+
+
+### 📥 Clone the Repository
 
 ```bash
-# Install pyenv via Homebrew
-brew install pyenv
-
-# Install required dependency
-brew install xz
-
-# Configure your shell (choose one based on your shell)
-# For zsh (default on macOS Catalina+):
-echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zprofile
-echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zprofile
-echo 'eval "$(pyenv init -)"' >> ~/.zprofile
-
-# For bash:
-echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bash_profile
-echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bash_profile
-echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
-
-# Reload your shell configuration
-source ~/.zprofile  # or source ~/.bash_profile for bash
-
-# Install Python 3.10
-pyenv install 3.10.17
-
-# Set global or local Python version
-pyenv global 3.10.17  # Sets as default for all projects
-# OR
-pyenv local 3.10.17   # Sets for current directory only
-
-# Verify installation
-python --version
+git clone https://github.com/rhesis-ai/rhesis.git
 ```
 
-### 🐧 Linux Installation
 
-```bash
-# Install pyenv
-curl https://pyenv.run | bash
-
-# Install build dependencies (🐧 Ubuntu/Debian)
-sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
-libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
-libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
-
-# Add pyenv to your shell (the installer usually does this automatically)
-# If needed, add these lines to your ~/.bashrc or ~/.zshrc:
-# export PYENV_ROOT="$HOME/.pyenv"
-# [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-# eval "$(pyenv init -)"
-
-# Reload your shell
-source ~/.bashrc  # or ~/.zshrc
-
-# Install Python 3.10
-pyenv install 3.10.17
-
-# Set local Python version
-pyenv local 3.10.17
-
-# Verify installation
-python --version
-```
-
-**Important Notes:**
-- **macOS users**: If you encounter permission issues, you may need to run `xcode-select --install` to ensure Xcode Command Line Tools are properly installed
-- **Shell configuration**: Changes to shell configuration files won't take effect until you restart your terminal or run the `source` command
-- **Verification**: Always verify your Python version with `python --version` after installation
-
-This ensures you're using a clean Python environment without potential conflicts from other packages or Python installations.
-
-## ⚡ UV Installation & Python Environment Setup
-
-UV is a fast Python package installer and resolver that we use for dependency management and virtual environments. Install UV after setting up Python with pyenv.
-
-### 🍎 macOS UV Installation
-
-```bash
-# Install UV via Homebrew (recommended)
-brew install uv
-
-# Or install via curl (alternative method)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Verify installation
-uv --version
-```
-
-### 🐧 Linux UV Installation
-
-```bash
-# Install UV via curl (recommended)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Add UV to your PATH (the installer usually does this automatically)
-# If needed, add this line to your ~/.bashrc or ~/.zshrc:
-# export PATH="$HOME/.local/bin:$PATH"
-
-# Reload your shell
-source ~/.bashrc  # or ~/.zshrc
-
-# Verify installation
-uv --version
-```
-
-### 🐍 Create Virtual Environment
-
-After installing UV, create and activate a virtual environment in the backend directory:
+Create and activate a virtual environment in the backend directory:
 
 ```bash
 # Navigate to the backend directory
 cd apps/backend
 
-# Create a fresh virtual environment with UV
-uv venv
-
+# Create a virtual environment with UV
+uv sync --dev
 # Activate the virtual environment
 source .venv/bin/activate
-
-# Verify you're in the virtual environment
-which python
-python --version
 ```
 
-**Important Notes:**
-- **Virtual environments**: Always activate your virtual environment before installing packages or running the backend
-- **Deactivation**: Use `deactivate` command to exit the virtual environment when done
-- **Reactivation**: Run `source .venv/bin/activate` each time you start working on the project (from the `apps/backend` directory)
-
-## ⚡ Development Setup
-
-**Prerequisites**: You should have already completed:
-- [Python Version Requirements](#python-version-requirements) - Repository cloned and Python/pyenv set up
-- [UV Installation & Python Environment Setup](#uv-installation--python-environment-setup) - UV installed and virtual environment created
-
-1. 🛠️ **Install GitHub CLI** (required for automated PR creation):
-```bash
-# 🐧 Ubuntu/Debian
-sudo apt update && sudo apt install gh
-
-# 🍎 macOS
-brew install gh
-
-# Or download from: https://cli.github.com/
-```
-
-2. 🔐 **Authenticate with GitHub**:
-```bash
-gh auth login
-```
-
-3. 📦 **Install backend dependencies**:
-
-   **⚠️ Important**: Ensure your virtual environment is activated before installing dependencies.
-
-   ```bash
-   # Navigate to the backend directory (if not already there)
-   cd apps/backend
-   
-   # Activate the virtual environment
-   source .venv/bin/activate
-   
-   # Verify you're in the virtual environment (should show .venv path)
-   which python
-   
-   # Install dependencies
-   uv sync --extra dev
-   uv pip install -e .
-   uv pip install -e ../../sdk
-   ```
-   This will:
-   - **Sync dependencies**: Install all project dependencies, including development dependencies (such as Sphinx for docs, testing tools, linters)
-   - **Install backend in editable mode** (`-e .`): The `-e` flag installs the current package (the `.` refers to current directory) in "editable" or "development" mode, meaning changes to the source code are immediately reflected without reinstalling
-   - **Install Rhesis SDK dependency** (`-e ../../sdk`): The backend depends on the Rhesis SDK for client communication, data models, and shared utilities. Installing it in editable mode allows you to modify both backend and SDK code simultaneously during development
+This will:
+- **Sync dependencies**: Install all project dependencies, including development dependencies (such as Sphinx for docs, testing tools, linters)
+- **Install backend and SDK in editable mode** meaning changes to the source code are immediately reflected without reinstalling
+- **Install Rhesis SDK dependency in editable mode** The backend depends on the Rhesis SDK for client communication, data models, and shared utilities. Installing it in editable mode allows you to modify both backend and SDK code simultaneously during development
 
 ## ☁️ Cloud Database Setup (Currently Required for Backend)
 
@@ -438,73 +292,11 @@ cd <repo root>
 
 The CLI provides a consistent interface for starting both services with beautiful, colorful output and proper error handling.
 
-## 🤖 Automated PR Creation Tool
-
-The repository includes an intelligent PR creation tool that streamlines the pull request process.
-
-**⚠️ Important**: This tool must be run from the **repository root** (not from `apps/backend`):
-
-```bash
-# Navigate to the repository root first
-cd ../../  # If you're in apps/backend
-# OR
-cd <repo root>
-
-# Then run the PR creation tool
-.github/pr [base-branch] [options]
-```
-
-**🔍 Enhanced Features**
-The tool now prevents common PR creation failures and handles updates:
-- **Push Detection**: Detects unpushed branches and commits
-- **Interactive Prompting**: Clear options to push content before PR creation
-- **PR Updates**: Updates existing PRs instead of failing when PR already exists
-
-**Features:**
-- 🎯 **Smart title generation** - Automatically formats branch names into proper titles
-- 📝 **Detailed descriptions** - Includes commit summaries, changed files, and checklists
-- 🔤 **Proper capitalization** - Handles technical abbreviations (API, UI, DB, etc.)
-- ✅ **Ready-to-use templates** - Pre-filled checklists and sections
-- 🌐 **Browser integration** - Option to open PR in browser after creation
-- 🛡️ **Push validation** - Ensures all content is pushed before PR creation
-- 🚀 **Auto-push option** - Can push changes for you with confirmation
-
-**Prerequisites:**
-- GitHub CLI (`gh`) must be installed and authenticated (see setup steps above)
-- Must be run from a feature branch (not main/master)
-
-**Examples:**
-```bash
-# From the repository root
-.github/pr                  # Create PR against main branch (with push detection)
-.github/pr develop         # Create PR against develop branch
-.github/pr --force         # Skip push detection (advanced users)
-.github/pr --help          # Show all available options
-```
-
-**Note:** If GitHub CLI is not installed, the tool will display an error and guide you to install it first.
-
 ## 🔄 Development Workflow
 
 **📋 Prerequisites**: Before starting development, ensure you have completed:
 1. [Cloud Database Setup](#cloud-database-setup-currently-required-for-backend) - Currently required as the backend needs a database connection to run (local database support coming in the future)
 2. [Environment Configuration](#environment-configuration) - The `.env` file must be properly configured with all required variables
-
-**⚠️ Important**: Always ensure your virtual environment is activated when working with backend code:
-```bash
-cd apps/backend
-source .venv/bin/activate
-```
-
-1. 🌿 **Create a new branch for your feature**:
-```bash
-git checkout -b feature/your-feature-name
-```
-
-2. 🪝 **Enable pre-commit hooks**:
-```bash
-pre-commit install
-```
 
 3. 🚀 **Start the development server** (choose one method):
 
@@ -530,77 +322,11 @@ pre-commit install
    uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload
    ```
 
-4. Make your changes and ensure all checks pass (if a Makefile is present, use it):
-```bash
-# Navigate to the backend directory (if not already there)
-cd apps/backend
-
-# Ensure virtual environment is activated
-source .venv/bin/activate
-
-make format      # Format code with Ruff
-make lint        # Lint code with Ruff
-make type-check  # Type check with mypy
-make test        # Run tests
-```
-Or run all checks at once:
-```bash
-# From the backend directory, ensure virtual environment is activated
-source .venv/bin/activate
-make all
-```
-
-5. Commit your changes:
-```bash
-git add .
-git commit -m "feat: your descriptive commit message"
-```
-
-6. Push your changes and create a Pull Request:
-```bash
-git push origin feature/your-feature-name
-```
-
-7. **Create a Pull Request** using the automated PR tool:
-```bash
-# Navigate to the repository root first
-cd ../../  # If you're in apps/backend
-
-# Then create the PR
-.github/pr
-```
-This tool will:
-- 🔍 **Check if your changes are pushed** to remote
-- 🤝 **Prompt you to push** if needed (with option to push automatically)
-- 📝 **Generate a professional PR** with proper title formatting, detailed description, commit summaries, and comprehensive checklist
-
-## 📝 Pull Request Guidelines
-
-- ✅ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages
-- 🧪 Include tests for new features
-- 📚 Update documentation as needed
-- ✔️ Ensure all checks pass before requesting review
-
-## 🎨 Code Style
-
-We use several tools to maintain code quality:
-- [Ruff](https://docs.astral.sh/ruff/) for code formatting and linting
-- [MyPy](https://mypy.readthedocs.io/) for static type checking
-- [Pre-commit](https://pre-commit.com/) for automated checks
-
-All formatting and linting is handled by Ruff. Use the Makefile targets for a consistent workflow.
-
 ## 🧪 Testing
 
 - ✍️ Write tests for all new features and bug fixes
-- 📁 Tests should be placed in the `tests/` directory (or as specified in the project)
-- 🏃 Run the test suite with `make test` from the `apps/backend` directory
-
-## 📚 Documentation
-
-- 📝 Update documentation for any changed functionality
-- 💬 Include docstrings for new functions and classes
-- 🔄 Keep the README.md up to date with any user-facing changes
+- 📁 Place tests in the `tests/` directory (or as specified in the project)
+- 🏃 Run tests with `make test` from the `apps/backend` directory
 
 ## ❓ Questions or Need Help?
 
@@ -609,25 +335,4 @@ If you have questions or need help with the contribution process:
 - Create an issue in the repository
 - Check our [documentation](https://docs.rhesis.ai)
 
-## 🔒 Dependency Locking
-
-We use `uv lock` to generate a lock file for reproducible installs. By default, `uv lock` only locks main dependencies. To include dev dependencies (and any other optional groups), use the `--extra` flag:
-
-```bash
-uv lock --extra dev
-```
-
-You can specify multiple extras if needed:
-```bash
-uv lock --extra dev --extra docs
-```
-
-| Command                                 | Locks main deps | Locks dev deps | Locks other extras |
-|------------------------------------------|:--------------:|:--------------:|:------------------:|
-| `uv lock`                               |      ✅        |      ❌        |        ❌          |
-| `uv lock --extra dev`                   |      ✅        |      ✅        |        ❌          |
-| `uv lock --extra dev --extra docs`      |      ✅        |      ✅        |        ✅          |
-
-**Best Practice:**
-- Always use `uv lock --extra dev` to ensure your lock file includes all development dependencies.
-- Add more `--extra` flags as needed for other optional dependency groups.
+Thank you for contributing to Rhesis! 🎉 

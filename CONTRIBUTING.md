@@ -1,19 +1,23 @@
 # 🚀 Contributing to Rhesis
 
-Thank you for your interest in contributing to Rhesis! This document provides guidelines and instructions for contributing to our main repository.
+Thank you for your interest in contributing to Rhesis! This document provides comprehensive guidelines and instructions for contributing to our main repository.
 
 ## 📋 Table of Contents
 
 - 📁 [Project Structure](#project-structure)
-- 🔄 [Development Workflow](#development-workflow)
-- 🎨 [Coding Standards](#coding-standards)
-- 📝 [Commit Guidelines](#commit-guidelines)
-- 🏷️ [Versioning and Release Process](#versioning-and-release-process)
-- 📨 [Pull Request Process](#pull-request-process)
-- 🤖 [GitHub Automation Tools](#github-automation-tools)
-- 🧪 [Testing](#testing)
+- 🐧 [Tools Installation on Linux](#tools-installation-on-linux)
+- 🐍 [Python Environment Setup](#python-environment-setup)
+- 🧹 [Coding Standards, Linting and Formatting](#coding-standards-linting-and-formatting)
 - 📚 [Documentation](#documentation)
+- 🧪 [Testing](#testing)
+- 🔄 [Development Workflow](#development-workflow)
+- 📝 [Commit Guidelines](#commit-guidelines)
+- 🔀 [Pull Request Process](#pull-request-process)
+- 🤖 [GitHub Automation Tools](#github-automation-tools)
+- 🏷️ [Versioning and Release Process](#versioning-and-release-process)
+- ❓ [Questions or Need Help?](#questions-or-need-help)
 
+<a id="project-structure"></a>
 ## 📁 Project Structure
 
 The Rhesis repository is organized as a monorepo containing multiple applications and packages:
@@ -32,25 +36,189 @@ rhesis/
 └── docs/              # Documentation
 ```
 
-## 🔄 Development Workflow
+<a id="tools-installation-on-linux"></a>
+## 🐧 Tools Installation on Linux
 
-1. 🍴 Fork the repository
-2. 🌿 Create a feature branch from `main`
-3. ✍️ Make your changes
-4. 🧪 Run tests
-5. 📨 Submit a pull request
+These are the following tools that are required for development:
+```bash
+# Install build dependencies (Ubuntu/Debian)
+sudo apt update && sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
+libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
 
-## 🎨 Coding Standards
+```
 
-Follow language-specific style guides:
-- 🐍 **Python**: PEP 8
-- 🟨 **JavaScript/TypeScript**: ESLint with our configuration
 
-Key principles:
-- 💬 Write meaningful comments and documentation
-- 📏 Keep functions small and focused
+<a id="python-environment-setup"></a>
+## 🐍 Python Environment Setup
+
+Both backend and SDK use Python as the primary language. We utilize the `uv` tool for Python version and package management. UV is a fast Python package installer and resolver that handles dependency management and virtual environments efficiently. 
+
+UV is our recommended solution for all development tasks. While it differs from traditional package managers, it offers superior performance and ease of use. For comprehensive information, refer to the [uv documentation](https://docs.astral.sh/uv/).
+
+
+### 🍎 macOS UV Installation
+**Prerequisites**: Ensure you have [Homebrew](https://brew.sh/) and Xcode Command Line Tools installed. Install Xcode Command Line Tools using `xcode-select --install` 
+```bash
+# Install UV via Homebrew (recommended)
+brew install uv
+
+# Alternative installation via curl
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Verify installation
+uv --version
+```
+
+### 🐧 Linux UV Installation
+
+```bash
+# Install UV via curl (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add UV to your PATH (usually handled automatically by the installer)
+# If manual configuration is needed, add this line to your ~/.bashrc or ~/.zshrc:
+# export PATH="$HOME/.local/bin:$PATH"
+
+# Reload your shell configuration
+source ~/.bashrc  # or ~/.zshrc
+
+# Verify installation
+uv --version
+```
+
+
+<!-- to do: add instructions for frontend -->
+
+<a id="coding-standards-linting-and-formatting"></a>
+## 🎨 Coding Standards, Linting and Formatting
+
+**Key principles:**
+- 💬 Write meaningful comments and comprehensive documentation
+- 📏 Maintain focused, single-responsibility functions
 - 🏷️ Use descriptive variable and function names
 
+**Follow language-specific style guides:**
+- 🐍 **Python**: We adhere to PEP 8 standards and utilize [Ruff](https://docs.astral.sh/ruff/) for both 
+formatting and linting.
+- 🟨 **JavaScript/TypeScript**: We use ESLint for linting
+
+**Our code quality toolchain includes:**
+- 🖥️ VS Code / Cursor Configuration
+- 🛠️ Makefile: Linting & Formatting with Ruff
+- 📝 Pre-commit hooks
+
+**Note:** All tools utilize identical Ruff settings and configuration for consistency.
+
+### 🖥️ VS Code / Cursor Configuration
+
+The repository includes a `.vscode/settings.json` file that automatically configures your editor with the Ruff formatter and linter. Installation of the **[Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff)** extension is required.
+
+The extension automatically executes Ruff formatting and linting on file save.
+
+### 🛠️ Makefile: Linting & Formatting with Ruff
+
+We use a `Makefile` to streamline common development tasks such as linting, formatting, type checking, and testing.
+
+The SDK and backend employ different Makefile configurations but share identical targets:
+
+Available targets include:
+- `make format` &mdash; Formats **all** Python files using Ruff
+- `make format_diff` &mdash; Formats only **modified files** using Ruff
+- `make lint` &mdash; Lints **all** Python files using Ruff
+- `make lint_diff` &mdash; Lints only **modified files** using Ruff
+- `make test` &mdash; Executes the test suite
+- `make all` &mdash; Runs all checks (format_diff, lint_diff, test)
+
+### 📝 Pre-commit Hooks
+We implement pre-commit hooks to automatically execute formatting and linting scripts before each commit. 
+Installation requires the following command:
+```bash
+uvx pre-commit install
+```
+
+On every commit, pre-commit hooks automatically run Ruff formatting and linting on modified files. 
+When issues are detected, the system attempts automatic resolution. Unresolved issues appear in the commit message and require manual attention. To proceed with the commit, resolve all issues and stage the modified files using the `git add` command. You can then retry the commit or manually execute checks using `make format` and `make lint` commands.
+
+
+If you want to disable pre-commit hooks for a specific commit, you can use the following command:
+```bash
+git commit --no-verify
+```
+
+To remove pre-commit hooks, execute:
+```bash
+uvx pre-commit uninstall
+```   
+
+
+
+
+<a id="documentation"></a>
+## 📚 Documentation
+
+- 📝 Update documentation for any modified functionality
+- 💬 Include comprehensive docstrings for new functions and classes
+- 🔄 Maintain README.md currency with user-facing changes
+
+<a id="testing"></a>
+## 🧪 Testing
+
+- ✍️ Write unit tests for all new features and bug fixes
+- ✅ Ensure all tests pass before submitting a PR
+- 🔗 Include integration tests where appropriate
+
+<a id="development-workflow"></a>
+## 🔄 Development Workflow
+
+
+1. 🌿 **Create a feature branch**:
+```bash
+git checkout -b feature/your-feature-name
+```
+
+2. 🪝 **Enable pre-commit hooks**:
+```bash
+pre-commit install
+```
+
+3. ✍️ **Implement changes and verify all checks pass using the Makefile**:
+```bash
+make format      # Format code with Ruff
+make format_diff # Show formatting differences without applying
+make lint        # Lint code with Ruff
+make type-check  # Type check with mypy
+make test        # Execute tests
+```
+
+Alternatively, run all checks simultaneously:
+```bash
+make all
+```
+
+
+4. 📝 **Commit your changes**:
+```bash
+git add .
+git commit -m "feat: your descriptive commit message"
+```
+
+5. 📤 **Push changes and create a Pull Request**:
+```bash
+git push origin feature/your-feature-name
+```
+
+6. **Generate a Pull Request** using our automated PR tool:
+```bash
+# Navigate to the repository root first
+cd <repo_root>  
+
+# Then create the PR
+.github/pr
+```
+
+
+<a id="commit-guidelines"></a>
 ## 📝 Commit Guidelines
 
 We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
@@ -74,101 +242,48 @@ Types include:
 - 🔨 `build`: Changes that affect the build system or external dependencies
 - 👷 `ci`: Changes to our CI configuration files and scripts
 
-## 🏷️ Versioning and Release Process
 
-### 📊 Versioning Strategy
-
-We follow [Semantic Versioning](https://semver.org/) (SemVer) for all components in the monorepo:
-
-- 🔴 **Major version (X.0.0)**: Incompatible API changes
-- 🟡 **Minor version (0.X.0)**: New functionality in a backward-compatible manner
-- 🟢 **Patch version (0.0.X)**: Backward-compatible bug fixes
-
-Each component (backend, frontend, SDK, etc.) maintains its own version number.
-
-### 🏷️ Tagging Strategy
-
-Since we use a monorepo structure, we employ a component-specific tagging strategy to distinguish between releases of different components:
-
-#### 🎯 Component-Specific Tags
-
-We use prefixed tags to identify which component a version belongs to:
-- 🔙 `backend-v1.0.0` - For backend releases
-- 🎨 `frontend-v2.3.1` - For frontend releases
-- 📦 `sdk-v0.5.2` - For SDK releases
-- ⚙️ `worker-v1.1.0` - For worker service releases
-- 🤖 `chatbot-v0.9.0` - For chatbot application releases
-- 👁️ `polyphemus-v0.3.2` - For monitoring service releases
-
-#### 🌐 Platform-Wide Versioning
-
-For the entire platform, we use a combination approach:
-
-1. 🔧 Use component-specific tags for regular development (`backend-v1.2.0`, `frontend-v1.1.0`, `sdk-v0.2.5`)
-2. 🎯 Periodically create platform-wide version tags (`v1.0.0`, `v2.0.0`) for major milestones
-
-This gives us the flexibility of independent component development while still providing stable, well-documented platform releases for users who want a known-good configuration.
-
-#### 🔧 Implementation
-
-When releasing a component:
-
-1. 📝 Update the component's version in its respective configuration file (e.g., `pyproject.toml`, `package.json`)
-2. 📋 Update the component's CHANGELOG.md
-3. 🏷️ Create a tag with the component prefix and version:
-   ```
-   git tag <component>-v<version>
-   git push origin <component>-v<version>
-   ```
-
-4. 🔗 Reference these tags in your changelogs:
-   ```
-   [0.1.0]: https://github.com/rhesis-ai/rhesis/releases/tag/backend-v0.1.0
-   ```
-
-When creating a platform-wide release:
-
-1. 📝 Update the main CHANGELOG.md with details of all component versions included
-2. 🏷️ Create a platform-wide tag:
-   ```
-   git tag v<version>
-   git push origin v<version>
-   ```
-
-3. 📋 Document the specific component versions included in this platform release
-
-#### 🔄 Advanced Patterns
-
-For more complex scenarios:
-
-- 🌐 **Platform-wide releases**: These are significant milestones where all components have reached a stable, compatible state. They represent "known good" configurations of the entire platform:
-  - Use simple version tags without component prefixes (e.g., `v1.0.0`, `v2.0.0`)
-  - Document in the main CHANGELOG.md which specific component versions are included
-  - Create these less frequently than component-specific releases
-  - Example: `v1.0.0` might include `backend-v1.2.0`, `frontend-v1.1.5`, and `sdk-v0.2.3`
-  - These releases are particularly useful for users who want a vetted, stable configuration
-
-- 🔗 **Coordinated component releases**: When multiple components need to be released together due to interdependencies:
-  - Create individual component tags for each component being released
-  - Document the interdependencies in each component's CHANGELOG.md
-  - Consider creating a platform-wide tag if the changes are significant enough
-
-- 🚨 **Hotfixes**: For urgent fixes, use the format `<component>-v<version>-hotfix.<number>` (e.g., `backend-v1.0.0-hotfix.1`)
-
+<a id="pull-request-process"></a>
 ## 📨 Pull Request Process
 
-1. ✅ Ensure your code adheres to our coding standards
+1. ✅ Ensure code adherence to our coding standards
 2. 📚 Update documentation as necessary
 3. 🧪 Include tests that verify your changes
-4. 📝 Update the CHANGELOG.md file with details of changes
-5. 👥 The PR must receive approval from at least one maintainer
-6. 🔄 Once approved, a maintainer will merge your PR
+4. 📝 Update the CHANGELOG.md file with change details
+5. 👥 Obtain approval from at least one maintainer
+6. 🔄 Maintainers will merge approved PRs
 
+**Additional requirements:**
+- ✅ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages
+- 🧪 Include tests for new features
+- 📚 Update documentation as needed
+- ✔️ Ensure all checks pass before requesting review
+
+<a id="github-automation-tools"></a>
 ## 🤖 GitHub Automation Tools
 
 This repository includes automation scripts and tools for GitHub workflows and repository management located in the `.github/` directory.
 
-> **📋 For comprehensive release information, see [RELEASING.md](RELEASING.md)**
+To utilize these tools, you must install and authenticate the GitHub CLI tool:
+
+1. 🛠️ **Install GitHub CLI** (required for automated PR creation):
+```bash
+# 🐧 Ubuntu/Debian
+sudo apt update && sudo apt install gh
+
+# 🍎 macOS
+brew install gh
+
+# Or download from: https://cli.github.com/
+```
+
+2. 🔐 **Authenticate with GitHub**:
+```bash
+gh auth login
+```
+
+
+
 
 ### 🚀 PR Creation Script
 
@@ -180,38 +295,8 @@ An intelligent script that automates the creation of pull requests by analyzing 
 The script now includes smart detection and update capabilities:
 - **Push Detection**: Automatically detects if your branch or changes aren't pushed
 - **Interactive Prompting**: Offers clear options to push content before PR creation
-- **PR Update**: Updates existing PRs instead of failing when PR already exists
-- **Force Mode**: Skip detection with `--force` flag for advanced users
-
-### 🏷️ Release Management Script
-
-#### 🔄 `release`
-
-A comprehensive release automation tool that manages version bumping, changelog generation, and tagging for individual components and platform-wide releases.
-
-For detailed information about the release process, see **[RELEASING.md](RELEASING.md)**.
-
-#### Quick Examples
-
-```bash
-# The release script automatically creates appropriate release branches
-
-# Individual component release (updates versions and changelogs only)
-./.github/release backend --minor
-# → Creates branch: release/backend-v0.2.0
-
-# Multiple components
-./.github/release backend --minor frontend --patch
-# → Creates branch: release/backend-v0.2.0-frontend-v0.1.1 (or release/multi-a1b2c3)
-
-# All components + platform
-./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
-# → Creates branch: release/v0.2.0
-
-# Always test first (shows what branch would be created)
-./.github/release --dry-run backend --minor
-# → Would create release branch: release/backend-v0.2.0
-```
+- **PR Update**: Updates existing PRs instead of failing when a PR already exists
+- **Force Mode**: Skip detection with the `--force` flag for advanced users
 
 #### Usage
 
@@ -341,6 +426,36 @@ The script creates a comprehensive PR description including:
 ```
 
 
+### 🏷️ Release Management Script
+> **📋 For comprehensive release information, see [RELEASING.md](RELEASING.md)**
+
+#### 🔄 `release`
+
+A comprehensive release automation tool that manages version bumping, changelog generation, and tagging for individual components and platform-wide releases.
+
+For detailed information about the release process, see **[RELEASING.md](RELEASING.md)**.
+
+#### Quick Examples
+
+```bash
+# The release script automatically creates appropriate release branches
+
+# Individual component release (updates versions and changelogs only)
+./.github/release backend --minor
+# → Creates branch: release/backend-v0.2.0
+
+# Multiple components
+./.github/release backend --minor frontend --patch
+# → Creates branch: release/backend-v0.2.0-frontend-v0.1.1 (or release/multi-a1b2c3)
+
+# All components + platform
+./.github/release backend --minor frontend --minor worker --minor chatbot --minor polyphemus --minor sdk --minor platform --minor
+# → Creates branch: release/v0.2.0
+
+# Always test first (shows what branch would be created)
+./.github/release --dry-run backend --minor
+# → Would create release branch: release/backend-v0.2.0
+```
 
 ### 📁 Automation Directory Structure
 
@@ -364,16 +479,99 @@ When contributing new automation tools to the `.github/` directory:
 5. 🧪 Test thoroughly before committing
 6. 📋 Follow the existing script patterns for consistency
 
-## 🧪 Testing
 
-- ✍️ Write unit tests for all new features and bug fixes
-- ✅ Ensure all tests pass before submitting a PR
-- 🔗 Include integration tests where appropriate
 
-## 📚 Documentation
 
-- 📝 Update documentation for any new features or changes
-- 📋 Document public APIs and interfaces
-- 💡 Include examples where appropriate
+<a id="versioning-and-release-process"></a>
+## 🏷️ Versioning and Release Process
+
+### 📊 Versioning Strategy
+
+We follow [Semantic Versioning](https://semver.org/) (SemVer) for all components in the monorepo:
+
+- 🔴 **Major version (X.0.0)**: Incompatible API changes
+- 🟡 **Minor version (0.X.0)**: New functionality in a backward-compatible manner
+- 🟢 **Patch version (0.0.X)**: Backward-compatible bug fixes
+
+Each component (backend, frontend, SDK, etc.) maintains its own version number.
+
+### 🏷️ Tagging Strategy
+
+Since we use a monorepo structure, we employ a component-specific tagging strategy to distinguish between releases of different components:
+
+#### 🎯 Component-Specific Tags
+
+We use prefixed tags to identify which component a version belongs to:
+- 🔙 `backend-v1.0.0` - For backend releases
+- 🎨 `frontend-v2.3.1` - For frontend releases
+- 📦 `sdk-v0.5.2` - For SDK releases
+- ⚙️ `worker-v1.1.0` - For worker service releases
+- 🤖 `chatbot-v0.9.0` - For chatbot application releases
+- 👁️ `polyphemus-v0.3.2` - For monitoring service releases
+
+#### 🌐 Platform-Wide Versioning
+
+For the entire platform, we use a combination approach:
+
+1. 🔧 Use component-specific tags for regular development (`backend-v1.2.0`, `frontend-v1.1.0`, `sdk-v0.2.5`)
+2. 🎯 Periodically create platform-wide version tags (`v1.0.0`, `v2.0.0`) for major milestones
+
+This gives us the flexibility of independent component development while still providing stable, well-documented platform releases for users who want a known-good configuration.
+
+#### 🔧 Implementation
+
+When releasing a component:
+
+1. 📝 Update the component's version in its respective configuration file (e.g., `pyproject.toml`, `package.json`)
+2. 📋 Update the component's CHANGELOG.md
+3. 🏷️ Create a tag with the component prefix and version:
+   ```
+   git tag <component>-v<version>
+   git push origin <component>-v<version>
+   ```
+
+4. 🔗 Reference these tags in your changelogs:
+   ```
+   [0.1.0]: https://github.com/rhesis-ai/rhesis/releases/tag/backend-v0.1.0
+   ```
+
+When creating a platform-wide release:
+
+1. 📝 Update the main CHANGELOG.md with details of all component versions included
+2. 🏷️ Create a platform-wide tag:
+   ```
+   git tag v<version>
+   git push origin v<version>
+   ```
+
+3. 📋 Document the specific component versions included in this platform release
+
+#### 🔄 Advanced Patterns
+
+For more complex scenarios:
+
+- 🌐 **Platform-wide releases**: These are significant milestones where all components have reached a stable, compatible state. They represent "known good" configurations of the entire platform:
+  - Use simple version tags without component prefixes (e.g., `v1.0.0`, `v2.0.0`)
+  - Document in the main CHANGELOG.md which specific component versions are included
+  - Create these less frequently than component-specific releases
+  - Example: `v1.0.0` might include `backend-v1.2.0`, `frontend-v1.1.5`, and `sdk-v0.2.3`
+  - These releases are particularly useful for users who want a vetted, stable configuration
+
+- 🔗 **Coordinated component releases**: When multiple components need to be released together due to interdependencies:
+  - Create individual component tags for each component being released
+  - Document the interdependencies in each component's CHANGELOG.md
+  - Consider creating a platform-wide tag if the changes are significant enough
+
+- 🚨 **Hotfixes**: For urgent fixes, use the format `<component>-v<version>-hotfix.<number>` (e.g., `backend-v1.0.0-hotfix.1`)
+
+
+
+<a id="questions-or-need-help"></a>
+## ❓ Questions or Need Help?
+
+If you have questions or need help with the contribution process:
+- Contact us at support@rhesis.ai
+- Create an issue in the repository
+- Check our [documentation](https://docs.rhesis.ai)
 
 Thank you for contributing to Rhesis! 🎉 

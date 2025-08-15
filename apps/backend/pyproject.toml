@@ -47,6 +47,7 @@ dependencies = [
     "proto-plus>=1.26.1",
     "email-validator>=2.0.0",
     "slowapi>=0.1.9",
+    "rhesis-sdk",
 ]
 
 [dependency-groups]
@@ -65,7 +66,8 @@ dev = [
     "factory-boy>=3.3.0",
 ]
 
-
+[tool.uv.sources]
+rhesis-sdk = { path = "../../sdk", editable = true }
 
 [build-system]
 requires = [
@@ -117,3 +119,5 @@ markers = [
     "critical: core functionality tests",
     "security: security and vulnerability tests",
 ]
+
+
