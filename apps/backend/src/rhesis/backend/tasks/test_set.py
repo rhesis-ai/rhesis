@@ -95,7 +95,13 @@ def generate_and_upload_test_set(self, synthesizer_type: str, num_tests: int = 5
         batch_size: Batch size for the synthesizer (default: 20)
         db: Database session (provided by decorator)
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
-            For PromptSynthesizer: prompt (str, required)
+            For PromptSynthesizer:
+                - prompt (str, required): The generation prompt
+                - documents (List[Dict], optional): List of documents with:
+                    - name (str): Document identifier
+                    - description (str): Document description
+                    - path (str): Local file path from upload endpoint
+                    - content (str, optional): Pre-provided content
             For ParaphrasingSynthesizer: source_test_set_id (str, required)
             Any future synthesizers can define their own required parameters
     

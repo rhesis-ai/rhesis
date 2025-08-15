@@ -1,3 +1,4 @@
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -13,7 +14,9 @@ from rhesis.backend.app.schemas.services import (
     GenerateTestsResponse,
     PromptRequest,
     TextResponse,
-    DocumentUploadResponse
+    DocumentUploadResponse,
+    ExtractDocumentRequest,
+    ExtractDocumentResponse
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.generation import generate_tests
@@ -23,6 +26,7 @@ from rhesis.backend.app.services.gemini_client import (
     get_json_response,
 )
 from rhesis.backend.app.services.document_handler import DocumentHandler
+from rhesis.sdk.services.extractor import DocumentExtractor
 
 router = APIRouter(
     prefix="/services",
@@ -242,3 +246,76 @@ async def upload_document(document: UploadFile = File(...)):
     handler = DocumentHandler()
     path = await handler.save_document(document)
     return {"path": path}
+
+
+@router.post("/documents/extract", response_model=ExtractDocumentResponse)
+async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDocumentResponse:
+    """
+    Extract text content from an uploaded document.
+
+    Uses the SDK's DocumentExtractor to extract text from various document formats:
+    - PDF (.pdf)
+    - Microsoft Office formats (.docx, .xlsx, .pptx)
+    - Markdown (.md)
+    - AsciiDoc (.adoc)
+    - HTML/XHTML (.html, .xhtml)
+    - CSV (.csv)
+    - Plain text (.txt)
+    - And more...
+
+    Args:
+        request: ExtractDocumentRequest containing the path to the uploaded document
+
+    Returns:
+        ExtractDocumentResponse containing the extracted text content and detected format
+    
+    Note:
+        Documents are automatically cleaned up after processing, so the path must
+        point to a recently uploaded document that hasn't been cleaned up yet.
+    """
+    try:
+        # Initialize extractor
+        extractor = DocumentExtractor()
+        
+        # Get file extension to determine format
+        file_extension = Path(request.path).suffix.lower()
+        
+        # Check if format is supported
+        if file_extension not in extractor.supported_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file format: {file_extension}. Supported formats: {', '.join(extractor.supported_extensions)}"
+            )
+        
+        # Prepare document for extraction
+        document = {
+            "name": "document",
+            "path": request.path
+        }
+        
+        # Extract content
+        extracted_texts = extractor.extract([document])
+        
+        # Get the extracted content (there's only one document)
+        content = next(iter(extracted_texts.values()))
+        
+        return ExtractDocumentResponse(
+            content=content,
+            format=file_extension.lstrip('.')  # Remove the leading dot
+        )
+        
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found. It may have been cleaned up already."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to extract document content: {str(e)}"
+        )
+    finally:
+        # Cleanup regardless of success or failure
+        if request.path:
+            handler = DocumentHandler()
+            await handler.cleanup(request.path)

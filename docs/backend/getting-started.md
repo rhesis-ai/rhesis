@@ -103,10 +103,10 @@ celery -A rhesis.backend.worker worker --loglevel=info
 
 ### Code Formatting
 
-Format code using the built-in script:
+Format code using ruff:
 
 ```bash
-python -m rhesis.scripts format
+uv run --all-groups ruff format .
 ```
 
 ### Linting
@@ -114,13 +114,13 @@ python -m rhesis.scripts format
 Run the linter:
 
 ```bash
-python -m rhesis.scripts lint
+uv run --all-groups ruff check .
 ```
 
 Fix linting issues automatically:
 
 ```bash
-python -m rhesis.scripts lint-fix
+uv run --all-groups ruff check --fix .
 ```
 
 ### Running Tests

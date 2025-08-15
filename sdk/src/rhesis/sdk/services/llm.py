@@ -25,7 +25,7 @@ class LLMService:
                 **kwargs,
             )
             response_content = response["choices"][0]["message"]["content"]
-            
+
             if response_format == "json_object":
                 try:
                     return json.loads(response_content)
