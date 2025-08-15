@@ -2,9 +2,9 @@ import concurrent.futures
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.base import BaseMetric, MetricConfig, MetricResult
-from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
-from rhesis.backend.metrics.utils import diagnose_invalid_metric
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.score_evaluator import ScoreEvaluator
+from rhesis.sdk.metrics.utils import diagnose_invalid_metric
 
 # Use inline factory creation to avoid circular imports
 # Implementation of the factory import will be delayed until needed
@@ -22,7 +22,7 @@ class MetricEvaluator:
     def _get_factory(self):
         """Lazy load the MetricFactory to avoid circular imports."""
         if self.factory is None:
-            from rhesis.backend.metrics.factory import MetricFactory
+            from rhesis.sdk.metrics.factory import MetricFactory
 
             self.factory = MetricFactory()
         return self.factory

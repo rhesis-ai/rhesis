@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.backend.metrics.base import MetricResult
-from rhesis.backend.metrics.rhesis import RhesisPromptMetric
-from rhesis.backend.metrics.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.rhesis import RhesisPromptMetric
+from rhesis.sdk.metrics.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
 
 
 @pytest.fixture

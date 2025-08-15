@@ -8,11 +8,11 @@ Usage:
     python test_metric.py <metric_id> --org <org_id> --user <user_id> \
         --input "Your question" --output "Model response" \
         --expected "Expected response"
-    
+
     # With test data from database
     python test_metric.py <metric_id> --org <org_id> --user <user_id> \
         --test-id <test_id> --output "Model response"
-    
+
     # Show only the rendered template (no evaluation)
     python test_metric.py <metric_id> --org <org_id> --user <user_id> \
         --input "Your question" --template-only
@@ -25,13 +25,13 @@ Examples:
         --output "Paris is the capital of France." \
         --expected "The capital of France is Paris." \
         --context "France is a country in Europe."
-    
+
     # Using existing test data
     python test_metric.py abc123 \
         --org org123 --user user456 \
         --test-id test123 \
         --output "Paris is the capital of France."
-    
+
     # Show only the rendered template
     python test_metric.py abc123 \
         --org org123 --user user456 \
@@ -198,8 +198,8 @@ def test_metric(
         print(f"✅ Metric loaded: {metric_model.name} ({metric_model.class_name})")
 
         # Dynamic imports to avoid circular dependencies
-        from rhesis.backend.metrics.evaluator import MetricEvaluator
         from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
+        from rhesis.sdk.metrics.evaluator import MetricEvaluator
 
         # Create metric configuration
         print("🔧 Creating metric configuration...")
@@ -209,7 +209,7 @@ def test_metric(
             return {"error": "Failed to create metric configuration"}
 
         # Import MetricConfig and create instance
-        from rhesis.backend.metrics.base import MetricConfig
+        from rhesis.sdk.metrics.base import MetricConfig
 
         metric_config = MetricConfig.from_dict(metric_config_dict)
 
@@ -249,7 +249,7 @@ def test_metric(
             print("\n📝 TEMPLATE ONLY MODE - Getting rendered template...")
             try:
                 if metric_config.backend == "rhesis":
-                    from rhesis.backend.metrics.rhesis.factory import RhesisMetricFactory
+                    from rhesis.sdk.metrics.rhesis.factory import RhesisMetricFactory
 
                     factory = RhesisMetricFactory()
                     metric_params = {
@@ -290,7 +290,7 @@ def test_metric(
         if metric_config.backend == "rhesis":
             try:
                 # Create the metric instance to get the rendered template and raw results
-                from rhesis.backend.metrics.rhesis.factory import RhesisMetricFactory
+                from rhesis.sdk.metrics.rhesis.factory import RhesisMetricFactory
 
                 factory = RhesisMetricFactory()
                 metric_params = {"threshold": metric_config.threshold, **metric_config.parameters}
