@@ -28,7 +28,19 @@ def create_topic(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    return crud.create_topic(db=db, topic=topic)
+    try:
+        return crud.create_topic(db=db, topic=topic)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Invalid parent topic reference")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Topic with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[TopicDetailSchema])
@@ -54,7 +66,7 @@ def read_topics(
 
 @router.get("/{topic_id}", response_model=TopicDetailSchema)
 def read_topic(
-    topic_id: str,
+    topic_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -83,7 +95,19 @@ def update_topic(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_topic = crud.update_topic(db, topic_id=topic_id, topic=topic)
-    if db_topic is None:
-        raise HTTPException(status_code=404, detail="Topic not found")
-    return db_topic
+    try:
+        db_topic = crud.update_topic(db, topic_id=topic_id, topic=topic)
+        if db_topic is None:
+            raise HTTPException(status_code=404, detail="Topic not found")
+        return db_topic
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Invalid parent topic reference")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Topic with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
