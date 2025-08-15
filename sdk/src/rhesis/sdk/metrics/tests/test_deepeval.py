@@ -45,13 +45,9 @@ def test_metric_result_interface(evaluator, sample_data):
     """Test that metric results conform to the expected format."""
     results = evaluator.evaluate(
         metrics=[
-            {
-                "class_name": "DeepEvalAnswerRelevancy", 
-                "backend": "deepeval", 
-                "threshold": 0.7
-            }
+            {"class_name": "DeepEvalAnswerRelevancy", "backend": "deepeval", "threshold": 0.7}
         ],
-        **sample_data
+        **sample_data,
     )
 
     for metric_name, result in results.items():
@@ -74,16 +70,16 @@ def test_specific_metrics(evaluator, sample_data):
     """Test evaluation with specific metrics."""
     metrics = [
         {
-            "class_name": "DeepEvalAnswerRelevancy", 
-            "backend": "deepeval", 
+            "class_name": "DeepEvalAnswerRelevancy",
+            "backend": "deepeval",
             "threshold": 0.7,
-            "description": "Measures how relevant the answer is to the question"
+            "description": "Measures how relevant the answer is to the question",
         },
         {
-            "class_name": "DeepEvalFaithfulness", 
-            "backend": "deepeval", 
+            "class_name": "DeepEvalFaithfulness",
+            "backend": "deepeval",
             "threshold": 0.8,
-            "description": "Measures how faithful the answer is to the context"
+            "description": "Measures how faithful the answer is to the context",
         },
     ]
     results = evaluator.evaluate(metrics=metrics, **sample_data)
@@ -98,10 +94,9 @@ def test_invalid_metric(evaluator, sample_data):
     """Test that invalid metrics are handled properly."""
     # The evaluator logs errors but returns empty results when metrics are invalid
     results = evaluator.evaluate(
-        metrics=[{"class_name": "InvalidMetric", "backend": "deepeval"}], 
-        **sample_data
+        metrics=[{"class_name": "InvalidMetric", "backend": "deepeval"}], **sample_data
     )
-    
+
     # Should return empty results since the metric is invalid
     assert results == {}
 
@@ -121,4 +116,4 @@ def test_config_loading(config):
 
 
 if __name__ == "__main__":
-    pytest.main([__file__]) 
+    pytest.main([__file__])
