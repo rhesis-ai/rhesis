@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 from rhesis.backend.metrics.base import BaseMetric, MetricType
 
@@ -19,4 +18,4 @@ class RagasMetricBase(BaseMetric):
     def threshold(self, value: float):
         if not 0 <= value <= 1:
             raise ValueError("Threshold must be between 0 and 1")
-        self._threshold = value 
+        self._threshold = value

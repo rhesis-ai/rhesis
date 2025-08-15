@@ -44,4 +44,4 @@ THRESHOLD_OPERATOR_MAP = {
     "==": operator.eq,
     "!=": operator.ne,
     "<>": operator.ne,
-} 
+}

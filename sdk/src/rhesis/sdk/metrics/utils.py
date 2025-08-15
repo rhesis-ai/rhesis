@@ -13,7 +13,7 @@ def run_evaluation(
 ) -> Dict[str, Any]:
     """
     Helper function to run the metric evaluation using MetricEvaluator.
-    
+
     Args:
         input_text: The input query or question
         output_text: The actual output from the LLM
@@ -21,13 +21,13 @@ def run_evaluation(
         context: List of context strings used for the response
         metrics: List of metric configurations (MetricConfig objects or dictionaries)
         max_workers: Maximum number of parallel workers
-        
+
     Returns:
         Dictionary of metric results
     """
     # Lazy import to avoid circular dependencies
     from rhesis.backend.metrics.evaluator import MetricEvaluator
-    
+
     evaluator = MetricEvaluator()
     return evaluator.evaluate(
         input_text=input_text,
@@ -51,10 +51,12 @@ def diagnose_invalid_metric(config: Union[Dict[str, Any], MetricConfig]) -> str:
     """
     if config is None:
         return "configuration is None"
-        
+
     if isinstance(config, MetricConfig):
         missing_fields = []
-        if not config.class_name or (isinstance(config.class_name, str) and not config.class_name.strip()):
+        if not config.class_name or (
+            isinstance(config.class_name, str) and not config.class_name.strip()
+        ):
             missing_fields.append("class_name")
         if not config.backend or (isinstance(config.backend, str) and not config.backend.strip()):
             missing_fields.append("backend")
@@ -62,13 +64,23 @@ def diagnose_invalid_metric(config: Union[Dict[str, Any], MetricConfig]) -> str:
             return f"missing or empty required fields: {', '.join(missing_fields)}"
     elif isinstance(config, dict):
         missing_fields = []
-        if "class_name" not in config or config["class_name"] is None or (isinstance(config["class_name"], str) and not config["class_name"].strip()):
+        if (
+            "class_name" not in config
+            or config["class_name"] is None
+            or (isinstance(config["class_name"], str) and not config["class_name"].strip())
+        ):
             missing_fields.append("class_name")
-        if "backend" not in config or config["backend"] is None or (isinstance(config["backend"], str) and not config["backend"].strip()):
+        if (
+            "backend" not in config
+            or config["backend"] is None
+            or (isinstance(config["backend"], str) and not config["backend"].strip())
+        ):
             missing_fields.append("backend")
         if missing_fields:
             return f"missing or empty required fields: {', '.join(missing_fields)}"
     else:
-        return f"invalid configuration type: {type(config).__name__} (expected dict or MetricConfig)"
-        
-    return "unknown validation error" 
+        return (
+            f"invalid configuration type: {type(config).__name__} (expected dict or MetricConfig)"
+        )
+
+    return "unknown validation error"

@@ -1,16 +1,16 @@
-from typing import List, Optional, Dict, Any, Union
+from typing import Any, Dict, List, Optional, Union
 
-from deepeval.test_case import LLMTestCase
 from deepeval.models import (
-    GeminiModel,
-    AzureOpenAIModel,
-    GPTModel,
-    AnthropicModel,
     AmazonBedrockModel,
+    AnthropicModel,
+    AzureOpenAIModel,
+    GeminiModel,
+    GPTModel,
     OllamaModel,
 )
+from deepeval.test_case import LLMTestCase
 
-from rhesis.backend.metrics.base import BaseMetric, MetricResult, MetricType
+from rhesis.backend.metrics.base import BaseMetric, MetricType
 from rhesis.backend.metrics.deepeval.model_factory import get_model_from_config
 
 
@@ -18,11 +18,11 @@ class DeepEvalMetricBase(BaseMetric):
     """Base class for DeepEval metrics with common functionality."""
 
     def __init__(
-        self, 
-        name: str, 
-        threshold: float = 0.5, 
+        self,
+        name: str,
+        threshold: float = 0.5,
         metric_type: MetricType = "rag",
-        model_config: Optional[Dict[str, Any]] = None
+        model_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(name=name, metric_type=metric_type)
         self._metric = None  # Will be set by child classes
@@ -30,7 +30,11 @@ class DeepEvalMetricBase(BaseMetric):
         self._model = get_model_from_config(model_config)
 
     @property
-    def model(self) -> Union[GeminiModel, GPTModel, AzureOpenAIModel, AnthropicModel, AmazonBedrockModel, OllamaModel]:
+    def model(
+        self,
+    ) -> Union[
+        GeminiModel, GPTModel, AzureOpenAIModel, AnthropicModel, AmazonBedrockModel, OllamaModel
+    ]:
         """Get the configured model instance."""
         return self._model
 
@@ -78,4 +82,4 @@ class DeepEvalMetricBase(BaseMetric):
             actual_output=output,
             expected_output=expected_output,
             retrieval_context=context,
-        ) 
+        )

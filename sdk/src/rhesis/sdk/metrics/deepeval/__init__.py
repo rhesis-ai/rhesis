@@ -4,10 +4,10 @@ from .factory import DeepEvalMetricFactory
 from .metric_base import DeepEvalMetricBase
 from .metrics import (
     DeepEvalAnswerRelevancy,
-    DeepEvalFaithfulness,
-    DeepEvalContextualRelevancy,
     DeepEvalContextualPrecision,
     DeepEvalContextualRecall,
+    DeepEvalContextualRelevancy,
+    DeepEvalFaithfulness,
 )
 
 __all__ = [
@@ -18,4 +18,4 @@ __all__ = [
     "DeepEvalContextualRelevancy",
     "DeepEvalContextualPrecision",
     "DeepEvalContextualRecall",
-] 
+]
