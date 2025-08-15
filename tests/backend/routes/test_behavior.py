@@ -117,6 +117,20 @@ class TestBehaviorCRUD:
         
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
+    def test_create_behavior_with_invalid_status(self, authenticated_client: TestClient):
+        """🧩 Test creating behavior with non-existent status"""
+        behavior_data = {
+            "name": "Test Behavior",
+            "description": "A test behavior",
+            "status_id": str(uuid.uuid4())  # Non-existent status
+        }
+
+        response = authenticated_client.post("/behaviors/", json=behavior_data)
+
+        # API should handle foreign key constraint violations gracefully
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "invalid" in response.json()["detail"].lower() or "not found" in response.json()["detail"].lower()
+
     def test_get_behavior_by_id_success(self, authenticated_client: TestClient, created_behavior):
         """🧩🔥 Test retrieving behavior by ID"""
         behavior_id = created_behavior["id"]
