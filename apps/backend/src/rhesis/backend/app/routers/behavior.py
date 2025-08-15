@@ -29,7 +29,21 @@ def create_behavior(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    return crud.create_behavior(db=db, behavior=behavior)
+    try:
+        return crud.create_behavior(db=db, behavior=behavior)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            if "status_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid status reference")
+            raise HTTPException(status_code=400, detail="Invalid reference in behavior data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Behavior with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[BehaviorDetailSchema])
@@ -81,10 +95,27 @@ def update_behavior(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_behavior = crud.update_behavior(db, behavior_id=behavior_id, behavior=behavior)
-    if db_behavior is None:
-        raise HTTPException(status_code=404, detail="Behavior not found")
-    return db_behavior
+    try:
+        db_behavior = crud.update_behavior(db, behavior_id=behavior_id, behavior=behavior)
+        if db_behavior is None:
+            raise HTTPException(status_code=404, detail="Behavior not found")
+        return db_behavior
+    except HTTPException:
+        # Re-raise HTTPExceptions (like our 404)
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            if "status_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid status reference")
+            raise HTTPException(status_code=400, detail="Invalid reference in behavior data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Behavior with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/{behavior_id}/metrics/", response_model=List[MetricDetailSchema])
