@@ -90,15 +90,21 @@ class MetricEvaluator:
                             "reason": f"Invalid metric configuration: {error_reason}",
                             "is_successful": False,
                             "threshold": 0.0,
-                            "backend": config.get("backend", "unknown")
-                            if isinstance(config, dict)
-                            else "unknown",
-                            "name": config.get("name", invalid_key)
-                            if isinstance(config, dict)
-                            else invalid_key,
-                            "class_name": config.get("class_name", "Unknown")
-                            if isinstance(config, dict)
-                            else "Unknown",
+                            "backend": (
+                                config.get("backend", "unknown")
+                                if isinstance(config, dict)
+                                else "unknown"
+                            ),
+                            "name": (
+                                config.get("name", invalid_key)
+                                if isinstance(config, dict)
+                                else invalid_key
+                            ),
+                            "class_name": (
+                                config.get("class_name", "Unknown")
+                                if isinstance(config, dict)
+                                else "Unknown"
+                            ),
                             "description": f"Failed to load metric: {error_reason}",
                             "error": error_reason,
                         }
@@ -117,13 +123,17 @@ class MetricEvaluator:
                         "reason": error_msg,
                         "is_successful": False,
                         "threshold": 0.0,
-                        "backend": config.get("backend", "unknown")
-                        if isinstance(config, dict)
-                        else "unknown",
+                        "backend": (
+                            config.get("backend", "unknown")
+                            if isinstance(config, dict)
+                            else "unknown"
+                        ),
                         "name": invalid_key,
-                        "class_name": config.get("class_name", "Unknown")
-                        if isinstance(config, dict)
-                        else "Unknown",
+                        "class_name": (
+                            config.get("class_name", "Unknown")
+                            if isinstance(config, dict)
+                            else "Unknown"
+                        ),
                         "description": f"Parsing error: {str(e)}",
                         "error": str(e),
                     }
@@ -132,11 +142,13 @@ class MetricEvaluator:
         # Log summary
         if invalid_metric_results:
             logger.warning(
-                f"Found {len(invalid_metric_results)} invalid metrics that will be reported as errors"
+                f"Found {len(invalid_metric_results)} invalid metrics"
+                "that will be reported as errors"
             )
 
         logger.debug(
-            f"Using {len(metric_configs)} valid metrics and {len(invalid_metric_results)} invalid metrics"
+            f"Using {len(metric_configs)} valid metrics"
+            f"and {len(invalid_metric_results)} invalid metrics"
         )
 
         if not metric_configs:
@@ -259,7 +271,6 @@ class MetricEvaluator:
         # Generate unique keys for each metric to avoid collisions
         metric_keys = []
         used_keys = set()  # Track all used keys to ensure uniqueness
-        class_name_counts = {}
 
         for class_name, metric, metric_config, backend in metric_tasks:
             # Start with the preferred key (name if available, otherwise class_name)
@@ -397,9 +408,9 @@ class MetricEvaluator:
                 "backend": backend,
                 "name": metric_config.name,
                 "class_name": class_name,  # Include class_name for identification
-                "description": description
-                if "description" in locals()
-                else f"{class_name} evaluation metric",
+                "description": (
+                    description if "description" in locals() else f"{class_name} evaluation metric"
+                ),
                 "error": str(exc),
                 "exception_type": type(exc).__name__,
             }

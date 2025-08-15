@@ -78,7 +78,8 @@ class RhesisPromptMetric(RhesisMetricBase):
             else:
                 # Invalid threshold
                 raise ValueError(
-                    f"Threshold must be either between 0 and 1 (normalized) or between {self.min_score} and {self.max_score} (raw)"
+                    f"Threshold must be either between 0 and 1 (normalized) "
+                    f"or between {self.min_score} and {self.max_score} (raw)"
                 )
             # Pass the normalized threshold to the base class
             super().__init__(
@@ -267,9 +268,9 @@ class RhesisPromptMetric(RhesisMetricBase):
                 "prompt": "Not generated - empty output detected",
                 "reason": reason,
                 "is_successful": False,  # Empty outputs are always unsuccessful
-                "threshold_operator": self.threshold_operator.value
-                if self.threshold_operator
-                else None,
+                "threshold_operator": (
+                    self.threshold_operator.value if self.threshold_operator else None
+                ),
                 "empty_output_detected": True,
             }
 
@@ -368,9 +369,9 @@ class RhesisPromptMetric(RhesisMetricBase):
                 "prompt": prompt,
                 "reason": reason,
                 "is_successful": is_successful,
-                "threshold_operator": self.threshold_operator.value
-                if self.threshold_operator
-                else None,
+                "threshold_operator": (
+                    self.threshold_operator.value if self.threshold_operator else None
+                ),
             }
 
             # Add score type specific details
@@ -418,9 +419,9 @@ class RhesisPromptMetric(RhesisMetricBase):
                 "model": self.model,
                 "prompt": prompt,
                 "score_type": self.score_type.value,
-                "threshold_operator": self.threshold_operator.value
-                if self.threshold_operator
-                else None,
+                "threshold_operator": (
+                    self.threshold_operator.value if self.threshold_operator else None
+                ),
             }
 
             # Add score type specific details

@@ -131,9 +131,11 @@ class PromptSynthesizer(TestSetSynthesizer):
                             "metadata": {
                                 "generated_by": "PromptSynthesizer",
                                 "attempt": attempt + 1,
-                                "documents_used": list(self.extracted_documents.keys())
-                                if self.extracted_documents
-                                else [],
+                                "documents_used": (
+                                    list(self.extracted_documents.keys())
+                                    if self.extracted_documents
+                                    else []
+                                ),
                             },
                         }
                         for test in valid_test_cases[:num_tests]
@@ -205,9 +207,9 @@ class PromptSynthesizer(TestSetSynthesizer):
                 "requested_tests": num_tests,
                 "batch_size": self.batch_size,
                 "synthesizer": "PromptSynthesizer",
-                "documents_used": list(self.extracted_documents.keys())
-                if self.extracted_documents
-                else [],
+                "documents_used": (
+                    list(self.extracted_documents.keys()) if self.extracted_documents else []
+                ),
             },
         )
 

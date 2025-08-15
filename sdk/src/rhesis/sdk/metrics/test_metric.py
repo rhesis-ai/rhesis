@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
+
 """
 Simple command-line script to test metrics by ID.
 
 Usage:
     # With manual parameters
-    python test_metric.py <metric_id> --org <org_id> --user <user_id> --input "Your question" --output "Model response" --expected "Expected response"
+    python test_metric.py <metric_id> --org <org_id> --user <user_id> \
+        --input "Your question" --output "Model response" \
+        --expected "Expected response"
     
     # With test data from database
-    python test_metric.py <metric_id> --org <org_id> --user <user_id> --test-id <test_id> --output "Model response"
+    python test_metric.py <metric_id> --org <org_id> --user <user_id> \
+        --test-id <test_id> --output "Model response"
     
     # Show only the rendered template (no evaluation)
-    python test_metric.py <metric_id> --org <org_id> --user <user_id> --input "Your question" --template-only
+    python test_metric.py <metric_id> --org <org_id> --user <user_id> \
+        --input "Your question" --template-only
 
 Examples:
     # Manual parameters
@@ -132,9 +137,6 @@ def test_metric(
 ) -> dict:
     """Test a metric with the given parameters."""
 
-    # Create mock user for context
-    mock_user = MockUser(user_id=user_id, organization_id=organization_id)
-
     # Get database session
     db_session = SessionLocal()
 
@@ -233,9 +235,12 @@ def test_metric(
 
         print("📝 Evaluation parameters:")
         print(f"   Input: {input_text[:100]}{'...' if len(input_text) > 100 else ''}")
-        print(
-            f"   Output: {output_text[:100] if output_text else '(template-only mode)'}{'...' if output_text and len(output_text) > 100 else ''}"
+        output_preview = (
+            f"{output_text[:100]}{'...' if len(output_text) > 100 else ''}"
+            if output_text
+            else "(template-only mode)"
         )
+        print(f"   Output: {output_preview}")
         print(f"   Expected: {expected_output[:100]}{'...' if len(expected_output) > 100 else ''}")
         print(f"   Context items: {len(context)}")
 

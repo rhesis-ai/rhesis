@@ -76,7 +76,8 @@ class ModelFactory:
                 )
             if not endpoint:
                 raise ValueError(
-                    "azure_endpoint parameter or AZURE_OPENAI_ENDPOINT environment variable is required for Azure OpenAI models"
+                    "azure_endpoint parameter or AZURE_OPENAI_ENDPOINT environment variable"
+                    "is required for Azure OpenAI models"
                 )
 
             return AzureOpenAIModel(
@@ -143,7 +144,8 @@ class ModelFactory:
             model_type_enum = ModelType(model_type.lower())
         except ValueError:
             raise ValueError(
-                f"Unsupported model type: {model_type}. Supported types: {[t.value for t in ModelType]}"
+                f"Unsupported model type: {model_type}."
+                f"Supported types: {[t.value for t in ModelType]}"
             )
 
         # Use environment variable for default model name if not provided
