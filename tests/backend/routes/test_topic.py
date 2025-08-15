@@ -9,6 +9,8 @@ Comprehensive test suite for all topic entity routes including:
 - Edge Cases & Error Handling
 - Performance Testing
 
+Run with: python -m pytest tests/backend/routes/test_topic.py -v
+
 Author: AI Assistant
 """
 
@@ -16,8 +18,12 @@ import uuid
 from typing import Dict, Any
 
 import pytest
+from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
+
+# Initialize Faker instance
+fake = Faker()
 
 
 # 🏗️ Test Fixtures
@@ -27,8 +33,8 @@ from fastapi.testclient import TestClient
 def sample_topic_data():
     """📋 Sample topic data for testing"""
     return {
-        "name": "Test Topic",
-        "description": "A test topic for unit testing",
+        "name": fake.catch_phrase(),
+        "description": fake.text(max_nb_chars=200),
         "parent_id": None,
         "entity_type_id": None,
         "status_id": None,
@@ -40,7 +46,7 @@ def sample_topic_data():
 @pytest.fixture
 def sample_topic_create_minimal():
     """📋 Minimal topic data for testing"""
-    return {"name": "Minimal Test Topic"}
+    return {"name": fake.word().title() + " " + fake.word().title()}
 
 
 @pytest.fixture
@@ -55,8 +61,8 @@ def created_topic(authenticated_client: TestClient, sample_topic_data):
 def parent_topic(authenticated_client: TestClient):
     """🏗️ Create a parent topic for hierarchical testing"""
     parent_data = {
-        "name": "Parent Topic",
-        "description": "A parent topic for hierarchy testing"
+        "name": fake.sentence(nb_words=2).rstrip('.') + " Topic",
+        "description": fake.text(max_nb_chars=100)
     }
     response = authenticated_client.post("/topics/", json=parent_data)
     assert response.status_code == status.HTTP_200_OK
@@ -138,8 +144,8 @@ class TestTopicCRUD:
         """🧩🔥 Test successful topic update"""
         topic_id = created_topic["id"]
         update_data = {
-            "name": "Updated Topic Name",
-            "description": "Updated description for testing"
+            "name": fake.sentence(nb_words=3).rstrip('.'),
+            "description": fake.paragraph(nb_sentences=2)
         }
 
         response = authenticated_client.put(f"/topics/{topic_id}", json=update_data)
@@ -154,7 +160,7 @@ class TestTopicCRUD:
     def test_update_topic_partial(self, authenticated_client: TestClient, created_topic):
         """🧩 Test partial topic update"""
         topic_id = created_topic["id"]
-        update_data = {"name": "Partially Updated Topic"}
+        update_data = {"name": fake.company() + " Topic"}
 
         response = authenticated_client.put(f"/topics/{topic_id}", json=update_data)
 
@@ -168,7 +174,7 @@ class TestTopicCRUD:
     def test_update_topic_not_found(self, authenticated_client: TestClient):
         """🧩 Test updating non-existent topic"""
         non_existent_id = str(uuid.uuid4())
-        update_data = {"name": "Updated Topic"}
+        update_data = {"name": fake.catch_phrase()}
 
         response = authenticated_client.put(f"/topics/{non_existent_id}", json=update_data)
 
@@ -282,8 +288,8 @@ class TestTopicHierarchy:
     def test_create_child_topic(self, authenticated_client: TestClient, parent_topic):
         """🌳 Test creating a child topic with parent relationship"""
         child_data = {
-            "name": "Child Topic",
-            "description": "A child topic for hierarchy testing",
+            "name": fake.word().title() + " Child Topic",
+            "description": fake.text(max_nb_chars=120),
             "parent_id": parent_topic["id"]
         }
 
@@ -298,7 +304,7 @@ class TestTopicHierarchy:
     def test_create_topic_with_invalid_parent(self, authenticated_client: TestClient):
         """🌳 Test creating topic with non-existent parent"""
         child_data = {
-            "name": "Orphaned Topic",
+            "name": fake.word().title() + " Orphaned Topic",
             "parent_id": str(uuid.uuid4())  # Non-existent parent
         }
 
@@ -337,7 +343,7 @@ class TestTopicAuthentication:
     def test_topic_routes_require_authentication(self, client: TestClient):
         """🔒 Verify all topic routes require authentication"""
         # Test create endpoint
-        response = client.post("/topics/", json={"name": "Test Topic"})
+        response = client.post("/topics/", json={"name": fake.catch_phrase()})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         # Test list endpoint
@@ -359,11 +365,11 @@ class TestTopicEdgeCases:
 
     def test_topic_with_very_long_name(self, authenticated_client: TestClient):
         """🏃‍♂️ Test topic creation with very long name"""
-        long_name = "A" * 1000  # Very long name
+        long_name = fake.text(max_nb_chars=1000).replace('\n', ' ')  # Very long name
 
         topic_data = {
             "name": long_name,
-            "description": "Test topic with long name"
+            "description": fake.text(max_nb_chars=50)
         }
 
         response = authenticated_client.post("/topics/", json=topic_data)
@@ -378,8 +384,8 @@ class TestTopicEdgeCases:
     def test_topic_with_special_characters(self, authenticated_client: TestClient):
         """🏃‍♂️ Test topic creation with special characters"""
         special_chars_data = {
-            "name": "Test Topic 🧪 with émoji & spëcial chars!",
-            "description": "Déscription with spëcial characters & symbols: @#$%^&*()"
+            "name": f"{fake.word()} 🧪 with émoji & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}",
+            "description": f"Déscription with spëcial characters: {fake.text(max_nb_chars=50)} & symbols: @#$%^&*()"
         }
 
         response = authenticated_client.post("/topics/", json=special_chars_data)
@@ -393,7 +399,7 @@ class TestTopicEdgeCases:
     def test_topic_with_null_description(self, authenticated_client: TestClient):
         """🏃‍♂️ Test topic creation with explicit null description"""
         topic_data = {
-            "name": "Test Topic",
+            "name": fake.catch_phrase(),
             "description": None
         }
 
@@ -407,7 +413,7 @@ class TestTopicEdgeCases:
     def test_topic_with_empty_string_description(self, authenticated_client: TestClient):
         """🏃‍♂️ Test topic creation with empty string description"""
         topic_data = {
-            "name": "Test Topic",
+            "name": fake.catch_phrase(),
             "description": ""
         }
 
@@ -438,8 +444,8 @@ class TestTopicPerformance:
         created_topics = []
         for i in range(10):
             topic_data = {
-                "name": f"Performance Test Topic {i}",
-                "description": f"Description for topic {i}"
+                "name": f"{fake.word().title()} Performance Test Topic {i}",
+                "description": fake.paragraph(nb_sentences=2)
             }
             response = authenticated_client.post("/topics/", json=topic_data)
             assert response.status_code == status.HTTP_200_OK

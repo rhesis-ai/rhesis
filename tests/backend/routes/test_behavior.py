@@ -8,16 +8,20 @@ This test suite covers all behavior routes including:
 - Error handling and edge cases
 - Authentication requirements
 
-Run with: pytest tests/backend/test_behavior_routes.py -v
+Run with: python -m pytest tests/backend/routes/test_behavior.py -v
 """
 
 import uuid
 import pytest
+from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+
+# Initialize Faker instance
+fake = Faker()
 
 
 # 🏗️ Test Fixtures
@@ -26,8 +30,8 @@ from rhesis.backend.app import models, schemas
 def sample_behavior_data():
     """📝 Sample behavior data for testing"""
     return {
-        "name": "Test Behavior",
-        "description": "A test behavior for unit testing",
+        "name": fake.catch_phrase(),
+        "description": fake.text(max_nb_chars=200),
         "status_id": None,
         "user_id": None,
         "organization_id": None
@@ -38,7 +42,7 @@ def sample_behavior_data():
 def sample_behavior_create_minimal():
     """📝 Minimal behavior data for creation"""
     return {
-        "name": "Minimal Test Behavior"
+        "name": fake.word().title() + " " + fake.bs().title()
     }
 
 
@@ -46,8 +50,8 @@ def sample_behavior_create_minimal():
 def sample_behavior_update_data():
     """📝 Behavior update data"""
     return {
-        "name": "Updated Behavior Name",
-        "description": "Updated description for the behavior"
+        "name": fake.sentence(nb_words=3).rstrip('.'),
+        "description": fake.paragraph(nb_sentences=2)
     }
 
 
@@ -63,10 +67,10 @@ def created_behavior(authenticated_client: TestClient, sample_behavior_data):
 def created_metric(authenticated_client: TestClient):
     """🏗️ Create a metric for testing behavior-metric relationships"""
     metric_data = {
-        "name": "Test Metric",
-        "description": "A test metric for behavior relationships",
-        "evaluation_prompt": "Evaluate the quality of the response",
-        "score_type": "numeric"
+        "name": fake.word().title() + " " + fake.word().title(),
+        "description": fake.text(max_nb_chars=150),
+        "evaluation_prompt": fake.sentence(nb_words=8),
+        "score_type": fake.random_element(elements=("numeric", "categorical", "binary"))
     }
     response = authenticated_client.post("/metrics/", json=metric_data)
     if response.status_code not in [status.HTTP_200_OK, status.HTTP_201_CREATED]:
@@ -120,8 +124,8 @@ class TestBehaviorCRUD:
     def test_create_behavior_with_invalid_status(self, authenticated_client: TestClient):
         """🧩 Test creating behavior with non-existent status"""
         behavior_data = {
-            "name": "Test Behavior",
-            "description": "A test behavior",
+            "name": fake.catch_phrase(),
+            "description": fake.text(max_nb_chars=100),
             "status_id": str(uuid.uuid4())  # Non-existent status
         }
 
@@ -176,7 +180,7 @@ class TestBehaviorCRUD:
     def test_update_behavior_partial(self, authenticated_client: TestClient, created_behavior):
         """🧩 Test partial behavior update"""
         behavior_id = created_behavior["id"]
-        partial_update = {"name": "Partially Updated Behavior"}
+        partial_update = {"name": fake.company_suffix() + " " + fake.word().title()}
         
         response = authenticated_client.put(f"/behaviors/{behavior_id}", json=partial_update)
         
@@ -419,16 +423,16 @@ class TestBehaviorEdgeCases:
 
     def test_behavior_with_very_long_name(self, authenticated_client: TestClient):
         """🏃‍♂️ Test behavior creation with very long name"""
-        long_name = "A" * 1000  # Very long name
+        long_name = fake.text(max_nb_chars=1000).replace('\n', ' ')  # Very long name
         
         behavior_data = {
             "name": long_name,
-            "description": "Test behavior with long name"
+            "description": fake.text(max_nb_chars=50)
         }
         
         response = authenticated_client.post("/behaviors/", json=behavior_data)
         
-                # Should either succeed or return validation error
+        # Should either succeed or return validation error
         assert response.status_code in [
             status.HTTP_200_OK,
             status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -438,8 +442,8 @@ class TestBehaviorEdgeCases:
     def test_behavior_with_special_characters(self, authenticated_client: TestClient):
         """🏃‍♂️ Test behavior creation with special characters"""
         special_chars_data = {
-            "name": "Test Behavior 🧪 with émoji & spëcial chars!",
-            "description": "Déscription with spëcial characters & symbols: @#$%^&*()"
+            "name": f"{fake.word()} 🧪 with émoji & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}",
+            "description": f"Déscription with spëcial characters: {fake.text(max_nb_chars=50)} & symbols: @#$%^&*()"
         }
         
         response = authenticated_client.post("/behaviors/", json=special_chars_data)
@@ -453,7 +457,7 @@ class TestBehaviorEdgeCases:
     def test_behavior_with_null_description(self, authenticated_client: TestClient):
         """🏃‍♂️ Test behavior creation with explicit null description"""
         behavior_data = {
-            "name": "Test Behavior",
+            "name": fake.catch_phrase(),
             "description": None
         }
         
@@ -482,8 +486,8 @@ class TestBehaviorPerformance:
         created_behaviors = []
         for i in range(10):
             behavior_data = {
-                "name": f"Performance Test Behavior {i}",
-                "description": f"Description for behavior {i}"
+                "name": f"{fake.word().title()} Test Behavior {i}",
+                "description": fake.paragraph(nb_sentences=2)
             }
             response = authenticated_client.post("/behaviors/", json=behavior_data)
             assert response.status_code == status.HTTP_200_OK
