@@ -74,8 +74,11 @@ class ScoreEvaluator:
         if threshold_operator not in valid_operators:
             valid_ops_str = ", ".join([op.value for op in valid_operators])
             logger.warning(
-                f"Operator '{threshold_operator.value}' is not valid for score type '{score_type.value}'. "
-                f"Valid operators for {score_type.value} are: {valid_ops_str}"
+                (
+                    f"Operator '{threshold_operator.value}' is not valid for score type "
+                    f"'{score_type.value}'. Valid operators for {score_type.value} are: "
+                    f"{valid_ops_str}"
+                )
             )
             return False
         return True
@@ -127,7 +130,8 @@ class ScoreEvaluator:
     ) -> bool:
         """
         Evaluate whether a metric score meets the success criteria based on threshold and operator.
-        This method incorporates all the functionality from metric_base.py for comprehensive score evaluation.
+        This method incorporates all the functionality from metric_base.py for comprehensive
+        score evaluation.
 
         Args:
             score: The metric score (can be numeric or string)
@@ -159,7 +163,8 @@ class ScoreEvaluator:
             else:  # BINARY or CATEGORICAL
                 sanitized_operator = ThresholdOperator.EQUAL
             logger.debug(
-                f"Using default operator '{sanitized_operator.value}' for score type '{score_type.value}'"
+                f"Using default operator '{sanitized_operator.value}'"
+                f"for score type '{score_type.value}'"
             )
 
         # Validate operator for score type
@@ -170,7 +175,8 @@ class ScoreEvaluator:
             else:
                 sanitized_operator = ThresholdOperator.EQUAL
             logger.debug(
-                f"Falling back to operator '{sanitized_operator.value}' for score type '{score_type.value}'"
+                f"Falling back to operator '{sanitized_operator.value}'"
+                f"for score type '{score_type.value}'"
             )
 
         # Handle different score types

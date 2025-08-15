@@ -1,16 +1,12 @@
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from jinja2 import Template
+
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.services import LLMService
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-from rhesis.sdk.synthesizers.utils import (
-    create_test_set,
-    load_prompt_template,
-    parse_llm_response,
-    retry_llm_call,
-)
-from rhesis.sdk.utils import clean_and_validate_tests
+from rhesis.sdk.utils import clean_and_validate_tests, extract_json_from_text
 
 
 class PromptSynthesizer(TestSetSynthesizer):
@@ -25,6 +21,7 @@ class PromptSynthesizer(TestSetSynthesizer):
     ):
         """
         Initialize the PromptSynthesizer.
+
         Args:
             prompt: The generation prompt to use
             batch_size: Maximum number of tests to generate in a single LLM call (reduced default
@@ -37,7 +34,6 @@ class PromptSynthesizer(TestSetSynthesizer):
                 - path (str): Local file path (optional, can be empty if content is provided)
                 - content (str): Pre-provided document content (optional)
         """
-
         super().__init__(batch_size=batch_size)
         self.prompt = prompt
         self.documents = documents or []
@@ -53,17 +49,20 @@ class PromptSynthesizer(TestSetSynthesizer):
             except Exception as e:
                 print(f"Warning: Failed to extract some documents: {e}")
 
-        # Set system prompt using utility function
-        self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
-
-        self.llm_service = LLMService()
+        if system_prompt:
+            self.system_prompt = Template(system_prompt)
+        else:
+            # Load default system prompt from assets
+            prompt_path = Path(__file__).parent / "assets" / "prompt_synthesizer.md"
+            with open(prompt_path, "r") as f:
+                self.system_prompt = Template(f.read())
 
     def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        # Prepare context for the prompt
-        context = ""
+        # Prepare document context for the prompt
+        document_context = ""
         if self.extracted_documents:
-            context = "\n\n".join(
+            document_context = "\n\n".join(
                 [
                     f"Document '{name}':\n{content}"
                     for name, content in self.extracted_documents.items()
@@ -71,32 +70,81 @@ class PromptSynthesizer(TestSetSynthesizer):
             )
 
         formatted_prompt = self.system_prompt.render(
-            generation_prompt=self.prompt, num_tests=num_tests, context=context
+            generation_prompt=self.prompt, num_tests=num_tests, document_context=document_context
         )
 
-        # Use utility function for retry logic
-        response = retry_llm_call(self.llm_service, formatted_prompt)
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                # Use run() method with default parameters
+                response = self.llm_service.run(prompt=formatted_prompt)
 
-        # Use utility function for response parsing
-        test_cases = parse_llm_response(response, expected_keys=["tests"])
+                # Debug logging to understand response structure
+                print(f"DEBUG: Response type: {type(response)}")
+                if isinstance(response, dict):
+                    print(f"DEBUG: Dict keys: {list(response.keys())}")
+                    print(f"DEBUG: Dict content preview: {str(response)[:300]}...")
 
-        # Clean and validate test cases using utility function
-        valid_test_cases = clean_and_validate_tests(test_cases)
+                # Handle different response types
+                test_cases = []
 
-        if valid_test_cases:
-            # Add metadata to each test case
-            return [
-                {
-                    **test,
-                    "metadata": {
-                        "generated_by": "PromptSynthesizer",
-                        "documents_used": list(self.extracted_documents.keys())
-                        if self.extracted_documents
-                        else [],
-                    },
-                }
-                for test in valid_test_cases[:num_tests]
-            ]
+                if isinstance(response, dict):
+                    # Try to extract tests from various possible dict structures
+                    if "tests" in response:
+                        test_cases = response["tests"]
+                    else:
+                        # Check if the dict contains test-like structures
+                        # Look for common keys that might contain test arrays
+                        for key in ["test_cases", "data", "results", "items"]:
+                            if key in response and isinstance(response[key], list):
+                                test_cases = response[key]
+                                break
+
+                        # If still no tests found, check if the dict itself looks like a single test
+                        if not test_cases and any(
+                            key in response
+                            for key in ["input", "output", "expected", "question", "answer"]
+                        ):
+                            test_cases = [response]
+
+                elif isinstance(response, str):
+                    # Use utility function for robust JSON extraction
+                    parsed_response = extract_json_from_text(response)
+                    test_cases = parsed_response.get("tests", [])
+                elif isinstance(response, list):
+                    # Response is already a list of test cases
+                    test_cases = response
+                else:
+                    raise ValueError(
+                        f"Unexpected response type: {type(response)}. "
+                        f"Response content: {str(response)[:200]}"
+                    )
+
+                # Clean and validate test cases using utility function
+                valid_test_cases = clean_and_validate_tests(test_cases)
+
+                if valid_test_cases:
+                    # Add metadata to each test case
+                    return [
+                        {
+                            **test,
+                            "metadata": {
+                                "generated_by": "PromptSynthesizer",
+                                "attempt": attempt + 1,
+                                "documents_used": list(self.extracted_documents.keys())
+                                if self.extracted_documents
+                                else [],
+                            },
+                        }
+                        for test in valid_test_cases[:num_tests]
+                    ]
+
+            except Exception as e:
+                print(f"Attempt {attempt + 1} failed: {e}")
+                if attempt == max_attempts - 1:
+                    raise ValueError(
+                        f"Failed to generate test cases after {max_attempts} attempts: {e}"
+                    )
 
         return []
 
@@ -149,15 +197,21 @@ class PromptSynthesizer(TestSetSynthesizer):
         if not all_test_cases:
             raise ValueError("Failed to generate any valid test cases")
 
-        # Use utility function to create TestSet
-        return create_test_set(
-            all_test_cases,
-            synthesizer_name="PromptSynthesizer",
-            batch_size=self.batch_size,
-            generation_prompt=self.prompt,
-            num_tests=len(all_test_cases),
-            requested_tests=num_tests,
-            documents_used=list(self.extracted_documents.keys())
-            if self.extracted_documents
-            else [],
+        test_set = TestSet(
+            tests=all_test_cases,
+            metadata={
+                "generation_prompt": self.prompt,
+                "num_tests": len(all_test_cases),
+                "requested_tests": num_tests,
+                "batch_size": self.batch_size,
+                "synthesizer": "PromptSynthesizer",
+                "documents_used": list(self.extracted_documents.keys())
+                if self.extracted_documents
+                else [],
+            },
         )
+
+        # Set properties based on the generated tests
+        test_set.set_properties()
+
+        return test_set
