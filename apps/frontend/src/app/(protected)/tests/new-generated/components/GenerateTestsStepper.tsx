@@ -124,6 +124,8 @@ const isFileTypeSupported = (filename: string): boolean => {
   return SUPPORTED_FILE_EXTENSIONS.includes(extension);
 };
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB in bytes
+
 // Helper functions
 const getLabelText = (value: number) => {
   return `${value} Star${value !== 1 ? 's' : ''}, ${RATING_LABELS[value]}`;
@@ -482,15 +484,21 @@ const UploadDocuments = ({
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files?.length) return;
-
+  
     // Process each file
     for (const file of Array.from(files)) {
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        show(`File "${file.name}" is too large. Maximum size is 5 MB.`, { severity: 'error' });
+        continue; // Skip this file and process the next one
+      }
+      
       await processDocument(file);
     }
 
     // Reset input
     event.target.value = '';
-  }, [processDocument]);
+  }, [processDocument, show]);
 
   const handleDocumentUpdate = useCallback((id: string, field: 'name' | 'description', value: string) => {
     onDocumentsChange(documents.map(doc => 
@@ -532,7 +540,7 @@ const UploadDocuments = ({
           </LoadingButton>
         </label>
         <FormHelperText>
-          Supported formats: {SUPPORTED_FILE_EXTENSIONS.join(', ')}
+          Supported formats: {SUPPORTED_FILE_EXTENSIONS.join(', ')} • Maximum file size: 5 MB
         </FormHelperText>
       </Box>
 
