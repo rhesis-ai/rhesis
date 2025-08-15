@@ -2,8 +2,8 @@ import concurrent.futures
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhesis.backend.logging.rhesis_logger import logger
+from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
-from rhesis.sdk.metrics.score_evaluator import ScoreEvaluator
 from rhesis.sdk.metrics.utils import diagnose_invalid_metric
 
 # Use inline factory creation to avoid circular imports
