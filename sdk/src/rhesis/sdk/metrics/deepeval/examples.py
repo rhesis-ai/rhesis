@@ -48,7 +48,8 @@ def example_with_gemini_model():
 
     result = metric.evaluate(
         input="Tell me about renewable energy.",
-        output="Solar and wind power are renewable energy sources that help reduce carbon emissions.",
+        output="Solar and wind power are renewable energy sources that help "
+        "reduce carbon emissions.",
         expected_output=None,  # Faithfulness doesn't require ground truth
         context=[
             "Renewable energy comes from natural sources.",
@@ -98,7 +99,8 @@ def example_with_anthropic_model():
 
     result = metric.evaluate(
         input="What are the benefits of exercise?",
-        output="Exercise improves cardiovascular health, strengthens muscles, and enhances mental well-being.",
+        output="Exercise improves cardiovascular health, strengthens muscles, and enhances mental "
+        "well-being.",
         expected_output="Exercise has many health benefits including better heart health and mood.",
         context=[
             "Regular exercise is important for health.",
@@ -111,14 +113,16 @@ def example_with_anthropic_model():
 
 
 def example_with_azure_openai():
-    """Example using Azure OpenAI (requires AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT env vars)."""
+    """Example using Azure OpenAI
+    (requires AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT env vars)."""
 
     model_config = {
         "type": "azure_openai",
         "model_name": "gpt-4",
         "extra_params": {
-            # "azure_endpoint": "https://your-resource.openai.azure.com/",  # or use AZURE_OPENAI_ENDPOINT env var
-            "api_version": "2024-02-15-preview"
+            # "azure_endpoint": "https://your-resource.openai.azure.com/",
+            # or use AZURE_OPENAI_ENDPOINT env var
+            "api_version": "2024-02-15-preview",
         },
     }
 
@@ -174,7 +178,7 @@ def example_with_custom_api_key():
         "api_key": "your-direct-api-key-here",
     }
 
-    metric = DeepEvalAnswerRelevancy(threshold=0.8, model_config=model_config)
+    metric = DeepEvalAnswerRelevancy(threshold=0.8, model_config=model_config)  # noqa: F841
 
     # Note: This won't actually work without a real API key
     print("This example shows how to provide API key directly in config")
@@ -197,7 +201,7 @@ def example_future_database_config():
         "extra_params": {"temperature": 0.2, "max_tokens": 1000},
     }
 
-    metric = DeepEvalFaithfulness(threshold=0.8, model_config=database_model_config)
+    metric = DeepEvalFaithfulness(threshold=0.8, model_config=database_model_config)  # noqa: F841
 
     print("This example shows how database config could work in the future")
 
