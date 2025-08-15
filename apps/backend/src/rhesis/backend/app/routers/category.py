@@ -28,7 +28,25 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    return crud.create_category(db=db, category=category)
+    try:
+        return crud.create_category(db=db, category=category)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            if "parent_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid parent category reference")
+            if "status_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid status reference")
+            if "entity_type_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid entity type reference")
+            raise HTTPException(status_code=400, detail="Invalid reference in category data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Category with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[CategoryDetailSchema])
@@ -54,23 +72,11 @@ def read_categories(
 
 @router.get("/{category_id}", response_model=CategoryDetailSchema)
 def read_category(
-    category_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    db_category = crud.get_category(db, category_id=category_id)
-    if db_category is None:
-        raise HTTPException(status_code=404, detail="Category not found")
-    return db_category
-
-
-@router.delete("/{category_id}", response_model=schemas.Category)
-def delete_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_category = crud.delete_category(db, category_id=category_id)
+    db_category = crud.get_category(db, category_id=category_id)
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return db_category
@@ -83,7 +89,40 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_category = crud.update_category(db, category_id=category_id, category=category)
+    try:
+        db_category = crud.update_category(db, category_id=category_id, category=category)
+        if db_category is None:
+            raise HTTPException(status_code=404, detail="Category not found")
+        return db_category
+    except HTTPException:
+        # Re-raise HTTPExceptions (like our 404)
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            if "parent_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid parent category reference")
+            if "status_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid status reference")
+            if "entity_type_id" in error_msg.lower():
+                raise HTTPException(status_code=400, detail="Invalid entity type reference")
+            raise HTTPException(status_code=400, detail="Invalid reference in category data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Category with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.delete("/{category_id}", response_model=schemas.Category)
+def delete_category(
+    category_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    db_category = crud.delete_category(db, category_id=category_id)
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return db_category

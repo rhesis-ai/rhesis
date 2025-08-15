@@ -104,10 +104,19 @@ class TopicEndpoints(BaseEntityEndpoints):
 @dataclass
 class MetricEndpoints(BaseEntityEndpoints):
     """Metric API endpoints"""
-    
+
     # Base entity configuration
     _base_entity: str = "metrics"
     _id_param: str = "metric_id"
+
+
+@dataclass
+class CategoryEndpoints(BaseEntityEndpoints):
+    """Category API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "categories"
+    _id_param: str = "category_id"
 
 
 # Factory function for creating endpoints dynamically
@@ -132,10 +141,11 @@ def create_entity_endpoints(entity_name: str, entity_class=BaseEntityEndpoints):
 
 class APIEndpoints:
     """Centralized API endpoints registry"""
-    
+
     BEHAVIORS = BehaviorEndpoints()
     TOPICS = TopicEndpoints()
     METRICS = MetricEndpoints()
+    CATEGORIES = CategoryEndpoints()
     
     # Example of using the factory for future entities
     # PROMPTS = create_entity_endpoints("prompts")
