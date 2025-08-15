@@ -198,8 +198,8 @@ def test_metric(
         print(f"✅ Metric loaded: {metric_model.name} ({metric_model.class_name})")
 
         # Dynamic imports to avoid circular dependencies
-        from rhesis.backend.metrics.evaluator import MetricEvaluator
         from rhesis.backend.tasks.execution.metrics_utils import create_metric_config_from_model
+        from rhesis.sdk.metrics.evaluator import MetricEvaluator
 
         # Create metric configuration
         print("🔧 Creating metric configuration...")
