@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, validator
+from pydantic import UUID4, BaseModel, field_validator, ConfigDict, validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.user import UserReference
