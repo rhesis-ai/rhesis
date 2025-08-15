@@ -1,12 +1,12 @@
 import pytest
 
-from rhesis.backend.metrics.config.loader import MetricConfigLoader
-from rhesis.backend.metrics.factory import MetricFactory
+from rhesis.sdk.metrics.config.loader import MetricConfigLoader
+from rhesis.sdk.metrics.factory import MetricFactory
 
 
 @pytest.fixture
 def evaluator():
-    from rhesis.backend.metrics.evaluator import MetricEvaluator
+    from rhesis.sdk.metrics.evaluator import MetricEvaluator
 
     return MetricEvaluator()
 

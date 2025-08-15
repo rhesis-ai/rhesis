@@ -10,8 +10,8 @@ from deepeval.models import (
 )
 from deepeval.test_case import LLMTestCase
 
-from rhesis.backend.metrics.base import BaseMetric, MetricType
-from rhesis.backend.metrics.deepeval.model_factory import get_model_from_config
+from rhesis.sdk.metrics.base import BaseMetric, MetricType
+from rhesis.sdk.metrics.deepeval.model_factory import get_model_from_config
 
 
 class DeepEvalMetricBase(BaseMetric):

@@ -5,8 +5,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from mirascope import llm
 from pydantic import BaseModel, Field
 
-from rhesis.backend.metrics.base import MetricResult, retry_evaluation
-from rhesis.backend.metrics.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.base import MetricResult, retry_evaluation
+from rhesis.sdk.metrics.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
 
 
 class ScoreResponse(BaseModel):

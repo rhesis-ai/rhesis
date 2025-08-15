@@ -1,6 +1,6 @@
 import pytest
 
-from rhesis.backend.metrics.ragas import RagasAnswerRelevancy, RagasContextualPrecision
+from rhesis.sdk.metrics.ragas import RagasAnswerRelevancy, RagasContextualPrecision
 
 
 @pytest.fixture

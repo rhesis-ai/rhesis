@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from rhesis.backend.metrics.base import MetricConfig
+from rhesis.sdk.metrics.base import MetricConfig
 
 
 def run_evaluation(
@@ -26,7 +26,7 @@ def run_evaluation(
         Dictionary of metric results
     """
     # Lazy import to avoid circular dependencies
-    from rhesis.backend.metrics.evaluator import MetricEvaluator
+    from rhesis.sdk.metrics.evaluator import MetricEvaluator
 
     evaluator = MetricEvaluator()
     return evaluator.evaluate(
