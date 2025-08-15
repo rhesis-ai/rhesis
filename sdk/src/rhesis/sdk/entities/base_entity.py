@@ -88,7 +88,7 @@ class BaseEntity:
     @handle_http_errors
     def save(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
-        #try:
+        # try:
         data = {k: v for k, v in self.fields.items() if k != "id"}
 
         if "id" in self.fields:
@@ -112,7 +112,7 @@ class BaseEntity:
             )
             response.raise_for_status()
             return dict(response.json())
-        #except requests.exceptions.HTTPError:
+        # except requests.exceptions.HTTPError:
         #    return None
 
     @handle_http_errors
@@ -239,61 +239,63 @@ class BaseEntity:
     @handle_http_errors
     def get_fields_with_types(cls) -> Optional[Dict[str, Any]]:
         """Get field names for this entity type using the OpenAPI schema.
-        
+
         This method retrieves the OpenAPI schema from the API and extracts
         the field names for this entity type. This provides the most accurate
         and complete field information including types and descriptions.
-        
+
         Returns:
-            Optional[Dict[str, Any]]: Dictionary of field names and their types if successful, None if failed.
-            
+            Optional[Dict[str, Any]]: Dictionary of field names and their types if successful,
+             None if failed.
+
         Example:
             >>> field_names_with_types = Behavior.get_fields_with_types()
-            >>> print(field_names_with_types)  # {'id': ['string'], 'name': ['string'], 'description': ['string'], 'status_id': ['string'], ...}
+            >>> print(field_names_with_types)  # {'id': ['string'], 'name': ['string'],
+             'description': ['string'], 'status_id': ['string'], ...}
         """
         client = Client()
         headers = {
             "Authorization": f"Bearer {client.api_key}",
             "Content-Type": "application/json",
         }
-        
-        # Get OpenAPI schema 
+
+        # Get OpenAPI schema
         url = f"{client.base_url}/openapi.json"
         logger.debug(f"GET request to {url} for schema discovery")
-        
+
         try:
             response = requests.get(url, headers=headers)
             response.raise_for_status()
-            
+
             schema = response.json()
             # Extract entity schema fields
             # The entity name in OpenAPI schema is typically the class name
             entity_schema = schema.get("components", {}).get("schemas", {}).get(cls.__name__, {})
             properties = entity_schema.get("properties", {})
-            
+
             if not properties:
                 logger.warning(f"No schema found for entity {cls.__name__}")
                 return []
-            
+
             fields_with_types = {}
             for field_name, field_type in properties.items():
                 type_list = []
                 # Handle anyOf (optional fields)
-                if 'anyOf' in field_type:
-                    for type_option in field_type['anyOf']:
-                        field_type = type_option.get('type')
+                if "anyOf" in field_type:
+                    for type_option in field_type["anyOf"]:
+                        field_type = type_option.get("type")
                         if field_type:
                             type_list.append(field_type)
-                
+
                 else:
                     # Direct type
-                    field_type = field_type.get('type')
+                    field_type = field_type.get("type")
                     if field_type:
                         type_list.append(field_type)
-                
+
                 if type_list:
                     fields_with_types[field_name] = type_list
-            
+
             return fields_with_types
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get field names for {cls.__name__}: {e}")

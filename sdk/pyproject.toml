@@ -33,7 +33,6 @@ dependencies = [
     "tiktoken>=0.9.0",
     "tqdm>=4.67.1",
     "types-tqdm>=4.67.0.20241221",
-    "ruff>=0.11.6",
     "jinja2>=3.1.6",
     "hatch>=1.14.1",
     "docling>=2.42.0",
@@ -56,7 +55,10 @@ examples = [
     "matplotlib",
     "pandas",
 ]
+
+[dependency-groups]
 dev = [
+    "pre-commit>=4.3.0",
     "hatch>=1.14.1",
     "pytest>=8.3.4",
     "mypy==1.15.0",
@@ -69,6 +71,7 @@ dev = [
     "sphinx-autodoc-typehints>=3.0.1",
     "sphinx-rtd-theme>=3.0.2",
     "myst-parser>=4.0.0",
+    "ruff>=0.11.6",
 ]
 
 [project.scripts]
