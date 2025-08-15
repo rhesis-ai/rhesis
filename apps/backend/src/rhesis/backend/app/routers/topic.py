@@ -100,6 +100,9 @@ def update_topic(
         if db_topic is None:
             raise HTTPException(status_code=404, detail="Topic not found")
         return db_topic
+    except HTTPException:
+        # Re-raise HTTPExceptions (like our 404)
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
