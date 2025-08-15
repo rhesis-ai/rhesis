@@ -134,7 +134,7 @@ const generatePromptFromConfig = (config: ConfigData): string => {
     `Project Context: ${config.project?.name || 'General'}`,
     `Test Behaviors: ${config.behaviors.join(', ')}`,
     `Test Purposes: ${config.purposes.join(', ')}`,
-    `Key Aspects: ${config.tags.join(', ')}`,
+    `Key Topics: ${config.tags.join(', ')}`,
     `Specific Requirements: ${config.description}`,
     `Test Type: ${config.testType === 'single_turn' ? 'Single interaction tests' : 'Multi-turn conversation tests'}`,
     `Output Format: ${config.responseGeneration === 'prompt_only' ? 'Generate only user inputs' : 'Generate both user inputs and expected responses'}`
@@ -355,12 +355,12 @@ const ConfigureGeneration = ({ sessionToken, onSubmit, configData, onConfigChang
 
         <Grid item xs={12}>
           <BaseTag
-            id="aspects-tags"
-            name="aspects"
+            id="topics-tags"
+            name="topics"
             value={configData.tags}
             onChange={(value) => updateField('tags', value)}
-            placeholder="Add aspects..."
-            label="Aspects to cover"
+            placeholder="Add topics..."
+            label="Topics to cover"
             error={!!errors.tags}
             helperText={errors.tags}
             sx={{ mb: 3 }}
