@@ -881,11 +881,13 @@ const ReviewSamples = ({
 const ConfirmGenerate = ({ 
   samples, 
   configData, 
-  documents 
+  documents,
+  behaviors
 }: { 
   samples: Sample[]; 
   configData: ConfigData; 
   documents: ProcessedDocument[];
+  behaviors: Behavior[];
 }) => {
   const ratedSamples = samples.filter(s => s.rating !== null);
   const averageRating = ratedSamples.length > 0 
@@ -900,24 +902,36 @@ const ConfirmGenerate = ({
         <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Configuration Summary</Typography>
         <Grid container spacing={2}>
           <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">Project</Typography>
-            <Typography variant="body1" gutterBottom>{configData.project?.name || 'Not set'}</Typography>
-            <Typography variant="body2" color="text.secondary">Behaviors</Typography>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-              {configData.behaviors.map(behavior => (
-                <Chip key={behavior} label={behavior} size="small" />
-              ))}
-            </Stack>
-            {documents.length > 0 && (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Documents</Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                  {documents.map(doc => (
-                    <Chip key={doc.id} label={doc.name} size="small" variant="outlined" />
-                  ))}
-                </Stack>
-              </>
-            )}
+          <Typography variant="body2" color="text.secondary">Project</Typography>
+          <Typography variant="body1" gutterBottom>{configData.project?.name || 'Not set'}</Typography>
+
+          <Typography variant="body2" color="text.secondary">Behaviors</Typography>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {configData.behaviors.map(behaviorId => {
+              const behavior = behaviors.find(b => b.id === behaviorId);
+              return (
+                <Chip key={behaviorId} label={behavior?.name || behaviorId} size="small" />
+              );
+            })}
+          </Stack>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Topics</Typography>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {configData.tags.map(tag => (
+              <Chip key={tag} label={tag} size="small" variant="outlined" />
+            ))}
+          </Stack>
+
+          {documents.length > 0 && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Documents</Typography>
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                {documents.map(doc => (
+                  <Chip key={doc.id} label={doc.name} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </>
+          )}          
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" color="text.secondary">Average Rating</Typography>
@@ -943,12 +957,30 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
   const [configData, setConfigData] = useState(INITIAL_CONFIG);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
+  const [behaviors, setBehaviors] = useState<Behavior[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const router = useRouter();
   const { show } = useNotifications();
 
   const steps = ['Configure Generation', 'Upload Documents', 'Review Samples', 'Confirm & Generate'];
+
+  useEffect(() => {
+    const fetchBehaviors = async () => {
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const behaviorsData = await apiFactory.getBehaviorClient().getBehaviors({ 
+          sort_by: 'name', 
+          sort_order: 'asc' 
+        });
+        setBehaviors(behaviorsData.filter(b => b?.id && b?.name?.trim()) || []);
+      } catch (error) {
+        console.error('Failed to load behaviors:', error);
+      }
+    };
+
+    fetchBehaviors();
+  }, [sessionToken]);
 
   const handleConfigSubmit = useCallback(async (config: ConfigData) => {
     setConfigData(config);
@@ -1120,7 +1152,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
           />
         );
       case 3:
-        return <ConfirmGenerate samples={samples} configData={configData} documents={documents} />;
+        return <ConfirmGenerate samples={samples} configData={configData} documents={documents} behaviors={behaviors} />;
       default:
         return null;
     }
