@@ -10,7 +10,7 @@ from jinja2 import Template
 
 from rhesis.sdk.entities import BaseEntity
 from rhesis.sdk.entities.base_entity import handle_http_errors
-from rhesis.sdk.services.llm import LLMService
+from rhesis.sdk.services import LLMService
 from rhesis.sdk.utils import count_tokens
 
 
