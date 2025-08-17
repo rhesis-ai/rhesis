@@ -12,8 +12,6 @@ class RhesisLLM:
     """Service for interacting with the LLM API endpoints."""
 
     def __init__(self) -> None:
-        if not get_rheses_online_mode():
-            raise RuntimeError(RHESIS_ONLINE_MODE_REQUIRED)
         self.client = Client()
         self.headers = {
             "Authorization": f"Bearer {self.client.api_key}",
