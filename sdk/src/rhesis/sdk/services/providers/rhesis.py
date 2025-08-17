@@ -4,8 +4,6 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from rhesis.sdk.client import Client
-from rhesis.sdk.config import get_rheses_online_mode
-from rhesis.sdk.errors import RHESIS_ONLINE_MODE_REQUIRED
 
 
 class RhesisLLM:
