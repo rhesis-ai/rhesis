@@ -70,30 +70,31 @@ def mock_user() -> Mock:
 
 
 @pytest.fixture
-def admin_user() -> Dict[str, Any]:
+def admin_user() -> Mock:
     """
-    👨‍💼 Create a sample admin user for testing
+    👨‍💼 Create a mock admin User model instance
     
-    This fixture provides a user with admin privileges.
+    This fixture provides a mock User object with admin privileges.
     
     Returns:
-        Dict containing admin user data
+        Mock object with admin User model properties
     """
-    user_data = {
-        "id": fake.uuid4(),
-        "email": f"admin+{fake.uuid4()[:8]}@example.com",
-        "name": f"Admin {fake.last_name()}",
-        "given_name": "Admin",
-        "family_name": fake.last_name(),
-        "picture": fake.image_url(),
-        "is_active": True,
-        "is_superuser": True,  # Admin flag
-        "auth0_id": f"auth0|{fake.uuid4()}",
-        "organization_id": fake.uuid4(),
-        "display_name": f"Admin {fake.last_name()}"
-    }
+    user = Mock()
+    user.id = fake.uuid4()
+    user.email = f"admin+{fake.uuid4()[:8]}@example.com"
+    user.name = f"Admin {fake.last_name()}"
+    user.given_name = "Admin"
+    user.family_name = fake.last_name()
+    user.picture = fake.image_url()
+    user.is_active = True
+    user.is_superuser = True  # Admin flag
+    user.auth0_id = f"auth0|{fake.uuid4()}"
+    user.organization_id = fake.uuid4()
     
-    return user_data
+    # Mock the display_name property
+    user.display_name = user.name or user.email
+    
+    return user
 
 
 @pytest.fixture
