@@ -62,7 +62,7 @@ async def read_organizations(
 
 @router.get("/{organization_id}", response_model=schemas.Organization)
 def read_organization(
-    organization_id: str,
+    organization_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):

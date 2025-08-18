@@ -19,7 +19,19 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Dimension)
 def create_dimension(dimension: schemas.DimensionCreate, db: Session = Depends(get_db)):
-    return crud.create_dimension(db=db, dimension=dimension)
+    try:
+        return crud.create_dimension(db=db, dimension=dimension)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Invalid reference in dimension data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Dimension with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[schemas.Dimension])

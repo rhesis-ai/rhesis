@@ -1,3 +1,4 @@
+import uuid
 from typing import Any, Dict, List
 
 from celery.result import AsyncResult
@@ -122,7 +123,7 @@ async def create_task(
 
 @router.get("/{task_id}", response_model=TaskStatus)
 async def get_task_status(
-    task_id: str,
+    task_id: uuid.UUID,
     current_user: schemas.User = Depends(require_current_user_or_token)
 ):
     """Get the status of a task."""
@@ -137,7 +138,7 @@ async def get_task_status(
 
 @router.delete("/{task_id}", response_model=TaskRevoke)
 async def revoke_task(
-    task_id: str, 
+    task_id: uuid.UUID, 
     terminate: bool = False,
     current_user: schemas.User = Depends(require_current_user_or_token)
 ):

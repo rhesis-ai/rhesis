@@ -117,7 +117,7 @@ async def read_users(
 
 @router.get("/{user_id}", response_model=schemas.User)
 def read_user(
-    user_id: str,
+    user_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
