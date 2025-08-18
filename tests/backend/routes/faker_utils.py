@@ -220,6 +220,113 @@ class TestDataGenerator:
             "name": fake.catch_phrase(),
             "description": ""
         }
+    
+    @staticmethod
+    def generate_dimension_data(
+        include_optional: bool = True,
+        long_name: bool = False,
+        special_chars: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Generate realistic dimension test data
+        
+        Args:
+            include_optional: Include optional fields
+            long_name: Generate very long name for edge testing
+            special_chars: Include special characters for edge testing
+            
+        Returns:
+            Dict containing dimension data
+        """
+        if long_name:
+            name = fake.text(max_nb_chars=1000).replace('\n', ' ')
+        elif special_chars:
+            name = f"{fake.word()} 🧪 with émoji & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}"
+        else:
+            name = fake.word().title() + " Dimension"
+        
+        data = {
+            "name": name,
+            "description": fake.text(max_nb_chars=200) if include_optional else None,
+        }
+        
+        if include_optional:
+            data.update({
+                "user_id": None,
+                "organization_id": None
+            })
+            
+        return data
+    
+    @staticmethod
+    def generate_dimension_update_data() -> Dict[str, Any]:
+        """Generate dimension update data"""
+        return {
+            "name": fake.sentence(nb_words=2).rstrip('.') + " Dimension",
+            "description": fake.paragraph(nb_sentences=2)
+        }
+    
+    @staticmethod
+    def generate_dimension_minimal() -> Dict[str, Any]:
+        """Generate minimal dimension data"""
+        return {
+            "name": fake.word().title() + " Dimension"
+        }
+    
+    @staticmethod
+    def generate_demographic_data(
+        include_optional: bool = True,
+        long_name: bool = False,
+        special_chars: bool = False,
+        dimension_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate realistic demographic test data
+        
+        Args:
+            include_optional: Include optional fields
+            long_name: Generate very long name for edge testing
+            special_chars: Include special characters for edge testing
+            dimension_id: Dimension ID for relationship testing
+            
+        Returns:
+            Dict containing demographic data
+        """
+        if long_name:
+            name = fake.text(max_nb_chars=1000).replace('\n', ' ')
+        elif special_chars:
+            name = f"{fake.word()} 🧪 with émoji & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}"
+        else:
+            name = fake.word().title() + " Demographic"
+        
+        data = {
+            "name": name,
+            "description": fake.text(max_nb_chars=200) if include_optional else None,
+        }
+        
+        if include_optional:
+            data.update({
+                "dimension_id": dimension_id,
+                "user_id": None,
+                "organization_id": None
+            })
+            
+        return data
+    
+    @staticmethod
+    def generate_demographic_update_data() -> Dict[str, Any]:
+        """Generate demographic update data"""
+        return {
+            "name": fake.sentence(nb_words=2).rstrip('.') + " Demographic",
+            "description": fake.paragraph(nb_sentences=2)
+        }
+    
+    @staticmethod
+    def generate_demographic_minimal() -> Dict[str, Any]:
+        """Generate minimal demographic data"""
+        return {
+            "name": fake.word().title() + " Demographic"
+        }
 
 
 # Convenience functions for backward compatibility and ease of use
@@ -238,3 +345,11 @@ def generate_metric_data() -> Dict[str, Any]:
 def generate_random_uuid() -> str:
     """Convenience function for generating random UUID"""
     return TestDataGenerator.generate_random_uuid()
+
+def generate_dimension_data(**kwargs) -> Dict[str, Any]:
+    """Convenience function for generating dimension data"""
+    return TestDataGenerator.generate_dimension_data(**kwargs)
+
+def generate_demographic_data(**kwargs) -> Dict[str, Any]:
+    """Convenience function for generating demographic data"""
+    return TestDataGenerator.generate_demographic_data(**kwargs)
