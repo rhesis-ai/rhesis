@@ -8,7 +8,7 @@ from .mixins import OrganizationAndUserMixin
 
 class Demographic(Base, OrganizationAndUserMixin):
     __tablename__ = "demographic"
-    name = Column(String)
+    name = Column(String, nullable=False)
     description = Column(Text)
     dimension_id = Column(GUID(), ForeignKey("dimension.id"))
     dimension = relationship("Dimension", back_populates="demographics")
