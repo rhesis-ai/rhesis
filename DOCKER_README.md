@@ -58,7 +58,7 @@ The backend container will:
 | **PostgreSQL** | 5432 | Database | `pg_isready` |
 | **Redis** | 6379 | Cache & Message Broker | `redis-cli ping` |
 | **Backend** | 8080 | FastAPI Application | `curl /health` |
-| **Worker** | - | Celery Background Tasks | - |
+| **Worker** | 8081 | Celery Background Tasks | - |
 | **Frontend** | 3000 | Next.js Application | - |
 
 ### Service Dependencies

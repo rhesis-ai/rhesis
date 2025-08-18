@@ -214,6 +214,9 @@ yarn-error.log*
 !**/.env.example
 **/.env-*
 
+# Docker files
+.dockerignore
+
 # Vercel
 .vercel
 
