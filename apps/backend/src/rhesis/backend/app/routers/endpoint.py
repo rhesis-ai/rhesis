@@ -29,7 +29,19 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Endpoint)
 def create_endpoint(endpoint: schemas.EndpointCreate, db: Session = Depends(get_db)):
-    return crud.create_endpoint(db=db, endpoint=endpoint)
+    try:
+        return crud.create_endpoint(db=db, endpoint=endpoint)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Invalid reference in endpoint data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Endpoint with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[EndpointDetailSchema])
