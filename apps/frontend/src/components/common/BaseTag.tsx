@@ -67,7 +67,7 @@ export interface BaseTagProps extends Omit<StandardTextFieldProps, 'onChange' | 
 // Tag validation utilities
 const TagValidation = {
   isValidLength: (value: string) => value.length > 0 && value.length <= 50,
-  isValidFormat: (value: string) => /^[a-zA-Z0-9-_\s]+$/.test(value),
+  isValidFormat: (value: string) => /^[a-zA-Z0-9\-_\s\u00C0-\u017F\u0180-\u024F]+$/.test(value),
   isValidTag: (value: string) => TagValidation.isValidLength(value) && TagValidation.isValidFormat(value)
 };
 
