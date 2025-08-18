@@ -119,6 +119,34 @@ class CategoryEndpoints(BaseEntityEndpoints):
     _id_param: str = "category_id"
 
 
+@dataclass
+class AuthEndpoints:
+    """Authentication API endpoints"""
+    
+    login: str = "/auth/login"
+    callback: str = "/auth/callback"
+    logout: str = "/auth/logout"
+    verify: str = "/auth/verify"
+
+
+@dataclass
+class DimensionEndpoints(BaseEntityEndpoints):
+    """Dimension API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "dimensions"
+    _id_param: str = "dimension_id"
+
+
+@dataclass
+class DemographicEndpoints(BaseEntityEndpoints):
+    """Demographic API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "demographics"
+    _id_param: str = "demographic_id"
+
+
 # Factory function for creating endpoints dynamically
 def create_entity_endpoints(entity_name: str, entity_class=BaseEntityEndpoints):
     """
@@ -146,6 +174,9 @@ class APIEndpoints:
     TOPICS = TopicEndpoints()
     METRICS = MetricEndpoints()
     CATEGORIES = CategoryEndpoints()
+    AUTH = AuthEndpoints()
+    DIMENSIONS = DimensionEndpoints()
+    DEMOGRAPHICS = DemographicEndpoints()
     
     # Example of using the factory for future entities
     # PROMPTS = create_entity_endpoints("prompts")
@@ -220,6 +251,10 @@ __all__ = [
     "BehaviorEndpoints", 
     "TopicEndpoints",
     "MetricEndpoints",
+    "CategoryEndpoints",
+    "AuthEndpoints",
+    "DimensionEndpoints",
+    "DemographicEndpoints",
     "QueryParams",
     "HTTPStatus",
     "PaginationDefaults"
