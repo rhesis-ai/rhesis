@@ -66,20 +66,7 @@ class TestBehaviorStandardRoutes(BehaviorTestMixin, BaseEntityRouteTests):
 class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
     """Behavior-specific tests for metric relationships"""
     
-    @pytest.fixture
-    def created_metric(self, authenticated_client: TestClient):
-        """Create a metric for testing behavior-metric relationships"""
-        metric_data = {
-            "name": fake.word().title() + " " + fake.word().title(),
-            "description": fake.text(max_nb_chars=150),
-            "evaluation_prompt": fake.sentence(nb_words=8),
-            "score_type": fake.random_element(elements=("numeric", "categorical", "binary"))
-        }
-        response = authenticated_client.post(APIEndpoints.METRICS.create, json=metric_data)
-        if response.status_code not in [status.HTTP_200_OK, status.HTTP_201_CREATED]:
-            # If metrics endpoint doesn't exist or fails, create a mock metric ID
-            return {"id": str(uuid.uuid4())}
-        return response.json()
+    # sample_metric fixture is automatically available from fixtures.py
 
     def test_get_behavior_metrics_empty(self, authenticated_client: TestClient):
         """🔗 Test getting metrics for behavior with no metrics"""
@@ -102,11 +89,11 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_add_metric_to_behavior_success(self, authenticated_client: TestClient, created_metric):
+    def test_add_metric_to_behavior_success(self, authenticated_client: TestClient, sample_metric):
         """🔗 Test successfully adding metric to behavior"""
         behavior = self.create_entity(authenticated_client)
         behavior_id = behavior["id"]
-        metric_id = created_metric["id"]
+        metric_id = sample_metric["id"]
         
         response = authenticated_client.post(self.endpoints.add_metric_to_behavior(behavior_id, metric_id))
         
@@ -121,7 +108,7 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
     def test_add_metric_to_behavior_not_found(self, authenticated_client: TestClient, created_metric):
         """🔗 Test adding metric to non-existent behavior"""
         non_existent_behavior_id = str(uuid.uuid4())
-        metric_id = created_metric["id"]
+        metric_id = sample_metric["id"]
         
         response = authenticated_client.post(self.endpoints.add_metric_to_behavior(non_existent_behavior_id, metric_id))
         
@@ -141,7 +128,7 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
         """🔗 Test successfully removing metric from behavior"""
         behavior = self.create_entity(authenticated_client)
         behavior_id = behavior["id"]
-        metric_id = created_metric["id"]
+        metric_id = sample_metric["id"]
         
         # First add the metric
         add_response = authenticated_client.post(self.endpoints.add_metric_to_behavior(behavior_id, metric_id))
@@ -159,7 +146,7 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
     def test_remove_metric_from_behavior_not_found(self, authenticated_client: TestClient, created_metric):
         """🔗 Test removing metric from non-existent behavior"""
         non_existent_behavior_id = str(uuid.uuid4())
-        metric_id = created_metric["id"]
+        metric_id = sample_metric["id"]
         
         response = authenticated_client.delete(self.endpoints.remove_metric_from_behavior(non_existent_behavior_id, metric_id))
         
