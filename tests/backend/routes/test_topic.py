@@ -65,14 +65,7 @@ class TestTopicStandardRoutes(TopicTestMixin, BaseEntityRouteTests):
 class TestTopicHierarchy(TopicTestMixin, BaseEntityTests):
     """Topic-specific tests for hierarchical relationships"""
     
-    @pytest.fixture
-    def parent_topic(self, authenticated_client: TestClient):
-        """Create a parent topic for hierarchical testing"""
-        parent_data = {
-            "name": fake.sentence(nb_words=2).rstrip('.') + " Topic",
-            "description": fake.text(max_nb_chars=100)
-        }
-        return self.create_entity(authenticated_client, parent_data)
+    # parent_topic fixture is automatically available from fixtures.py
 
     def test_create_child_topic(self, authenticated_client: TestClient, parent_topic):
         """🌳 Test creating a child topic with parent relationship"""

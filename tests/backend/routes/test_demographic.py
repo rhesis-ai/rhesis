@@ -53,15 +53,8 @@ class DemographicTestMixin:
             "description": fake.paragraph(nb_sentences=2)
         }
     
-    def create_dimension(self, client: TestClient) -> Dict[str, Any]:
-        """Helper to create a dimension for demographic testing"""
-        dimension_data = {
-            "name": fake.word().title() + " Test Dimension",
-            "description": fake.text(max_nb_chars=100)
-        }
-        response = client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
-        assert response.status_code == status.HTTP_200_OK
-        return response.json()
+    # Note: sample_dimension fixture is now provided by routes/fixtures.py
+    # and automatically available through routes/conftest.py
 
 
 # Standard entity tests - gets ALL tests from base classes
@@ -76,10 +69,7 @@ class TestDemographicStandardRoutes(DemographicTestMixin, BaseEntityRouteTests):
 class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
     """Test demographic functionality with dimension relationships"""
     
-    @pytest.fixture
-    def sample_dimension(self, authenticated_client: TestClient):
-        """Fixture to provide a sample dimension for testing"""
-        return self.create_dimension(authenticated_client)
+    # sample_dimension fixture is automatically available from fixtures.py
     
     def test_create_demographic_with_dimension(self, authenticated_client: TestClient, sample_dimension):
         """🧩🔥 Test creating demographic with valid dimension relationship"""
