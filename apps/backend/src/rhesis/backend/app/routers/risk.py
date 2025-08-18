@@ -19,7 +19,19 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Risk)
 def create_risk(risk: schemas.RiskCreate, db: Session = Depends(get_db)):
-    return crud.create_risk(db=db, risk=risk)
+    try:
+        return crud.create_risk(db=db, risk=risk)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Invalid reference in risk data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Risk with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[schemas.Risk])
@@ -40,14 +52,14 @@ def read_risks(
 
 
 @router.get("/{risk_id}", response_model=schemas.Risk)
-def read_risk(risk_id: str, db: Session = Depends(get_db)):
+def read_risk(risk_id: uuid.UUID, db: Session = Depends(get_db)):
     db_risk = crud.get_risk(db, risk_id=risk_id)
     if db_risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
     return db_risk
 
 
-@router.delete("/{risk_id}", response_model=schemas.Behavior)
+@router.delete("/{risk_id}", response_model=schemas.Risk)
 def delete_risk(risk_id: uuid.UUID, db: Session = Depends(get_db)):
     db_risk = crud.delete_risk(db, risk_id=risk_id)
     if db_risk is None:
