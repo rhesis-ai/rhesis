@@ -1204,7 +1204,9 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
           ) : (
             <Button 
               variant="contained" 
-              onClick={handleNext}
+              type={activeStep === 0 ? "submit" : "button"}
+              form={activeStep === 0 ? "generation-config-form" : undefined}
+              onClick={activeStep === 0 ? undefined : handleNext}
               disabled={isGenerating || (activeStep === 1 && documents.some(doc => 
                 doc.status !== 'completed' && doc.status !== 'error'
               ))}
