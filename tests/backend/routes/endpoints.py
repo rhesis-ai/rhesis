@@ -147,6 +147,25 @@ class DemographicEndpoints(BaseEntityEndpoints):
     _id_param: str = "demographic_id"
 
 
+@dataclass
+class EndpointEndpoints(BaseEntityEndpoints):
+    """Endpoint API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "endpoints"
+    _id_param: str = "endpoint_id"
+    
+    # Special endpoint-specific operations
+    def invoke(self, endpoint_id: str) -> str:
+        """Get endpoint invoke URL"""
+        return f"/{self._base_entity}/{endpoint_id}/invoke"
+    
+    @property
+    def schema(self) -> str:
+        """Get endpoint schema URL"""
+        return f"/{self._base_entity}/schema"
+
+
 # Factory function for creating endpoints dynamically
 def create_entity_endpoints(entity_name: str, entity_class=BaseEntityEndpoints):
     """
@@ -177,6 +196,7 @@ class APIEndpoints:
     AUTH = AuthEndpoints()
     DIMENSIONS = DimensionEndpoints()
     DEMOGRAPHICS = DemographicEndpoints()
+    ENDPOINTS = EndpointEndpoints()
     
     # Example of using the factory for future entities
     # PROMPTS = create_entity_endpoints("prompts")
@@ -255,6 +275,7 @@ __all__ = [
     "AuthEndpoints",
     "DimensionEndpoints",
     "DemographicEndpoints",
+    "EndpointEndpoints",
     "QueryParams",
     "HTTPStatus",
     "PaginationDefaults"
