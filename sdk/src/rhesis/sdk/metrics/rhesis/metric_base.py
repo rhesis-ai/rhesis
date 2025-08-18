@@ -84,7 +84,7 @@ class RhesisMetricBase(BaseMetric):
             valid_operators = VALID_OPERATORS_BY_SCORE_TYPE.get(score_type, set())
             valid_ops_str = ", ".join([op.value for op in valid_operators])
             raise ValueError(
-                f"Operator '{threshold_operator.value}' is not valid"
+                f"Operator '{threshold_operator.value}' is not valid "
                 f"for score type '{score_type.value}'. "
                 f"Valid operators for {score_type.value} are: {valid_ops_str}"
             )
