@@ -621,6 +621,10 @@ def update_dimension(
     return update_item(db, models.Dimension, dimension_id, dimension)
 
 
+def delete_dimension(db: Session, dimension_id: uuid.UUID) -> Optional[models.Dimension]:
+    return delete_item(db, models.Dimension, dimension_id)
+
+
 # User CRUD
 def get_user(db: Session, user_id: uuid.UUID) -> Optional[models.User]:
     return get_item(db, models.User, user_id)
