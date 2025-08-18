@@ -11,8 +11,8 @@ x-common-database: &common-database
 
 x-common-redis: &common-redis
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-  BROKER_URL: ${BROKER_URL:-redis://redis:6379/0?ssl_cert_reqs=CERT_NONE}
-  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1?ssl_cert_reqs=CERT_NONE}
+  BROKER_URL: ${BROKER_URL:-redis://redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
 
 x-common-auth0: &common-auth0
   AUTH0_DOMAIN: ${AUTH0_DOMAIN}
@@ -86,6 +86,8 @@ services:
       LOG_LEVEL: DEBUG
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+      RHESIS_BASE_URL: ${RHESIS_BASE_URL:-http://backend:8080}
+      RHESIS_API_KEY: ${RHESIS_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
@@ -100,6 +102,7 @@ services:
       - ./apps/backend/src:/app/src
     networks:
       - rhesis-network
+
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -115,7 +118,11 @@ services:
       dockerfile: apps/worker/Dockerfile
     container_name: rhesis-worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-environment]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment]
+      BROKER_URL: ${BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+      RHESIS_BASE_URL: ${RHESIS_BASE_URL:-http://backend:8080}
       LOG_LEVEL: INFO
       CELERY_WORKER_CONCURRENCY: 8
       CELERY_WORKER_PREFETCH_MULTIPLIER: 4
@@ -124,7 +131,7 @@ services:
       USE_TCP_DATABASE: true
       ENABLE_FLOWER: no
     ports:
-      - "8081:8080"
+      - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,13 +141,11 @@ services:
         condition: service_healthy
     volumes:
       - ./sdk:/app/sdk
-      - ./apps/backend:/app/backend
-      - ./apps/worker:/app/worker
     networks:
       - rhesis-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/basic"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health/basic"]
       interval: 30s
       timeout: 10s
       retries: 3
