@@ -11,6 +11,7 @@ Modules:
 - behaviors.py: Behavior-related fixtures
 - endpoints.py: Endpoint-related fixtures
 - metrics.py: Metric-related fixtures
+- users.py: User-related fixtures
 """
 
 # Import all entity fixtures
@@ -20,6 +21,7 @@ from .topics import *
 from .behaviors import *
 from .endpoints import *
 from .metrics import *
+from .users import *
 
 __all__ = [
     # Dimension fixtures
@@ -38,5 +40,8 @@ __all__ = [
     "sample_metric",
     
     # Endpoint fixtures
-    "sample_endpoint", "sample_endpoints", "working_endpoint", "endpoint_with_complex_config"
+    "sample_endpoint", "sample_endpoints", "working_endpoint", "endpoint_with_complex_config",
+    
+    # User fixtures
+    "sample_user", "mock_user", "admin_user", "inactive_user"
 ]

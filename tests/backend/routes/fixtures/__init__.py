@@ -33,6 +33,7 @@ __all__ = [
     "sample_behavior",
     "sample_metric",
     "sample_endpoint", "sample_endpoints", "working_endpoint", "endpoint_with_complex_config",
+    "sample_user", "mock_user", "admin_user", "inactive_user",
     
     # Relationship fixtures
     "dimension_with_demographics",

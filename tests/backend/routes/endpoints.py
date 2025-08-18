@@ -130,6 +130,18 @@ class AuthEndpoints:
 
 
 @dataclass
+class HomeEndpoints:
+    """Home API endpoints"""
+    
+    # Base paths
+    BASE: str = "/home"
+    
+    # Home endpoints
+    HOME: str = "/home/"
+    PROTECTED: str = "/home/protected"
+
+
+@dataclass
 class DimensionEndpoints(BaseEntityEndpoints):
     """Dimension API endpoints"""
 
@@ -194,6 +206,7 @@ class APIEndpoints:
     METRICS = MetricEndpoints()
     CATEGORIES = CategoryEndpoints()
     AUTH = AuthEndpoints()
+    HOME = HomeEndpoints()
     DIMENSIONS = DimensionEndpoints()
     DEMOGRAPHICS = DemographicEndpoints()
     ENDPOINTS = EndpointEndpoints()
@@ -273,6 +286,7 @@ __all__ = [
     "MetricEndpoints",
     "CategoryEndpoints",
     "AuthEndpoints",
+    "HomeEndpoints",
     "DimensionEndpoints",
     "DemographicEndpoints",
     "EndpointEndpoints",
