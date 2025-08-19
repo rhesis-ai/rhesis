@@ -33,4 +33,4 @@ echo ""
 echo -e "${BLUE}▶️  Launching server...${NC}"
 echo ""
 
-uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload 
+uv run uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload 
