@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from ..endpoints import APIEndpoints
 from ..faker_utils import TestDataGenerator
+from ..fixtures.data_factories import get_factory, generate_test_data
 
 # Initialize Faker
 fake = Faker()
@@ -28,7 +29,7 @@ class BaseEntityTests(ABC):
     entity_name: str = ""           # e.g., "behavior", "topic" 
     entity_plural: str = ""         # e.g., "behaviors", "topics"
     endpoints = None                # e.g., APIEndpoints.BEHAVIORS
-    data_generator = None           # e.g., TestDataGenerator method
+    data_generator = None           # e.g., TestDataGenerator method (LEGACY)
     
     # Optional overrides
     id_field: str = "id"
@@ -39,6 +40,16 @@ class BaseEntityTests(ABC):
     user_id_field: Optional[str] = None       # e.g., "user_id"
     owner_id_field: Optional[str] = None      # e.g., "owner_id" 
     assignee_id_field: Optional[str] = None   # e.g., "assignee_id"
+    
+    # NEW: Factory integration
+    @property
+    def data_factory(self):
+        """Get data factory for this entity type"""
+        try:
+            return get_factory(self.entity_name)
+        except KeyError:
+            # Fallback to legacy data generation if no factory exists
+            return None
     
     def __init_subclass__(cls, **kwargs):
         """Auto-detect user relationship fields when subclass is created"""
@@ -61,9 +72,56 @@ class BaseEntityTests(ABC):
         """Return data for entity updates"""
         pass
     
+    # NEW: Factory-based helper methods
+    def get_factory_sample_data(self) -> Dict[str, Any]:
+        """Get sample data using factory (preferred over get_sample_data)"""
+        if self.data_factory:
+            return self.data_factory.sample_data()
+        return self.get_sample_data()  # Fallback to abstract method
+    
+    def get_factory_minimal_data(self) -> Dict[str, Any]:
+        """Get minimal data using factory (preferred over get_minimal_data)"""
+        if self.data_factory:
+            return self.data_factory.minimal_data()
+        return self.get_minimal_data()  # Fallback to abstract method
+    
+    def get_factory_update_data(self) -> Dict[str, Any]:
+        """Get update data using factory (preferred over get_update_data)"""
+        if self.data_factory:
+            return self.data_factory.update_data()
+        return self.get_update_data()  # Fallback to abstract method
+    
     def get_invalid_data(self) -> Dict[str, Any]:
-        """Return invalid data (missing required fields)"""
-        return {}
+        """Get invalid data for negative testing"""
+        if self.data_factory:
+            return self.data_factory.invalid_data()
+        return {}  # Empty data is universally invalid
+    
+    def get_edge_case_data(self, case_type: str) -> Dict[str, Any]:
+        """Get edge case data for boundary testing"""
+        if self.data_factory:
+            return self.data_factory.edge_case_data(case_type)
+        return self.get_sample_data()  # Fallback
+    
+    def create_entity(self, client: TestClient, 
+                     data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Create test entity using factory data if available
+        
+        Args:
+            client: Test client
+            data: Optional custom data (uses factory default if None)
+            
+        Returns:
+            Created entity data
+        """
+        if data is None:
+            data = self.get_factory_sample_data()
+        
+        response = client.post(self.endpoints.create, json=data)
+        assert response.status_code == status.HTTP_200_OK, f"Entity creation failed: {response.text}"
+        
+        return response.json()
     
     def get_long_name_data(self) -> Dict[str, Any]:
         """Return data with very long name for edge testing"""

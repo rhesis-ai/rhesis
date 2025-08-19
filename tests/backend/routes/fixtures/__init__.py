@@ -24,25 +24,68 @@ from .entities import *
 from .relationships import *
 from .utilities import *
 from .mocks import *
+from .factory_fixtures import *
 
 __all__ = [
-    # Entity fixtures
+    # === FACTORY FIXTURES (Primary System) ===
+    # Entity factory fixtures
+    "behavior_factory", "topic_factory", "category_factory", 
+    "metric_factory", "dimension_factory", "demographic_factory", "endpoint_factory",
+    
+    # Data fixtures
+    "behavior_data", "minimal_behavior_data", "behavior_update_data",
+    "topic_data", "minimal_topic_data", "topic_update_data",
+    "category_data", "metric_data", "dimension_data",
+    
+    # Edge case fixtures
+    "long_name_behavior_data", "special_chars_behavior_data", "unicode_behavior_data",
+    "sql_injection_behavior_data", "empty_behavior_data",
+    
+    # Batch fixtures
+    "behavior_batch_data", "small_behavior_batch",
+    
+    # Composite fixtures (with automatic cleanup)
+    "behavior_with_metrics", "topic_hierarchy",
+    
+    # Performance fixtures
+    "large_entity_batch",
+    
+    # Parameterized fixtures
+    "varied_behavior_data", "edge_case_behavior_data",
+    
+    # === USER FIXTURES (Enhanced System) ===
+    # Mock user fixtures (unit tests)
+    "mock_user_data", "mock_admin_data", "mock_inactive_user_data", "mock_user_object",
+    
+    # Database user fixtures (integration tests)
+    "db_user", "db_admin", "db_inactive_user", "db_owner_user", "db_assignee_user",
+    
+    # Authenticated user fixtures
+    "authenticated_user", "authenticated_user_data", "test_organization",
+    
+    # Convenience user fixtures
+    "user_trio", "admin_and_user",
+    
+    # === LEGACY FIXTURES (Backward Compatibility) ===
+    # Entity fixtures (deprecated - use factory fixtures instead)
     "sample_dimension", "sample_dimensions",
     "sample_category", "parent_category", 
     "sample_topic", "parent_topic",
     "sample_behavior",
     "sample_metric",
     "sample_endpoint", "sample_endpoints", "working_endpoint", "endpoint_with_complex_config",
-    "sample_user", "mock_user", "admin_user", "inactive_user",
-    "test_organization", "db_authenticated_user", "db_user", "db_admin_user", "db_owner_user", "db_assignee_user",
-    "api_user", "api_owner_user", "api_assignee_user",
-    "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status",
-    "db_project", "db_inactive_project", "db_draft_project",
     
-    # Relationship fixtures
+    # Legacy user fixtures (deprecated - use enhanced user fixtures instead)
+    "sample_user", "mock_user", "admin_user", "inactive_user",
+    "db_authenticated_user", "db_admin_user",
+    
+    # Legacy relationship fixtures (deprecated - use composite fixtures instead)
     "dimension_with_demographics",
     "topic_with_children",
-    "behavior_with_metrics",
+    
+    # Status and project fixtures
+    "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status",
+    "db_project", "db_inactive_project", "db_draft_project",
     
     # Utility fixtures
     "invalid_uuid", "malformed_uuid",
