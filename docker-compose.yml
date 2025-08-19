@@ -1,5 +1,5 @@
 
-# Define common configurations using YAML anchors
+# Define configurations using YAML anchors
 x-common-database: &common-database
   SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}
   SQLALCHEMY_DB_DRIVER: ${SQLALCHEMY_DB_DRIVER:-postgresql}
@@ -10,9 +10,9 @@ x-common-database: &common-database
   SQLALCHEMY_DB_NAME: ${SQLALCHEMY_DB_NAME}
 
 x-common-redis: &common-redis
-  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-  BROKER_URL: ${BROKER_URL:-redis://redis:6379/0}
-  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
+  BROKER_URL: ${BROKER_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/1}
 
 x-common-auth0: &common-auth0
   AUTH0_DOMAIN: ${AUTH0_DOMAIN}
@@ -35,7 +35,32 @@ x-common-jwt: &common-jwt
 
 x-common-environment: &common-environment
   ENVIRONMENT: development
+  NODE_ENV: development
   LOG_LEVEL: DEBUG
+
+x-rhesis-config: &rhesis-config
+  RHESIS_BASE_URL: ${RHESIS_BASE_URL:-http://backend:8080}
+  RHESIS_API_KEY: ${RHESIS_API_KEY}
+  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+  
+x-gemini-google: &gemini-google
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
+  GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+
+x-nextjs-frontend: &nextjs-frontend
+  NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+  NEXTAUTH_URL: ${NEXTAUTH_URL}
+  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+  NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-http://localhost:3000}
+  NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID:-http://localhost:3000}
+  NEXT_TELEMETRY_DISABLED: 1
+
+x-google-client: &google-client
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
 
 services:
   # PostgreSQL Database
@@ -43,32 +68,35 @@ services:
     image: postgres:16-alpine
     container_name: rhesis-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-rhesis_db}
-      POSTGRES_USER: ${POSTGRES_USER:-rhesis_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rhesis_password}
+      POSTGRES_DB: ${POSTGRES_DB:-rhesis-db}
+      POSTGRES_USER: ${POSTGRES_USER:-rhesis-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rhesis-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rhesis_user} -d ${POSTGRES_DB:-rhesis_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rhesis-user} -d ${POSTGRES_DB:-rhesis-db}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - rhesis-network
 
-  # Redis for Celery
+   # Redis for Celery
   redis:
     image: redis:7-alpine
     container_name: rhesis-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-rhesis-redis-pass}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-rhesis-redis-pass}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-rhesis-redis-pass}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,15 +110,8 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *gemini-google]
       LOG_LEVEL: DEBUG
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
-      RHESIS_BASE_URL: ${RHESIS_BASE_URL:-http://backend:8080}
-      RHESIS_API_KEY: ${RHESIS_API_KEY}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     ports:
       - "8080:8080"
     depends_on:
@@ -118,11 +139,7 @@ services:
       dockerfile: apps/worker/Dockerfile
     container_name: rhesis-worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment]
-      BROKER_URL: ${BROKER_URL:-redis://redis:6379/0}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
-      BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
-      RHESIS_BASE_URL: ${RHESIS_BASE_URL:-http://backend:8080}
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
       LOG_LEVEL: INFO
       CELERY_WORKER_CONCURRENCY: 8
       CELERY_WORKER_PREFETCH_MULTIPLIER: 4
@@ -157,25 +174,14 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
-        NEXT_PUBLIC_APP_URL: http://localhost:3000
-        NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN}
-        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-http://localhost:3000}
+        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID:-http://localhost:3000}
     container_name: rhesis-frontend
     environment:
-      <<: [*common-auth0]
+      <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
       PORT: 3000
-      NODE_ENV: development
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN}
-      NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID}
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      NEXT_TELEMETRY_DISABLED: 1
     ports:
       - "3000:3000"
     depends_on:

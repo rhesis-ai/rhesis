@@ -9,8 +9,8 @@ if [ -f ".env" ]; then
 fi
 
 # Set default values if not provided
-POSTGRES_USER=${POSTGRES_USER:-rhesis_user}
-POSTGRES_DB=${POSTGRES_DB:-rhesis_db}
+POSTGRES_USER=${POSTGRES_USER:-rhesis-user}
+POSTGRES_DB=${POSTGRES_DB:-rhesis-db}
 
 echo "Generating create_user.sql with:"
 echo "  POSTGRES_USER: $POSTGRES_USER"
