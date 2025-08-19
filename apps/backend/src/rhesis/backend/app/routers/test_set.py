@@ -122,7 +122,7 @@ def build_generation_prompt(config: TestSetGenerationConfig, samples: List[Gener
         f"- Project: {config.project_name or 'General'}",
         f"- Test Behaviors: {', '.join(config.behaviors)}",
         f"- Test Purposes: {', '.join(config.purposes)}",
-        f"- Key Aspects: {', '.join(config.tags)}",
+        f"- Key Topics: {', '.join(config.tags)}",
         f"- Test Type: {'Single interaction tests' if config.test_type == 'single_turn' else 'Multi-turn conversation tests'}",
         f"- Output Format: {'Generate only user inputs' if config.response_generation == 'prompt_only' else 'Generate both user inputs and expected responses'}",
         f"",
@@ -177,7 +177,7 @@ def build_generation_prompt(config: TestSetGenerationConfig, samples: List[Gener
         f"1. Follow the same format and structure as the samples",
         f"2. Address the specific behaviors and purposes listed",
         f"3. Incorporate the feedback provided for similar quality improvements",
-        f"4. Cover the key aspects mentioned in the configuration",
+        f"4. Cover the key topics mentioned in the configuration",
         f"5. Maintain variety while staying focused on the requirements",
     ])
     
