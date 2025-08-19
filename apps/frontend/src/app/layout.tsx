@@ -9,8 +9,6 @@ import {
   VpnKeyIcon, 
   BusinessIcon, 
   GroupIcon, 
-  WarningAmberIcon, 
-  MenuBookIcon, 
   PlayArrowIcon, 
   AssessmentIcon, 
   DescriptionIcon, 
@@ -76,19 +74,7 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
           title: 'Team',
           icon: <GroupIcon />,
         },
-        {
-          kind: 'page',
-          segment: 'risks',
-          title: 'Risks',
-          icon: <WarningAmberIcon />,
-        },
-        {
-          kind: 'page',
-          segment: 'knowledge',
-          title: 'Knowledge',
-          icon: <MenuBookIcon />,
-          requireSuperuser: true,
-        },
+
       ],
     },
     {
@@ -96,13 +82,6 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
       segment: 'projects',
       title: 'Projects',
       icon: <AppsIcon />,
-    },
-    {
-      kind: 'page',
-      segment: 'projects-legacy',
-      title: 'Projects Wizard',
-      icon: <AutoFixHighIcon />,
-      requireSuperuser: true,
     },
     {
       kind: 'divider',
