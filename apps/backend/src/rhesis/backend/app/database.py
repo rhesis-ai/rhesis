@@ -12,7 +12,42 @@ from rhesis.backend.logging import logger
 
 load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", "sqlite:///./test.db")
+def get_database_url() -> str:
+    """Get the appropriate database URL based on the current mode."""
+    # In test mode, prioritize SQLALCHEMY_DATABASE_TEST_URL
+    if os.getenv("SQLALCHEMY_DB_MODE") == "test":
+        test_url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL")
+        if test_url:
+            return test_url
+    
+    # For production/development, use SQLALCHEMY_DATABASE_URL if available
+    prod_url = os.getenv("SQLALCHEMY_DATABASE_URL")
+    if prod_url:
+        return prod_url
+    
+    # Fallback: construct URL from individual components
+    return _construct_database_url(is_test=os.getenv("SQLALCHEMY_DB_MODE") == "test")
+
+
+def _construct_database_url(is_test: bool = False) -> str:
+    """Construct database URL from environment variables."""
+    user = os.getenv("SQLALCHEMY_DB_USER", "")
+    password = os.getenv("SQLALCHEMY_DB_PASS", "")
+    host = os.getenv("SQLALCHEMY_DB_HOST", "")
+    db_name = os.getenv("SQLALCHEMY_DB_NAME", "")
+    
+    # Add -test suffix for test databases
+    if is_test:
+        db_name += "-test"
+    
+    # Handle Cloud SQL Unix socket connections
+    if host.startswith(("/cloudsql", "/tmp/cloudsql")):
+        return f"postgresql://{user}:{password}@/{db_name}?host={host}"
+    
+    # Default to localhost TCP connection
+    return f"postgresql://{user}:{password}@localhost:5432/{db_name}"
+
+SQLALCHEMY_DATABASE_URL = get_database_url()
 
 # Create engine with proper configuration
 engine = create_engine(SQLALCHEMY_DATABASE_URL)

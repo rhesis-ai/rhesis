@@ -23,7 +23,19 @@ def create_source(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    return crud.create_source(db=db, source=source)
+    try:
+        return crud.create_source(db=db, source=source)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Invalid reference in source data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Source with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[schemas.Source])
@@ -46,7 +58,7 @@ def read_sources(
 
 @router.get("/{source_id}", response_model=schemas.Source)
 def read_source(
-    source_id: str,
+    source_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):

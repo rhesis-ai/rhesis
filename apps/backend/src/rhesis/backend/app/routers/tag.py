@@ -24,7 +24,19 @@ def create_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    return crud.create_tag(db=db, tag=tag)
+    try:
+        return crud.create_tag(db=db, tag=tag)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Handle database constraint violations (like foreign key constraints)
+        error_msg = str(e)
+        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Invalid reference in tag data")
+        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
+            raise HTTPException(status_code=400, detail="Tag with this name already exists")
+        # Re-raise other database errors as 500
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[schemas.Tag])
@@ -47,7 +59,7 @@ def read_tags(
 
 @router.get("/{tag_id}", response_model=schemas.Tag)
 def read_tag(
-    tag_id: str,
+    tag_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
