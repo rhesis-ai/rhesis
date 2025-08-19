@@ -1,9 +1,10 @@
 # 🚀 Contributing to Rhesis
 
-Thank you for your interest in contributing to Rhesis! This document provides comprehensive guidelines and instructions for contributing to our main repository.
+Thank you for your interest in contributing to Rhesis! This document provides **general guidelines and instructions** for contributing to our main repository.
 
 ## 📋 Table of Contents
 
+- 📖 [Component-Specific Contributing Guides](#component-specific-contributing-guides)
 - 📁 [Project Structure](#project-structure)
 - 🐧 [Tools Installation on Linux](#tools-installation-on-linux)
 - 🐍 [Python Environment Setup](#python-environment-setup)
@@ -16,6 +17,21 @@ Thank you for your interest in contributing to Rhesis! This document provides co
 - 🤖 [GitHub Automation Tools](#github-automation-tools)
 - 🏷️ [Versioning and Release Process](#versioning-and-release-process)
 - ❓ [Questions or Need Help?](#questions-or-need-help)
+
+<a id="component-specific-contributing-guides"></a>
+## 📖 Component-Specific Contributing Guides
+
+This is the **general contributing guide** for the Rhesis monorepo. Each component has its own detailed contributing guide:
+
+- 📦 **[SDK Contributing Guide](sdk/CONTRIBUTING.md)** 
+- 🔙 **[Backend Contributing Guide](apps/backend/CONTRIBUTING.md)** 
+- 🎨 **[Frontend Contributing Guide](apps/frontend/CONTRIBUTING.md)** 
+
+**Please read this general guide first, then read the specific guide for the component you're contributing to.**
+
+
+
+
 
 <a id="project-structure"></a>
 ## 📁 Project Structure
