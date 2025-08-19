@@ -87,13 +87,13 @@ class BaseListOperationTests(BaseEntityTests):
         response = authenticated_client.get(f"{self.endpoints.list}?skip=-1")
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_400_BAD_REQUEST]
     
-    def test_list_entities_filter_by_user(self, authenticated_client: TestClient, mock_user):
+    def test_list_entities_filter_by_user(self, authenticated_client: TestClient, db_authenticated_user):
         """🔗👤 Test filtering entities by user relationship fields"""
         if not self.has_user_relationships():
             pytest.skip(f"{self.entity_name} does not have user relationship fields")
         
         # Use valid user ID from fixture
-        test_user_id = str(mock_user.id)
+        test_user_id = str(db_authenticated_user.id)
         
         # Create entity with specific user
         user_entity_data = self.get_sample_data_with_users(

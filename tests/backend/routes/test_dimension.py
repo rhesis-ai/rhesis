@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
+from .faker_utils import TestDataGenerator, generate_dimension_data
 
 # Initialize Faker
 fake = Faker()
@@ -31,26 +32,24 @@ class DimensionTestMixin:
     endpoints = APIEndpoints.DIMENSIONS
     
     def get_sample_data(self) -> Dict[str, Any]:
-        """Return sample dimension data for testing"""
-        return {
-            "name": fake.word().title() + " Dimension",
-            "description": fake.text(max_nb_chars=200),
-            "user_id": None,
-            "organization_id": None,
-        }
+        """Return sample dimension data for testing using faker utilities"""
+        data = generate_dimension_data()
+        
+        # Remove None foreign key values that cause validation errors
+        # The API will auto-populate organization_id and user_id from the authenticated user
+        for key in ["status_id", "entity_type_id"]:
+            if key in data and data[key] is None:
+                del data[key]  # Remove rather than sending None
+        
+        return data
     
     def get_minimal_data(self) -> Dict[str, Any]:
-        """Return minimal dimension data for creation"""
-        return {
-            "name": fake.word().title() + " Dimension"
-        }
+        """Return minimal dimension data for creation using faker utilities"""
+        return TestDataGenerator.generate_dimension_minimal()
     
     def get_update_data(self) -> Dict[str, Any]:
-        """Return dimension update data"""
-        return {
-            "name": fake.sentence(nb_words=2).rstrip('.') + " Dimension",
-            "description": fake.paragraph(nb_sentences=2)
-        }
+        """Return dimension update data using faker utilities"""
+        return TestDataGenerator.generate_dimension_update_data()
 
 
 # Standard entity tests - gets ALL tests from base classes

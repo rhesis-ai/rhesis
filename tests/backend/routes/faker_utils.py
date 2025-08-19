@@ -222,6 +222,61 @@ class TestDataGenerator:
         }
     
     @staticmethod
+    def generate_category_data(
+        include_optional: bool = True,
+        long_name: bool = False,
+        special_chars: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Generate realistic category test data
+        
+        Args:
+            include_optional: Include optional fields
+            long_name: Generate very long name for edge testing
+            special_chars: Include special characters for edge testing
+            
+        Returns:
+            Dict containing category data
+        """
+        if long_name:
+            name = fake.text(max_nb_chars=1000).replace('\n', ' ') + " Category"
+        elif special_chars:
+            name = f"{fake.word()} 🏷️ Category with émoji & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}"
+        else:
+            name = fake.word().title() + " " + fake.word().title() + " Category"
+        
+        data = {
+            "name": name,
+        }
+        
+        if include_optional:
+            data.update({
+                "description": fake.text(max_nb_chars=200),
+                "parent_id": None,
+                "entity_type_id": None,
+                "status_id": None,
+                "organization_id": None,
+                "user_id": None,
+            })
+        
+        return data
+
+    @staticmethod
+    def generate_category_update_data() -> Dict[str, Any]:
+        """Generate category update data"""
+        return {
+            "name": fake.sentence(nb_words=2).rstrip('.') + " Category",
+            "description": fake.paragraph(nb_sentences=2)
+        }
+    
+    @staticmethod
+    def generate_category_minimal() -> Dict[str, Any]:
+        """Generate minimal category data"""
+        return {
+            "name": fake.word().title() + " Category"
+        }
+
+    @staticmethod
     def generate_dimension_data(
         include_optional: bool = True,
         long_name: bool = False,
@@ -337,6 +392,10 @@ def generate_behavior_data(**kwargs) -> Dict[str, Any]:
 def generate_topic_data(**kwargs) -> Dict[str, Any]:
     """Convenience function for generating topic data"""
     return TestDataGenerator.generate_topic_data(**kwargs)
+
+def generate_category_data(**kwargs) -> Dict[str, Any]:
+    """Convenience function for generating category data"""
+    return TestDataGenerator.generate_category_data(**kwargs)
 
 def generate_metric_data() -> Dict[str, Any]:
     """Convenience function for generating metric data"""

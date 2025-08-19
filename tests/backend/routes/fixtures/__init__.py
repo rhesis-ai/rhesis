@@ -34,6 +34,10 @@ __all__ = [
     "sample_metric",
     "sample_endpoint", "sample_endpoints", "working_endpoint", "endpoint_with_complex_config",
     "sample_user", "mock_user", "admin_user", "inactive_user",
+    "test_organization", "db_authenticated_user", "db_user", "db_admin_user", "db_owner_user", "db_assignee_user",
+    "api_user", "api_owner_user", "api_assignee_user",
+    "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status",
+    "db_project", "db_inactive_project", "db_draft_project",
     
     # Relationship fixtures
     "dimension_with_demographics",

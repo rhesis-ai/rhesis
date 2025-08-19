@@ -22,6 +22,8 @@ from .behaviors import *
 from .endpoints import *
 from .metrics import *
 from .users import *
+from .statuses import *
+from .projects import *
 
 __all__ = [
     # Dimension fixtures
@@ -43,5 +45,13 @@ __all__ = [
     "sample_endpoint", "sample_endpoints", "working_endpoint", "endpoint_with_complex_config",
     
     # User fixtures
-    "sample_user", "mock_user", "admin_user", "inactive_user"
+    "sample_user", "mock_user", "admin_user", "inactive_user",
+    "test_organization", "db_authenticated_user", "db_user", "db_admin_user", "db_owner_user", "db_assignee_user",
+    "api_user", "api_owner_user", "api_assignee_user",
+    
+    # Status fixtures
+    "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status",
+    
+    # Project fixtures
+    "db_project", "db_inactive_project", "db_draft_project"
 ]
