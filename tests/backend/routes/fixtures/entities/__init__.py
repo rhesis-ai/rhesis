@@ -21,7 +21,7 @@ from .topics import *
 from .behaviors import *
 from .endpoints import *
 from .metrics import *
-from .users import *
+from .users import *  # Enhanced user fixtures
 from .statuses import *
 from .projects import *
 
@@ -44,10 +44,17 @@ __all__ = [
     # Endpoint fixtures
     "sample_endpoint", "sample_endpoints", "working_endpoint", "endpoint_with_complex_config",
     
-    # User fixtures
-    "sample_user", "mock_user", "admin_user", "inactive_user",
-    "test_organization", "db_authenticated_user", "db_user", "db_admin_user", "db_owner_user", "db_assignee_user",
-    "api_user", "api_owner_user", "api_assignee_user",
+    # User fixtures (enhanced system with backward compatibility)
+    # Mock fixtures (unit tests)
+    "mock_user_data", "mock_admin_data", "mock_inactive_user_data", "mock_user_object",
+    # Database fixtures (integration tests)  
+    "db_user", "db_admin", "db_inactive_user", "db_owner_user", "db_assignee_user",
+    # Authenticated fixtures
+    "authenticated_user", "authenticated_user_data", "test_organization",
+    # Convenience fixtures
+    "user_trio", "admin_and_user",
+    # Legacy aliases (backward compatibility)
+    "sample_user", "mock_user", "admin_user", "inactive_user", "db_authenticated_user", "db_admin_user",
     
     # Status fixtures
     "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status",
