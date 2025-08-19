@@ -103,19 +103,14 @@ const INITIAL_CONFIG: ConfigData = {
 
 // Add a constant for supported file types
 const SUPPORTED_FILE_EXTENSIONS = [
-  // Document formats
-  '.pdf',
-  '.docx', '.xlsx', '.pptx',
-  '.md',
-  '.adoc',
-  '.html', '.xhtml',
-  '.csv',
-  '.txt',
-  // Image formats
-  '.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp',
-  // Schema-specific formats
-  '.xml',
-  '.json'
+  // Office formats
+  '.docx', '.pptx', '.xlsx',
+  
+  // Documents
+  '.pdf', '.txt', '.csv', '.json', '.xml', '.html', '.htm',
+  
+  // Archives & Media
+  '.zip', '.epub', '.url', '.youtube'
 ];
 
 // Create a helper function to check file type
