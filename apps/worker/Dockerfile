@@ -36,8 +36,7 @@ COPY apps/worker/health_server.py /app/health_server.py
 
 # Install dependencies with uv using --system flag
 RUN uv pip install --system -r /app/requirements.txt && \
-    uv pip install --system -e /app/sdk && \
-    uv pip install --system -e /app/backend
+    uv pip install --system -e /app/sdk
 
 # Remove build dependencies after installing Python packages
 RUN apt-get purge -y gcc \
@@ -45,7 +44,7 @@ RUN apt-get purge -y gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Python path to find the modules
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app:/app/backend/src
 
 # Create directory for Celery logs
 RUN mkdir -p /var/log/celery
