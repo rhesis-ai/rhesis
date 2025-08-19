@@ -26,8 +26,11 @@ COPY apps/backend/src/rhesis /app/src/rhesis
 # Copy the SDK directory
 COPY sdk /app/sdk/
 
-# Install backend dependencies and SDK
-RUN uv sync && uv pip install -e /app/sdk
+# Update the SDK path in pyproject.toml to use absolute path
+RUN sed -i 's|rhesis-sdk = { path = "../../sdk", editable = true }|rhesis-sdk = { path = "/app/sdk", editable = true }|' pyproject.toml
+
+# Install backend dependencies (which includes the SDK)
+RUN uv sync
 
 # Now copy the rest of your source (scripts, modules, etc.)
 COPY apps/backend/src /app/src
@@ -50,7 +53,7 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 8080
 
 # Command to run the FastAPI application with Gunicorn
-CMD ["gunicorn", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8080", "rhesis.backend.app.main:app"]
+CMD ["gunicorn", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8080", "--timeout", "300", "rhesis.backend.app.main:app"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
