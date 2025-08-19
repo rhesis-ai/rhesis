@@ -35,7 +35,7 @@ dependencies = [
     "types-tqdm>=4.67.0.20241221",
     "jinja2>=3.1.6",
     "hatch>=1.14.1",
-    "docling>=2.42.0",
+    "markitdown[pdf]>=0.1.0",
     "tomli>=2.2.1",
     "tomli-w>=1.2.0",
 ]
