@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
+from .faker_utils import TestDataGenerator, generate_category_data
 
 # Initialize Faker
 fake = Faker()
@@ -31,29 +32,24 @@ class CategoryTestMixin:
     endpoints = APIEndpoints.CATEGORIES
     
     def get_sample_data(self) -> Dict[str, Any]:
-        """Return sample category data for testing"""
-        return {
-            "name": fake.word().title() + " Category",
-            "description": fake.text(max_nb_chars=200),
-            "parent_id": None,
-            "entity_type_id": None,
-            "status_id": None,
-            "organization_id": None,
-            "user_id": None,
-        }
+        """Return sample category data for testing using faker utilities"""
+        data = generate_category_data()
+        
+        # Remove None foreign key values that cause validation errors
+        # The API will auto-populate organization_id and user_id from the authenticated user
+        for key in ["status_id", "entity_type_id"]:
+            if key in data and data[key] is None:
+                del data[key]  # Remove rather than sending None
+        
+        return data
     
     def get_minimal_data(self) -> Dict[str, Any]:
-        """Return minimal category data for creation"""
-        return {
-            "name": fake.word().title() + " Category"
-        }
+        """Return minimal category data for creation using faker utilities"""
+        return TestDataGenerator.generate_category_minimal()
     
     def get_update_data(self) -> Dict[str, Any]:
-        """Return category update data"""
-        return {
-            "name": fake.sentence(nb_words=2).rstrip('.') + " Category",
-            "description": fake.paragraph(nb_sentences=2)
-        }
+        """Return category update data using faker utilities"""
+        return TestDataGenerator.generate_category_update_data()
 
 
 # Standard entity tests - gets ALL tests from base classes

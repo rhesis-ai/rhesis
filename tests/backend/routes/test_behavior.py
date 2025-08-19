@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
-from .faker_utils import TestDataGenerator
+from .faker_utils import TestDataGenerator, generate_behavior_data
 
 # Initialize Faker
 fake = Faker()
@@ -32,27 +32,24 @@ class BehaviorTestMixin:
     endpoints = APIEndpoints.BEHAVIORS
     
     def get_sample_data(self) -> Dict[str, Any]:
-        """Return sample behavior data for testing"""
-        return {
-            "name": fake.catch_phrase(),
-            "description": fake.text(max_nb_chars=200),
-            "status_id": None,
-            "user_id": None,
-            "organization_id": None
-        }
+        """Return sample behavior data for testing using faker utilities"""
+        data = generate_behavior_data()
+        
+        # Remove None foreign key values that cause validation errors
+        # The API will auto-populate organization_id and user_id from the authenticated user
+        # For status_id, we'll let it be None and let the API handle it or skip tests that require it
+        if "status_id" in data and data["status_id"] is None:
+            del data["status_id"]  # Remove rather than sending None
+        
+        return data
     
     def get_minimal_data(self) -> Dict[str, Any]:
-        """Return minimal behavior data for creation"""
-        return {
-            "name": fake.word().title() + " " + fake.bs().title()
-        }
+        """Return minimal behavior data for creation using faker utilities"""
+        return TestDataGenerator.generate_behavior_minimal()
     
     def get_update_data(self) -> Dict[str, Any]:
-        """Return behavior update data"""
-        return {
-            "name": fake.sentence(nb_words=3).rstrip('.'),
-            "description": fake.paragraph(nb_sentences=2)
-        }
+        """Return behavior update data using faker utilities"""
+        return TestDataGenerator.generate_behavior_update_data()
 
 
 # Standard entity tests - gets ALL tests from base classes
@@ -105,7 +102,7 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
             assert "status" in data
             assert data["status"] == "success"
 
-    def test_add_metric_to_behavior_not_found(self, authenticated_client: TestClient, created_metric):
+    def test_add_metric_to_behavior_not_found(self, authenticated_client: TestClient, sample_metric):
         """🔗 Test adding metric to non-existent behavior"""
         non_existent_behavior_id = str(uuid.uuid4())
         metric_id = sample_metric["id"]
@@ -124,7 +121,7 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_remove_metric_from_behavior_success(self, authenticated_client: TestClient, created_metric):
+    def test_remove_metric_from_behavior_success(self, authenticated_client: TestClient, sample_metric):
         """🔗 Test successfully removing metric from behavior"""
         behavior = self.create_entity(authenticated_client)
         behavior_id = behavior["id"]
@@ -143,7 +140,7 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
         assert "status" in data
         assert data["status"] == "success"
 
-    def test_remove_metric_from_behavior_not_found(self, authenticated_client: TestClient, created_metric):
+    def test_remove_metric_from_behavior_not_found(self, authenticated_client: TestClient, sample_metric):
         """🔗 Test removing metric from non-existent behavior"""
         non_existent_behavior_id = str(uuid.uuid4())
         metric_id = sample_metric["id"]
@@ -160,11 +157,8 @@ class TestBehaviorSpecificEdgeCases(BehaviorTestMixin, BaseEntityTests):
     
     def test_create_behavior_with_invalid_status(self, authenticated_client: TestClient):
         """🧩 Test creating behavior with non-existent status"""
-        behavior_data = {
-            "name": fake.catch_phrase(),
-            "description": fake.text(max_nb_chars=100),
-            "status_id": str(uuid.uuid4())  # Non-existent status
-        }
+        behavior_data = generate_behavior_data()
+        behavior_data["status_id"] = str(uuid.uuid4())  # Override with non-existent status
 
         response = authenticated_client.post(self.endpoints.create, json=behavior_data)
 

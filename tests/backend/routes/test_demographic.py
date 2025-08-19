@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
+from .faker_utils import generate_dimension_data
 
 # Initialize Faker
 fake = Faker()
@@ -32,13 +33,16 @@ class DemographicTestMixin:
     
     def get_sample_data(self) -> Dict[str, Any]:
         """Return sample demographic data for testing"""
-        return {
+        data = {
             "name": fake.word().title() + " Demographic",
             "description": fake.text(max_nb_chars=200),
-            "dimension_id": None,  # Will be set when needed
-            "user_id": None,
-            "organization_id": None,
         }
+        
+        # Don't include None foreign key values that cause validation errors
+        # The API will auto-populate organization_id and user_id from the authenticated user
+        # For dimension_id, we'll omit it and let tests that need it provide it explicitly
+        
+        return data
     
     def get_minimal_data(self) -> Dict[str, Any]:
         """Return minimal demographic data for creation"""
@@ -128,8 +132,11 @@ class TestDemographicWithDimensions(DemographicTestMixin, BaseEntityTests):
         }
         created = self.create_entity(authenticated_client, demographic_data)
         
-        # Create another dimension
-        new_dimension = self.create_dimension(authenticated_client)
+        # Create another dimension using faker utilities for unique data
+        new_dimension_data = generate_dimension_data()
+        new_dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=new_dimension_data)
+        assert new_dimension_response.status_code == status.HTTP_200_OK
+        new_dimension = new_dimension_response.json()
         
         # Update demographic to associate with dimension
         update_data = {
@@ -174,8 +181,11 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
     
     def test_create_multiple_demographics_same_dimension(self, authenticated_client: TestClient):
         """🧩 Test creating multiple demographics for the same dimension"""
-        # Create a dimension
-        dimension = self.create_dimension(authenticated_client)
+        # Create a dimension using faker utilities for unique data
+        dimension_data = generate_dimension_data()
+        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        assert dimension_response.status_code == status.HTTP_200_OK
+        dimension = dimension_response.json()
         
         # Create multiple demographics for the same dimension
         demographics = []
@@ -199,8 +209,11 @@ class TestDemographicSpecificEdgeCases(DemographicTestMixin, BaseEntityTests):
     
     def test_demographic_cascade_behavior_on_dimension_deletion(self, authenticated_client: TestClient):
         """🧩 Test behavior when referenced dimension is deleted"""
-        # Create dimension and demographic
-        dimension = self.create_dimension(authenticated_client)
+        # Create dimension using faker utilities for unique data
+        dimension_data = generate_dimension_data()
+        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        assert dimension_response.status_code == status.HTTP_200_OK
+        dimension = dimension_response.json()
         demographic_data = {
             "name": "Cascade Test Demographic",
             "dimension_id": dimension["id"]
@@ -359,8 +372,11 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
     
     def test_demographic_orphaning_scenarios(self, authenticated_client: TestClient):
         """🔗 Test demographics when dimensions are modified or deleted"""
-        # Create dimension and demographic
-        dimension = self.create_dimension(authenticated_client)
+        # Create dimension using faker utilities for unique data
+        dimension_data = generate_dimension_data()
+        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        assert dimension_response.status_code == status.HTTP_200_OK
+        dimension = dimension_response.json()
         demo_data = {
             "name": "Orphan Test Demographic",
             "dimension_id": dimension["id"]
@@ -475,8 +491,11 @@ class TestDemographicHealthChecks(DemographicTestMixin, BaseEntityTests):
     
     def test_demographic_dimension_relationship_health(self, authenticated_client: TestClient):
         """✅ Test demographic-dimension relationship health"""
-        # Create dimension
-        dimension = self.create_dimension(authenticated_client)
+        # Create dimension using faker utilities for unique data
+        dimension_data = generate_dimension_data()
+        dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
+        assert dimension_response.status_code == status.HTTP_200_OK
+        dimension = dimension_response.json()
         
         # Create demographic with dimension
         demo_data = {

@@ -43,6 +43,18 @@ class EndpointTestMixin:
             "config_source": "manual"
         }
     
+    def get_sample_data_with_valid_fks(self, db_status=None, db_project=None) -> Dict[str, Any]:
+        """Return sample endpoint data with valid foreign key references"""
+        data = self.get_sample_data()
+        
+        # Add valid foreign key references if provided
+        if db_status:
+            data["status_id"] = str(db_status.id)
+        if db_project:
+            data["project_id"] = str(db_project.id)
+            
+        return data
+    
     def get_minimal_data(self) -> Dict[str, Any]:
         """Return minimal endpoint data for creation"""
         return {
