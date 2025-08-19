@@ -11,6 +11,6 @@ from .mixins import OrganizationAndUserMixin
 
 class Dimension(Base, OrganizationAndUserMixin):
     __tablename__ = "dimension"
-    name = Column(String)
+    name = Column(String, nullable=False)
     description = Column(Text)
     demographics = relationship("Demographic", back_populates="dimension")

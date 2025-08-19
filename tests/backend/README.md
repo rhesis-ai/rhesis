@@ -28,6 +28,10 @@ tests/backend/
 ├── 🧪 test_prompt_synthesis.py  # AI prompt generation
 ├── 🧪 test_sets.py          # Test set management
 ├── 🧪 test_api_endpoints.py # API endpoint tests
+├── 📁 db/                   # Database testing module
+│   ├── __init__.py          # Database test utilities exports
+│   ├── utils.py             # Database testing utilities
+│   └── test_config.py       # Database configuration tests
 ├── 📁 crud/                 # CRUD operation tests
 │   ├── test_user.py
 │   ├── test_category.py
@@ -64,57 +68,84 @@ factory-boy              # Test data factories
 faker                    # Realistic fake data
 ```
 
-### ⚙️ Backend conftest.py
+### ⚙️ Test Database Configuration
+
+The backend testing setup automatically uses your `SQLALCHEMY_DATABASE_TEST_URL` environment variable when running tests. Here's how it works:
+
+#### 🔧 Environment Setup
+```bash
+# Set your test database URL
+export SQLALCHEMY_DATABASE_TEST_URL="postgresql://user:password@localhost:5432/rhesis_test"
+
+# Or use local PostgreSQL for testing
+export SQLALCHEMY_DATABASE_TEST_URL="postgresql://user:password@localhost:5432/rhesis_test"
+```
+
+#### 🛠️ Automatic Test Mode
+The test configuration automatically:
+1. Sets `SQLALCHEMY_DB_MODE=test` before importing backend modules
+2. Uses `SQLALCHEMY_DATABASE_TEST_URL` for all database connections
+3. Ensures complete isolation from your production/development database
+
+#### ⚙️ Backend conftest.py
 ```python
-"""Backend-specific test configuration"""
+"""Backend-specific test configuration with automatic test database switching"""
+import os
 import pytest
-import asyncio
-from httpx import AsyncClient
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Set test mode BEFORE importing backend modules (CRITICAL!)
+os.environ["SQLALCHEMY_DB_MODE"] = "test"
+
+# Now import backend modules after setting test mode
 from rhesis.backend.app.main import app
 from rhesis.backend.app.database import Base, get_db
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+# Test database configuration using your SQLALCHEMY_DATABASE_TEST_URL
+SQLALCHEMY_DATABASE_TEST_URL = os.getenv("SQLALCHEMY_DATABASE_TEST_URL", "sqlite:///./test.db")
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_database():
+    """🗄️ Set up the test database before any tests run"""
+    test_engine = create_engine(SQLALCHEMY_DATABASE_TEST_URL)
+    Base.metadata.create_all(bind=test_engine)
+    yield
+    Base.metadata.drop_all(bind=test_engine)
 
 @pytest.fixture
 def test_db():
-    """🗄️ Test database session with rollback"""
-    engine = create_engine("sqlite:///./test.db")
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    Base.metadata.create_all(bind=engine)
+    """🗄️ Provide a database session for testing with automatic rollback"""
+    test_engine = create_engine(SQLALCHEMY_DATABASE_TEST_URL)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
     
-    db = TestingSessionLocal()
+    connection = test_engine.connect()
+    transaction = connection.begin()
+    session = TestingSessionLocal(bind=connection)
+    
     try:
-        yield db
+        yield session
     finally:
-        db.rollback()
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+        session.close()
+        transaction.rollback()
+        connection.close()
 
 @pytest.fixture
-def client(test_db):
-    """🌐 FastAPI test client"""
-    def override_get_db():
-        yield test_db
-    
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
+def client():
+    """🌐 FastAPI test client with test database"""
+    with TestClient(app) as test_client:
+        yield test_client
 
 @pytest.fixture
-async def async_client():
-    """⚡ Async HTTP client for async endpoints"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
+def authenticated_client(client):
+    """🔑 FastAPI test client with authentication headers"""
+    client.headers.update({"Authorization": "Bearer test-api-key"})
+    return client
 ```
 
 ## 🧩 Unit Testing Patterns
@@ -180,40 +211,64 @@ def test_test_set_creation():
 ## 🔗 Integration Testing
 
 ### 🗄️ Database Testing
+
+### 🔒 Test Database Isolation
+
+Your tests automatically use the database specified in `SQLALCHEMY_DATABASE_TEST_URL`. Here's how to verify and use it:
+
 ```python
+@pytest.mark.unit
+def test_database_configuration():
+    """🔒 Verify test database isolation"""
+    from tests.backend.db import assert_test_database_used, get_test_database_stats
+    
+    # Verify we're using the test database
+    assert_test_database_used()
+    
+    # Get database configuration stats
+    stats = get_test_database_stats()
+    assert stats["test_mode"] == "test"
+    assert stats["isolation_verified"] is True
+
 @pytest.mark.integration
 @pytest.mark.database
 def test_user_crud_operations(test_db):
-    """🗄️ Test user CRUD with real database"""
-    from rhesis.backend.app.crud import user_crud
-    from rhesis.backend.app.schemas import UserCreate
+    """🗄️ Test user CRUD with real test database"""
+    from tests.backend.db import TestDataManager
     
-    # Create
-    user_data = UserCreate(name="Test User", email="test@example.com")
-    user = user_crud.create(test_db, obj_in=user_data)
-    assert user.id is not None
+    # Use the TestDataManager for easier test data creation
+    manager = TestDataManager(test_db)
     
-    # Read
-    found_user = user_crud.get(test_db, id=user.id)
-    assert found_user.email == "test@example.com"
-    
-    # Update
-    updated_user = user_crud.update(test_db, db_obj=user, obj_in={"name": "Updated Name"})
-    assert updated_user.name == "Updated Name"
-    
-    # Delete
-    user_crud.remove(test_db, id=user.id)
-    assert user_crud.get(test_db, id=user.id) is None
+    try:
+        # Create test user
+        user = manager.create_user(
+            email="test@example.com",
+            name="Test User"
+        )
+        assert user.id is not None
+        assert user.email == "test@example.com"
+        
+        # Create test organization
+        org = manager.create_organization(
+            name="Test Organization",
+            description="Test org for CRUD operations"
+        )
+        assert org.id is not None
+        assert org.name == "Test Organization"
+        
+    finally:
+        # Automatic cleanup
+        manager.cleanup()
 
 @pytest.mark.integration
 @pytest.mark.database
 def test_database_constraints(test_db):
     """🛡️ Test database constraints and relationships"""
-    from rhesis.backend.app.models import User, TestSet
+    from rhesis.backend.app.models import User
     
     # Test unique email constraint
-    user1 = User(name="User1", email="same@email.com")
-    user2 = User(name="User2", email="same@email.com")
+    user1 = User(email="same@email.com", name="User1")
+    user2 = User(email="same@email.com", name="User2")
     
     test_db.add(user1)
     test_db.commit()
@@ -221,6 +276,35 @@ def test_database_constraints(test_db):
     test_db.add(user2)
     with pytest.raises(Exception):  # Should violate unique constraint
         test_db.commit()
+```
+
+### 🛠️ Test Utilities
+
+Use the provided test utilities for advanced testing scenarios:
+
+```python
+from tests.backend.db import (
+    test_environment,
+    create_temp_postgres_db,
+    TestDataManager,
+    assert_test_database_used
+)
+
+@pytest.mark.integration
+def test_with_custom_database():
+    """🔄 Test with a custom temporary database"""
+    temp_db_url = create_temp_postgres_db()
+    
+    with test_environment(test_db_url=temp_db_url):
+        # Your test code with the temporary database
+        assert os.getenv("SQLALCHEMY_DATABASE_TEST_URL") == temp_db_url
+
+@pytest.mark.integration
+def test_with_environment_variables():
+    """🌍 Test with custom environment variables"""
+    with test_environment(env_vars={"API_KEY": "test-key", "DEBUG": "true"}):
+        assert os.getenv("API_KEY") == "test-key"
+        assert os.getenv("DEBUG") == "true"
 ```
 
 ## 🌐 API Testing
@@ -496,7 +580,22 @@ def test_prompt_injection_protection():
 
 ## 🚀 Running Backend Tests
 
+### 🔧 Environment Setup
+Before running tests, set your test database URL:
+
 ```bash
+# For PostgreSQL (recommended for production-like testing)
+export SQLALCHEMY_DATABASE_TEST_URL="postgresql://user:password@localhost:5432/rhesis_test"
+
+# For local PostgreSQL testing
+export SQLALCHEMY_DATABASE_TEST_URL="postgresql://user:password@localhost:5432/rhesis_test"
+```
+
+### 🧪 Running Tests
+```bash
+# Verify database configuration first
+python tests/backend/test_database_config.py
+
 # All backend tests
 pytest tests/backend/ -v
 
@@ -519,8 +618,39 @@ pytest tests/backend/ -m security -v
 pytest tests/backend/ -m "not slow" -v
 
 # Coverage report
-pytest tests/backend/ --cov=src/rhesis/backend --cov-report=html
+pytest tests/backend/ --cov=apps/backend/src/rhesis/backend --cov-report=html
+
+# Test with verbose database logging
+SQLALCHEMY_ECHO=true pytest tests/backend/ -v -s
 ```
+
+### 🐛 Troubleshooting
+
+#### Database Connection Issues
+```bash
+# Check if your database is accessible
+python -c "
+import os
+from sqlalchemy import create_engine, text
+url = os.getenv('SQLALCHEMY_DATABASE_TEST_URL')
+if not url:
+    print('❌ SQLALCHEMY_DATABASE_TEST_URL not set')
+    exit(1)
+engine = create_engine(url)
+with engine.connect() as conn:
+    result = conn.execute(text('SELECT 1'))
+    print('✅ Database connection successful')
+"
+
+# Verify test configuration
+python -m pytest tests/backend/db/test_config.py -v
+```
+
+#### Common Issues
+1. **Permission denied**: Ensure your test database user has CREATE/DROP permissions
+2. **Database doesn't exist**: Create the test database first: `createdb rhesis_test`
+3. **Connection refused**: Ensure your database server is running
+4. **Wrong database used**: Check that `SQLALCHEMY_DB_MODE=test` is set automatically
 
 ## 📚 Additional Resources
 

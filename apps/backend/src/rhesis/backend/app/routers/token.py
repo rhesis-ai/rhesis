@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List
 
@@ -87,7 +88,7 @@ async def read_tokens(
 
 @router.get("/{token_id}", response_model=TokenRead)
 async def read_token(
-    token_id: str,
+    token_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -100,7 +101,7 @@ async def read_token(
 
 @router.delete("/{token_id}", status_code=200)
 async def delete_token(
-    token_id: str,
+    token_id: uuid.UUID,
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),

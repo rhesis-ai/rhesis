@@ -595,6 +595,10 @@ def update_demographic(
     return update_item(db, models.Demographic, demographic_id, demographic)
 
 
+def delete_demographic(db: Session, demographic_id: uuid.UUID) -> Optional[models.Demographic]:
+    return delete_item(db, models.Demographic, demographic_id)
+
+
 # Dimension CRUD
 def get_dimension(db: Session, dimension_id: uuid.UUID) -> Optional[models.Dimension]:
     return get_item(db, models.Dimension, dimension_id)
@@ -619,6 +623,10 @@ def update_dimension(
     db: Session, dimension_id: uuid.UUID, dimension: schemas.DimensionUpdate
 ) -> Optional[models.Dimension]:
     return update_item(db, models.Dimension, dimension_id, dimension)
+
+
+def delete_dimension(db: Session, dimension_id: uuid.UUID) -> Optional[models.Dimension]:
+    return delete_item(db, models.Dimension, dimension_id)
 
 
 # User CRUD

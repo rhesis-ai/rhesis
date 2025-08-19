@@ -54,7 +54,7 @@ def read_statuses(
 
 @router.get("/{status_id}", response_model=StatusDetailSchema)
 def read_status(
-    status_id: str,
+    status_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):

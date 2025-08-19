@@ -46,7 +46,7 @@ def read_type_lookups(
 
 @router.get("/{type_lookup_id}", response_model=schemas.TypeLookup)
 def read_type_lookup(
-    type_lookup_id: str,
+    type_lookup_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
