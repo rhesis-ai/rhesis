@@ -121,6 +121,8 @@ services:
         condition: service_healthy
     volumes:
       - ./apps/backend/src:/app/src
+      - ./sdk:/app/sdk
+      - ./apps/backend/pyproject.toml:/app/pyproject.toml
     networks:
       - rhesis-network
 
