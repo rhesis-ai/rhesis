@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -14,7 +14,8 @@ import {
   Stack,
   CardHeader,
   useTheme,
-  Skeleton
+  Skeleton,
+  Tooltip
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -146,6 +147,43 @@ const ProjectCardSkeleton = () => (
 const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps) => {
   const router = useRouter();
   const theme = useTheme();
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const cardHeaderRef = useRef<HTMLDivElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+
+  // Check if text is truncated
+  useEffect(() => {
+    const checkTruncation = () => {
+      // Use a small timeout to ensure DOM is fully rendered and styled
+      setTimeout(() => {
+        if (cardHeaderRef.current) {
+          // Find the actual Typography element with noWrap styling
+          const typographyElement = cardHeaderRef.current.querySelector('.MuiCardHeader-content .MuiTypography-root');
+          if (typographyElement) {
+            const isOverflowing = typographyElement.scrollWidth > typographyElement.clientWidth;
+            console.log('Truncation check:', {
+              scrollWidth: typographyElement.scrollWidth,
+              clientWidth: typographyElement.clientWidth,
+              isOverflowing,
+              projectName: project.name
+            });
+            setIsTruncated(isOverflowing);
+          }
+        }
+      }, 10);
+    };
+
+    // Check on mount and when project name changes
+    checkTruncation();
+    
+    // Also check on window resize
+    const handleResize = () => {
+      setTimeout(checkTruncation, 100);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [project.name]);
 
   // Memoize handlers to prevent unnecessary rerenders
   const handleViewClick = useCallback(() => {
@@ -167,6 +205,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
   // Memoize card components for better performance
   const cardHeader = useMemo(() => (
     <CardHeader
+      ref={cardHeaderRef}
       avatar={
         <Avatar 
           sx={{ 
@@ -179,13 +218,36 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
         </Avatar>
       }
       title={
-        <Typography variant="h6" component="div" noWrap sx={{ fontWeight: 'medium' }}>
-          {project.name}
-        </Typography>
+        isTruncated ? (
+          <Tooltip title={project.name} arrow placement="top">
+            <span style={{ cursor: 'help' }}>
+              {project.name}
+            </span>
+          </Tooltip>
+        ) : (
+          <span>
+            {project.name}
+          </span>
+        )
       }
-      sx={{ pb: 1 }}
+      titleTypographyProps={{
+        variant: 'h6',
+        component: 'div',
+        noWrap: true,
+        sx: { 
+          fontWeight: 'medium'
+        }
+      }}
+      sx={{ 
+        pb: 1,
+        display: 'flex',
+        overflow: 'hidden',
+        '& .MuiCardHeader-content': {
+          overflow: 'hidden'
+        }
+      }}
     />
-  ), [project, getThemeColor]);
+  ), [project, getThemeColor, isTruncated]);
 
   // Memoize tag rendering
   const renderTags = useMemo(() => {
