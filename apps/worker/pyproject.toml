@@ -1,0 +1,17 @@
+[project]
+name = "rhesis-worker"
+version = "0.1.0"
+description = "Worker manages long running tasks in Rhesis backend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "celery[redis]==5.5.2",
+    "flower==2.0.1",
+    "kombu==5.5.3",
+    "psycopg2-binary==2.9.9",
+    "redis>=4.5.2,!=4.5.5,<6.0.0",
+    "rhesis-backend",
+]
+
+[tool.uv.sources]
+rhesis-backend = { path = "../backend", editable = true }
