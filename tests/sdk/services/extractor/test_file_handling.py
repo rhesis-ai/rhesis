@@ -19,16 +19,18 @@ class TestDocumentExtractorFileHandling:
     def test_init(self):
         """Test DocumentExtractor initialization."""
         expected_extensions = {
+            ".docx",
+            ".pptx",
+            ".xlsx",
             ".pdf",
-            ".docx", ".xlsx", ".pptx",
-            ".md",
-            ".adoc",
-            ".html", ".xhtml",
-            ".csv",
             ".txt",
-            ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp",
-            ".xml",
+            ".csv",
             ".json",
+            ".xml",
+            ".html",
+            ".htm",
+            ".zip",
+            ".epub",
         }
         assert self.extractor.supported_extensions == expected_extensions
 
@@ -92,11 +94,12 @@ class TestDocumentExtractorFileHandling:
             temp_file_path = temp_file.name
 
         try:
-            with patch('docling.document_converter.DocumentConverter') as mock_converter_class:
-                mock_converter = mock_converter_class.return_value
+            # Patch the converter instance, not the class
+            with patch.object(self.extractor, 'converter') as mock_converter:
                 mock_result = Mock()
-                mock_result.document.export_to_markdown.return_value = "Extracted PDF text"
-                mock_converter.convert.return_value = mock_result
+                mock_result.text_content = "Extracted PDF text"
+                mock_result.markdown = "# Extracted PDF text"
+                mock_converter.convert_local.return_value = mock_result
                 
                 result = self.extractor._extract_from_file(temp_file_path)
 
@@ -120,14 +123,15 @@ class TestDocumentExtractorFileHandling:
         finally:
             os.unlink(temp_file_path)
 
-    def test_extract_from_file_docling_error(self):
-        """Test file extraction when Docling raises an error."""
+    def test_extract_from_file_markitdown_error(self):
+        """Test file extraction when Markitdown raises an error."""
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
             temp_file_path = temp_file.name
 
         try:
-            with patch('docling.document_converter.DocumentConverter') as mock_converter_class:
-                mock_converter_class.side_effect = Exception("Docling error")
+            # Patch the converter instance, not the class
+            with patch.object(self.extractor, 'converter') as mock_converter:
+                mock_converter.convert_local.side_effect = Exception("Markitdown error")
                 
                 with pytest.raises(ValueError, match="Failed to extract text from"):
                     self.extractor._extract_from_file(temp_file_path)
@@ -135,16 +139,19 @@ class TestDocumentExtractorFileHandling:
             os.unlink(temp_file_path)
 
     def test_extract_from_file_empty_result(self):
-        """Test file extraction when Docling returns empty result."""
+        """Test file extraction when Markitdown returns empty result."""
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
             temp_file_path = temp_file.name
 
         try:
-            with patch('docling.document_converter.DocumentConverter') as mock_converter_class:
-                mock_converter = mock_converter_class.return_value
+            # Patch the converter instance, not the class
+            with patch.object(self.extractor, 'converter') as mock_converter:
                 mock_result = Mock()
-                mock_result.document.export_to_markdown.return_value = ""
-                mock_converter.convert.return_value = mock_result
+                mock_result.text_content = ""
+                mock_result.markdown = ""
+                # Set the string representation to return empty string
+                mock_result.__str__ = Mock(return_value="")
+                mock_converter.convert_local.return_value = mock_result
                 
                 result = self.extractor._extract_from_file(temp_file_path)
 
@@ -193,16 +200,20 @@ class TestDocumentExtractorFileHandling:
         """Test getting supported extensions."""
         extensions = self.extractor.get_supported_extensions()
         expected = {
+            ".docx",
+            ".pptx",
+            ".xlsx",
             ".pdf",
-            ".docx", ".xlsx", ".pptx",
-            ".md",
-            ".adoc",
-            ".html", ".xhtml",
-            ".csv",
             ".txt",
-            ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp",
-            ".xml",
+            ".csv",
             ".json",
+            ".xml",
+            ".html",
+            ".htm",
+            ".zip",
+            ".epub",
+            ".url",
+            ".youtube",
         }
         assert extensions == expected
         # Ensure it returns a copy, not the original
@@ -211,9 +222,8 @@ class TestDocumentExtractorFileHandling:
     def test_supported_file_types(self):
         """Test that all supported file types are properly handled."""
         supported_types = [
-            ".pdf", ".docx", ".xlsx", ".pptx", ".md", ".adoc",
-            ".html", ".xhtml", ".csv", ".txt", ".png", ".jpg", ".jpeg",
-            ".tiff", ".bmp", ".webp", ".xml", ".json"
+            ".docx", ".pptx", ".xlsx", ".pdf", ".txt", ".csv", ".json",
+            ".xml", ".html", ".htm", ".zip", ".epub", ".url", ".youtube"
         ]
         
         for file_type in supported_types:
@@ -229,16 +239,16 @@ class TestDocumentExtractorFileHandling:
 
             try:
                 if file_type == ".txt":
-                    # .txt files are handled directly, no Docling needed
+                    # .txt files are handled directly, no Markitdown needed
                     result = self.extractor._extract_from_file(temp_file_path)
                     assert result == "Test content for text file"
                 else:
-                    # Other files use Docling
-                    with patch('docling.document_converter.DocumentConverter') as mock_converter_class:
-                        mock_converter = mock_converter_class.return_value
+                    # Other files use Markitdown - patch the converter instance
+                    with patch.object(self.extractor, 'converter') as mock_converter:
                         mock_result = Mock()
-                        mock_result.document.export_to_markdown.return_value = f"Extracted text from {file_type}"
-                        mock_converter.convert.return_value = mock_result
+                        mock_result.text_content = f"Extracted text from {file_type}"
+                        mock_result.markdown = f"# Extracted text from {file_type}"
+                        mock_converter.convert_local.return_value = mock_result
                         
                         result = self.extractor._extract_from_file(temp_file_path)
                         assert result == f"Extracted text from {file_type}"

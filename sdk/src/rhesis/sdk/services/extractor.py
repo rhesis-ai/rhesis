@@ -1,42 +1,39 @@
-"""Document extraction service using Docling."""
+"""Document extraction service using Markitdown."""
 
 import os
 from pathlib import Path
 from typing import Dict, List
-
-# Docling imports are done locally to avoid circular imports
+from markitdown import MarkItDown
 
 
 class DocumentExtractor:
-    """Extract plain text from supported document files using Docling."""
+    """Extract plain text from supported document files using Markitdown."""
 
     def __init__(self) -> None:
         """Initialize the DocumentExtractor."""
-        # Supported file extensions based on Docling's supported formats
-        # See: https://docling-project.github.io/docling/usage/supported_formats/
+        # Note: Markitdown supports also other formats but may need additional dependencies
         self.supported_extensions = {
-            # Document formats
-            ".pdf",
+            # Office formats
             ".docx",
+            ".pptx", 
             ".xlsx",
-            ".pptx",  # MS Office formats
-            ".md",  # Markdown
-            ".adoc",  # AsciiDoc
+            
+            # Documents
+            ".pdf",
+            ".txt",
+            ".csv",
+            ".json",
+            ".xml",
             ".html",
-            ".xhtml",  # HTML formats
-            ".csv",  # CSV files
-            ".txt",  # Plain text files
-            # Image formats
-            ".png",
-            ".jpg",
-            ".jpeg",
-            ".tiff",
-            ".bmp",
-            ".webp",
-            # Schema-specific formats
-            ".xml",  # USPTO XML, JATS XML
-            ".json",  # Docling JSON
+            ".htm",
+            
+            # Archives (iterate over contents)
+            ".zip",
+            # E-books
+            ".epub",
         }
+        
+        self.converter = MarkItDown()
 
     def extract(self, documents: List[Dict]) -> Dict[str, str]:
         """
@@ -85,7 +82,7 @@ class DocumentExtractor:
 
     def _extract_from_file(self, file_path: str) -> str:
         """
-        Extract text from a file using Docling.
+        Extract text from a file using Markitdown.
 
         Args:
             file_path: Path to the file to extract text from
@@ -110,19 +107,17 @@ class DocumentExtractor:
             )
 
         try:
-            # Special handling for plain text files - read directly
-            if file_extension == ".txt":
-                with open(file_path, "r", encoding="utf-8") as file:
-                    return file.read().strip()
+            result = self.converter.convert_local(file_path)
 
-            # Use Docling to extract text from the file
-            from docling.document_converter import DocumentConverter
+            # Extract text from result - markitdown returns text_content and markdown
+            if hasattr(result, 'text_content') and result.text_content:
+                extracted_text = result.text_content
+            elif hasattr(result, 'markdown') and result.markdown:
+                extracted_text = result.markdown
+            else:
+                # Fallback to string representation
+                extracted_text = str(result)
 
-            converter = DocumentConverter()
-            result = converter.convert(file_path)
-
-            # Export to markdown and extract the text
-            extracted_text = result.document.export_to_markdown()
             return extracted_text.strip() if extracted_text else ""
         except Exception as e:
             raise ValueError(f"Failed to extract text from {file_path}: {str(e)}")
