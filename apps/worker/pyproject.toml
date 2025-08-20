@@ -10,8 +10,5 @@ dependencies = [
     "kombu==5.5.3",
     "psycopg2-binary==2.9.9",
     "redis>=4.5.2,!=4.5.5,<6.0.0",
-    "rhesis-backend",
 ]
 
-[tool.uv.sources]
-rhesis-backend = { path = "../backend", editable = true }
