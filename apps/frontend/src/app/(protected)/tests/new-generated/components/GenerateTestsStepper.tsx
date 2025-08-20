@@ -103,19 +103,17 @@ const INITIAL_CONFIG: ConfigData = {
 
 // Add a constant for supported file types
 const SUPPORTED_FILE_EXTENSIONS = [
-  // Document formats
-  '.pdf',
-  '.docx', '.xlsx', '.pptx',
-  '.md',
-  '.adoc',
-  '.html', '.xhtml',
-  '.csv',
-  '.txt',
-  // Image formats
-  '.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp',
-  // Schema-specific formats
-  '.xml',
-  '.json'
+  // Office formats
+  '.docx', '.pptx', '.xlsx',
+  
+  // Documents
+  '.pdf', '.txt', '.csv', '.json', '.xml', '.html', '.htm',
+  
+  // Archives (iterate over contents)
+  '.zip',
+  
+  // E-books
+  '.epub'
 ];
 
 // Create a helper function to check file type
@@ -577,7 +575,7 @@ const UploadDocuments = ({
                     <>
                       <TextField
                         fullWidth
-                        label="Generated Name"
+                        label="Name"
                         value={doc.name}
                         onChange={(e) => handleDocumentUpdate(doc.id, 'name', e.target.value)}
                         sx={{ mb: 2 }}
@@ -587,7 +585,7 @@ const UploadDocuments = ({
                         fullWidth
                         multiline
                         rows={2}
-                        label="Generated Description"
+                        label="Description"
                         value={doc.description}
                         onChange={(e) => handleDocumentUpdate(doc.id, 'description', e.target.value)}
                         size="small"
