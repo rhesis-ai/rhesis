@@ -1,30 +1,4 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
-
-
-class ModelType(Enum):
-    """Supported model types in Rhesis."""
-
-    RHESIS = "rhesis"
-
-
-@dataclass
-class ModelConfig:
-    """Configuration for a model.
-
-    Args:
-        model_type: The type of model (E.g OpenAI, Rhesis, Gemini)
-        model_name: Specific model name (E.g gpt-4o, gemini-2.0-flash, etc)
-        api_key: The API key to use for the model.
-        extra_params: Extra parameters to pass to the model.
-    """
-
-    model_type: ModelType
-    model_name: str
-    api_key: Optional[str] = None
-    extra_params: dict = field(default_factory=dict)
 
 
 class BaseLLM(ABC):
