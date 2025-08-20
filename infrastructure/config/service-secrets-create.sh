@@ -29,7 +29,7 @@ function show_usage() {
   echo "  -h, --help              Show this help message"
   echo ""
   echo -e "${BLUE}Environment-specific Variables:${NC}"
-  echo "  Note: TEST environment variables are set as repository secrets with TEST_ prefix"
+  echo "  Note: All environments (dev, stg, prd, test) use environment-specific secrets"
   echo "  # Backend variables"
   echo "  SQLALCHEMY_DATABASE_URL       Full database URL"
   echo "  SQLALCHEMY_DB_MODE            Database mode"
@@ -232,22 +232,20 @@ SERVICE_VARS=(
 for env in "${ENV_ARRAY[@]}"; do
   env_upper=$(echo "$env" | tr '[:lower:]' '[:upper:]')
   
-  # Handle TEST environment differently - set as repository secrets with TEST_ prefix
+  # Handle TEST environment the same as other environments
   if [[ "$env" == "test" ]]; then
-    echo -e "${BLUE}Setting up TEST secrets as repository-level secrets...${NC}"
+    echo -e "${BLUE}Setting up secrets for $env environment...${NC}"
     
-    # TEST secrets are set as repository secrets with TEST_ prefix
+    # TEST secrets are set as environment secrets (same as other environments)
     for var_name in "${SERVICE_VARS[@]}"; do
       env_var="TEST_${var_name}"
       
       if [[ -n "${!env_var}" ]]; then
-        set_repo_secret "TEST_${var_name}" "${!env_var}"
+        set_secret "$env" "$var_name" "${!env_var}"
       else
         echo -e "${YELLOW}Warning:${NC} $env_var environment variable is not set"
       fi
     done
-    
-
     
     continue
   fi
