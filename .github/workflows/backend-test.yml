@@ -1,36 +1,72 @@
 name: 🧪 Backend Testing
 
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'apps/backend/**'
-      - 'tests/backend/**'
-      - 'sdk/**'
-      - '.github/workflows/backend-test.yml'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'apps/backend/**'
-      - 'tests/backend/**'
-      - 'sdk/**'
-      - '.github/workflows/backend-test.yml'
   workflow_dispatch:
+    inputs:
+      test_markers:
+        description: 'Test markers to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'unit'
+          - 'integration'
+          - 'slow'
+          - 'ai'
+          - 'critical'
+          - 'security'
+          - 'unit,critical'
+          - 'integration,security'
+          - 'custom'
+      custom_markers:
+        description: 'Custom marker expression (only if "custom" is selected above)'
+        required: false
+        default: ''
+        type: string
+      run_coverage:
+        description: 'Generate coverage report'
+        required: false
+        default: true
+        type: boolean
 
 env:
   # Database Configuration (local test database)
-  POSTGRES_DB: ${{ secrets.TEST_POSTGRES_DB }}
-  POSTGRES_USER: ${{ secrets.TEST_POSTGRES_USER }}
-  POSTGRES_PASSWORD: ${{ secrets.TEST_POSTGRES_PASSWORD }}
   POSTGRES_HOST: localhost
   POSTGRES_PORT: 5432
 
 jobs:
-  # Stage 1: Fast Unit Tests (< 2 minutes)
-  unit-tests:
-    name: 🧩 Unit Tests
+  # Dynamic test execution based on selected markers
+  test:
+    name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
     runs-on: ubuntu-latest
     
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
+          POSTGRES_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,142 +97,55 @@ jobs:
           cd apps/backend
           uv pip show rhesis-sdk
 
-      - name: Run unit tests
-        env:
-          # Test mode configuration
-          SQLALCHEMY_DB_MODE: test
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          LOG_LEVEL: ${{ secrets.TEST_LOG_LEVEL }}
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
-          
-          # AI services configuration
-          AZURE_OPENAI_API_KEY: ${{ secrets.TEST_AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.TEST_AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.TEST_AZURE_OPENAI_DEPLOYMENT_NAME }}
-          AZURE_OPENAI_API_VERSION: ${{ secrets.TEST_AZURE_OPENAI_API_VERSION }}
-          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
-          GEMINI_MODEL_NAME: ${{ secrets.TEST_GEMINI_MODEL_NAME }}
-          
-          # Auth configuration
-          AUTH0_DOMAIN: ${{ secrets.TEST_AUTH0_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ secrets.TEST_AUTH0_AUDIENCE }}
-          AUTH0_CLIENT_ID: ${{ secrets.TEST_AUTH0_CLIENT_ID }}
-          AUTH0_CLIENT_SECRET: ${{ secrets.TEST_AUTH0_CLIENT_SECRET }}
-          AUTH0_SECRET_KEY: ${{ secrets.TEST_AUTH0_SECRET_KEY }}
-          JWT_SECRET_KEY: ${{ secrets.TEST_JWT_SECRET_KEY }}
-          JWT_ALGORITHM: ${{ secrets.TEST_JWT_ALGORITHM }}
-          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.TEST_JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
-          
-          # Other services configuration
-          FRONTEND_URL: ${{ secrets.TEST_FRONTEND_URL }}
-          SMTP_HOST: ${{ secrets.TEST_SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.TEST_SMTP_PORT }}
-          SMTP_USER: ${{ secrets.TEST_SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.TEST_SMTP_PASSWORD }}
-          FROM_EMAIL: ${{ secrets.TEST_FROM_EMAIL }}
-        run: |
-          cd apps/backend
-          uv run pytest -m "unit and critical" --maxfail=5 --tb=short -v --durations=10
-
-  # Stage 2: Integration & Security Tests (< 5 minutes)
-  integration-tests:
-    name: 🔗 Integration & Security Tests
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: Cache uv dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-backend-
-
-      - name: Install dependencies
-        run: |
-          cd apps/backend
-          uv sync --dev
-
       - name: Install PostgreSQL client
+        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
       - name: Wait for PostgreSQL
+        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         run: |
-          until pg_isready -h localhost -p 5432 -U ${{ env.POSTGRES_USER }}; do
+          until pg_isready -h localhost -p 5432 -U ${{ secrets.TEST_SQLALCHEMY_DB_USER }}; do
             echo "Waiting for PostgreSQL..."
             sleep 2
           done
           echo "PostgreSQL is ready!"
 
       - name: Verify database connection
+        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         run: |
-          PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -c "SELECT version();"
+          PGPASSWORD=${{ secrets.TEST_SQLALCHEMY_DB_PASS }} psql -h localhost -U ${{ secrets.TEST_SQLALCHEMY_DB_USER }} -d ${{ secrets.TEST_SQLALCHEMY_DB_NAME }} -c "SELECT version();"
 
       - name: Run database migrations
+        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         env:
           SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
           SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
+          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
         run: |
           cd apps/backend
           uv run alembic upgrade head
 
       - name: Verify database structure
+        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         run: |
-          PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -c "\dt"
+          PGPASSWORD=${{ secrets.TEST_SQLALCHEMY_DB_PASS }} psql -h localhost -U ${{ secrets.TEST_SQLALCHEMY_DB_USER }} -d ${{ secrets.TEST_SQLALCHEMY_DB_NAME }} -c "\dt"
 
       - name: Setup test data
+        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         env:
           SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
           SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
+          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
           PYTHONPATH: ${{ github.workspace }}/apps/backend/src
           LOG_LEVEL: WARNING
         run: |
@@ -209,15 +158,26 @@ jobs:
           print('✅ Test environment setup completed')
           "
 
-      - name: Run integration tests
+      - name: Determine pytest command
+        id: pytest_cmd
+        run: |
+          if [ "${{ inputs.test_markers }}" = "all" ]; then
+            echo "cmd=uv run pytest -v --durations=10" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.test_markers }}" = "custom" ]; then
+            echo "cmd=uv run pytest -m \"${{ inputs.custom_markers }}\" -v --durations=10" >> $GITHUB_OUTPUT
+          else
+            echo "cmd=uv run pytest -m \"${{ inputs.test_markers }}\" -v --durations=10" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run tests
         env:
           SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
           SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
+          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
           BROKER_URL: ${{ secrets.TEST_BROKER_URL }}
           CELERY_RESULT_BACKEND: ${{ secrets.TEST_CELERY_RESULT_BACKEND }}
           
@@ -252,314 +212,18 @@ jobs:
           FROM_EMAIL: ${{ secrets.TEST_FROM_EMAIL }}
         run: |
           cd apps/backend
-          uv run pytest -m "integration and not slow" --maxfail=3 -v --durations=10
-
-      - name: Run security tests
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
-          REDIS_URL: redis://localhost:6379
-          
-          # Application configuration
-          LOG_LEVEL: WARNING
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
-          
-          # Mock services
-          AUTH0_DOMAIN: mock-domain.auth0.com
-          AUTH0_AUDIENCE: mock-audience
-          JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
-          JWT_ALGORITHM: HS256
-        run: |
-          cd apps/backend
-          uv run pytest -m "security" --maxfail=2 -v --durations=10
-
-  # Stage 3: Comprehensive Tests (only on main branch)
-  comprehensive-tests:
-    name: 🐌 Comprehensive Tests
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    needs: [unit-tests, integration-tests]
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: Cache uv dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-backend-
-
-      - name: Install dependencies
-        run: |
-          cd apps/backend
-          uv sync --dev
-
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Wait for PostgreSQL
-        run: |
-          until pg_isready -h localhost -p 5432 -U ${{ env.POSTGRES_USER }}; do
-            echo "Waiting for PostgreSQL..."
-            sleep 2
-          done
-
-      - name: Run database migrations
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
-        run: |
-          cd apps/backend
-          uv run alembic upgrade head
-
-      - name: Setup test data
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
-          LOG_LEVEL: WARNING
-        run: |
-          cd apps/backend
-          uv run python -c "
-          import sys
-          sys.path.append('src')
-          from tests.backend.fixtures.test_setup import setup_test_environment
-          setup_test_environment()
-          print('✅ Test environment setup completed')
-          "
-
-      - name: Run slow tests
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
-          BROKER_URL: ${{ secrets.TEST_BROKER_URL }}
-          CELERY_RESULT_BACKEND: ${{ secrets.TEST_CELERY_RESULT_BACKEND }}
-          
-          # Application configuration
-          LOG_LEVEL: ${{ secrets.TEST_LOG_LEVEL }}
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
-          
-          # AI services configuration
-          AZURE_OPENAI_API_KEY: ${{ secrets.TEST_AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.TEST_AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.TEST_AZURE_OPENAI_DEPLOYMENT_NAME }}
-          AZURE_OPENAI_API_VERSION: ${{ secrets.TEST_AZURE_OPENAI_API_VERSION }}
-          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
-          GEMINI_MODEL_NAME: ${{ secrets.TEST_GEMINI_MODEL_NAME }}
-          
-          # Auth configuration
-          AUTH0_DOMAIN: ${{ secrets.TEST_AUTH0_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ secrets.TEST_AUTH0_AUDIENCE }}
-          AUTH0_CLIENT_ID: ${{ secrets.TEST_AUTH0_CLIENT_ID }}
-          AUTH0_CLIENT_SECRET: ${{ secrets.TEST_AUTH0_CLIENT_SECRET }}
-          AUTH0_SECRET_KEY: ${{ secrets.TEST_AUTH0_SECRET_KEY }}
-          JWT_SECRET_KEY: ${{ secrets.TEST_JWT_SECRET_KEY }}
-          JWT_ALGORITHM: ${{ secrets.TEST_JWT_ALGORITHM }}
-          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.TEST_JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
-          
-          # Other services configuration
-          FRONTEND_URL: ${{ secrets.TEST_FRONTEND_URL }}
-          SMTP_HOST: ${{ secrets.TEST_SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.TEST_SMTP_PORT }}
-          SMTP_USER: ${{ secrets.TEST_SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.TEST_SMTP_PASSWORD }}
-          FROM_EMAIL: ${{ secrets.TEST_FROM_EMAIL }}
-        run: |
-          cd apps/backend
-          uv run pytest -m "slow" --maxfail=1 --tb=short -v --durations=10
-
-      - name: Run AI tests (with mocked services)
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
-          
-          # Application configuration
-          LOG_LEVEL: WARNING
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
-          
-          # Mock AI services (no real API calls in CI)
-          AZURE_OPENAI_API_KEY: mock-azure-key-for-testing
-          AZURE_OPENAI_ENDPOINT: https://mock-endpoint.openai.azure.com
-          AZURE_OPENAI_DEPLOYMENT_NAME: mock-deployment
-          AZURE_OPENAI_API_VERSION: 2024-02-01
-          GEMINI_API_KEY: mock-gemini-key-for-testing
-          GEMINI_MODEL_NAME: gemini-1.5-flash
-          
-          # Mock Auth configuration
-          AUTH0_DOMAIN: mock-domain.auth0.com
-          AUTH0_AUDIENCE: mock-audience
-          JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
-          JWT_ALGORITHM: HS256
-        run: |
-          cd apps/backend
-          uv run pytest -m "ai" --maxfail=1 --tb=short -v --durations=10
-
-  # Coverage reporting
-  coverage:
-    name: 📊 Coverage Report
-    runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: Cache uv dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-backend-
-
-      - name: Install dependencies
-        run: |
-          cd apps/backend
-          uv sync --dev
-
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Wait for PostgreSQL
-        run: |
-          until pg_isready -h localhost -p 5432 -U ${{ env.POSTGRES_USER }}; do
-            echo "Waiting for PostgreSQL..."
-            sleep 2
-          done
-
-      - name: Run database migrations
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
-        run: |
-          cd apps/backend
-          uv run alembic upgrade head
-
-      - name: Setup test data
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
-          LOG_LEVEL: WARNING
-        run: |
-          cd apps/backend
-          uv run python -c "
-          import sys
-          sys.path.append('src')
-          from tests.backend.fixtures.test_setup import setup_test_environment
-          setup_test_environment()
-          print('✅ Test environment setup completed')
-          "
+          ${{ steps.pytest_cmd.outputs.cmd }}
 
       - name: Generate coverage report
+        if: ${{ inputs.run_coverage == true }}
         env:
           SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
           SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ env.POSTGRES_USER }}
-          SQLALCHEMY_DB_PASS: ${{ env.POSTGRES_PASSWORD }}
+          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ env.POSTGRES_DB }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
           
           # Application configuration
           LOG_LEVEL: WARNING
@@ -575,9 +239,16 @@ jobs:
           JWT_ALGORITHM: HS256
         run: |
           cd apps/backend
-          uv run pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing -m "not slow" -v
+          if [ "${{ inputs.test_markers }}" = "all" ]; then
+            uv run pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing -v
+          elif [ "${{ inputs.test_markers }}" = "custom" ]; then
+            uv run pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing -m "${{ inputs.custom_markers }}" -v
+          else
+            uv run pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing -m "${{ inputs.test_markers }}" -v
+          fi
 
       - name: Upload coverage to Codecov
+        if: ${{ inputs.run_coverage == true }}
         uses: codecov/codecov-action@v3
         with:
           file: ./apps/backend/coverage.xml
@@ -586,6 +257,7 @@ jobs:
           verbose: true
 
       - name: Upload coverage reports as artifacts
+        if: ${{ inputs.run_coverage == true }}
         uses: actions/upload-artifact@v3
         with:
           name: coverage-reports
