@@ -109,8 +109,11 @@ const SUPPORTED_FILE_EXTENSIONS = [
   // Documents
   '.pdf', '.txt', '.csv', '.json', '.xml', '.html', '.htm',
   
-  // Archives & Media
-  '.zip', '.epub', '.url', '.youtube'
+  // Archives (iterate over contents)
+  '.zip',
+  
+  // E-books
+  '.epub'
 ];
 
 // Create a helper function to check file type

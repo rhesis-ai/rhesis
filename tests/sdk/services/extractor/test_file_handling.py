@@ -31,8 +31,6 @@ class TestDocumentExtractorFileHandling:
             ".htm",
             ".zip",
             ".epub",
-            ".url",
-            ".youtube",
         }
         assert self.extractor.supported_extensions == expected_extensions
 

@@ -27,11 +27,10 @@ class DocumentExtractor:
             ".html",
             ".htm",
             
-            # Archives & Media
+            # Archives (iterate over contents)
             ".zip",
+            # E-books
             ".epub",
-            ".url",
-            ".youtube",
         }
         
         self.converter = MarkItDown()
