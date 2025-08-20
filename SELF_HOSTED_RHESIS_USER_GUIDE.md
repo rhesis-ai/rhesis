@@ -15,13 +15,18 @@ This guide will help you run the entire Rhesis project using Docker Compose.
    cd rhesis
    ```
 
-2. **Copy environment variables**
+2. **Copy environment variables in the project root directory**
    ```bash
-   cp env.example .env
+   cp env.docker .env
    ```
 
 3. **Edit the `.env` file** (optional)
    - Update the Auth0 configuration
+   - Update the JWT configuration
+   - Update Azure OpenAI configuration
+   - Update Gemini configuration
+   - Update SMTP base configuration
+   - Update Next Auth Js configuration 
    - Update any other environment variables as needed
 
 4. **Start all services**
@@ -151,7 +156,7 @@ The database is automatically managed, but you can access it directly:
 
 ```bash
 # Connect to PostgreSQL
-docker exec -it rhesis-postgres psql -U rhesis_user -d rhesis
+docker exec -it rhesis-postgres psql -U rhesis-user -d rhesis-db
 
 # Check migration status
 docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic current"
@@ -196,37 +201,6 @@ Verify environment variables are loaded:
 docker exec rhesis-backend env | grep AUTH0
 ```
 
-## Development
-
-### Adding New Migrations
-
-1. Create a new migration:
-   ```bash
-   docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic revision --autogenerate -m 'description'"
-   ```
-
-2. The migration will run automatically on next startup, or run manually:
-   ```bash
-   docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic upgrade head"
-   ```
-
-### Hot Reload (Development)
-
-For development with hot reload:
-
-```bash
-# Override the backend command for development
-docker-compose run --service-ports backend uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --reload
-```
-
-## Production Considerations
-
-- Use proper secrets management
-- Set up proper logging
-- Configure SSL/TLS
-- Set up monitoring and alerting
-- Use external database and Redis instances
-- Configure proper backup strategies
 
 ## Support
 
