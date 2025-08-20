@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+from typing import Tuple
 
 # Load environment variables
 load_dotenv()
@@ -14,6 +15,9 @@ os.environ["SQLALCHEMY_DB_MODE"] = "test"
 # Now import backend modules after setting test mode
 from rhesis.backend.app.main import app
 from rhesis.backend.app.database import Base, get_db
+from rhesis.backend.app import models
+
+
 
 # Simple fixtures for testing markers functionality
 
