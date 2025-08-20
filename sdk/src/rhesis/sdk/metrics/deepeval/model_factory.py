@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Any, Dict, Optional, Union
 
 # Import DeepEvalBaseLLM for proper custom model implementation
@@ -6,25 +5,8 @@ from deepeval.models import (
     DeepEvalBaseLLM,
 )
 
+from rhesis.sdk.services.base import ModelConfig, ModelType
 from rhesis.sdk.services.providers.rhesis import RhesisLLMService
-
-
-class ModelType(Enum):
-    """Supported model types for DeepEval."""
-
-    RHESIS = "rhesis"
-
-
-class ModelConfig:
-    """Configuration for a DeepEval model."""
-
-    def __init__(
-        self, model_type: ModelType, model_name: str, api_key: Optional[str] = None, **kwargs
-    ):
-        self.model_type = model_type
-        self.model_name = model_name
-        self.api_key = api_key
-        self.extra_params = kwargs
 
 
 class RhesisModelWrapper(RhesisLLMService, DeepEvalBaseLLM):
