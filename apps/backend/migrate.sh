@@ -10,10 +10,10 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🔄 Starting database migration...${NC}"
 
 # Get database configuration from environment variables
-DB_USER=${SQLALCHEMY_DB_USER:-rhesis_user}
-DB_PASS=${SQLALCHEMY_DB_PASS:-rhesis_password}
+DB_USER=${SQLALCHEMY_DB_USER:-rhesis-user}
+DB_PASS=${SQLALCHEMY_DB_PASS:-rhesis-password}
 DB_HOST=${SQLALCHEMY_DB_HOST:-postgres}
-DB_NAME=${SQLALCHEMY_DB_NAME:-rhesis_db}
+DB_NAME=${SQLALCHEMY_DB_NAME:-rhesis-db}
 
 # Wait for PostgreSQL to be ready
 echo -e "${YELLOW}⏳ Waiting for PostgreSQL to be ready...${NC}"

@@ -20,7 +20,7 @@ This guide will help you run the entire Rhesis project using Docker Compose.
    cp env.docker .env
    ```
 
-3. **Edit the `.env` file** (optional)
+3. **Edit the `.env` file** 
    - Update the Auth0 configuration
    - Update the JWT configuration
    - Update Azure OpenAI configuration
@@ -36,7 +36,7 @@ This guide will help you run the entire Rhesis project using Docker Compose.
 
 5. **Access the applications**
    - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8080
+   - Backend API: http://localhost:8080/docs
 
 ## 🚀 Automated Database Migration
 
@@ -63,22 +63,22 @@ The backend container will:
 | **PostgreSQL** | 5432 | Database | `pg_isready` |
 | **Redis** | 6379 | Cache & Message Broker | `redis-cli ping` |
 | **Backend** | 8080 | FastAPI Application | `curl /health` |
-| **Worker** | 8081 | Celery Background Tasks | - |
-| **Frontend** | 3000 | Next.js Application | - |
+| **Worker** | 8081 | Celery Background Tasks | `curl /health/basic` |
+| **Frontend** | 3000 | Next.js Application | `curl /api/auth/session` |
 
 ### Service Dependencies
 
 ```
 Frontend → Backend → PostgreSQL
-    ↓         ↓
-Worker → Redis
+             ↓
+           Redis → Worker 
 ```
 
 ## Environment Variables
 
 ### Required Variables
 
-Create a `.env` file in the root directory with:
+update the `.env` file of the root directory with:
 
 ```bash
 # Auth0 Configuration
@@ -100,12 +100,38 @@ NEXTAUTH_URL=http://localhost:3000
 # Frontend Configuration
 NEXT_PUBLIC_AUTH0_DOMAIN=your-auth0-domain
 NEXT_PUBLIC_AUTH0_CLIENT_ID=your-auth0-client-id
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Google OAuth (optional)
+# Google OAuth 
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# SMTP 
+SMTP_HOST=your_smtp_host
+SMTP_PORT=465
+SMTP_USER=your_smtp_user
+SMTP_PASSWORD=your_smtp_password
+FROM_EMAIL=your_from_email
+
+# Add your Gemini API key here
+GEMINI_API_KEY=your-gemini-api-key
+GOOGLE_API_KEY=your-google-api-key
+GEMINI_MODEL_NAME=gemini-2.0-flash-001
+
+# AI model Configuration
+
+#AZURE
+AZURE_OPENAI_ENDPOINT=YOUR_AZURE_OPENAI_API_ENDPOINT
+AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_API_KEY
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_API_VERSION=YOUR_AZURE_OPENAI_API_VERSION
+
+# OpenAI
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+OPENAI_MODEL_NAME=gpt-4o
+
+# Hugging Face
+HF_API_TOKEN=YOUR_HUGGING_FACE_API_TOKEN
+
 ```
 
 ## Management Commands
