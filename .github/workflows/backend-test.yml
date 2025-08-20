@@ -40,14 +40,15 @@ jobs:
   test:
     name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
     runs-on: ubuntu-latest
+    environment: test
     
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
-          POSTGRES_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
+          POSTGRES_DB: ${{ secrets.SQLALCHEMY_DB_NAME }}
+          POSTGRES_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.SQLALCHEMY_DB_PASS }}
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
@@ -74,7 +75,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10.17'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -106,7 +107,7 @@ jobs:
       - name: Wait for PostgreSQL
         if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         run: |
-          until pg_isready -h localhost -p 5432 -U ${{ secrets.TEST_SQLALCHEMY_DB_USER }}; do
+          until pg_isready -h localhost -p 5432 -U ${{ secrets.SQLALCHEMY_DB_USER }}; do
             echo "Waiting for PostgreSQL..."
             sleep 2
           done
@@ -115,18 +116,18 @@ jobs:
       - name: Verify database connection
         if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         run: |
-          PGPASSWORD=${{ secrets.TEST_SQLALCHEMY_DB_PASS }} psql -h localhost -U ${{ secrets.TEST_SQLALCHEMY_DB_USER }} -d ${{ secrets.TEST_SQLALCHEMY_DB_NAME }} -c "SELECT version();"
+          PGPASSWORD=${{ secrets.SQLALCHEMY_DB_PASS }} psql -h localhost -U ${{ secrets.SQLALCHEMY_DB_USER }} -d ${{ secrets.SQLALCHEMY_DB_NAME }} -c "SELECT version();"
 
       - name: Run database migrations
         if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
         run: |
           cd apps/backend
           uv run alembic upgrade head
@@ -134,18 +135,18 @@ jobs:
       - name: Verify database structure
         if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         run: |
-          PGPASSWORD=${{ secrets.TEST_SQLALCHEMY_DB_PASS }} psql -h localhost -U ${{ secrets.TEST_SQLALCHEMY_DB_USER }} -d ${{ secrets.TEST_SQLALCHEMY_DB_NAME }} -c "\dt"
+          PGPASSWORD=${{ secrets.SQLALCHEMY_DB_PASS }} psql -h localhost -U ${{ secrets.SQLALCHEMY_DB_USER }} -d ${{ secrets.SQLALCHEMY_DB_NAME }} -c "\dt"
 
       - name: Setup test data
         if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
         env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
           PYTHONPATH: ${{ github.workspace }}/apps/backend/src
           LOG_LEVEL: WARNING
         run: |
@@ -171,45 +172,45 @@ jobs:
 
       - name: Run tests
         env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
-          BROKER_URL: ${{ secrets.TEST_BROKER_URL }}
-          CELERY_RESULT_BACKEND: ${{ secrets.TEST_CELERY_RESULT_BACKEND }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
+          BROKER_URL: ${{ secrets.BROKER_URL }}
+          CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
           
           # Application configuration
-          LOG_LEVEL: ${{ secrets.TEST_LOG_LEVEL }}
+          LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
           PYTHONPATH: ${{ github.workspace }}/apps/backend/src
           
           # AI services configuration
-          AZURE_OPENAI_API_KEY: ${{ secrets.TEST_AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.TEST_AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.TEST_AZURE_OPENAI_DEPLOYMENT_NAME }}
-          AZURE_OPENAI_API_VERSION: ${{ secrets.TEST_AZURE_OPENAI_API_VERSION }}
-          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
-          GEMINI_MODEL_NAME: ${{ secrets.TEST_GEMINI_MODEL_NAME }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
+          AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL_NAME: ${{ secrets.GEMINI_MODEL_NAME }}
           
           # Auth configuration
-          AUTH0_DOMAIN: ${{ secrets.TEST_AUTH0_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ secrets.TEST_AUTH0_AUDIENCE }}
-          AUTH0_CLIENT_ID: ${{ secrets.TEST_AUTH0_CLIENT_ID }}
-          AUTH0_CLIENT_SECRET: ${{ secrets.TEST_AUTH0_CLIENT_SECRET }}
-          AUTH0_SECRET_KEY: ${{ secrets.TEST_AUTH0_SECRET_KEY }}
-          JWT_SECRET_KEY: ${{ secrets.TEST_JWT_SECRET_KEY }}
-          JWT_ALGORITHM: ${{ secrets.TEST_JWT_ALGORITHM }}
-          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.TEST_JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+          AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+          AUTH0_SECRET_KEY: ${{ secrets.AUTH0_SECRET_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
           
           # Other services configuration
-          FRONTEND_URL: ${{ secrets.TEST_FRONTEND_URL }}
-          SMTP_HOST: ${{ secrets.TEST_SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.TEST_SMTP_PORT }}
-          SMTP_USER: ${{ secrets.TEST_SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.TEST_SMTP_PASSWORD }}
-          FROM_EMAIL: ${{ secrets.TEST_FROM_EMAIL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
         run: |
           cd apps/backend
           ${{ steps.pytest_cmd.outputs.cmd }}
@@ -217,13 +218,13 @@ jobs:
       - name: Generate coverage report
         if: ${{ inputs.run_coverage == true }}
         env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.TEST_SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.TEST_SQLALCHEMY_DB_USER }}:${{ secrets.TEST_SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.TEST_SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.TEST_SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.TEST_SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
           SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.TEST_SQLALCHEMY_DB_NAME }}
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
           
           # Application configuration
           LOG_LEVEL: WARNING
