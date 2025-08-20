@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.services.extractor import DocumentExtractor
+from rhesis.sdk.services import LLMService
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.helpers import (
     load_prompt_template,
@@ -42,6 +43,8 @@ class PromptSynthesizer(TestSetSynthesizer):
             self.__class__.__name__, 
             system_prompt
         )
+
+        self.llm_service = LLMService()
 
     def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
