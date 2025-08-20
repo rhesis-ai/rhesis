@@ -88,6 +88,7 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
         organization = await organizationsClient.createOrganization(organizationData);
         console.log('Organization creation response:', organization);
       } catch (orgError: any) {
+        setIsSubmitting(false);
         console.error('Organization creation error:', orgError);
         notifications.show(orgError?.message || 'Failed to create organization. Please try again.', { severity: 'error' });
         return;
@@ -105,6 +106,7 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
       try {
         response = await usersClient.updateUser(userId, userUpdate);
       } catch (userError: any) {
+        setIsSubmitting(false);
         console.error('User update error:', userError);
         notifications.show(userError?.message || 'Failed to update user. Please try again.', { severity: 'error' });
         return;
@@ -170,6 +172,7 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
             if (successCount > 0 && failedCount === 0) {
               notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}!`, { severity: 'success' });
             } else if (successCount > 0 && failedCount > 0) {
+              setIsSubmitting(false);
               notifications.show(`Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}. ${failedCount} invitation${failedCount === 1 ? '' : 's'} failed.`, { severity: 'warning' });
               
               // Show specific errors for failed invitations
@@ -178,10 +181,12 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
                 notifications.show(`Failed to invite ${failed.email}: ${failed.error}`, { severity: 'error' });
               });
             } else if (failedCount > 0) {
+              setIsSubmitting(false);
               notifications.show(`Failed to send all ${failedCount} invitation${failedCount === 1 ? '' : 's'}. Please try again.`, { severity: 'error' });
             }
           }
         } catch (error: any) {
+          setIsSubmitting(false);
           console.error('Error creating invited users:', error);
           const errorMessage = error?.message || error?.detail || 'Unknown error occurred while sending invitations';
           notifications.show(`Warning: ${errorMessage}`, { severity: 'warning' });
@@ -201,9 +206,9 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
             throw new Error('Failed to initialize organization data');
           }
         } catch (initError: any) {
+          setIsSubmitting(false);
           console.error('Initial data loading error:', initError);
           notifications.show(initError?.message || 'Failed to set up organization. Please contact support.', { severity: 'error' });
-          setIsSubmitting(false);
           return;
         }
       } else {
@@ -211,10 +216,10 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
       }
 
     } catch (error: any) {
+      setIsSubmitting(false);
       console.error('Onboarding error:', error);
       notifications.show(error?.message || 'Failed to complete onboarding. Please try again.', { severity: 'error' });
     } finally {
-      setIsSubmitting(false);
       setOnboardingStatus('idle');
     }
   };
