@@ -1,12 +1,9 @@
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any, List
 
-from jinja2 import Template
 from tqdm.auto import tqdm
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.services import LLMService
 
 
 class TestSetSynthesizer(ABC):
@@ -17,22 +14,9 @@ class TestSetSynthesizer(ABC):
         Initialize the base synthesizer.
 
         Args:
-            batch_size: Maximum number of items to process in a single LLM call
+            batch_size: Maximum number of items to process in a single batch
         """
         self.batch_size = batch_size
-        self.llm_service = LLMService()
-        self.system_prompt = self._load_prompt_template()
-
-    def _load_prompt_template(self) -> Template:
-        """Load the prompt template from assets directory."""
-        # Convert camel case to snake case
-        class_name = self.__class__.__name__
-        snake_case = "".join(
-            ["_" + c.lower() if c.isupper() else c.lower() for c in class_name]
-        ).lstrip("_")
-        prompt_path = Path(__file__).parent / "assets" / f"{snake_case}.md"
-        with open(prompt_path, "r") as f:
-            return Template(f.read())
 
     def _process_with_progress(
         self,
