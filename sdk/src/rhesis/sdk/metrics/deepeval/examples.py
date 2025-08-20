@@ -75,8 +75,10 @@ def example_with_rhesis_model():
 
     result = metric.evaluate(
         input="What is machine learning?",
-        output="Machine learning is a subset of artificial intelligence that enables computers to learn from data.",
-        expected_output="Machine learning is a method of data analysis that automates analytical model building.",
+        output="Machine learning is a subset of artificial intelligence that enables computers to "
+        "learn from data.",
+        expected_output="Machine learning is a method of data analysis that automates analytical "
+        "model building.",
         context=[
             "AI includes various technologies like machine learning.",
             "Machine learning algorithms improve with experience.",
