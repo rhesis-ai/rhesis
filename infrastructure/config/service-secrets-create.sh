@@ -247,16 +247,7 @@ for env in "${ENV_ARRAY[@]}"; do
       fi
     done
     
-    # Set TEST-specific database secrets
-    if [[ -n "${TEST_POSTGRES_DB}" ]]; then
-      set_repo_secret "TEST_POSTGRES_DB" "${TEST_POSTGRES_DB}"
-    fi
-    if [[ -n "${TEST_POSTGRES_USER}" ]]; then
-      set_repo_secret "TEST_POSTGRES_USER" "${TEST_POSTGRES_USER}"
-    fi
-    if [[ -n "${TEST_POSTGRES_PASSWORD}" ]]; then
-      set_repo_secret "TEST_POSTGRES_PASSWORD" "${TEST_POSTGRES_PASSWORD}"
-    fi
+
     
     continue
   fi
