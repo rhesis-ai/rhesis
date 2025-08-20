@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+from rhesis.sdk.services import LLMService
 from rhesis.sdk.synthesizers.helpers import (
     load_prompt_template,
     retry_llm_call,
@@ -28,6 +29,8 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
             self.__class__.__name__, 
             system_prompt
         )
+
+        self.llm_service = LLMService()
 
     def _parse_paraphrases(self, content: Any) -> List[Dict[str, Any]]:
         """
