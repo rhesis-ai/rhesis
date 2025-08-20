@@ -575,7 +575,7 @@ const UploadDocuments = ({
                     <>
                       <TextField
                         fullWidth
-                        label="Generated Name"
+                        label="Name"
                         value={doc.name}
                         onChange={(e) => handleDocumentUpdate(doc.id, 'name', e.target.value)}
                         sx={{ mb: 2 }}
@@ -585,7 +585,7 @@ const UploadDocuments = ({
                         fullWidth
                         multiline
                         rows={2}
-                        label="Generated Description"
+                        label="Description"
                         value={doc.description}
                         onChange={(e) => handleDocumentUpdate(doc.id, 'description', e.target.value)}
                         size="small"
