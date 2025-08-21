@@ -1,4 +1,4 @@
-name: Backend Testing ☑️
+name: 🧪 Backend Testing
 
 # USAGE INSTRUCTIONS:
 # 
@@ -46,22 +46,384 @@ env:
   PYTHONPATH: ${{ github.workspace }}/apps/backend/src:${{ github.workspace }}
 
 jobs:
-  test:
-    name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
+  # Job 1: Setup and Build
+  setup:
+    name: 🏗️ Setup & Build
     runs-on: ubuntu-latest
+    environment: test
     
-    # 👇 Only apply environment when running on GitHub (not act)
+    outputs:
+      python-cache-key: ${{ steps.cache-key.outputs.key }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.17'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Generate cache key
+        id: cache-key
+        run: echo "key=${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}" >> $GITHUB_OUTPUT
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            ${{ runner.os }}-uv-backend-
+
+      - name: Install dependencies
+        run: |
+          cd apps/backend
+          uv sync --dev
+
+      - name: Verify SDK installation
+        run: |
+          cd apps/backend
+          uv pip show rhesis-sdk || {
+            echo "❌ SDK not installed correctly"
+            exit 1
+          }
+
+  # Job 2: Database Setup (only for non-unit tests)
+  database-setup:
+    name: 🗄️ Database Setup
+    runs-on: ubuntu-latest
+    needs: setup
+    if: ${{ inputs.test_markers != 'unit' }}
+    environment: test
+    
+    env:
+      SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+      SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
+      ISOLATED_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    outputs:
+      database-name: ${{ env.ISOLATED_DB_NAME }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.17'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ needs.setup.outputs.python-cache-key }}
+          restore-keys: |
+            ${{ runner.os }}-uv-backend-
+
+      - name: Install dependencies
+        run: |
+          cd apps/backend
+          uv sync --dev
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          echo "⏳ Waiting for PostgreSQL..."
+          until PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres; do
+            sleep 2
+          done
+          echo "✅ PostgreSQL ready"
+
+      - name: Create test database and user
+        run: |
+          echo "🔗 Setting up test database and user..."
+          echo "Creating isolated database: $ISOLATED_DB_NAME"
+          echo "Database user: $SQLALCHEMY_DB_USER"
+          
+          # Drop and recreate user to ensure clean state
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
+            DROP USER IF EXISTS \"$SQLALCHEMY_DB_USER\";
+            CREATE USER \"$SQLALCHEMY_DB_USER\" WITH PASSWORD '$SQLALCHEMY_DB_PASS' CREATEDB;
+          " || exit 1
+          
+          # Create isolated database for this run
+          echo "Creating database: $ISOLATED_DB_NAME"
+          PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$ISOLATED_DB_NAME" || {
+            echo "❌ Failed to create database $ISOLATED_DB_NAME"
+            exit 1
+          }
+          
+          # Grant comprehensive privileges
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
+            GRANT ALL PRIVILEGES ON DATABASE \"$ISOLATED_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
+            GRANT ALL ON SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
+          " || exit 1
+          
+          # Connect to the new database and grant schema permissions
+          PGPASSWORD=postgres psql -h localhost -U postgres -d "$ISOLATED_DB_NAME" -c "
+            GRANT ALL ON SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
+            GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
+            GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"$SQLALCHEMY_DB_USER\";
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"$SQLALCHEMY_DB_USER\";
+          " || exit 1
+          
+          # Verify database exists
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
+            SELECT datname FROM pg_database WHERE datname = '$ISOLATED_DB_NAME';
+          " | grep -q "$ISOLATED_DB_NAME" || {
+            echo "❌ Database $ISOLATED_DB_NAME was not created successfully"
+            exit 1
+          }
+          
+          # Test connection to the new database with proper authentication
+          echo "Testing connection with user credentials..."
+          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$ISOLATED_DB_NAME" -c 'SELECT current_user, current_database();' || {
+            echo "❌ Cannot connect to database $ISOLATED_DB_NAME with user $SQLALCHEMY_DB_USER"
+            echo "Testing if user can connect to postgres database..."
+            PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d postgres -c 'SELECT current_user;' || {
+              echo "❌ User cannot connect to any database - password issue"
+              exit 1
+            }
+            exit 1
+          }
+          
+          echo "✅ Database and user created successfully"
+
+      - name: Run database migrations
+        env:
+          SQLALCHEMY_DB_MODE: test
+          SQLALCHEMY_DB_NAME: ${{ env.ISOLATED_DB_NAME }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ env.ISOLATED_DB_NAME }}
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_HOST: localhost
+        run: |
+          cd apps/backend/src/rhesis/backend
+          echo "🔄 Running migrations on isolated database: $ISOLATED_DB_NAME"
+          echo "Migration environment variables:"
+          echo "  SQLALCHEMY_DB_MODE: $SQLALCHEMY_DB_MODE"
+          echo "  SQLALCHEMY_DB_NAME: $SQLALCHEMY_DB_NAME"
+          echo "  SQLALCHEMY_DATABASE_TEST_URL: $SQLALCHEMY_DATABASE_TEST_URL"
+          echo "  SQLALCHEMY_DB_USER: $SQLALCHEMY_DB_USER"
+          echo "  SQLALCHEMY_DB_HOST: $SQLALCHEMY_DB_HOST"
+          echo "  SQLALCHEMY_DB_PASS: [REDACTED - $(if [ -n "$SQLALCHEMY_DB_PASS" ]; then echo "SET"; else echo "NOT SET"; fi)]"
+          echo "  ISOLATED_DB_NAME (from job env): $ISOLATED_DB_NAME"
+          echo ""
+          echo "Connection test command will use: PGPASSWORD=*** psql -h localhost -U $SQLALCHEMY_DB_USER -d $ISOLATED_DB_NAME"
+          
+          # Verify database exists before running migrations
+          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$ISOLATED_DB_NAME" -c 'SELECT version();' || {
+            echo "❌ Cannot connect to database $ISOLATED_DB_NAME for migrations"
+            echo "Listing available databases:"
+            PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c '\l'
+            exit 1
+          }
+          
+          # Ensure environment variables take precedence over .env file
+          export SQLALCHEMY_DB_MODE="test"
+          export SQLALCHEMY_DB_NAME="$ISOLATED_DB_NAME"
+          export SQLALCHEMY_DATABASE_TEST_URL="postgresql://$SQLALCHEMY_DB_USER:$SQLALCHEMY_DB_PASS@localhost:5432/$ISOLATED_DB_NAME"
+          export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
+          export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
+          export SQLALCHEMY_DB_HOST="localhost"
+          
+          echo "🔄 Running Alembic with exported environment variables..."
+          echo "Final environment check:"
+          echo "  SQLALCHEMY_DATABASE_TEST_URL: $SQLALCHEMY_DATABASE_TEST_URL"
+          uv run alembic upgrade head
+
+      - name: Verify database structure
+        run: |
+          echo "🔍 Verifying database structure..."
+          echo "Checking isolated database: $ISOLATED_DB_NAME"
+          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$ISOLATED_DB_NAME" -c "
+            SELECT COUNT(*) as table_count 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public';
+          " || exit 1
+          echo "✅ Database verified"
+
+  # Job 3: Test Data Setup (only for non-unit tests)
+  test-data-setup:
+    name: 🚀 Test Data Setup
+    runs-on: ubuntu-latest
+    needs: [setup, database-setup]
+    if: ${{ inputs.test_markers != 'unit' }}
+    environment: test
+    
+    env:
+      ISOLATED_DB_NAME: ${{ needs.database-setup.outputs.database-name }}
+      SQLALCHEMY_DB_MODE: test
+      SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+      SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+      SQLALCHEMY_DB_HOST: localhost
+      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      LOG_LEVEL: WARNING
+      
+      # Application configuration
+      BROKER_URL: ${{ secrets.BROKER_URL }}
+      CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
+      
+      # External services
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
+      AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL_NAME: ${{ secrets.GEMINI_MODEL_NAME }}
+      AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+      AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+      AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+      AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+      AUTH0_SECRET_KEY: ${{ secrets.AUTH0_SECRET_KEY }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    outputs:
+      api-token: ${{ steps.setup_env.outputs.RHESIS_API_KEY }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.17'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ needs.setup.outputs.python-cache-key }}
+          restore-keys: |
+            ${{ runner.os }}-uv-backend-
+
+      - name: Install dependencies
+        run: |
+          cd apps/backend
+          uv sync --dev
+
+      - name: Recreate isolated database
+        run: |
+          # Install PostgreSQL client
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          
+          # Wait for PostgreSQL
+          until PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres; do
+            sleep 2
+          done
+          
+          # Recreate the isolated database (since services are fresh)
+          PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$ISOLATED_DB_NAME" || {
+            echo "Database may already exist, continuing..."
+          }
+
+      - name: Setup test data
+        id: setup_env
+        run: |
+          cd apps/backend
+          export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}/tests:$PYTHONPATH"
+          echo "🚀 Setting up test environment..."
+          echo "Using isolated database: $ISOLATED_DB_NAME"
+          echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
+          
+          # Setup test environment and capture API token
+          API_TOKEN=$(timeout 300 uv run python -c "
+          import os
+          from backend.fixtures.test_setup import setup_test_environment
+          setup_test_environment()
+          print(os.environ.get('RHESIS_API_KEY', ''))
+          " | tail -1) || exit 1
+          
+          # Export the API token for subsequent steps
+          echo "RHESIS_API_KEY=${API_TOKEN}" >> $GITHUB_OUTPUT
+          echo "✅ Test environment ready"
+
+  # Job 4: Run Tests
+  test:
+    name: 🧪 Run Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
+    runs-on: ubuntu-latest
+    needs: [setup, database-setup, test-data-setup]
+    if: always() && needs.setup.result == 'success' && (inputs.test_markers == 'unit' || (needs.database-setup.result == 'success' && needs.test-data-setup.result == 'success'))
     environment: test
     
     env:
       # Database configuration
-      SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
-      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}
-      SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
+      SQLALCHEMY_DB_MODE: test
       SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
       SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
       SQLALCHEMY_DB_HOST: localhost
-      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
+      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      
+      # Test-generated API key
+      RHESIS_API_KEY: ${{ needs.test-data-setup.outputs.api-token || 'fallback-for-unit-tests' }}
       
       # Application configuration
       LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
@@ -131,7 +493,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}
+          key: ${{ needs.setup.outputs.python-cache-key }}
           restore-keys: |
             ${{ runner.os }}-uv-backend-
 
@@ -140,156 +502,23 @@ jobs:
           cd apps/backend
           uv sync --dev
 
-      - name: Verify SDK installation
-        run: |
-          cd apps/backend
-          uv pip show rhesis-sdk || {
-            echo "❌ SDK not installed correctly"
-            exit 1
-          }
-
-      - name: Debug environment detection
-        run: |
-          echo "🔍 Environment detection debug:"
-          echo "ACT: ${ACT:-not set}"
-          echo "GITHUB_ACTIONS: ${GITHUB_ACTIONS:-not set}"
-          echo "CI: ${CI:-not set}"
-          
-      - name: Validate environment
+      - name: Recreate test environment (if needed)
         if: ${{ inputs.test_markers != 'unit' }}
         run: |
-          echo "🔍 Validating test environment configuration..."
-          
-          # Check required environment variables
-          if [[ -z "$SQLALCHEMY_DB_USER" || -z "$SQLALCHEMY_DB_NAME" || -z "$SQLALCHEMY_DB_PASS" ]]; then
-            echo "❌ Missing required database environment variables"
-            exit 1
-          fi
-          
-          echo "✅ Environment validation passed"
-
-      - name: Install PostgreSQL client
-        if: ${{ inputs.test_markers != 'unit' }}
-        run: |
+          # Install PostgreSQL client
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-
-      - name: Wait for PostgreSQL
-        if: ${{ inputs.test_markers != 'unit' }}
-        run: |
-          echo "⏳ Waiting for PostgreSQL..."
+          
+          # Wait for PostgreSQL
           until PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres; do
             sleep 2
           done
-          echo "✅ PostgreSQL ready"
-
-      - name: Create test database and user
-        if: ${{ inputs.test_markers != 'unit' }}
-        env:
-          # Set the isolated database name for this step
-          ISOLATED_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-        run: |
-          echo "🔗 Setting up test database and user..."
-          echo "Creating isolated database: $ISOLATED_DB_NAME"
           
-          # Test PostgreSQL service availability
-          PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres || {
-            echo "❌ PostgreSQL service not ready"
-            exit 1
+          # Recreate the isolated database (since services are fresh)
+          ISOLATED_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}"
+          PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$ISOLATED_DB_NAME" || {
+            echo "Database may already exist, continuing..."
           }
-          
-          # Create user
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
-            DO \$\$
-            BEGIN
-              IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '$SQLALCHEMY_DB_USER') THEN
-                CREATE USER \"$SQLALCHEMY_DB_USER\" WITH PASSWORD '$SQLALCHEMY_DB_PASS';
-              END IF;
-            END
-            \$\$;
-          " || exit 1
-          
-          # Create base database (if it doesn't exist)
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
-            SELECT 1 FROM pg_database WHERE datname = '$SQLALCHEMY_DB_NAME'
-          " | grep -q 1 || {
-            PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || exit 1
-          }
-          
-          # Create isolated database for this run
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
-            SELECT 1 FROM pg_database WHERE datname = '$ISOLATED_DB_NAME'
-          " | grep -q 1 || {
-            PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$ISOLATED_DB_NAME" || exit 1
-          }
-          
-          # Grant privileges on both databases
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
-            GRANT ALL PRIVILEGES ON DATABASE \"$SQLALCHEMY_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
-            GRANT ALL PRIVILEGES ON DATABASE \"$ISOLATED_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
-          " || exit 1
-          
-          # Verify database connection
-          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$ISOLATED_DB_NAME" -c 'SELECT 1;' > /dev/null || {
-            echo "❌ Database connection failed"
-            exit 1
-          }
-          echo "✅ Database and user created successfully"
-
-      - name: Run database migrations
-        if: ${{ inputs.test_markers != 'unit' }}
-        env:
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-        run: |
-          cd apps/backend/src/rhesis/backend
-          echo "🔄 Running migrations on isolated database: $SQLALCHEMY_DB_NAME"
-          uv run alembic upgrade head
-
-      - name: Verify database structure
-        if: ${{ inputs.test_markers != 'unit' }}
-        env:
-          ISOLATED_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-        run: |
-          echo "🔍 Verifying database structure..."
-          echo "Checking isolated database: $ISOLATED_DB_NAME"
-          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$ISOLATED_DB_NAME" -c "
-            SELECT COUNT(*) as table_count 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public';
-          " || exit 1
-          echo "✅ Database verified"
-
-      - name: Setup test data
-        if: ${{ inputs.test_markers != 'unit' }}
-        id: setup_env
-        env:
-          LOG_LEVEL: WARNING
-          # Use the isolated database that was already created
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-          SQLALCHEMY_DB_MODE: test
-          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          SQLALCHEMY_DB_HOST: localhost
-        run: |
-          cd apps/backend
-          export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}/tests:$PYTHONPATH"
-          echo "🚀 Setting up test environment..."
-          echo "Using isolated database: $SQLALCHEMY_DB_NAME"
-          echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
-          
-          # Setup test environment and capture API token
-          API_TOKEN=$(timeout 300 uv run python -c "
-          import os
-          from backend.fixtures.test_setup import setup_test_environment
-          setup_test_environment()
-          print(os.environ.get('RHESIS_API_KEY', ''))
-          " | tail -1) || exit 1
-          
-          # Export the API token for subsequent steps
-          echo "RHESIS_API_KEY=${API_TOKEN}" >> $GITHUB_OUTPUT
-          echo "✅ Test environment ready"
 
       - name: Determine pytest command
         id: pytest_cmd
@@ -306,41 +535,116 @@ jobs:
           fi
 
       - name: Run tests
-        env:
-          # Test-generated API key (only step-specific override)
-          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'fallback-for-unit-tests' }}
-          # Database configuration - all tests use PostgreSQL with isolation
-          SQLALCHEMY_DB_MODE: test
-          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          SQLALCHEMY_DB_HOST: localhost
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
-          echo "🧪 Running tests with isolated database: $SQLALCHEMY_DB_NAME"
+          echo "🧪 Running tests with database: $SQLALCHEMY_DB_NAME"
           echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
           ${{ steps.pytest_cmd.outputs.cmd }}
 
-      - name: Generate coverage report
-        if: ${{ inputs.run_coverage == true }}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results.xml
+            .pytest_cache/
+          retention-days: 7
+
+  # Job 5: Coverage Report (optional)
+  coverage:
+    name: 📊 Coverage Report
+    runs-on: ubuntu-latest
+    needs: [setup, database-setup, test-data-setup, test]
+    if: ${{ inputs.run_coverage == true && needs.test.result == 'success' }}
+    environment: test
+    
+    env:
+      # Database configuration
+      SQLALCHEMY_DB_MODE: test
+      SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+      SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+      SQLALCHEMY_DB_HOST: localhost
+      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      
+      # Override with mock services for coverage (lighter than real services)
+      LOG_LEVEL: WARNING
+      AZURE_OPENAI_API_KEY: mock-azure-key-for-testing
+      GEMINI_API_KEY: mock-gemini-key-for-testing
+      AUTH0_DOMAIN: mock-domain.auth0.com
+      JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
+      JWT_ALGORITHM: HS256
+      RHESIS_API_KEY: ${{ needs.test-data-setup.outputs.api-token || 'mock-api-key-for-coverage' }}
+    
+    services:
+      postgres:
+        image: postgres:15
         env:
-          # Override with mock services for coverage (lighter than real services)
-          LOG_LEVEL: WARNING
-          AZURE_OPENAI_API_KEY: mock-azure-key-for-testing
-          GEMINI_API_KEY: mock-gemini-key-for-testing
-          AUTH0_DOMAIN: mock-domain.auth0.com
-          JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
-          JWT_ALGORITHM: HS256
-          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'mock-api-key-for-coverage' }}
-          # Use isolated database for coverage
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-          # Ensure database connection variables are available during imports
-          SQLALCHEMY_DB_MODE: test
-          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          SQLALCHEMY_DB_HOST: localhost
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.17'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ needs.setup.outputs.python-cache-key }}
+          restore-keys: |
+            ${{ runner.os }}-uv-backend-
+
+      - name: Install dependencies
+        run: |
+          cd apps/backend
+          uv sync --dev
+
+      - name: Recreate test environment for coverage
+        run: |
+          # Install PostgreSQL client
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          
+          # Wait for PostgreSQL
+          until PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres; do
+            sleep 2
+          done
+          
+          # Recreate the isolated database (since services are fresh)
+          ISOLATED_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}"
+          PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$ISOLATED_DB_NAME" || {
+            echo "Database may already exist, continuing..."
+          }
+
+      - name: Generate coverage report
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           if [ "${{ inputs.test_markers }}" = "all" ]; then
@@ -352,7 +656,6 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        if: ${{ inputs.run_coverage == true }}
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
@@ -362,7 +665,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage reports as artifacts
-        if: ${{ inputs.run_coverage == true }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
