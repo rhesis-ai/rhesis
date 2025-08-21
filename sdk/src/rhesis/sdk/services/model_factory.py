@@ -30,7 +30,7 @@ class ModelConfig:
     """
 
     model_type: ModelType
-    model_name: str
+    model_name: Optional[str] = None
     api_key: Optional[str] = None
     extra_params: dict = field(default_factory=dict)
 
@@ -50,7 +50,7 @@ class ModelFactory:
 
     @staticmethod
     def create_default_model(
-        model_type: ModelType = ModelType.RHESIS, model_name: str = None
+        model_type: Union[ModelType, str] = ModelType.RHESIS.value,
     ) -> Union[RhesisLLMService,]:
         # Use environment variable for default model name if not provided
         if model_type == ModelType.RHESIS:

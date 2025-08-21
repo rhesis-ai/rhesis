@@ -7,7 +7,10 @@ from rhesis.sdk.services.model_factory import ModelConfig, ModelFactory, ModelTy
 
 class DeepEvalModelWrapper(DeepEvalBaseLLM):
     def __init__(self, config: ModelConfig) -> None:
-        self._model = ModelFactory.create_model(config)
+        if config.model_name is None:
+            self._model = ModelFactory.create_default_model(config.model_type)
+        else:
+            self._model = ModelFactory.create_model(config)
 
     def load_model(self, *args, **kwargs):
         return self._model.load_model(*args, **kwargs)
@@ -20,6 +23,10 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
 
     def get_model_name(self, *args, **kwargs) -> str:
         return self._model.get_model_name(*args, **kwargs)
+
+
+def get_model_from_config(config: ModelConfig) -> DeepEvalModelWrapper:
+    return DeepEvalModelWrapper(config)
 
 
 if __name__ == "__main__":
