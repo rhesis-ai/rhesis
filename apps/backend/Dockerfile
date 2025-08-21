@@ -26,7 +26,8 @@ COPY apps/backend/src/rhesis /app/src/rhesis
 # Copy the SDK directory
 COPY sdk /app/sdk/
 
-# Note: pyproject.toml already has the correct path ../sdk
+# Update the SDK path in pyproject.toml to use absolute path
+RUN sed -i 's|rhesis-sdk = { path = "../../sdk", editable = true }|rhesis-sdk = { path = "/app/sdk", editable = true }|' pyproject.toml
 
 # Install backend dependencies (which includes the SDK)
 RUN uv sync
