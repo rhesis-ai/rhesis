@@ -92,12 +92,11 @@ jobs:
             exit 1
           }
 
-  # Job 2: Database Setup (only for non-unit tests)
+  # Job 2: Database Setup (all tests need database)
   database-setup:
     name: 🗄️ Database Setup
     runs-on: ubuntu-latest
     needs: setup
-    if: ${{ inputs.test_markers != 'unit' }}
     environment: test
     
     env:
@@ -272,12 +271,11 @@ jobs:
           " || exit 1
           echo "✅ Database verified"
 
-  # Job 3: Test Data Setup (only for non-unit tests)
+  # Job 3: Test Data Setup (all tests need test data)
   test-data-setup:
     name: 🚀 Test Data Setup
     runs-on: ubuntu-latest
     needs: [setup, database-setup]
-    if: ${{ inputs.test_markers != 'unit' }}
     environment: test
     
     env:
@@ -410,7 +408,6 @@ jobs:
     name: 🧪 Run Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
     runs-on: ubuntu-latest
     needs: [setup, database-setup, test-data-setup]
-    if: always() && needs.setup.result == 'success' && (inputs.test_markers == 'unit' || (needs.database-setup.result == 'success' && needs.test-data-setup.result == 'success'))
     environment: test
     
     env:
