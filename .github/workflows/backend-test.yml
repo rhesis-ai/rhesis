@@ -185,8 +185,12 @@ jobs:
 
       - name: Create test database and user
         if: ${{ inputs.test_markers != 'unit' }}
+        env:
+          # Set the isolated database name for this step
+          ISOLATED_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           echo "🔗 Setting up test database and user..."
+          echo "Creating isolated database: $ISOLATED_DB_NAME"
           
           # Test PostgreSQL service availability
           PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres || {
@@ -205,20 +209,28 @@ jobs:
             \$\$;
           " || exit 1
           
-          # Create database
+          # Create base database (if it doesn't exist)
           PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             SELECT 1 FROM pg_database WHERE datname = '$SQLALCHEMY_DB_NAME'
           " | grep -q 1 || {
             PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || exit 1
           }
           
-          # Grant privileges
+          # Create isolated database for this run
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
+            SELECT 1 FROM pg_database WHERE datname = '$ISOLATED_DB_NAME'
+          " | grep -q 1 || {
+            PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$ISOLATED_DB_NAME" || exit 1
+          }
+          
+          # Grant privileges on both databases
           PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             GRANT ALL PRIVILEGES ON DATABASE \"$SQLALCHEMY_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
+            GRANT ALL PRIVILEGES ON DATABASE \"$ISOLATED_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
           " || exit 1
           
           # Verify database connection
-          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT 1;' > /dev/null || {
+          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$ISOLATED_DB_NAME" -c 'SELECT 1;' > /dev/null || {
             echo "❌ Database connection failed"
             exit 1
           }
@@ -236,9 +248,12 @@ jobs:
 
       - name: Verify database structure
         if: ${{ inputs.test_markers != 'unit' }}
+        env:
+          ISOLATED_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           echo "🔍 Verifying database structure..."
-          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c "
+          echo "Checking isolated database: $ISOLATED_DB_NAME"
+          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$ISOLATED_DB_NAME" -c "
             SELECT COUNT(*) as table_count 
             FROM information_schema.tables 
             WHERE table_schema = 'public';
@@ -250,21 +265,19 @@ jobs:
         id: setup_env
         env:
           LOG_LEVEL: WARNING
-          # Add database isolation to prevent concurrent test conflicts
+          # Use the isolated database that was already created
           SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+          SQLALCHEMY_DB_MODE: test
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_HOST: localhost
         run: |
           cd apps/backend
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}/tests:$PYTHONPATH"
           echo "🚀 Setting up test environment..."
           echo "Using isolated database: $SQLALCHEMY_DB_NAME"
-          
-          # Create isolated database for this run
-          PGPASSWORD=$SQLALCHEMY_DB_PASS createdb -h localhost -U "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || {
-            echo "ℹ️ Database may already exist, continuing..."
-          }
-          
-          # Update database URL for isolation
-          export SQLALCHEMY_DATABASE_TEST_URL="postgresql://$SQLALCHEMY_DB_USER:$SQLALCHEMY_DB_PASS@localhost:5432/$SQLALCHEMY_DB_NAME"
+          echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
           
           # Setup test environment and capture API token
           API_TOKEN=$(timeout 300 uv run python -c "
