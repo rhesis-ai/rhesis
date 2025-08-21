@@ -97,11 +97,10 @@ jobs:
           POSTGRES_DB: postgres
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -179,26 +178,24 @@ jobs:
         if: ${{ inputs.test_markers != 'unit' }}
         run: |
           echo "⏳ Waiting for PostgreSQL..."
-          until pg_isready -h localhost -p 5432 -U postgres; do
+          until PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres; do
             sleep 2
           done
           echo "✅ PostgreSQL ready"
 
       - name: Create test database and user
         if: ${{ inputs.test_markers != 'unit' }}
-        env:
-          PGPASSWORD: ${{ env.SQLALCHEMY_DB_PASS }}
         run: |
           echo "🔗 Setting up test database and user..."
           
           # Test PostgreSQL service availability
-          pg_isready -h localhost -p 5432 -U postgres || {
+          PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres || {
             echo "❌ PostgreSQL service not ready"
             exit 1
           }
           
           # Create user
-          PGPASSWORD='' psql -h localhost -U postgres -d postgres -c "
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             DO \$\$
             BEGIN
               IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '$SQLALCHEMY_DB_USER') THEN
@@ -209,19 +206,19 @@ jobs:
           " || exit 1
           
           # Create database
-          PGPASSWORD='' psql -h localhost -U postgres -d postgres -c "
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             SELECT 1 FROM pg_database WHERE datname = '$SQLALCHEMY_DB_NAME'
           " | grep -q 1 || {
-            PGPASSWORD='' createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || exit 1
+            PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || exit 1
           }
           
           # Grant privileges
-          PGPASSWORD='' psql -h localhost -U postgres -d postgres -c "
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
             GRANT ALL PRIVILEGES ON DATABASE \"$SQLALCHEMY_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
           " || exit 1
           
           # Verify database connection
-          psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT 1;' > /dev/null || {
+          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT 1;' > /dev/null || {
             echo "❌ Database connection failed"
             exit 1
           }
@@ -229,17 +226,19 @@ jobs:
 
       - name: Run database migrations
         if: ${{ inputs.test_markers != 'unit' }}
+        env:
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           cd apps/backend/src/rhesis/backend
+          echo "🔄 Running migrations on isolated database: $SQLALCHEMY_DB_NAME"
           uv run alembic upgrade head
 
       - name: Verify database structure
         if: ${{ inputs.test_markers != 'unit' }}
-        env:
-          PGPASSWORD: ${{ env.SQLALCHEMY_DB_PASS }}
         run: |
           echo "🔍 Verifying database structure..."
-          psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c "
+          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c "
             SELECT COUNT(*) as table_count 
             FROM information_schema.tables 
             WHERE table_schema = 'public';
@@ -251,10 +250,21 @@ jobs:
         id: setup_env
         env:
           LOG_LEVEL: WARNING
+          # Add database isolation to prevent concurrent test conflicts
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           cd apps/backend
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}/tests:$PYTHONPATH"
           echo "🚀 Setting up test environment..."
+          echo "Using isolated database: $SQLALCHEMY_DB_NAME"
+          
+          # Create isolated database for this run
+          PGPASSWORD=$SQLALCHEMY_DB_PASS createdb -h localhost -U "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || {
+            echo "ℹ️ Database may already exist, continuing..."
+          }
+          
+          # Update database URL for isolation
+          export SQLALCHEMY_DATABASE_TEST_URL="postgresql://$SQLALCHEMY_DB_USER:$SQLALCHEMY_DB_PASS@localhost:5432/$SQLALCHEMY_DB_NAME"
           
           # Setup test environment and capture API token
           API_TOKEN=$(timeout 300 uv run python -c "
@@ -271,20 +281,27 @@ jobs:
       - name: Determine pytest command
         id: pytest_cmd
         run: |
+          # Add pytest options to prevent database conflicts
+          PYTEST_OPTS="-v --durations=10 --tb=short --maxfail=10 -x"
+          
           if [ "${{ inputs.test_markers }}" = "all" ]; then
-            echo "cmd=uv run --project apps/backend python -m pytest tests/backend -v --durations=10" >> $GITHUB_OUTPUT
+            echo "cmd=uv run --project apps/backend python -m pytest tests/backend $PYTEST_OPTS" >> $GITHUB_OUTPUT
           elif [ "${{ inputs.test_markers }}" = "custom" ]; then
-            echo "cmd=uv run --project apps/backend python -m pytest tests/backend -m \"${{ inputs.custom_markers }}\" -v --durations=10" >> $GITHUB_OUTPUT
+            echo "cmd=uv run --project apps/backend python -m pytest tests/backend -m \"${{ inputs.custom_markers }}\" $PYTEST_OPTS" >> $GITHUB_OUTPUT
           else
-            echo "cmd=uv run --project apps/backend python -m pytest tests/backend -m \"${{ inputs.test_markers }}\" -v --durations=10" >> $GITHUB_OUTPUT
+            echo "cmd=uv run --project apps/backend python -m pytest tests/backend -m \"${{ inputs.test_markers }}\" $PYTEST_OPTS" >> $GITHUB_OUTPUT
           fi
 
       - name: Run tests
         env:
           # Test-generated API key (only step-specific override)
           RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'fallback-for-unit-tests' }}
+          # Use isolated database for tests
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
+          echo "🧪 Running tests with isolated database: $SQLALCHEMY_DB_NAME"
           ${{ steps.pytest_cmd.outputs.cmd }}
 
       - name: Generate coverage report
@@ -298,6 +315,9 @@ jobs:
           JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
           JWT_ALGORITHM: HS256
           RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'mock-api-key-for-coverage' }}
+          # Use isolated database for coverage
+          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           if [ "${{ inputs.test_markers }}" = "all" ]; then
@@ -308,14 +328,15 @@ jobs:
             uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing -m "${{ inputs.test_markers }}" -v
           fi
 
-      - name: Upload coverage to Coveralls
+      - name: Upload coverage to Codecov
         if: ${{ inputs.run_coverage == true }}
-        uses: coverallsapp/github-action@v2
+        uses: codecov/codecov-action@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: coverage.xml
-          flag-name: backend
-          parallel: false
+          file: ./coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage reports as artifacts
         if: ${{ inputs.run_coverage == true }}
