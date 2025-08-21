@@ -16,7 +16,8 @@ Categories:
 """
 
 import pytest
-from typing import Dict, Any
+import os
+from typing import Dict, Any, Optional
 from unittest.mock import Mock
 from sqlalchemy.orm import Session
 from faker import Faker
@@ -25,16 +26,22 @@ from faker import Faker
 try:
     from rhesis.backend.app.models.user import User
     from rhesis.backend.app.models.organization import Organization
+    from rhesis.backend.app import crud
 except ImportError:
     # Fallback for tests that don't need real models
-    User = None
-    Organization = None
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        from rhesis.backend.app.models.user import User
+        from rhesis.backend.app.models.organization import Organization
+    else:
+        User = None
+        Organization = None
+    crud = None
 
 fake = Faker()
 
-# Known test organization ID (from your existing setup)
-TEST_ORG_ID = "fb61d1ea-27b2-475d-a337-31372544f029"
-AUTHENTICATED_USER_ID = "6fcb94d0-280d-475b-be94-1723efc634d4"
+
+# Dynamic authentication fixtures are now in conftest.py
 
 
 # === 🎭 MOCK FIXTURES (Unit Tests - No Database) ===
@@ -124,7 +131,7 @@ def mock_user_object() -> Mock:
 # === 🗄️ DATABASE FIXTURES (Integration Tests - Real Database) ===
 
 @pytest.fixture
-def db_user(test_db: Session) -> User:
+def db_user(test_db, test_org_id):
     """
     🗄️👤 Create real user in test database
     
@@ -133,6 +140,7 @@ def db_user(test_db: Session) -> User:
     
     Args:
         test_db: Database session fixture
+        test_org_id: Dynamic organization ID from API key
         
     Returns:
         User: Real user record from database
@@ -148,7 +156,7 @@ def db_user(test_db: Session) -> User:
         is_active=True,
         is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=TEST_ORG_ID
+        organization_id=test_org_id
     )
     test_db.add(user)
     test_db.commit()
@@ -157,12 +165,13 @@ def db_user(test_db: Session) -> User:
 
 
 @pytest.fixture
-def db_admin(test_db: Session) -> User:
+def db_admin(test_db, test_org_id):
     """
     🗄️👨‍💼 Create real admin user in test database
     
     Args:
         test_db: Database session fixture
+        test_org_id: Dynamic organization ID from API key
         
     Returns:
         User: Real admin user record from database
@@ -178,7 +187,7 @@ def db_admin(test_db: Session) -> User:
         is_active=True,
         is_superuser=True,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=TEST_ORG_ID
+        organization_id=test_org_id
     )
     test_db.add(admin)
     test_db.commit()
@@ -187,12 +196,13 @@ def db_admin(test_db: Session) -> User:
 
 
 @pytest.fixture
-def db_inactive_user(test_db: Session) -> User:
+def db_inactive_user(test_db, test_org_id):
     """
     🗄️🚫 Create real inactive user in test database
     
     Args:
         test_db: Database session fixture
+        test_org_id: Dynamic organization ID from API key
         
     Returns:
         User: Real inactive user record from database
@@ -206,7 +216,7 @@ def db_inactive_user(test_db: Session) -> User:
         is_active=False,
         is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=TEST_ORG_ID
+        organization_id=test_org_id
     )
     test_db.add(user)
     test_db.commit()
@@ -215,7 +225,7 @@ def db_inactive_user(test_db: Session) -> User:
 
 
 @pytest.fixture
-def db_owner_user(test_db: Session) -> User:
+def db_owner_user(test_db, test_org_id):
     """
     🗄️🏠 Create real user for owner relationships
     
@@ -223,6 +233,7 @@ def db_owner_user(test_db: Session) -> User:
     
     Args:
         test_db: Database session fixture
+        test_org_id: Dynamic organization ID from API key
         
     Returns:
         User: Real user record for owner relationships
@@ -238,7 +249,7 @@ def db_owner_user(test_db: Session) -> User:
         is_active=True,
         is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=TEST_ORG_ID
+        organization_id=test_org_id
     )
     test_db.add(owner)
     test_db.commit()
@@ -247,7 +258,7 @@ def db_owner_user(test_db: Session) -> User:
 
 
 @pytest.fixture
-def db_assignee_user(test_db: Session) -> User:
+def db_assignee_user(test_db, test_org_id):
     """
     🗄️📋 Create real user for assignee relationships
     
@@ -255,6 +266,7 @@ def db_assignee_user(test_db: Session) -> User:
     
     Args:
         test_db: Database session fixture
+        test_org_id: Dynamic organization ID from API key
         
     Returns:
         User: Real user record for assignee relationships
@@ -270,7 +282,7 @@ def db_assignee_user(test_db: Session) -> User:
         is_active=True,
         is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
-        organization_id=TEST_ORG_ID
+        organization_id=test_org_id
     )
     test_db.add(assignee)
     test_db.commit()
@@ -281,7 +293,7 @@ def db_assignee_user(test_db: Session) -> User:
 # === 🔑 AUTHENTICATED FIXTURES (The Real Authenticated User) ===
 
 @pytest.fixture
-def authenticated_user(test_db: Session) -> User:
+def authenticated_user(test_db, authenticated_user_id):
     """
     🔑👤 Get the real authenticated user from database
     
@@ -290,6 +302,7 @@ def authenticated_user(test_db: Session) -> User:
     
     Args:
         test_db: Database session fixture
+        authenticated_user_id: Dynamic user ID from API key
         
     Returns:
         User: The authenticated user record
@@ -297,9 +310,9 @@ def authenticated_user(test_db: Session) -> User:
     if User is None:
         pytest.skip("User model not available")
     
-    user = test_db.query(User).filter(User.id == AUTHENTICATED_USER_ID).first()
+    user = test_db.query(User).filter(User.id == authenticated_user_id).first()
     if not user:
-        pytest.skip(f"Authenticated user {AUTHENTICATED_USER_ID} not found in test database")
+        pytest.skip(f"Authenticated user {authenticated_user_id} not found in test database")
     return user
 
 
@@ -331,7 +344,7 @@ def authenticated_user_data(authenticated_user) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def test_organization(test_db: Session) -> Organization:
+def test_organization(test_db, test_org_id):
     """
     🔑🏢 Get the test organization from database
     
@@ -339,6 +352,7 @@ def test_organization(test_db: Session) -> Organization:
     
     Args:
         test_db: Database session fixture
+        test_org_id: Dynamic organization ID from API key
         
     Returns:
         Organization: The test organization record
@@ -346,9 +360,9 @@ def test_organization(test_db: Session) -> Organization:
     if Organization is None:
         pytest.skip("Organization model not available")
     
-    org = test_db.query(Organization).filter(Organization.id == TEST_ORG_ID).first()
+    org = test_db.query(Organization).filter(Organization.id == test_org_id).first()
     if not org:
-        pytest.skip(f"Test organization {TEST_ORG_ID} not found in database")
+        pytest.skip(f"Test organization {test_org_id} not found in database")
     return org
 
 
