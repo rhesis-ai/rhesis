@@ -37,7 +37,6 @@ COPY apps/worker/health_server.py /app/health_server.py
 
 # Install dependencies with uv using --system flag
 
-<<<<<<< HEAD
 # Remove build dependencies after installing Python packages
 RUN apt-get purge -y gcc \
     && apt-get autoremove -y \
@@ -50,8 +49,14 @@ ENV PYTHONPATH=/app:/app/backend/src
 =======
 RUN uv add --directory ./backend --no-sync ../sdk
 RUN uv add ./backend
+=======
+# Re-add SDK dependency to backend due to Docker build context
+RUN uv add --directory ./backend --no-sync ../sdk 
+>>>>>>> edf1e4f (add comments)
 
-RUN uv sync
+RUN uv add ./backend 
+
+RUN uv sync 
 
 # Set Python path to find the modules
 ENV PATH="/app/.venv/bin:$PATH"
