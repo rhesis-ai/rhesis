@@ -1,0 +1,21 @@
+# Codecov configuration for Rhesis project
+coverage:
+  status:
+    project:
+      default:
+        target: 80%          # Target coverage percentage
+        threshold: 2%        # Allow 2% drop before failing
+    patch:
+      default:
+        target: 80%          # New code should have 80% coverage
+        
+comment:
+  layout: "reach,diff,flags,tree,reach"
+  behavior: default
+  require_changes: false
+
+flags:
+  backend:
+    paths:
+      - apps/backend/src/
+    carryforward: true

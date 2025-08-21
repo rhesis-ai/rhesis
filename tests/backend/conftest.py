@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+from typing import Tuple
 
 # Load environment variables
 load_dotenv()
@@ -14,6 +15,9 @@ os.environ["SQLALCHEMY_DB_MODE"] = "test"
 # Now import backend modules after setting test mode
 from rhesis.backend.app.main import app
 from rhesis.backend.app.database import Base, get_db
+from rhesis.backend.app import models
+
+
 
 # Simple fixtures for testing markers functionality
 
@@ -108,3 +112,84 @@ def authenticated_client(client, rhesis_api_key):
     client.headers.update({"Authorization": f"Bearer {rhesis_api_key}"})
     print(f"🔍 DEBUG: Client headers now include: {dict(client.headers)}")
     return client
+
+
+# === 🔑 DYNAMIC AUTHENTICATION FIXTURES ===
+
+def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
+    """
+    Retrieve the authenticated user and organization IDs from the API key.
+    
+    Args:
+        db: Database session
+        
+    Returns:
+        Tuple of (organization_id, user_id) as strings, or (None, None) if not found
+    """
+    try:
+        from rhesis.backend.app import crud
+    except ImportError:
+        return None, None
+        
+    api_key = os.getenv("RHESIS_API_KEY")
+    if not api_key:
+        return None, None
+    
+    try:
+        # Get token from database using the API key value
+        token = crud.get_token_by_value(db, api_key)
+        if not token:
+            return None, None
+            
+        # Get user from the token's user_id
+        user = crud.get_user_by_id(db, token.user_id)
+        if not user:
+            return None, None
+            
+        return str(user.organization_id), str(user.id)
+        
+    except Exception as e:
+        print(f"⚠️ Warning: Could not retrieve authenticated user info: {e}")
+        return None, None
+
+
+@pytest.fixture(scope="session")
+def authenticated_user_info() -> tuple[str, str]:
+    """
+    🔑 Get the authenticated user and organization IDs from API key
+    
+    This fixture retrieves the actual user and organization IDs that correspond
+    to the RHESIS_API_KEY environment variable. This ensures tests use the
+    correct authenticated context.
+        
+    Returns:
+        Tuple of (organization_id, user_id) as strings
+        
+    Raises:
+        pytest.skip: If API key is invalid or user not found
+    """
+    # Create a temporary database session for this session-scoped fixture
+    session = TestingSessionLocal()
+    try:
+        org_id, user_id = get_authenticated_user_info(session)
+        
+        if not org_id or not user_id:
+            pytest.skip("Could not retrieve authenticated user info from RHESIS_API_KEY")
+        
+        return org_id, user_id
+    finally:
+        session.close()
+
+
+@pytest.fixture(scope="session") 
+def test_org_id(authenticated_user_info) -> str:
+    """🏢 Get the test organization ID from authenticated API key"""
+    org_id, _ = authenticated_user_info
+    return org_id
+
+
+@pytest.fixture(scope="session")
+def authenticated_user_id(authenticated_user_info) -> str:
+    """👤 Get the authenticated user ID from API key"""
+    _, user_id = authenticated_user_info
+    return user_id

@@ -25,10 +25,11 @@ function show_usage() {
   echo ""
   echo -e "${BLUE}Options:${NC}"
   echo "  -r, --repo REPO         GitHub repository in format 'owner/repo'"
-  echo "  -e, --environments      Comma-separated list of environments to set up [default: dev,stg,prd]"
+  echo "  -e, --environments      Comma-separated list of environments to set up [default: dev,stg,prd,test]"
   echo "  -h, --help              Show this help message"
   echo ""
-  echo -e "${BLUE}Environment-specific Variables (set for each environment):${NC}"
+  echo -e "${BLUE}Environment-specific Variables:${NC}"
+  echo "  Note: All environments (dev, stg, prd, test) use environment-specific secrets"
   echo "  # Backend variables"
   echo "  SQLALCHEMY_DATABASE_URL       Full database URL"
   echo "  SQLALCHEMY_DB_MODE            Database mode"
@@ -86,7 +87,7 @@ function show_usage() {
 
 # Default values
 REPO=""
-ENVIRONMENTS="dev,stg,prd"
+ENVIRONMENTS="dev,stg,prd,test"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -161,6 +162,19 @@ function set_secret() {
   echo -e "${GREEN}✓ Set Actions secret $secret_name for $REPO${NC}"
 }
 
+# Function to set repository-level secrets (for TEST environment)
+function set_repo_secret() {
+  local secret_name=$1
+  local secret_value=$2
+  
+  echo -e "${GREEN}Setting repository secret:${NC} $secret_name"
+  echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO" 2>/dev/null || {
+    echo -e "${RED}Failed to set repository secret $secret_name${NC}"
+    return 1
+  }
+  echo -e "${GREEN}✓ Set repository secret $secret_name for $REPO${NC}"
+}
+
 # Service environment variables
 SERVICE_VARS=(
   # Backend variables
@@ -219,6 +233,25 @@ SERVICE_VARS=(
 # Set environment-specific secrets
 for env in "${ENV_ARRAY[@]}"; do
   env_upper=$(echo "$env" | tr '[:lower:]' '[:upper:]')
+  
+  # Handle TEST environment the same as other environments
+  if [[ "$env" == "test" ]]; then
+    echo -e "${BLUE}Setting up secrets for $env environment...${NC}"
+    
+    # TEST secrets are set as environment secrets (same as other environments)
+    for var_name in "${SERVICE_VARS[@]}"; do
+      env_var="TEST_${var_name}"
+      
+      if [[ -n "${!env_var}" ]]; then
+        set_secret "$env" "$var_name" "${!env_var}"
+      else
+        echo -e "${YELLOW}Warning:${NC} $env_var environment variable is not set"
+      fi
+    done
+    
+    continue
+  fi
+  
   echo -e "${BLUE}Setting up secrets for $env environment...${NC}"
   
   # Set all service environment variables
@@ -232,59 +265,61 @@ for env in "${ENV_ARRAY[@]}"; do
     fi
   done
   
-  # Set default frontend URLs if not provided
-  if [[ -z "${!env_upper}_FRONTEND_URL" ]]; then
-    if [[ "$env" == "prd" ]]; then
-      frontend_url="https://app.rhesis.ai"
-    else
-      frontend_url="https://$env-app.rhesis.ai"
+  # Set default frontend URLs if not provided (skip for test environment)
+  if [[ "$env" != "test" ]]; then
+    if [[ -z "${!env_upper}_FRONTEND_URL" ]]; then
+      if [[ "$env" == "prd" ]]; then
+        frontend_url="https://app.rhesis.ai"
+      else
+        frontend_url="https://$env-app.rhesis.ai"
+      fi
+      echo -e "${YELLOW}Warning:${NC} ${env_upper}_FRONTEND_URL not set, using default: $frontend_url"
+      set_secret "$env" "FRONTEND_URL" "$frontend_url"
     fi
-    echo -e "${YELLOW}Warning:${NC} ${env_upper}_FRONTEND_URL not set, using default: $frontend_url"
-    set_secret "$env" "FRONTEND_URL" "$frontend_url"
-  fi
-  
-  # Set default NextAuth URL if not provided
-  if [[ -z "${!env_upper}_NEXTAUTH_URL" ]]; then
-    if [[ "$env" == "prd" ]]; then
-      nextauth_url="https://app.rhesis.ai"
-    else
-      nextauth_url="https://$env-app.rhesis.ai"
+    
+    # Set default NextAuth URL if not provided
+    if [[ -z "${!env_upper}_NEXTAUTH_URL" ]]; then
+      if [[ "$env" == "prd" ]]; then
+        nextauth_url="https://app.rhesis.ai"
+      else
+        nextauth_url="https://$env-app.rhesis.ai"
+      fi
+      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXTAUTH_URL not set, using default: $nextauth_url"
+      set_secret "$env" "NEXTAUTH_URL" "$nextauth_url"
     fi
-    echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXTAUTH_URL not set, using default: $nextauth_url"
-    set_secret "$env" "NEXTAUTH_URL" "$nextauth_url"
-  fi
-  
-  # Set default API URL if not provided
-  if [[ -z "${!env_upper}_NEXT_PUBLIC_API_BASE_URL" ]]; then
-    if [[ "$env" == "prd" ]]; then
-      api_url="https://api.rhesis.ai"
-    else
-      api_url="https://$env-api.rhesis.ai"
+    
+    # Set default API URL if not provided
+    if [[ -z "${!env_upper}_NEXT_PUBLIC_API_BASE_URL" ]]; then
+      if [[ "$env" == "prd" ]]; then
+        api_url="https://api.rhesis.ai"
+      else
+        api_url="https://$env-api.rhesis.ai"
+      fi
+      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
+      set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
     fi
-    echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
-    set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
-  fi
-  
-  # Set default APP URL if not provided
-  if [[ -z "${!env_upper}_NEXT_PUBLIC_APP_URL" ]]; then
-    if [[ "$env" == "prd" ]]; then
-      app_url="https://app.rhesis.ai"
-    else
-      app_url="https://$env-app.rhesis.ai"
+    
+    # Set default APP URL if not provided
+    if [[ -z "${!env_upper}_NEXT_PUBLIC_APP_URL" ]]; then
+      if [[ "$env" == "prd" ]]; then
+        app_url="https://app.rhesis.ai"
+      else
+        app_url="https://$env-app.rhesis.ai"
+      fi
+      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_APP_URL not set, using default: $app_url"
+      set_secret "$env" "NEXT_PUBLIC_APP_URL" "$app_url"
     fi
-    echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_APP_URL not set, using default: $app_url"
-    set_secret "$env" "NEXT_PUBLIC_APP_URL" "$app_url"
-  fi
-  
-  # Set default log level if not provided
-  if [[ -z "${!env_upper}_LOG_LEVEL" ]]; then
-    if [[ "$env" == "prd" ]]; then
-      log_level="INFO"
-    else
-      log_level="DEBUG"
+    
+    # Set default log level if not provided
+    if [[ -z "${!env_upper}_LOG_LEVEL" ]]; then
+      if [[ "$env" == "prd" ]]; then
+        log_level="INFO"
+      else
+        log_level="DEBUG"
+      fi
+      echo -e "${YELLOW}Warning:${NC} ${env_upper}_LOG_LEVEL not set, using default: $log_level"
+      set_secret "$env" "LOG_LEVEL" "$log_level"
     fi
-    echo -e "${YELLOW}Warning:${NC} ${env_upper}_LOG_LEVEL not set, using default: $log_level"
-    set_secret "$env" "LOG_LEVEL" "$log_level"
   fi
 done
 
