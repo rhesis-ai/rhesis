@@ -1,5 +1,14 @@
 name: 🧪 Backend Testing
 
+# USAGE INSTRUCTIONS:
+# 
+# This workflow automatically detects the environment:
+#   • GitHub Actions: Uses environment secrets from 'test' environment
+#   • Local 'act': Uses secrets from --secret-file (environment is skipped)
+#   • No manual changes needed - works seamlessly in both contexts!
+#
+# For local testing: gh act -W .github/workflows/backend-test.yml --secret-file apps/backend/.env.test
+
 on:
   workflow_dispatch:
     inputs:
@@ -30,17 +39,56 @@ on:
         default: true
         type: boolean
 
+# Workflow-level env can only contain non-secret variables
 env:
-  # Database Configuration (local test database)
   POSTGRES_HOST: localhost
   POSTGRES_PORT: 5432
+  PYTHONPATH: ${{ github.workspace }}/apps/backend/src:${{ github.workspace }}
 
 jobs:
-  # Dynamic test execution based on selected markers
   test:
     name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
     runs-on: ubuntu-latest
+    
+    # 👇 Only apply environment when running on GitHub (not act)
     environment: test
+    
+    env:
+      # Database configuration
+      SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
+      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}
+      SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
+      SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+      SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+      SQLALCHEMY_DB_HOST: localhost
+      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
+      
+      # Application configuration
+      LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
+      BROKER_URL: ${{ secrets.BROKER_URL }}
+      CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
+      
+      # External services
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
+      AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL_NAME: ${{ secrets.GEMINI_MODEL_NAME }}
+      AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+      AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
+      AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+      AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+      AUTH0_SECRET_KEY: ${{ secrets.AUTH0_SECRET_KEY }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
     
     services:
       postgres:
@@ -96,140 +144,112 @@ jobs:
       - name: Verify SDK installation
         run: |
           cd apps/backend
-          uv pip show rhesis-sdk
+          uv pip show rhesis-sdk || {
+            echo "❌ SDK not installed correctly"
+            exit 1
+          }
+
+      - name: Debug environment detection
+        run: |
+          echo "🔍 Environment detection debug:"
+          echo "ACT: ${ACT:-not set}"
+          echo "GITHUB_ACTIONS: ${GITHUB_ACTIONS:-not set}"
+          echo "CI: ${CI:-not set}"
+          
+      - name: Validate environment
+        if: ${{ inputs.test_markers != 'unit' }}
+        run: |
+          echo "🔍 Validating test environment configuration..."
+          
+          # Check required environment variables
+          if [[ -z "$SQLALCHEMY_DB_USER" || -z "$SQLALCHEMY_DB_NAME" || -z "$SQLALCHEMY_DB_PASS" ]]; then
+            echo "❌ Missing required database environment variables"
+            exit 1
+          fi
+          
+          echo "✅ Environment validation passed"
 
       - name: Install PostgreSQL client
-        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
+        if: ${{ inputs.test_markers != 'unit' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
       - name: Wait for PostgreSQL
-        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
+        if: ${{ inputs.test_markers != 'unit' }}
         run: |
+          echo "⏳ Waiting for PostgreSQL..."
           until pg_isready -h localhost -p 5432 -U postgres; do
-            echo "Waiting for PostgreSQL..."
             sleep 2
           done
-          echo "PostgreSQL is ready!"
+          echo "✅ PostgreSQL ready"
 
       - name: Create test database and user
-        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
+        if: ${{ inputs.test_markers != 'unit' }}
         env:
-          PGPASSWORD: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
-          DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          PGPASSWORD: ${{ env.SQLALCHEMY_DB_PASS }}
         run: |
           echo "🔗 Setting up test database and user..."
-          echo "🔍 Debug: Checking environment variables..."
-          echo "Database: '$DB_NAME'"
-          echo "User: '$DB_USER'"
-          echo "Host: localhost:5432"
-          echo "Password length: ${#PGPASSWORD}"
           
-          # Test PostgreSQL service availability first
-          echo "🔍 Testing PostgreSQL service..."
+          # Test PostgreSQL service availability
           pg_isready -h localhost -p 5432 -U postgres || {
             echo "❌ PostgreSQL service not ready"
             exit 1
           }
           
-          # Connect as postgres user to create database and user
-          echo "🔍 Creating database and user..."
-          
-          # Create user first
+          # Create user
           PGPASSWORD='' psql -h localhost -U postgres -d postgres -c "
             DO \$\$
             BEGIN
-              IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '$DB_USER') THEN
-                CREATE USER \"$DB_USER\" WITH PASSWORD '$PGPASSWORD';
+              IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '$SQLALCHEMY_DB_USER') THEN
+                CREATE USER \"$SQLALCHEMY_DB_USER\" WITH PASSWORD '$SQLALCHEMY_DB_PASS';
               END IF;
             END
             \$\$;
-          " || {
-            echo "❌ Failed to create user"
-            exit 1
-          }
+          " || exit 1
           
           # Create database
           PGPASSWORD='' psql -h localhost -U postgres -d postgres -c "
-            SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'
+            SELECT 1 FROM pg_database WHERE datname = '$SQLALCHEMY_DB_NAME'
           " | grep -q 1 || {
-            echo "Creating database $DB_NAME..."
-            PGPASSWORD='' createdb -h localhost -U postgres -O "$DB_USER" "$DB_NAME" || {
-              echo "❌ Failed to create database"
-              exit 1
-            }
+            PGPASSWORD='' createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || exit 1
           }
           
           # Grant privileges
           PGPASSWORD='' psql -h localhost -U postgres -d postgres -c "
-            GRANT ALL PRIVILEGES ON DATABASE \"$DB_NAME\" TO \"$DB_USER\";
-          " || {
-            echo "❌ Failed to grant privileges"
-            exit 1
-          }
+            GRANT ALL PRIVILEGES ON DATABASE \"$SQLALCHEMY_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
+          " || exit 1
           
-          # List all databases to verify creation
-          echo "🔍 Listing all databases after creation..."
-          PGPASSWORD='' psql -h localhost -U postgres -d postgres -c "SELECT datname FROM pg_database;" || echo "Failed to list databases"
-          
-          # Test connection to new database
-          echo "🔍 Testing connection to database: $DB_NAME"
-          psql -h localhost -U "$DB_USER" -d "$DB_NAME" -c 'SELECT version();' && echo "✅ Database connection verified" || {
+          # Verify database connection
+          psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT 1;' > /dev/null || {
             echo "❌ Database connection failed"
             exit 1
           }
+          echo "✅ Database and user created successfully"
 
       - name: Run database migrations
-        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
-        env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
+        if: ${{ inputs.test_markers != 'unit' }}
         run: |
           cd apps/backend/src/rhesis/backend
           uv run alembic upgrade head
 
       - name: Verify database structure
-        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
+        if: ${{ inputs.test_markers != 'unit' }}
         env:
-          PGPASSWORD: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
-          DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          PGPASSWORD: ${{ env.SQLALCHEMY_DB_PASS }}
         run: |
           echo "🔍 Verifying database structure..."
-          timeout 30 psql -h localhost -U "$DB_USER" -d "$DB_NAME" -c "
-            SELECT 
-              schemaname, 
-              tablename, 
-              tableowner 
-            FROM pg_tables 
-            WHERE schemaname = 'public' 
-            ORDER BY tablename;
-          " || {
-            echo "⚠️  Database verification timed out, but continuing..."
-            echo "🔍 Quick table count check:"
-            psql -h localhost -U "$DB_USER" -d "$DB_NAME" -c "SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = 'public';"
-          }
-          echo "✅ Database verification completed"
+          psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c "
+            SELECT COUNT(*) as table_count 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public';
+          " || exit 1
+          echo "✅ Database verified"
 
       - name: Setup test data
-        if: ${{ inputs.test_markers != 'unit' || inputs.test_markers == 'all' || contains(inputs.test_markers, 'integration') || contains(inputs.test_markers, 'slow') || contains(inputs.test_markers, 'security') || inputs.test_markers == 'custom' }}
+        if: ${{ inputs.test_markers != 'unit' }}
         id: setup_env
         env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
           LOG_LEVEL: WARNING
         run: |
           cd apps/backend
@@ -242,14 +262,11 @@ jobs:
           from backend.fixtures.test_setup import setup_test_environment
           setup_test_environment()
           print(os.environ.get('RHESIS_API_KEY', ''))
-          " | tail -1) || {
-            echo "⚠️  Test setup timed out after 5 minutes"
-            exit 1
-          }
+          " | tail -1) || exit 1
           
           # Export the API token for subsequent steps
           echo "RHESIS_API_KEY=${API_TOKEN}" >> $GITHUB_OUTPUT
-          echo "🔑 API token captured: ${API_TOKEN}"
+          echo "✅ Test environment ready"
 
       - name: Determine pytest command
         id: pytest_cmd
@@ -264,84 +281,25 @@ jobs:
 
       - name: Run tests
         env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
-          BROKER_URL: ${{ secrets.BROKER_URL }}
-          CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
-          
-          # Application configuration
-          LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src:${{ github.workspace }}
-          
-          # AI services configuration
-          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
-          AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL_NAME: ${{ secrets.GEMINI_MODEL_NAME }}
-          
-          # Auth configuration
-          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ secrets.AUTH0_AUDIENCE }}
-          AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
-          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
-          AUTH0_SECRET_KEY: ${{ secrets.AUTH0_SECRET_KEY }}
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-          JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
-          JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
-          
-          # Other services configuration
-          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-          
-          # Test-generated API key
-          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY }}
+          # Test-generated API key (only step-specific override)
+          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'fallback-for-unit-tests' }}
         run: |
-          # Run tests from repository root with proper PYTHONPATH
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           ${{ steps.pytest_cmd.outputs.cmd }}
 
       - name: Generate coverage report
         if: ${{ inputs.run_coverage == true }}
         env:
-          SQLALCHEMY_DB_MODE: ${{ secrets.SQLALCHEMY_DB_MODE }}
-          SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ secrets.SQLALCHEMY_DB_NAME }}
-          SQLALCHEMY_DB_DRIVER: ${{ secrets.SQLALCHEMY_DB_DRIVER }}
-          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-          SQLALCHEMY_DB_HOST: ${{ env.POSTGRES_HOST }}
-          SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}
-          
-          # Application configuration
+          # Override with mock services for coverage (lighter than real services)
           LOG_LEVEL: WARNING
-          PYTHONPATH: ${{ github.workspace }}/apps/backend/src
-          
-          # Mock AI services
           AZURE_OPENAI_API_KEY: mock-azure-key-for-testing
           GEMINI_API_KEY: mock-gemini-key-for-testing
-          
-          # Mock Auth configuration
           AUTH0_DOMAIN: mock-domain.auth0.com
           JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
           JWT_ALGORITHM: HS256
-          
-          # Test-generated API key
-          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY }}
+          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'mock-api-key-for-coverage' }}
         run: |
-          # Run coverage from repository root with proper PYTHONPATH
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
-          
-          # Use uv run with project specification to run pytest from root
           if [ "${{ inputs.test_markers }}" = "all" ]; then
             uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing -v
           elif [ "${{ inputs.test_markers }}" = "custom" ]; then
@@ -350,14 +308,14 @@ jobs:
             uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing -m "${{ inputs.test_markers }}" -v
           fi
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to Coveralls
         if: ${{ inputs.run_coverage == true }}
-        uses: codecov/codecov-action@v3
+        uses: coverallsapp/github-action@v2
         with:
-          file: ./coverage.xml
-          flags: backend
-          fail_ci_if_error: false
-          verbose: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage.xml
+          flag-name: backend
+          parallel: false
 
       - name: Upload coverage reports as artifacts
         if: ${{ inputs.run_coverage == true }}
