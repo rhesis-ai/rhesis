@@ -4,7 +4,6 @@
 # Use Python 3.10 base image
 FROM python:3.10-slim
 
-RUN apt-get update && apt-get install -y vim 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -38,6 +37,7 @@ COPY apps/worker/health_server.py /app/health_server.py
 
 # Install dependencies with uv using --system flag
 
+<<<<<<< HEAD
 # Remove build dependencies after installing Python packages
 RUN apt-get purge -y gcc \
     && apt-get autoremove -y \
@@ -47,6 +47,15 @@ RUN apt-get purge -y gcc \
 # Set Python path to find the modules
 ENV PYTHONPATH=/app:/app/backend/src
 
+=======
+RUN uv add --directory ./backend --no-sync ../sdk
+RUN uv add ./backend
+
+RUN uv sync
+
+# Set Python path to find the modules
+ENV PATH="/app/.venv/bin:$PATH"
+>>>>>>> a2590ee (introduce nicer uv solution)
 
 # Create directory for Celery logs
 RUN mkdir -p /var/log/celery

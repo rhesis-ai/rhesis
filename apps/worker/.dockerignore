@@ -34,4 +34,5 @@
 **/tests/
 **/.github/
 **/*.md
-!README.md
+!**/README.md
+**/.venv/**/README.md
