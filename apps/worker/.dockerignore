@@ -33,6 +33,10 @@
 # Project specific
 **/tests/
 **/.github/
+# Ignore all markdown files
 **/*.md
+# Except README.md files, which are needed for building the Python packages
 !**/README.md
+# Ignore README.md files in .venv directories. It case creation of the .venv directory, which prevent
+# creation of the new environment by uv
 **/.venv/**/README.md
