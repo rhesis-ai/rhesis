@@ -97,6 +97,8 @@ jobs:
     name: 🗄️ Database Setup
     runs-on: ubuntu-latest
     needs: setup
+    outputs:
+      database_name: ${{ steps.setup_database.outputs.database_name }}
     environment: test
     
     env:
@@ -162,6 +164,7 @@ jobs:
           echo "✅ PostgreSQL ready"
 
       - name: Create test database and user
+        id: setup_database
         run: |
           echo "🔗 Setting up test database and user..."
           echo "Creating isolated database: $ISOLATED_DB_NAME"
@@ -216,6 +219,9 @@ jobs:
           }
           
           echo "✅ Database and user created successfully"
+          
+          # Set output for other jobs
+          echo "database_name=$ISOLATED_DB_NAME" >> $GITHUB_OUTPUT
 
       - name: Run database migrations
         env:
@@ -279,12 +285,13 @@ jobs:
     environment: test
     
     env:
-      ISOLATED_DB_NAME: ${{ needs.database-setup.outputs.database-name }}
+      ISOLATED_DB_NAME: ${{ needs.database-setup.outputs.database_name }}
       SQLALCHEMY_DB_MODE: test
       SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
       SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
       SQLALCHEMY_DB_HOST: localhost
-      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      SQLALCHEMY_DB_NAME: ${{ needs.database-setup.outputs.database_name }}
+      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ needs.database-setup.outputs.database_name }}
       LOG_LEVEL: WARNING
       
       # Application configuration
@@ -416,8 +423,8 @@ jobs:
       SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
       SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
       SQLALCHEMY_DB_HOST: localhost
-      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      SQLALCHEMY_DB_NAME: ${{ needs.database-setup.outputs.database_name }}
+      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ needs.database-setup.outputs.database_name }}
       
       # Test-generated API key
       RHESIS_API_KEY: ${{ needs.test-data-setup.outputs.api-token || 'fallback-for-unit-tests' }}
@@ -533,19 +540,9 @@ jobs:
 
       - name: Run tests
         run: |
-          # Export all database environment variables to ensure they override .env file
-          export SQLALCHEMY_DB_MODE="test"
-          export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
-          export SQLALCHEMY_DATABASE_TEST_URL="$SQLALCHEMY_DATABASE_TEST_URL"
-          export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
-          export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
-          export SQLALCHEMY_DB_HOST="$SQLALCHEMY_DB_HOST"
-          export SQLALCHEMY_DB_DRIVER="postgresql"
-          
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           echo "🧪 Running tests with database: $SQLALCHEMY_DB_NAME"
           echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
-          echo "🔧 Environment variables exported to override .env file"
           ${{ steps.pytest_cmd.outputs.cmd }}
 
       - name: Upload test results
@@ -572,8 +569,8 @@ jobs:
       SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
       SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
       SQLALCHEMY_DB_HOST: localhost
-      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+      SQLALCHEMY_DB_NAME: ${{ needs.database-setup.outputs.database_name }}
+      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ needs.database-setup.outputs.database_name }}
       
       # Override with mock services for coverage (lighter than real services)
       LOG_LEVEL: WARNING
