@@ -10,27 +10,146 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
-# Simple ASCII Art for RHESIS
-echo -e "${CYAN}"
-echo "  ____  _   _ _____ ____ ___ ____  "
-echo " |  _ \| | | | ____/ ___|_ _/ ___| "
-echo " | |_) | |_| |  _| \___ \| |\___ \ "
-echo " |  _ <|  _  | |___ ___) | | ___) |"
-echo " |_| \_\_| |_|_____|____/___|____/ "
-echo -e "${NC}"
+# Function to log with timestamp
+log() {
+    echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
 
-echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
-echo -e "${WHITE}🚀 Starting Rhesis Backend Server${NC}"
-echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
-echo ""
+# Function to handle errors
+handle_error() {
+    log "${RED}❌ Startup failed: $1${NC}"
+    exit 1
+}
 
-echo -e "${YELLOW}📍 Host:${NC} ${GREEN}0.0.0.0${NC}"
-echo -e "${YELLOW}🔌 Port:${NC} ${GREEN}8080${NC}"
-echo -e "${YELLOW}📝 Log Level:${NC} ${GREEN}debug${NC}"
-echo -e "${YELLOW}🔄 Auto-reload:${NC} ${GREEN}enabled${NC}"
-echo ""
+# Function to check if we're in production mode
+is_production() {
+    [ "${ENVIRONMENT}" = "production" ] || [ "${ENV}" = "production" ] || [ "${NODE_ENV}" = "production" ]
+}
 
-echo -e "${BLUE}▶️  Launching server...${NC}"
-echo ""
+# Function to display banner
+show_banner() {
+    echo -e "${CYAN}"
+    echo "  ____  _   _ _____ ____ ___ ____  "
+    echo " |  _ \| | | | ____/ ___|_ _/ ___| "
+    echo " | |_) | |_| |  _| \___ \| |\___ \ "
+    echo " |  _ <|  _  | |___ ___) | | ___) |"
+    echo " |_| \_\_| |_|_____|____/___|____/ "
+    echo -e "${NC}"
+    
+    echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
+    echo -e "${WHITE}🚀 Starting Rhesis Backend Server${NC}"
+    echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
+    echo ""
+}
 
-uv run uvicorn rhesis.backend.app.main:app --host 0.0.0.0 --port 8080 --log-level debug --reload 
+# Function to run database migrations
+run_migrations() {
+    log "${BLUE}🔄 Running database migrations...${NC}"
+    
+    if [ -f "/app/migrate.sh" ]; then
+        if /app/migrate.sh; then
+            log "${GREEN}✅ Database migrations completed successfully${NC}"
+        else
+            handle_error "Database migrations failed"
+        fi
+    else
+        log "${YELLOW}⚠️  Migration script not found, skipping migrations${NC}"
+    fi
+}
+
+# Function to validate environment
+validate_environment() {
+    log "${BLUE}🔍 Validating environment...${NC}"
+    
+    # Check if we're in the correct directory
+    if [ ! -d "/app/src/rhesis/backend" ]; then
+        handle_error "Backend source directory not found"
+    fi
+    
+    # Check if the main application exists
+    if [ ! -f "/app/src/rhesis/backend/app/main.py" ]; then
+        handle_error "Main application file not found"
+    fi
+    
+    log "${GREEN}✅ Environment validation passed${NC}"
+}
+
+# Function to start the server
+start_server() {
+    local host="${HOST:-0.0.0.0}"
+    local port="${PORT:-8080}"
+    local workers="${WORKERS:-4}"
+    local timeout="${TIMEOUT:-60}"
+    
+    log "${BLUE}📋 Server Configuration:${NC}"
+    log "  Host: $host"
+    log "  Port: $port"
+    log "  Workers: $workers"
+    log "  Timeout: ${timeout}s"
+    log "  Environment: $(is_production && echo "production" || echo "development")"
+    echo ""
+    
+    if is_production; then
+        log "${BLUE}🏭 Starting production server with Gunicorn...${NC}"
+        exec gunicorn \
+            --workers "$workers" \
+            --worker-class uvicorn.workers.UvicornWorker \
+            --bind "$host:$port" \
+            --timeout "$timeout" \
+            --access-logfile - \
+            --error-logfile - \
+            --log-level info \
+            --preload \
+            rhesis.backend.app.main:app
+    else
+        log "${BLUE}🛠️  Starting development server with Uvicorn...${NC}"
+        exec uv run uvicorn \
+            rhesis.backend.app.main:app \
+            --host "$host" \
+            --port "$port" \
+            --log-level debug \
+            --reload
+    fi
+}
+
+# Function to handle shutdown gracefully
+cleanup() {
+    log "${YELLOW}🛑 Received shutdown signal, cleaning up...${NC}"
+    # Kill any background processes
+    jobs -p | xargs -r kill
+    log "${GREEN}✅ Cleanup completed${NC}"
+    exit 0
+}
+
+# Main execution
+main() {
+    # Set up signal handlers
+    trap cleanup SIGTERM SIGINT
+    
+    # Show banner
+    show_banner
+    
+    # Log startup information
+    log "${BLUE}🚀 Starting Rhesis Backend startup sequence...${NC}"
+    log "${BLUE}📅 Startup time: $(date)${NC}"
+    log "${BLUE}👤 Running as user: $(whoami)${NC}"
+    log "${BLUE}📁 Working directory: $(pwd)${NC}"
+    
+    # Validate environment
+    validate_environment
+    
+    # Run database migrations (only if database is configured)
+    if [ -n "${SQLALCHEMY_DB_HOST:-}" ]; then
+        run_migrations
+    else
+        log "${YELLOW}⚠️  No database configuration found, skipping migrations${NC}"
+    fi
+    
+    # Start the server
+    log "${BLUE}▶️  Launching server...${NC}"
+    echo ""
+    start_server
+}
+
+# Execute main function
+main "$@" 

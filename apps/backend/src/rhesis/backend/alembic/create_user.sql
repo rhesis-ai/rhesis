@@ -1,11 +1,14 @@
--- Create the user with a placeholder password
-CREATE USER rhesis_user WITH PASSWORD 'xxxxx';
-
 -- Grant necessary privileges on the table in the public schema
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rhesis_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "rhesis-user";
 
 -- Grant the same privileges on any future tables in the public schema
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rhesis_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "rhesis-user";
 
--- Grant CONNECT privilege to the user for the rhesis-test database
-GRANT CONNECT ON DATABASE "rhesis-test" TO rhesis_user;
+-- Grant CONNECT privilege to the user for the rhesis-db database
+GRANT CONNECT ON DATABASE "rhesis-db" TO "rhesis-user";
+
+-- Grant USAGE privilege on the public schema
+GRANT USAGE ON SCHEMA public TO "rhesis-user";
+
+-- Grant CREATE privilege on the public schema (for migrations)
+GRANT CREATE ON SCHEMA public TO "rhesis-user";

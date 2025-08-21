@@ -7,7 +7,7 @@ import { isPublicPath, ONBOARDING_PATH } from './constants/paths'
 async function verifySessionWithBackend(sessionToken: string) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/verify?session_token=${sessionToken}`,
+      `${process.env.BACKEND_URL}/auth/verify?session_token=${sessionToken}`,
       {
         headers: {
           Accept: 'application/json',
@@ -59,7 +59,7 @@ async function createSessionClearingResponse(url: URL, shouldCallBackendLogout: 
   if (shouldCallBackendLogout) {
     try {
       console.log('🟠 [DEBUG] Middleware calling backend logout for session expiration');
-      const logoutUrl = new URL('/auth/logout', process.env.NEXT_PUBLIC_API_BASE_URL);
+      const logoutUrl = new URL('/auth/logout', process.env.BACKEND_URL);
       if (sessionToken) {
         logoutUrl.searchParams.set('session_token', sessionToken);
       }

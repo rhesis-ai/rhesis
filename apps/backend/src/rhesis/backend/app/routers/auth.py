@@ -116,6 +116,11 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
             logger.error(f"Error processing session token during logout: {str(e)}")
             # Continue with logout even if there's an error
 
+    # Check if this is an API call (from frontend middleware)
+    accept_header = request.headers.get("accept", "")
+    if "application/json" in accept_header or "api" in request.url.path:
+        return {"success": True, "message": "Logged out successfully"}
+
     # Get frontend URL from environment variable
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
