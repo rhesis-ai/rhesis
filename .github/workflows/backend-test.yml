@@ -1,4 +1,4 @@
-name: 🧪 Backend Testing
+name: Backend Testing ☑️
 
 # USAGE INSTRUCTIONS:
 # 
@@ -296,12 +296,17 @@ jobs:
         env:
           # Test-generated API key (only step-specific override)
           RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'fallback-for-unit-tests' }}
-          # Use isolated database for tests
+          # Database configuration - all tests use PostgreSQL with isolation
+          SQLALCHEMY_DB_MODE: test
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_HOST: localhost
           SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
           SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           echo "🧪 Running tests with isolated database: $SQLALCHEMY_DB_NAME"
+          echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
           ${{ steps.pytest_cmd.outputs.cmd }}
 
       - name: Generate coverage report
@@ -318,6 +323,11 @@ jobs:
           # Use isolated database for coverage
           SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
           SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
+          # Ensure database connection variables are available during imports
+          SQLALCHEMY_DB_MODE: test
+          SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
+          SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
+          SQLALCHEMY_DB_HOST: localhost
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           if [ "${{ inputs.test_markers }}" = "all" ]; then
