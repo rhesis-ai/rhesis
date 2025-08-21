@@ -67,7 +67,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-rhesis-sdk = { path = "../../sdk", editable = true }
+rhesis-sdk = { path = "sdk", editable = true }
 
 [build-system]
 requires = [

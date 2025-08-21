@@ -31,6 +31,7 @@ RUN find . -name ".env*" -type f -delete
 # Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
     echo "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" >> .env && \
+    echo "BACKEND_URL=${BACKEND_URL}" >> .env && \
     echo "NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_DOMAIN=${NEXT_PUBLIC_AUTH0_DOMAIN}" >> .env && \
     echo "NEXT_PUBLIC_AUTH0_CLIENT_ID=${NEXT_PUBLIC_AUTH0_CLIENT_ID}" >> .env && \
@@ -40,11 +41,9 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
 
 # Set environment variables for better Next.js performance
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 
-# Build the application (includes type-check and lint via prebuild script)
-RUN npm run build
-
+# For development mode, we'll start the dev server directly
 # Remove the temporary .env file
 RUN rm -f .env
 
@@ -57,18 +56,20 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # Set environment variables
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy only the necessary files from the builder stage
+# Copy all necessary files from the builder stage
 COPY --from=builder /app/package.json /app/package-lock.json ./
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/.eslintrc.json ./
 # Do NOT copy any .env files to production image
 
-# Install only production dependencies with clean install
-RUN npm ci --only=production && npm cache clean --force
+# Install all dependencies for development
+RUN npm ci && npm cache clean --force
 
 # Create a non-root user and switch to it
 RUN addgroup --system --gid 1001 nodejs && \
@@ -83,5 +84,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
-# Start the application with PORT defaulting to 3000 if not set
-CMD ["sh", "-c", "export PORT=${PORT:-3000} && npm start"]
+# Start the development server with PORT defaulting to 3000 if not set
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && npm run dev"]
