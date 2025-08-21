@@ -1,0 +1,37 @@
+# Environment files - should not be copied into containers
+**/.env
+**/.env.*
+.env
+.env.*
+
+# Python cache files
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+*.so
+
+# Virtual environments
+**/.venv
+**/venv
+**/env
+**/.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
