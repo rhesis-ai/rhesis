@@ -129,7 +129,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Cache uv dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}
@@ -319,7 +319,7 @@ jobs:
 
       - name: Upload coverage reports as artifacts
         if: ${{ inputs.run_coverage == true }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
           path: |
