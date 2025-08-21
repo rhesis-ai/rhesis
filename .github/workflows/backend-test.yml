@@ -533,9 +533,19 @@ jobs:
 
       - name: Run tests
         run: |
+          # Export all database environment variables to ensure they override .env file
+          export SQLALCHEMY_DB_MODE="test"
+          export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
+          export SQLALCHEMY_DATABASE_TEST_URL="$SQLALCHEMY_DATABASE_TEST_URL"
+          export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
+          export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
+          export SQLALCHEMY_DB_HOST="$SQLALCHEMY_DB_HOST"
+          export SQLALCHEMY_DB_DRIVER="postgresql"
+          
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           echo "🧪 Running tests with database: $SQLALCHEMY_DB_NAME"
           echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
+          echo "🔧 Environment variables exported to override .env file"
           ${{ steps.pytest_cmd.outputs.cmd }}
 
       - name: Upload test results
