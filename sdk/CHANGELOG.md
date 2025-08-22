@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-08-22
+
+### Added
+- Support for extracting content from `.docx`, `.pptx`, and `.xlsx` file formats.
+
+### Changed
+- Migrated document extraction from `docling` to `markitdown` for improved performance and format support.
+- Improved code style and consistency across the SDK.
+- Enhanced linting and formatting processes using `ruff` via Makefile improvements and a pre-commit hook at the root level.
+
+### Removed
+- Support for extracting content from `.url` and `.youtube` file extensions.
+
+
 ## [0.2.1] - 2025-08-08
 
 ### Added

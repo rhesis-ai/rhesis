@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-backend"
-version = "0.2.1"
+version = "0.2.2"
 description = "Rhesis backend package"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -66,14 +66,9 @@ dev = [
     "factory-boy>=3.3.0",
 ]
 
-[tool.uv.sources]
-rhesis-sdk = { path = "../../sdk", editable = true }
-
-[build-system]
-requires = [
-    "hatchling",
-]
-build-backend = "hatchling.build"
+[tool.uv.sources.rhesis-sdk]
+path = "../../sdk"
+editable = true
 
 [tool.hatch.build.targets.wheel]
 packages = [
@@ -120,4 +115,8 @@ markers = [
     "security: security and vulnerability tests",
 ]
 
-
+[build-system]
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"
