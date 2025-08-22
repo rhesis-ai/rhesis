@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Rhesis! This document provides comprehensive guidelines and instructions for contributing to our main repository.
 
-## 📋 Table of Contents
+## 📋 Table of Contents  
 
 - 📁 [Project Structure](#project-structure)
 - 🐧 [Tools Installation on Linux](#tools-installation-on-linux)
