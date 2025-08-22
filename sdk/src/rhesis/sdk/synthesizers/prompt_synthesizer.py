@@ -1,14 +1,14 @@
 from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.services import LLMService
+from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.helpers import (
+    create_test_set,
     load_prompt_template,
-    retry_llm_call,
     parse_llm_response,
-    create_test_set
+    retry_llm_call,
 )
 from rhesis.sdk.utils import clean_and_validate_tests
 
@@ -39,10 +39,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                 print(f"Warning: Failed to extract some documents: {e}")
 
         # Set system prompt using helper
-        self.system_prompt = load_prompt_template(
-            self.__class__.__name__, 
-            system_prompt
-        )
+        self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
 
         self.llm_service = LLMService()
 

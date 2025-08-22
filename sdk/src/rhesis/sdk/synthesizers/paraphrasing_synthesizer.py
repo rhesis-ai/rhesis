@@ -1,13 +1,12 @@
 from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.services import LLMService
+from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.helpers import (
+    create_test_set,
     load_prompt_template,
     retry_llm_call,
-    parse_llm_response,
-    create_test_set
 )
 
 
@@ -25,10 +24,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
         self.num_paraphrases: int = 2  # Default value, can be overridden in generate()
 
         # Set system prompt using helper
-        self.system_prompt = load_prompt_template(
-            self.__class__.__name__, 
-            system_prompt
-        )
+        self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
 
         self.llm_service = LLMService()
 
