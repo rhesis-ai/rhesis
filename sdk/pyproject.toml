@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.2.1"
+version = "0.2.2"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -56,6 +56,9 @@ examples = [
     "pandas",
 ]
 
+[project.scripts]
+rhesis = "rhesis.sdk.cli:main"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
@@ -73,9 +76,6 @@ dev = [
     "myst-parser>=4.0.0",
     "ruff>=0.11.6",
 ]
-
-[project.scripts]
-rhesis = "rhesis.sdk.cli:main"
 
 [build-system]
 requires = [

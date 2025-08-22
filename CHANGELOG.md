@@ -13,6 +13,45 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-08-22
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.2**
+- **Frontend 0.2.2**
+- **SDK 0.2.2**
+
+### Summary of Changes
+
+**Backend v0.2.2:**
+- Added document content extraction endpoint and document support to the `/test-sets/generate` endpoint, enabling processing of `.docx`, `.pptx`, and `.xlsx` formats.
+- Implemented Redis authentication and updated environment configuration for enhanced security and management.
+- Improved Docker configuration and startup scripts for a more robust and streamlined deployment process.
+- Enhanced error handling for foreign key violations and improved consistency across backend routes, particularly for UUID validation and demographic routers.
+- Added unit tests for backend components.
+
+
+**Frontend v0.2.2:**
+- Improved document upload experience with automatic metadata generation and updated supported file extensions.
+- Enhanced project creation and management, including fixes for project name truncation and automatic refreshing after creation.
+- Refactored and improved form validation and UI elements across the application.
+- Updated Docker configuration for production mode and improved startup scripts.
+
+
+**SDK v0.2.2:**
+- Migrated document extraction from docling to markitdown, adding support for docx, pptx, and xlsx formats.
+- Removed support for .url and .youtube file extensions.
+- Improved code style and consistency with automated linting and formatting.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.2.1] - 2025-08-08
 
 ### Platform Release
