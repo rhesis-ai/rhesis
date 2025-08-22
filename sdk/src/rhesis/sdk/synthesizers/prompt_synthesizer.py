@@ -45,10 +45,10 @@ class PromptSynthesizer(TestSetSynthesizer):
 
     def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        # Prepare document context for the prompt
-        document_context = ""
+        # Prepare context for the prompt
+        context = ""
         if self.extracted_documents:
-            document_context = "\n\n".join(
+            context = "\n\n".join(
                 [
                     f"Document '{name}':\n{content}"
                     for name, content in self.extracted_documents.items()
@@ -56,7 +56,7 @@ class PromptSynthesizer(TestSetSynthesizer):
             )
 
         formatted_prompt = self.system_prompt.render(
-            generation_prompt=self.prompt, num_tests=num_tests, document_context=document_context
+            generation_prompt=self.prompt, num_tests=num_tests, context=context
         )
 
         # Use helper function for retry logic
