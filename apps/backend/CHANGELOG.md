@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-08-22
+
+### Added
+- Added Redis authentication for enhanced security.
+- Added a new endpoint for document content extraction (`/documents/generate`).
+- Added document support to the `/test-sets/generate` endpoint.
+- Added unit tests for backend components, in particular routes.
+- Introduce CI/CD pipeline for testing, including codecov integration.
+
+### Changed
+- Updated Docker configuration and requirements.
+- Refactored Docker Compose and environment configuration for improved maintainability.
+- Improved migration and startup scripts for Docker backend.
+- Updated backend dependencies for markitdown migration to include docx, pptx, and xlsx formats.
+- Reduced the default Gunicorn timeout from 5 minutes to 1 minute.
+- Standardized backend routes for UUID validation and foreign key error handling.
+- Improved consistency for demographic routers.
+- Updated dimension entity in models and routing.
+- Improved database configuration for testing.
+- Updated `start.sh` to use `uv run` for Uvicorn.
+
+### Fixed
+- Fixed Dockerfile to handle new SDK relative path.
+- Corrected SDK path in backend `pyproject.toml`.
+- Fixed foreign key violation errors.
+- Fixed field label naming issue.
+- Adjusted handling of UUIDs for topic routes.
+- Fixed syntax error in document generation endpoint.
+- Fixed issue where PDF extraction was causing 503 errors by increasing Gunicorn timeout.
+
+
 ## [0.2.1] - 2025-08-08
 
 ### Added

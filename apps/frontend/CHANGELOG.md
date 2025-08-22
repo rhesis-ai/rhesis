@@ -6,6 +6,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-08-22
+
+### Added
+- Added document upload step with automatic metadata generation.
+- Added support for Central European, Nordic, and Eastern European characters in BaseTag validation.
+- Updated frontend supported file extensions to match SDK.
+
+### Changed
+- Refactored docker-compose and environment configuration.
+- Improved migration and start up scripts for docker backend.
+- Adjusted frontend Dockerfile to production mode.
+- Updated Complete Setup button behavior after successful onboarding.
+- Changed 'Generated Name' and 'Generated Description' to just 'Name' and 'Description' in the frontend.
+- Updated supported file extensions for document upload.
+
+### Fixed
+- Fixed issue where projects were not automatically refreshing after new project creation.
+- Fixed issue where long project names were truncated.
+- Fixed various issues in the document generation configuration flow, including:
+    - State persistence.
+    - Inconsistent button behavior.
+    - Test coverage labels.
+    - Button label and description.
+    - Field label naming.
+    - Behaviors and topics display in the final step.
+    - File size validation.
+    - Next button validation on the first step.
+- Fixed `handleNext` double step increment bug.
+- Improved document metadata extraction using a structured prompt format.
+- Fixed document upload state updates.
+
+### Removed
+- Removed projects-legacy and unnecessary navigation items.
+- Removed unnecessary refresh button.
+- Removed unsupported file extensions (.url, .youtube).
+
+
 ## [0.2.1] - 2025-08-08
 
 ### Added
