@@ -41,9 +41,11 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
 
 # Set environment variables for better Next.js performance
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 
-# For development mode, we'll start the dev server directly
+# Build the Next.js application
+RUN npm run build
+
 # Remove the temporary .env file
 RUN rm -f .env
 
@@ -56,20 +58,18 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # Set environment variables
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copy all necessary files from the builder stage
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/.eslintrc.json ./
-# Do NOT copy any .env files to production image
+COPY --from=builder /app/.next ./.next
+# Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
 
-# Install all dependencies for development
-RUN npm ci && npm cache clean --force
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
 
 # Create a non-root user and switch to it
 RUN addgroup --system --gid 1001 nodejs && \
@@ -84,5 +84,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
-# Start the development server with PORT defaulting to 3000 if not set
-CMD ["sh", "-c", "export PORT=${PORT:-3000} && npm run dev"]
+# Start the production server with PORT defaulting to 3000 if not set
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && npm start"]
