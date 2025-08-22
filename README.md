@@ -9,6 +9,9 @@
   <a href="https://pypi.org/project/rhesis-sdk/">
     <img src="https://img.shields.io/pypi/pyversions/rhesis-sdk" alt="Python Versions">
   </a>
+  <a href="https://codecov.io/gh/rhesis-ai/rhesis">
+    <img src="https://codecov.io/gh/rhesis-ai/rhesis/graph/badge.svg?token=1XQV983JEJ" alt="codecov">
+  </a>
   <a href="https://discord.rhesis.ai">
     <img src="https://img.shields.io/discord/1340989671601209408?color=7289da&label=Discord&logo=discord&logoColor=white" alt="Discord">
   </a>
