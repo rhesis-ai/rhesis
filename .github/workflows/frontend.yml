@@ -188,6 +188,7 @@ jobs:
           NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }},
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
           NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }},
+          BACKEND_URL=${{ secrets.BACKEND_URL }},
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
