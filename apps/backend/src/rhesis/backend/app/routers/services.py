@@ -1,31 +1,30 @@
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-import os
 
-from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
-    ChatRequest, 
-    GenerateTestsRequest, 
+    ChatRequest,
+    DocumentUploadResponse,
+    ExtractDocumentRequest,
+    ExtractDocumentResponse,
+    GenerateTestsRequest,
     GenerateTestsResponse,
     PromptRequest,
     TextResponse,
-    DocumentUploadResponse,
-    ExtractDocumentRequest,
-    ExtractDocumentResponse
 )
-from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.generation import generate_tests
+from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.gemini_client import (
     create_chat_completion,
     get_chat_response,
     get_json_response,
 )
-from rhesis.backend.app.services.document_handler import DocumentHandler
+from rhesis.backend.app.services.generation import generate_tests
+from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.sdk.services.extractor import DocumentExtractor
 
 router = APIRouter(
@@ -149,7 +148,8 @@ async def generate_tests_endpoint(
                 - `description` (str): Short description of its purpose.
                 - `path` (str): Path to the uploaded document file.
                 - `content` (str, optional): Raw content of the document.
-                ⚠️ If both `path` and `content` are provided in a document, `content` will override `path`: the file at `path` will not be read or used.
+                ⚠️ If both `path` and `content` are provided in a document, `content` will override
+                 `path`: the file at `path` will not be read or used.
         db: Database session
         current_user: Current authenticated user
 
@@ -160,10 +160,10 @@ async def generate_tests_endpoint(
         prompt = request.prompt
         num_tests = request.num_tests
         documents = request.documents
-        
+
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
-        
+
         # Convert Pydantic models to dicts
         documents_dict = [doc.dict() for doc in documents] if documents else None
 
@@ -177,8 +177,8 @@ async def generate_tests_endpoint(
         if documents_dict:
             handler = DocumentHandler()
             for doc in documents_dict:
-                if doc.get('path'):
-                    await handler.cleanup(doc['path'])
+                if doc.get("path"):
+                    await handler.cleanup(doc["path"])
 
 
 @router.post("/generate/text", response_model=TextResponse)
@@ -194,32 +194,30 @@ async def generate_text(prompt_request: PromptRequest):
     """
     try:
         # Create a simple message array with the prompt
-        messages = [
-            {"role": "user", "content": prompt_request.prompt}
-        ]
-        
+        messages = [{"role": "user", "content": prompt_request.prompt}]
+
         if prompt_request.stream:
             # Handle streaming response
             async def generate():
                 response_stream = get_chat_response(
                     messages=messages,
                     response_format="text",  # Explicitly request text format
-                    stream=True
+                    stream=True,
                 )
-                
+
                 async for chunk in response_stream:
                     if chunk["choices"][0]["delta"]["content"]:
                         yield f"data: {chunk['choices'][0]['delta']['content']}\n\n"
 
             return StreamingResponse(generate(), media_type="text/event-stream")
-        
+
         # Non-streaming response
         response = get_chat_response(
             messages=messages,
             response_format="text",  # Explicitly request text format
-            stream=False
+            stream=False,
         )
-        
+
         return TextResponse(text=response)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -230,7 +228,8 @@ async def upload_document(document: UploadFile = File(...)):
     """
     Upload a document to temporary storage.
 
-    The document will be saved in a temporary directory with a UUID prefix to avoid naming conflicts.
+    The document will be saved in a temporary directory with a UUID prefix to avoid
+    naming conflicts.
     Maximum document size is 5MB.
 
     Args:
@@ -238,8 +237,8 @@ async def upload_document(document: UploadFile = File(...)):
 
     Returns:
         DocumentUploadResponse: Contains the full path to the uploaded document
-    
-    Note: 
+
+    Note:
         The document will be saved in the temporary directory and should be cleaned up after use.
         Use the returned path to reference this document in other endpoints.
     """
@@ -268,7 +267,7 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
 
     Returns:
         ExtractDocumentResponse containing the extracted text content and detected format
-    
+
     Note:
         Documents are automatically cleaned up after processing, so the path must
         point to a recently uploaded document that hasn't been cleaned up yet.
@@ -276,44 +275,38 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
     try:
         # Initialize extractor
         extractor = DocumentExtractor()
-        
+
         # Get file extension to determine format
         file_extension = Path(request.path).suffix.lower()
-        
+
         # Check if format is supported
         if file_extension not in extractor.supported_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file format: {file_extension}. Supported formats: {', '.join(extractor.supported_extensions)}"
+                detail=f"Unsupported file format: {file_extension}. "
+                f"Supported formats: {', '.join(extractor.supported_extensions)}",
             )
-        
+
         # Prepare document for extraction
-        document = {
-            "name": "document",
-            "path": request.path
-        }
-        
+        document = {"name": "document", "path": request.path}
+
         # Extract content
         extracted_texts = extractor.extract([document])
-        
+
         # Get the extracted content (there's only one document)
         content = next(iter(extracted_texts.values()))
-        
+
         return ExtractDocumentResponse(
             content=content,
-            format=file_extension.lstrip('.')  # Remove the leading dot
+            format=file_extension.lstrip("."),  # Remove the leading dot
         )
-        
+
     except FileNotFoundError:
         raise HTTPException(
-            status_code=404,
-            detail="Document not found. It may have been cleaned up already."
+            status_code=404, detail="Document not found. It may have been cleaned up already."
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to extract document content: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Failed to extract document content: {str(e)}")
     finally:
         # Cleanup regardless of success or failure
         if request.path:

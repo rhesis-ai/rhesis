@@ -1,10 +1,8 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import get_current_user, require_current_user
-from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 
 router = APIRouter(prefix="/home", tags=["home"])

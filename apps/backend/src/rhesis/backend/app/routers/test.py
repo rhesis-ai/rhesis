@@ -11,7 +11,6 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.services.test import bulk_create_tests, get_test_stats
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.app.models.user import User
 
 # Create the detailed schema for Test
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)

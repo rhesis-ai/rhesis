@@ -1,19 +1,20 @@
 import os
-from datetime import datetime, timedelta, timezone
-from urllib.parse import parse_qs, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
+from rhesis.backend.app.auth.oauth import extract_user_data, get_auth0_user_info, oauth
+from rhesis.backend.app.auth.token_utils import (
+    create_session_token,
+    get_secret_key,
+    verify_jwt_token,
+)
+from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.auth.user_utils import find_or_create_user
 from rhesis.backend.app.database import get_db
 from rhesis.backend.logging import logger
-from rhesis.backend.app.auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES, FRONTEND_DOMAINS
-from rhesis.backend.app.auth.oauth import oauth, get_auth0_user_info, extract_user_data
-from rhesis.backend.app.auth.token_utils import create_session_token, get_secret_key, verify_jwt_token
-from rhesis.backend.app.auth.user_utils import find_or_create_user
-from rhesis.backend.app.auth.url_utils import build_redirect_url
 
 router = APIRouter(
     prefix="/auth",
@@ -64,6 +65,7 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
         logger.error(f"Login error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.get("/callback")
 async def auth_callback(request: Request, db: Session = Depends(get_db)):
     """Handle the Auth0 callback after successful authentication"""
@@ -90,12 +92,18 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
         logger.error(f"Auth callback error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.get("/logout")
-async def logout(request: Request, post_logout: bool = False, session_token: str = None, db: Session = Depends(get_db)):
+async def logout(
+    request: Request,
+    post_logout: bool = False,
+    session_token: str = None,
+    db: Session = Depends(get_db),
+):
     """Log out the user and clear their session"""
     # Clear session data
     request.session.clear()
-    
+
     # If session token is provided, validate it and clear any related server-side data
     if session_token:
         try:
@@ -103,12 +111,12 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
             payload = verify_jwt_token(session_token, secret_key)
             user_info = payload.get("user", {})
             user_id = user_info.get("id")
-            
+
             if user_id:
                 logger.info(f"Logout called for user {user_id} via JWT token")
                 # Here you could add additional cleanup if needed
                 # For example, invalidating refresh tokens, clearing user-specific cache, etc.
-                
+
         except JWTError as e:
             logger.warning(f"Invalid session token provided during logout: {str(e)}")
             # Continue with logout even if token is invalid
@@ -123,12 +131,13 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
 
     # Get frontend URL from environment variable
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    
+
     # Redirect directly to the frontend home page
     return_to_url = frontend_url + "/"
 
     # Redirect directly to frontend home page instead of Auth0 logout
     return RedirectResponse(url=return_to_url)
+
 
 @router.get("/verify")
 async def verify_auth(
@@ -144,7 +153,7 @@ async def verify_auth(
     try:
         # Use the shared verification function
         payload = verify_jwt_token(session_token, secret_key)
-        
+
         # Return the user info from the token
         return {"authenticated": True, "user": payload["user"], "return_to": return_to}
 
@@ -152,16 +161,11 @@ async def verify_auth(
         logger.error(f"JWT verification failed: {str(e)}")
         if "Expired token" in str(e):
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
-                detail="Token has expired"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
             )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Invalid token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Authentication failed"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
         )

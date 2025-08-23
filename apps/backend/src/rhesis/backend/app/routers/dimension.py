@@ -7,7 +7,6 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.models.user import User
 
 router = APIRouter(
     prefix="/dimensions",
@@ -26,7 +25,10 @@ def create_dimension(dimension: schemas.DimensionCreate, db: Session = Depends(g
     except Exception as e:
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
-        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
             raise HTTPException(status_code=400, detail="Invalid reference in dimension data")
         if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
             raise HTTPException(status_code=400, detail="Dimension with this name already exists")
@@ -71,9 +73,7 @@ def delete_dimension(dimension_id: uuid.UUID, db: Session = Depends(get_db)):
 def update_dimension(
     dimension_id: uuid.UUID, dimension: schemas.DimensionUpdate, db: Session = Depends(get_db)
 ):
-    db_dimension = crud.update_dimension(
-        db, dimension_id=dimension_id, dimension=dimension
-    )
+    db_dimension = crud.update_dimension(db, dimension_id=dimension_id, dimension=dimension)
     if db_dimension is None:
         raise HTTPException(status_code=404, detail="Dimension not found")
     return db_dimension
