@@ -38,7 +38,7 @@ ENV PYTHONPATH=/app:/app/backend/src
 # Copy the SDK directory
 COPY sdk /app/sdk/
 
-RUN uv add ./sdk 
+RUN uv add /app/sdk
 
 # Install backend dependencies (which includes the SDK)
 RUN uv sync
