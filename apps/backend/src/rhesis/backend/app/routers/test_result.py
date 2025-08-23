@@ -71,7 +71,9 @@ def read_test_results(
 def generate_test_result_stats(
     mode: TestResultStatsMode = Query(
         TestResultStatsMode.ALL,
-        description="Data mode: 'summary' (lightweight), 'metrics' (individual metrics), 'behavior/category/topic' (dimensional), 'timeline' (trends), 'test_runs' (by run), 'overall' (aggregate), 'all' (complete)",
+        description="Data mode: 'summary' (lightweight), 'metrics' (individual metrics), "
+        "'behavior/category/topic' (dimensional), 'timeline' (trends), "
+        "'test_runs' (by run), 'overall' (aggregate), 'all' (complete)",
     ),
     top: Optional[int] = Query(
         None, description="Max items per dimension (e.g., top 10 behaviors)"
@@ -258,7 +260,8 @@ def generate_test_result_stats(
     Args:
         mode: Data mode to retrieve (default: 'all'). See mode descriptions above.
         top: Optional number of top items to show per dimension
-        months: Number of months to include in historical timeline (default: 6, overridden by date range)
+        months: Number of months to include in historical timeline
+        (default: 6, overridden by date range)
         test_run_id: Optional UUID to filter results to a specific test run
 
         # Test-level filters

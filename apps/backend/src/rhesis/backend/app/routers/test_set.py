@@ -117,6 +117,15 @@ def build_generation_prompt(
     Returns:
         A formatted prompt string for the synthesizer
     """
+    if config.test_type == "single_turn":
+        test_type_string = "Single interaction tests"
+    else:
+        test_type_string = "Multi-turn conversation tests"
+
+    if config.response_generation == "prompt_only":
+        output_format_string = "Generate only user inputs"
+    else:
+        output_format_string = "Generate both user inputs and expected responses"
     prompt_parts = [
         "Generate comprehensive tests based on the following configuration:",
         "",
@@ -125,8 +134,8 @@ def build_generation_prompt(
         f"- Test Behaviors: {', '.join(config.behaviors)}",
         f"- Test Purposes: {', '.join(config.purposes)}",
         f"- Key Topics: {', '.join(config.tags)}",
-        f"- Test Type: {'Single interaction tests' if config.test_type == 'single_turn' else 'Multi-turn conversation tests'}",
-        f"- Output Format: {'Generate only user inputs' if config.response_generation == 'prompt_only' else 'Generate both user inputs and expected responses'}",
+        f"- Test Type: {test_type_string}",
+        f"- Output Format: {output_format_string}",
         "",
         "SPECIFIC REQUIREMENTS:",
         f"{config.description}",
@@ -137,7 +146,8 @@ def build_generation_prompt(
         prompt_parts.extend(
             [
                 "SAMPLE EVALUATION FEEDBACK:",
-                "The following samples were generated and rated by the user. Use this feedback to improve the quality of new tests:",
+                "The following samples were generated and rated by the user. "
+                "Use this feedback to improve the quality of new tests:",
                 "",
             ]
         )
@@ -176,7 +186,8 @@ def build_generation_prompt(
                 )
             elif avg_rating < 4.0:
                 prompt_parts.append(
-                    "- Make moderate improvements based on the feedback while maintaining good aspects"
+                    "- Make moderate improvements based on the feedback "
+                    "while maintaining good aspects"
                 )
             else:
                 prompt_parts.append(
@@ -283,7 +294,8 @@ async def generate_test_set(
 
         return TestSetGenerationResponse(
             task_id=task_result.id,
-            message=f"Test set generation started. You will be notified when {test_count} tests are ready.",
+            message="Test set generation started. "
+            f"You will be notified when {test_count} tests are ready.",
             estimated_tests=test_count,
         )
 
@@ -646,7 +658,8 @@ def download_test_set_prompts_csv(
             content=csv_data,
             media_type="text/csv",
             headers={
-                "Content-Disposition": f'attachment; filename="test_set_{test_set_identifier}_prompts.csv"'
+                "Content-Disposition": "attachment; "
+                f'filename="test_set_{test_set_identifier}_prompts.csv"'
             },
         )
     except HTTPException:

@@ -70,7 +70,8 @@ async def test_email_notifications(
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
     """
-    Test the email notification system by running a simple task that will send an email upon completion.
+    Test the email notification system by running a simple task that will send
+    an email upon completion.
 
     This endpoint is useful for verifying that:
     1. SMTP configuration is working in the worker
@@ -85,7 +86,10 @@ async def test_email_notifications(
 
         return {
             "task_id": result.id,
-            "message": "Email notification test task submitted. You should receive an email when it completes.",
+            "message": (
+                "Email notification test task submitted. "
+                "You should receive an email when it completes."
+            ),
             "user_email": current_user.email if hasattr(current_user, "email") else None,
         }
     except Exception as e:
