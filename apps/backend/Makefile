@@ -8,18 +8,18 @@ DIFF_FILES := $(shell git diff --relative=apps/backend --name-only --diff-filter
 
 
 lint:
-	uv run --all-groups ruff check $(ALL_FILES)
-	uv run --all-groups ruff format $(ALL_FILES) --diff
+	uvx ruff check $(ALL_FILES)
+	uvx ruff format $(ALL_FILES) --diff
 
 format:
-	uv run --all-groups ruff format $(ALL_FILES)
-	uv run --all-groups ruff check --fix $(ALL_FILES)
+	uvx ruff format $(ALL_FILES)
+	uvx ruff check --fix $(ALL_FILES)
 
 
 lint_diff:
 	@if [ -n "$(DIFF_FILES)" ]; then \
-		uv run --all-groups ruff check $(DIFF_FILES); \
-		uv run --all-groups ruff format $(DIFF_FILES) --diff; \
+		uvx ruff check $(DIFF_FILES); \
+		uvx ruff format $(DIFF_FILES) --diff; \
 	else \
 		echo "No Python file changes detected in git diff with the main branch."; \
 	fi
@@ -27,8 +27,8 @@ lint_diff:
 
 format_diff:
 	@if [ -n "$(DIFF_FILES)" ]; then \
-		uv run --all-groups ruff format $(DIFF_FILES); \
-		uv run --all-groups ruff check --fix $(DIFF_FILES); \
+		uvx ruff format $(DIFF_FILES); \
+		uvx ruff check --fix $(DIFF_FILES); \
 	else \
 		echo "No Python file changes detected in git diff with the main branch."; \
 	fi
