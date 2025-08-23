@@ -2,6 +2,7 @@
 # `docker build -t rhesis-backend -f apps/backend/Dockerfile .`
 
 # Single stage build for simplicity
+# IMPORTANT: The python version must match the version in the .python-version file.
 FROM python:3.10.17-slim
 
 WORKDIR /app
