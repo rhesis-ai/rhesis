@@ -148,7 +148,8 @@ async def generate_tests_endpoint(
                 - `description` (str): Short description of its purpose.
                 - `path` (str): Path to the uploaded document file.
                 - `content` (str, optional): Raw content of the document.
-                ⚠️ If both `path` and `content` are provided in a document, `content` will override `path`: the file at `path` will not be read or used.
+                ⚠️ If both `path` and `content` are provided in a document, `content` will override
+                 `path`: the file at `path` will not be read or used.
         db: Database session
         current_user: Current authenticated user
 
@@ -227,7 +228,8 @@ async def upload_document(document: UploadFile = File(...)):
     """
     Upload a document to temporary storage.
 
-    The document will be saved in a temporary directory with a UUID prefix to avoid naming conflicts.
+    The document will be saved in a temporary directory with a UUID prefix to avoid
+    naming conflicts.
     Maximum document size is 5MB.
 
     Args:
@@ -281,7 +283,8 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
         if file_extension not in extractor.supported_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file format: {file_extension}. Supported formats: {', '.join(extractor.supported_extensions)}",
+                detail=f"Unsupported file format: {file_extension}. "
+                f"Supported formats: {', '.join(extractor.supported_extensions)}",
             )
 
         # Prepare document for extraction
