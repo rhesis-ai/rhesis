@@ -52,8 +52,14 @@ RUN chmod +x /app/start.sh && \
 # Ensure the script is executable even after volume mounts
 RUN chmod +x /app/start.sh
 
-ENV UV_COMPILE_BYTECODE=1
+
+# Compile bytecode to improve performance   
+ENV UV_COMPILE_BYTECODE=1 
+# Use only system Python provided by the base image. It speeds up the build process and limit 
+# the size of the image.
 ENV UV_NO_MANAGED_PYTHON=1
+# Add the virtual environment to the PATH. It activates the virtual environment allowing to
+# call python from the command line.
 ENV PATH="/app/.venv/bin:$PATH"
 # Set Python path to find the modules
 ENV PYTHONPATH=/app:/app/backend/src
