@@ -2,7 +2,8 @@
 # `docker build -t rhesis-backend -f apps/backend/Dockerfile .`
 
 # Single stage build for simplicity
-FROM python:3.10-slim
+# IMPORTANT: The python version must match the version in the .python-version file.
+FROM python:3.10.17-slim
 
 WORKDIR /app
 
@@ -23,11 +24,21 @@ COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
 # This ensures uv can install your package without invalidating the layer later
 COPY apps/backend/src/rhesis /app/src/rhesis
 
+
+# Compile bytecode to improve performance   
+ENV UV_COMPILE_BYTECODE=1 
+# Use only system Python provided by the base image. It speeds up the build process and limit 
+# the size of the image.
+ENV UV_NO_MANAGED_PYTHON=1
+# Add the virtual environment to the PATH. It activates the virtual environment allowing to
+# call python from the command line.
+ENV PATH="/app/.venv/bin:$PATH"
+# Set Python path to find the modules
+ENV PYTHONPATH=/app:/app/backend/src
 # Copy the SDK directory
 COPY sdk /app/sdk/
 
-# Update the SDK path in pyproject.toml to use absolute path
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|' pyproject.toml
+RUN uv add /app/sdk
 
 # Install backend dependencies (which includes the SDK)
 RUN uv sync
