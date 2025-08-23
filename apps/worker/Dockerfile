@@ -64,7 +64,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Set Python path to find the modules
 ENV PYTHONPATH=/app:/app/backend/src
 
-RUN uv add ./sdk 
+RUN uv add /app/sdk 
 
 RUN uv sync 
 
