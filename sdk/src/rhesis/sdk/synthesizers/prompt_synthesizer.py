@@ -1,8 +1,9 @@
+"""A synthesizer that generates test cases based on a prompt using LLM."""
+
 from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.services import LLMService
-from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
@@ -49,7 +50,7 @@ class PromptSynthesizer(TestSetSynthesizer):
 
     def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        # Prepare context for the prompt
+        # Use the provided context directly
         context = self.context
 
         formatted_prompt = self.system_prompt.render(
@@ -73,6 +74,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                     "metadata": {
                         "generated_by": "PromptSynthesizer",
                         "context_used": bool(self.context),
+                        "context_length": len(self.context) if self.context else 0,
                     },
                 }
                 for test in valid_test_cases[:num_tests]
@@ -130,12 +132,26 @@ class PromptSynthesizer(TestSetSynthesizer):
             raise ValueError("Failed to generate any valid test cases")
 
         # Use utility function to create TestSet
-        return create_test_set(
+        result = create_test_set(
             all_test_cases,
             synthesizer_name="PromptSynthesizer",
             batch_size=self.batch_size,
             generation_prompt=self.prompt,
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
-            context=self.context,
+            context_used=bool(self.context),
+            context_length=len(self.context) if self.context else 0,
         )
+
+        # Add namespaced metadata
+        result.metadata = result.metadata or {}
+        result.metadata["prompt_synthesizer"] = {
+            "generation_prompt": self.prompt,
+            "batch_size": self.batch_size,
+            "num_tests_generated": len(all_test_cases),
+            "num_tests_requested": num_tests,
+            "context_used": bool(self.context),
+            "context_length": len(self.context) if self.context else 0,
+        }
+
+        return result
