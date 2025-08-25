@@ -21,7 +21,7 @@ class PromptSynthesizer(TestSetSynthesizer):
         prompt: str,
         batch_size: int = 20,
         system_prompt: Optional[str] = None,
-        documents: Optional[List[Dict]] = None,
+        context: Optional[str] = None,
     ):
         """
         Initialize the PromptSynthesizer.
@@ -40,18 +40,7 @@ class PromptSynthesizer(TestSetSynthesizer):
 
         super().__init__(batch_size=batch_size)
         self.prompt = prompt
-        self.documents = documents or []
-
-        # Initialize document extractor for processing document files
-        self.document_extractor = DocumentExtractor()
-
-        # Extract content from documents if provided
-        self.extracted_documents = {}
-        if self.documents:
-            try:
-                self.extracted_documents = self.document_extractor.extract(self.documents)
-            except Exception as e:
-                print(f"Warning: Failed to extract some documents: {e}")
+        self.context = context or ""
 
         # Set system prompt using utility function
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
@@ -61,14 +50,7 @@ class PromptSynthesizer(TestSetSynthesizer):
     def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
         # Prepare context for the prompt
-        context = ""
-        if self.extracted_documents:
-            context = "\n\n".join(
-                [
-                    f"Document '{name}':\n{content}"
-                    for name, content in self.extracted_documents.items()
-                ]
-            )
+        context = self.context
 
         formatted_prompt = self.system_prompt.render(
             generation_prompt=self.prompt, num_tests=num_tests, context=context
@@ -90,9 +72,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                     **test,
                     "metadata": {
                         "generated_by": "PromptSynthesizer",
-                        "documents_used": list(self.extracted_documents.keys())
-                        if self.extracted_documents
-                        else [],
+                        "context_used": bool(self.context),
                     },
                 }
                 for test in valid_test_cases[:num_tests]
@@ -157,7 +137,5 @@ class PromptSynthesizer(TestSetSynthesizer):
             generation_prompt=self.prompt,
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
-            documents_used=list(self.extracted_documents.keys())
-            if self.extracted_documents
-            else [],
+            context=self.context,
         )
