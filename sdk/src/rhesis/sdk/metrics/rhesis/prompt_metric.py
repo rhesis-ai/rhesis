@@ -41,12 +41,6 @@ class RhesisPromptMetric(RhesisMetricBase):
         metric_type="rag",
         **kwargs,
     ):
-        # Set API key from parameter or environment variable
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-
-        # Set model from parameter or environment variable, with fallback to default
-        self.model = model or os.environ.get("GEMINI_MODEL_NAME") or "gemini-2.0-flash"
-
         # Convert string to enum if needed
         if isinstance(score_type, str):
             score_type = ScoreType(score_type)
@@ -87,6 +81,8 @@ class RhesisPromptMetric(RhesisMetricBase):
                 threshold=normalized_threshold,
                 reference_score=None,
                 metric_type=metric_type,
+                model=model,
+                **kwargs,
             )
             # Store original threshold for reporting
             self.raw_threshold = threshold
@@ -105,7 +101,11 @@ class RhesisPromptMetric(RhesisMetricBase):
 
             # Pass reference_score to the base class, threshold is None
             super().__init__(
-                name=name, threshold=None, reference_score=reference_score, metric_type=metric_type
+                name=name,
+                threshold=None,
+                reference_score=reference_score,
+                metric_type=metric_type,
+                model=model,
             )
             self.raw_threshold = None
 
@@ -118,13 +118,6 @@ class RhesisPromptMetric(RhesisMetricBase):
 
         # Prepare call params (for Google provider, API key is handled via environment variables)
         self.additional_params = kwargs.copy()
-
-        # For Google provider, set the API key as environment variable if provided
-        if self.api_key and self.provider == "google":
-            os.environ["GEMINI_API_KEY"] = self.api_key
-        elif self.api_key and self.provider != "google":
-            # For other providers, pass API key as parameter
-            self.additional_params["api_key"] = self.api_key
 
         # Set up Jinja environment
         templates_dir = os.path.join(

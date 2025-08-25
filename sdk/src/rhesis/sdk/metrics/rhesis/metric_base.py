@@ -3,6 +3,7 @@ from typing import Optional, Union
 from rhesis.sdk.metrics.base import BaseMetric, MetricType
 from rhesis.sdk.metrics.constants import ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.score_evaluator import ScoreEvaluator
+from rhesis.sdk.services.base import BaseLLM
 
 
 class RhesisMetricBase(BaseMetric):
@@ -14,8 +15,9 @@ class RhesisMetricBase(BaseMetric):
         threshold: Optional[float] = None,
         reference_score: Optional[str] = None,
         metric_type: MetricType = "rag",
+        model: Optional[Union[BaseLLM, str]] = None,
     ):
-        super().__init__(name=name, metric_type=metric_type)
+        super().__init__(name=name, metric_type=metric_type, model=model)
         self._threshold = threshold
         self._reference_score = reference_score
         self._score_evaluator = ScoreEvaluator()
