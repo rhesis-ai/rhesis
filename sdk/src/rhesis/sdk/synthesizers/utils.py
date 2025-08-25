@@ -1,4 +1,4 @@
-"""Helper functions for common synthesizer operations."""
+"""Utility functions for common synthesizer operations."""
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
