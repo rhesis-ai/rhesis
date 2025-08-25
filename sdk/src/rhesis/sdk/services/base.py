@@ -24,6 +24,5 @@ class BaseLLM(ABC):
         """
         pass
 
-    @abstractmethod
     def get_model_name(self, *args, **kwargs) -> str:
-        pass
+        return f"Class name: {self.__class__.__name__}, model name: {self.model_name}"
