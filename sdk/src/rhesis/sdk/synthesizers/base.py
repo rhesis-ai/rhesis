@@ -14,7 +14,7 @@ class TestSetSynthesizer(ABC):
         Initialize the base synthesizer.
 
         Args:
-            batch_size: Maximum number of items to process in a single batch
+            batch_size: Maximum number of items to process in a single LLM call
         """
         self.batch_size = batch_size
 

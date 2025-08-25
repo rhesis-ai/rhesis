@@ -4,7 +4,7 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.services import LLMService
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-from rhesis.sdk.synthesizers.helpers import (
+from rhesis.sdk.synthesizers.utils import (
     create_test_set,
     load_prompt_template,
     parse_llm_response,
@@ -23,6 +23,21 @@ class PromptSynthesizer(TestSetSynthesizer):
         system_prompt: Optional[str] = None,
         documents: Optional[List[Dict]] = None,
     ):
+        """
+        Initialize the PromptSynthesizer.
+        Args:
+            prompt: The generation prompt to use
+            batch_size: Maximum number of tests to generate in a single LLM call (reduced default
+            for stability)
+            system_prompt: Optional custom system prompt template to override the default
+            documents: Optional list of documents to extract content from. Each document should
+            have:
+                - name (str): Unique identifier or label for the document
+                - description (str): Short description of the document's purpose or content
+                - path (str): Local file path (optional, can be empty if content is provided)
+                - content (str): Pre-provided document content (optional)
+        """
+
         super().__init__(batch_size=batch_size)
         self.prompt = prompt
         self.documents = documents or []
@@ -38,7 +53,7 @@ class PromptSynthesizer(TestSetSynthesizer):
             except Exception as e:
                 print(f"Warning: Failed to extract some documents: {e}")
 
-        # Set system prompt using helper
+        # Set system prompt using utility function
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
 
         self.llm_service = LLMService()
@@ -59,10 +74,10 @@ class PromptSynthesizer(TestSetSynthesizer):
             generation_prompt=self.prompt, num_tests=num_tests, context=context
         )
 
-        # Use helper function for retry logic
+        # Use utility function for retry logic
         response = retry_llm_call(self.llm_service, formatted_prompt)
 
-        # Use helper function for response parsing
+        # Use utility function for response parsing
         test_cases = parse_llm_response(response, expected_keys=["tests"])
 
         # Clean and validate test cases using utility function
@@ -134,7 +149,7 @@ class PromptSynthesizer(TestSetSynthesizer):
         if not all_test_cases:
             raise ValueError("Failed to generate any valid test cases")
 
-        # Use helper function to create TestSet
+        # Use utility function to create TestSet
         return create_test_set(
             all_test_cases,
             synthesizer_name="PromptSynthesizer",

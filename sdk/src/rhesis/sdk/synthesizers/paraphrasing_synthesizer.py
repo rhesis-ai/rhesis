@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.services import LLMService
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-from rhesis.sdk.synthesizers.helpers import (
+from rhesis.sdk.synthesizers.utils import (
     create_test_set,
     load_prompt_template,
     retry_llm_call,
@@ -19,11 +19,18 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
         batch_size: int = 5,
         system_prompt: Optional[str] = None,
     ):
+        """
+        Initialize the ParaphrasingSynthesizer.
+        Args:
+            test_set: The original test set to paraphrase
+            batch_size: Maximum number of prompts to process in a single LLM call
+            system_prompt: Optional custom system prompt template to override the default
+        """
         super().__init__(batch_size=batch_size)
         self.test_set = test_set
         self.num_paraphrases: int = 2  # Default value, can be overridden in generate()
 
-        # Set system prompt using helper
+        # Set system prompt using utility
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
 
         self.llm_service = LLMService()
@@ -99,7 +106,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
             num_paraphrases=self.num_paraphrases,
         )
 
-        # Use helper function for LLM calls
+        # Use utility function for LLM calls
         content = retry_llm_call(self.llm_service, formatted_prompt)
 
         # Parse and validate the response
@@ -172,7 +179,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
             desc=f"Generating {self.num_paraphrases} paraphrases per test",
         )
 
-        # Use helper function to create TestSet
+        # Use utility function to create TestSet
         return create_test_set(
             all_tests,
             synthesizer_name="ParaphrasingSynthesizer",
