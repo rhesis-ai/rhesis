@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 from typing import Dict, List
+
 from markitdown import MarkItDown
 
 
@@ -15,9 +16,8 @@ class DocumentExtractor:
         self.supported_extensions = {
             # Office formats
             ".docx",
-            ".pptx", 
+            ".pptx",
             ".xlsx",
-            
             # Documents
             ".pdf",
             ".txt",
@@ -26,13 +26,12 @@ class DocumentExtractor:
             ".xml",
             ".html",
             ".htm",
-            
             # Archives (iterate over contents)
             ".zip",
             # E-books
             ".epub",
         }
-        
+
         self.converter = MarkItDown()
 
     def extract(self, documents: List[Dict]) -> Dict[str, str]:
@@ -110,9 +109,9 @@ class DocumentExtractor:
             result = self.converter.convert_local(file_path)
 
             # Extract text from result - markitdown returns text_content and markdown
-            if hasattr(result, 'text_content') and result.text_content:
+            if hasattr(result, "text_content") and result.text_content:
                 extracted_text = result.text_content
-            elif hasattr(result, 'markdown') and result.markdown:
+            elif hasattr(result, "markdown") and result.markdown:
                 extracted_text = result.markdown
             else:
                 # Fallback to string representation
