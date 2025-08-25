@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar, Union
 
 import tenacity
+
+from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.services.model_factory import get_model
 
 MetricType = Literal["rag", "generation", "classification"]
 F = TypeVar("F", bound=Callable[..., Any])
@@ -192,9 +195,20 @@ class MetricResult:
 class BaseMetric(ABC):
     """Base class for all evaluation metrics."""
 
-    def __init__(self, name: str, metric_type: MetricType = "rag"):
+    def __init__(
+        self,
+        name: str,
+        metric_type: MetricType = "rag",
+        model: Optional[Union[BaseLLM, str]] = None,
+    ):
         self._name = name
         self._metric_type = metric_type
+        if isinstance(model, BaseLLM):
+            self._model = model
+        elif isinstance(model, str):
+            self._model = get_model(model)
+        else:
+            raise ValueError(f"Invalid model type: {type(model)}")
 
     @property
     def name(self) -> str:
