@@ -1,20 +1,12 @@
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional, Union
 
-from rhesis.sdk.services.providers.rhesis import RhesisLLMService
+from rhesis.sdk.services.base import BaseLLM
 
+DEFAULT_PROVIDER = "rhesis"
 
-class ModelType(Enum):
-    """Supported model types in Rhesis."""
-
-    RHESIS = "rhesis"
-    OPENAI = "openai"
-
-
-DEFAULT_MODEL_NAMES = {
-    ModelType.RHESIS: "rhesis-default",
-    ModelType.OPENAI: "gpt-4o",
+DEFAULT_MODELS = {
+    "rhesis": "rhesis-default",
+    "rhesis_premium": "rhesis-premium-default",
 }
 
 
@@ -29,39 +21,46 @@ class ModelConfig:
         extra_params: Extra parameters to pass to the model.
     """
 
-    model_type: ModelType
-    model_name: Optional[str] = None
-    api_key: Optional[str] = None
+    provider: str = DEFAULT_PROVIDER
+    model_name: str = DEFAULT_MODELS[DEFAULT_PROVIDER]
+    api_key: str | None = None
     extra_params: dict = field(default_factory=dict)
 
 
-class ModelFactory:
-    """Factory for creating model instances."""
+def get_model(
+    provider: str | None = None,
+    model_name: str | None = None,
+    api_key: str | None = None,
+    config: ModelConfig | None = None,
+) -> BaseLLM:
+    """Create a model instance based on the configuration."""
+    if config:
+        cfg = config
+    else:
+        cfg = ModelConfig()
+    # Case: shorthand string like "provider/model"
+    if provider and "/" in provider and model_name is None:
+        # split only first "/" so that names like "rhesis/rhesis-default" still work
+        prov, model = provider.split("/", 1)
+        provider, model_name = prov, model
+    provider = provider or cfg.provider or DEFAULT_PROVIDER
+    model_name = model_name or cfg.model_name or DEFAULT_MODELS[provider]
+    api_key = api_key or cfg.api_key
+    config = ModelConfig(provider=provider, model_name=model_name, api_key=api_key)
 
-    @staticmethod
-    def create_model(
-        config: ModelConfig,
-    ) -> Union[RhesisLLMService,]:
-        """Create a model instance based on the configuration."""
-        if config.model_type == ModelType.RHESIS:
-            return RhesisLLMService(model_name=config.model_name, api_key=config.api_key)
-        else:
-            raise ValueError(f"Model type {config.model_type} not supported")
+    if config.provider == "rhesis":
+        from rhesis.sdk.services.providers.rhesis_provider import RhesisLLMService
 
-    @staticmethod
-    def create_default_model(
-        model_type: Union[ModelType, str] = ModelType.RHESIS.value,
-    ) -> Union[RhesisLLMService,]:
-        # Use environment variable for default model name if not provided
-        if model_type == ModelType.RHESIS:
-            model_name = DEFAULT_MODEL_NAMES[ModelType.RHESIS]
+        return RhesisLLMService(model_name=config.model_name, api_key=config.api_key)
+    elif config.provider == "rhesis_premium":
+        from rhesis.sdk.services.providers.rhesis_premium import RhesisPremiumLLMService
 
-            config = ModelConfig(model_type=ModelType.RHESIS, model_name=model_name)
-
-        return ModelFactory.create_model(config)
+        return RhesisPremiumLLMService(model_name=config.model_name, api_key=config.api_key)
+    else:
+        raise ValueError(f"Provider {config.provider} not supported")
 
 
 if __name__ == "__main__":
-    model_config = ModelConfig(model_type=ModelType.RHESIS, model_name="rhesis-default")
-    model = ModelFactory.create_default_model()
+    model = get_model("rhesis_premium/sdsf")
+    print(model.get_model_name())
     print(model.generate(prompt="What is the capital of France?"))
