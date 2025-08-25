@@ -94,5 +94,7 @@ class RhesisLLMService(BaseLLM):
         result: Dict[str, Any] = response.json()
         return result
 
-    def get_model_name(self, *args, **kwargs) -> str:
-        return self.model_name
+
+if __name__ == "__main__":
+    model = RhesisLLMService(model_name="rhesis-llm-v1")
+    print(model.generate(prompt="What is the capital of France?"))
