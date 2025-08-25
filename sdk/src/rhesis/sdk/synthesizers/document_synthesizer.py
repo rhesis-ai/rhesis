@@ -150,14 +150,11 @@ class DocumentSynthesizer(TestSetSynthesizer):
         # Call ContextSynthesizer to generate the final result
         result = self.context_synthesizer.generate(**kwargs)
 
-        # Add document processing metadata
+        # Add document processing metadata with namespacing
         result.metadata = result.metadata or {}
-        result.metadata.update(
-            {
-                "document_synthesizer": "DocumentSynthesizer",
-                "chunks_created": len(chunks),
-                "chunk_metadata": kwargs["chunk_metadata"],
-            }
-        )
+        result.metadata["document_synthesizer"] = {
+            "chunks_created": len(chunks),
+            "chunk_info": kwargs["chunk_metadata"],
+        }
 
         return result

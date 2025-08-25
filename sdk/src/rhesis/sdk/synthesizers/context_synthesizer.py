@@ -12,11 +12,11 @@ class ContextSynthesizer(TestSetSynthesizer):
     """Synthesizer that selects chunks for context and generates synthetic data using PromptSynthesizer."""
 
     def __init__(
-        self, 
+        self,
         prompt_synthesizer: PromptSynthesizer,
-        batch_size: int = 5, 
-        max_chunks: Optional[int] = None, 
-        random_selection: bool = False
+        batch_size: int = 5,
+        max_chunks: Optional[int] = None,
+        random_selection: bool = False,
     ):
         """
         Initialize the context synthesizer.
@@ -83,25 +83,25 @@ class ContextSynthesizer(TestSetSynthesizer):
         """
         chunks = kwargs.get("chunks", [])
         num_chunks = kwargs.get("num_chunks", None)
-        
+
         # Select chunks for context
         selected_chunks = self.select_chunks(chunks, num_chunks)
         context = self.assemble_context(selected_chunks)
-        
+
         # Update the prompt synthesizer's context
         self.prompt_synthesizer.context = context
-        
+
         # Generate using the updated prompt synthesizer
         result = self.prompt_synthesizer.generate(**kwargs)
-        
-        # Add context metadata
+
+        # Add context metadata with namespacing
         result.metadata = result.metadata or {}
-        result.metadata.update({
-            "context_synthesizer": "ContextSynthesizer",
+        result.metadata["context_synthesizer"] = {
             "chunks_selected": len(selected_chunks),
             "total_chunks_available": len(chunks),
             "context_length": len(context),
-            "selection_strategy": "random" if self.random_selection else "sequential"
-        })
-        
+            "selection_strategy": "random" if self.random_selection else "sequential",
+            "chunk_metadata": kwargs.get("chunk_metadata", {}),
+        }
+
         return result
