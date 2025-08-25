@@ -191,6 +191,9 @@ class MetricResult:
         self.score = score
         self.details = details or {}
 
+    def __str__(self):
+        return f"MetricResult(score={self.score}, details={self.details})"
+
 
 class BaseMetric(ABC):
     """Base class for all evaluation metrics."""
