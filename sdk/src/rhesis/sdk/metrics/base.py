@@ -200,12 +200,13 @@ class BaseMetric(ABC):
         name: str,
         metric_type: MetricType = "rag",
         model: Optional[Union[BaseLLM, str]] = None,
+        **kwargs,
     ):
         self._name = name
         self._metric_type = metric_type
         if isinstance(model, BaseLLM):
             self._model = model
-        elif isinstance(model, str):
+        elif isinstance(model, str) or model is None:
             self._model = get_model(model)
         else:
             raise ValueError(f"Invalid model type: {type(model)}")
