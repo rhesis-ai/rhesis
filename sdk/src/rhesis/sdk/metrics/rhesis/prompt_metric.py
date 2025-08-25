@@ -2,10 +2,9 @@ import os
 from typing import List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from mirascope import llm
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricResult, retry_evaluation
+from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
 
 
@@ -174,16 +173,6 @@ class RhesisPromptMetric(RhesisMetricBase):
 
         return prompt
 
-    @llm.call(
-        provider="provider_placeholder", model="model_placeholder", response_model=ScoreResponse
-    )
-    def run_evaluation(self, prompt: str) -> str:
-        """
-        Run the evaluation using Mirascope LLM call with structured response model.
-        This function will be decorated with the actual provider and model at runtime.
-        """
-        return prompt
-
     def _process_score(self, raw_score: Union[float, str, int]) -> Union[float, str]:
         """
         Process the raw score based on the score type.
@@ -223,13 +212,6 @@ class RhesisPromptMetric(RhesisMetricBase):
 
         return str(raw_score)
 
-    @retry_evaluation(
-        retry_exceptions=(
-            ConnectionError,
-            TimeoutError,
-            Exception,
-        )  # Using broader Exception to catch LLM API errors
-    )
     def evaluate(
         self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
     ) -> MetricResult:
@@ -298,16 +280,17 @@ class RhesisPromptMetric(RhesisMetricBase):
         # Override the provider and model at runtime
         # Note: For Google provider, API key is set via environment variable (GEMINI_API_KEY)
         # rather than call_params to avoid 'api_key' parameter error
-        evaluation_fn = llm.override(
-            self.run_evaluation,
-            provider=self.provider,
-            model=self.model,
-            call_params=self.additional_params,
-        )
+        # evaluation_fn = llm.override(
+        #     self.run_evaluation,
+        #     provider=self.provider,
+        #     model=self.model,
+        #     call_params=self.additional_params,
+        # )
 
         try:
             # Run the evaluation with structured response model
-            response = evaluation_fn(prompt)
+            response = self._model.generate(prompt)
+            response = ScoreResponse(**response)
 
             # Get the score and process it based on score type
             raw_score = response.score
@@ -443,3 +426,22 @@ class RhesisPromptMetric(RhesisMetricBase):
                     return MetricResult(score="false", details=details)
                 else:  # CATEGORICAL
                     return MetricResult(score="error", details=details)
+
+
+if __name__ == "__main__":
+    metric = RhesisPromptMetric(
+        name="test",
+        evaluation_prompt="",
+        evaluation_steps="",
+        reasoning="",
+    )
+    input = "What is the capital of France?"
+    output = "The capital of France is Parissss. It is known as the City of Light."
+    expected_output = "Paris is the capital of France."
+    context = [
+        "Paris is the capital and largest city of France.",
+        "Known as the City of Light, Paris is a global center for art, culture, and fashion.",
+    ]
+    metric_result = metric.evaluate(input, output, expected_output, context)
+    print(metric_result)
+    print("finished")
