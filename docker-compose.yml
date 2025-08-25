@@ -35,7 +35,7 @@ x-common-jwt: &common-jwt
 
 x-common-environment: &common-environment
   ENVIRONMENT: development
-  NODE_ENV: development
+  NODE_ENV: ${NODE_ENV}
   LOG_LEVEL: DEBUG
 
 x-rhesis-config: &rhesis-config
@@ -122,7 +122,6 @@ services:
     volumes:
       - ./apps/backend/src:/app/src
       - ./sdk:/app/sdk
-      - ./apps/backend/pyproject.toml:/app/pyproject.toml
     networks:
       - rhesis-network
 
@@ -176,6 +175,7 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
+        NODE_ENV: ${NODE_ENV}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
         NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-http://localhost:3000}
