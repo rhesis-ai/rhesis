@@ -93,6 +93,3 @@ class RhesisPremiumLLMService(BaseLLM):
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result
-
-    def get_model_name(self, *args, **kwargs) -> str:
-        return self.model_name
