@@ -1,9 +1,18 @@
+"""
+Model Factory for Rhesis SDK
+
+This module provides a simple and intuitive way to create LLM model instances
+with smart defaults and comprehensive error handling.
+
+"""
+
 from dataclasses import dataclass, field
+from typing import Optional
 
 from rhesis.sdk.services.base import BaseLLM
 
+# Default configuration
 DEFAULT_PROVIDER = "rhesis"
-
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
     "rhesis_premium": "rhesis-premium-default",
@@ -12,10 +21,10 @@ DEFAULT_MODELS = {
 
 @dataclass
 class ModelConfig:
-    """Configuration for a model.
+    """Configuration for a model instance.
 
     Args:
-        model_type: The type of model (E.g OpenAI, Rhesis, Gemini)
+        provider: The provider name (e.g., "rhesis", "rhesis_premium")
         model_name: Specific model name (E.g gpt-4o, gemini-2.0-flash, etc)
         api_key: The API key to use for the model.
         extra_params: Extra parameters to pass to the model.
@@ -28,13 +37,68 @@ class ModelConfig:
 
 
 def get_model(
-    provider: str | None = None,
-    model_name: str | None = None,
-    api_key: str | None = None,
-    config: ModelConfig | None = None,
+    provider: Optional[str] = None,
+    model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+    config: Optional[ModelConfig] = None,
+    **kwargs,
 ) -> BaseLLM:
-    """Create a model instance based on the configuration."""
+    """Create a model instance with smart defaults and comprehensive error handling.
+
+    This function provides multiple ways to create a model instance:
+
+    1. **Minimal**: `get_model()` - uses all defaults
+    2. **Provider only**: `get_model("rhesis")` - uses default model for provider
+    3. **Provider + Model**: `get_model("rhesis", "rhesis-llm-v1")`
+    4. **Shorthand**: `get_model("rhesis/rhesis-llm-v1")`
+    5. **Full config**: `get_model(config=ModelConfig(...))`
+
+    Args:
+        provider: Provider name (e.g., "rhesis", "rhesis_premium")
+        model_name: Specific model name
+        api_key: API key for authentication
+        config: Complete configuration object
+        **kwargs: Additional parameters passed to ModelConfig
+
+    Returns:
+        BaseLLM: Configured model instance
+
+    Raises:
+        ValueError: If configuration is invalid or provider not supported
+        ImportError: If required dependencies are missing
+
+    Examples:
+        >>> # Basic usage with defaults
+        >>> model = get_model()
+
+        >>> # Specify provider and model
+        >>> model = get_model("rhesis", "rhesis-llm-v1")
+
+        >>> # Use provider/model shorthand
+        >>> model = get_model("rhesis/rhesis-llm-v1")
+
+        >>> # With custom configuration
+        >>> config = ModelConfig(
+        ...     provider="rhesis_premium",
+        ...     model_name="rhesis-premium-v1",
+        ...     api_key="your-api-key"
+        ... )
+        >>> model = get_model(config=config)
+
+        >>> # With extra parameters
+        >>> model = get_model(
+        ...     "rhesis",
+        ...     "rhesis-llm-v1",
+        ...     extra_params={"temperature": 0.5}
+        ... )
+    """
+
+    # Create configuration
     if config:
+        # Update config with any additional parameters
+        for key, value in kwargs.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
         cfg = config
     else:
         cfg = ModelConfig()
