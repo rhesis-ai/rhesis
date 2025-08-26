@@ -9,13 +9,12 @@ from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
 
 class ContextSynthesizer(TestSetSynthesizer):
-    """Synthesizer that selects chunks for context and generates synthetic data using PromptSynthesizer."""
+    """Synthesizer that selects chunks and generates test sets using PromptSynthesizer."""
 
     def __init__(
         self,
         prompt_synthesizer: PromptSynthesizer,
-        batch_size: int = 5,
-        max_chunks: Optional[int] = None,
+        default_chunks: int = 5,
         random_selection: bool = False,
     ):
         """
@@ -23,13 +22,12 @@ class ContextSynthesizer(TestSetSynthesizer):
 
         Args:
             prompt_synthesizer: PromptSynthesizer instance to use for generating synthetic data
-            batch_size: Maximum number of chunks to process in a single batch
-            max_chunks: Maximum chunks to return (overrides batch_size if set)
+            default_chunks: Default number of chunks to select (defaults to 5)
             random_selection: If True, randomly select chunks; if False, take first N
         """
-        super().__init__(batch_size=batch_size)
+        super().__init__()
         self.prompt_synthesizer = prompt_synthesizer
-        self.max_chunks = max_chunks
+        self.default_chunks = default_chunks
         self.random_selection = random_selection
 
     def select_chunks(self, chunks: List[str], num_chunks: Optional[int] = None) -> List[str]:
@@ -38,7 +36,7 @@ class ContextSynthesizer(TestSetSynthesizer):
 
         Args:
             chunks: List of text chunks
-            num_chunks: Number of chunks to select (uses batch_size if not specified)
+            num_chunks: Number of chunks to select (uses default_chunks if not specified)
 
         Returns:
             List of selected chunk texts
@@ -47,7 +45,7 @@ class ContextSynthesizer(TestSetSynthesizer):
             return []
 
         # Determine how many chunks to select
-        target_count = num_chunks or self.max_chunks or self.batch_size
+        target_count = num_chunks or self.default_chunks
         target_count = min(target_count, len(chunks))
 
         if self.random_selection:
