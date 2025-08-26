@@ -14,9 +14,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
     def __init__(
         self,
         context_synthesizer: ContextSynthesizer,
-        batch_size: int = 5,
         max_chunk_length: int = 1000,  # characters
-        chunk_overlap: int = 100,  # characters of overlap between chunks
         separator: str = "\n\n",
     ):
         """
@@ -24,15 +22,12 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
         Args:
             context_synthesizer: ContextSynthesizer instance to use for generating synthetic data
-            batch_size: Maximum number of chunks to process in a single batch
             max_chunk_length: Maximum characters per chunk
-            chunk_overlap: Number of characters to overlap between chunks
             separator: String to use when joining chunks
         """
-        super().__init__(batch_size=batch_size)
+        super().__init__()
         self.context_synthesizer = context_synthesizer
         self.max_chunk_length = max_chunk_length
-        self.chunk_overlap = chunk_overlap
         self.separator = separator
         self.document_extractor = DocumentExtractor()
 
@@ -41,7 +36,8 @@ class DocumentSynthesizer(TestSetSynthesizer):
         Extract text from documents using the existing DocumentExtractor.
 
         Args:
-            documents: List of document dictionaries with 'name', 'description', 'path', or 'content'
+            documents: List of document dictionaries with 'name', 'description',
+            'path', or 'content'
 
         Returns:
             Combined text from all documents
@@ -87,28 +83,10 @@ class DocumentSynthesizer(TestSetSynthesizer):
             if chunk:  # Only add non-empty chunks
                 chunks.append(chunk)
 
-            # Move to next chunk with overlap
-            start = end - self.chunk_overlap
+            # Move to next chunk
+            start = end
             if start >= len(text):
                 break
-
-        return chunks
-
-    def process_documents(self, documents: List[dict]) -> List[str]:
-        """
-        Process documents: extract text and create chunks.
-
-        Args:
-            documents: List of document dictionaries
-
-        Returns:
-            List of text chunks
-        """
-        # Extract text from documents
-        combined_text = self.extract_text_from_documents(documents)
-
-        # Create chunks from the combined text
-        chunks = self.create_chunks_from_text(combined_text)
 
         return chunks
 
@@ -120,7 +98,6 @@ class DocumentSynthesizer(TestSetSynthesizer):
             **kwargs: Keyword arguments including:
                 - documents: List of document dictionaries
                 - max_chunk_length: Override default chunk length
-                - chunk_overlap: Override default overlap
                 - Any other arguments to pass to ContextSynthesizer.generate()
 
         Returns:
@@ -128,7 +105,6 @@ class DocumentSynthesizer(TestSetSynthesizer):
         """
         documents = kwargs.get("documents", [])
         max_chunk_length = kwargs.get("max_chunk_length", self.max_chunk_length)
-        chunk_overlap = kwargs.get("chunk_overlap", self.chunk_overlap)
 
         # Process documents into chunks
         chunks = self.process_documents(documents)
@@ -140,7 +116,6 @@ class DocumentSynthesizer(TestSetSynthesizer):
                 "chunk_metadata": {
                     "total_chunks": len(chunks),
                     "max_chunk_length": max_chunk_length,
-                    "chunk_overlap": chunk_overlap,
                     "documents_processed": len(documents),
                     "total_text_length": sum(len(chunk) for chunk in chunks),
                 },
