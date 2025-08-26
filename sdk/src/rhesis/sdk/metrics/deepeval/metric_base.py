@@ -1,17 +1,12 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
-from deepeval.models import (
-    AmazonBedrockModel,
-    AnthropicModel,
-    AzureOpenAIModel,
-    GeminiModel,
-    GPTModel,
-    OllamaModel,
-)
 from deepeval.test_case import LLMTestCase
 
 from rhesis.sdk.metrics.base import BaseMetric, MetricType
-from rhesis.sdk.metrics.deepeval.model_factory import get_model_from_config
+from rhesis.sdk.metrics.deepeval.model import DeepEvalModelWrapper
+
+# from rhesis.sdk.metrics.deepeval.model_factory import get_model_from_config
+from rhesis.sdk.services.base import BaseLLM
 
 
 class DeepEvalMetricBase(BaseMetric):
@@ -22,19 +17,15 @@ class DeepEvalMetricBase(BaseMetric):
         name: str,
         threshold: float = 0.5,
         metric_type: MetricType = "rag",
-        model_config: Optional[Dict[str, Any]] = None,
+        model: Optional[Union[BaseLLM, str]] = None,
     ):
-        super().__init__(name=name, metric_type=metric_type)
+        super().__init__(name=name, metric_type=metric_type, model=model)
         self._metric = None  # Will be set by child classes
         self.threshold = threshold  # Use setter for validation
-        self._model = get_model_from_config(model_config)
+        self._model = DeepEvalModelWrapper(self._model)
 
     @property
-    def model(
-        self,
-    ) -> Union[
-        GeminiModel, GPTModel, AzureOpenAIModel, AnthropicModel, AmazonBedrockModel, OllamaModel
-    ]:
+    def model(self) -> BaseLLM:
         """Get the configured model instance."""
         return self._model
 

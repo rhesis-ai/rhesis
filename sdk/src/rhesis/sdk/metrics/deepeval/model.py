@@ -2,15 +2,12 @@
 
 from deepeval.models import DeepEvalBaseLLM
 
-from rhesis.sdk.services.model_factory import ModelConfig, ModelFactory, ModelType
+from rhesis.sdk.services.base import BaseLLM
 
 
 class DeepEvalModelWrapper(DeepEvalBaseLLM):
-    def __init__(self, config: ModelConfig) -> None:
-        if config.model_name is None:
-            self._model = ModelFactory.create_default_model(config.model_type)
-        else:
-            self._model = ModelFactory.create_model(config)
+    def __init__(self, model: BaseLLM) -> None:
+        self._model = model
 
     def load_model(self, *args, **kwargs):
         return self._model.load_model(*args, **kwargs)
@@ -23,13 +20,3 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
 
     def get_model_name(self, *args, **kwargs) -> str:
         return self._model.get_model_name(*args, **kwargs)
-
-
-def get_model_from_config(config: ModelConfig) -> DeepEvalModelWrapper:
-    return DeepEvalModelWrapper(config)
-
-
-if __name__ == "__main__":
-    config = ModelConfig(model_type=ModelType.RHESIS, model_name="rhesis-default")
-    model = DeepEvalModelWrapper(config)
-    print(model.generate(prompt="What is the capital of China?"))
