@@ -72,7 +72,7 @@ def test_document_extraction_from_file():
         # Verify document was extracted
         assert synthesizer.extracted_documents, "No documents extracted"
         assert "insurance_policy" in synthesizer.extracted_documents, "Document not found in extracted documents"
-
+        
         # Check content
         content = synthesizer.extracted_documents["insurance_policy"]
         assert "Coverage Limits" in content, "Insurance content not properly extracted"
@@ -102,7 +102,7 @@ def test_document_extraction_from_content():
     # Verify document was extracted
     assert synthesizer.extracted_documents, "No documents extracted"
     assert "technical_spec" in synthesizer.extracted_documents, "Document not found in extracted documents"
-
+    
     # Check content
     content = synthesizer.extracted_documents["technical_spec"]
     assert "API Documentation" in content, "Technical content not properly extracted"
@@ -143,8 +143,8 @@ def test_mixed_document_extraction():
         cleanup_file(temp_path)
 
 
-def test_context_in_prompt():
-    """Test that context is correctly included in the prompt template."""
+def test_document_context_in_prompt():
+    """Test that document context is correctly included in the prompt template."""
     temp_path = create_temp_document(INSURANCE_POLICY_CONTENT)
 
     try:
@@ -171,29 +171,29 @@ def test_context_in_prompt():
         assert synthesizer.extracted_documents, "No documents extracted"
         assert "insurance_policy" in synthesizer.extracted_documents, "File document not extracted"
         assert "manual_content" in synthesizer.extracted_documents, "Manual content not extracted"
-
+        
         # Check that the extracted content contains expected text
         insurance_content = synthesizer.extracted_documents["insurance_policy"]
         manual_content = synthesizer.extracted_documents["manual_content"]
-
+        
         assert "Coverage Limits" in insurance_content, "Insurance content not properly extracted"
         assert "manual content for testing" in manual_content, "Manual content not properly extracted"
 
-        # Create context the same way the synthesizer does
-        context = "\n\n".join([
+        # Create document context the same way the synthesizer does
+        document_context = "\n\n".join([
             f"Document '{name}':\n{content}"
             for name, content in synthesizer.extracted_documents.items()
         ])
-
+        
         # Test prompt rendering with documents
         formatted_prompt = synthesizer.system_prompt.render(
             generation_prompt="Generate test cases for an insurance chatbot.",
             num_tests=3,
-            context=context
+            document_context=document_context
         )
-
-        # Verify context is included in the prompt
-        assert "Context" in formatted_prompt, "Context section not found in prompt"
+        
+        # Verify document context is included in the prompt
+        assert "Document Context" in formatted_prompt, "Document context section not found in prompt"
         assert "insurance_policy" in formatted_prompt, "Document name not found in prompt"
         assert "Coverage Limits" in formatted_prompt, "Document content not found in prompt"
         assert "manual content for testing" in formatted_prompt, "Manual content not found in prompt"
@@ -268,11 +268,11 @@ def test_document_metadata_in_test_set():
 
         # Generate test set
         test_set = synthesizer.generate(num_tests=2)
-
+        
         # Check that document information is in metadata
         assert "documents_used" in test_set.metadata, "Documents used not found in test set metadata"
         assert "insurance_policy" in test_set.metadata["documents_used"], "Document name not found in metadata"
-
+        
         # Check that individual test cases also have document metadata
         for test in test_set.tests:
             assert "metadata" in test, "Test case missing metadata"
@@ -280,4 +280,4 @@ def test_document_metadata_in_test_set():
             assert "insurance_policy" in test["metadata"]["documents_used"], "Document name not found in test case metadata"
 
     finally:
-        cleanup_file(temp_path)
+        cleanup_file(temp_path) 
