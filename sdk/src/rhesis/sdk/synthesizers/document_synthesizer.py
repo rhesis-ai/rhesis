@@ -36,8 +36,11 @@ class DocumentSynthesizer(TestSetSynthesizer):
         Extract text from documents using the existing DocumentExtractor.
 
         Args:
-            documents: List of document dictionaries with 'name', 'description',
-            'path', or 'content'
+            documents: List of document dictionaries with the following keys:
+                - 'name': Name of the document.
+                - 'description': Required description.
+                - 'path': File path to the document (used if 'content' is not provided).
+                - 'content': Raw text content of the document. Overrides 'path' if both are given.
 
         Returns:
             Combined text from all documents
