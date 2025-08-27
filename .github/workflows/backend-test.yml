@@ -295,7 +295,7 @@ jobs:
       - name: Determine pytest command
         id: pytest_cmd
         run: |
-          PYTEST_OPTS="-v --durations=10 --tb=short --maxfail=10 -x"
+          PYTEST_OPTS="-v --durations=10 --tb=short --maxfail=10 -x --junitxml=junit.xml -o junit_family=legacy"
           if [ "${{ inputs.test_markers }}" = "all" ]; then
             echo "cmd=uv run --project apps/backend python -m pytest tests/backend $PYTEST_OPTS" >> $GITHUB_OUTPUT
           elif [ "${{ inputs.test_markers }}" = "custom" ]; then
@@ -323,13 +323,19 @@ jobs:
           
           ${{ steps.pytest_cmd.outputs.cmd }}
 
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: |
-            test-results.xml
+            junit.xml
             .pytest_cache/
           retention-days: 7
 
@@ -356,12 +362,19 @@ jobs:
           export SQLALCHEMY_DB_HOST="localhost"
           
           if [ "${{ inputs.test_markers }}" = "all" ]; then
-            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing -v
+            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit-coverage.xml -o junit_family=legacy -v
           elif [ "${{ inputs.test_markers }}" = "custom" ]; then
-            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing -m "${{ inputs.custom_markers }}" -v
+            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit-coverage.xml -o junit_family=legacy -m "${{ inputs.custom_markers }}" -v
           else
-            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing -m "${{ inputs.test_markers }}" -v
+            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit-coverage.xml -o junit_family=legacy -m "${{ inputs.test_markers }}" -v
           fi
+
+      - name: Upload coverage test results to Codecov
+        if: ${{ inputs.run_coverage == true && !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: junit-coverage.xml
 
       - name: Upload coverage to Codecov
         if: ${{ inputs.run_coverage == true }}
@@ -380,5 +393,6 @@ jobs:
           name: coverage-reports
           path: |
             coverage.xml
+            junit-coverage.xml
             htmlcov/
           retention-days: 30
