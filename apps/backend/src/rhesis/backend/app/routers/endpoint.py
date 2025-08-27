@@ -36,7 +36,10 @@ def create_endpoint(endpoint: schemas.EndpointCreate, db: Session = Depends(get_
     except Exception as e:
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
-        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
             raise HTTPException(status_code=400, detail="Invalid reference in endpoint data")
         if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
             raise HTTPException(status_code=400, detail="Endpoint with this name already exists")
@@ -94,7 +97,7 @@ def invoke_endpoint(
     endpoint_id: uuid.UUID,
     input_data: Dict[str, Any],
     db: Session = Depends(get_db),
-    endpoint_service: EndpointService = Depends(get_endpoint_service)
+    endpoint_service: EndpointService = Depends(get_endpoint_service),
 ):
     """
     Invoke an endpoint with the given input data.
@@ -110,17 +113,16 @@ def invoke_endpoint(
     """
     try:
         logger.info(f"API invoke request for endpoint {endpoint_id} with input: {input_data}")
-        
+
         # Validate that input_data contains required fields
         if not isinstance(input_data, dict):
-            raise HTTPException(
-                status_code=400, 
-                detail="Input data must be a JSON object"
-            )
-        
+            raise HTTPException(status_code=400, detail="Input data must be a JSON object")
+
         # If input_data doesn't have 'input' field, provide helpful error
-        if 'input' not in input_data:
-            logger.warning(f"Input data missing 'input' field. Received keys: {list(input_data.keys())}")
+        if "input" not in input_data:
+            logger.warning(
+                f"Input data missing 'input' field. Received keys: {list(input_data.keys())}"
+            )
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -128,11 +130,11 @@ def invoke_endpoint(
                     "received_fields": list(input_data.keys()),
                     "expected_format": {
                         "input": "Your query text here",
-                        "session_id": "optional-session-id"
-                    }
-                }
+                        "session_id": "optional-session-id",
+                    },
+                },
             )
-        
+
         result = endpoint_service.invoke_endpoint(db, str(endpoint_id), input_data)
         logger.info(f"API invoke successful for endpoint {endpoint_id}")
         return result
@@ -140,7 +142,9 @@ def invoke_endpoint(
         logger.error(f"API invoke HTTPException for endpoint {endpoint_id}: {e.detail}")
         raise e
     except Exception as e:
-        logger.error(f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True)
+        logger.error(
+            f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 

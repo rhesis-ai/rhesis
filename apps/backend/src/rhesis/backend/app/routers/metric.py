@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.app.models.user import User
 
 # Create the detailed schema for Metric
 MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
@@ -116,7 +116,7 @@ def add_behavior_to_metric(
     db_metric = crud.get_metric(db, metric_id=metric_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
-    
+
     if db_metric.owner_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to modify this metric")
 
@@ -147,7 +147,7 @@ def remove_behavior_from_metric(
     db_metric = crud.get_metric(db, metric_id=metric_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
-    
+
     if db_metric.owner_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to modify this metric")
 
