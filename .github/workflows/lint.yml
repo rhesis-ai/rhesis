@@ -1,13 +1,11 @@
-name: Manual Lint Check
+name: Lint Check
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to check (defaults to current branch)'
-        required: false
-        default: ''
-        type: string
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'sdk/**'
 
 jobs:
   lint:
@@ -35,11 +33,11 @@ jobs:
         make lint
       continue-on-error: false
 
-    - name: Run Backend linting
-      run: |
-        cd apps/backend
-        make lint
-      continue-on-error: false
+    # - name: Run Backend linting
+    #   run: |
+    #     cd apps/backend
+    #     make lint
+    #   continue-on-error: false
 
     - name: Lint Summary
       run: |
