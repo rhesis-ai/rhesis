@@ -7,7 +7,6 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.models.user import User
 
 router = APIRouter(
     prefix="/demographics",
@@ -26,7 +25,10 @@ def create_demographic(demographic: schemas.DemographicCreate, db: Session = Dep
     except Exception as e:
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
-        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
             if "dimension_id" in error_msg.lower():
                 raise HTTPException(status_code=400, detail="Invalid dimension reference")
             raise HTTPException(status_code=400, detail="Invalid reference in demographic data")

@@ -30,7 +30,10 @@ def create_source(
     except Exception as e:
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
-        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
             raise HTTPException(status_code=400, detail="Invalid reference in source data")
         if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
             raise HTTPException(status_code=400, detail="Source with this name already exists")
