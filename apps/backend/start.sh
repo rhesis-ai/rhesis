@@ -61,13 +61,19 @@ run_migrations() {
 validate_environment() {
     log "${BLUE}🔍 Validating environment...${NC}"
     
-    # Check if we're in the correct directory
-    if [ ! -d "/app/src/rhesis/backend" ]; then
+    # Check if we're in the correct directory (support both Docker and local paths)
+    if [ -d "/app/src/rhesis/backend" ]; then
+        # Docker environment
+        BACKEND_SRC="/app/src/rhesis/backend"
+    elif [ -d "src/rhesis/backend" ]; then
+        # Local development environment
+        BACKEND_SRC="src/rhesis/backend"
+    else
         handle_error "Backend source directory not found"
     fi
     
     # Check if the main application exists
-    if [ ! -f "/app/src/rhesis/backend/app/main.py" ]; then
+    if [ ! -f "$BACKEND_SRC/app/main.py" ]; then
         handle_error "Main application file not found"
     fi
     
