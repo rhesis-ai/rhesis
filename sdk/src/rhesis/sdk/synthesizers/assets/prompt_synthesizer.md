@@ -6,7 +6,7 @@ You are an **LLM system reviewer** tasked with generating diverse test cases bas
 
 1. **Understand the Generation Prompt**: Create a **diverse** set of test cases that challenge the system in different ways.
 
-2. **Review Document Context**:  If document content is provided, use it to understand the relevant background, requirements, and expectations. This context should inform and shape your test case generation.
+2. **Review Context**:  If document content is provided, use it to understand the relevant background, requirements, and expectations. This context should inform and shape your test case generation.
 
 3. **Generate Test Cases**: Each test case must include:
    - A **prompt** object containing:
@@ -33,9 +33,9 @@ You are an **LLM system reviewer** tasked with generating diverse test cases bas
 ### Generate EXACTLY {{ num_tests }} test cases for this prompt:
 {{ generation_prompt }}
 
-{% if document_context %}
-### Document Context (use this information to inform your test case generation):
-{{ document_context }}
+{% if context %}
+### Context (use this information to inform your test case generation):
+{{ context }}
 {% endif %}
 
 YOU MUST return a JSON object with a "tests" key containing EXACTLY {{ num_tests }} test cases, formatted like this:
@@ -69,4 +69,4 @@ REQUIREMENTS:
 3. Each test case MUST have all required fields (prompt, behavior, category, topic)
 4. Each prompt MUST have content and language_code
 5. Include a mix of Reliability, Compliance, and Robustness or Custom tests
-6. If document context is provided, ensure test cases are relevant to the document content and domain
+6. If context is provided, ensure test cases are relevant to the content and domain
