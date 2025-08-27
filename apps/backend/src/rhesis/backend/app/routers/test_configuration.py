@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
-from rhesis.backend.app.models.user import User
 
 # Create the detailed schema for TestConfiguration
 TestConfigurationDetailSchema = create_detailed_schema(
@@ -149,9 +149,7 @@ def execute_test_configuration_endpoint(
 
     # Submit the celery task with the task_launcher which automatically adds context
     task = task_launcher(
-        execute_test_configuration, 
-        str(test_configuration_id),
-        current_user=current_user
+        execute_test_configuration, str(test_configuration_id), current_user=current_user
     )
 
     return {
