@@ -143,10 +143,6 @@ def download_test_run_results(
         if db_test_run is None:
             raise HTTPException(status_code=404, detail="Test run not found")
 
-        # Check if the user has permission to access this test run
-        if db_test_run.user_id != current_user.id and not current_user.is_superuser:
-            raise HTTPException(status_code=403, detail="Not authorized to access this test run")
-
         # Get test results data
         test_results_data = get_test_results_for_test_run(db, test_run_id)
 
