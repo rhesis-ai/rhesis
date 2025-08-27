@@ -35,7 +35,10 @@ def create_category(
     except Exception as e:
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
-        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
             if "parent_id" in error_msg.lower():
                 raise HTTPException(status_code=400, detail="Invalid parent category reference")
             if "status_id" in error_msg.lower():
@@ -102,7 +105,10 @@ def update_category(
     except Exception as e:
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
-        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
             if "parent_id" in error_msg.lower():
                 raise HTTPException(status_code=400, detail="Invalid parent category reference")
             if "status_id" in error_msg.lower():

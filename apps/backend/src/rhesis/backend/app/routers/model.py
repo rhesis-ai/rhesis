@@ -9,7 +9,6 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.app.models.user import User
 
 # Create the detailed schema for Model
 ModelDetailSchema = create_detailed_schema(schemas.Model, models.Model)
@@ -82,7 +81,7 @@ async def test_model_connection(model_id: uuid.UUID, db: Session = Depends(get_d
     db_model = crud.get_model(db, model_id=model_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
-    
+
     try:
         # Here you would implement the actual connection test logic
         # This could include making a test request to the model's endpoint

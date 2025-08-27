@@ -1,19 +1,20 @@
 import uuid
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.auth.decorators import check_resource_permission
 from rhesis.backend.app.auth.permissions import ResourceAction
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.documents import Document
 from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
@@ -28,7 +29,6 @@ from rhesis.backend.app.services.test_set import (
 )
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.app.schemas.documents import Document
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_upload_test_set
@@ -104,107 +104,134 @@ def resolve_test_set_or_raise(identifier: str, db: Session) -> TestSet:
     return db_test_set
 
 
-def build_generation_prompt(config: TestSetGenerationConfig, samples: List[GenerationSample]) -> str:
+def build_generation_prompt(
+    config: TestSetGenerationConfig, samples: List[GenerationSample]
+) -> str:
     """
     Build a comprehensive prompt for test generation including sample ratings and feedback.
-    
+
     Args:
         config: The generation configuration
         samples: List of samples with ratings and feedback
-        
+
     Returns:
         A formatted prompt string for the synthesizer
     """
+    if config.test_type == "single_turn":
+        test_type_string = "Single interaction tests"
+    else:
+        test_type_string = "Multi-turn conversation tests"
+
+    if config.response_generation == "prompt_only":
+        output_format_string = "Generate only user inputs"
+    else:
+        output_format_string = "Generate both user inputs and expected responses"
     prompt_parts = [
-        f"Generate comprehensive tests based on the following configuration:",
-        f"",
-        f"PROJECT CONTEXT:",
+        "Generate comprehensive tests based on the following configuration:",
+        "",
+        "PROJECT CONTEXT:",
         f"- Project: {config.project_name or 'General'}",
         f"- Test Behaviors: {', '.join(config.behaviors)}",
         f"- Test Purposes: {', '.join(config.purposes)}",
         f"- Key Topics: {', '.join(config.tags)}",
-        f"- Test Type: {'Single interaction tests' if config.test_type == 'single_turn' else 'Multi-turn conversation tests'}",
-        f"- Output Format: {'Generate only user inputs' if config.response_generation == 'prompt_only' else 'Generate both user inputs and expected responses'}",
-        f"",
-        f"SPECIFIC REQUIREMENTS:",
+        f"- Test Type: {test_type_string}",
+        f"- Output Format: {output_format_string}",
+        "",
+        "SPECIFIC REQUIREMENTS:",
         f"{config.description}",
-        f"",
+        "",
     ]
-    
+
     if samples:
-        prompt_parts.extend([
-            f"SAMPLE EVALUATION FEEDBACK:",
-            f"The following samples were generated and rated by the user. Use this feedback to improve the quality of new tests:",
-            f"",
-        ])
-        
+        prompt_parts.extend(
+            [
+                "SAMPLE EVALUATION FEEDBACK:",
+                "The following samples were generated and rated by the user. "
+                "Use this feedback to improve the quality of new tests:",
+                "",
+            ]
+        )
+
         for i, sample in enumerate(samples, 1):
             rating_text = f"{sample.rating}/5 stars" if sample.rating is not None else "Not rated"
-            prompt_parts.extend([
-                f"Sample {i}:",
-                f"  Text: \"{sample.text}\"",
-                f"  Behavior: {sample.behavior}",
-                f"  Topic: {sample.topic}",
-                f"  User Rating: {rating_text}",
-            ])
-            
+            prompt_parts.extend(
+                [
+                    f"Sample {i}:",
+                    f'  Text: "{sample.text}"',
+                    f"  Behavior: {sample.behavior}",
+                    f"  Topic: {sample.topic}",
+                    f"  User Rating: {rating_text}",
+                ]
+            )
+
             if sample.feedback and sample.feedback.strip():
-                prompt_parts.append(f"  User Feedback: \"{sample.feedback}\"")
-            
+                prompt_parts.append(f'  User Feedback: "{sample.feedback}"')
+
             prompt_parts.append("")
-        
+
         # Add guidance based on ratings
         rated_samples = [s for s in samples if s.rating is not None]
         if rated_samples:
             avg_rating = sum(s.rating for s in rated_samples) / len(rated_samples)
-            prompt_parts.extend([
-                f"QUALITY GUIDANCE:",
-                f"- Average sample rating: {avg_rating:.1f}/5.0",
-            ])
-            
+            prompt_parts.extend(
+                [
+                    "QUALITY GUIDANCE:",
+                    f"- Average sample rating: {avg_rating:.1f}/5.0",
+                ]
+            )
+
             if avg_rating < 3.0:
-                prompt_parts.append("- Focus on significant improvements based on the feedback provided")
+                prompt_parts.append(
+                    "- Focus on significant improvements based on the feedback provided"
+                )
             elif avg_rating < 4.0:
-                prompt_parts.append("- Make moderate improvements based on the feedback while maintaining good aspects")
+                prompt_parts.append(
+                    "- Make moderate improvements based on the feedback "
+                    "while maintaining good aspects"
+                )
             else:
-                prompt_parts.append("- Maintain the high quality demonstrated in the samples while adding variety")
-            
+                prompt_parts.append(
+                    "- Maintain the high quality demonstrated in the samples while adding variety"
+                )
+
             prompt_parts.append("")
-    
-    prompt_parts.extend([
-        f"GENERATION INSTRUCTIONS:",
-        f"Generate tests that:",
-        f"1. Follow the same format and structure as the samples",
-        f"2. Address the specific behaviors and purposes listed",
-        f"3. Incorporate the feedback provided for similar quality improvements",
-        f"4. Cover the key topics mentioned in the configuration",
-        f"5. Maintain variety while staying focused on the requirements",
-    ])
-    
+
+    prompt_parts.extend(
+        [
+            "GENERATION INSTRUCTIONS:",
+            "Generate tests that:",
+            "1. Follow the same format and structure as the samples",
+            "2. Address the specific behaviors and purposes listed",
+            "3. Incorporate the feedback provided for similar quality improvements",
+            "4. Cover the key topics mentioned in the configuration",
+            "5. Maintain variety while staying focused on the requirements",
+        ]
+    )
+
     return "\n".join(prompt_parts)
 
 
 def determine_test_count(config: TestSetGenerationConfig, requested_count: Optional[int]) -> int:
     """
     Determine the number of tests to generate based on coverage level and user request.
-    
+
     Args:
         config: The generation configuration
         requested_count: User-requested test count (if any)
-        
+
     Returns:
         Number of tests to generate
     """
     if requested_count is not None and requested_count > 0:
         return requested_count
-    
+
     # Default counts based on coverage level
     coverage_mapping = {
         "focused": 100,
         "standard": 1000,
         "comprehensive": 5000,
     }
-    
+
     return coverage_mapping.get(config.test_coverage, 1000)
 
 
@@ -216,15 +243,15 @@ async def generate_test_set(
 ):
     """
     Generate a test set using AI synthesizers with user configuration and sample feedback.
-    
+
     This endpoint creates a comprehensive prompt from the user's configuration and sample
     ratings, then launches a Celery task to generate the full test set.
-    
+
     Args:
         request: The generation request containing config, samples, and parameters
         db: Database session
         current_user: Current authenticated user
-        
+
     Returns:
         Task information including task ID and estimated test count
     """
@@ -232,16 +259,16 @@ async def generate_test_set(
         # Validate request
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
-        
+
         if not request.config.description.strip():
             raise HTTPException(status_code=400, detail="Description is required")
-        
+
         # Build the generation prompt from config and samples
         generation_prompt = build_generation_prompt(request.config, request.samples)
-        
+
         # Determine test count
         test_count = determine_test_count(request.config, request.num_tests)
-        
+
         # Launch the generation task
         task_result = task_launcher(
             generate_and_upload_test_set,
@@ -252,9 +279,9 @@ async def generate_test_set(
             prompt=generation_prompt,
             documents=[doc.dict() for doc in request.documents] if request.documents else None,
         )
-        
+
         logger.info(
-            f"Test set generation task launched",
+            "Test set generation task launched",
             extra={
                 "task_id": task_result.id,
                 "user_id": current_user.id,
@@ -262,24 +289,24 @@ async def generate_test_set(
                 "synthesizer_type": request.synthesizer_type,
                 "test_count": test_count,
                 "sample_count": len(request.samples),
-            }
+            },
         )
-        
+
         return TestSetGenerationResponse(
             task_id=task_result.id,
-            message=f"Test set generation started. You will be notified when {test_count} tests are ready.",
-            estimated_tests=test_count
+            message="Test set generation started. "
+            f"You will be notified when {test_count} tests are ready.",
+            estimated_tests=test_count,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to start test set generation: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to start test set generation: {str(e)}"
+            status_code=500, detail=f"Failed to start test set generation: {str(e)}"
         )
-    
+
     finally:
         # Cleanup documents regardless of success or failure
         if request.documents:
@@ -357,7 +384,9 @@ async def read_test_sets(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    has_runs: bool | None = Query(None, description="Filter test sets by whether they have test runs"),
+    has_runs: bool | None = Query(
+        None, description="Filter test sets by whether they have test runs"
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -378,8 +407,9 @@ async def read_test_sets(
         current_user: Current user
     """
     from rhesis.backend.logging import logger
+
     logger.info(f"test_sets endpoint called with has_runs={has_runs}")
-    
+
     return crud.get_test_sets(
         db=db,
         skip=skip,
@@ -547,7 +577,7 @@ async def execute_test_set(
         attributes = None
         if test_configuration_attributes and test_configuration_attributes.execution_options:
             attributes = test_configuration_attributes.execution_options
-            
+
         result = execute_test_set_on_endpoint(
             db=db,
             test_set_identifier=test_set_identifier,
@@ -556,7 +586,7 @@ async def execute_test_set(
             test_configuration_attributes=attributes,
         )
         return result
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except PermissionError as e:
@@ -628,8 +658,8 @@ def download_test_set_prompts_csv(
             content=csv_data,
             media_type="text/csv",
             headers={
-                "Content-Disposition": 
-                f'attachment; filename="test_set_{test_set_identifier}_prompts.csv"'
+                "Content-Disposition": "attachment; "
+                f'filename="test_set_{test_set_identifier}_prompts.csv"'
             },
         )
     except HTTPException:
