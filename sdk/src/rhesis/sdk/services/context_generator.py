@@ -12,6 +12,7 @@ class ContextGenerator:
         default_chunks: int = 5,
         random_selection: bool = False,
         separator: str = "\n\n",
+        max_chunk_length: int = 1000,  # characters
     ):
         """
         Initialize the context generator.
@@ -20,10 +21,56 @@ class ContextGenerator:
             default_chunks: Default number of chunks to select (defaults to 5)
             random_selection: If True, randomly select chunks; if False, take first N
             separator: String to use between chunks when assembling context
+            max_chunk_length: Maximum characters per chunk
         """
         self.default_chunks = default_chunks
         self.random_selection = random_selection
         self.separator = separator
+        self.max_chunk_length = max_chunk_length
+
+    def create_chunks_from_text(
+        self, text: str, max_chunk_length: Optional[int] = None
+    ) -> List[str]:
+        """
+        Create chunks from text based on length constraints.
+
+        Args:
+            text: Text to chunk
+            max_chunk_length: Override default chunk length
+
+        Returns:
+            List of text chunks
+        """
+        if not text:
+            return []
+
+        chunk_length = max_chunk_length or self.max_chunk_length
+        chunks = []
+        start = 0
+
+        while start < len(text):
+            # Calculate end position for this chunk
+            end = start + chunk_length
+
+            # If this is not the last chunk, try to find a good break point
+            if end < len(text):
+                # Look for a good break point (newline, period, space)
+                for i in range(end, max(start, end - 200), -1):
+                    if text[i] in ["\n", ".", " "]:
+                        end = i + 1
+                        break
+
+            # Extract the chunk
+            chunk = text[start:end].strip()
+            if chunk:  # Only add non-empty chunks
+                chunks.append(chunk)
+
+            # Move to next chunk
+            start = end
+            if start >= len(text):
+                break
+
+        return chunks
 
     def select_chunks(self, chunks: List[str], num_chunks: Optional[int] = None) -> List[str]:
         """
