@@ -16,6 +16,7 @@ DEFAULT_PROVIDER = "rhesis"
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
     "rhesis_premium": "rhesis-premium-default",
+    "gemini": "gemini-2.0-flash-lite-preview-02-05",
 }
 
 
@@ -30,8 +31,8 @@ class ModelConfig:
         extra_params: Extra parameters to pass to the model.
     """
 
-    provider: str = DEFAULT_PROVIDER
-    model_name: str = DEFAULT_MODELS[DEFAULT_PROVIDER]
+    provider: str | None = None
+    model_name: str | None = None
     api_key: str | None = None
     extra_params: dict = field(default_factory=dict)
 
@@ -116,15 +117,19 @@ def get_model(
         from rhesis.sdk.services.providers.rhesis_provider import RhesisLLMService
 
         return RhesisLLMService(model_name=config.model_name, api_key=config.api_key)
-    elif config.provider == "rhesis_premium":
-        from rhesis.sdk.services.providers.rhesis_premium import RhesisPremiumLLMService
+    elif config.provider == "gemini":
+        from rhesis.sdk.services.providers.gemini_provider import GeminiLLM
 
-        return RhesisPremiumLLMService(model_name=config.model_name, api_key=config.api_key)
+        return GeminiLLM(model_name=config.model_name)
     else:
         raise ValueError(f"Provider {config.provider} not supported")
 
 
 if __name__ == "__main__":
-    model = get_model("rhesis_premium/sdsf")
-    print(model.get_model_name())
-    print(model.generate(prompt="What is the capital of France?"))
+    model = get_model("gemini/gemini-2.0-flash-lite-preview-02-05")
+    # print(model.get_model_name())
+    print(
+        model.generate(
+            prompt="What is the capital of France? Tell me some story about this beautiful city"
+        )
+    )

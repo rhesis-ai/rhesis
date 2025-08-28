@@ -97,4 +97,8 @@ class RhesisLLMService(BaseLLM):
 
 if __name__ == "__main__":
     model = RhesisLLMService(model_name="rhesis-llm-v1")
-    print(model.generate(prompt="What is the capital of France?"))
+    print(
+        model.generate(
+            prompt="What is the capital of France? Return json with answer and reasoning"
+        )
+    )
