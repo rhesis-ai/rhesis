@@ -45,13 +45,13 @@ class GeminiLLM(BaseLLM):
             *args,
             **kwargs,
         )
-
+        response_content = response.choices[0].message.content
         if schema:
-            answer_json = json.loads(response.choices[0].message.content)
+            answer_json = json.loads(response_content)
             pydantic_model = schema.model_validate(answer_json)
             return pydantic_model
         else:
-            return response.choices[0].message.content
+            return response_content
 
 
 if __name__ == "__main__":
