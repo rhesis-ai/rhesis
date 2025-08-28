@@ -1,10 +1,6 @@
-import os
-
 from litellm import completion
 
 from rhesis.sdk.services.base import BaseLLM
-
-print(os.getenv("OPENAI_API_KEY"))
 
 
 class OpenAILLM(BaseLLM):
