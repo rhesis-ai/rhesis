@@ -1,11 +1,12 @@
 """Simple document synthesizer for extracting text and creating chunks."""
 
-from typing import Any, List
+from typing import Any, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.services.context_generator import ContextGenerator
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-from rhesis.sdk.synthesizers.context_synthesizer import ContextSynthesizer
+from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
 
 class DocumentSynthesizer(TestSetSynthesizer):
@@ -13,7 +14,8 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
     def __init__(
         self,
-        context_synthesizer: ContextSynthesizer,
+        prompt_synthesizer: PromptSynthesizer,
+        context_generator: Optional[ContextGenerator] = None,
         max_chunk_length: int = 1000,  # characters
         separator: str = "\n\n",
     ):
@@ -21,12 +23,16 @@ class DocumentSynthesizer(TestSetSynthesizer):
         Initialize the document synthesizer.
 
         Args:
-            context_synthesizer: ContextSynthesizer instance to use for generating synthetic data
+            prompt_synthesizer: PromptSynthesizer instance
+                to use for generating synthetic data
+            context_generator: ContextGenerator instance
+                for creating context (creates default if None)
             max_chunk_length: Maximum characters per chunk
             separator: String to use when joining chunks
         """
         super().__init__()
-        self.context_synthesizer = context_synthesizer
+        self.prompt_synthesizer = prompt_synthesizer
+        self.context_generator = context_generator or ContextGenerator()
         self.max_chunk_length = max_chunk_length
         self.separator = separator
         self.document_extractor = DocumentExtractor()
@@ -101,38 +107,47 @@ class DocumentSynthesizer(TestSetSynthesizer):
             **kwargs: Keyword arguments including:
                 - documents: List of document dictionaries
                 - max_chunk_length: Override default chunk length
-                - Any other arguments to pass to ContextSynthesizer.generate()
+                - num_chunks: Number of chunks to select for context
+                - Any other arguments to pass to PromptSynthesizer.generate()
 
         Returns:
             TestSet: Generated synthetic data from the complete pipeline
         """
         documents = kwargs.get("documents", [])
         max_chunk_length = kwargs.get("max_chunk_length", self.max_chunk_length)
+        num_chunks = kwargs.get("num_chunks", None)
 
         # Process documents into chunks
-        chunks = self.process_documents(documents)
+        chunks = self.create_chunks_from_text(self.extract_text_from_documents(documents))
 
-        # Add chunk metadata to kwargs
-        kwargs.update(
-            {
-                "chunks": chunks,
-                "chunk_metadata": {
-                    "total_chunks": len(chunks),
-                    "max_chunk_length": max_chunk_length,
-                    "documents_processed": len(documents),
-                    "total_text_length": sum(len(chunk) for chunk in chunks),
-                },
-            }
+        # Generate context using ContextGenerator
+        context = self.context_generator.generate_context_from_chunks(
+            chunks, num_chunks, self.separator
         )
 
-        # Call ContextSynthesizer to generate the final result
-        result = self.context_synthesizer.generate(**kwargs)
+        # Get context metadata
+        context_metadata = self.context_generator.get_context_metadata(
+            chunks,
+            self.context_generator.select_chunks(chunks, num_chunks),
+            {
+                "total_chunks": len(chunks),
+                "max_chunk_length": max_chunk_length,
+                "documents_processed": len(documents),
+                "total_text_length": sum(len(chunk) for chunk in chunks),
+            },
+        )
+
+        # Update the prompt synthesizer's context
+        self.prompt_synthesizer.context = context
+
+        # Generate using the updated prompt synthesizer
+        result = self.prompt_synthesizer.generate(**kwargs)
 
         # Add document processing metadata with namespacing
         result.metadata = result.metadata or {}
         result.metadata["document_synthesizer"] = {
             "chunks_created": len(chunks),
-            "chunk_info": kwargs["chunk_metadata"],
+            "context_metadata": context_metadata,
         }
 
         return result
