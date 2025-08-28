@@ -32,7 +32,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
         """
         super().__init__()
         self.prompt_synthesizer = prompt_synthesizer
-        self.context_generator = context_generator or ContextGenerator()
+        self.context_generator = context_generator or ContextGenerator(
+            max_chunk_length=max_chunk_length, separator=separator
+        )
         self.max_chunk_length = max_chunk_length
         self.separator = separator
         self.document_extractor = DocumentExtractor()
