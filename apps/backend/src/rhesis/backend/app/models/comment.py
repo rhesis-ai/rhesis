@@ -1,0 +1,30 @@
+from sqlalchemy import JSON, Column, String, Text
+from sqlalchemy.orm import relationship
+
+from .base import Base
+from .guid import GUID
+from .mixins import OrganizationAndUserMixin
+
+
+class Comment(Base, OrganizationAndUserMixin):
+    __tablename__ = "comment"
+
+    # Comment content
+    comment_text = Column(Text, nullable=False)
+
+    # Emoji reactions stored as JSON
+    emojis = Column(JSON, default=dict)
+
+    # Entity relationship (polymorphic)
+    entity_id = Column(GUID(), nullable=False)
+    entity_type = Column(String, nullable=False)  # "test", "test_set", "test_run"
+
+    # Relationships
+    user = relationship("User", back_populates="comments")
+    organization = relationship("Organization", back_populates="comments")
+
+    # Polymorphic relationship back to the entity
+    # This will be handled in the respective entity models
+
+    # Note: We don't define back-references here since entity_id is not a foreign key
+    # The relationships are defined in the respective entity models

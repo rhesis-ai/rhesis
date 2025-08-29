@@ -3,9 +3,9 @@ This code implements the CRUD operations for the models in the application.
 """
 
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Union
 from uuid import UUID
-from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -305,16 +305,20 @@ def get_test_sets(
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
     )
-    
+
     # Add test runs filter if specified
     if has_runs is not None:
+
         def has_runs_filter(query):
             from rhesis.backend.logging import logger
+
             logger.info(f"Applying has_runs filter: {has_runs}")
-            
+
             if has_runs:
                 # Only test sets that have test runs
-                filtered_query = query.join(models.TestConfiguration).join(models.TestRun).distinct()
+                filtered_query = (
+                    query.join(models.TestConfiguration).join(models.TestRun).distinct()
+                )
                 logger.info("Applied filter for test sets WITH runs")
                 return filtered_query
             else:
@@ -329,8 +333,9 @@ def get_test_sets(
                 filtered_query = query.filter(~models.TestSet.id.in_(subquery))
                 logger.info("Applied filter for test sets WITHOUT runs")
                 return filtered_query
+
         query_builder = query_builder.with_custom_filter(has_runs_filter)
-    
+
     return query_builder.all()
 
 
@@ -646,10 +651,10 @@ def get_users(
 
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
-    """Create a new user without RLS checks, because we're creating a new user that has no 
+    """Create a new user without RLS checks, because we're creating a new user that has no
     organization_id"""
     # Exclude send_invite field since it's not part of the User model
-    user_data = user.dict(exclude={'send_invite'})
+    user_data = user.dict(exclude={"send_invite"})
     db_user = models.User(**user_data)
     db.add(db_user)
     db.commit()
@@ -838,7 +843,7 @@ def get_user_tokens(
     valid_only: bool = False,
 ) -> List[models.Token]:
     """Get all active bearer tokens for a user with pagination and sorting
-    
+
     Args:
         db: Database session
         user_id: User ID to get tokens for
@@ -848,14 +853,18 @@ def get_user_tokens(
         sort_order: Sort order (asc/desc)
         filter: OData filter string
         valid_only: If True, only returns valid (non-expired) tokens
-        
+
     Returns:
         List of token objects
     """
-    query_builder = QueryBuilder(db, models.Token).with_organization_filter().with_custom_filter(
-        lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
+    query_builder = (
+        QueryBuilder(db, models.Token)
+        .with_organization_filter()
+        .with_custom_filter(
+            lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
+        )
     )
-    
+
     # Add validity check if requested
     if valid_only:
         now = datetime.now(timezone.utc)
@@ -865,10 +874,9 @@ def get_user_tokens(
                 (models.Token.expires_at == None) | (models.Token.expires_at > now)
             )
         )
-    
+
     return (
-        query_builder
-        .with_odata_filter(filter)
+        query_builder.with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
         .all()
@@ -1015,7 +1023,7 @@ def update_test(db: Session, test_id: uuid.UUID, test: schemas.TestUpdate) -> Op
 def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
     """Delete a test and update any associated test sets' attributes"""
     from rhesis.backend.app.services.test_set import update_test_set_attributes
-    
+
     with maintain_tenant_context(db):
         # Get the test to be deleted
         db_test = get_item(db, models.Test, test_id)
@@ -1024,11 +1032,9 @@ def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
 
         # Get all test sets that contain this test before deletion
         test_set_ids = db.execute(
-            test_test_set_association.select().where(
-                test_test_set_association.c.test_id == test_id
-            )
+            test_test_set_association.select().where(test_test_set_association.c.test_id == test_id)
         ).fetchall()
-        
+
         affected_test_set_ids = [row.test_set_id for row in test_set_ids]
 
         # Store a copy of the test before deletion
@@ -1101,31 +1107,29 @@ def get_test_runs(
     return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
 
 
-def get_test_run_behaviors(
-    db: Session, test_run_id: uuid.UUID
-) -> List[models.Behavior]:
+def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID) -> List[models.Behavior]:
     """Get behaviors that have test results for a specific test run"""
     # Verify the test run exists
     test_run = get_test_run(db, test_run_id)
     if not test_run:
         raise ValueError(f"Test run with id {test_run_id} not found")
-    
+
     # Get unique behavior IDs from tests that have results in this test run
     behavior_ids_query = (
         db.query(models.Test.behavior_id)
         .join(models.TestResult, models.Test.id == models.TestResult.test_id)
         .filter(
             models.TestResult.test_run_id == test_run_id,
-            models.Test.behavior_id.isnot(None)  # Only tests that have a behavior
+            models.Test.behavior_id.isnot(None),  # Only tests that have a behavior
         )
         .distinct()
     )
-    
+
     behavior_ids = [row[0] for row in behavior_ids_query.all()]
-    
+
     if not behavior_ids:
         return []
-    
+
     # Get the actual behavior objects with proper filtering
     return (
         QueryBuilder(db, models.Behavior)
@@ -1138,7 +1142,7 @@ def get_test_run_behaviors(
 
 def create_test_run(db: Session, test_run: schemas.TestRunCreate) -> models.TestRun:
     """Create a new test run with automatic name generation if no name is provided"""
-    
+
     # If no name is provided or it's empty, generate a memorable one
     if not test_run.name or not test_run.name.strip():
         # Get organization_id for scoping uniqueness
@@ -1146,28 +1150,34 @@ def create_test_run(db: Session, test_run: schemas.TestRunCreate) -> models.Test
         if not organization_id:
             # Try to get from session context if not explicitly provided
             from rhesis.backend.app.utils.crud_utils import get_current_organization_id
+
             organization_id = get_current_organization_id(db)
-        
+
         if organization_id:
             try:
                 generated_name = generate_memorable_name(db, organization_id)
                 logger.info(f"Generated memorable name for test run: {generated_name}")
-                
+
                 # Create a new TestRunCreate with the generated name
-                test_run_dict = test_run.model_dump() if hasattr(test_run, 'model_dump') else test_run.dict()
-                test_run_dict['name'] = generated_name
+                test_run_dict = (
+                    test_run.model_dump() if hasattr(test_run, "model_dump") else test_run.dict()
+                )
+                test_run_dict["name"] = generated_name
                 test_run = schemas.TestRunCreate(**test_run_dict)
             except Exception as e:
                 logger.warning(f"Failed to generate memorable name: {e}. Using fallback.")
                 # Fallback to a simple timestamp-based name
                 import time
+
                 timestamp = int(time.time())
-                test_run_dict = test_run.model_dump() if hasattr(test_run, 'model_dump') else test_run.dict()
-                test_run_dict['name'] = f"test-run-{timestamp}"
+                test_run_dict = (
+                    test_run.model_dump() if hasattr(test_run, "model_dump") else test_run.dict()
+                )
+                test_run_dict["name"] = f"test-run-{timestamp}"
                 test_run = schemas.TestRunCreate(**test_run_dict)
         else:
             logger.warning("No organization_id available for test run name generation")
-    
+
     return create_item(db, models.TestRun, test_run)
 
 
@@ -1300,14 +1310,14 @@ def add_behavior_to_metric(
     db: Session, metric_id: UUID, behavior_id: UUID, user_id: UUID, organization_id: UUID
 ) -> bool:
     """Add a behavior to a metric.
-    
+
     Args:
         db: Database session
         metric_id: ID of the metric
         behavior_id: ID of the behavior to add
         user_id: ID of the user performing the operation
         organization_id: ID of the organization
-        
+
     Returns:
         bool: True if the behavior was added, False if it was already associated
     """
@@ -1344,7 +1354,7 @@ def add_behavior_to_metric(
             organization_id=organization_id,
         )
     )
-    
+
     with maintain_tenant_context(db):
         db.commit()
     return True
@@ -1354,13 +1364,13 @@ def remove_behavior_from_metric(
     db: Session, metric_id: UUID, behavior_id: UUID, organization_id: UUID
 ) -> bool:
     """Remove a behavior from a metric.
-    
+
     Args:
         db: Database session
         metric_id: ID of the metric
         behavior_id: ID of the behavior to remove
         organization_id: ID of the organization
-        
+
     Returns:
         bool: True if the behavior was removed, False if it wasn't associated
     """
@@ -1399,7 +1409,7 @@ def get_metric_behaviors(
     filter: str | None = None,
 ) -> List[models.Behavior]:
     """Get all behaviors associated with a metric.
-    
+
     Args:
         db: Database session
         metric_id: ID of the metric
@@ -1408,7 +1418,7 @@ def get_metric_behaviors(
         sort_by: Field to sort by
         sort_order: Sort order (asc/desc)
         filter: OData filter string
-        
+
     Returns:
         List of behaviors associated with the metric
     """
@@ -1442,7 +1452,7 @@ def get_behavior_metrics(
     filter: str | None = None,
 ) -> List[models.Metric]:
     """Get all metrics associated with a behavior.
-    
+
     Args:
         db: Database session
         behavior_id: ID of the behavior
@@ -1451,7 +1461,7 @@ def get_behavior_metrics(
         sort_by: Field to sort by
         sort_order: Sort order (asc/desc)
         filter: OData filter string
-        
+
     Returns:
         List of metrics associated with the behavior
     """
@@ -1512,14 +1522,14 @@ def delete_model(db: Session, model_id: uuid.UUID) -> Optional[models.Model]:
 
 def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
     """Test the connection to a model's endpoint
-    
+
     Args:
         db: Database session
         model_id: ID of the model to test
-        
+
     Returns:
         bool: True if connection test was successful
-        
+
     Raises:
         ValueError: If model not found
         Exception: If connection test fails
@@ -1536,3 +1546,65 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
         return True
     except Exception as e:
         raise Exception(f"Failed to test connection: {str(e)}")
+
+
+# Comment CRUD
+def get_comment(db: Session, comment_id: uuid.UUID) -> Optional[models.Comment]:
+    """Get a specific comment by ID"""
+    return get_item(db, models.Comment, comment_id)
+
+
+def get_comments(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+) -> List[models.Comment]:
+    """Get all comments with filtering and pagination"""
+    return get_items_detail(db, models.Comment, skip, limit, sort_by, sort_order, filter)
+
+
+def get_comments_by_entity(
+    db: Session,
+    entity_id: uuid.UUID,
+    entity_type: str,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+) -> List[models.Comment]:
+    """Get all comments for a specific entity (test, test_set, test_run)"""
+    return (
+        QueryBuilder(db, models.Comment)
+        .with_organization_filter()
+        .with_custom_filter(
+            lambda q: q.filter(
+                models.Comment.entity_id == entity_id, models.Comment.entity_type == entity_type
+            )
+        )
+        .with_pagination(skip, limit)
+        .with_sorting(sort_by, sort_order)
+        .all()
+    )
+
+
+def create_comment(db: Session, comment: Union[schemas.CommentCreate, dict]) -> models.Comment:
+    """Create a new comment"""
+    # If it's a dict, convert it to CommentCreate schema first
+    if isinstance(comment, dict):
+        comment = schemas.CommentCreate(**comment)
+    return create_item(db, models.Comment, comment)
+
+
+def update_comment(
+    db: Session, comment_id: uuid.UUID, comment: schemas.CommentUpdate
+) -> Optional[models.Comment]:
+    """Update a comment"""
+    return update_item(db, models.Comment, comment_id, comment)
+
+
+def delete_comment(db: Session, comment_id: uuid.UUID) -> Optional[models.Comment]:
+    """Delete a comment"""
+    return delete_item(db, models.Comment, comment_id)

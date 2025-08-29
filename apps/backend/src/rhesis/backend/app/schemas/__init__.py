@@ -1,6 +1,7 @@
 from .base import Base
 from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorUpdate
 from .category import Category, CategoryBase, CategoryCreate, CategoryUpdate
+from .comment import Comment, CommentBase, CommentCreate, CommentUpdate
 from .demographic import Demographic, DemographicBase, DemographicCreate, DemographicUpdate
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
 from .endpoint import Endpoint, EndpointBase, EndpointCreate, EndpointUpdate
@@ -105,6 +106,10 @@ __all__ = [
     "CategoryBase",
     "CategoryCreate",
     "CategoryUpdate",
+    "Comment",
+    "CommentBase",
+    "CommentCreate",
+    "CommentUpdate",
     "Risk",
     "RiskBase",
     "RiskCreate",
