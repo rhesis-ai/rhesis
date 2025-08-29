@@ -89,8 +89,15 @@ export interface MetricUpdate {
   model_id?: UUID;
 }
 
+export interface BehaviorReference {
+  id: UUID;
+  name: string;
+  description?: string;
+  // Add other essential behavior fields as needed
+}
+
 export interface MetricDetail extends Metric {
-  behaviors: UUID[];
+  behaviors: BehaviorReference[];
 }
 
 export interface MetricsResponse {

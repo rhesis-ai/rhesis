@@ -1,12 +1,18 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Behavior, BehaviorCreate, BehaviorUpdate, BehaviorsQueryParams } from './interfaces/behavior';
+import { 
+  Behavior, 
+  BehaviorCreate, 
+  BehaviorUpdate, 
+  BehaviorsQueryParams, 
+  BehaviorWithMetrics 
+} from './interfaces/behavior';
 import { UUID } from 'crypto';
 import { MetricDetail } from './interfaces/metric';
 
 export class BehaviorClient extends BaseApiClient {
   async getBehaviors(params: BehaviorsQueryParams = {}): Promise<Behavior[]> {
-    const { skip = 0, limit = 100, sort_by = 'created_at', sort_order = 'desc', $filter } = params;
+    const { skip = 0, limit = 100, sort_by = 'created_at', sort_order = 'desc', $filter, include } = params;
     
     // Build query string
     const queryParams = new URLSearchParams();
@@ -16,6 +22,9 @@ export class BehaviorClient extends BaseApiClient {
     queryParams.append('sort_order', sort_order);
     if ($filter) {
       queryParams.append('$filter', $filter);
+    }
+    if (include) {
+      queryParams.append('include', include);
     }
     
     const url = `${API_ENDPOINTS.behaviors}?${queryParams.toString()}`;
@@ -27,6 +36,21 @@ export class BehaviorClient extends BaseApiClient {
 
   async getBehavior(id: UUID): Promise<Behavior> {
     return this.fetch<Behavior>(`${API_ENDPOINTS.behaviors}/${id}`);
+  }
+
+  async getBehaviorWithMetrics(id: UUID): Promise<BehaviorWithMetrics> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('include', 'metrics');
+    
+    const url = `${API_ENDPOINTS.behaviors}/${id}?${queryParams.toString()}`;
+    
+    return this.fetch<BehaviorWithMetrics>(url, {
+      cache: 'no-store'
+    });
+  }
+
+  async getBehaviorsWithMetrics(params: Omit<BehaviorsQueryParams, 'include'> = {}): Promise<BehaviorWithMetrics[]> {
+    return this.getBehaviors({ ...params, include: 'metrics' }) as Promise<BehaviorWithMetrics[]>;
   }
 
   async createBehavior(behavior: BehaviorCreate): Promise<Behavior> {
