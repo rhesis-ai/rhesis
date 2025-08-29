@@ -11,8 +11,10 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
-# Create the detailed schema for Metric
-MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
+# Create the detailed schema for Metric with many-to-many relationships included
+MetricDetailSchema = create_detailed_schema(
+    schemas.Metric, models.Metric, include_many_to_many=True
+)
 BehaviorDetailSchema = create_detailed_schema(schemas.Behavior, models.Behavior)
 
 router = APIRouter(

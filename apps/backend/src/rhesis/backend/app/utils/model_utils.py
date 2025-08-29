@@ -138,7 +138,7 @@ def has_organization_id(model: Type[T]) -> bool:
 
 
 def has_visibility(model: Type[T]) -> bool:
-    """Check if model supports visibility filtering (has visibility, organization_id and user_id 
+    """Check if model supports visibility filtering (has visibility, organization_id and user_id
     fields)"""
     columns = inspect(model).columns.keys()
     return "visibility" in columns and "organization_id" in columns and "user_id" in columns
@@ -152,7 +152,7 @@ def get_model_relationships(
 
     Args:
         model: The SQLAlchemy model class
-        skip_many_to_many: If True, excludes many-to-many relationships 
+        skip_many_to_many: If True, excludes many-to-many relationships
                           (those with secondary tables)
         skip_one_to_many: If True, excludes one-to-many relationships (those with uselist=True)
 
@@ -163,13 +163,19 @@ def get_model_relationships(
     relationships = {}
 
     for rel in mapper.relationships:
-        # Check for many-to-many relationships (those with secondary tables)
-        if skip_many_to_many and getattr(rel, "secondary", None) is not None:
-            continue
+        # Use hierarchical filtering to avoid overlap between many-to-many and one-to-many
 
-        # Check for one-to-many relationships (those with uselist=True)
-        if skip_one_to_many and rel.uselist:
-            continue
+        # First, check if it's many-to-many (has secondary table)
+        if getattr(rel, "secondary", None) is not None:
+            # This is a many-to-many relationship
+            if skip_many_to_many:
+                continue
+        # Then, check if it's one-to-many (uselist=True but no secondary table)
+        elif rel.uselist:
+            # This is a pure one-to-many relationship
+            if skip_one_to_many:
+                continue
+        # Otherwise, it's many-to-one or one-to-one (uselist=False, no secondary)
 
         # Include this relationship
         relationships[rel.key] = rel
@@ -207,13 +213,19 @@ def apply_organization_filter(db: Session, query: Query, model: Type[T]) -> Quer
     """Apply organization filter to query if model supports it"""
     if has_organization_id(model):
         current_org_id = get_current_organization_id(db)
-        logger.debug(f"apply_organization_filter - model: {model.__name__}, current_org_id: '{current_org_id}', type: {type(current_org_id)}")
+        logger.debug(
+            f"apply_organization_filter - model: {model.__name__}, current_org_id: '{current_org_id}', type: {type(current_org_id)}"
+        )
         # Only apply filter if we have a valid organization ID
         if current_org_id is not None:
-            logger.debug(f"apply_organization_filter - Applying filter: {model.__name__}.organization_id == '{current_org_id}'")
+            logger.debug(
+                f"apply_organization_filter - Applying filter: {model.__name__}.organization_id == '{current_org_id}'"
+            )
             query = query.filter(model.organization_id == current_org_id)
         else:
-            logger.debug(f"apply_organization_filter - No organization filter applied for {model.__name__}")
+            logger.debug(
+                f"apply_organization_filter - No organization filter applied for {model.__name__}"
+            )
     return query
 
 

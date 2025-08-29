@@ -1,11 +1,11 @@
 from enum import Enum
-from sqlalchemy import Column, ForeignKey, String, Float, Text, Boolean, Table
-from sqlalchemy.dialects.postgresql import ARRAY
+
+from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import TagsMixin, OrganizationMixin, UserOwnedMixin
+from .mixins import OrganizationMixin, TagsMixin, UserOwnedMixin
 
 # Association table for behavior and metric
 behavior_metric_association = Table(
@@ -16,6 +16,7 @@ behavior_metric_association = Table(
     Column("user_id", GUID(), ForeignKey("user.id")),
     Column("organization_id", GUID(), ForeignKey("organization.id")),
 )
+
 
 class ScoreType(str, Enum):
     BINARY = "binary"
@@ -43,15 +44,15 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     score_type = Column(String, nullable=False)
     min_score = Column(Float)
     max_score = Column(Float)
-    reference_score = Column(String) # used for binary or categorical metrics
+    reference_score = Column(String)  # used for binary or categorical metrics
     threshold = Column(Float)
     threshold_operator = Column(String, default=ThresholdOperator.GREATER_THAN_OR_EQUAL.value)
     explanation = Column(Text)
     ground_truth_required = Column(Boolean, default=False)
     context_required = Column(Boolean, default=False)
-    class_name = Column(String) # useful if type is custom code or framework
+    class_name = Column(String)  # useful if type is custom code or framework
     evaluation_examples = Column(String)
-    
+
     # Foreign keys
     metric_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
@@ -59,14 +60,18 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     owner_id = Column(GUID(), ForeignKey("user.id"))
     model_id = Column(GUID(), ForeignKey("model.id"), nullable=True)
     backend_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
-    
+
     # Relationships
-    metric_type = relationship("TypeLookup", foreign_keys=[metric_type_id], back_populates="metrics")
+    metric_type = relationship(
+        "TypeLookup", foreign_keys=[metric_type_id], back_populates="metrics"
+    )
     status = relationship("Status", back_populates="metrics")
     assignee = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_metrics")
     owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_metrics")
     model = relationship("Model", back_populates="metrics")
-    backend_type = relationship("TypeLookup", foreign_keys=[backend_type_id], back_populates="backend_types")
+    backend_type = relationship(
+        "TypeLookup", foreign_keys=[backend_type_id], back_populates="backend_types"
+    )
     behaviors = relationship(
         "Behavior", secondary=behavior_metric_association, back_populates="metrics"
-    ) 
+    )
