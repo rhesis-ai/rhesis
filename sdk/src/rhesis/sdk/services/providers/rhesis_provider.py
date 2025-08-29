@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -6,18 +7,25 @@ import requests
 from rhesis.sdk.client import Client
 from rhesis.sdk.services.base import BaseLLM
 
-default_model_name = "rhesis-llm-v1"
+DEFAULT_MODEL_NAME = "rhesis-llm-v1"
 
 
 class RhesisLLMService(BaseLLM):
     """Service for interacting with the LLM API endpoints."""
 
-    def __init__(self, model_name: str = default_model_name, api_key=None, *args, **kwargs) -> None:
-        self.api_key = api_key
-        super().__init__(model_name)
+    def __init__(
+        self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, base_url=None, **kwargs
+    ) -> None:
+        self.api_key = api_key or os.getenv("RHESIS_API_KEY")
+        self.base_url = base_url or os.getenv("RHESIS_BASE_URL")
+
+        if self.api_key is None:
+            raise ValueError("RHESIS_API_KEY is not set")
+
+        super().__init__(model_name, **kwargs)
 
     def load_model(self) -> Any:
-        self.client = Client(api_key=self.api_key)
+        self.client = Client(api_key=self.api_key, base_url=self.base_url)
         self.headers = {
             "Authorization": f"Bearer {self.client.api_key}",
             "Content-Type": "application/json",
@@ -93,12 +101,3 @@ class RhesisLLMService(BaseLLM):
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result
-
-
-if __name__ == "__main__":
-    model = RhesisLLMService(model_name="rhesis-llm-v1")
-    print(
-        model.generate(
-            prompt="What is the capital of France? Return json with answer and reasoning"
-        )
-    )
