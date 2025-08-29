@@ -1,4 +1,5 @@
-from typing import Dict, List, Optional
+import datetime
+from typing import Dict, List, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -54,6 +55,8 @@ class Comment(CommentBase):
     id: UUID
     user_id: UUID
     organization_id: Optional[UUID] = None
+    created_at: Union[datetime.datetime, str]
+    updated_at: Union[datetime.datetime, str]
 
     class Config:
         from_attributes = True
