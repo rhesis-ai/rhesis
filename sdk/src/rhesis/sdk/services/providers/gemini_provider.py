@@ -10,27 +10,39 @@ Available models:
 """
 
 import json
-from typing import Literal, Optional, Union
+import os
+from typing import List, Literal, Optional, Union
 
 from litellm import completion
 from pydantic import BaseModel
 
 from rhesis.sdk.services.base import BaseLLM
 
+print(os.getenv("GEMINI_API_KEY"))
+
+
 PROVIDER = "gemini"
+DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
 
 class GeminiResponse(BaseModel):
-    question: str
-    answer: Literal["yes", "no"]
-    reasoning_in_polish: str
-    reasoning_in_english: str
-    reasoning_in_german: str
-    reasoning_in_portuguese: str
-    reasoning_in_russian: str
+    capital: str
+    country: str
+    population: int
+    big_city: Literal["Yes", "No"]
+
+
+class ListOfCapitals(BaseModel):
+    capitals: List[GeminiResponse]
 
 
 class GeminiLLM(BaseLLM):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, base_url=None, **kwargs):
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        if self.api_key is None:
+            raise ValueError("GEMINI_API_KEY is not set")
+        super().__init__(model_name)
+
     def load_model(self, *args, **kwargs):
         return None  # LiteLLM handles model loading internally
 
@@ -42,22 +54,39 @@ class GeminiLLM(BaseLLM):
             model=f"{PROVIDER}/{self.model_name}",
             messages=messages,
             response_format=schema,
+            api_key=self.api_key,
             *args,
             **kwargs,
         )
         response_content = response.choices[0].message.content
         if schema:
             answer_json = json.loads(response_content)
-            pydantic_model = schema.model_validate(answer_json)
-            return pydantic_model
+            from jsonschema import validate
+
+            print(validate(answer_json, schema["json_schema"]))
+            # pydantic_model = schema.model_validate(answer_json)
+            # return pydantic_model
+            return answer_json
         else:
             return response_content
 
 
 if __name__ == "__main__":
     gemini = GeminiLLM(model_name="gemini-2.0-flash")
+
+    schema = ListOfCapitals.model_json_schema()
+    schema = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "math_reasoning",
+            "schema": schema,
+            "strict": True,
+        },
+    }
     # print(gemini.get_model_name())
-    response = gemini.generate("Are lions dangerous animals? Answer shortly", schema=GeminiResponse)
+    response = gemini.generate(
+        "Tell me 10 cities that are big and 10 that are small", schema=schema
+    )
     print(response)
     print(type(response))
     # print(type(GeminiResponse.model_validate({"number_of_people": 10, "country": "France"})))
