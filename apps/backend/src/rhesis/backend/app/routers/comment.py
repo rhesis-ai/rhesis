@@ -30,7 +30,7 @@ def create_comment(
 ):
     """Create a new comment"""
     # Create a dict with the comment data and add user_id
-    comment_data = comment.dict()
+    comment_data = comment.model_dump()  # Use model_dump() for Pydantic v2
     comment_data["user_id"] = current_user.id
 
     return crud.create_comment(db=db, comment=comment_data)
@@ -143,3 +143,55 @@ def read_comments_by_entity(
         sort_order=sort_order,
     )
     return comments
+
+
+@router.post("/{comment_id}/emoji/{emoji}")
+def add_emoji_reaction(
+    comment_id: uuid.UUID,
+    emoji: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Add an emoji reaction to a comment"""
+    # Check if comment exists
+    db_comment = crud.get_comment(db=db, comment_id=comment_id)
+    if db_comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Add emoji reaction
+    updated_comment = crud.add_emoji_reaction(
+        db=db,
+        comment_id=comment_id,
+        emoji=emoji,
+        user_id=current_user.id,
+        user_name=current_user.given_name or current_user.email,
+    )
+
+    if updated_comment is None:
+        raise HTTPException(status_code=400, detail="Failed to add emoji reaction")
+
+    return updated_comment
+
+
+@router.delete("/{comment_id}/emoji/{emoji}")
+def remove_emoji_reaction(
+    comment_id: uuid.UUID,
+    emoji: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Remove an emoji reaction from a comment"""
+    # Check if comment exists
+    db_comment = crud.get_comment(db=db, comment_id=comment_id)
+    if db_comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Remove emoji reaction
+    updated_comment = crud.remove_emoji_reaction(
+        db=db, comment_id=comment_id, emoji=emoji, user_id=current_user.id
+    )
+
+    if updated_comment is None:
+        raise HTTPException(status_code=400, detail="Failed to remove emoji reaction")
+
+    return updated_comment
