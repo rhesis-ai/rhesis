@@ -2,6 +2,7 @@
 This code implements the CRUD operations for the models in the application.
 """
 
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Union
@@ -1595,6 +1596,11 @@ def create_comment(db: Session, comment: Union[schemas.CommentCreate, dict]) -> 
     # If it's a dict, convert it to CommentCreate schema first
     if isinstance(comment, dict):
         comment = schemas.CommentCreate(**comment)
+
+    # Convert enum to string if it's still an enum object
+    if hasattr(comment, "entity_type") and hasattr(comment.entity_type, "value"):
+        comment.entity_type = comment.entity_type.value
+
     return create_item(db, models.Comment, comment)
 
 
@@ -1608,3 +1614,80 @@ def update_comment(
 def delete_comment(db: Session, comment_id: uuid.UUID) -> Optional[models.Comment]:
     """Delete a comment"""
     return delete_item(db, models.Comment, comment_id)
+
+
+def add_emoji_reaction(
+    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID, user_name: str
+) -> Optional[models.Comment]:
+    """Add an emoji reaction to a comment"""
+    comment = get_comment(db, comment_id)
+    if not comment:
+        return None
+
+    # Initialize emojis if None
+    if comment.emojis is None:
+        comment.emojis = {}
+
+    # Initialize emoji list if it doesn't exist
+    if emoji not in comment.emojis:
+        comment.emojis[emoji] = []
+
+    # Check if user already reacted with this emoji
+    existing_reaction = next(
+        (reaction for reaction in comment.emojis[emoji] if reaction["id"] == str(user_id)), None
+    )
+
+    if existing_reaction:
+        return comment  # User already reacted, no change needed
+
+    # Add new reaction
+    new_reaction = {"id": str(user_id), "name": user_name}
+
+    # Create a completely new emojis dictionary instead of modifying in-place
+    current_emojis = dict(comment.emojis) if comment.emojis else {}
+    if emoji not in current_emojis:
+        current_emojis[emoji] = []
+    current_emojis[emoji].append(new_reaction)
+
+    # Convert dictionary to JSON string for PostgreSQL
+    emojis_json = json.dumps(current_emojis)
+
+    update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
+    db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
+
+    db.commit()
+    db.refresh(comment)
+
+    return comment
+
+
+def remove_emoji_reaction(
+    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID
+) -> Optional[models.Comment]:
+    """Remove an emoji reaction from a comment"""
+    comment = get_comment(db, comment_id)
+    if not comment:
+        return None
+
+    if comment.emojis is None or emoji not in comment.emojis:
+        return comment  # No reactions to remove
+
+    # Remove user's reaction
+    comment.emojis[emoji] = [
+        reaction for reaction in comment.emojis[emoji] if reaction["id"] != str(user_id)
+    ]
+
+    # Remove emoji key if no reactions left
+    if not comment.emojis[emoji]:
+        del comment.emojis[emoji]
+
+    # Convert dictionary to JSON string for PostgreSQL
+    emojis_json = json.dumps(comment.emojis)
+
+    update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
+    db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
+
+    db.commit()
+    db.refresh(comment)
+
+    return comment
