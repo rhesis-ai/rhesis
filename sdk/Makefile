@@ -1,10 +1,10 @@
 .PHONY: all format lint lint_diff format_diff type-check test docs
 
-all: format_diff lint_diff type-check develop test docs
+all: format_diff lint_diff type-check test docs
 
 
 ALL_FILES := .
-DIFF_FILES := $(shell git diff --relative=sdk --name-only --diff-filter=d main | grep -E '\.py$$')
+DIFF_FILES := $(shell git diff --relative=sdk --name-only --diff-filter=d main... | grep -E '\.py')
 
 
 lint:
@@ -36,10 +36,6 @@ format_diff:
 type-check:
 	PYTHONPATH=src mypy --install-types --non-interactive
 	PYTHONPATH=src mypy --package rhesis.sdk
-
-develop:
-	uv sync --dev
-	uv pip install -e .
 
 test:
 	pytest
