@@ -10,7 +10,8 @@ Available models:
 """
 
 import json
-from typing import Literal, Optional, Union
+import os
+from typing import Optional, Union
 
 from litellm import completion
 from pydantic import BaseModel
@@ -18,19 +19,16 @@ from pydantic import BaseModel
 from rhesis.sdk.services.base import BaseLLM
 
 PROVIDER = "gemini"
-
-
-class GeminiResponse(BaseModel):
-    question: str
-    answer: Literal["yes", "no"]
-    reasoning_in_polish: str
-    reasoning_in_english: str
-    reasoning_in_german: str
-    reasoning_in_portuguese: str
-    reasoning_in_russian: str
+DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
 
 class GeminiLLM(BaseLLM):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        if self.api_key is None:
+            raise ValueError("GEMINI_API_KEY is not set")
+        super().__init__(model_name)
+
     def load_model(self, *args, **kwargs):
         return None  # LiteLLM handles model loading internally
 
@@ -42,6 +40,7 @@ class GeminiLLM(BaseLLM):
             model=f"{PROVIDER}/{self.model_name}",
             messages=messages,
             response_format=schema,
+            api_key=self.api_key,
             *args,
             **kwargs,
         )
@@ -52,12 +51,3 @@ class GeminiLLM(BaseLLM):
             return pydantic_model
         else:
             return response_content
-
-
-if __name__ == "__main__":
-    gemini = GeminiLLM(model_name="gemini-2.0-flash")
-    # print(gemini.get_model_name())
-    response = gemini.generate("Are lions dangerous animals? Answer shortly", schema=GeminiResponse)
-    print(response)
-    print(type(response))
-    # print(type(GeminiResponse.model_validate({"number_of_people": 10, "country": "France"})))
