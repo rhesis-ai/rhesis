@@ -52,8 +52,28 @@ For macOS users, you can also install nvm via Homebrew:
 # Alternative installation via Homebrew
 brew install nvm
 
-# Follow the post-install instructions to add nvm to your shell profile
-# Then install the required Node.js version
+# Create NVM's working directory
+mkdir ~/.nvm
+
+# Add nvm to your shell profile (choose your shell)
+# For zsh users (default on macOS):
+echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.zshrc
+echo '[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm' >> ~/.zshrc
+echo '[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion' >> ~/.zshrc
+
+# For bash users:
+# echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
+# echo '[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm' >> ~/.bashrc
+# echo '[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion' >> ~/.bashrc
+
+# Reload your shell configuration
+source ~/.zshrc
+# or for bash users: source ~/.bashrc
+
+# Verify nvm is installed
+nvm --version
+
+# Install the required Node.js version
 nvm install 18.20.5
 nvm use 18.20.5
 ```
