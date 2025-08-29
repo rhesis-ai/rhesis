@@ -4,6 +4,7 @@ from .base import Base
 # Import remaining models
 from .behavior import Behavior
 from .category import Category
+from .comment import Comment
 from .demographic import Demographic
 from .dimension import Dimension
 from .endpoint import Endpoint
@@ -43,6 +44,7 @@ __all__ = [
     "Behavior",
     "TestSet",
     "Category",
+    "Comment",
     "Endpoint",
     "GUID",
     "Metric",
