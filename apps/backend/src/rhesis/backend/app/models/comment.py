@@ -22,9 +22,3 @@ class Comment(Base, OrganizationAndUserMixin):
     # Relationships
     user = relationship("User", back_populates="comments")
     organization = relationship("Organization", back_populates="comments")
-
-    # Polymorphic relationship back to the entity
-    # This will be handled in the respective entity models
-
-    # Note: We don't define back-references here since entity_id is not a foreign key
-    # The relationships are defined in the respective entity models
