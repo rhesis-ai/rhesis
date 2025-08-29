@@ -11,8 +11,10 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
-# Create the detailed schema for Test
-BehaviorDetailSchema = create_detailed_schema(schemas.Behavior, models.Behavior)
+# Create the detailed schema with metrics support
+BehaviorWithMetricsSchema = create_detailed_schema(
+    schemas.Behavior, models.Behavior, include_many_to_many=True
+)
 MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
 
 router = APIRouter(
@@ -23,7 +25,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=BehaviorDetailSchema)
+@router.post("/", response_model=BehaviorWithMetricsSchema)
 def create_behavior(
     behavior: schemas.BehaviorCreate,
     db: Session = Depends(get_db),
@@ -49,7 +51,7 @@ def create_behavior(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/", response_model=list[BehaviorDetailSchema])
+@router.get("/", response_model=List[BehaviorWithMetricsSchema])
 @with_count_header(model=models.Behavior)
 def read_behaviors(
     response: Response,
@@ -58,13 +60,27 @@ def read_behaviors(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    include: str | None = Query(
+        None, description="Comma-separated list of relationships to include (e.g., 'metrics')"
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all behaviors with their related objects"""
-    return crud.get_behaviors(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
-    )
+    """Get all behaviors with optional related objects based on include parameter"""
+
+    # Parse include parameter
+    include_metrics = include and "metrics" in include.split(",")
+
+    if include_metrics:
+        # Return behaviors with metrics included
+        return crud.get_behaviors_with_metrics(
+            db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        )
+    else:
+        # Return basic behaviors (metrics field will be empty list)
+        return crud.get_behaviors(
+            db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        )
 
 
 @router.get("/{behavior_id}", response_model=schemas.Behavior)

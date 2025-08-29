@@ -221,6 +221,28 @@ def get_behaviors(
     return get_items(db, models.Behavior, skip, limit, sort_by, sort_order, filter)
 
 
+def get_behaviors_with_metrics(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+) -> List[models.Behavior]:
+    """Get all behaviors with their related objects, including many-to-many relationships"""
+    with maintain_tenant_context(db):
+        return (
+            QueryBuilder(db, models.Behavior)
+            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+            .with_organization_filter()
+            .with_visibility_filter()
+            .with_odata_filter(filter)
+            .with_pagination(skip, limit)
+            .with_sorting(sort_by, sort_order)
+            .all()
+        )
+
+
 def create_behavior(db: Session, behavior: schemas.BehaviorCreate) -> models.Behavior:
     return create_item(db, models.Behavior, behavior)
 
@@ -871,7 +893,7 @@ def get_user_tokens(
         query_builder = query_builder.with_custom_filter(
             lambda q: q.filter(
                 # Token is either never-expiring (expires_at is None) or not yet expired
-                (models.Token.expires_at == None) | (models.Token.expires_at > now)
+                (models.Token.expires_at.is_(None)) | (models.Token.expires_at > now)
             )
         )
 
