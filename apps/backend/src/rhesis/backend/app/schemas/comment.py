@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from rhesis.backend.app.constants import CommentEntityType
+
 from .base import Base
 
 
@@ -12,7 +14,10 @@ class CommentBase(Base):
     comment_text: str = Field(..., description="The comment text content")
     emojis: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Emoji reactions")
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
-    entity_type: str = Field(..., description="Type of entity: 'test', 'test_set', or 'test_run'")
+    entity_type: CommentEntityType = Field(
+        ...,
+        description="Type of entity: 'test', 'test_set', 'test_run', 'metric', 'model', 'prompt', 'behavior', 'category'",
+    )
 
 
 class CommentCreate(BaseModel):
@@ -21,7 +26,10 @@ class CommentCreate(BaseModel):
     comment_text: str = Field(..., description="The comment text content")
     emojis: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Emoji reactions")
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
-    entity_type: str = Field(..., description="Type of entity: 'test', 'test_set', or 'test_run'")
+    entity_type: CommentEntityType = Field(
+        ...,
+        description="Type of entity: 'test', 'test_set', 'test_run', 'metric', 'model', 'prompt', 'behavior', 'category'",
+    )
 
 
 class CommentUpdate(BaseModel):

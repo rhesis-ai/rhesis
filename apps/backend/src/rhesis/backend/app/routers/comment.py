@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.constants import CommentEntityType
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -121,10 +122,12 @@ def read_comments_by_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all comments for a specific entity (test, test_set, test_run)"""
+    """Get all comments for a specific entity (test, test_set, test_run, metric, model, prompt, behavior, category)"""
     # Validate entity type
-    valid_entity_types = ["test", "test_set", "test_run"]
-    if entity_type not in valid_entity_types:
+    try:
+        CommentEntityType(entity_type)
+    except ValueError:
+        valid_entity_types = [e.value for e in CommentEntityType]
         raise HTTPException(
             status_code=400,
             detail=f"Invalid entity_type. Must be one of: {', '.join(valid_entity_types)}",
