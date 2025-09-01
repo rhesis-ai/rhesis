@@ -38,7 +38,7 @@ class GeminiLLM(BaseLLM):
 
     def generate(
         self, prompt: str, schema: Optional[BaseModel] = None, *args, **kwargs
-    ) -> Union[str, BaseModel]:
+    ) -> Union[str, dict]:
         messages = [{"role": "user", "content": prompt}]
         response = completion(
             model=f"{PROVIDER}/{self.model_name}",
@@ -50,8 +50,8 @@ class GeminiLLM(BaseLLM):
         )
         response_content = response.choices[0].message.content
         if schema:
-            answer = json.loads(response_content)
-            validate_llm_response(answer, schema)
-            return answer
+            response_content = json.loads(response_content)
+            validate_llm_response(response_content, schema)
+            return response_content
         else:
             return response_content
