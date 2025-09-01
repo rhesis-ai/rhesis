@@ -7,6 +7,7 @@ import TestRunDetailCharts from './components/TestRunDetailCharts';
 import TestRunTestsGrid from './components/TestRunTestsGrid';
 import TestRunDetailsSection from './components/TestRunDetailsSection';
 import TestRunWorkflowSection from './components/TestRunWorkflowSection';
+import CommentsWrapper from '@/components/comments/CommentsWrapper';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -93,6 +94,15 @@ export default async function TestRunPage({ params }: { params: any }) {
             <Paper sx={{ p: 3 }}>
               <TestRunTestsGrid
                 testRunId={identifier}
+                sessionToken={session.session_token}
+              />
+            </Paper>
+
+            {/* Comments Section */}
+            <Paper sx={{ p: 3, mb: 4 }}>
+              <CommentsWrapper 
+                entityType="test_run"
+                entityId={identifier}
                 sessionToken={session.session_token}
               />
             </Paper>
