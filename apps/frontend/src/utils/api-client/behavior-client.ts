@@ -11,8 +11,8 @@ import { UUID } from 'crypto';
 import { MetricDetail } from './interfaces/metric';
 
 export class BehaviorClient extends BaseApiClient {
-  async getBehaviors(params: BehaviorsQueryParams = {}): Promise<Behavior[]> {
-    const { skip = 0, limit = 100, sort_by = 'created_at', sort_order = 'desc', $filter, include } = params;
+  async getBehaviors(params: BehaviorsQueryParams = {}): Promise<BehaviorWithMetrics[]> {
+    const { skip = 0, limit = 10, sort_by = 'created_at', sort_order = 'desc', $filter, include } = params;
     
     // Build query string
     const queryParams = new URLSearchParams();
@@ -23,13 +23,12 @@ export class BehaviorClient extends BaseApiClient {
     if ($filter) {
       queryParams.append('$filter', $filter);
     }
-    if (include) {
-      queryParams.append('include', include);
-    }
+    // Note: The backend now always returns behaviors with metrics and their relationships
+    // No need for conditional include parameter since get_items_detail always loads relationships
     
     const url = `${API_ENDPOINTS.behaviors}?${queryParams.toString()}`;
     
-    return this.fetch<Behavior[]>(url, {
+    return this.fetch<BehaviorWithMetrics[]>(url, {
       cache: 'no-store'
     });
   }
@@ -50,7 +49,23 @@ export class BehaviorClient extends BaseApiClient {
   }
 
   async getBehaviorsWithMetrics(params: Omit<BehaviorsQueryParams, 'include'> = {}): Promise<BehaviorWithMetrics[]> {
-    return this.getBehaviors({ ...params, include: 'metrics' }) as Promise<BehaviorWithMetrics[]>;
+    console.log('🔍 [DEBUG] getBehaviorsWithMetrics called with params:', params);
+    try {
+      // Since getBehaviors now always returns BehaviorWithMetrics, we can just call it directly
+      const result = await this.getBehaviors(params);
+      console.log('✅ [DEBUG] getBehaviorsWithMetrics result:', {
+        count: result.length,
+        firstItem: result[0] ? {
+          id: result[0].id,
+          name: result[0].name,
+          metricsCount: result[0].metrics?.length || 0
+        } : null
+      });
+      return result;
+    } catch (error) {
+      console.error('❌ [DEBUG] getBehaviorsWithMetrics error:', error);
+      throw error;
+    }
   }
 
   async createBehavior(behavior: BehaviorCreate): Promise<Behavior> {

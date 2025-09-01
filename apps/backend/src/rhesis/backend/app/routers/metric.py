@@ -42,7 +42,7 @@ def create_metric(
 def read_metrics(
     response: Response,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
