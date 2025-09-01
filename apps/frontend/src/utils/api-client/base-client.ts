@@ -145,13 +145,6 @@ export class BaseApiClient {
     const url = joinUrl(this.baseUrl, path);
     const headers = this.getHeaders();
 
-    console.log('🌐 [DEBUG] API Request:', {
-      url,
-      method: options.method || 'GET',
-      hasAuth: !!this.sessionToken,
-      headers: Object.keys(headers)
-    });
-
     let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= this.retryConfig.maxAttempts; attempt++) {
