@@ -1,155 +1,206 @@
 """Context generator service for creating context from various sources."""
 
-import random
-from typing import Any, Dict, List, Optional
+import re
+from typing import List
 
 
 class ContextGenerator:
-    """Service for generating context from various sources like documents, chunks, etc."""
+    """Service for generating context from various sources using intelligent semantic chunking."""
 
     def __init__(
         self,
-        default_chunks: int = 5,
-        random_selection: bool = False,
-        separator: str = "\n\n",
-        max_chunk_length: int = 1000,  # characters
+        max_context_tokens: int = 1000,  # User's preferred max
+        absolute_max_context_tokens: int = 2000,  # Hard safety limit
     ):
         """
         Initialize the context generator.
 
         Args:
-            default_chunks: Default number of chunks to select (defaults to 5)
-            random_selection: If True, randomly select chunks; if False, take first N
-            separator: String to use between chunks when assembling context
-            max_chunk_length: Maximum characters per chunk
+            max_context_tokens: Maximum tokens per context (user preference)
+            absolute_max_context_tokens: Hard limit that cannot be exceeded
         """
-        self.default_chunks = default_chunks
-        self.random_selection = random_selection
-        self.separator = separator
-        self.max_chunk_length = max_chunk_length
+        self.max_context_tokens = max_context_tokens
+        self.absolute_max_context_tokens = absolute_max_context_tokens
 
-    def create_chunks_from_text(
-        self, text: str, max_chunk_length: Optional[int] = None
-    ) -> List[str]:
+        # Validate user input
+        if self.max_context_tokens > self.absolute_max_context_tokens:
+            raise ValueError(
+                f"max_context_tokens ({max_context_tokens}) cannot exceed "
+                f"absolute_max_context_tokens ({absolute_max_context_tokens})"
+            )
+
+    def generate_contexts(self, text: str, num_tests: int) -> List[str]:
         """
-        Create chunks from text based on length constraints.
+        Generate contexts directly from text using intelligent semantic chunking.
 
         Args:
-            text: Text to chunk
-            max_chunk_length: Override default chunk length
+            text: Input text to process
+            num_tests: Number of contexts to generate
 
         Returns:
-            List of text chunks
+            List of context strings, each sized appropriately for prompts
         """
         if not text:
             return []
 
-        chunk_length = max_chunk_length or self.max_chunk_length
-        chunks = []
-        start = 0
+        return self.create_contexts_from_text(text, num_tests)
 
-        while start < len(text):
-            # Calculate end position for this chunk
-            end = start + chunk_length
+    def create_contexts_from_text(self, text: str, num_tests: int) -> List[str]:
+        """
+        Create contexts using intelligent semantic chunking.
 
-            # If this is not the last chunk, try to find a good break point
-            if end < len(text):
-                # Look for a good break point (newline, period, space)
-                for i in range(end, max(start, end - 200), -1):
-                    if text[i] in ["\n", ".", " "]:
-                        end = i + 1
-                        break
+        Strategy:
+        1. Identify semantic boundaries (headers, sections, paragraphs)
+        2. Create contexts that respect these boundaries
+        """
+        # First, identify semantic boundaries
+        semantic_boundaries = self._identify_semantic_boundaries(text)
 
-            # Extract the chunk
-            chunk = text[start:end].strip()
-            if chunk:  # Only add non-empty chunks
-                chunks.append(chunk)
+        if not semantic_boundaries:
+            # Fallback to simple chunking
+            return self._simple_chunking(text, num_tests)
 
-            # Move to next chunk
-            start = end
-            if start >= len(text):
+        # Create contexts from semantic boundaries
+        contexts = self._create_contexts_from_boundaries(text, semantic_boundaries, num_tests)
+
+        return contexts
+
+    def _identify_semantic_boundaries(self, text: str) -> List[int]:
+        """Identify semantic boundaries in the text."""
+        boundaries = [0]  # Start of text
+
+        lines = text.split("\n")
+        current_pos = 0
+
+        for line in lines:
+            line_length = len(line) + 1  # +1 for newline
+
+            # Check for markdown headers
+            if re.match(r"^#{1,6}\s+", line):
+                boundaries.append(current_pos)
+
+            # Check for section separators
+            elif re.match(r"^[-*_]{3,}$", line):
+                boundaries.append(current_pos)
+
+            # Check for major paragraph breaks (double newlines)
+            elif line.strip() == "" and current_pos > 0:
+                # Look ahead to see if this is a paragraph break
+                next_non_empty = current_pos + line_length
+                while (
+                    next_non_empty < len(text)
+                    and text[next_non_empty : next_non_empty + 1].isspace()
+                ):
+                    next_non_empty += 1
+
+                if next_non_empty < len(text) and text[next_non_empty : next_non_empty + 1] not in [
+                    "#",
+                    "-",
+                    "*",
+                    "_",
+                ]:
+                    boundaries.append(current_pos)
+
+            current_pos += line_length
+
+        # Add end of text
+        boundaries.append(len(text))
+
+        return boundaries
+
+    def _create_contexts_from_boundaries(
+        self, text: str, boundaries: List[int], num_tests: int
+    ) -> List[str]:
+        """Create contexts from semantic boundaries."""
+        contexts = []
+        max_context_chars = self.max_context_tokens * 4
+
+        # Start from the first boundary and create contexts sequentially
+        start_idx = 0
+        while start_idx < len(boundaries) - 1 and len(contexts) < num_tests:
+            # Find the best end boundary for this context
+            end_idx = self._find_best_end_boundary(boundaries, start_idx, max_context_chars, text)
+
+            if end_idx <= start_idx:
                 break
 
-        return chunks
+            # Extract context text
+            start_pos = boundaries[start_idx]
+            end_pos = boundaries[end_idx]
+            context_text = text[start_pos:end_pos].strip()
 
-    def select_chunks(self, chunks: List[str], num_chunks: Optional[int] = None) -> List[str]:
-        """
-        Select chunks for context.
+            if context_text and len(context_text) >= max_context_chars * 0.5:  # Threshould
+                contexts.append(context_text)
 
-        Args:
-            chunks: List of text chunks
-            num_chunks: Number of chunks to select (uses default_chunks if not specified)
+            # Move to the next boundary
+            start_idx = end_idx
 
-        Returns:
-            List of selected chunk texts
-        """
-        if not chunks:
-            return []
+        return contexts
 
-        # Determine how many chunks to select
-        target_count = num_chunks or self.default_chunks
-        target_count = min(target_count, len(chunks))
+    def _find_best_end_boundary(
+        self, boundaries: List[int], start_idx: int, max_chars: int, text: str
+    ) -> int:
+        """Find the best end boundary for a context."""
+        start_pos = boundaries[start_idx]
 
-        if self.random_selection:
-            return random.sample(chunks, target_count)
-        else:
-            return chunks[:target_count]
+        # Find the furthest boundary within size limit
+        for i in range(start_idx + 1, len(boundaries)):
+            end_pos = boundaries[i]
+            context_length = end_pos - start_pos
 
-    def assemble_context(self, chunks: List[str], separator: Optional[str] = None) -> str:
-        """
-        Combine chunks into a single context string.
+            if context_length > max_chars:
+                # We've exceeded the limit, go back one
+                if i > start_idx + 1:
+                    return i - 1
+                else:
+                    # Even the smallest context is too big, use it anyway
+                    return i
 
-        Args:
-            chunks: List of chunk texts
-            separator: String to use between chunks (uses instance default if not specified)
+        # Use the last boundary
+        return len(boundaries) - 1
 
-        Returns:
-            Combined context string
-        """
-        if not chunks:
-            return ""
+    def _simple_chunking(self, text: str, num_tests: int) -> List[str]:
+        """Fallback simple chunking when semantic boundaries aren't found."""
+        contexts = []
+        max_context_chars = self.max_context_tokens * 4
 
-        sep = separator or self.separator
-        return sep.join(chunks)
+        start = 0
+        while start < len(text) and len(contexts) < num_tests:
+            end = self._find_context_boundary(text, start, max_context_chars)
+            context_text = text[start:end].strip()
 
-    def generate_context_from_chunks(
-        self, chunks: List[str], num_chunks: Optional[int] = None, separator: Optional[str] = None
-    ) -> str:
-        """
-        Generate context from chunks by selecting and assembling them.
+            if context_text:
+                contexts.append(context_text)
 
-        Args:
-            chunks: List of text chunks
-            num_chunks: Number of chunks to select
-            separator: String to use between chunks
+            start = end
 
-        Returns:
-            Combined context string
-        """
-        selected_chunks = self.select_chunks(chunks, num_chunks)
-        return self.assemble_context(selected_chunks, separator)
+        return contexts
 
-    def get_context_metadata(
-        self,
-        chunks: List[str],
-        selected_chunks: List[str],
-        chunk_metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Generate metadata about the context generation process.
+    def _find_context_boundary(self, text: str, start: int, max_chars: int) -> int:
+        """Find the best boundary for a context piece."""
+        end = min(start + max_chars, len(text))
 
-        Args:
-            chunks: Original list of chunks
-            selected_chunks: Chunks that were selected for context
-            chunk_metadata: Additional metadata about chunks
+        # If we're at the end, return it
+        if end == len(text):
+            return end
 
-        Returns:
-            Dictionary containing context generation metadata
-        """
-        return {
-            "chunks_selected": len(selected_chunks),
-            "total_chunks_available": len(chunks),
-            "context_length": len(self.assemble_context(selected_chunks)),
-            "selection_strategy": "random" if self.random_selection else "sequential",
-            "chunk_metadata": chunk_metadata or {},
-        }
+        # Look for good break points, prioritizing markdown structure
+        for i in range(end, max(start, end - 300), -1):
+            # Prefer markdown headers
+            if text[i] == "#" and (i == 0 or text[i - 1] == "\n"):
+                return i
+
+            # Then prefer double newlines (paragraph breaks)
+            if text[i : i + 2] == "\n\n":
+                return i + 2
+
+            # Then prefer single newlines
+            if text[i] == "\n":
+                return i + 1
+
+            # Then prefer periods
+            if text[i] == ".":
+                return i + 1
+
+        # If no good break point, return the calculated end
+        return end
