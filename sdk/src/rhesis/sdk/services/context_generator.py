@@ -129,7 +129,7 @@ class ContextGenerator:
             end_pos = boundaries[end_idx]
             context_text = text[start_pos:end_pos].strip()
 
-            if context_text and len(context_text) >= max_context_chars * 0.5:  # Threshould
+            if context_text:
                 contexts.append(context_text)
 
             # Move to the next boundary
