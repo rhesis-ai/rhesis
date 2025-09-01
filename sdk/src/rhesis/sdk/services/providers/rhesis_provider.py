@@ -17,6 +17,31 @@ class RhesisLLMService(BaseLLM):
     def __init__(
         self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, base_url=None, **kwargs
     ) -> None:
+        """
+        RhesisLLMService: Rhesis LLM Provider
+
+        This class provides an interface to the Rhesis family of large language models via
+        the Rhesis API.
+
+        Args:
+            model_name (str): The name of the Rhesis model to use (default: "rhesis-llm-v1").
+            api_key (str, optional): API key for Rhesis. If not provided, will use RHESIS_API_KEY
+                from environment.
+            base_url (str, optional): Base URL for the Rhesis API. If not provided, will use
+            RHESIS_BASE_URL from environment.
+            **kwargs: Additional parameters passed to the underlying client.
+
+        Usage:
+            >>> llm = RhesisLLMService(model_name="rhesis-llm-v1")
+            >>> result = llm.generate("Tell me a joke.")
+            >>> print(result)
+
+        If a Pydantic schema is provided to `generate`, the response will be validated and returned
+        as a dict.
+
+        Raises:
+            ValueError: If the API key is not set.
+        """
         self.api_key = api_key or os.getenv("RHESIS_API_KEY")
         self.base_url = base_url or os.getenv("RHESIS_BASE_URL")
 
