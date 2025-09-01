@@ -69,17 +69,16 @@ class User(Base):
     assigned_metrics = relationship(
         "Metric", foreign_keys="[Metric.assignee_id]", back_populates="assignee"
     )
-    owned_metrics = relationship(
-        "Metric", foreign_keys="[Metric.owner_id]", back_populates="owner"
-    )
+    owned_metrics = relationship("Metric", foreign_keys="[Metric.owner_id]", back_populates="owner")
 
     # Model relationships
-    owned_models = relationship(
-        "Model", foreign_keys="[Model.owner_id]", back_populates="owner"
-    )
+    owned_models = relationship("Model", foreign_keys="[Model.owner_id]", back_populates="owner")
     assigned_models = relationship(
         "Model", foreign_keys="[Model.assignee_id]", back_populates="assignee"
     )
+
+    # Comment relationships
+    comments = relationship("Comment", back_populates="user")
 
     @classmethod
     def from_auth0(cls, userinfo: dict) -> "User":
@@ -119,6 +118,7 @@ class User(Base):
         # Handle datetime field conversion if present
         if "last_login_at" in data and data["last_login_at"]:
             from datetime import datetime
+
             if isinstance(data["last_login_at"], str):
                 data["last_login_at"] = datetime.fromisoformat(data["last_login_at"])
         return cls(**data)
