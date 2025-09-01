@@ -34,9 +34,9 @@ export interface Metric {
   organization_id?: UUID;
   user_id?: UUID;
   
-  // References
-  metric_type?: TypeLookup;
-  backend_type?: TypeLookup;
+  // References (now always included from backend)
+  metric_type: TypeLookup;
+  backend_type: TypeLookup;
   status?: Status;
   assignee?: User;
   owner?: User;
@@ -89,8 +89,15 @@ export interface MetricUpdate {
   model_id?: UUID;
 }
 
+export interface BehaviorReference {
+  id: UUID;
+  name: string;
+  description?: string;
+  // Add other essential behavior fields as needed
+}
+
 export interface MetricDetail extends Metric {
-  behaviors: UUID[];
+  behaviors?: BehaviorReference[] | string[]; // Allow both reference objects and UUID strings
 }
 
 export interface MetricsResponse {

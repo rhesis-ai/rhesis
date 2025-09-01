@@ -214,12 +214,13 @@ def get_behavior(db: Session, behavior_id: uuid.UUID) -> Optional[models.Behavio
 def get_behaviors(
     db: Session,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Behavior]:
     return get_items(db, models.Behavior, skip, limit, sort_by, sort_order, filter)
+
 
 
 def create_behavior(db: Session, behavior: schemas.BehaviorCreate) -> models.Behavior:
@@ -872,7 +873,7 @@ def get_user_tokens(
         query_builder = query_builder.with_custom_filter(
             lambda q: q.filter(
                 # Token is either never-expiring (expires_at is None) or not yet expired
-                (models.Token.expires_at == None) | (models.Token.expires_at > now)
+                (models.Token.expires_at.is_(None)) | (models.Token.expires_at > now)
             )
         )
 
@@ -1274,20 +1275,38 @@ def get_type_lookup_by_name_and_value(
 
 # Metric CRUD
 def get_metric(db: Session, metric_id: uuid.UUID) -> Optional[models.Metric]:
-    """Get a specific metric by ID with its related objects"""
-    return get_item_detail(db, models.Metric, metric_id)
+    """Get a specific metric by ID with its related objects, including many-to-many relationships"""
+    with maintain_tenant_context(db):
+        return (
+            QueryBuilder(db, models.Metric)
+            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+            .with_organization_filter()
+            .with_visibility_filter()
+            .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
+            .first()
+        )
 
 
 def get_metrics(
     db: Session,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Metric]:
-    """Get all metrics with their related objects"""
-    return get_items_detail(db, models.Metric, skip, limit, sort_by, sort_order, filter)
+    """Get all metrics with their related objects, including many-to-many relationships"""
+    with maintain_tenant_context(db):
+        return (
+            QueryBuilder(db, models.Metric)
+            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+            .with_organization_filter()
+            .with_visibility_filter()
+            .with_odata_filter(filter)
+            .with_pagination(skip, limit)
+            .with_sorting(sort_by, sort_order)
+            .all()
+        )
 
 
 def create_metric(db: Session, metric: schemas.MetricCreate) -> models.Metric:
@@ -1404,7 +1423,7 @@ def get_metric_behaviors(
     db: Session,
     metric_id: UUID,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
@@ -1447,7 +1466,7 @@ def get_behavior_metrics(
     db: Session,
     behavior_id: UUID,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,

@@ -14,7 +14,7 @@ import { UUID } from 'crypto';
 // Default pagination settings
 const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
-  limit: 50,
+  limit: 10,
   sort_by: 'created_at',
   sort_order: 'desc'
 };
@@ -23,6 +23,8 @@ export class MetricsClient extends BaseApiClient {
   async getMetrics(params?: MetricQueryParams): Promise<PaginatedResponse<MetricDetail>> {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
     
+    // The metrics endpoint now includes all relationships (behaviors, metric_type, backend_type)
+    // using get_items_detail with joinedloads
     return this.fetchPaginated<MetricDetail>(
       API_ENDPOINTS.metrics,
       paginationParams,
