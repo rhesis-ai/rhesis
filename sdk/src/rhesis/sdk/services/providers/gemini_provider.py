@@ -11,7 +11,7 @@ Available models:
 
 import json
 import os
-from typing import List, Literal, Optional, Union
+from typing import Optional, Union
 
 from litellm import completion
 from pydantic import BaseModel
@@ -24,17 +24,6 @@ print(os.getenv("GEMINI_API_KEY"))
 
 PROVIDER = "gemini"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
-
-
-class GeminiResponse(BaseModel):
-    capital: str
-    country: str
-    population: int
-    big_city: Literal["Yes", "No"]
-
-
-class ListOfCapitals(BaseModel):
-    capitals: List[GeminiResponse]
 
 
 class GeminiLLM(BaseLLM):
@@ -66,24 +55,3 @@ class GeminiLLM(BaseLLM):
             return answer
         else:
             return response_content
-
-
-if __name__ == "__main__":
-    gemini = GeminiLLM(model_name="gemini-2.0-flash")
-
-    schema = ListOfCapitals.model_json_schema()
-    schema = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "math_reasoning",
-            "schema": schema,
-            "strict": True,
-        },
-    }
-    # print(gemini.get_model_name())
-    response = gemini.generate(
-        "Tell me 10 cities that are big and 10 that are small", schema=schema
-    )
-    print(response)
-    print(type(response))
-    # print(type(GeminiResponse.model_validate({"number_of_people": 10, "country": "France"})))
