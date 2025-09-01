@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useSession } from 'next-auth/react';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import MetricsClientComponent from './components/MetricsClient';
@@ -19,8 +20,17 @@ export default function MetricsPage() {
   if (status === 'loading') {
     return (
       <PageContainer title="Metrics" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
-        <Box sx={{ p: 3 }}>
-          <Typography>Loading...</Typography>
+        <Box sx={{ 
+          p: 3, 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '200px' 
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <CircularProgress size={24} />
+            <Typography>Loading metrics...</Typography>
+          </Box>
         </Box>
       </PageContainer>
     );

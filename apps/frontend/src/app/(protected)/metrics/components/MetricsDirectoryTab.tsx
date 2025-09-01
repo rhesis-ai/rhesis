@@ -19,6 +19,7 @@ import Chip from '@mui/material/Chip';
 import SearchIcon from '@mui/icons-material/Search';
 import InputAdornment from '@mui/material/InputAdornment';
 import Stack from '@mui/material/Stack';
+import CircularProgress from '@mui/material/CircularProgress';
 import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -73,7 +74,10 @@ function AssignMetricDialog({ open, onClose, onAssign, behaviors, isLoading, err
         </DialogContentText>
         {isLoading ? (
           <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Typography>Loading behaviors...</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+              <CircularProgress size={20} />
+              <Typography>Loading behaviors...</Typography>
+            </Box>
           </Box>
         ) : error ? (
           <Box sx={{ textAlign: 'center', py: 2 }}>
