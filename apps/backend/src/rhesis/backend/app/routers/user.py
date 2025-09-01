@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import (
-    get_authenticated_user,
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
@@ -14,8 +13,8 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.auth import create_session_token
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
 from rhesis.backend.app.utils.validation import validate_and_normalize_email
-from rhesis.backend.app.utils.rate_limit import user_limiter, INVITATION_RATE_LIMIT
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications import email_service
 
@@ -37,44 +36,47 @@ async def create_user(
 ):
     # Set the organization_id from the current user
     user.organization_id = current_user.organization_id
-    
+
     # Validate and normalize email
     try:
         normalized_email = validate_and_normalize_email(user.email)
         user.email = normalized_email
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
     # Check for existing user with the same email
     existing_user = crud.get_user_by_email(db, user.email)
     if existing_user:
-        raise HTTPException(
-            status_code=409, 
-            detail=f"User with email {user.email} already exists"
-        )
-    
+        raise HTTPException(status_code=409, detail=f"User with email {user.email} already exists")
+
     # Extract send_invite flag before creating user (since it's not part of the model)
     send_invite = user.send_invite
-    
+
     # Create the user (crud function will automatically exclude send_invite)
     created_user = crud.create_user(db=db, user=user)
-    
+
     # Send invitation email if requested
     if send_invite and email_service.is_configured:
         try:
             logger.info(f"Sending invitation email to {created_user.email}")
-            
+
             # Get organization information for the email
             organization = None
             if current_user.organization_id:
-                organization = db.query(models.Organization).filter(
-                    models.Organization.id == current_user.organization_id
-                ).first()
-            
+                organization = (
+                    db.query(models.Organization)
+                    .filter(models.Organization.id == current_user.organization_id)
+                    .first()
+                )
+
             organization_name = organization.name if organization else "Your Organization"
             organization_website = organization.website if organization else None
-            inviter_name = current_user.name or f"{current_user.given_name or ''} {current_user.family_name or ''}".strip() or "Team Member"
-            
+            inviter_name = (
+                current_user.name
+                or f"{current_user.given_name or ''} {current_user.family_name or ''}".strip()
+                or "Team Member"
+            )
+
             # Send the invitation email
             success = email_service.send_team_invitation_email(
                 recipient_email=created_user.email,
@@ -82,18 +84,18 @@ async def create_user(
                 organization_name=organization_name,
                 organization_website=organization_website,
                 inviter_name=inviter_name,
-                inviter_email=current_user.email
+                inviter_email=current_user.email,
             )
-            
+
             if success:
                 logger.info(f"Successfully sent invitation email to {created_user.email}")
             else:
                 logger.warning(f"Failed to send invitation email to {created_user.email}")
-                
+
         except Exception as e:
             logger.error(f"Error sending invitation email to {created_user.email}: {str(e)}")
             # Don't fail user creation if email sending fails
-    
+
     return created_user
 
 

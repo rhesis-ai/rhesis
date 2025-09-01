@@ -8,21 +8,19 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.test_run import (
+    get_test_results_for_test_run,
+    test_run_results_to_csv,
+)
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.app.services.test_run import get_test_results_for_test_run, test_run_results_to_csv
-from rhesis.backend.app.models.user import User
 
 # Create the detailed schema for TestRun
 TestRunDetailSchema = create_detailed_schema(
-    schemas.TestRun, 
+    schemas.TestRun,
     models.TestRun,
-    include_nested_relationships={
-        "test_configuration": {
-            "endpoint": ["project"],
-            "test_set": []
-        }
-    }
+    include_nested_relationships={"test_configuration": {"endpoint": ["project"], "test_set": []}},
 )
 
 router = APIRouter(
@@ -142,10 +140,6 @@ def download_test_run_results(
         db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
         if db_test_run is None:
             raise HTTPException(status_code=404, detail="Test run not found")
-
-        # Check if the user has permission to access this test run
-        if db_test_run.user_id != current_user.id and not current_user.is_superuser:
-            raise HTTPException(status_code=403, detail="Not authorized to access this test run")
 
         # Get test results data
         test_results_data = get_test_results_for_test_run(db, test_run_id)
