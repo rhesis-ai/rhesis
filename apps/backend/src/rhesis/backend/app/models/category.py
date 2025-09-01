@@ -24,3 +24,10 @@ class Category(Base, OrganizationAndUserMixin):
     test_configurations = relationship("TestConfiguration", back_populates="category")
     entity_type = relationship("TypeLookup", back_populates="categories")
     tests = relationship("Test", back_populates="category")
+
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Category.id), Comment.entity_type == 'Category')",
+        viewonly=True,
+    )

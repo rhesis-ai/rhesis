@@ -75,3 +75,9 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     behaviors = relationship(
         "Behavior", secondary=behavior_metric_association, back_populates="metrics"
     )
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Metric.id), Comment.entity_type == 'Metric')",
+        viewonly=True,
+    )
