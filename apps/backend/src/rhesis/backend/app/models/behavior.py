@@ -16,6 +16,11 @@ class Behavior(Base, OrganizationAndUserMixin):
     status = relationship("Status", back_populates="behaviors")
     prompts = relationship("Prompt", back_populates="behavior")
     tests = relationship("Test", back_populates="behavior")
-    metrics = relationship(
-        "Metric", secondary="behavior_metric", back_populates="behaviors"
+    metrics = relationship("Metric", secondary="behavior_metric", back_populates="behaviors")
+
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Behavior.id), Comment.entity_type == 'Behavior')",
+        viewonly=True,
     )

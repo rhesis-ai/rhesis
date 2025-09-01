@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Text, JSON
+from sqlalchemy import JSON, Column, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -20,7 +20,9 @@ class Model(Base, OrganizationAndUserMixin, TagsMixin):
 
     # Provider type relationship
     provider_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
-    provider_type = relationship("TypeLookup", foreign_keys=[provider_type_id], back_populates="models")
+    provider_type = relationship(
+        "TypeLookup", foreign_keys=[provider_type_id], back_populates="models"
+    )
 
     # Status relationship
     status_id = Column(GUID(), ForeignKey("status.id"))
@@ -32,7 +34,16 @@ class Model(Base, OrganizationAndUserMixin, TagsMixin):
 
     # Assignee relationship
     assignee_id = Column(GUID(), ForeignKey("user.id"))
-    assignee = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_models", overlaps="owner")
+    assignee = relationship(
+        "User", foreign_keys=[assignee_id], back_populates="assigned_models", overlaps="owner"
+    )
 
     # Metrics relationship
-    metrics = relationship("Metric", back_populates="model") 
+    metrics = relationship("Metric", back_populates="model")
+
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Model.id), Comment.entity_type == 'Model')",
+        viewonly=True,
+    )
