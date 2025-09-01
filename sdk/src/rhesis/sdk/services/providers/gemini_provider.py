@@ -19,9 +19,6 @@ from pydantic import BaseModel
 from rhesis.sdk.services.base import BaseLLM
 from rhesis.sdk.services.utils import validate_llm_response
 
-print(os.getenv("GEMINI_API_KEY"))
-
-
 PROVIDER = "gemini"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
