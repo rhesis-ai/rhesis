@@ -15,12 +15,15 @@ class CommentBase(Base):
 
     content: str = Field(..., description="The comment content")
     emojis: Optional[Dict[str, List[EmojiReaction]]] = Field(
-        default_factory=dict, description="Emoji reactions with user details"
+        default_factory=dict,
+        description="Emoji reactions stored as {emoji_character: [list_of_user_reactions]}. "
+        "Example: {'🚀': [{'user_id': 'uuid1', 'user_name': 'John'}], "
+        "'👍': [{'user_id': 'uuid2', 'user_name': 'Jane'}]}",
     )
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
     entity_type: EntityType = Field(
         ...,
-        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category'",
+        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category'",
     )
 
 
@@ -32,7 +35,7 @@ class CommentCreate(BaseModel):
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
     entity_type: EntityType = Field(
         ...,
-        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category'",
+        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category'",
     )
 
     class Config:

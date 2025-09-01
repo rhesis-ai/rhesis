@@ -7,6 +7,7 @@ class EntityType(Enum):
     TEST = "Test"
     TEST_SET = "TestSet"
     TEST_RUN = "TestRun"
+    TEST_RESULT = "TestResult"
     METRIC = "Metric"
     MODEL = "Model"
     PROMPT = "Prompt"
