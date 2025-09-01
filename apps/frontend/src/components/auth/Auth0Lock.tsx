@@ -6,6 +6,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
 import MicrosoftIcon from '@mui/icons-material/Window';
 import { useState, useEffect } from 'react';
+import { getClientApiBaseUrl } from '../../utils/url-resolver';
 
 interface Props {
   clientId: string;
@@ -46,14 +47,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
     // Reset warning if previously shown
     setShowTermsWarning(false);
     
-    const redirectUri = process.env.NEXT_PUBLIC_API_BASE_URL 
-      ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`
-      : '';
+    const redirectUri = `${getClientApiBaseUrl()}/auth/login`;
     
-    if (!redirectUri) {
-      console.error('API URL environment variable is not defined');
-      return;
-    }
+
 
     // Create URL with search params
     const loginUrl = new URL(redirectUri);
