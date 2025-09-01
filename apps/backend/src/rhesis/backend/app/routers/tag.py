@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.models.user import User
 
 router = APIRouter(
     prefix="/tags",
@@ -31,7 +31,10 @@ def create_tag(
     except Exception as e:
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
-        if "foreign key constraint" in error_msg.lower() or "violates foreign key" in error_msg.lower():
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
             raise HTTPException(status_code=400, detail="Invalid reference in tag data")
         if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
             raise HTTPException(status_code=400, detail="Tag with this name already exists")
