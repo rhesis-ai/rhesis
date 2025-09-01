@@ -148,10 +148,10 @@ async def generate_content_endpoint(request: dict):
         from rhesis.sdk.services.providers.gemini_provider import GeminiLLM
 
         prompt = request.get("prompt")
-        response_format = request.get("response_format")
+        schema = request.get("schema")
 
         model = GeminiLLM()
-        response = model.generate(prompt, schema=response_format)
+        response = model.generate(prompt, schema=schema)
 
         if request.get("stream", False):
             return StreamingResponse(response, media_type="text/event-stream")
