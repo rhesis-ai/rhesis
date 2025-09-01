@@ -109,6 +109,8 @@ def get_model(
         prov, model = provider.split("/", 1)
         provider, model_name = prov, model
     provider = provider or cfg.provider or DEFAULT_PROVIDER
+    if provider not in DEFAULT_MODELS.keys():
+        raise ValueError(f"Provider {provider} not supported")
     model_name = model_name or cfg.model_name or DEFAULT_MODELS[provider]
     api_key = api_key or cfg.api_key
     config = ModelConfig(provider=provider, model_name=model_name, api_key=api_key)
