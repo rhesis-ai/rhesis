@@ -10,15 +10,15 @@ class Comment(Base, OrganizationAndUserMixin):
     __tablename__ = "comment"
 
     # Comment content
-    comment_text = Column(Text, nullable=False)
+    content = Column(Text, nullable=False)
 
     # Emoji reactions stored as JSON
     emojis = Column(JSON, default=dict)
 
     # Entity relationship (polymorphic)
     entity_id = Column(GUID(), nullable=False)
-    entity_type = Column(String, nullable=False)  # "test", "test_set", "test_run"
+    entity_type = Column(String, nullable=False)  # "Test", "TestSet", "TestRun"
 
     # Relationships
     user = relationship("User", back_populates="comments")
-    organization = relationship("Organization", back_populates="comments")
+    organization = relationship("Organization", backref="comments")
