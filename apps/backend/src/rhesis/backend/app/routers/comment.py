@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.constants import CommentEntityType
+from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -29,9 +29,10 @@ def create_comment(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Create a new comment"""
-    # Create a dict with the comment data and add user_id
+    # Create a dict with the comment data and add user_id and organization_id
     comment_data = comment.model_dump()  # Use model_dump() for Pydantic v2
     comment_data["user_id"] = current_user.id
+    comment_data["organization_id"] = current_user.organization_id
 
     return crud.create_comment(db=db, comment=comment_data)
 
@@ -122,12 +123,12 @@ def read_comments_by_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all comments for a specific entity (test, test_set, test_run, metric, model, prompt, behavior, category)"""
+    """Get all comments for a specific entity (Test, TestSet, TestRun, Metric, Model, Prompt, Behavior, Category)"""
     # Validate entity type
     try:
-        CommentEntityType(entity_type)
+        EntityType(entity_type)
     except ValueError:
-        valid_entity_types = [e.value for e in CommentEntityType]
+        valid_entity_types = [e.value for e in EntityType]
         raise HTTPException(
             status_code=400,
             detail=f"Invalid entity_type. Must be one of: {', '.join(valid_entity_types)}",

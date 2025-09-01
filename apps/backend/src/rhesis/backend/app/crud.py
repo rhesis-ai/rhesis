@@ -1634,14 +1634,15 @@ def add_emoji_reaction(
 
     # Check if user already reacted with this emoji
     existing_reaction = next(
-        (reaction for reaction in comment.emojis[emoji] if reaction["id"] == str(user_id)), None
+        (reaction for reaction in comment.emojis[emoji] if reaction["user_id"] == str(user_id)),
+        None,
     )
 
     if existing_reaction:
         return comment  # User already reacted, no change needed
 
     # Add new reaction
-    new_reaction = {"id": str(user_id), "name": user_name}
+    new_reaction = {"user_id": str(user_id), "user_name": user_name}
 
     # Create a completely new emojis dictionary instead of modifying in-place
     current_emojis = dict(comment.emojis) if comment.emojis else {}
@@ -1674,7 +1675,7 @@ def remove_emoji_reaction(
 
     # Remove user's reaction
     comment.emojis[emoji] = [
-        reaction for reaction in comment.emojis[emoji] if reaction["id"] != str(user_id)
+        reaction for reaction in comment.emojis[emoji] if reaction["user_id"] != str(user_id)
     ]
 
     # Remove emoji key if no reactions left
