@@ -17,6 +17,7 @@ from litellm import completion
 from pydantic import BaseModel
 
 from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.services.utils import validate_llm_response
 
 print(os.getenv("GEMINI_API_KEY"))
 
@@ -60,13 +61,9 @@ class GeminiLLM(BaseLLM):
         )
         response_content = response.choices[0].message.content
         if schema:
-            answer_json = json.loads(response_content)
-            from jsonschema import validate
-
-            print(validate(answer_json, schema["json_schema"]))
-            # pydantic_model = schema.model_validate(answer_json)
-            # return pydantic_model
-            return answer_json
+            answer = json.loads(response_content)
+            validate_llm_response(answer, schema)
+            return answer
         else:
             return response_content
 
