@@ -18,6 +18,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
+import { getClientApiBaseUrl } from '../utils/url-resolver';
 // Import Material UI icons
 import SpeedIcon from '@mui/icons-material/Speed';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -63,7 +64,7 @@ export default function LandingPage() {
       const validateBackendSession = async () => {
         try {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/verify?session_token=${session.session_token}`,
+            `${getClientApiBaseUrl()}/auth/verify?session_token=${session.session_token}`,
             { headers: { Accept: 'application/json' } }
           );
 
@@ -78,7 +79,7 @@ export default function LandingPage() {
 
           // Backend session invalid - call backend logout to clean up, then frontend logout
           try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/logout`, {
+            await fetch(`${getClientApiBaseUrl()}/auth/logout`, {
               method: 'GET',
               headers: { 'Accept': 'application/json' },
             });
