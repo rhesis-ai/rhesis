@@ -59,6 +59,13 @@ class Prompt(Base, TagsMixin, OrganizationMixin):
     children = relationship("Prompt", back_populates="parent")
     tests = relationship("Test", back_populates="prompt")
 
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Prompt.id), Comment.entity_type == 'Prompt')",
+        viewonly=True,
+    )
+
     def to_dict(self):
         """Convert the Prompt object to a dictionary with related names."""
         return {

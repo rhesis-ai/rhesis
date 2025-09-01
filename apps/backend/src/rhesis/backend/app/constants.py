@@ -1,21 +1,29 @@
 from enum import Enum
 
-# Entity Types Enum
+
+# Entity Types Enum - Unified for all entities including comments
 class EntityType(Enum):
     GENERAL = "General"
     TEST = "Test"
-    TOPIC = "Topic"
+    TEST_SET = "TestSet"
+    TEST_RUN = "TestRun"
+    TEST_RESULT = "TestResult"
+    METRIC = "Metric"
+    MODEL = "Model"
+    PROMPT = "Prompt"
     BEHAVIOR = "Behavior"
     CATEGORY = "Category"
+    TOPIC = "Topic"
     DIMENSION = "Dimension"
     DEMOGRAPHIC = "Demographic"
-    
+
     @classmethod
     def get_value(cls, entity_type):
         """Get the string value of an entity type"""
         if isinstance(entity_type, cls):
             return entity_type.value
         return entity_type
+
 
 # Error messages
 ERROR_INVALID_UUID = "Invalid UUID format in input parameters: {error}"
@@ -31,4 +39,4 @@ SUCCESS_ASSOCIATIONS_REMOVED = "Successfully removed {count} test associations"
 
 # Default values
 DEFAULT_BATCH_SIZE = 100
-DEFAULT_PRIORITY = 1 
+DEFAULT_PRIORITY = 1

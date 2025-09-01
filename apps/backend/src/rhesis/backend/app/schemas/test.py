@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, field_validator, ConfigDict, validator
+from pydantic import UUID4, BaseModel, validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.user import UserReference
@@ -149,13 +149,14 @@ class TestBulkCreate(BaseModel):
     status: Optional[str] = None
     priority: Optional[int] = None
 
-    @validator('assignee_id', 'owner_id')
+    @validator("assignee_id", "owner_id")
     def validate_uuid(cls, v):
         if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
             return None
         # Additional validation for UUID format
         try:
             from uuid import UUID
+
             if isinstance(v, str):
                 UUID(v)  # This will raise ValueError if invalid
             return v
