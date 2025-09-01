@@ -1,13 +1,14 @@
-import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import requests
+from pydantic import BaseModel
 
 from rhesis.sdk.client import Client
 from rhesis.sdk.services.base import BaseLLM
 
 DEFAULT_MODEL_NAME = "rhesis-llm-v1"
+API_ENDPOINT = "services/generate/content"
 
 
 class RhesisLLMService(BaseLLM):
@@ -32,37 +33,38 @@ class RhesisLLMService(BaseLLM):
         }
         return self
 
-    def generate(self, prompt: str, response_format: str = "json_object", **kwargs: Any) -> Any:
+    def generate(self, prompt: str, schema: Optional[BaseModel] = None, **kwargs: Any) -> Any:
         """Run a chat completion using the API, and return the response."""
         try:
+            # Before sending the request, we need to convert the Pydantic schema to a JSON schema
+            schema_json = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema.__name__,
+                    "schema": schema.model_json_schema(),
+                    "strict": True,
+                },
+            }
+
             response = self.create_completion(
-                messages=[{"role": "user", "content": prompt}],
-                response_format=response_format,
+                prompt=prompt,
+                response_format=schema_json,
                 **kwargs,
             )
-            response_content = response["choices"][0]["message"]["content"]
 
-            if response_format == "json_object":
-                try:
-                    return json.loads(response_content)
-                except json.JSONDecodeError as e:
-                    # Return the raw content for the synthesizer to handle
-                    print(f"JSON parsing failed: {e}. Returning raw content for custom parsing.")
-                    return response_content
-
-            return response_content
+            return response
 
         except (requests.exceptions.HTTPError, KeyError, IndexError) as e:
             # Log the error and return an appropriate message
             print(f"Error occurred while running the prompt: {e}")
-            if response_format == "json_object":
+            if schema:
                 return {"error": "An error occurred while processing the request."}
 
             return "An error occurred while processing the request."
 
     def create_completion(
         self,
-        messages: List[Dict[str, str]],
+        prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 4000,
         response_format: Optional[str] = None,
@@ -85,7 +87,7 @@ class RhesisLLMService(BaseLLM):
             ValueError: If the response cannot be parsed
         """
         request_data = {
-            "messages": messages,
+            "prompt": prompt,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "response_format": response_format,
@@ -93,7 +95,7 @@ class RhesisLLMService(BaseLLM):
         }
 
         response = requests.post(
-            self.client.get_url("services/chat/completions"),
+            self.client.get_url(API_ENDPOINT),
             headers=self.headers,
             json=request_data,
         )
