@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { auth } from './auth'
 import { isPublicPath, ONBOARDING_PATH } from './constants/paths'
+import { getServerBackendUrl } from './utils/url-resolver'
 
 // Helper function to verify token with backend
 async function verifySessionWithBackend(sessionToken: string) {
   try {
     const response = await fetch(
-      `${process.env.BACKEND_URL}/auth/verify?session_token=${sessionToken}`,
+      `${getServerBackendUrl()}/auth/verify?session_token=${sessionToken}`,
       {
         headers: {
           Accept: 'application/json',
