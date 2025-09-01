@@ -8,7 +8,7 @@ class BaseLLM(ABC):
 
     @abstractmethod
     def load_model(self, *args, **kwargs):
-        """Loads a model, that will be responsible for scoring.
+        """Loads a model
 
         Returns:
             A model object

@@ -80,8 +80,8 @@ def get_model(
 
         >>> # With custom configuration
         >>> config = ModelConfig(
-        ...     provider="rhesis_premium",
-        ...     model_name="rhesis-premium-v1",
+        ...     provider="gemini",
+        ...     model_name="gemini-pro",
         ...     api_key="your-api-key"
         ... )
         >>> model = get_model(config=config)
@@ -125,13 +125,3 @@ def get_model(
         return GeminiLLM(model_name=config.model_name)
     else:
         raise ValueError(f"Provider {config.provider} not supported")
-
-
-if __name__ == "__main__":
-    model = get_model("gemini/gemini-2.0-flash-lite-preview-02-05")
-    # print(model.get_model_name())
-    print(
-        model.generate(
-            prompt="What is the capital of France? Tell me some story about this beautiful city"
-        )
-    )
