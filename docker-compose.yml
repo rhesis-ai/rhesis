@@ -34,7 +34,10 @@ x-common-jwt: &common-jwt
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
 
 x-common-environment: &common-environment
-  ENVIRONMENT: development
+  ENVIRONMENT: local
+  BACKEND_ENV: ${BACKEND_ENV}
+  FRONTEND_ENV: ${FRONTEND_ENV}
+  WORKER_ENV: ${WORKER_ENV}
   NODE_ENV: ${NODE_ENV}
   LOG_LEVEL: DEBUG
 

@@ -1,4 +1,5 @@
 ARG NODE_ENV
+ARG FRONTEND_ENV
 # First stage: Build the application
 FROM node:22-alpine AS builder
 
@@ -43,10 +44,11 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
 # Set environment variables for better Next.js performance
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=${NODE_ENV}
+ENV FRONTEND_ENV=${FRONTEND_ENV}
 
 # Build the Next.js application
 #RUN npm run build
-RUN if [ "$NODE_ENV" = "production" ]; then \
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
         npm run build; \
     else \
         echo "Skipping build for non-production environment"; \
@@ -76,7 +78,7 @@ COPY --from=builder /app/tsconfig.json ./
 COPY --from=builder /app/.eslintrc.json ./
 # Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
 # Install dependencies and handle environment-specific setup
-RUN if [ "$NODE_ENV" = "production" ]; then \
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
         echo "Production mode detected"; \
         if [ -d "/app/.next" ]; then \
             cp -r /app/.next ./.next && \
@@ -108,4 +110,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
 # Start the appropriate server based on NODE_ENV
-CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$NODE_ENV\" = \"production\" ]; then npm start; else npm run dev; fi"]
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ]; then npm start; else npm run dev; fi"]
