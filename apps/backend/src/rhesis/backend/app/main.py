@@ -60,6 +60,7 @@ token_enabled_routes = [
     "/projects/",
     "/tests/",
     "/test-contexts/",
+    "/comments/",
 ]
 
 
@@ -95,7 +96,13 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://frontend:3000", "https://app.rhesis.ai", "https://dev-app.rhesis.ai", "https://dev-api.rhesis.ai"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://frontend:3000",
+        "https://app.rhesis.ai",
+        "https://dev-app.rhesis.ai",
+        "https://dev-api.rhesis.ai",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -171,14 +178,14 @@ async def root():
             "api_usage": {
                 "filtering": {
                     "note": "When using curl, special characters in URLs need to be URL-encoded. "
-                           "For example:",
+                    "For example:",
                     "example": {
                         "encoded": "/tests/?%24filter=prompt_id%20eq%20'89905869-e8e9-4b2f-b362-"
-                                  "3598cfe91968'",
+                        "3598cfe91968'",
                         "unencoded": "/tests/?$filter=prompt_id eq '89905869-e8e9-4b2f-b362-"
-                                    "3598cfe91968'",
+                        "3598cfe91968'",
                         "note": "The $ character must be encoded as %24 when using curl. "
-                               "Web browsers handle this automatically.",
+                        "Web browsers handle this automatically.",
                     },
                 }
             },
