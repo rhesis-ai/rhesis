@@ -145,6 +145,13 @@ export class BaseApiClient {
     const url = joinUrl(this.baseUrl, path);
     const headers = this.getHeaders();
 
+    console.log('🌐 [DEBUG] API Request:', {
+      url,
+      method: options.method || 'GET',
+      hasAuth: !!this.sessionToken,
+      headers: Object.keys(headers)
+    });
+
     let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= this.retryConfig.maxAttempts; attempt++) {
@@ -159,6 +166,13 @@ export class BaseApiClient {
         });
 
         if (!response.ok) {
+          console.error('❌ [DEBUG] API Response Error:', {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+          });
+          
           let errorMessage = '';
           let errorData: any;
           
@@ -179,8 +193,11 @@ export class BaseApiClient {
               errorMessage = await response.text();
             }
           } catch (parseError) {
+            console.error('❌ [DEBUG] Error parsing response:', parseError);
             errorMessage = await response.text();
           }
+          
+          console.error('❌ [DEBUG] Full error details:', { errorMessage, errorData });
           
           const error = new Error(`API error: ${response.status} - ${errorMessage}`) as Error & { 
             status?: number;
@@ -199,10 +216,18 @@ export class BaseApiClient {
 
         // For 204 No Content or empty responses, return undefined as T
         if (response.status === 204 || response.headers.get('content-length') === '0') {
+          console.log('✅ [DEBUG] API Success (No Content):', { url, status: response.status });
           return undefined as unknown as T;
         }
 
-        return response.json();
+        const result = await response.json();
+        console.log('✅ [DEBUG] API Success:', {
+          url,
+          status: response.status,
+          dataType: Array.isArray(result) ? 'array' : typeof result,
+          count: Array.isArray(result) ? result.length : undefined
+        });
+        return result;
       } catch (error: any) {
         lastError = error;
         

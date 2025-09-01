@@ -213,34 +213,13 @@ def get_behavior(db: Session, behavior_id: uuid.UUID) -> Optional[models.Behavio
 def get_behaviors(
     db: Session,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Behavior]:
     return get_items(db, models.Behavior, skip, limit, sort_by, sort_order, filter)
 
-
-def get_behaviors_with_metrics(
-    db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-) -> List[models.Behavior]:
-    """Get all behaviors with their related objects, including many-to-many relationships"""
-    with maintain_tenant_context(db):
-        return (
-            QueryBuilder(db, models.Behavior)
-            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
-            .with_organization_filter()
-            .with_visibility_filter()
-            .with_odata_filter(filter)
-            .with_pagination(skip, limit)
-            .with_sorting(sort_by, sort_order)
-            .all()
-        )
 
 
 def create_behavior(db: Session, behavior: schemas.BehaviorCreate) -> models.Behavior:
@@ -1310,7 +1289,7 @@ def get_metric(db: Session, metric_id: uuid.UUID) -> Optional[models.Metric]:
 def get_metrics(
     db: Session,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
@@ -1443,7 +1422,7 @@ def get_metric_behaviors(
     db: Session,
     metric_id: UUID,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
@@ -1486,7 +1465,7 @@ def get_behavior_metrics(
     db: Session,
     behavior_id: UUID,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
