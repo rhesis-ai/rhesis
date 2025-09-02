@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 from pydantic import BaseModel
-from rhesis.sdk.services.providers.rhesis_provider import (
+from rhesis.sdk.models.providers import (
     DEFAULT_MODEL_NAME,
     RhesisLLMService,
 )

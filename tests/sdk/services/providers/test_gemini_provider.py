@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import BaseModel
-from rhesis.sdk.services.providers.gemini_provider import (
+from rhesis.sdk.models.providers.gemini_provider import (
     DEFAULT_MODEL_NAME,
     PROVIDER,
     GeminiLLM,
