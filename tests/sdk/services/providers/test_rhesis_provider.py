@@ -221,3 +221,43 @@ class TestRhesisLLMService:
         assert call_args[1]["json"]["max_tokens"] == 2000
         assert call_args[1]["json"]["schema"] == "custom_schema"
         assert call_args[1]["json"]["custom_param"] == "value"
+
+    @patch("requests.post")
+    def test_generate_without_schema_success(self, mock_post, service, mock_client):
+        """Test generate method without schema on success."""
+        # Mock the response
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "content": "This is a test response without schema validation.",
+            "status": "success",
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        service.load_model()
+
+        result = service.generate(prompt="Tell me a joke.")
+
+        assert result == mock_response.json.return_value
+
+        # Verify no schema was passed
+        call_args = mock_post.call_args
+        assert call_args[1]["json"]["schema"] is None
+        assert call_args[1]["json"]["prompt"] == "Tell me a joke."
+
+    @patch("requests.post")
+    def test_generate_without_schema_error(self, mock_post, service, mock_client):
+        """Test generate method without schema on error."""
+        # Mock HTTP error
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "500 Internal Error"
+        )
+        mock_post.return_value = mock_response
+
+        service.load_model()
+
+        result = service.generate(prompt="Tell me a joke.")
+
+        # Should return a string error message when no schema is provided
+        assert result == "An error occurred while processing the request."

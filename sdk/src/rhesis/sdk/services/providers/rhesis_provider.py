@@ -62,18 +62,11 @@ class RhesisLLMService(BaseLLM):
         """Run a chat completion using the API, and return the response."""
         try:
             # Before sending the request, we need to convert the Pydantic schema to a JSON schema
-            schema_json = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": schema.__name__,
-                    "schema": schema.model_json_schema(),
-                    "strict": True,
-                },
-            }
+                schema = {
 
             response = self.create_completion(
                 prompt=prompt,
-                schema=schema_json,
+                schema=schema,
                 **kwargs,
             )
 
