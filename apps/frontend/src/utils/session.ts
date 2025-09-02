@@ -111,7 +111,7 @@ export async function clearAllSessionData() {
     document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
     
     // Clear with domain (for production)
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.FRONTEND_ENV === 'production') {
       document.cookie = `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
       // Also try with leading dot for broader domain coverage
       document.cookie = `${name}=; domain=.rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;

@@ -177,7 +177,7 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: '/',
   },
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.FRONTEND_ENV === 'development',
   basePath: "/api/auth",
   cookies: {
     sessionToken: {
@@ -186,9 +186,9 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.FRONTEND_ENV === 'production',
         maxAge: SESSION_DURATION_SECONDS,
-        domain: process.env.NODE_ENV === 'production' ? 'rhesis.ai' : undefined
+        domain: process.env.FRONTEND_ENV === 'production' ? 'rhesis.ai' : undefined
       }
     }
   }

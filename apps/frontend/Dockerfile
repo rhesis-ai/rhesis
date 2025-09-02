@@ -1,5 +1,5 @@
-ARG NODE_ENV
 ARG FRONTEND_ENV
+
 # First stage: Build the application
 FROM node:22-alpine AS builder
 
@@ -43,7 +43,6 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
 
 # Set environment variables for better Next.js performance
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=${NODE_ENV}
 ENV FRONTEND_ENV=${FRONTEND_ENV}
 
 # Build the Next.js application
@@ -66,7 +65,7 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # Set environment variables
-ENV NODE_ENV=${NODE_ENV}
+ENV FRONTEND_ENV=${FRONTEND_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copy all necessary files from the builder stage
@@ -84,7 +83,7 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
             cp -r /app/.next ./.next && \
             echo ".next directory copied for production"; \
         else \
-            echo "Warning: .next directory not found, but NODE_ENV is production"; \
+            echo "Warning: .next directory not found, but FRONTEND_ENV is production"; \
         fi; \
         rm -rf ./src ./tsconfig.json ./.eslintrc.json && \
         echo "Source files removed for production mode"; \
@@ -109,5 +108,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
-# Start the appropriate server based on NODE_ENV
+# Start the appropriate server based on FRONTEND_ENV
 CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ]; then npm start; else npm run dev; fi"]
