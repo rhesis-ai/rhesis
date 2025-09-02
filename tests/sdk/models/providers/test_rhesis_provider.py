@@ -6,7 +6,7 @@ import requests
 from pydantic import BaseModel
 from rhesis.sdk.models.providers import (
     DEFAULT_MODEL_NAME,
-    RhesisLLMService,
+    RhesisLLM,
 )
 
 
@@ -20,8 +20,8 @@ class TestContinent(BaseModel):
     capitals: list[TestCapital]
 
 
-class TestRhesisLLMService:
-    """Test class for RhesisLLMService."""
+class TestRhesisLLM:
+    """Test class for RhesisLLM."""
 
     @pytest.fixture
     def mock_env_vars(self):
@@ -52,18 +52,18 @@ class TestRhesisLLMService:
     @pytest.fixture
     def service(self, mock_env_vars, mock_client):
         """Create a service instance with mocked dependencies."""
-        return RhesisLLMService()
+        return RhesisLLM()
 
     def test_init_with_env_vars(self, mock_env_vars, mock_client):
         """Test initialization with environment variables."""
-        service = RhesisLLMService()
+        service = RhesisLLM()
         assert service.api_key == "test_api_key"
         assert service.base_url == "https://test.example.com"
         assert service.model_name == DEFAULT_MODEL_NAME
 
     def test_init_with_explicit_params(self, mock_client):
         """Test initialization with explicit parameters."""
-        service = RhesisLLMService(
+        service = RhesisLLM(
             model_name="custom-model",
             api_key="custom_key",
             base_url="https://custom.example.com",
@@ -76,7 +76,7 @@ class TestRhesisLLMService:
         """Test initialization fails without API key."""
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValueError, match="RHESIS_API_KEY is not set"):
-                RhesisLLMService()
+                RhesisLLM()
 
     def test_load_model(self, service, mock_client):
         """Test load_model method."""
