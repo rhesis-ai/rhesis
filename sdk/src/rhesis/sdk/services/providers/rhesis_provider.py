@@ -5,7 +5,7 @@ import requests
 from pydantic import BaseModel
 
 from rhesis.sdk.client import Client
-from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 DEFAULT_MODEL_NAME = "rhesis-llm-v1"
 API_ENDPOINT = "services/generate/content"

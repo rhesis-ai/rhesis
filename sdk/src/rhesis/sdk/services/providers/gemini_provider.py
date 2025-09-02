@@ -16,8 +16,8 @@ from typing import Optional, Union
 from litellm import completion
 from pydantic import BaseModel
 
-from rhesis.sdk.services.base import BaseLLM
-from rhesis.sdk.services.utils import validate_llm_response
+from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.utils import validate_llm_response
 
 PROVIDER = "gemini"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
