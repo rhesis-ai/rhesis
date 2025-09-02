@@ -13,7 +13,7 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
         return self._model.load_model(*args, **kwargs)
 
     def generate(self, prompt: str) -> str:
-        return self._model.generate(prompt, response_format="text")
+        return self._model.generate(prompt)
 
     async def a_generate(self, prompt: str) -> str:
         return self.generate(prompt)
