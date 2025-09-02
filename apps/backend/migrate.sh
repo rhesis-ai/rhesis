@@ -77,10 +77,10 @@ main() {
     log "${BLUE}🔄 Starting database migration process...${NC}"
     
     # Get database configuration from environment variables
-    DB_USER=${SQLALCHEMY_DB_USER:-myuser}
-    DB_PASS=${SQLALCHEMY_DB_PASS:-mypassword}
+    DB_USER=${SQLALCHEMY_DB_USER:-rhesis-user}
+    DB_PASS=${SQLALCHEMY_DB_PASS:-rhesis-password}
     DB_HOST=${SQLALCHEMY_DB_HOST:-postgres}
-    DB_NAME=${SQLALCHEMY_DB_NAME:-rhesis_local_second_test}
+    DB_NAME=${SQLALCHEMY_DB_NAME:-rhesis-db}
     
     # Validate required environment variables
     if [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ]; then

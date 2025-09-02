@@ -105,7 +105,7 @@ async function createSessionClearingResponse(url: URL, shouldCallBackendLogout: 
     response.cookies.delete(name);
     
     // For production environment, also set expired cookies with various domain configurations
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.FRONTEND_ENV === 'production') {
       // Clear with specific domain
       response.cookies.set(name, '', {
         domain: 'rhesis.ai',
