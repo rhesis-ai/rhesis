@@ -218,7 +218,7 @@ export default function BasePieChart({
   tooltipProps = { contentStyle: { fontSize: '10px' } }
 }: BasePieChartProps) {
   // Validate props in development
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.FRONTEND_ENV === 'development') {
     pieChartUtils.validateProps({ data, title, colors, colorPalette, useThemeColors, height, innerRadius, outerRadius, showPercentage, legendProps, tooltipProps });
   }
 

@@ -2,7 +2,7 @@ import pytest
 from jsonschema import ValidationError as JsonSchemaValidationError
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
-from rhesis.sdk.services.utils import validate_llm_response
+from rhesis.sdk.models.utils import validate_llm_response
 
 
 def test_validate_llm_response():

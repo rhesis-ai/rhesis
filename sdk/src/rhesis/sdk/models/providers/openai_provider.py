@@ -1,6 +1,6 @@
 from litellm import completion
 
-from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 
 class OpenAILLM(BaseLLM):
