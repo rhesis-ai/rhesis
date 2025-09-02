@@ -1,5 +1,5 @@
 from rhesis.sdk.models.providers.gemini_provider import GeminiLLM
 from rhesis.sdk.models.providers.openai_provider import OpenAILLM
-from rhesis.sdk.models.providers.rhesis_provider import RhesisLLMService
+from rhesis.sdk.models.providers.rhesis_provider import RhesisLLM
 
-__all__ = ["RhesisLLMService", "GeminiLLM", "OpenAILLM"]
+__all__ = ["RhesisLLM", "GeminiLLM", "OpenAILLM"]
