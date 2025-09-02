@@ -11,7 +11,7 @@ DEFAULT_MODEL_NAME = "rhesis-llm-v1"
 API_ENDPOINT = "services/generate/content"
 
 
-class RhesisLLMService(BaseLLM):
+class RhesisLLM(BaseLLM):
     """Service for interacting with the LLM API endpoints."""
 
     def __init__(
@@ -32,7 +32,7 @@ class RhesisLLMService(BaseLLM):
             **kwargs: Additional parameters passed to the underlying client.
 
         Usage:
-            >>> llm = RhesisLLMService(model_name="rhesis-llm-v1")
+            >>> llm = RhesisLLM(model_name="rhesis-llm-v1")
             >>> result = llm.generate("Tell me a joke.")
             >>> print(result)
 
