@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from rhesis.backend.app.constants import CommentEntityType
+from rhesis.backend.app.constants import EntityType
 
 from .base import Base
 from .emoji_reaction import EmojiReaction
@@ -13,26 +13,29 @@ from .emoji_reaction import EmojiReaction
 class CommentBase(Base):
     """Base Comment schema with common fields"""
 
-    comment_text: str = Field(..., description="The comment text content")
+    content: str = Field(..., description="The comment content")
     emojis: Optional[Dict[str, List[EmojiReaction]]] = Field(
-        default_factory=dict, description="Emoji reactions with user details"
+        default_factory=dict,
+        description="Emoji reactions stored as {emoji_character: [list_of_user_reactions]}. "
+        "Example: {'🚀': [{'user_id': 'uuid1', 'user_name': 'John'}], "
+        "'👍': [{'user_id': 'uuid2', 'user_name': 'Jane'}]}",
     )
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
-    entity_type: CommentEntityType = Field(
+    entity_type: EntityType = Field(
         ...,
-        description="Type of entity: 'test', 'test_set', 'test_run', 'metric', 'model', 'prompt', 'behavior', 'category'",
+        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category'",
     )
 
 
 class CommentCreate(BaseModel):
     """Schema for creating a new comment"""
 
-    comment_text: str = Field(..., description="The comment text content")
+    content: str = Field(..., description="The comment content")
 
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
-    entity_type: CommentEntityType = Field(
+    entity_type: EntityType = Field(
         ...,
-        description="Type of entity: 'test', 'test_set', 'test_run', 'metric', 'model', 'prompt', 'behavior', 'category'",
+        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category'",
     )
 
     class Config:
@@ -42,8 +45,7 @@ class CommentCreate(BaseModel):
 class CommentUpdate(BaseModel):
     """Schema for updating an existing comment"""
 
-    comment_text: Optional[str] = Field(None, description="The comment text content")
-    # emojis field removed - emojis are managed through separate emoji endpoints
+    content: Optional[str] = None
 
     class Config:
         from_attributes = True
