@@ -193,12 +193,24 @@ def get_items_detail(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    nested_relationships: dict = None,
 ) -> List[T]:
-    """Get multiple items with relationships loaded, pagination, and filtering."""
+    """
+    Get multiple items with optimized relationship loading.
+    Uses selectinload for many-to-many relationships to avoid cartesian products.
+    
+    Args:
+        nested_relationships: Dict specifying nested relationships to load.
+                            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
+    """
     with maintain_tenant_context(db):
         return (
             QueryBuilder(db, model)
-            .with_joinedloads()
+            .with_optimized_loads(
+                skip_many_to_many=False, 
+                skip_one_to_many=True, 
+                nested_relationships=nested_relationships
+            )
             .with_organization_filter()
             .with_visibility_filter()
             .with_odata_filter(filter)

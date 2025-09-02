@@ -11,8 +11,10 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
-# Create the detailed schema for Metric
-MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
+# Create the detailed schema for Metric with many-to-many relationships included
+MetricDetailSchema = create_detailed_schema(
+    schemas.Metric, models.Metric, include_many_to_many=True
+)
 BehaviorDetailSchema = create_detailed_schema(schemas.Behavior, models.Behavior)
 
 router = APIRouter(
@@ -40,7 +42,7 @@ def create_metric(
 def read_metrics(
     response: Response,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 20,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),

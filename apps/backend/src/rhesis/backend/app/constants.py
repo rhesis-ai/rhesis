@@ -1,27 +1,21 @@
 from enum import Enum
 
 
-# Entity Types Enum
+# Entity Types Enum - Unified for all entities including comments
 class EntityType(Enum):
     GENERAL = "General"
     TEST = "Test"
-    TOPIC = "Topic"
+    TEST_SET = "TestSet"
+    TEST_RUN = "TestRun"
+    TEST_RESULT = "TestResult"
+    METRIC = "Metric"
+    MODEL = "Model"
+    PROMPT = "Prompt"
     BEHAVIOR = "Behavior"
     CATEGORY = "Category"
+    TOPIC = "Topic"
     DIMENSION = "Dimension"
     DEMOGRAPHIC = "Demographic"
-
-
-# Comment Entity Types Enum
-class CommentEntityType(Enum):
-    TEST = "test"
-    TEST_SET = "test_set"
-    TEST_RUN = "test_run"
-    METRIC = "metric"
-    MODEL = "model"
-    PROMPT = "prompt"
-    BEHAVIOR = "behavior"
-    CATEGORY = "category"
 
     @classmethod
     def get_value(cls, entity_type):
