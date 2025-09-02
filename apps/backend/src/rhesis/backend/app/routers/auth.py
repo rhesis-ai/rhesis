@@ -36,8 +36,8 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
     # Store return_to in session
     request.session["return_to"] = return_to
 
-    # Only rewrite http to https if not localhost
-    if callback_url.startswith("http://") and "localhost" not in callback_url:
+    # Only rewrite http to https if not localhost (including 127.0.0.1)
+    if callback_url.startswith("http://") and "localhost" not in callback_url and "127.0.0.1" not in callback_url:
         callback_url = "https://" + callback_url[7:]
 
     if not os.getenv("AUTH0_DOMAIN"):
