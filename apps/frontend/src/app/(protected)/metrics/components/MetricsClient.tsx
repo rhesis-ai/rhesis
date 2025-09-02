@@ -153,27 +153,31 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
 
         console.log('🔧 [DEBUG] Creating API clients with session token:', !!sessionToken);
         const behaviorClient = new BehaviorClient(sessionToken);
+        const metricsClient = new MetricsClient(sessionToken);
 
-        console.log('📡 [DEBUG] Fetching behaviors with metrics (includes type relationships)...');
-        const behaviorsWithMetricsData = await behaviorClient.getBehaviorsWithMetrics({
-          skip: 0,
-          limit: 50,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-        });
+        console.log('📡 [DEBUG] Fetching behaviors with metrics and all metrics...');
+        const [behaviorsWithMetricsData, allMetricsData] = await Promise.all([
+          behaviorClient.getBehaviorsWithMetrics({
+            skip: 0,
+            limit: 100,
+            sort_by: 'created_at',
+            sort_order: 'desc'
+          }),
+          metricsClient.getMetrics({
+            skip: 0,
+            limit: 100,
+            sort_by: 'created_at',
+            sort_order: 'desc'
+          })
+        ]);
 
         console.log('📊 [DEBUG] API calls completed. Processing data...');
 
-        // Extract behaviors and metrics from the optimized response
+        // Extract behaviors from the optimized response
         const behaviorsData = behaviorsWithMetricsData;
-        const allMetrics = behaviorsWithMetricsData.flatMap(behavior => behavior.metrics || []);
         
-        // Remove duplicate metrics by creating a Map keyed by metric ID
-        const uniqueMetricsMap = new Map();
-        allMetrics.forEach(metric => {
-          uniqueMetricsMap.set(metric.id, metric);
-        });
-        const metricsData = Array.from(uniqueMetricsMap.values());
+        // Use all metrics from the dedicated metrics endpoint
+        const metricsData = allMetricsData.data || [];
 
         // Add behavior IDs to each metric for compatibility
         const metricsWithBehaviors = metricsData.map(metric => {
