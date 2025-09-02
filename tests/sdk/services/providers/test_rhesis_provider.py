@@ -39,7 +39,7 @@ class TestRhesisLLMService:
     def mock_client(self):
         """Mock Client class."""
         with patch(
-            "rhesis.sdk.services.providers.rhesis_provider.Client"
+            "rhesis.sdk.models.providers.rhesis_provider.Client"
         ) as mock_client_class:
             mock_client = Mock()
             mock_client.api_key = "test_api_key"
