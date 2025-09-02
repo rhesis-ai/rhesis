@@ -114,7 +114,10 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>([]);
   const [behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<BehaviorWithMetrics[]>([]);
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  
+  // Separate loading states for each tab
+  const [isLoadingSelectedMetrics, setIsLoadingSelectedMetrics] = React.useState(true);
+  const [isLoadingMetricsDirectory, setIsLoadingMetricsDirectory] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Filter state
@@ -157,7 +160,8 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
       
       try {
         console.log('📊 [DEBUG] Setting loading state and clearing errors');
-        setIsLoading(true);
+        setIsLoadingSelectedMetrics(true);
+        setIsLoadingMetricsDirectory(true);
         setError(null);
 
         console.log('🔧 [DEBUG] Creating API clients with session token:', !!sessionToken);
@@ -265,7 +269,8 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
         });
       } finally {
         console.log('🏁 [DEBUG] Setting loading to false');
-        setIsLoading(false);
+        setIsLoadingSelectedMetrics(false);
+        setIsLoadingMetricsDirectory(false);
       }
     };
 
@@ -333,7 +338,7 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
               organizationId={organizationId}
               behaviorsWithMetrics={behaviorsWithMetrics}
               behaviorMetrics={behaviorMetrics}
-              isLoading={isLoading}
+              isLoading={isLoadingSelectedMetrics}
               error={error}
               onRefresh={handleRefresh}
               setBehaviors={setBehaviors}
@@ -351,7 +356,7 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
               metrics={metrics}
               filters={filters}
               filterOptions={filterOptions}
-              isLoading={isLoading}
+              isLoading={isLoadingMetricsDirectory}
               error={error}
               onRefresh={handleRefresh}
               setFilters={setFilters}

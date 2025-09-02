@@ -393,6 +393,31 @@ export default function MetricsDirectoryTab({
   const filteredMetrics = getFilteredMetrics();
   const activeBehaviors = behaviors.filter(b => b.name && b.name.trim() !== '');
 
+  if (isLoading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        p: 4, 
+        minHeight: '400px' 
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <CircularProgress size={24} />
+          <Typography>Loading metrics directory...</Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Search and Filters */}
