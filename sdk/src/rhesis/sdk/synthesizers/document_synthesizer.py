@@ -100,21 +100,18 @@ class DocumentSynthesizer(TestSetSynthesizer):
             # Calculate tests per context
             tests_per_context = max(1, num_tests // len(contexts))
 
-            # Generate tests for this context
-            result = self.prompt_synthesizer.generate(num_tests=tests_per_context, **kwargs)
+            # Generate tests for this context; override num_tests while keeping other kwargs
+            result = self.prompt_synthesizer.generate(**{**kwargs, "num_tests": tests_per_context})
 
             # Add context and document mapping to each test
             for test in result.tests:
-                test.metadata = test.metadata or {}
-                test.metadata.update(
-                    {
-                        "context_index": i,
-                        "context_length": len(context),
-                        "context": context,
-                        "documents_used": document_names,
-                        "generated_by": "DocumentSynthesizer",
-                    }
-                )
+                test["metadata"] = {
+                    **(test.get("metadata") or {}),
+                    "context_index": i,
+                    "context_length": len(context),
+                    "context": context,
+                    "documents_used": document_names,
+                }
 
             all_test_cases.extend(result.tests)
 
