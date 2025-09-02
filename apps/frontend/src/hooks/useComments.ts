@@ -1,23 +1,33 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Comment, CreateCommentRequest, UpdateCommentRequest } from '@/types/comments';
-import { mockCommentsService } from '@/utils/mock-data/comments';
+import { Comment, CreateCommentRequest, UpdateCommentRequest, EntityType } from '@/types/comments';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 interface UseCommentsProps {
   entityType: string;
   entityId: string;
+  sessionToken: string;
+  currentUserId: string;
 }
 
-export function useComments({ entityType, entityId }: UseCommentsProps) {
+export function useComments({ entityType, entityId, sessionToken, currentUserId }: UseCommentsProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchComments = useCallback(async () => {
+    if (!sessionToken) {
+      setError('No session token available');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     
     try {
-      const fetchedComments = await mockCommentsService.getComments(entityType, entityId);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      const fetchedComments = await commentsClient.getComments(entityType, entityId);
       setComments(fetchedComments);
     } catch (err) {
       setError('Failed to fetch comments');
@@ -25,45 +35,96 @@ export function useComments({ entityType, entityId }: UseCommentsProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId]);
+  }, [entityType, entityId, sessionToken]);
 
   const createComment = useCallback(async (text: string) => {
+    if (!sessionToken) {
+      throw new Error('No session token available');
+    }
+
     try {
-      const newComment = await mockCommentsService.createComment({
-        comment_text: text,
-        entity_type: entityType,
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      const newComment = await commentsClient.createComment({
+        content: text,
+        entity_type: entityType as EntityType,
         entity_id: entityId
       });
       
-      setComments(prev => [newComment, ...prev]);
-      return newComment;
+      // Add user information to the new comment since the API doesn't return it
+      const commentWithUser: Comment = {
+        ...newComment,
+        user: {
+          id: currentUserId,
+          name: 'Current User', // This will be replaced when we refetch
+          email: ''
+        }
+      };
+      
+      setComments(prev => [commentWithUser, ...prev]);
+      
+      // Refetch comments after a short delay to get proper user information
+      setTimeout(() => {
+        fetchComments();
+      }, 1000);
+      
+      return commentWithUser;
     } catch (err) {
       console.error('Error creating comment:', err);
       throw err;
     }
-  }, [entityType, entityId]);
+  }, [entityType, entityId, sessionToken, currentUserId, fetchComments]);
 
   const editComment = useCallback(async (commentId: string, newText: string) => {
+    if (!sessionToken) {
+      throw new Error('No session token available');
+    }
+
     try {
-      const updatedComment = await mockCommentsService.updateComment(commentId, {
-        comment_text: newText
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      const updatedComment = await commentsClient.updateComment(commentId, {
+        content: newText
       });
+      
+      // Preserve the existing user information from the current comment
+      const currentComment = comments.find(c => c.id === commentId);
+      const commentWithUser: Comment = {
+        ...updatedComment,
+        user: currentComment?.user || {
+          id: currentUserId,
+          name: 'Current User',
+          email: ''
+        }
+      };
       
       setComments(prev => 
         prev.map(comment => 
-          comment.id === commentId ? updatedComment : comment
+          comment.id === commentId ? commentWithUser : comment
         )
       );
-      return updatedComment;
+      
+      // Refetch comments after a short delay to get proper user information
+      setTimeout(() => {
+        fetchComments();
+      }, 1000);
+      
+      return commentWithUser;
     } catch (err) {
       console.error('Error editing comment:', err);
       throw err;
     }
-  }, []);
+  }, [sessionToken, comments, currentUserId, fetchComments]);
 
   const deleteComment = useCallback(async (commentId: string) => {
+    if (!sessionToken) {
+      throw new Error('No session token available');
+    }
+
     try {
-      await mockCommentsService.deleteComment(commentId);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      await commentsClient.deleteComment(commentId);
       
       setComments(prev => 
         prev.filter(comment => comment.id !== commentId)
@@ -72,36 +133,43 @@ export function useComments({ entityType, entityId }: UseCommentsProps) {
       console.error('Error deleting comment:', err);
       throw err;
     }
-  }, []);
+  }, [sessionToken]);
 
   const reactToComment = useCallback(async (commentId: string, emoji: string) => {
+    if (!sessionToken) {
+      throw new Error('No session token available');
+    }
+
     try {
-      const currentUserId = mockCommentsService.getCurrentUserId();
-      await mockCommentsService.addEmojiReaction(commentId, emoji, currentUserId);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
       
-      // Update local state directly instead of refetching
+      // Check if user already reacted with this emoji
+      const comment = comments.find(c => c.id === commentId);
+      const hasReacted = comment?.emojis?.[emoji]?.some(reaction => 
+        reaction.user_id === currentUserId
+      );
+
+      let updatedComment: Comment;
+      if (hasReacted) {
+        // Remove reaction
+        updatedComment = await commentsClient.removeEmojiReaction(commentId, emoji);
+      } else {
+        // Add reaction
+        updatedComment = await commentsClient.addEmojiReaction(commentId, emoji);
+      }
+      
+      // Update local state
       setComments(prev => 
-        prev.map(comment => {
-          if (comment.id === commentId) {
-            // Get the updated emoji data from the service
-            const updatedEmojis = mockCommentsService.getCommentEmojis(commentId);
-            return {
-              ...comment,
-              emojis: updatedEmojis
-            };
-          }
-          return comment;
-        })
+        prev.map(comment => 
+          comment.id === commentId ? updatedComment : comment
+        )
       );
     } catch (err) {
       console.error('Error reacting to comment:', err);
       throw err;
     }
-  }, []);
-
-  const getCurrentUserId = useCallback(() => {
-    return mockCommentsService.getCurrentUserId();
-  }, []);
+  }, [sessionToken, comments, currentUserId]);
 
   useEffect(() => {
     fetchComments();
@@ -115,7 +183,6 @@ export function useComments({ entityType, entityId }: UseCommentsProps) {
     editComment,
     deleteComment,
     reactToComment,
-    getCurrentUserId,
     refetch: fetchComments
   };
 }

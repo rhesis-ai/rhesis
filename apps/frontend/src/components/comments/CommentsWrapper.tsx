@@ -6,12 +6,13 @@ import { CommentsSection } from './CommentsSection';
 import { useComments } from '@/hooks/useComments';
 
 interface CommentsWrapperProps {
-  entityType: 'test' | 'test_set' | 'test_run' | 'metric' | 'model' | 'prompt' | 'behavior' | 'category';
+  entityType: 'Test' | 'TestSet' | 'TestRun' | 'TestResult' | 'Metric' | 'Model' | 'Prompt' | 'Behavior' | 'Category';
   entityId: string;
   sessionToken: string;
+  currentUserId: string;
 }
 
-export default function CommentsWrapper({ entityType, entityId, sessionToken }: CommentsWrapperProps) {
+export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId }: CommentsWrapperProps) {
   const {
     comments,
     isLoading,
@@ -20,13 +21,30 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken }: 
     editComment,
     deleteComment,
     reactToComment,
-    getCurrentUserId
+    refetch
   } = useComments({
     entityType,
-    entityId
+    entityId,
+    sessionToken,
+    currentUserId
   });
 
-  const currentUserId = getCurrentUserId();
+  // Wrap the functions to match the expected Promise<void> return type
+  const handleCreateComment = async (text: string): Promise<void> => {
+    await createComment(text);
+  };
+
+  const handleEditComment = async (commentId: string, newText: string): Promise<void> => {
+    await editComment(commentId, newText);
+  };
+
+  const handleDeleteComment = async (commentId: string): Promise<void> => {
+    await deleteComment(commentId);
+  };
+
+  const handleReactToComment = async (commentId: string, emoji: string): Promise<void> => {
+    await reactToComment(commentId, emoji);
+  };
 
   return (
     <Box>
@@ -34,10 +52,10 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken }: 
         entityType={entityType}
         entityId={entityId}
         comments={comments}
-        onCreateComment={createComment}
-        onEditComment={editComment}
-        onDeleteComment={deleteComment}
-        onReactToComment={reactToComment}
+        onCreateComment={handleCreateComment}
+        onEditComment={handleEditComment}
+        onDeleteComment={handleDeleteComment}
+        onReactToComment={handleReactToComment}
         currentUserId={currentUserId}
         isLoading={isLoading}
       />

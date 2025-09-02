@@ -17,7 +17,6 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
-import { mockCommentsService } from '@/utils/mock-data/comments';
 
 interface CommentItemProps {
   comment: Comment;
@@ -35,7 +34,7 @@ export function CommentItem({
   currentUserId 
 }: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(comment.comment_text);
+  const [editText, setEditText] = useState(comment.content);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emojiAnchorEl, setEmojiAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -58,7 +57,7 @@ export function CommentItem({
   };
 
   const handleCancelEdit = () => {
-    setEditText(comment.comment_text);
+    setEditText(comment.content);
     setIsEditing(false);
   };
 
@@ -194,7 +193,7 @@ export function CommentItem({
               color: 'text.primary'
             }}
           >
-            {comment.comment_text}
+            {comment.content}
           </Typography>
         )}
 
@@ -203,7 +202,9 @@ export function CommentItem({
           {/* Quick Emoji Reactions */}
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             {['👍', '❤️', '😊', '🎉'].map((emoji) => {
-              const hasReacted = mockCommentsService.hasUserReacted(comment.id, emoji);
+              const hasReacted = comment.emojis?.[emoji]?.some(reaction => 
+                reaction.user_id === currentUserId
+              );
               return (
                 <IconButton
                   key={emoji}
@@ -279,8 +280,11 @@ export function CommentItem({
         {/* Emoji Reactions Display */}
         {Object.keys(comment.emojis || {}).length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-            {Object.entries(comment.emojis).map(([emoji, count]) => {
-              const hasReacted = mockCommentsService.hasUserReacted(comment.id, emoji);
+            {Object.entries(comment.emojis).map(([emoji, reactions]) => {
+              const hasReacted = reactions.some(reaction => 
+                reaction.user_id === currentUserId
+              );
+              const reactionCount = reactions.length;
               return (
                 <Box
                   key={emoji}
@@ -306,7 +310,7 @@ export function CommentItem({
                   title={hasReacted ? `Remove ${emoji} reaction` : `Add ${emoji} reaction`}
                 >
                   <span>{emoji}</span>
-                  <span>{count}</span>
+                  <span>{reactionCount}</span>
                 </Box>
               );
             })}

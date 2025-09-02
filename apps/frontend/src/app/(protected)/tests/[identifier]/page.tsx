@@ -115,9 +115,10 @@ export default async function TestDetailPage({ params }: PageProps) {
               {/* Comments Section */}
               <Paper sx={{ p: 3, mb: 4 }}>
                 <CommentsWrapper 
-                  entityType="test"
-                  entityId={identifier}
+                  entityType="Test"
+                  entityId={test.id}
                   sessionToken={session.session_token}
+                  currentUserId={session.user?.id || ''}
                 />
               </Paper>
             </Grid>
