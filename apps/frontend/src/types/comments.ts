@@ -1,13 +1,18 @@
+export interface EmojiReaction {
+  user_id: string;
+  user_name: string;
+}
+
 export interface Comment {
   id: string;
-  comment_text: string;
+  content: string;
   entity_id: string;
-  entity_type: string;
+  entity_type: EntityType;
   user_id: string;
-  organization_id: string;
+  organization_id?: string;
   created_at: string;
   updated_at: string;
-  emojis: Record<string, number>;
+  emojis: Record<string, EmojiReaction[]>;
   user?: {
     id: string;
     name: string;
@@ -16,17 +21,17 @@ export interface Comment {
 }
 
 export interface CreateCommentRequest {
-  comment_text: string;
-  entity_type: string;
+  content: string;
+  entity_type: EntityType;
   entity_id: string;
 }
 
 export interface UpdateCommentRequest {
-  comment_text: string;
+  content: string;
 }
 
 export interface CommentReactionRequest {
   emoji: string;
 }
 
-export type EntityType = 'test' | 'test_set' | 'test_run' | 'metric' | 'model' | 'prompt' | 'behavior' | 'category';
+export type EntityType = 'Test' | 'TestSet' | 'TestRun' | 'TestResult' | 'Metric' | 'Model' | 'Prompt' | 'Behavior' | 'Category';

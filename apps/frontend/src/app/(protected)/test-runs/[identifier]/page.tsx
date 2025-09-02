@@ -53,7 +53,7 @@ export default async function TestRunPage({ params }: { params: any }) {
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;
   
-  const session = await auth() as { session_token: string } | null;
+  const session = await auth();
   
   // If no session (like during warmup), redirect to login
   if (!session?.session_token) {
@@ -101,9 +101,10 @@ export default async function TestRunPage({ params }: { params: any }) {
             {/* Comments Section */}
             <Paper sx={{ p: 3, mb: 4 }}>
               <CommentsWrapper 
-                entityType="test_run"
-                entityId={identifier}
+                entityType="TestRun"
+                entityId={testRun.id}
                 sessionToken={session.session_token}
+                currentUserId={session.user?.id || ''}
               />
             </Paper>
           </Grid>

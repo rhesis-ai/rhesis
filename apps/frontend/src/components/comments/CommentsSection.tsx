@@ -8,8 +8,10 @@ import {
   TextareaAutosize,
   Button,
   CircularProgress,
+  Divider,
+  Paper,
 } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import { Send as SendIcon, ChatBubbleOutline as ChatIcon } from '@mui/icons-material';
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
 
@@ -89,67 +91,84 @@ export function CommentsSection({
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  return (
-    <Box>
-      {/* Section Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Comments ({comments.length})
-        </Typography>
+    return (
+    <Paper 
+      elevation={0}
+      sx={{ 
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        overflow: 'hidden',
+        bgcolor: 'background.paper',
+        mt: 3
+      }}
+    >
+      {/* Section Header with Icon */}
+      <Box 
+        sx={{ 
+          p: 3,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.default'
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <ChatIcon color="primary" />
+          <Typography variant="h6" fontWeight={600}>
+            Comments ({comments.length})
+          </Typography>
+        </Box>
         <Typography variant="body2" color="text.secondary">
           Share your thoughts, ask questions, or provide feedback about this {entityType}.
         </Typography>
       </Box>
 
-      {/* Comments List */}
-      <Box sx={{ mb: 4 }}>
-        {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : comments.length === 0 ? (
-          <Box 
-            sx={{ 
-              textAlign: 'center', 
-              py: 6,
-              border: '2px dashed',
-              borderColor: 'divider',
-              borderRadius: 2,
-              bgcolor: 'background.default'
-            }}
-          >
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No comments yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Be the first to share your thoughts about this {entityType}!
-            </Typography>
-          </Box>
-        ) : (
-          <Box>
-            {sortedComments.map((comment) => (
-              <CommentItem
-                key={comment.id}
-                comment={comment}
-                onEdit={handleEditComment}
-                onDelete={handleDeleteComment}
-                onReact={handleReactToComment}
-                currentUserId={currentUserId}
-              />
-            ))}
-          </Box>
-        )}
-      </Box>
+      {/* Comments Content */}
+      <Box sx={{ p: 3 }}>
+        {/* Comments List */}
+        <Box sx={{ mb: 4 }}>
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : comments.length === 0 ? (
+            <Box 
+              sx={{ 
+                textAlign: 'center', 
+                py: 6,
+                border: '2px dashed',
+                borderColor: 'divider',
+                borderRadius: 2,
+                bgcolor: 'background.default'
+              }}
+            >
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No comments yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Be the first to share your thoughts about this {entityType}!
+              </Typography>
+            </Box>
+          ) : (
+            <Box>
+              {sortedComments.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  onEdit={handleEditComment}
+                  onDelete={handleDeleteComment}
+                  onReact={handleReactToComment}
+                  currentUserId={currentUserId}
+                />
+              ))}
+            </Box>
+          )}
+        </Box>
 
-      {/* Comment Form - Fixed at bottom like in the design */}
-      <Box 
-        sx={{ 
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          pt: 3,
-          mt: 4
-        }}
-      >
+        {/* Divider before comment form */}
+        <Divider sx={{ my: 3 }} />
+
+        {/* Comment Form */}
         <Box component="form" onSubmit={handleSubmit}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             {/* User Avatar */}
@@ -221,6 +240,6 @@ export function CommentsSection({
           </Box>
         </Box>
       </Box>
-    </Box>
+    </Paper>
   );
 }
