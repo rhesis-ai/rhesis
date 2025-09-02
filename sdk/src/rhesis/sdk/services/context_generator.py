@@ -47,20 +47,31 @@ class ContextGenerator:
 
     def create_contexts_from_text(self, text: str, num_tests: int) -> List[str]:
         """
-        Create contexts using intelligent semantic chunking.
+        Create contexts using intelligent semantic chunking with hard size limits.
 
         Strategy:
         1. Identify semantic boundaries (headers, sections, paragraphs)
         2. Create contexts that respect these boundaries
+        3. If a semantic span exceeds the max size, split it abruptly to fit
+        4. If there are no internal boundaries, slice the text into fixed-size windows
         """
-        # First, identify semantic boundaries
         semantic_boundaries = self._identify_semantic_boundaries(text)
 
-        if not semantic_boundaries:
-            # Fallback to simple chunking
-            return self._simple_chunking(text, num_tests)
+        max_context_chars = self.max_context_tokens * 4
 
-        # Create contexts from semantic boundaries
+        # If no internal boundaries (just [0, len(text)]), slice linearly
+        if len(semantic_boundaries) <= 2:
+            contexts: List[str] = []
+            start_pos = 0
+            while start_pos < len(text) and len(contexts) < num_tests:
+                end_pos = min(start_pos + max_context_chars, len(text))
+                chunk = text[start_pos:end_pos].strip()
+                if chunk:
+                    contexts.append(chunk)
+                start_pos = end_pos
+            return contexts
+
+        # Create contexts from semantic boundaries with abrupt splits when needed
         contexts = self._create_contexts_from_boundaries(text, semantic_boundaries, num_tests)
 
         return contexts
@@ -112,7 +123,7 @@ class ContextGenerator:
         self, text: str, boundaries: List[int], num_tests: int
     ) -> List[str]:
         """Create contexts from semantic boundaries."""
-        contexts = []
+        contexts: List[str] = []
         max_context_chars = self.max_context_tokens * 4
 
         # Start from the first boundary and create contexts sequentially
@@ -130,7 +141,18 @@ class ContextGenerator:
             context_text = text[start_pos:end_pos].strip()
 
             if context_text:
-                contexts.append(context_text)
+                # If the single span between adjacent boundaries exceeds max size,
+                # split it abruptly into fixed-size windows
+                if end_idx == start_idx + 1 and (end_pos - start_pos) > max_context_chars:
+                    local_start = start_pos
+                    while local_start < end_pos and len(contexts) < num_tests:
+                        local_end = min(local_start + max_context_chars, end_pos)
+                        piece = text[local_start:local_end].strip()
+                        if piece:
+                            contexts.append(piece)
+                        local_start = local_end
+                else:
+                    contexts.append(context_text)
 
             # Move to the next boundary
             start_idx = end_idx
@@ -158,49 +180,3 @@ class ContextGenerator:
 
         # Use the last boundary
         return len(boundaries) - 1
-
-    def _simple_chunking(self, text: str, num_tests: int) -> List[str]:
-        """Fallback simple chunking when semantic boundaries aren't found."""
-        contexts = []
-        max_context_chars = self.max_context_tokens * 4
-
-        start = 0
-        while start < len(text) and len(contexts) < num_tests:
-            end = self._find_context_boundary(text, start, max_context_chars)
-            context_text = text[start:end].strip()
-
-            if context_text:
-                contexts.append(context_text)
-
-            start = end
-
-        return contexts
-
-    def _find_context_boundary(self, text: str, start: int, max_chars: int) -> int:
-        """Find the best boundary for a context piece."""
-        end = min(start + max_chars, len(text))
-
-        # If we're at the end, return it
-        if end == len(text):
-            return end
-
-        # Look for good break points, prioritizing markdown structure
-        for i in range(end, max(start, end - 300), -1):
-            # Prefer markdown headers
-            if text[i] == "#" and (i == 0 or text[i - 1] == "\n"):
-                return i
-
-            # Then prefer double newlines (paragraph breaks)
-            if text[i : i + 2] == "\n\n":
-                return i + 2
-
-            # Then prefer single newlines
-            if text[i] == "\n":
-                return i + 1
-
-            # Then prefer periods
-            if text[i] == ".":
-                return i + 1
-
-        # If no good break point, return the calculated end
-        return end
