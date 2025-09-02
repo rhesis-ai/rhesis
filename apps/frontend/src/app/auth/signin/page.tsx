@@ -49,7 +49,7 @@ export default function SignIn() {
           setStatus('Verifying session token...');
           
           // Set cookie with proper domain - handle Docker environment
-          const isDocker = process.env.NODE_ENV === 'production' && window.location.hostname !== 'localhost';
+          const isDocker = process.env.FRONTEND_ENV === 'production' && window.location.hostname !== 'localhost';
           const cookieOptions = isDocker
             ? `domain=rhesis.ai; path=/; secure; samesite=lax`
             : 'path=/; samesite=lax';

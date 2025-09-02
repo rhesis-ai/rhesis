@@ -9,8 +9,8 @@ import { readFileSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const isDev = process.env.NODE_ENV === 'development';
-const isProd = process.env.NODE_ENV === 'production';
+const isDev = process.env.FRONTEND_ENV === 'development';
+const isProd = process.env.FRONTEND_ENV === 'production';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

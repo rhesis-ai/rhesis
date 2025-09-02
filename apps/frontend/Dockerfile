@@ -1,3 +1,5 @@
+ARG FRONTEND_ENV
+
 # First stage: Build the application
 FROM node:22-alpine AS builder
 
@@ -41,10 +43,15 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
 
 # Set environment variables for better Next.js performance
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
+ENV FRONTEND_ENV=${FRONTEND_ENV}
 
 # Build the Next.js application
-RUN npm run build
+#RUN npm run build
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
+        npm run build; \
+    else \
+        echo "Skipping build for non-production environment"; \
+    fi
 
 # Remove the temporary .env file
 RUN rm -f .env
@@ -58,18 +65,35 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # Set environment variables
-ENV NODE_ENV=production
+ENV FRONTEND_ENV=${FRONTEND_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copy all necessary files from the builder stage
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/.eslintrc.json ./
 # Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
-
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies and handle environment-specific setup
+RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
+        echo "Production mode detected"; \
+        if [ -d "/app/.next" ]; then \
+            cp -r /app/.next ./.next && \
+            echo ".next directory copied for production"; \
+        else \
+            echo "Warning: .next directory not found, but FRONTEND_ENV is production"; \
+        fi; \
+        rm -rf ./src ./tsconfig.json ./.eslintrc.json && \
+        echo "Source files removed for production mode"; \
+        npm ci --only=production && \
+        npm cache clean --force; \
+    else \
+        echo "Development mode detected"; \
+        echo "Source files kept for development mode"; \
+        npm ci && npm cache clean --force; \
+    fi
 
 # Create a non-root user and switch to it
 RUN addgroup --system --gid 1001 nodejs && \
@@ -84,5 +108,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
 
-# Start the production server with PORT defaulting to 3000 if not set
-CMD ["sh", "-c", "export PORT=${PORT:-3000} && npm start"]
+# Start the appropriate server based on FRONTEND_ENV
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ]; then npm start; else npm run dev; fi"]
