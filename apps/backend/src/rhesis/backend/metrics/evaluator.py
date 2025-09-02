@@ -23,7 +23,6 @@ class MetricEvaluator:
         """Lazy load the MetricFactory to avoid circular imports."""
         if self.factory is None:
             from rhesis.backend.metrics.factory import MetricFactory
-
             self.factory = MetricFactory()
         return self.factory
 
@@ -44,7 +43,7 @@ class MetricEvaluator:
             output_text: The actual output from the LLM
             expected_output: The expected or reference output
             context: List of context strings used for the response
-            metrics: List of MetricConfig objects or config dictionaries, e.g.
+            metrics: List of MetricConfig objects or config dictionaries, e.g. 
                     [
                         MetricConfig(
                             class_name="DeepEvalAnswerRelevancy",
@@ -54,7 +53,7 @@ class MetricEvaluator:
                         ),
                         # Or plain dictionaries
                         {
-                            "class_name": "DeepEvalFaithfulness",
+                            "class_name": "DeepEvalFaithfulness", 
                             "backend": "deepeval",
                             "threshold": 0.8,
                             "description": "Measures how faithful the answer is to the context"
@@ -72,7 +71,7 @@ class MetricEvaluator:
         # Convert any dict configs to MetricConfig objects, keeping track of invalid ones
         metric_configs = []
         invalid_metric_results = {}  # Store results for invalid metrics
-
+        
         for i, config in enumerate(metrics):
             if isinstance(config, MetricConfig):
                 metric_configs.append(config)
@@ -90,15 +89,9 @@ class MetricEvaluator:
                             "reason": f"Invalid metric configuration: {error_reason}",
                             "is_successful": False,
                             "threshold": 0.0,
-                            "backend": config.get("backend", "unknown")
-                            if isinstance(config, dict)
-                            else "unknown",
-                            "name": config.get("name", invalid_key)
-                            if isinstance(config, dict)
-                            else invalid_key,
-                            "class_name": config.get("class_name", "Unknown")
-                            if isinstance(config, dict)
-                            else "Unknown",
+                            "backend": config.get("backend", "unknown") if isinstance(config, dict) else "unknown",
+                            "name": config.get("name", invalid_key) if isinstance(config, dict) else invalid_key,
+                            "class_name": config.get("class_name", "Unknown") if isinstance(config, dict) else "Unknown",
                             "description": f"Failed to load metric: {error_reason}",
                             "error": error_reason,
                         }
@@ -106,10 +99,8 @@ class MetricEvaluator:
                 except Exception as e:
                     # Create a more informative error message that includes backend and metric name
                     metric_name = config.get("name") or config.get("class_name")
-                    error_msg = (
-                        f"Error parsing metric configuration (class: '{metric_name}', "
-                        f"backend: '{config.get('backend')}'): {str(e)}"
-                    )
+                    error_msg = (f"Error parsing metric configuration (class: '{metric_name}', "
+                               f"backend: '{config.get('backend')}'): {str(e)}")
                     logger.error(error_msg, exc_info=True)
                     invalid_key = f"InvalidMetric_{i}"
                     invalid_metric_results[invalid_key] = {
@@ -117,13 +108,9 @@ class MetricEvaluator:
                         "reason": error_msg,
                         "is_successful": False,
                         "threshold": 0.0,
-                        "backend": config.get("backend", "unknown")
-                        if isinstance(config, dict)
-                        else "unknown",
+                        "backend": config.get("backend", "unknown") if isinstance(config, dict) else "unknown",
                         "name": invalid_key,
-                        "class_name": config.get("class_name", "Unknown")
-                        if isinstance(config, dict)
-                        else "Unknown",
+                        "class_name": config.get("class_name", "Unknown") if isinstance(config, dict) else "Unknown",
                         "description": f"Parsing error: {str(e)}",
                         "error": str(e),
                     }
@@ -131,20 +118,14 @@ class MetricEvaluator:
 
         # Log summary
         if invalid_metric_results:
-            logger.warning(
-                f"Found {len(invalid_metric_results)} invalid metrics that will be reported as errors"
-            )
-
-        logger.debug(
-            f"Using {len(metric_configs)} valid metrics and {len(invalid_metric_results)} invalid metrics"
-        )
+            logger.warning(f"Found {len(invalid_metric_results)} invalid metrics that will be reported as errors")
+        
+        logger.debug(f"Using {len(metric_configs)} valid metrics and {len(invalid_metric_results)} invalid metrics")
 
         if not metric_configs:
             logger.warning("No valid metrics found after parsing")
             if invalid_metric_results:
-                logger.warning(
-                    f"Returning {len(invalid_metric_results)} invalid metrics as error results"
-                )
+                logger.warning(f"Returning {len(invalid_metric_results)} invalid metrics as error results")
                 return invalid_metric_results
             else:
                 logger.warning("No metrics found at all, returning empty results")
@@ -178,7 +159,7 @@ class MetricEvaluator:
         """
         # Filter out any None values that might have slipped through
         valid_metrics = [metric for metric in metrics if metric is not None]
-
+        
         logger.info(f"Preparing {len(valid_metrics)} metrics for evaluation")
         metric_tasks = []
 
@@ -191,13 +172,16 @@ class MetricEvaluator:
                 if not class_name:
                     logger.error(f"Metric configuration missing class_name: {metric_config}")
                     continue
-
+                    
                 if not backend:
                     logger.error(f"Metric configuration missing backend: {metric_config}")
                     continue
 
                 # Prepare parameters for the metric
-                metric_params = {"threshold": metric_config.threshold, **metric_config.parameters}
+                metric_params = {
+                    "threshold": metric_config.threshold,
+                    **metric_config.parameters
+                }
 
                 # Instantiate the metric using the class name and backend
                 backend_factory = self._get_factory().get_factory(backend)
@@ -217,10 +201,8 @@ class MetricEvaluator:
             except Exception as e:
                 # Create a more informative error message that includes backend and metric name
                 metric_name = metric_config.name or class_name
-                error_msg = (
-                    f"Error preparing metric '{metric_name}' (class: '{class_name}', "
-                    f"backend: '{backend}'): {str(e)}"
-                )
+                error_msg = (f"Error preparing metric '{metric_name}' (class: '{class_name}', "
+                           f"backend: '{backend}'): {str(e)}")
                 logger.error(error_msg, exc_info=True)
 
         return metric_tasks
@@ -260,21 +242,21 @@ class MetricEvaluator:
         metric_keys = []
         used_keys = set()  # Track all used keys to ensure uniqueness
         class_name_counts = {}
-
+        
         for class_name, metric, metric_config, backend in metric_tasks:
             # Start with the preferred key (name if available, otherwise class_name)
             if metric_config.name and metric_config.name.strip():
                 base_key = metric_config.name
             else:
                 base_key = class_name
-
+            
             # Ensure the key is unique by adding suffixes if necessary
             unique_key = base_key
             counter = 1
             while unique_key in used_keys:
                 unique_key = f"{base_key}_{counter}"
                 counter += 1
-
+            
             # Track this key as used
             used_keys.add(unique_key)
             metric_keys.append(unique_key)
@@ -285,9 +267,7 @@ class MetricEvaluator:
                 executor.submit(
                     self._evaluate_metric, metric, input_text, output_text, expected_output, context
                 ): (unique_key, class_name, metric_config, backend)
-                for (class_name, metric, metric_config, backend), unique_key in zip(
-                    metric_tasks, metric_keys
-                )
+                for (class_name, metric, metric_config, backend), unique_key in zip(metric_tasks, metric_keys)
             }
 
             # Process results as they complete
@@ -349,15 +329,15 @@ class MetricEvaluator:
             result = future.result()
             # Get description from config or use a default
             description = metric_config.description or f"{class_name} evaluation metric"
-
+            
             # Calculate is_successful using the score evaluator
             is_successful = self.score_evaluator.evaluate_score(
                 score=result.score,
                 threshold=metric_config.threshold,
                 threshold_operator=metric_config.threshold_operator,
-                reference_score=metric_config.reference_score,
+                reference_score=metric_config.reference_score
             )
-
+            
             # Store results - structure depends on metric type
             processed_result = {
                 "score": result.score,
@@ -368,7 +348,7 @@ class MetricEvaluator:
                 "class_name": class_name,  # Include class_name for identification
                 "description": description,
             }
-
+            
             # Add threshold or reference_score based on metric type
             if metric_config.threshold is not None:
                 # Numeric metric - include threshold
@@ -376,19 +356,18 @@ class MetricEvaluator:
             elif metric_config.reference_score is not None:
                 # Binary/categorical metric - include reference_score
                 processed_result["reference_score"] = metric_config.reference_score
-
+            
             logger.debug(f"Completed metric '{class_name}' with score {result.score}")
             return processed_result
 
         except Exception as exc:
             import traceback
-
             logger.error(f"Metric '{class_name}' generated an exception: {exc}", exc_info=True)
             logger.error(f"Backend: {backend}")
             logger.error(f"Metric config: {metric_config}")
             logger.error(f"Exception type: {type(exc).__name__}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
+            
             # Store error information in results
             error_result = {
                 "score": 0.0,
@@ -397,17 +376,15 @@ class MetricEvaluator:
                 "backend": backend,
                 "name": metric_config.name,
                 "class_name": class_name,  # Include class_name for identification
-                "description": description
-                if "description" in locals()
-                else f"{class_name} evaluation metric",
+                "description": description if 'description' in locals() else f"{class_name} evaluation metric",
                 "error": str(exc),
                 "exception_type": type(exc).__name__,
             }
-
+            
             # Add threshold or reference_score for error results too
             if metric_config.threshold is not None:
                 error_result["threshold"] = metric_config.threshold
             elif metric_config.reference_score is not None:
                 error_result["reference_score"] = metric_config.reference_score
-
+            
             return error_result
