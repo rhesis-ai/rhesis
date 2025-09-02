@@ -211,7 +211,7 @@ export default function NewMetricPage() {
 
       await metricsClient.createMetric(metricRequest);
       notifications.show('Metric created successfully', { severity: 'success' });
-      router.push('/metrics');
+      router.push('/metrics?tab=directory');
     } catch (error) {
       notifications.show(
         error instanceof Error ? error.message : 'Failed to create metric', 
