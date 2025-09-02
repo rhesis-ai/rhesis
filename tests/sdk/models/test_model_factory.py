@@ -1,8 +1,8 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from rhesis.sdk.services.base import BaseLLM
-from rhesis.sdk.services.model_factory import (
+from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.model_factory import (
     DEFAULT_MODELS,
     DEFAULT_PROVIDER,
     ModelConfig,
@@ -49,7 +49,7 @@ class TestModelConfig:
 class TestGetModel:
     """Test the get_model function with various configurations."""
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_minimal_defaults(self, mock_rhesis_class):
         """Test get_model() with no parameters - uses all defaults."""
         mock_instance = Mock(spec=BaseLLM)
@@ -63,7 +63,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_provider_only(self, mock_rhesis_class):
         """Test get_model("rhesis") - uses default model for provider."""
         mock_instance = Mock(spec=BaseLLM)
@@ -76,7 +76,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_provider_and_model(self, mock_rhesis_class):
         """Test get_model("rhesis", "custom-model") - specific provider and model."""
         mock_instance = Mock(spec=BaseLLM)
@@ -89,7 +89,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_with_api_key(self, mock_rhesis_class):
         """Test get_model with API key."""
         mock_instance = Mock(spec=BaseLLM)
@@ -102,7 +102,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_shorthand_provider_model(self, mock_rhesis_class):
         """Test get_model("rhesis/custom-model") - shorthand notation."""
         mock_instance = Mock(spec=BaseLLM)
@@ -115,7 +115,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_shorthand_with_slash_in_model_name(self, mock_rhesis_class):
         """Test get_model with slash in model name - should only split on first slash."""
         mock_instance = Mock(spec=BaseLLM)
@@ -128,7 +128,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_with_config_object(self, mock_rhesis_class):
         """Test get_model(config=ModelConfig(...))."""
         mock_instance = Mock(spec=BaseLLM)
@@ -145,7 +145,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_config_with_kwargs_override(self, mock_rhesis_class):
         """Test that kwargs override config values."""
         mock_instance = Mock(spec=BaseLLM)
@@ -162,7 +162,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.gemini_provider.GeminiLLM")
+    @patch("rhesis.sdk.models.providers.gemini_provider.GeminiLLM")
     def test_get_model_gemini_provider(self, mock_gemini_class):
         """Test get_model with gemini provider."""
         mock_instance = Mock(spec=BaseLLM)
@@ -173,7 +173,7 @@ class TestGetModel:
         mock_gemini_class.assert_called_once_with(model_name="gemini-model")
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.gemini_provider.GeminiLLM")
+    @patch("rhesis.sdk.models.providers.gemini_provider.GeminiLLM")
     def test_get_model_gemini_with_default(self, mock_gemini_class):
         """Test get_model with gemini provider using default model."""
         mock_instance = Mock(spec=BaseLLM)
@@ -200,7 +200,7 @@ class TestGetModel:
         ):
             get_model(config=config)
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_priority_order(self, mock_rhesis_class):
         """Test that parameter priority is correct: kwargs > config > defaults."""
         mock_instance = Mock(spec=BaseLLM)
@@ -223,7 +223,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_none_values_use_defaults(self, mock_rhesis_class):
         """Test that None values fall back to defaults."""
         mock_instance = Mock(spec=BaseLLM)
@@ -236,7 +236,7 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_empty_string_provider(self, mock_rhesis_class):
         """Test get_model with empty string provider - should use default."""
         mock_instance = Mock(spec=BaseLLM)
@@ -247,7 +247,7 @@ class TestGetModel:
         mock_rhesis_class.assert_called_once_with(model_name="test-model", api_key=None)
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_extra_params_passed_through(self, mock_rhesis_class):
         """Test that extra parameters are passed through to the provider."""
         mock_instance = Mock(spec=BaseLLM)
@@ -264,7 +264,7 @@ class TestGetModel:
 class TestModelFactoryIntegration:
     """Integration tests for the model factory."""
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_rhesis_provider_integration(self, mock_rhesis_class):
         """Test full integration with rhesis provider."""
         mock_instance = Mock(spec=BaseLLM)
@@ -284,7 +284,7 @@ class TestModelFactoryIntegration:
         assert all(isinstance(model, Mock) for model in models)
         assert mock_rhesis_class.call_count == 5
 
-    @patch("rhesis.sdk.services.providers.gemini_provider.GeminiLLM")
+    @patch("rhesis.sdk.models.providers.gemini_provider.GeminiLLM")
     def test_gemini_provider_integration(self, mock_gemini_class):
         """Test full integration with gemini provider."""
         mock_instance = Mock(spec=BaseLLM)
@@ -312,7 +312,7 @@ class TestModelFactoryEdgeCases:
         with pytest.raises(AttributeError):
             get_model(config="not-a-config-object")
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_with_very_long_model_name(self, mock_rhesis_class):
         """Test get_model with very long model name."""
         mock_instance = Mock(spec=BaseLLM)
@@ -324,7 +324,7 @@ class TestModelFactoryEdgeCases:
         mock_rhesis_class.assert_called_once_with(model_name=long_name, api_key=None)
         assert result == mock_instance
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_with_special_characters(self, mock_rhesis_class):
         """Test get_model with special characters in model name."""
         mock_instance = Mock(spec=BaseLLM)
@@ -342,7 +342,7 @@ class TestModelFactoryEdgeCases:
         with pytest.raises(ValueError, match="Provider Rhesis not supported"):
             get_model("Rhesis")
 
-    @patch("rhesis.sdk.services.providers.rhesis_provider.RhesisLLMService")
+    @patch("rhesis.sdk.models.providers.rhesis_provider.RhesisLLM")
     def test_get_model_api_key_none_vs_empty_string(self, mock_rhesis_class):
         """Test that None and empty string API keys are handled the same."""
         mock_instance = Mock(spec=BaseLLM)

@@ -23,7 +23,7 @@ handle_error() {
 
 # Function to check if we're in production mode
 is_production() {
-    [ "${ENVIRONMENT}" = "production" ] || [ "${ENV}" = "production" ] || [ "${NODE_ENV}" = "production" ]
+    [ "${ENVIRONMENT}" = "production" ] || [ "${BACKEND_ENV}" = "production" ]
 }
 
 # Function to display banner

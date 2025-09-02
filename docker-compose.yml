@@ -34,8 +34,10 @@ x-common-jwt: &common-jwt
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
 
 x-common-environment: &common-environment
-  ENVIRONMENT: development
-  NODE_ENV: development
+  ENVIRONMENT: local
+  BACKEND_ENV: ${BACKEND_ENV}
+  FRONTEND_ENV: ${FRONTEND_ENV}
+  WORKER_ENV: ${WORKER_ENV}
   LOG_LEVEL: DEBUG
 
 x-rhesis-config: &rhesis-config
@@ -175,6 +177,7 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
+        FRONTEND_ENV: ${FRONTEND_ENV}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
         NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-http://localhost:3000}

@@ -21,7 +21,7 @@ class TestGenerateContentEndpoint:
 
         # Mock the GeminiLLM class and its generate method
         with patch(
-            "rhesis.sdk.services.providers.gemini_provider.GeminiLLM"
+            "rhesis.sdk.models.providers.gemini_provider.GeminiLLM"
         ) as mock_gemini_class:
             mock_model = MagicMock()
             mock_model.generate.return_value = expected_response
@@ -48,7 +48,7 @@ class TestGenerateContentEndpoint:
 
         # Mock the GeminiLLM class to raise an exception
         with patch(
-            "rhesis.sdk.services.providers.gemini_provider.GeminiLLM"
+            "rhesis.sdk.models.providers.gemini_provider.GeminiLLM"
         ) as mock_gemini_class:
             mock_gemini_class.side_effect = Exception("Model initialization failed")
 

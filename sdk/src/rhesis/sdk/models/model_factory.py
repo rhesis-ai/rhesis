@@ -9,7 +9,7 @@ with smart defaults and comprehensive error handling.
 from dataclasses import dataclass, field
 from typing import Optional
 
-from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 # Default configuration
 DEFAULT_PROVIDER = "rhesis"
@@ -116,11 +116,11 @@ def get_model(
     config = ModelConfig(provider=provider, model_name=model_name, api_key=api_key)
 
     if config.provider == "rhesis":
-        from rhesis.sdk.services.providers.rhesis_provider import RhesisLLMService
+        from rhesis.sdk.models.providers.rhesis_provider import RhesisLLM
 
-        return RhesisLLMService(model_name=config.model_name, api_key=config.api_key)
+        return RhesisLLM(model_name=config.model_name, api_key=config.api_key)
     elif config.provider == "gemini":
-        from rhesis.sdk.services.providers.gemini_provider import GeminiLLM
+        from rhesis.sdk.models.providers.gemini_provider import GeminiLLM
 
         return GeminiLLM(model_name=config.model_name)
     else:
