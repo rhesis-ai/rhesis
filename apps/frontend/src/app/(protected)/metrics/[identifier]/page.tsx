@@ -170,14 +170,25 @@ export default function MetricDetailPage() {
     }
   };
 
-  // Memoize the change handlers to prevent recreating them on each render
-  const handleInputChange = React.useCallback((field: keyof EditData) => (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    setEditData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
+  // Memoize individual field handlers to prevent recreating them on each render
+  const handleNameChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditData(prev => ({ ...prev, name: event.target.value }));
+  }, []);
+
+  const handleDescriptionChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditData(prev => ({ ...prev, description: event.target.value }));
+  }, []);
+
+  const handleEvaluationPromptChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditData(prev => ({ ...prev, evaluation_prompt: event.target.value }));
+  }, []);
+
+  const handleReasoningChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditData(prev => ({ ...prev, reasoning: event.target.value }));
+  }, []);
+
+  const handleExplanationChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditData(prev => ({ ...prev, explanation: event.target.value }));
   }, []);
 
   const handleStepChange = React.useCallback((index: number) => (
@@ -334,7 +345,7 @@ export default function MetricDetailPage() {
                     fullWidth
                     required
                     value={editData.name || ''}
-                    onChange={handleInputChange('name')}
+                    onChange={handleNameChange}
                     placeholder="Enter metric name"
                   />
                 ) : (
@@ -349,7 +360,7 @@ export default function MetricDetailPage() {
                     multiline
                     rows={4}
                     value={editData.description || ''}
-                    onChange={handleInputChange('description')}
+                    onChange={handleDescriptionChange}
                     placeholder="Enter metric description"
                   />
                 ) : (
@@ -424,7 +435,7 @@ export default function MetricDetailPage() {
                     multiline
                     rows={4}
                     value={editData.evaluation_prompt || ''}
-                    onChange={handleInputChange('evaluation_prompt')}
+                    onChange={handleEvaluationPromptChange}
                     placeholder="Enter evaluation prompt"
                   />
                 ) : (
@@ -520,7 +531,7 @@ export default function MetricDetailPage() {
                     multiline
                     rows={4}
                     value={editData.reasoning || ''}
-                    onChange={handleInputChange('reasoning')}
+                    onChange={handleReasoningChange}
                     placeholder="Enter reasoning instructions"
                   />
                 ) : (
@@ -658,7 +669,7 @@ export default function MetricDetailPage() {
                     multiline
                     rows={4}
                     value={editData.explanation || ''}
-                    onChange={handleInputChange('explanation')}
+                    onChange={handleExplanationChange}
                     placeholder="Enter result explanation"
                   />
                 ) : (
