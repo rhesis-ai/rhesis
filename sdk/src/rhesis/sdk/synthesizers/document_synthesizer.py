@@ -7,6 +7,7 @@ from rhesis.sdk.services.context_generator import ContextGenerator
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
+from rhesis.sdk.synthesizers.utils import create_test_set
 
 
 class DocumentSynthesizer(TestSetSynthesizer):
@@ -76,13 +77,16 @@ class DocumentSynthesizer(TestSetSynthesizer):
         # Extract content from documents
         content = self.extract_text_from_documents(documents)
 
-        # Use the existing context_generator (no need to create a new one)
+        # Get document names for mapping
+        document_names = [doc["name"] for doc in documents]
+
+        # Use the existing context_generator
         contexts = self.context_generator.generate_contexts(content, num_tests)
 
         if not contexts:
             raise ValueError("No contexts could be generated from the documents")
 
-        all_tests = []
+        all_test_cases = []
 
         # Generate tests for each context
         for i, context in enumerate(contexts):
@@ -98,29 +102,29 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
             # Generate tests for this context
             result = self.prompt_synthesizer.generate(num_tests=tests_per_context, **kwargs)
-            all_tests.extend(result.tests)
 
-            # Add context metadata to each test
+            # Add context and document mapping to each test
             for test in result.tests:
                 test.metadata = test.metadata or {}
-                test.metadata["context_index"] = i
-                test.metadata["context_length"] = len(context)
-                test.metadata["context_preview"] = (
-                    context[:100] + "..." if len(context) > 100 else context
+                test.metadata.update(
+                    {
+                        "context_index": i,
+                        "context_length": len(context),
+                        "context": context,
+                        "documents_used": document_names,
+                        "generated_by": "DocumentSynthesizer",
+                    }
                 )
 
-        # Create final TestSet with all generated tests
-        final_result = TestSet(
-            tests=all_tests,
-            metadata={
-                "document_synthesizer": {
-                    "contexts_created": len(contexts),
-                    "total_tests_generated": len(all_tests),
-                    "max_context_tokens": self.max_context_tokens,
-                    "documents_processed": len(documents),
-                    "total_content_length": len(content),
-                }
-            },
-        )
+            all_test_cases.extend(result.tests)
 
-        return final_result
+        # Use the same approach as PromptSynthesizer
+        return create_test_set(
+            all_test_cases,
+            synthesizer_name="DocumentSynthesizer",
+            batch_size=self.batch_size,
+            generation_prompt=self.prompt_synthesizer.prompt,
+            num_tests=len(all_test_cases),
+            requested_tests=num_tests,
+            documents_used=document_names,
+        )
