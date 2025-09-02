@@ -7,7 +7,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
@@ -98,8 +98,17 @@ interface MetricsClientProps {
 
 export default function MetricsClientComponent({ sessionToken, organizationId }: MetricsClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const notifications = useNotifications();
-  const [value, setValue] = React.useState(0);
+  
+  // Initialize tab value from URL parameter
+  const initialTab = React.useMemo(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'directory') return 1;
+    return 0; // Default to Selected Metrics
+  }, [searchParams]);
+  
+  const [value, setValue] = React.useState(initialTab);
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>([]);
@@ -275,6 +284,14 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
+    // Update URL to reflect tab change
+    const params = new URLSearchParams(searchParams.toString());
+    if (newValue === 1) {
+      params.set('tab', 'directory');
+    } else {
+      params.delete('tab');
+    }
+    router.replace(`/metrics?${params.toString()}`, { scroll: false });
   };
 
   // Refresh data function - trigger re-render by updating a key
