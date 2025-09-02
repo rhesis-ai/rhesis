@@ -1,5 +1,5 @@
 import pytest
-from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 
 def test_base_llm_cannot_be_instantiated():

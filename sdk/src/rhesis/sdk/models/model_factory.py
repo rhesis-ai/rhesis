@@ -9,7 +9,7 @@ with smart defaults and comprehensive error handling.
 from dataclasses import dataclass, field
 from typing import Optional
 
-from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 # Default configuration
 DEFAULT_PROVIDER = "rhesis"
