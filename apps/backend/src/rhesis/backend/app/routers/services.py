@@ -153,9 +153,6 @@ async def generate_content_endpoint(request: dict):
         model = GeminiLLM()
         response = model.generate(prompt, schema=schema)
 
-        if request.get("stream", False):
-            return StreamingResponse(response, media_type="text/event-stream")
-
         return response
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
