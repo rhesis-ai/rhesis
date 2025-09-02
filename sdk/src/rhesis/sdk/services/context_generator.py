@@ -31,13 +31,12 @@ class ContextGenerator:
                 f"absolute_max_context_tokens ({absolute_max_context_tokens})"
             )
 
-    def generate_contexts(self, text: str, num_tests: int) -> List[str]:
+    def generate_contexts(self, text: str) -> List[str]:
         """
         Generate contexts directly from text using intelligent semantic chunking.
 
         Args:
             text: Input text to process
-            num_tests: Number of contexts to generate
 
         Returns:
             List of context strings, each sized appropriately for prompts
@@ -45,9 +44,9 @@ class ContextGenerator:
         if not text:
             return []
 
-        return self.create_contexts_from_text(text, num_tests)
+        return self.create_contexts_from_text(text)
 
-    def create_contexts_from_text(self, text: str, num_tests: int) -> List[str]:
+    def create_contexts_from_text(self, text: str) -> List[str]:
         """
         Create contexts using intelligent semantic chunking with hard size limits.
 
@@ -63,7 +62,7 @@ class ContextGenerator:
         if len(semantic_boundaries) <= 2:
             contexts: List[str] = []
             start_pos = 0
-            while start_pos < len(text) and len(contexts) < num_tests:
+            while start_pos < len(text):
                 end_pos = self._find_token_capped_end(text, start_pos, len(text))
                 chunk = text[start_pos:end_pos].strip()
                 if chunk:
@@ -74,7 +73,7 @@ class ContextGenerator:
             return contexts
 
         # Create contexts from semantic boundaries with abrupt splits when needed
-        contexts = self._create_contexts_from_boundaries(text, semantic_boundaries, num_tests)
+        contexts = self._create_contexts_from_boundaries(text, semantic_boundaries)
 
         return contexts
 
@@ -121,15 +120,13 @@ class ContextGenerator:
 
         return boundaries
 
-    def _create_contexts_from_boundaries(
-        self, text: str, boundaries: List[int], num_tests: int
-    ) -> List[str]:
+    def _create_contexts_from_boundaries(self, text: str, boundaries: List[int]) -> List[str]:
         """Create contexts from semantic boundaries."""
         contexts: List[str] = []
 
         # Start from the first boundary and create contexts sequentially
         start_idx = 0
-        while start_idx < len(boundaries) - 1 and len(contexts) < num_tests:
+        while start_idx < len(boundaries) - 1:
             # Find the best end boundary for this context
             end_idx = self._find_best_end_boundary(boundaries, start_idx, text)
 
@@ -147,7 +144,7 @@ class ContextGenerator:
                 span_tokens = count_tokens(text[start_pos:end_pos]) or 0
                 if end_idx == start_idx + 1 and span_tokens > self.max_context_tokens:
                     local_start = start_pos
-                    while local_start < end_pos and len(contexts) < num_tests:
+                    while local_start < end_pos:
                         local_end = self._find_token_capped_end(text, local_start, end_pos)
                         piece = text[local_start:local_end].strip()
                         if piece:
