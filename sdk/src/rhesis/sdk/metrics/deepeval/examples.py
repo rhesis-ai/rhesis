@@ -12,14 +12,11 @@ from rhesis.sdk.metrics.deepeval.metrics import (
 
 
 def example_with_default_model():
-    """Example using the default Rhesis model (requires RHESIS_API_KEY env var).
+    """Example using the default Rhesis model.
+    When the model provider is not specified, Rhesis model will be used.
 
-    The model name will be read from RHESIS_MODEL_NAME environment variable,
-    or default to 'rhesis-default' if not set.
     """
 
-    # Use default model (Rhesis)
-    # Model name comes from RHESIS_MODEL_NAME env var or defaults to 'rhesis-default'
     metric = DeepEvalAnswerRelevancy(threshold=0.8)
 
     # Example evaluation
@@ -56,22 +53,12 @@ def example_future_database_config():
     print("This example shows how database config could work in the future")
 
 
-def example_with_rhesis_model():
-    """Example using Rhesis model (requires RHESIS_API_KEY env var).
-
-    This example demonstrates how to use the RhesisModelWrapper that properly
-    inherits from DeepEvalBaseLLM for seamless integration with DeepEval metrics.
+def example_with_gemini_model():
+    """Example using Gemini model (requires GEMINI_API_KEY env var).
+    The model can be specified as a string or instance of BaseLLM.
     """
 
-    model_config = {
-        "type": "rhesis",
-        "model_name": "rhesis-default",
-        # API key will be read from RHESIS_API_KEY environment variable
-        # or you can provide it directly
-        # "api_key": "your-direct-api-key-here",
-    }
-
-    metric = DeepEvalAnswerRelevancy(threshold=0.8, model_config=model_config)
+    metric = DeepEvalAnswerRelevancy(threshold=0.8, model="gemini/gemini-2.0-flash")
 
     result = metric.evaluate(
         input="What is machine learning?",
@@ -92,17 +79,7 @@ def example_with_rhesis_model():
 if __name__ == "__main__":
     print("DeepEval Metrics with Multiple Models - Examples")
     print("=" * 50)
-
-    # Run examples (uncomment the ones you want to test)
-    # Make sure you have the required environment variables set
-
-    # example_with_default_model()
-    # example_with_gemini_model()
-    # example_with_openai_model()
-    # example_with_anthropic_model()
-    # example_with_azure_openai()
-    # example_with_ollama()
-
-    # example_with_custom_api_key()
-    # example_future_database_config()
-    example_with_rhesis_model()
+    example_with_default_model()
+    print("=" * 50)
+    example_with_gemini_model()
+    print("=" * 50)
