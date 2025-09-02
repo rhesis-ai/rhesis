@@ -7,12 +7,13 @@ import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { AdapterSession } from 'next-auth/adapters';
 import { SESSION_DURATION_MS, SESSION_DURATION_SECONDS } from './constants/auth';
+import { getClientApiBaseUrl } from './utils/url-resolver';
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error('NEXTAUTH_SECRET environment variable is not set. Please check your environment configuration.');
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const BACKEND_URL = getClientApiBaseUrl();
 
 export const authConfig: NextAuthConfig = {
   trustHost: true,
