@@ -50,29 +50,25 @@ run_migrations() {
     local current_revision
     current_revision=$(alembic current 2>/dev/null | awk '{print $1}' || echo "None")
     
-    if [ "$current_revision" = "None" ] || [ -z "$current_revision" ]; then
-        log "${YELLOW}📦 Running database migrations...${NC}"
+    log "${YELLOW}📦 Running database migrations...${NC}"
+    
+    # Run migrations with proper error handling
+    if alembic upgrade head; then
+        log "${GREEN}✅ Database migrations completed successfully!${NC}"
         
-        # Run migrations with proper error handling
-        if alembic upgrade head; then
-            log "${GREEN}✅ Database migrations completed successfully!${NC}"
-            
-            # Show migration status
-            log "${BLUE}📊 Current Migration Status:${NC}"
-            alembic current || log "${YELLOW}⚠️  Could not retrieve current migration status${NC}"
-            
-            # Show tables created (limit output and handle errors)
-            log "${BLUE}📋 Database Tables:${NC}"
-            if PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "\dt" 2>/dev/null | head -20; then
-                :  # Success, do nothing
-            else
-                log "${YELLOW}⚠️  Could not list database tables${NC}"
-            fi
+        # Show migration status
+        log "${BLUE}📊 Current Migration Status:${NC}"
+        alembic current || log "${YELLOW}⚠️  Could not retrieve current migration status${NC}"
+        
+        # Show tables created (limit output and handle errors)
+        log "${BLUE}📋 Database Tables:${NC}"
+        if PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "\dt" 2>/dev/null | head -20; then
+            :  # Success, do nothing
         else
-            handle_error "alembic upgrade head command failed"
+            log "${YELLOW}⚠️  Could not list database tables${NC}"
         fi
     else
-        log "${GREEN}✅ Database is already up to date (revision: $current_revision)${NC}"
+        handle_error "alembic upgrade head command failed"
     fi
 }
 
