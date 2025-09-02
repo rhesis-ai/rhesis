@@ -1,9 +1,8 @@
-"""A synthesizer that generates test cases based on a prompt using LLM."""
-
 from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.services import LLMService
+from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
@@ -22,7 +21,7 @@ class PromptSynthesizer(TestSetSynthesizer):
         prompt: str,
         batch_size: int = 20,
         system_prompt: Optional[str] = None,
-        context: Optional[str] = None,
+        documents: Optional[List[Dict]] = None,
     ):
         """
         Initialize the PromptSynthesizer.
@@ -41,7 +40,18 @@ class PromptSynthesizer(TestSetSynthesizer):
 
         super().__init__(batch_size=batch_size)
         self.prompt = prompt
-        self.context = context or ""
+        self.documents = documents or []
+
+        # Initialize document extractor for processing document files
+        self.document_extractor = DocumentExtractor()
+
+        # Extract content from documents if provided
+        self.extracted_documents = {}
+        if self.documents:
+            try:
+                self.extracted_documents = self.document_extractor.extract(self.documents)
+            except Exception as e:
+                print(f"Warning: Failed to extract some documents: {e}")
 
         # Set system prompt using utility function
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
@@ -50,8 +60,15 @@ class PromptSynthesizer(TestSetSynthesizer):
 
     def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        # Use the provided context directly
-        context = self.context
+        # Prepare context for the prompt
+        context = ""
+        if self.extracted_documents:
+            context = "\n\n".join(
+                [
+                    f"Document '{name}':\n{content}"
+                    for name, content in self.extracted_documents.items()
+                ]
+            )
 
         formatted_prompt = self.system_prompt.render(
             generation_prompt=self.prompt, num_tests=num_tests, context=context
@@ -73,8 +90,9 @@ class PromptSynthesizer(TestSetSynthesizer):
                     **test,
                     "metadata": {
                         "generated_by": "PromptSynthesizer",
-                        "context_used": bool(self.context),
-                        "context_length": len(self.context) if self.context else 0,
+                        "documents_used": list(self.extracted_documents.keys())
+                        if self.extracted_documents
+                        else [],
                     },
                 }
                 for test in valid_test_cases[:num_tests]
@@ -132,26 +150,14 @@ class PromptSynthesizer(TestSetSynthesizer):
             raise ValueError("Failed to generate any valid test cases")
 
         # Use utility function to create TestSet
-        result = create_test_set(
+        return create_test_set(
             all_test_cases,
             synthesizer_name="PromptSynthesizer",
             batch_size=self.batch_size,
             generation_prompt=self.prompt,
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
-            context_used=bool(self.context),
-            context_length=len(self.context) if self.context else 0,
+            documents_used=list(self.extracted_documents.keys())
+            if self.extracted_documents
+            else [],
         )
-
-        # Add namespaced metadata
-        result.metadata = result.metadata or {}
-        result.metadata["prompt_synthesizer"] = {
-            "generation_prompt": self.prompt,
-            "batch_size": self.batch_size,
-            "num_tests_generated": len(all_test_cases),
-            "num_tests_requested": num_tests,
-            "context_used": bool(self.context),
-            "context_length": len(self.context) if self.context else 0,
-        }
-
-        return result
