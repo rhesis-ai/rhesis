@@ -1,10 +1,12 @@
 from .base import Base
 from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorUpdate
 from .category import Category, CategoryBase, CategoryCreate, CategoryUpdate
+from .comment import Comment, CommentBase, CommentCreate, CommentUpdate
 from .demographic import Demographic, DemographicBase, DemographicCreate, DemographicUpdate
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
+from .emoji_reaction import CommentEmojis, EmojiReaction
 from .endpoint import Endpoint, EndpointBase, EndpointCreate, EndpointUpdate
-from .metric import Metric, MetricBase, MetricCreate, MetricUpdate, MetricDetail, ScoreType
+from .metric import Metric, MetricBase, MetricCreate, MetricDetail, MetricUpdate, ScoreType
 from .model import Model, ModelBase, ModelCreate, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
@@ -24,10 +26,10 @@ from .response_pattern import (
 from .risk import Risk, RiskBase, RiskCreate, RiskUpdate
 from .source import Source, SourceBase, SourceCreate, SourceUpdate
 from .stats import (
-    DimensionStats, 
-    EntityStats, 
+    DimensionStats,
+    EntityStats,
     HistoricalStats,
-    MetricStats, 
+    MetricStats,
     OverallStats,
     TestResultStats,
     TestResultStatsAll,
@@ -46,7 +48,17 @@ from .stats import (
 )
 from .status import Status, StatusBase, StatusCreate, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
-from .task import TaskList, TaskPayload, TaskResponse, TaskStatus, TaskRevoke, WorkerInfo, WorkerStats, WorkerStatus, HealthCheck
+from .task import (
+    HealthCheck,
+    TaskList,
+    TaskPayload,
+    TaskResponse,
+    TaskRevoke,
+    TaskStatus,
+    WorkerInfo,
+    WorkerStats,
+    WorkerStatus,
+)
 from .test import (
     Test,
     TestBase,
@@ -105,6 +117,10 @@ __all__ = [
     "CategoryBase",
     "CategoryCreate",
     "CategoryUpdate",
+    "Comment",
+    "CommentBase",
+    "CommentCreate",
+    "CommentUpdate",
     "Risk",
     "RiskBase",
     "RiskCreate",

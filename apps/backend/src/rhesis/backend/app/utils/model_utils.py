@@ -2,7 +2,7 @@ from typing import Callable, Dict, List, Optional, Type, TypeVar
 from uuid import UUID
 
 from sqlalchemy import desc, inspect, or_
-from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload
+from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload, selectinload
 
 from rhesis.backend.app.database import (
     get_current_organization_id,
@@ -49,6 +49,17 @@ class QueryBuilder:
         """Apply joinedloads for relationships"""
         self.query = apply_joinedloads(self.query, self.model, skip_many_to_many, skip_one_to_many)
         return self
+
+    def with_optimized_loads(
+        self, skip_many_to_many: bool = True, skip_one_to_many: bool = False, nested_relationships: dict = None
+    ) -> "QueryBuilder":
+        """Apply optimized loading strategy (selectinload for many-to-many, joinedload for others)"""
+        self.query = apply_optimized_loads(
+            self.query, self.model, skip_many_to_many, skip_one_to_many, nested_relationships
+        )
+        return self
+
+
 
     def with_organization_filter(self) -> "QueryBuilder":
         """Apply organization filter if the model supports it"""
@@ -138,7 +149,7 @@ def has_organization_id(model: Type[T]) -> bool:
 
 
 def has_visibility(model: Type[T]) -> bool:
-    """Check if model supports visibility filtering (has visibility, organization_id and user_id 
+    """Check if model supports visibility filtering (has visibility, organization_id and user_id
     fields)"""
     columns = inspect(model).columns.keys()
     return "visibility" in columns and "organization_id" in columns and "user_id" in columns
@@ -152,7 +163,7 @@ def get_model_relationships(
 
     Args:
         model: The SQLAlchemy model class
-        skip_many_to_many: If True, excludes many-to-many relationships 
+        skip_many_to_many: If True, excludes many-to-many relationships
                           (those with secondary tables)
         skip_one_to_many: If True, excludes one-to-many relationships (those with uselist=True)
 
@@ -163,13 +174,19 @@ def get_model_relationships(
     relationships = {}
 
     for rel in mapper.relationships:
-        # Check for many-to-many relationships (those with secondary tables)
-        if skip_many_to_many and getattr(rel, "secondary", None) is not None:
-            continue
+        # Use hierarchical filtering to avoid overlap between many-to-many and one-to-many
 
-        # Check for one-to-many relationships (those with uselist=True)
-        if skip_one_to_many and rel.uselist:
-            continue
+        # First, check if it's many-to-many (has secondary table)
+        if getattr(rel, "secondary", None) is not None:
+            # This is a many-to-many relationship
+            if skip_many_to_many:
+                continue
+        # Then, check if it's one-to-many (uselist=True but no secondary table)
+        elif rel.uselist:
+            # This is a pure one-to-many relationship
+            if skip_one_to_many:
+                continue
+        # Otherwise, it's many-to-one or one-to-one (uselist=False, no secondary)
 
         # Include this relationship
         relationships[rel.key] = rel
@@ -203,17 +220,69 @@ def apply_joinedloads(
     return query
 
 
+def apply_optimized_loads(
+    query: Query, 
+    model: Type, 
+    skip_many_to_many: bool = True, 
+    skip_one_to_many: bool = False,
+    nested_relationships: dict = None
+) -> Query:
+    """
+    Apply optimized loading strategy using selectinload for many-to-many relationships
+    and joinedload for one-to-many/many-to-one relationships.
+    
+    This avoids the cartesian product problem that occurs with joinedload on many-to-many.
+    
+    Args:
+        nested_relationships: Dict specifying nested relationships to load.
+                            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
+    """
+    relationships = get_model_relationships(
+        model, skip_many_to_many=False, skip_one_to_many=skip_one_to_many
+    )
+
+    for rel_name, rel_prop in relationships.items():
+        relationship_attr = getattr(model, rel_name)
+        
+        # Use selectinload for many-to-many relationships to avoid cartesian products
+        if rel_prop.direction.name in ['MANYTOMANY']:
+            if not skip_many_to_many:
+                if nested_relationships and rel_name in nested_relationships:
+                    # Load the main relationship with selectinload
+                    query = query.options(selectinload(relationship_attr))
+                    # Load each nested relationship separately
+                    for nested_rel in nested_relationships[rel_name]:
+                        nested_attr = getattr(rel_prop.mapper.class_, nested_rel)
+                        query = query.options(selectinload(relationship_attr).selectinload(nested_attr))
+                else:
+                    query = query.options(selectinload(relationship_attr))
+        # Use joinedload for one-to-many and many-to-one relationships
+        else:
+            query = query.options(joinedload(relationship_attr))
+
+    return query
+
+
+
+
+
 def apply_organization_filter(db: Session, query: Query, model: Type[T]) -> Query:
     """Apply organization filter to query if model supports it"""
     if has_organization_id(model):
         current_org_id = get_current_organization_id(db)
-        logger.debug(f"apply_organization_filter - model: {model.__name__}, current_org_id: '{current_org_id}', type: {type(current_org_id)}")
+        logger.debug(
+            f"apply_organization_filter - model: {model.__name__}, current_org_id: '{current_org_id}', type: {type(current_org_id)}"
+        )
         # Only apply filter if we have a valid organization ID
         if current_org_id is not None:
-            logger.debug(f"apply_organization_filter - Applying filter: {model.__name__}.organization_id == '{current_org_id}'")
+            logger.debug(
+                f"apply_organization_filter - Applying filter: {model.__name__}.organization_id == '{current_org_id}'"
+            )
             query = query.filter(model.organization_id == current_org_id)
         else:
-            logger.debug(f"apply_organization_filter - No organization filter applied for {model.__name__}")
+            logger.debug(
+                f"apply_organization_filter - No organization filter applied for {model.__name__}"
+            )
     return query
 
 

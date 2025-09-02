@@ -26,3 +26,10 @@ class TestResult(Base):
     status = relationship("Status", back_populates="test_results")
     organization = relationship("Organization", back_populates="test_results")
     test = relationship("Test", back_populates="test_results")
+
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(TestResult.id), Comment.entity_type == 'TestResult')",
+        viewonly=True,
+    )
