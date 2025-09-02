@@ -64,7 +64,6 @@ class PromptSynthesizer(TestSetSynthesizer):
                 {
                     **test,
                     "metadata": {
-                        "generated_by": "PromptSynthesizer",
                         "context_used": bool(self.context),
                         "context_length": len(self.context) if self.context else 0,
                     },
