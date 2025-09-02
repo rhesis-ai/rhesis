@@ -3,14 +3,16 @@
 import re
 from typing import List
 
+from rhesis.sdk.utils import count_tokens
+
 
 class ContextGenerator:
     """Service for generating context from various sources using intelligent semantic chunking."""
 
     def __init__(
         self,
-        max_context_tokens: int = 1000,  # User's preferred max
-        absolute_max_context_tokens: int = 2000,  # Hard safety limit
+        max_context_tokens: int = 1500,  # User's preferred max
+        absolute_max_context_tokens: int = 2500,  # Hard safety limit
     ):
         """
         Initialize the context generator.
@@ -52,22 +54,22 @@ class ContextGenerator:
         Strategy:
         1. Identify semantic boundaries (headers, sections, paragraphs)
         2. Create contexts that respect these boundaries
-        3. If a semantic span exceeds the max size, split it abruptly to fit
-        4. If there are no internal boundaries, slice the text into fixed-size windows
+        3. Enforce hard token limit; if a semantic span exceeds the context limit, split it abruptly
+        4. If there are no internal boundaries, slice the text into token-capped windows
         """
         semantic_boundaries = self._identify_semantic_boundaries(text)
-
-        max_context_chars = self.max_context_tokens * 4
 
         # If no internal boundaries (just [0, len(text)]), slice linearly
         if len(semantic_boundaries) <= 2:
             contexts: List[str] = []
             start_pos = 0
             while start_pos < len(text) and len(contexts) < num_tests:
-                end_pos = min(start_pos + max_context_chars, len(text))
+                end_pos = self._find_token_capped_end(text, start_pos, len(text))
                 chunk = text[start_pos:end_pos].strip()
                 if chunk:
                     contexts.append(chunk)
+                if end_pos <= start_pos:
+                    break
                 start_pos = end_pos
             return contexts
 
@@ -124,13 +126,12 @@ class ContextGenerator:
     ) -> List[str]:
         """Create contexts from semantic boundaries."""
         contexts: List[str] = []
-        max_context_chars = self.max_context_tokens * 4
 
         # Start from the first boundary and create contexts sequentially
         start_idx = 0
         while start_idx < len(boundaries) - 1 and len(contexts) < num_tests:
             # Find the best end boundary for this context
-            end_idx = self._find_best_end_boundary(boundaries, start_idx, max_context_chars, text)
+            end_idx = self._find_best_end_boundary(boundaries, start_idx, text)
 
             if end_idx <= start_idx:
                 break
@@ -141,15 +142,18 @@ class ContextGenerator:
             context_text = text[start_pos:end_pos].strip()
 
             if context_text:
-                # If the single span between adjacent boundaries exceeds max size,
-                # split it abruptly into fixed-size windows
-                if end_idx == start_idx + 1 and (end_pos - start_pos) > max_context_chars:
+                # If the single span between adjacent boundaries exceeds token limit,
+                # split it abruptly into token-capped windows
+                span_tokens = count_tokens(text[start_pos:end_pos]) or 0
+                if end_idx == start_idx + 1 and span_tokens > self.max_context_tokens:
                     local_start = start_pos
                     while local_start < end_pos and len(contexts) < num_tests:
-                        local_end = min(local_start + max_context_chars, end_pos)
+                        local_end = self._find_token_capped_end(text, local_start, end_pos)
                         piece = text[local_start:local_end].strip()
                         if piece:
                             contexts.append(piece)
+                        if local_end <= local_start:
+                            break
                         local_start = local_end
                 else:
                     contexts.append(context_text)
@@ -159,18 +163,16 @@ class ContextGenerator:
 
         return contexts
 
-    def _find_best_end_boundary(
-        self, boundaries: List[int], start_idx: int, max_chars: int, text: str
-    ) -> int:
+    def _find_best_end_boundary(self, boundaries: List[int], start_idx: int, text: str) -> int:
         """Find the best end boundary for a context."""
         start_pos = boundaries[start_idx]
 
         # Find the furthest boundary within size limit
         for i in range(start_idx + 1, len(boundaries)):
             end_pos = boundaries[i]
-            context_length = end_pos - start_pos
+            token_len = count_tokens(text[start_pos:end_pos]) or 0
 
-            if context_length > max_chars:
+            if token_len > self.max_context_tokens:
                 # We've exceeded the limit, go back one
                 if i > start_idx + 1:
                     return i - 1
@@ -180,3 +182,20 @@ class ContextGenerator:
 
         # Use the last boundary
         return len(boundaries) - 1
+
+    def _find_token_capped_end(self, text: str, start_pos: int, hard_end: int) -> int:
+        """Find the furthest end index within hard_end that stays under the token limit."""
+        low = start_pos + 1
+        high = hard_end
+        best = None
+        while low <= high:
+            mid = (low + high) // 2
+            tokens = count_tokens(text[start_pos:mid]) or 0
+            if tokens <= self.max_context_tokens:
+                best = mid
+                low = mid + 1
+            else:
+                high = mid - 1
+        if best is None:
+            return min(start_pos + 1, hard_end)
+        return best
