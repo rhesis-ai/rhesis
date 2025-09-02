@@ -164,19 +164,21 @@ export default function NewMetricPage() {
       const metricsClient = apiClient.getMetricsClient();
       const typeLookupClient = apiClient.getTypeLookupClient();
 
-      // Get the metric type ID
-      const typeLookups = await typeLookupClient.getTypeLookups({
-        $filter: `type_name eq 'MetricType' and type_value eq '${type}'`
+      // Get both metric type and backend type in a single API call
+      const allTypeLookups = await typeLookupClient.getTypeLookups({
+        $filter: `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
       });
+
+      const typeLookups = allTypeLookups.filter(lookup => 
+        lookup.type_name === 'MetricType' && lookup.type_value === type
+      );
+      const backendTypes = allTypeLookups.filter(lookup => 
+        lookup.type_name === 'BackendType' && lookup.type_value === 'custom'
+      );
 
       if (!typeLookups.length) {
         throw new Error('Invalid metric type');
       }
-
-      // Get the custom backend type ID
-      const backendTypes = await typeLookupClient.getTypeLookups({
-        $filter: `type_name eq 'BackendType' and type_value eq 'custom'`
-      });
 
       if (!backendTypes.length) {
         throw new Error('Custom backend type not found');
