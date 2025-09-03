@@ -26,6 +26,9 @@ interface BaseWorkflowSectionProps {
   onUpdateEntity: (updateData: any, fieldName: string) => Promise<void>;
   statusReadOnly?: boolean;
   showPriority?: boolean;
+  // Optional pre-loaded data to avoid API calls
+  preloadedStatuses?: Status[];
+  preloadedUsers?: User[];
 }
 
 interface UserOption extends User {
@@ -65,7 +68,9 @@ export default function BaseWorkflowSection({
   onOwnerChange,
   onUpdateEntity,
   statusReadOnly = false,
-  showPriority = true
+  showPriority = true,
+  preloadedStatuses,
+  preloadedUsers
 }: BaseWorkflowSectionProps) {
   // Create stable derived state from props
   const initialPriority = useMemo(() => reversePriorityMap[priority] || 'Medium', [priority]);
@@ -100,9 +105,19 @@ export default function BaseWorkflowSection({
     return users.find(user => user.id === userId) || null;
   }, [users]);
 
-  // Load statuses only once
+  // Load statuses only once (use preloaded data if available)
   useEffect(() => {
-    if (!clients.statusClient || statusesLoaded) return;
+    if (statusesLoaded) return;
+
+    // Use preloaded statuses if available and not empty
+    if (preloadedStatuses && preloadedStatuses.length > 0) {
+      setStatuses(preloadedStatuses);
+      setStatusesLoaded(true);
+      return;
+    }
+
+    // Otherwise fetch from API
+    if (!clients.statusClient) return;
 
     const fetchStatuses = async () => {
       try {
@@ -123,11 +138,27 @@ export default function BaseWorkflowSection({
     };
 
     fetchStatuses();
-  }, [clients.statusClient, entityType, notifications, statusesLoaded]);
+  }, [clients.statusClient, entityType, notifications, statusesLoaded, preloadedStatuses]);
 
-  // Load users only once
+  // Load users only once (use preloaded data if available)
   useEffect(() => {
-    if (!clients.usersClient || usersLoaded) return;
+    if (usersLoaded) return;
+
+    // Use preloaded users if available and not empty
+    if (preloadedUsers && preloadedUsers.length > 0) {
+      const transformedUsers = preloadedUsers
+        .filter(user => user.is_active) // Only show active users
+        .map(user => ({
+          ...user,
+          displayName: user.name || `${user.given_name || ''} ${user.family_name || ''}`.trim() || user.email
+        }));
+      setUsers(transformedUsers);
+      setUsersLoaded(true);
+      return;
+    }
+
+    // Otherwise fetch from API
+    if (!clients.usersClient) return;
 
     const fetchUsers = async () => {
       try {
@@ -154,7 +185,7 @@ export default function BaseWorkflowSection({
     };
 
     fetchUsers();
-  }, [clients.usersClient, notifications, usersLoaded]);
+  }, [clients.usersClient, notifications, usersLoaded, preloadedUsers]);
 
   // Set assignee and owner once users are loaded
   useEffect(() => {

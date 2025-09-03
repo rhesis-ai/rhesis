@@ -53,7 +53,7 @@ class MetricCreate(MetricBase):
 
 
 class MetricUpdate(MetricBase):
-    title: Optional[str] = None
+    name: Optional[str] = None
     evaluation_prompt: Optional[str] = None
     score_type: Optional[ScoreType] = None
     threshold_operator: Optional[ThresholdOperator] = None

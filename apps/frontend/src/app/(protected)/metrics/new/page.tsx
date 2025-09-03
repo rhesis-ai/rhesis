@@ -82,6 +82,7 @@ export default function NewMetricPage() {
   const [formData, setFormData] = React.useState<MetricFormData>(initialFormData);
   const [models, setModels] = React.useState<Model[]>([]);
   const [isLoadingModels, setIsLoadingModels] = React.useState(true);
+  const [isCreating, setIsCreating] = React.useState(false);
 
   // Redirect if no type is selected
   React.useEffect(() => {
@@ -154,6 +155,8 @@ export default function NewMetricPage() {
       return;
     }
 
+    setIsCreating(true);
+
     try {
       console.log('Session:', session);
       if (!session?.session_token) {
@@ -164,19 +167,21 @@ export default function NewMetricPage() {
       const metricsClient = apiClient.getMetricsClient();
       const typeLookupClient = apiClient.getTypeLookupClient();
 
-      // Get the metric type ID
-      const typeLookups = await typeLookupClient.getTypeLookups({
-        $filter: `type_name eq 'MetricType' and type_value eq '${type}'`
+      // Get both metric type and backend type in a single API call
+      const allTypeLookups = await typeLookupClient.getTypeLookups({
+        $filter: `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
       });
+
+      const typeLookups = allTypeLookups.filter(lookup => 
+        lookup.type_name === 'MetricType' && lookup.type_value === type
+      );
+      const backendTypes = allTypeLookups.filter(lookup => 
+        lookup.type_name === 'BackendType' && lookup.type_value === 'custom'
+      );
 
       if (!typeLookups.length) {
         throw new Error('Invalid metric type');
       }
-
-      // Get the custom backend type ID
-      const backendTypes = await typeLookupClient.getTypeLookups({
-        $filter: `type_name eq 'BackendType' and type_value eq 'custom'`
-      });
 
       if (!backendTypes.length) {
         throw new Error('Custom backend type not found');
@@ -209,12 +214,14 @@ export default function NewMetricPage() {
 
       await metricsClient.createMetric(metricRequest);
       notifications.show('Metric created successfully', { severity: 'success' });
-      router.push('/metrics');
+      router.push('/metrics?tab=directory');
     } catch (error) {
       notifications.show(
         error instanceof Error ? error.message : 'Failed to create metric', 
         { severity: 'error' }
       );
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -430,71 +437,201 @@ export default function NewMetricPage() {
 
   const renderConfirmation = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Review Your Metric</Typography>
+      <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>Review Your Metric</Typography>
       
-      <Box sx={{ mt: 2 }}>
-        {/* General Section Review */}
-        <Typography variant="h6" color="primary" sx={{ mb: 2 }}>General Information</Typography>
-        <Typography variant="subtitle2" color="text.secondary">Name</Typography>
-        <Typography paragraph>{formData.name}</Typography>
-
-        <Typography variant="subtitle2" color="text.secondary">Description</Typography>
-        <Typography paragraph>{formData.description}</Typography>
-
-        <Typography variant="subtitle2" color="text.secondary">Tags</Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-          {formData.tags.map((tag) => (
-            <Typography key={tag} component="span" sx={{ 
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
-              px: 1,
-              py: 0.5,
-              borderRadius: 1,
-              fontSize: '0.875rem'
-            }}>
-              {tag}
+      <Box sx={{ 
+        display: 'grid', 
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, 
+        gap: 3,
+        maxWidth: '1000px',
+        mx: 'auto'
+      }}>
+        {/* Left Column */}
+        <Box>
+          {/* General Section Review */}
+          <Paper sx={{ p: 3, mb: 3, bgcolor: 'background.default' }}>
+            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
+              General Information
             </Typography>
-          ))}
+            
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Name</Typography>
+              <Typography sx={{ color: 'text.primary' }}>
+                {formData.name}
+              </Typography>
+            </Box>
+
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Description</Typography>
+              <Typography sx={{ color: 'text.primary' }}>
+                {formData.description || 'No description provided'}
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium', mb: 1 }}>Tags</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {formData.tags.length > 0 ? formData.tags.map((tag) => (
+                  <Box key={tag} sx={{ 
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1,
+                    fontSize: '0.875rem'
+                  }}>
+                    {tag}
+                  </Box>
+                )) : (
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                    No tags added
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Paper>
+
+          {/* Evaluation Section Review */}
+          <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
+            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
+              Evaluation Process
+            </Typography>
+            
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Evaluation Model</Typography>
+              <Typography sx={{ color: 'text.primary' }}>
+                {models.find(model => model.id === formData.model_id)?.name || 'No model selected'}
+              </Typography>
+            </Box>
+
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Evaluation Prompt</Typography>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', mt: 1 }}>
+                <Typography sx={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '0.875rem',
+                  whiteSpace: 'pre-wrap',
+                  color: 'text.primary'
+                }}>
+                  {formData.evaluation_prompt}
+                </Typography>
+              </Paper>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium', mb: 1 }}>Reasoning Instructions</Typography>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
+                <Typography sx={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '0.875rem',
+                  whiteSpace: 'pre-wrap',
+                  color: 'text.primary'
+                }}>
+                  {formData.reasoning}
+                </Typography>
+              </Paper>
+            </Box>
+          </Paper>
         </Box>
 
-        {/* Evaluation Section Review */}
-        <Typography variant="h6" color="primary" sx={{ mb: 2 }}>Evaluation Process</Typography>
-        
-        <Typography variant="subtitle2" color="text.secondary">Evaluation Model</Typography>
-        <Typography paragraph>
-          {models.find(model => model.id === formData.model_id)?.name}
-        </Typography>
+        {/* Right Column */}
+        <Box>
+          {/* Evaluation Steps */}
+          <Paper sx={{ p: 3, mb: 3, bgcolor: 'background.default' }}>
+            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
+              Evaluation Steps
+            </Typography>
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {formData.evaluation_steps?.filter(step => step.trim()).map((step, index) => (
+                <Paper key={index} variant="outlined" sx={{ 
+                  p: 2, 
+                  bgcolor: 'background.paper',
+                  position: 'relative',
+                  pl: 4
+                }}>
+                  <Typography sx={{
+                    position: 'absolute',
+                    left: 12,
+                    top: 12,
+                    color: 'primary.main',
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem'
+                  }}>
+                    {index + 1}
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    color: 'text.primary'
+                  }}>
+                    {step}
+                  </Typography>
+                </Paper>
+              ))}
+            </Box>
+          </Paper>
 
-        <Typography variant="subtitle2" color="text.secondary">Evaluation Prompt</Typography>
-        <Typography paragraph>{formData.evaluation_prompt}</Typography>
+          {/* Result Configuration */}
+          <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
+            <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
+              Result Configuration
+            </Typography>
+            
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Score Type</Typography>
+              <Box sx={{ 
+                bgcolor: formData.score_type === 'binary' ? 'primary.main' : 'primary.main',
+                color: 'primary.contrastText',
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 1,
+                fontSize: '0.875rem',
+                display: 'inline-block',
+                mt: 0.5
+              }}>
+                {formData.score_type === 'binary' ? 'Binary (Pass/Fail)' : 'Numeric'}
+              </Box>
+            </Box>
 
-        <Typography variant="subtitle2" color="text.secondary">Evaluation Steps</Typography>
-        {formData.evaluation_steps?.map((step, index) => (
-          <Typography key={index} paragraph>
-            {index + 1}. {step}
-          </Typography>
-        ))}
+            {formData.score_type === 'numeric' && (
+              <>
+                <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Min Score</Typography>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'text.primary' }}>
+                      {formData.min_score}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Max Score</Typography>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'text.primary' }}>
+                      {formData.max_score}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Threshold</Typography>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'success.main' }}>
+                      ≥ {formData.threshold}
+                    </Typography>
+                  </Box>
+                </Box>
+              </>
+            )}
 
-        <Typography variant="subtitle2" color="text.secondary">Reasoning Instructions</Typography>
-        <Typography paragraph>{formData.reasoning}</Typography>
-
-        {/* Result Section Review */}
-        <Typography variant="h6" color="primary" sx={{ mb: 2 }}>Result Configuration</Typography>
-        <Typography variant="subtitle2" color="text.secondary">Score Type</Typography>
-        <Typography paragraph>{formData.score_type === 'binary' ? 'Binary (Pass/Fail)' : 'Numeric'}</Typography>
-
-        {formData.score_type === 'numeric' && (
-          <>
-            <Typography variant="subtitle2" color="text.secondary">Score Range</Typography>
-            <Typography paragraph>{formData.min_score} - {formData.max_score}</Typography>
-
-            <Typography variant="subtitle2" color="text.secondary">Threshold</Typography>
-            <Typography paragraph>{formData.threshold}</Typography>
-          </>
-        )}
-
-        <Typography variant="subtitle2" color="text.secondary">Result Explanation</Typography>
-        <Typography paragraph>{formData.explanation}</Typography>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium', mb: 1 }}>Result Explanation</Typography>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
+                <Typography sx={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '0.875rem',
+                  whiteSpace: 'pre-wrap',
+                  color: 'text.primary'
+                }}>
+                  {formData.explanation}
+                </Typography>
+              </Paper>
+            </Box>
+          </Paper>
+        </Box>
       </Box>
     </Box>
   );
@@ -563,6 +700,7 @@ export default function NewMetricPage() {
                 startIcon={<ArrowBackIcon />}
                 onClick={activeStep === 0 ? () => router.push('/metrics') : handleBack}
                 type="button"
+                disabled={isCreating}
               >
                 {activeStep === 0 ? 'Cancel' : 'Back'}
               </Button>
@@ -572,8 +710,10 @@ export default function NewMetricPage() {
                   type="submit"
                   variant="contained"
                   color="primary"
+                  disabled={isCreating}
+                  startIcon={isCreating ? <CircularProgress size={20} /> : undefined}
                 >
-                  Create Metric
+                  {isCreating ? 'Creating...' : 'Create Metric'}
                 </Button>
               ) : (
                 <Button
