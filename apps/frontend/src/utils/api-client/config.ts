@@ -34,7 +34,8 @@ export const API_ENDPOINTS = {
   categories: '/categories',
   type_lookups: '/type_lookups',
   metrics: '/metrics',
-  models: '/models'
+  models: '/models',
+  comments: '/comments'
 } as const; 
 
 export const ENTITY_TYPES = {

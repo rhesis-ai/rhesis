@@ -145,7 +145,7 @@ async def generate_content_endpoint(request: dict):
         dict: The unmodified OpenAI API response
     """
     try:
-        from rhesis.sdk.models.providers.gemini_provider import GeminiLLM
+        from rhesis.sdk.models.providers.gemini import GeminiLLM
 
         prompt = request.get("prompt")
         schema = request.get("schema")

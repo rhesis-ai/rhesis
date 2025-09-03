@@ -2,6 +2,7 @@ import TestSetDetailCharts from './components/TestSetDetailCharts';
 import TestSetTestsGrid from './components/TestSetTestsGrid';
 import TestSetDetailsSection from './components/TestSetDetailsSection';
 import TestSetWorkflowSection from './components/TestSetWorkflowSection';
+import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Added import
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
@@ -68,7 +69,7 @@ export default async function TestSetPage({ params }: { params: any }) {
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;
   
-  const session = await auth() as { session_token: string } | null;
+  const session = await auth();
   
   // If no session (like during warmup), redirect to login
   if (!session?.session_token) {
@@ -123,6 +124,18 @@ export default async function TestSetPage({ params }: { params: any }) {
               <TestSetTestsGrid
                 testSetId={identifier}
                 sessionToken={session.session_token}
+              />
+            </Paper>
+
+            {/* Comments Section */}
+            <Paper sx={{ p: 3, mb: 4 }}>
+                            <CommentsWrapper
+                entityType="TestSet"
+                entityId={testSet.id}
+                sessionToken={session.session_token}
+                currentUserId={session.user?.id || ''}
+                currentUserName={session.user?.name || ''}
+                currentUserPicture={session.user?.picture || undefined}
               />
             </Paper>
           </Grid>
