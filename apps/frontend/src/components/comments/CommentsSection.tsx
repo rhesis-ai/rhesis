@@ -4,8 +4,7 @@ import React, { useState, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Avatar,
-  TextareaAutosize,
+  TextField,
   Button,
   CircularProgress,
   Divider,
@@ -14,6 +13,7 @@ import {
 import { Send as SendIcon, ChatBubbleOutline as ChatIcon } from '@mui/icons-material';
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
+import { UserAvatar } from '@/components/common/UserAvatar';
 
 interface CommentsSectionProps {
   entityType: EntityType;
@@ -178,37 +178,24 @@ export function CommentsSection({
         <Box component="form" onSubmit={handleSubmit}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             {/* User Avatar */}
-            <Avatar 
-              sx={{ 
-                width: 40, 
-                height: 40, 
-                bgcolor: 'primary.main',
-                flexShrink: 0
-              }}
-              src={currentUserPicture}
-              alt={currentUserName || 'User'}
-            >
-              {currentUserName ? currentUserName.charAt(0).toUpperCase() : 'U'}
-            </Avatar>
+            <UserAvatar 
+              userName={currentUserName}
+              userPicture={currentUserPicture}
+              size={40}
+            />
 
             {/* Comment Input */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <TextareaAutosize
+              <TextField
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Add comment ..."
-                style={{
-                  width: '100%',
-                  minHeight: '80px',
-                  padding: '12px 16px',
-                  border: '1px solid #ddd',
-                  borderRadius: '20px',
-                  fontFamily: 'inherit',
-                  fontSize: '14px',
-                  resize: 'none',
-                  outline: 'none',
-                  lineHeight: '1.5'
-                }}
+                multiline
+                rows={3}
+                fullWidth
+                variant="outlined"
+                size="small"
+                sx={{ mb: 2 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.ctrlKey) {
                     e.preventDefault();
