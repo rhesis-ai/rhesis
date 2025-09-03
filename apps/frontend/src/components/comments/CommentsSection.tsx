@@ -91,6 +91,21 @@ export function CommentsSection({
     }
   }, [onReactToComment]);
 
+  const getEntityDisplayName = (entityType: EntityType): string => {
+    switch (entityType) {
+      case 'Test':
+        return 'Test';
+      case 'TestSet':
+        return 'Test Set';
+      case 'TestRun':
+        return 'Test Run';
+      case 'TestResult':
+        return 'Test Result';
+      default:
+        return entityType;
+    }
+  };
+
   const sortedComments = [...comments].sort((a, b) => 
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
@@ -125,7 +140,7 @@ export function CommentsSection({
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Share your thoughts, ask questions, or provide feedback about this {entityType}.
+          Share your thoughts, ask questions, or provide feedback about this {getEntityDisplayName(entityType)}.
         </Typography>
       </Box>
 
@@ -152,7 +167,7 @@ export function CommentsSection({
                 No comments yet
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Be the first to share your thoughts about this {entityType}!
+                Be the first to share your thoughts about this {getEntityDisplayName(entityType)}!
               </Typography>
             </Box>
           ) : (
