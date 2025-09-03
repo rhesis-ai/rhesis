@@ -156,6 +156,7 @@ export default function MetricsDirectoryTab({
   const [createMetricOpen, setCreateMetricOpen] = React.useState(false);
   const [deleteMetricDialogOpen, setDeleteMetricDialogOpen] = React.useState(false);
   const [metricToDeleteCompletely, setMetricToDeleteCompletely] = React.useState<{ id: string; name: string } | null>(null);
+  const [isDeletingMetric, setIsDeletingMetric] = React.useState(false);
 
   // Filter handlers
   const handleFilterChange = (filterType: keyof FilterState, value: string | string[]) => {
@@ -360,6 +361,7 @@ export default function MetricsDirectoryTab({
     if (!sessionToken || !metricToDeleteCompletely) return;
 
     try {
+      setIsDeletingMetric(true);
       const metricClient = new MetricsClient(sessionToken);
       await metricClient.deleteMetric(metricToDeleteCompletely.id as UUID);
       
@@ -377,6 +379,7 @@ export default function MetricsDirectoryTab({
         autoHideDuration: 4000
       });
     } finally {
+      setIsDeletingMetric(false);
       setDeleteMetricDialogOpen(false);
       setMetricToDeleteCompletely(null);
     }
@@ -389,6 +392,31 @@ export default function MetricsDirectoryTab({
 
   const filteredMetrics = getFilteredMetrics();
   const activeBehaviors = behaviors.filter(b => b.name && b.name.trim() !== '');
+
+  if (isLoading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        p: 4, 
+        minHeight: '400px' 
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <CircularProgress size={24} />
+          <Typography>Loading metrics directory...</Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -726,9 +754,17 @@ export default function MetricsDirectoryTab({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCancelDeleteMetric}>Cancel</Button>
-          <Button onClick={handleConfirmDeleteMetric} color="error" autoFocus>
-            Delete
+          <Button onClick={handleCancelDeleteMetric} disabled={isDeletingMetric}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmDeleteMetric} 
+            color="error" 
+            autoFocus
+            disabled={isDeletingMetric}
+            startIcon={isDeletingMetric ? <CircularProgress size={16} /> : undefined}
+          >
+            {isDeletingMetric ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

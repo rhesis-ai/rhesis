@@ -49,7 +49,7 @@ export function NotificationProvider({
     }
   }, [notifications, currentNotification, open]);
 
-  const show = (message: string, options: NotificationOptions = {}) => {
+  const show = React.useCallback((message: string, options: NotificationOptions = {}) => {
     const key = options.key || `notification-${++notificationCount}`;
     
     // Check for duplicate if key is provided
@@ -59,15 +59,15 @@ export function NotificationProvider({
 
     setNotifications(prev => [...prev, { message, options, key }]);
     return key;
-  };
+  }, [notifications]);
 
-  const close = (key: string) => {
+  const close = React.useCallback((key: string) => {
     if (currentNotification?.key === key) {
       setOpen(false);
     } else {
       setNotifications(prev => prev.filter(notification => notification.key !== key));
     }
-  };
+  }, [currentNotification]);
 
   const handleClose = (_event?: any, reason?: string) => {
     if (reason === 'clickaway') {
@@ -76,12 +76,15 @@ export function NotificationProvider({
     setOpen(false);
   };
 
-  const handleExited = () => {
+  const handleExited = React.useCallback(() => {
     setCurrentNotification(undefined);
-  };
+  }, []);
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = React.useMemo(() => ({ show, close }), [show, close]);
 
   return (
-    <NotificationContext.Provider value={{ show, close }}>
+    <NotificationContext.Provider value={contextValue}>
       {children}
       {currentNotification && (
         <Snackbar
