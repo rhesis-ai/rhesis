@@ -4,6 +4,18 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from sqlalchemy.orm import Session
 
+from .common import (
+    parse_date_range,
+    apply_organization_filter,
+    apply_date_range_filter,
+    apply_user_filters,
+    build_pass_rate_stats,
+    build_response_data,
+    build_metadata,
+    get_month_key,
+    safe_get_name,
+)
+
 
 # Configuration for response modes
 MODE_DEFINITIONS = {
@@ -89,19 +101,7 @@ def _apply_filters(base_query, **filters):
     return base_query
 
 
-def _build_pass_rate_stats(stats_dict: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, Any]]:
-    """Build pass rate statistics from raw pass/fail counts."""
-    pass_rates = {}
-    for name, stats in stats_dict.items():
-        total = stats["passed"] + stats["failed"]
-        pass_rate = round((stats["passed"] / total) * 100, 2) if total > 0 else 0
-        pass_rates[name] = {
-            "total": total,
-            "passed": stats["passed"],
-            "failed": stats["failed"],
-            "pass_rate": pass_rate
-        }
-    return pass_rates
+# Using shared build_pass_rate_stats from common module
 
 
 def _update_dimensional_stats(result, test_passed_overall: bool, dimensional_stats: Dict[str, Dict[str, int]], 
@@ -127,8 +127,8 @@ def _build_timeline_data(monthly_stats: Dict[str, Dict]) -> List[Dict[str, Any]]
         overall_total = month_data["overall"]["passed"] + month_data["overall"]["failed"]
         overall_pass_rate = round((month_data["overall"]["passed"] / overall_total) * 100, 2) if overall_total > 0 else 0
         
-        # Build metric breakdown for this month using helper
-        metric_breakdown = _build_pass_rate_stats(month_data["metrics"])
+        # Build metric breakdown for this month using shared helper
+        metric_breakdown = build_pass_rate_stats(month_data["metrics"])
         
         timeline.append({
             "date": month_key,
@@ -151,8 +151,8 @@ def _build_test_run_summary(test_run_stats: Dict[str, Dict]) -> List[Dict[str, A
         run_total = run_data["overall"]["passed"] + run_data["overall"]["failed"]
         run_pass_rate = round((run_data["overall"]["passed"] / run_total) * 100, 2) if run_total > 0 else 0
         
-        # Calculate metric pass rates for this run using helper
-        run_metric_breakdown = _build_pass_rate_stats(run_data["metrics"])
+        # Calculate metric pass rates for this run using shared helper
+        run_metric_breakdown = build_pass_rate_stats(run_data["metrics"])
         
         test_run_summary.append({
             "id": run_data["id"],
@@ -173,18 +173,7 @@ def _build_test_run_summary(test_run_stats: Dict[str, Dict]) -> List[Dict[str, A
     return test_run_summary
 
 
-def _build_response_data(mode: str, **data_sections) -> Dict[str, Any]:
-    """Build response data based on mode, including metadata in all responses."""
-    response = {"metadata": data_sections.get("metadata", {})}
-    
-    # Get the sections needed for this mode
-    required_sections = MODE_DEFINITIONS.get(mode, MODE_DEFINITIONS["all"])
-    
-    for section in required_sections:
-        if section in data_sections:
-            response[section] = data_sections[section]
-    
-    return response
+# Using shared build_response_data from common module
 
 
 def get_test_result_stats(
@@ -267,12 +256,7 @@ def get_test_result_stats(
     from rhesis.backend.app import models
     
     # Handle date range - custom dates override months parameter
-    if start_date and end_date:
-        start_date_obj = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        end_date_obj = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-    else:
-        end_date_obj = datetime.utcnow()
-        start_date_obj = end_date_obj - timedelta(days=30 * months)
+    start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
     
     # Base query for test results with test_metrics, joining related entities
     base_query = (
@@ -426,11 +410,11 @@ def get_test_result_stats(
                 else:
                     test_run_stats[run_key]["metrics"][metric_name]["failed"] += 1
     
-    # Build pass rates using helper function
-    metric_pass_rates = _build_pass_rate_stats(metric_stats)
-    behavior_pass_rates = _build_pass_rate_stats(behavior_stats)
-    category_pass_rates = _build_pass_rate_stats(category_stats)
-    topic_pass_rates = _build_pass_rate_stats(topic_stats)
+    # Build pass rates using shared helper function
+    metric_pass_rates = build_pass_rate_stats(metric_stats)
+    behavior_pass_rates = build_pass_rate_stats(behavior_stats)
+    category_pass_rates = build_pass_rate_stats(category_stats)
+    topic_pass_rates = build_pass_rate_stats(topic_stats)
     
     # Build overall pass rates
     total_tests = overall_stats["passed"] + overall_stats["failed"]
@@ -465,9 +449,10 @@ def get_test_result_stats(
         "available_topics": list(topic_stats.keys())
     }
     
-    # Return data based on mode using helper function
-    return _build_response_data(
+    # Return data based on mode using shared helper function
+    return build_response_data(
         mode,
+        MODE_DEFINITIONS,
         metric_pass_rates=metric_pass_rates,
         behavior_pass_rates=behavior_pass_rates,
         category_pass_rates=category_pass_rates,
@@ -504,9 +489,10 @@ def _empty_test_result_stats(start_date, end_date, months, organization_id, test
         "pass_rate": 0
     }
     
-    # Return data based on mode using the same helper function
-    return _build_response_data(
+    # Return data based on mode using the shared helper function
+    return build_response_data(
         mode,
+        MODE_DEFINITIONS,
         metric_pass_rates={},
         behavior_pass_rates={},
         category_pass_rates={},
