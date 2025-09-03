@@ -27,7 +27,7 @@ This document tracks the testing status of all backend routes/routers in the app
 | prompt_template | `prompt_template.py` | ❌ | - | Prompt template endpoints |
 | response_pattern | `response_pattern.py` | ❌ | - | Response pattern endpoints |
 | risk | `risk.py` | ❌ | - | Risk assessment endpoints |
-| services | `services.py` | ❌ | - | Service management endpoints |
+| services | `services.py` | 🚧 | test_services.py | Service management endpoints |
 | source | `source.py` | ❌ | - | Source management endpoints |
 | status | `status.py` | ❌ | - | Status management endpoints |
 | tag | `tag.py` | ❌ | - | Tag management endpoints |
