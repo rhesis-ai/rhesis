@@ -121,6 +121,8 @@ def generate_and_upload_test_set(
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
             For PromptSynthesizer:
                 - prompt (str, required): The generation prompt
+            For DocumentSynthesizer:
+                - prompt (str, required): The generation prompt
                 - documents (List[Dict], optional): List of documents with:
                     - name (str): Document identifier
                     - description (str): Document description
@@ -136,7 +138,7 @@ def generate_and_upload_test_set(
         # Using PromptSynthesizer
         generate_and_upload_test_set.delay(
             synthesizer_type="prompt",
-            prompt="Generate math tests",
+            prompt="Generate insurance claim tests",
             num_tests=10
         )
 
@@ -145,6 +147,18 @@ def generate_and_upload_test_set(
             synthesizer_type="paraphrasing",
             source_test_set_id="test-set-123",
             num_tests=5
+        )
+
+        # Using DocumentSynthesizer
+        generate_and_upload_test_set.delay(
+            synthesizer_type="document",
+            prompt="Generate insurance claim tests",
+            documents=[{
+                "name": "policy_doc.pdf",
+                "description": "Insurance policy terms",
+                "path": "/uploads/policy_doc.pdf"
+            }],
+            num_tests=10
         )
     """
     # Access context using the new utility method
