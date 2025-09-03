@@ -5,7 +5,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.base import MetricResult
-from rhesis.sdk.metrics.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.providers.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
 
 
 class ScoreResponse(BaseModel):

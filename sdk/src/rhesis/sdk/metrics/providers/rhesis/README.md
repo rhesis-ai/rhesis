@@ -15,8 +15,9 @@ A generic metric that evaluates outputs based on a custom prompt template. It us
 - Includes detailed evaluation reasoning
 
 #### Usage:
+
 ```python
-from rhesis.sdk.metrics.rhesis import RhesisPromptMetric
+from rhesis.sdk.metrics.providers.rhesis import RhesisPromptMetric
 
 metric = RhesisPromptMetric(
     name="My Custom Metric",
@@ -47,7 +48,7 @@ print(f"Successful: {result.details['is_successful']}")
 The `RhesisMetricFactory` provides a way to create Rhesis metric instances by name:
 
 ```python
-from rhesis.sdk.metrics.rhesis import RhesisMetricFactory
+from rhesis.sdk.metrics.providers.rhesis import RhesisMetricFactory
 
 factory = RhesisMetricFactory()
 metric = factory.create(

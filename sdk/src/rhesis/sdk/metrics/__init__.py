@@ -22,7 +22,7 @@ from rhesis.sdk.metrics.providers.ragas import (  # Re-export Ragas metrics
     RagasMetricBase,
     RagasMetricFactory,
 )
-from .rhesis import (  # Re-export Rhesis metrics
+from rhesis.sdk.metrics.providers.rhesis import (  # Re-export Rhesis metrics
     RhesisMetricBase,
     RhesisMetricFactory,
     RhesisPromptMetric,

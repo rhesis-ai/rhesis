@@ -249,7 +249,7 @@ def test_metric(
             print("\n📝 TEMPLATE ONLY MODE - Getting rendered template...")
             try:
                 if metric_config.backend == "rhesis":
-                    from rhesis.sdk.metrics.rhesis.factory import RhesisMetricFactory
+                    from rhesis.sdk.metrics.providers.rhesis import RhesisMetricFactory
 
                     factory = RhesisMetricFactory()
                     metric_params = {
@@ -290,7 +290,7 @@ def test_metric(
         if metric_config.backend == "rhesis":
             try:
                 # Create the metric instance to get the rendered template and raw results
-                from rhesis.sdk.metrics.rhesis.factory import RhesisMetricFactory
+                from rhesis.sdk.metrics.providers.rhesis import RhesisMetricFactory
 
                 factory = RhesisMetricFactory()
                 metric_params = {"threshold": metric_config.threshold, **metric_config.parameters}

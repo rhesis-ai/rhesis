@@ -65,7 +65,7 @@ class MetricFactory:
             return RagasMetricFactory()
 
         def get_rhesis_factory():
-            from .rhesis.factory import RhesisMetricFactory
+            from rhesis.sdk.metrics.providers.rhesis.factory import RhesisMetricFactory
 
             return RhesisMetricFactory()
 
@@ -108,7 +108,7 @@ class MetricFactory:
 
             return RagasMetricFactory().list_supported_metrics()
         elif framework == "rhesis":
-            from .rhesis.factory import RhesisMetricFactory
+            from rhesis.sdk.metrics.providers.rhesis.factory import RhesisMetricFactory
 
             return RhesisMetricFactory().list_supported_metrics()
         raise ValueError(f"Unsupported framework: {framework}")
