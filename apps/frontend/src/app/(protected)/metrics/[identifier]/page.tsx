@@ -64,6 +64,7 @@ export default function MetricDetailPage() {
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
   
   // Refs for uncontrolled text fields
@@ -256,6 +257,7 @@ export default function MetricDetailPage() {
   const handleConfirmEdit = React.useCallback(async () => {
     if (!session?.session_token || !metric) return;
 
+    setIsSaving(true);
     try {
       // Collect current field values without triggering re-renders
       const fieldValues = collectFieldValues();
@@ -285,8 +287,6 @@ export default function MetricDetailPage() {
         }
       });
 
-      console.log('Sending update data:', dataToSend);
-      
       const clientFactory = new ApiClientFactory(session.session_token);
       const metricsClient = clientFactory.getMetricsClient();
       await metricsClient.updateMetric(metric.id, dataToSend);
@@ -301,6 +301,8 @@ export default function MetricDetailPage() {
       console.error('Error updating metric:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update metric';
       notifications.show(errorMessage, { severity: 'error' });
+    } finally {
+      setIsSaving(false);
     }
   }, [session?.session_token, metric, collectFieldValues, editData, notifications]);
 
@@ -326,7 +328,8 @@ export default function MetricDetailPage() {
   isEditing,
   onEdit,
   onCancel,
-  onConfirm
+  onConfirm,
+  isSaving
 }: { 
   title: string;
   icon: React.ReactNode;
@@ -336,6 +339,7 @@ export default function MetricDetailPage() {
   onEdit: (section: EditableSectionType) => void;
   onCancel: () => void;
   onConfirm: () => void;
+  isSaving?: boolean;
 }) => {
 
   
@@ -374,6 +378,7 @@ export default function MetricDetailPage() {
               color="error"
               startIcon={<CancelIcon />}
               onClick={onCancel}
+              disabled={isSaving}
             >
               Cancel
             </Button>
@@ -382,8 +387,9 @@ export default function MetricDetailPage() {
               color="primary"
               startIcon={<CheckIcon />}
               onClick={onConfirm}
+              disabled={isSaving}
             >
-              Save Section
+              {isSaving ? 'Saving...' : 'Save Section'}
             </Button>
           </Box>
         </Box>
@@ -464,6 +470,7 @@ const settingsIcon = <SettingsIcon />;
               onEdit={handleEdit}
               onCancel={handleCancelEdit}
               onConfirm={handleConfirmEdit}
+              isSaving={isSaving}
             >
               <InfoRow label="Name">
                 {isEditing === 'general' ? (
@@ -519,6 +526,7 @@ const settingsIcon = <SettingsIcon />;
               onEdit={handleEdit}
               onCancel={handleCancelEdit}
               onConfirm={handleConfirmEdit}
+              isSaving={isSaving}
             >
               <InfoRow label="LLM Judge Model">
                 {isEditing === 'evaluation' ? (
@@ -701,6 +709,7 @@ const settingsIcon = <SettingsIcon />;
               onEdit={handleEdit}
               onCancel={handleCancelEdit}
               onConfirm={handleConfirmEdit}
+              isSaving={isSaving}
             >
               <InfoRow label="Score Type">
                 {isEditing === 'configuration' ? (
