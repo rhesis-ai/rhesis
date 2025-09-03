@@ -170,7 +170,7 @@ def example_future_database_config():
     """
     Example of how this could work with database configuration in the future.
     
-    You would modify the get_model_from_config function in factory.py
+    You would modify the get_model_from_config function in model_factory.py
     to read from your database instead of environment variables.
     """
     
