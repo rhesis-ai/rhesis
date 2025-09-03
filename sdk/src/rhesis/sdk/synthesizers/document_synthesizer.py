@@ -1,6 +1,7 @@
 """Simple document synthesizer for extracting text and creating chunks."""
 
-from typing import Any, List, Optional
+import random
+from typing import Any, List, Literal, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.services.context_generator import ContextGenerator
@@ -20,6 +21,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         batch_size: int = None,
         system_prompt: Optional[str] = None,
         max_context_tokens: int = 1000,
+        strategy: Literal["sequential", "random"] = "random",
         context_generator: Optional[ContextGenerator] = None,
     ):
         """
@@ -30,6 +32,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
             batch_size: Maximum number of tests to generate in a single LLM call
             system_prompt: Optional custom system prompt template to override the default
             max_context_tokens: Maximum tokens per context used by the ContextGenerator
+            strategy: Context selection strategy - "sequential" (from start) or "random" (shuffled)
             context_generator: ContextGenerator instance for creating context (uses default if None)
         """
         # Create PromptSynthesizer with the provided arguments (let it use its own defaults)
@@ -44,6 +47,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
         self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
         self.max_context_tokens = max_context_tokens
+        self.strategy = strategy
         self.document_extractor = DocumentExtractor()
 
     def _compute_tests_distribution(
@@ -109,6 +113,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         print(f"   • {len(documents)} document(s) processed")
         print(f"   • {total_tokens:,} total tokens extracted")
         print(f"   • {n} context(s) created (max {self.max_context_tokens} tokens each)")
+        print(f"   • Strategy: {self.strategy} context selection")
 
         print("\n🧪 Test Generation Plan:")
         if tests_per_context_param is not None:
@@ -213,6 +218,10 @@ class DocumentSynthesizer(TestSetSynthesizer):
         # Use the existing context_generator (returns all contexts based on token limits)
         contexts = self.context_generator.generate_contexts(content)
 
+        # Apply strategy: shuffle contexts if random strategy is selected
+        if self.strategy == "random":
+            random.shuffle(contexts)
+
         if not contexts:
             raise ValueError("No contexts could be generated from the documents")
 
@@ -249,14 +258,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
             # Update the prompt synthesizer's context
             self.prompt_synthesizer.context = context
 
-            # Generate tests for this context; override num_tests while keeping other kwargs
-            # Filter out DocumentSynthesizer-specific kwargs before passing to PromptSynthesizer
-            prompt_kwargs = {
-                k: v
-                for k, v in kwargs.items()
-                if k not in ("documents", "tests_per_context", "max_context_tokens")
-            }
-            result = self.prompt_synthesizer.generate(**{**prompt_kwargs, "num_tests": per_ctx})
+            result = self.prompt_synthesizer.generate(**{**kwargs, "num_tests": per_ctx})
 
             # Add context and document mapping to each test
             for test in result.tests:
