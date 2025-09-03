@@ -5,11 +5,10 @@ import {
   Box,
   Typography,
   IconButton,
-  Avatar,
   Link,
   Popover,
   Button,
-  TextareaAutosize,
+  TextField,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -20,6 +19,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
 import { DeleteCommentModal } from './DeleteCommentModal';
+import { UserAvatar } from '@/components/common/UserAvatar';
 
 interface CommentItemProps {
   comment: Comment;
@@ -124,18 +124,11 @@ export function CommentItem({
         alignItems: 'flex-start'
       }}>
         {/* User Avatar */}
-        <Avatar 
-          sx={{ 
-            width: 40, 
-            height: 40, 
-            bgcolor: 'primary.main',
-            flexShrink: 0
-          }}
-          src={comment.user?.picture}
-          alt={comment.user?.name || 'User'}
-        >
-          {comment.user?.name ? comment.user.name.charAt(0).toUpperCase() : 'U'}
-        </Avatar>
+        <UserAvatar 
+          userName={comment.user?.name}
+          userPicture={comment.user?.picture}
+          size={40}
+        />
 
         {/* Comment Content */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -150,22 +143,17 @@ export function CommentItem({
 
           {isEditing ? (
             <Box sx={{ mt: 1 }}>
-              <TextareaAutosize
+              <TextField
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
-                minRows={3}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  fontFamily: 'inherit',
-                  fontSize: '14px',
-                  resize: 'vertical',
-                  outline: 'none',
-                }}
+                multiline
+                rows={3}
+                fullWidth
+                variant="outlined"
+                size="small"
+                sx={{ mb: 1 }}
               />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                 <Button 
                   size="small" 
                   onClick={handleCancelEdit}

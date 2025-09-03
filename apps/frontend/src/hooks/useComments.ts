@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Comment, CreateCommentRequest, UpdateCommentRequest, EntityType } from '@/types/comments';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 interface UseCommentsProps {
   entityType: string;
@@ -15,6 +16,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const notifications = useNotifications();
 
   const fetchComments = useCallback(async () => {
     if (!sessionToken) {
@@ -34,6 +36,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     } catch (err) {
       setError('Failed to fetch comments');
       console.error('Error fetching comments:', err);
+      notifications.show('Failed to fetch comments', { severity: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +69,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       
       setComments(prev => [commentWithUser, ...prev]);
       
+      notifications.show('Comment posted successfully', { severity: 'success' });
       return commentWithUser;
     } catch (err) {
       console.error('Error creating comment:', err);
@@ -103,6 +107,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         )
       );
       
+      notifications.show('Comment updated successfully', { severity: 'success' });
       return commentWithUser;
     } catch (err) {
       console.error('Error editing comment:', err);
@@ -123,6 +128,8 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       setComments(prev => 
         prev.filter(comment => comment.id !== commentId)
       );
+      
+      notifications.show('Comment deleted successfully', { severity: 'success' });
     } catch (err) {
       console.error('Error deleting comment:', err);
       throw err;
@@ -174,7 +181,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error reacting to comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, notifications]);
 
   useEffect(() => {
     fetchComments();
