@@ -277,5 +277,8 @@ deepeval_telemetry.jsonl.gz.part
 .vscode/*
 !.vscode/settings.json
 
+# Exclude Pycharm settings
+.idea/
+
 # Playground
 playground/*
