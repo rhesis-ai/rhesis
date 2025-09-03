@@ -2,7 +2,7 @@
 
 from deepeval.models import DeepEvalBaseLLM
 
-from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 
 class DeepEvalModelWrapper(DeepEvalBaseLLM):
