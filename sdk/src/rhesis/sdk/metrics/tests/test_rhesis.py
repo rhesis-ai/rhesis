@@ -4,8 +4,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rhesis.sdk.metrics.base import MetricResult
-from rhesis.sdk.metrics.providers.native import RhesisPromptMetric
-from rhesis.sdk.metrics.providers.native import RhesisMetricBase, ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.providers.native import (
+    RhesisMetricBase,
+    RhesisPromptMetric,
+    ScoreType,
+    ThresholdOperator,
+)
 
 
 @pytest.fixture
