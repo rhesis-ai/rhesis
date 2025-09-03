@@ -6,7 +6,7 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalFaithfulness,
 )
-from rhesis.sdk.models.model_factory import get_model
+from rhesis.sdk.models.factory import get_model
 
 
 def deepeval_with_default_model():
@@ -72,6 +72,7 @@ def deepeval_with_gemini_model():
 
 
 if __name__ == "__main__":
+    from rhesis.sdk.models.factory import ModelConfig
     # print("DeepEval Metrics with Multiple Models - Examples")
     # print("=" * 50)
     # deepeval_with_default_model()
@@ -85,7 +86,9 @@ if __name__ == "__main__":
         "provider": "rhesis",
         "model_name": "gpt-4-turbo",
     }
-    model = get_model(model_config_from_database)
+    model_config_from_database = ModelConfig(**model_config_from_database)
+    print(model_config_from_database)
+    model = get_model(config=model_config_from_database)
 
     metric = DeepEvalFaithfulness(threshold=0.8, model=model)  # noqa: F841
     result = metric.evaluate(
