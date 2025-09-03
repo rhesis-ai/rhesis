@@ -264,6 +264,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
             for test in result.tests:
                 test["metadata"] = {
                     **(test.get("metadata") or {}),
+                    "generated_by": "DocumentSynthesizer",
                     "context_index": i,
                     "context_length": len(context),
                     "context": context,
