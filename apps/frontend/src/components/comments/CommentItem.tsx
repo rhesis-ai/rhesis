@@ -8,6 +8,8 @@ import {
   Avatar,
   Link,
   Popover,
+  Button,
+  TextareaAutosize,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -17,6 +19,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
+import { DeleteCommentModal } from './DeleteCommentModal';
 
 interface CommentItemProps {
   comment: Comment;
@@ -37,6 +40,8 @@ export function CommentItem({
   const [editText, setEditText] = useState(comment.content);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emojiAnchorEl, setEmojiAnchorEl] = useState<HTMLElement | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isOwner = comment.user_id === currentUserId;
   const canEdit = isOwner;
@@ -61,6 +66,26 @@ export function CommentItem({
     setIsEditing(false);
   };
 
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await onDelete(comment.id);
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+  };
+
   const handleEmojiClick = (emojiData: any) => {
     onReact(comment.id, emojiData.emoji);
     setEmojiAnchorEl(null);
@@ -75,7 +100,9 @@ export function CommentItem({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Backend sends timestamps without timezone info, so we need to treat them as UTC
+    // Add 'Z' suffix to ensure UTC parsing
+    const date = new Date(dateString + 'Z');
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
     
@@ -89,255 +116,234 @@ export function CommentItem({
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      gap: 2, 
-      mb: 3,
-      alignItems: 'flex-start'
-    }}>
-      {/* User Avatar */}
-      <Avatar 
-        sx={{ 
-          width: 40, 
-          height: 40, 
-          bgcolor: 'primary.main',
-          flexShrink: 0
-        }}
-      >
-        {comment.user?.name?.charAt(0)?.toUpperCase() || 'U'}
-      </Avatar>
+    <>
+      <Box sx={{ 
+        display: 'flex', 
+        gap: 2, 
+        mb: 3,
+        alignItems: 'flex-start'
+      }}>
+        {/* User Avatar */}
+        <Avatar 
+          sx={{ 
+            width: 40, 
+            height: 40, 
+            bgcolor: 'primary.main',
+            flexShrink: 0
+          }}
+        >
+          {comment.user?.name ? comment.user.name.charAt(0).toUpperCase() : 'U'}
+        </Avatar>
 
-      {/* Comment Content */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        {/* User Info and Timestamp */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <Typography 
-            variant="subtitle2" 
-            sx={{ 
-              fontWeight: 700,
-              color: 'text.primary'
-            }}
-          >
-            {comment.user?.name?.toUpperCase() || 'UNKNOWN USER'}
-          </Typography>
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              color: 'text.secondary',
-              fontSize: '0.75rem'
-            }}
-          >
-            {formatDate(comment.created_at)}
-          </Typography>
-        </Box>
+        {/* Comment Content */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2" fontWeight={600}>
+              {comment.user?.name || 'UNKNOWN USER'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {formatDate(comment.created_at)}
+            </Typography>
+          </Box>
 
-        {/* Comment Text */}
-        {isEditing ? (
-          <Box sx={{ mb: 2 }}>
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              style={{
-                width: '100%',
-                minHeight: '80px',
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '8px',
-                fontFamily: 'inherit',
-                fontSize: '14px',
-                resize: 'vertical',
-                outline: 'none'
-              }}
-              placeholder="Edit your comment..."
-            />
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <button
-                onClick={handleSaveEdit}
-                disabled={!editText.trim() || isSubmitting}
+          {isEditing ? (
+            <Box sx={{ mt: 1 }}>
+              <TextareaAutosize
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                minRows={3}
                 style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#1976d2',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px'
-                }}
-              >
-                {isSubmitting ? 'Saving...' : 'Save'}
-              </button>
-              <button
-                onClick={handleCancelEdit}
-                disabled={isSubmitting}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: 'transparent',
-                  color: '#666',
+                  width: '100%',
+                  padding: '8px 12px',
                   border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px'
+                  borderRadius: '8px',
+                  fontFamily: 'inherit',
+                  fontSize: '14px',
+                  resize: 'vertical',
+                  outline: 'none',
                 }}
-              >
-                Cancel
-              </button>
-            </Box>
-          </Box>
-        ) : (
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              mb: 2, 
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              color: 'text.primary'
-            }}
-          >
-            {comment.content}
-          </Typography>
-        )}
-
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {/* Quick Emoji Reactions */}
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {['👍', '❤️', '😊', '🎉'].map((emoji) => {
-              const hasReacted = comment.emojis?.[emoji]?.some(reaction => 
-                reaction.user_id === currentUserId
-              );
-              return (
-                <IconButton
-                  key={emoji}
-                  size="small"
-                  onClick={() => onReact(comment.id, emoji)}
-                  sx={{ 
-                    color: hasReacted ? 'primary.main' : 'text.secondary',
-                    backgroundColor: hasReacted ? 'primary.light' : 'transparent',
-                    '&:hover': { 
-                      backgroundColor: hasReacted ? 'primary.main' : 'rgba(0, 0, 0, 0.04)',
-                      color: hasReacted ? 'white' : 'primary.main'
-                    },
-                    fontSize: '16px',
-                    width: 32,
-                    height: 32
-                  }}
-                  title={hasReacted ? `Remove ${emoji} reaction` : `Add ${emoji} reaction`}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
+                <Button 
+                  size="small" 
+                  onClick={handleCancelEdit}
+                  sx={{ textTransform: 'none', borderRadius: '16px' }}
                 >
-                  {emoji}
-                </IconButton>
-              );
-            })}
-          </Box>
+                  Cancel
+                </Button>
+                <Button 
+                  size="small" 
+                  variant="contained" 
+                  onClick={handleSaveEdit} 
+                  disabled={isSubmitting || !editText.trim()}
+                  sx={{ textTransform: 'none', borderRadius: '16px' }}
+                >
+                  {isSubmitting ? 'Saving...' : 'Save'}
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                mt: 1, 
+                mb: 2, 
+                lineHeight: 1.6,
+                whiteSpace: 'pre-wrap',
+                color: 'text.primary'
+              }}
+            >
+              {comment.content}
+            </Typography>
+          )}
 
-          {/* Emoji Picker Button */}
-          <IconButton
-            size="small"
-            onClick={openEmojiPicker}
-            sx={{ 
-              color: 'text.secondary',
-              '&:hover': { color: 'primary.main' }
-            }}
-          >
-            <EmojiIcon fontSize="small" />
-          </IconButton>
+          {/* Action Buttons */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {/* Quick Emoji Reactions */}
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {['👍', '❤️', '😊', '🎉'].map((emoji) => {
+                const hasReacted = comment.emojis?.[emoji]?.some(reaction => 
+                  reaction.user_id === currentUserId
+                );
+                return (
+                  <IconButton
+                    key={emoji}
+                    size="small"
+                    onClick={() => onReact(comment.id, emoji)}
+                    sx={{ 
+                      color: hasReacted ? 'primary.main' : 'text.secondary',
+                      backgroundColor: hasReacted ? 'primary.light' : 'transparent',
+                      '&:hover': { 
+                        backgroundColor: hasReacted ? 'primary.main' : 'rgba(0, 0, 0, 0.04)',
+                        color: hasReacted ? 'white' : 'primary.main'
+                      },
+                      fontSize: '16px',
+                      width: 32,
+                      height: 32
+                    }}
+                    title={hasReacted ? `Remove ${emoji} reaction` : `Add ${emoji} reaction`}
+                  >
+                    {emoji}
+                  </IconButton>
+                );
+              })}
+            </Box>
 
-          {/* Edit/Delete Links (only for comment owner) */}
-          {canEdit && (
-            <Link
-              component="button"
-              variant="body2"
-              onClick={() => setIsEditing(true)}
+            {/* Emoji Picker Button */}
+            <IconButton
+              size="small"
+              onClick={openEmojiPicker}
               sx={{ 
                 color: 'text.secondary',
-                textDecoration: 'none',
-                fontSize: '12px',
-                fontWeight: 500,
                 '&:hover': { color: 'primary.main' }
               }}
             >
-              EDIT
-            </Link>
-          )}
-          
-          {canDelete && (
-            <Link
-              component="button"
-              variant="body2"
-              onClick={() => onDelete(comment.id)}
-              sx={{ 
-                color: 'text.secondary',
-                textDecoration: 'none',
-                fontSize: '12px',
-                fontWeight: 500,
-                '&:hover': { color: 'error.main' }
-              }}
-            >
-              DELETE
-            </Link>
+              <EmojiIcon fontSize="small" />
+            </IconButton>
+
+            {/* Edit/Delete Links (only for comment owner) */}
+            {canEdit && (
+              <Link
+                component="button"
+                variant="body2"
+                onClick={() => setIsEditing(true)}
+                sx={{ 
+                  color: 'text.secondary',
+                  textDecoration: 'none',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  '&:hover': { color: 'primary.main' }
+                }}
+              >
+                EDIT
+              </Link>
+            )}
+            
+            {canDelete && (
+              <Link
+                component="button"
+                variant="body2"
+                onClick={handleDeleteClick}
+                sx={{ 
+                  color: 'text.secondary',
+                  textDecoration: 'none',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  '&:hover': { color: 'error.main' }
+                }}
+              >
+                DELETE
+              </Link>
+            )}
+          </Box>
+
+          {/* Emoji Reactions Display */}
+          {Object.keys(comment.emojis || {}).length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+              {Object.entries(comment.emojis).map(([emoji, reactions]) => {
+                const hasReacted = reactions.some(reaction => 
+                  reaction.user_id === currentUserId
+                );
+                const reactionCount = reactions.length;
+                return (
+                  <Box
+                    key={emoji}
+                    onClick={() => onReact(comment.id, emoji)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      bgcolor: hasReacted ? 'primary.light' : 'background.default',
+                      color: hasReacted ? 'primary.main' : 'text.secondary',
+                      border: '1px solid',
+                      borderColor: hasReacted ? 'primary.main' : 'divider',
+                      borderRadius: '16px',
+                      px: 1,
+                      py: 0.5,
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: hasReacted ? 'primary.main' : 'action.hover',
+                        color: hasReacted ? 'white' : 'text.primary',
+                        borderColor: hasReacted ? 'primary.main' : 'text.primary'
+                      }
+                    }}
+                  >
+                    <Typography variant="caption">{emoji}</Typography>
+                    <Typography variant="caption" fontWeight={600}>
+                      {reactionCount}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Box>
           )}
         </Box>
 
-        {/* Emoji Reactions Display */}
-        {Object.keys(comment.emojis || {}).length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-            {Object.entries(comment.emojis).map(([emoji, reactions]) => {
-              const hasReacted = reactions.some(reaction => 
-                reaction.user_id === currentUserId
-              );
-              const reactionCount = reactions.length;
-              return (
-                <Box
-                  key={emoji}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    padding: '4px 8px',
-                    backgroundColor: hasReacted ? 'primary.light' : 'rgba(0, 0, 0, 0.04)',
-                    borderRadius: '16px',
-                    fontSize: '12px',
-                    color: hasReacted ? 'primary.contrastText' : 'text.secondary',
-                    border: hasReacted ? '1px solid' : 'none',
-                    borderColor: hasReacted ? 'primary.main' : 'transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      backgroundColor: hasReacted ? 'primary.main' : 'rgba(0, 0, 0, 0.08)',
-                      transform: 'scale(1.05)'
-                    }
-                  }}
-                  onClick={() => onReact(comment.id, emoji)}
-                  title={hasReacted ? `Remove ${emoji} reaction` : `Add ${emoji} reaction`}
-                >
-                  <span>{emoji}</span>
-                  <span>{reactionCount}</span>
-                </Box>
-              );
-            })}
-          </Box>
-        )}
+        {/* Emoji Picker Popover */}
+        <Popover
+          open={Boolean(emojiAnchorEl)}
+          anchorEl={emojiAnchorEl}
+          onClose={closeEmojiPicker}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+        >
+          <EmojiPicker onEmojiClick={handleEmojiClick} />
+        </Popover>
       </Box>
 
-      {/* Emoji Picker Popover */}
-      <Popover
-        open={Boolean(emojiAnchorEl)}
-        anchorEl={emojiAnchorEl}
-        onClose={closeEmojiPicker}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-      >
-        <EmojiPicker
-          onEmojiClick={handleEmojiClick}
-          width={300}
-          height={400}
-        />
-      </Popover>
-    </Box>
+      {/* Delete Confirmation Modal */}
+      <DeleteCommentModal
+        open={showDeleteModal}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+      />
+    </>
   );
 }

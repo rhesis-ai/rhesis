@@ -88,7 +88,7 @@ export function CommentsSection({
   }, [onReactToComment]);
 
   const sortedComments = [...comments].sort((a, b) => 
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
     return (
