@@ -6,8 +6,8 @@ backends:
     module: "rhesis.sdk.metrics.providers.deepeval"
     factory: "RagasMetricFactory"
   rhesis:
-    module: "rhesis.sdk.metrics.rhesis"
+    module: "rhesis.sdk.metrics.providers.native"
     factory: "RhesisMetricFactory"
   custom:
-    module: "rhesis.sdk.metrics.rhesis"
+    module: "rhesis.sdk.metrics.providers.native"
     factory: "RhesisMetricFactory"

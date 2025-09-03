@@ -17,7 +17,7 @@ A generic metric that evaluates outputs based on a custom prompt template. It us
 #### Usage:
 
 ```python
-from rhesis.sdk.metrics.providers.rhesis import RhesisPromptMetric
+from rhesis.sdk.metrics.providers.native import RhesisPromptMetric
 
 metric = RhesisPromptMetric(
     name="My Custom Metric",
@@ -48,7 +48,7 @@ print(f"Successful: {result.details['is_successful']}")
 The `RhesisMetricFactory` provides a way to create Rhesis metric instances by name:
 
 ```python
-from rhesis.sdk.metrics.providers.rhesis import RhesisMetricFactory
+from rhesis.sdk.metrics.providers.native import RhesisMetricFactory
 
 factory = RhesisMetricFactory()
 metric = factory.create(
@@ -79,7 +79,7 @@ python -m pytest src/rhesis/backend/metrics/tests/test_rhesis.py -v
 python -m pytest src/rhesis/backend/metrics/tests/test_rhesis.py::test_rhesis_prompt_metric_init -v
 
 # Run tests with coverage
-python -m pytest src/rhesis/backend/metrics/tests/test_rhesis.py --cov=rhesis.sdk.metrics.rhesis
+python -m pytest src/rhesis/backend/metrics/tests/test_rhesis.py --cov=rhesis.sdk.metrics.providers.native
 ```
 
 The test suite includes:
