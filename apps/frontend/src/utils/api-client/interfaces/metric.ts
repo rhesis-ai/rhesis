@@ -4,6 +4,8 @@ import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { Tag } from './tag';
 import { PaginationParams } from './pagination';
+import { Model } from './model';
+import { Organization } from './organization';
 
 export type ScoreType = 'binary' | 'numeric' | 'categorical';
 
@@ -97,7 +99,12 @@ export interface BehaviorReference {
 }
 
 export interface MetricDetail extends Metric {
+  nano_id?: string;
   behaviors?: BehaviorReference[] | string[]; // Allow both reference objects and UUID strings
+  model?: Model; // Include the full model object when available
+  user?: User; // Include the creating user
+  organization?: Organization; // Include the organization
+  comments?: any; // Comments data (can be null)
 }
 
 export interface MetricsResponse {
