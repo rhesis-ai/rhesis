@@ -3,9 +3,9 @@ from typing import List, Optional, Union
 from deepeval.test_case import LLMTestCase
 
 from rhesis.sdk.metrics.base import BaseMetric, MetricType
-from rhesis.sdk.metrics.deepeval.model import DeepEvalModelWrapper
+from rhesis.sdk.metrics.providers.deepeval.model import DeepEvalModelWrapper
 
-# from rhesis.sdk.metrics.deepeval.model_factory import get_model_from_config
+# from rhesis.sdk.metrics.providers.deepeval.model_factory import get_model_from_config
 from rhesis.sdk.models.base import BaseLLM
 
 

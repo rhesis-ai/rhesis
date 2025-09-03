@@ -1,6 +1,6 @@
 backends:
   deepeval:
-    module: "rhesis.sdk.metrics.deepeval"
+    module: "rhesis.sdk.metrics.providers.deepeval"
     factory: "DeepEvalMetricFactory"
   ragas:
     module: "rhesis.sdk.metrics.ragas"
