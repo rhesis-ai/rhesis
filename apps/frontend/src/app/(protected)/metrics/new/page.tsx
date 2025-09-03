@@ -82,6 +82,7 @@ export default function NewMetricPage() {
   const [formData, setFormData] = React.useState<MetricFormData>(initialFormData);
   const [models, setModels] = React.useState<Model[]>([]);
   const [isLoadingModels, setIsLoadingModels] = React.useState(true);
+  const [isCreating, setIsCreating] = React.useState(false);
 
   // Redirect if no type is selected
   React.useEffect(() => {
@@ -154,6 +155,8 @@ export default function NewMetricPage() {
       return;
     }
 
+    setIsCreating(true);
+
     try {
       console.log('Session:', session);
       if (!session?.session_token) {
@@ -217,6 +220,8 @@ export default function NewMetricPage() {
         error instanceof Error ? error.message : 'Failed to create metric', 
         { severity: 'error' }
       );
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -695,6 +700,7 @@ export default function NewMetricPage() {
                 startIcon={<ArrowBackIcon />}
                 onClick={activeStep === 0 ? () => router.push('/metrics') : handleBack}
                 type="button"
+                disabled={isCreating}
               >
                 {activeStep === 0 ? 'Cancel' : 'Back'}
               </Button>
@@ -704,8 +710,10 @@ export default function NewMetricPage() {
                   type="submit"
                   variant="contained"
                   color="primary"
+                  disabled={isCreating}
+                  startIcon={isCreating ? <CircularProgress size={20} /> : undefined}
                 >
-                  Create Metric
+                  {isCreating ? 'Creating...' : 'Create Metric'}
                 </Button>
               ) : (
                 <Button
