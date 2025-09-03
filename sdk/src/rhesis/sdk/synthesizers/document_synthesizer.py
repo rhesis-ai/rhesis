@@ -91,6 +91,78 @@ class DocumentSynthesizer(TestSetSynthesizer):
         )
         return coverage_percent, used_contexts
 
+    def _print_generation_info(
+        self,
+        documents: List[dict],
+        content: str,
+        contexts: List[str],
+        counts: List[int],
+        num_tests: int,
+        tests_per_context_param: Optional[int],
+    ) -> None:
+        """Print informative summary about document processing and test generation plan."""
+        total_tokens = count_tokens(content) or 0
+        actual_tests = sum(counts)
+        n = len(contexts)
+
+        print("\n📄 Document Analysis:")
+        print(f"   • {len(documents)} document(s) processed")
+        print(f"   • {total_tokens:,} total tokens extracted")
+        print(f"   • {n} context(s) created (max {self.max_context_tokens} tokens each)")
+
+        print("\n🧪 Test Generation Plan:")
+        if tests_per_context_param is not None:
+            ideal_total = tests_per_context_param * n
+
+            requested_msg = (
+                f"   • Requested: {tests_per_context_param} tests/context × "
+                f"{n} contexts = {ideal_total} tests"
+            )
+
+            if ideal_total > num_tests:
+                print(requested_msg)
+                print(f"   • ⚠️  Capped at num_tests limit: {actual_tests} tests will be generated")
+                print(
+                    "   • Effective tests per context: "
+                    f"~{actual_tests // n} (remainder distributed to first contexts)"
+                )
+            elif ideal_total < num_tests:
+                print(requested_msg)
+                print(
+                    f"   • ✅ Within num_tests limit ({num_tests}): generating {actual_tests} tests"
+                )
+            else:
+                print(
+                    f"   • Generating {tests_per_context_param} tests/context × "
+                    f"{n} contexts = {actual_tests} tests"
+                )
+        else:
+            print(f"   • Distributing {num_tests} tests evenly across {n} contexts")
+            print(
+                f"   • ~{num_tests // n} tests per context "
+                "(remainder distributed to first contexts)"
+            )
+
+        print(f"   • Total tests to generate: {actual_tests}")
+
+        # Warn if many contexts won't be used due to low num_tests
+        unused_contexts = sum(1 for count in counts if count == 0)
+        if unused_contexts > 0:
+            coverage_percent = ((n - unused_contexts) / n) * 100
+            print("\n⚠️  Coverage Warning:")
+            print(
+                f"   • Only {n - unused_contexts}/{n} contexts will be used "
+                f"({coverage_percent:.0f}% document coverage)"
+            )
+            print(f"   • {unused_contexts} context(s) skipped due to limited num_tests")
+            print(
+                "   • Consider: increase num_tests (>"
+                f"{actual_tests}) or increase max_context_tokens (>"
+                f"{self.max_context_tokens}) for fewer, larger contexts"
+            )
+
+        print()
+
     def extract_text_from_documents(self, documents: List[dict]) -> str:
         """
         Extract text from documents using the existing DocumentExtractor.
@@ -153,6 +225,16 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
         counts = self._compute_tests_distribution(
             num_contexts=n, num_tests=num_tests, tests_per_context=tests_per_context_param
+        )
+
+        # Inform user about test distribution
+        self._print_generation_info(
+            documents=documents,
+            content=content,
+            contexts=contexts,
+            counts=counts,
+            num_tests=num_tests,
+            tests_per_context_param=tests_per_context_param,
         )
 
         # Generate tests for each context
