@@ -30,7 +30,7 @@ class TestRunStatsMode(str, Enum):
     ALL = "all"
     STATUS = "status"
     RESULTS = "results"
-    TESTS = "tests"
+    TEST_SETS = "test_sets"
     EXECUTORS = "executors"
     TIMELINE = "timeline"
     SUMMARY = "summary"
@@ -85,7 +85,7 @@ def generate_test_run_stats(
     mode: TestRunStatsMode = Query(
         TestRunStatsMode.ALL,
         description="Data mode: 'summary' (lightweight), 'status' (status distribution), "
-        "'results' (result distribution), 'tests' (most run tests), "
+        "'results' (result distribution), 'test_sets' (most run test sets), "
         "'executors' (top executors), 'timeline' (trends), 'all' (complete)",
     ),
     top: Optional[int] = Query(
@@ -134,10 +134,10 @@ def generate_test_run_stats(
     - Contains: Pass/fail rates and counts for test runs
     - Use case: Success rate tracking, quality metrics
 
-    **`tests`** - Most run tests analysis (~20% of full data size)
-    - Returns: `most_run_tests` + `metadata`
+    **`test_sets`** - Most run test sets analysis (~20% of full data size)
+    - Returns: `most_run_test_sets` + `metadata`
     - Contains: Test sets ranked by execution frequency
-    - Use case: Popular test identification, usage analytics
+    - Use case: Popular test set identification, usage analytics
 
     **`executors`** - Top test executors (~20% of full data size)
     - Returns: `top_executors` + `metadata`
