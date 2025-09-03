@@ -11,7 +11,7 @@ from deepeval.metrics import (
 from rhesis.sdk.metrics.base import MetricResult, retry_evaluation
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.model_factory import get_model
+from rhesis.sdk.models.factory import get_model
 
 
 class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
