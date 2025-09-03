@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -123,9 +123,7 @@ class RhesisPromptMetric(RhesisMetricBase):
         self.additional_params = kwargs.copy()
 
         # Set up Jinja environment
-        templates_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
-        )
+        templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
         self.jinja_env = Environment(
             loader=FileSystemLoader(templates_dir),
             autoescape=select_autoescape(["html", "xml"]),
