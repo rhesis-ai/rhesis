@@ -1,7 +1,7 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.sdk.metrics.deepeval.metrics import (
+from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalContextualPrecision,
     DeepEvalContextualRecall,

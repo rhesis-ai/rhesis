@@ -55,7 +55,7 @@ class MetricFactory:
 
         # Lazy load factories to avoid circular imports
         def get_deepeval_factory():
-            from .deepeval.factory import DeepEvalMetricFactory
+            from rhesis.sdk.metrics.providers.deepeval import DeepEvalMetricFactory
 
             return DeepEvalMetricFactory()
 
@@ -100,7 +100,7 @@ class MetricFactory:
             List[str]: List of supported metric class names
         """
         if framework == "deepeval":
-            from .deepeval.factory import DeepEvalMetricFactory
+            from rhesis.sdk.metrics.providers.deepeval import DeepEvalMetricFactory
 
             return DeepEvalMetricFactory().list_supported_metrics()
         elif framework == "ragas":

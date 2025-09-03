@@ -2,7 +2,7 @@
 Examples of using metrics of different frameworks.
 """
 
-from rhesis.sdk.metrics.deepeval.metrics import (
+from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalFaithfulness,
 )
