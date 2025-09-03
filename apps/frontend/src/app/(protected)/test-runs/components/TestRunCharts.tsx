@@ -9,7 +9,7 @@ import {
   TestRunStatsTests, 
   TestRunStatsExecutors 
 } from '@/utils/api-client/interfaces/test-run-stats';
-import { Box, CircularProgress, Typography, Alert, Skeleton } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 // Fallback mock data in case the API fails
 const fallbackData = [
@@ -36,99 +36,60 @@ interface TestRunChartsProps {
   sessionToken: string;
 }
 
-// Individual chart state interfaces
-interface ChartState<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-}
-
 export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   const isMounted = useRef(false);
   
-  // Individual state for each chart
-  const [statusChart, setStatusChart] = useState<ChartState<TestRunStatsStatus>>({
-    data: null,
-    loading: false,
-    error: null
-  });
+  // Global loading state for all charts
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
-  const [resultChart, setResultChart] = useState<ChartState<TestRunStatsResults>>({
-    data: null,
-    loading: false,
-    error: null
-  });
-  
-  const [testChart, setTestChart] = useState<ChartState<TestRunStatsTests>>({
-    data: null,
-    loading: false,
-    error: null
-  });
-  
-  const [executorChart, setExecutorChart] = useState<ChartState<TestRunStatsExecutors>>({
-    data: null,
-    loading: false,
-    error: null
-  });
+  // Individual state for each chart (simplified - no individual loading/error states)
+  const [statusChart, setStatusChart] = useState<TestRunStatsStatus | null>(null);
+  const [resultChart, setResultChart] = useState<TestRunStatsResults | null>(null);
+  const [testChart, setTestChart] = useState<TestRunStatsTests | null>(null);
+  const [executorChart, setExecutorChart] = useState<TestRunStatsExecutors | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
 
-    // Helper function to create individual chart fetchers
-    const createChartFetcher = <T,>(
-      mode: 'status' | 'results' | 'test_sets' | 'executors',
-      setter: React.Dispatch<React.SetStateAction<ChartState<T>>>,
-      chartName: string
-    ) => async () => {
+    const fetchAllCharts = async () => {
       if (!sessionToken) return;
-      
+
       try {
-        setter(prev => ({ ...prev, loading: true, error: null }));
-        
+        setIsLoading(true);
+        setHasError(false);
+        setErrorMessage(null);
+
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
-        
-        const stats = await testRunsClient.getTestRunStats({
-          mode,
-          top: 5,  // Limit to top 5 items for charts
-          months: 6
-        });
-        
+
+        // Fetch all chart data in parallel
+        const [statusStats, resultStats, testStats, executorStats] = await Promise.all([
+          testRunsClient.getTestRunStats({ mode: 'status', top: 5, months: 6 }),
+          testRunsClient.getTestRunStats({ mode: 'results', top: 5, months: 6 }),
+          testRunsClient.getTestRunStats({ mode: 'test_sets', top: 5, months: 6 }),
+          testRunsClient.getTestRunStats({ mode: 'executors', top: 5, months: 6 })
+        ]);
+
         if (isMounted.current) {
-          setter(prev => ({ 
-            ...prev, 
-            data: stats as T, 
-            loading: false, 
-            error: null 
-          }));
+          setStatusChart(statusStats as TestRunStatsStatus);
+          setResultChart(resultStats as TestRunStatsResults);
+          setTestChart(testStats as TestRunStatsTests);
+          setExecutorChart(executorStats as TestRunStatsExecutors);
+          setIsLoading(false);
         }
       } catch (err) {
-        console.error(`Error fetching ${chartName} stats:`, err);
+        console.error('Error fetching chart stats:', err);
         if (isMounted.current) {
-          setter(prev => ({ 
-            ...prev, 
-            loading: false, 
-            error: `Failed to load ${chartName} data` 
-          }));
+          setIsLoading(false);
+          setHasError(true);
+          setErrorMessage('Failed to load chart data');
         }
       }
     };
 
-    // Create individual fetchers for each chart
-    const fetchStatusStats = createChartFetcher('status', setStatusChart, 'status');
-    const fetchResultStats = createChartFetcher('results', setResultChart, 'results');
-    const fetchTestStats = createChartFetcher('test_sets', setTestChart, 'test sets');
-    const fetchExecutorStats = createChartFetcher('executors', setExecutorChart, 'executor');
-
-    // Fetch all charts in parallel for maximum speed
-    Promise.all([
-      fetchStatusStats(),
-      fetchResultStats(),
-      fetchTestStats(),
-      fetchExecutorStats()
-    ]).catch(err => {
-      console.error('Error in parallel chart fetching:', err);
-    });
+    fetchAllCharts();
 
     return () => {
       isMounted.current = false;
@@ -137,9 +98,9 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
 
   // Generate chart data from individual chart states
   const generateStatusData = () => {
-    if (!statusChart.data) return fallbackData;
+    if (!statusChart) return fallbackData;
     
-    return statusChart.data.status_distribution
+    return statusChart.status_distribution
       .slice(0, CHART_CONFIG.status.top)
       .map((item) => ({
         name: truncateName(item.status),
@@ -149,9 +110,9 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   };
 
   const generateResultData = () => {
-    if (!resultChart.data) return fallbackData;
+    if (!resultChart) return fallbackData;
     
-    const { result_distribution } = resultChart.data;
+    const { result_distribution } = resultChart;
     return [
       { name: 'Passed', value: result_distribution.passed, fullName: 'Passed' },
       { name: 'Failed', value: result_distribution.failed, fullName: 'Failed' },
@@ -160,9 +121,9 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   };
 
   const generateTestData = () => {
-    if (!testChart.data) return fallbackData;
+    if (!testChart) return fallbackData;
     
-    return testChart.data.most_run_test_sets
+    return testChart.most_run_test_sets
       .slice(0, CHART_CONFIG.test.top)
       .map((item) => ({
         name: truncateName(item.test_set_name),
@@ -172,9 +133,9 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   };
 
   const generateExecutorData = () => {
-    if (!executorChart.data) return fallbackData;
+    if (!executorChart) return fallbackData;
     
-    return executorChart.data.top_executors
+    return executorChart.top_executors
       .slice(0, CHART_CONFIG.executor.top)
       .map((item) => ({
         name: truncateName(item.executor_name),
@@ -183,102 +144,53 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
       }));
   };
 
-  // Component for individual chart with loading/error states
-  const ChartWithState = ({ 
-    chartState, 
-    title, 
-    dataGenerator 
-  }: { 
-    chartState: ChartState<any>, 
-    title: string, 
-    dataGenerator: () => any[] 
-  }) => {
-    if (chartState.loading) {
-      return (
-        <Box sx={{ 
-          height: 300, 
-          display: 'flex', 
-          flexDirection: 'column',
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          p: 2
-        }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>{title}</Typography>
-          <Box sx={{ 
-            flex: 1, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center' 
-          }}>
-            <CircularProgress size={40} />
-          </Box>
-        </Box>
-      );
-    }
-
-    if (chartState.error) {
-      return (
-        <Box sx={{ 
-          height: 300, 
-          display: 'flex', 
-          flexDirection: 'column',
-          border: '1px solid',
-          borderColor: 'error.main',
-          borderRadius: 1,
-          p: 2,
-          bgcolor: 'error.light',
-          opacity: 0.1
-        }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>{title}</Typography>
-          <Box sx={{ 
-            flex: 1, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center' 
-          }}>
-            <Typography color="error" variant="body2" align="center">
-              {chartState.error}
-            </Typography>
-          </Box>
-        </Box>
-      );
-    }
-
+  // Show single loading spinner for all charts (matching test-sets style)
+  if (isLoading) {
     return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show error state for all charts (matching test-sets style)
+  if (hasError) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography color="error">{errorMessage || 'Failed to load chart data'}</Typography>
+      </Box>
+    );
+  }
+
+  // Show all charts when loaded
+  return (
+    <BaseChartsGrid>
       <BasePieChart
-        title={title}
-        data={dataGenerator()}
+        title={CHART_CONFIG.status.title}
+        data={generateStatusData()}
         useThemeColors={true}
         colorPalette="pie"
       />
-    );
-  };
-
-  return (
-    <BaseChartsGrid>
-      <ChartWithState
-        chartState={statusChart}
-        title={CHART_CONFIG.status.title}
-        dataGenerator={generateStatusData}
-      />
       
-      <ChartWithState
-        chartState={resultChart}
+      <BasePieChart
         title={CHART_CONFIG.result.title}
-        dataGenerator={generateResultData}
+        data={generateResultData()}
+        useThemeColors={true}
+        colorPalette="pie"
       />
       
-      <ChartWithState
-        chartState={testChart}
+      <BasePieChart
         title={CHART_CONFIG.test.title}
-        dataGenerator={generateTestData}
+        data={generateTestData()}
+        useThemeColors={true}
+        colorPalette="pie"
       />
       
-      <ChartWithState
-        chartState={executorChart}
+      <BasePieChart
         title={CHART_CONFIG.executor.title}
-        dataGenerator={generateExecutorData}
+        data={generateExecutorData()}
+        useThemeColors={true}
+        colorPalette="pie"
       />
     </BaseChartsGrid>
   );

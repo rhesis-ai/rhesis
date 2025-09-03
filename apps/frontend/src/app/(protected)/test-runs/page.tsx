@@ -55,6 +55,7 @@ export default function TestRunsPage() {
           <TestRunsGrid 
             sessionToken={session.session_token}
             onRefresh={handleRefresh}
+            key={`grid-${refreshKey}`}
           />
         </Box>
       </Paper>
