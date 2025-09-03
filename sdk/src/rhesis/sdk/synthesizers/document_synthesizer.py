@@ -8,6 +8,7 @@ from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
+from rhesis.sdk.utils import count_tokens
 
 
 class DocumentSynthesizer(TestSetSynthesizer):
@@ -17,7 +18,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         self,
         prompt_synthesizer: PromptSynthesizer,
         context_generator: Optional[ContextGenerator] = None,
-        max_context_tokens: int = 1000,  # Use tokens instead of characters
+        max_context_tokens: int = 1000,
         separator: str = "\n\n",
     ):
         """
@@ -35,6 +36,51 @@ class DocumentSynthesizer(TestSetSynthesizer):
         self.max_context_tokens = max_context_tokens
         self.separator = separator
         self.document_extractor = DocumentExtractor()
+
+    def _compute_tests_distribution(
+        self,
+        num_contexts: int,
+        num_tests: int,
+        tests_per_context: Optional[int],
+    ) -> List[int]:
+        """Compute how many tests to generate per context without exceeding num_tests."""
+        if num_contexts <= 0:
+            return []
+
+        if tests_per_context is not None:
+            max_total = tests_per_context * num_contexts
+            budget = min(num_tests, max_total)
+            effective = min(tests_per_context, budget // num_contexts)
+            counts = [effective] * num_contexts
+            used = effective * num_contexts
+            remainder = max(0, budget - used)
+            for i in range(min(remainder, num_contexts)):
+                counts[i] += 1
+            return counts
+
+        base = num_tests // num_contexts
+        remainder = num_tests % num_contexts
+        return [base + (1 if i < remainder else 0) for i in range(num_contexts)]
+
+    def _compute_coverage(
+        self, content: str, contexts: List[str], counts: List[int]
+    ) -> tuple[float, int]:
+        """Compute coverage percent and number of used contexts based on token counts."""
+        total_tokens = count_tokens(content) or 0
+        if total_tokens <= 0:
+            return 0.0, 0
+
+        used_context_tokens = 0
+        used_contexts = 0
+        for i, ctx in enumerate(contexts):
+            if i < len(counts) and counts[i] > 0:
+                used_context_tokens += count_tokens(ctx) or 0
+                used_contexts += 1
+
+        coverage_percent = (
+            round((used_context_tokens / total_tokens) * 100, 2) if total_tokens else 0.0
+        )
+        return coverage_percent, used_contexts
 
     def extract_text_from_documents(self, documents: List[dict]) -> str:
         """
@@ -72,7 +118,8 @@ class DocumentSynthesizer(TestSetSynthesizer):
             TestSet: Generated synthetic data from the complete pipeline
         """
         documents = kwargs.get("documents", [])
-        num_tests = kwargs.get("num_tests", 5)  # Default to 5 tests
+        num_tests = kwargs.get("num_tests", 5)  # Total desired tests
+        tests_per_context_param = kwargs.get("tests_per_context", None)
 
         # Extract content from documents
         content = self.extract_text_from_documents(documents)
@@ -80,16 +127,28 @@ class DocumentSynthesizer(TestSetSynthesizer):
         # Get document names for mapping
         document_names = [doc["name"] for doc in documents]
 
-        # Use the existing context_generator
-        contexts = self.context_generator.generate_contexts(content, num_tests)
+        # Use the existing context_generator (returns all contexts based on token limits)
+        contexts = self.context_generator.generate_contexts(content)
 
         if not contexts:
             raise ValueError("No contexts could be generated from the documents")
 
         all_test_cases = []
 
+        # Compute distribution of tests across contexts
+        n = len(contexts)
+        if n <= 0:
+            raise ValueError("No contexts available for test generation")
+
+        counts = self._compute_tests_distribution(
+            num_contexts=n, num_tests=num_tests, tests_per_context=tests_per_context_param
+        )
+
         # Generate tests for each context
         for i, context in enumerate(contexts):
+            per_ctx = counts[i]
+            if per_ctx <= 0:
+                continue
             print(
                 f"Generating tests for context {i + 1}/{len(contexts)} ({len(context)} characters)"
             )
@@ -97,11 +156,8 @@ class DocumentSynthesizer(TestSetSynthesizer):
             # Update the prompt synthesizer's context
             self.prompt_synthesizer.context = context
 
-            # Calculate tests per context
-            tests_per_context = max(1, num_tests // len(contexts))
-
             # Generate tests for this context; override num_tests while keeping other kwargs
-            result = self.prompt_synthesizer.generate(**{**kwargs, "num_tests": tests_per_context})
+            result = self.prompt_synthesizer.generate(**{**kwargs, "num_tests": per_ctx})
 
             # Add context and document mapping to each test
             for test in result.tests:
@@ -115,6 +171,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
             all_test_cases.extend(result.tests)
 
+        # Compute coverage of document based on tokens for used contexts
+        coverage_percent, used_contexts = self._compute_coverage(content, contexts, counts)
+
         # Use the same approach as PromptSynthesizer
         return create_test_set(
             all_test_cases,
@@ -124,4 +183,8 @@ class DocumentSynthesizer(TestSetSynthesizer):
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
             documents_used=document_names,
+            coverage_percent=coverage_percent,
+            contexts_total=len(contexts),
+            contexts_used=used_contexts,
+            tests_per_context=tests_per_context_param,
         )
