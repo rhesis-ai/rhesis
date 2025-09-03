@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 from pydantic import BaseModel
-from rhesis.sdk.models.providers import (
+from rhesis.sdk.models.providers.native import (
     DEFAULT_MODEL_NAME,
     RhesisLLM,
 )
@@ -38,9 +38,7 @@ class TestRhesisLLM:
     @pytest.fixture
     def mock_client(self):
         """Mock Client class."""
-        with patch(
-            "rhesis.sdk.models.providers.rhesis_provider.Client"
-        ) as mock_client_class:
+        with patch("rhesis.sdk.models.providers.native.Client") as mock_client_class:
             mock_client = Mock()
             mock_client.api_key = "test_api_key"
             mock_client.get_url.return_value = (

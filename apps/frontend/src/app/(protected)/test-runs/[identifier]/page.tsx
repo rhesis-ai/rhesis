@@ -7,6 +7,7 @@ import TestRunDetailCharts from './components/TestRunDetailCharts';
 import TestRunTestsGrid from './components/TestRunTestsGrid';
 import TestRunDetailsSection from './components/TestRunDetailsSection';
 import TestRunWorkflowSection from './components/TestRunWorkflowSection';
+import CommentsWrapper from '@/components/comments/CommentsWrapper';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -52,7 +53,7 @@ export default async function TestRunPage({ params }: { params: any }) {
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;
   
-  const session = await auth() as { session_token: string } | null;
+  const session = await auth();
   
   // If no session (like during warmup), redirect to login
   if (!session?.session_token) {
@@ -94,6 +95,18 @@ export default async function TestRunPage({ params }: { params: any }) {
               <TestRunTestsGrid
                 testRunId={identifier}
                 sessionToken={session.session_token}
+              />
+            </Paper>
+
+            {/* Comments Section */}
+            <Paper sx={{ p: 3, mb: 4 }}>
+                            <CommentsWrapper
+                entityType="TestRun"
+                entityId={testRun.id}
+                sessionToken={session.session_token}
+                currentUserId={session.user?.id || ''}
+                currentUserName={session.user?.name || ''}
+                currentUserPicture={session.user?.picture || undefined}
               />
             </Paper>
           </Grid>

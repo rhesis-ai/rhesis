@@ -7,7 +7,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
@@ -98,14 +98,26 @@ interface MetricsClientProps {
 
 export default function MetricsClientComponent({ sessionToken, organizationId }: MetricsClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const notifications = useNotifications();
-  const [value, setValue] = React.useState(0);
+  
+  // Initialize tab value from URL parameter
+  const initialTab = React.useMemo(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'selected') return 1;
+    return 0; // Default to Metrics Directory
+  }, [searchParams]);
+  
+  const [value, setValue] = React.useState(initialTab);
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>([]);
   const [behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<BehaviorWithMetrics[]>([]);
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  
+  // Separate loading states for each tab
+  const [isLoadingSelectedMetrics, setIsLoadingSelectedMetrics] = React.useState(true);
+  const [isLoadingMetricsDirectory, setIsLoadingMetricsDirectory] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Filter state
@@ -148,32 +160,37 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
       
       try {
         console.log('📊 [DEBUG] Setting loading state and clearing errors');
-        setIsLoading(true);
+        setIsLoadingSelectedMetrics(true);
+        setIsLoadingMetricsDirectory(true);
         setError(null);
 
         console.log('🔧 [DEBUG] Creating API clients with session token:', !!sessionToken);
         const behaviorClient = new BehaviorClient(sessionToken);
+        const metricsClient = new MetricsClient(sessionToken);
 
-        console.log('📡 [DEBUG] Fetching behaviors with metrics (includes type relationships)...');
-        const behaviorsWithMetricsData = await behaviorClient.getBehaviorsWithMetrics({
-          skip: 0,
-          limit: 50,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-        });
+        console.log('📡 [DEBUG] Fetching behaviors with metrics and all metrics...');
+        const [behaviorsWithMetricsData, allMetricsData] = await Promise.all([
+          behaviorClient.getBehaviorsWithMetrics({
+            skip: 0,
+            limit: 100,
+            sort_by: 'created_at',
+            sort_order: 'desc'
+          }),
+          metricsClient.getMetrics({
+            skip: 0,
+            limit: 100,
+            sort_by: 'created_at',
+            sort_order: 'desc'
+          })
+        ]);
 
         console.log('📊 [DEBUG] API calls completed. Processing data...');
 
-        // Extract behaviors and metrics from the optimized response
+        // Extract behaviors from the optimized response
         const behaviorsData = behaviorsWithMetricsData;
-        const allMetrics = behaviorsWithMetricsData.flatMap(behavior => behavior.metrics || []);
         
-        // Remove duplicate metrics by creating a Map keyed by metric ID
-        const uniqueMetricsMap = new Map();
-        allMetrics.forEach(metric => {
-          uniqueMetricsMap.set(metric.id, metric);
-        });
-        const metricsData = Array.from(uniqueMetricsMap.values());
+        // Use all metrics from the dedicated metrics endpoint
+        const metricsData = allMetricsData.data || [];
 
         // Add behavior IDs to each metric for compatibility
         const metricsWithBehaviors = metricsData.map(metric => {
@@ -252,12 +269,13 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
         });
       } finally {
         console.log('🏁 [DEBUG] Setting loading to false');
-        setIsLoading(false);
+        setIsLoadingSelectedMetrics(false);
+        setIsLoadingMetricsDirectory(false);
       }
     };
 
     fetchData();
-  }, [sessionToken, refreshKey]); // Depend on sessionToken and refreshKey for manual refresh
+  }, [sessionToken, refreshKey, notifications]);
   
   // Debug log for useEffect triggers
   React.useEffect(() => {
@@ -271,6 +289,14 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
+    // Update URL to reflect tab change
+    const params = new URLSearchParams(searchParams.toString());
+    if (newValue === 1) {
+      params.set('tab', 'selected');
+    } else {
+      params.delete('tab');
+    }
+    router.replace(`/metrics?${params.toString()}`, { scroll: false });
   };
 
   // Refresh data function - trigger re-render by updating a key
@@ -291,15 +317,15 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
             aria-label="metrics tabs"
           >
             <Tab 
-              icon={<ChecklistIcon />} 
-              iconPosition="start" 
-              label="Selected Metrics" 
-              {...a11yProps(0)} 
-            />
-            <Tab 
               icon={<ViewQuiltIcon />} 
               iconPosition="start" 
               label="Metrics Directory" 
+              {...a11yProps(0)} 
+            />
+            <Tab 
+              icon={<ChecklistIcon />} 
+              iconPosition="start" 
+              label="Selected Metrics" 
               {...a11yProps(1)} 
             />
           </Tabs>
@@ -307,22 +333,6 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
 
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           <CustomTabPanel value={value} index={0}>
-            <SelectedMetricsTab
-              sessionToken={sessionToken}
-              organizationId={organizationId}
-              behaviorsWithMetrics={behaviorsWithMetrics}
-              behaviorMetrics={behaviorMetrics}
-              isLoading={isLoading}
-              error={error}
-              onRefresh={handleRefresh}
-              setBehaviors={setBehaviors}
-              setBehaviorsWithMetrics={setBehaviorsWithMetrics}
-              setBehaviorMetrics={setBehaviorMetrics}
-              onTabChange={() => setValue(1)} // Switch to Metrics Directory tab
-            />
-          </CustomTabPanel>
-
-          <CustomTabPanel value={value} index={1}>
             <MetricsDirectoryTab
               sessionToken={sessionToken}
               organizationId={organizationId}
@@ -330,14 +340,30 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
               metrics={metrics}
               filters={filters}
               filterOptions={filterOptions}
-              isLoading={isLoading}
+              isLoading={isLoadingMetricsDirectory}
               error={error}
               onRefresh={handleRefresh}
               setFilters={setFilters}
               setMetrics={setMetrics}
               setBehaviorMetrics={setBehaviorMetrics}
               setBehaviorsWithMetrics={setBehaviorsWithMetrics}
-              onTabChange={() => setValue(0)} // Function to switch to Selected Metrics tab
+              onTabChange={() => setValue(1)} // Function to switch to Selected Metrics tab
+            />
+          </CustomTabPanel>
+
+          <CustomTabPanel value={value} index={1}>
+            <SelectedMetricsTab
+              sessionToken={sessionToken}
+              organizationId={organizationId}
+              behaviorsWithMetrics={behaviorsWithMetrics}
+              behaviorMetrics={behaviorMetrics}
+              isLoading={isLoadingSelectedMetrics}
+              error={error}
+              onRefresh={handleRefresh}
+              setBehaviors={setBehaviors}
+              setBehaviorsWithMetrics={setBehaviorsWithMetrics}
+              setBehaviorMetrics={setBehaviorMetrics}
+              onTabChange={() => setValue(0)} // Switch to Metrics Directory tab
             />
           </CustomTabPanel>
         </Box>
