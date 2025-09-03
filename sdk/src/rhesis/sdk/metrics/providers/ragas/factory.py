@@ -1,7 +1,7 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.sdk.metrics.ragas.metrics import RagasAnswerRelevancy, RagasContextualPrecision
+from rhesis.sdk.metrics.providers.ragas.metrics import RagasAnswerRelevancy, RagasContextualPrecision
 
 
 class RagasMetricFactory(BaseMetricFactory):

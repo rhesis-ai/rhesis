@@ -60,7 +60,7 @@ class MetricFactory:
             return DeepEvalMetricFactory()
 
         def get_ragas_factory():
-            from .ragas.factory import RagasMetricFactory
+            from rhesis.sdk.metrics.providers.ragas import RagasMetricFactory
 
             return RagasMetricFactory()
 
@@ -104,7 +104,7 @@ class MetricFactory:
 
             return DeepEvalMetricFactory().list_supported_metrics()
         elif framework == "ragas":
-            from .ragas.factory import RagasMetricFactory
+            from rhesis.sdk.metrics.providers.ragas import RagasMetricFactory
 
             return RagasMetricFactory().list_supported_metrics()
         elif framework == "rhesis":

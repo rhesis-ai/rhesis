@@ -16,7 +16,7 @@ from .factory import MetricFactory
 #     DeepEvalContextualPrecision,
 #     DeepEvalContextualRecall,
 # )
-from .ragas import (  # Re-export Ragas metrics
+from rhesis.sdk.metrics.providers.ragas import (  # Re-export Ragas metrics
     RagasAnswerRelevancy,
     RagasContextualPrecision,
     RagasMetricBase,
