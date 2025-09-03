@@ -16,25 +16,34 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
     def __init__(
         self,
-        prompt_synthesizer: PromptSynthesizer,
-        context_generator: Optional[ContextGenerator] = None,
+        prompt: str,
+        batch_size: int = None,
+        system_prompt: Optional[str] = None,
         max_context_tokens: int = 1000,
-        separator: str = "\n\n",
+        context_generator: Optional[ContextGenerator] = None,
     ):
         """
         Initialize the document synthesizer.
 
         Args:
-            prompt_synthesizer: PromptSynthesizer instance to use for generating synthetic data
+            prompt: The generation prompt to use for test case generation
+            batch_size: Maximum number of tests to generate in a single LLM call
+            system_prompt: Optional custom system prompt template to override the default
+            max_context_tokens: Maximum tokens per context used by the ContextGenerator
             context_generator: ContextGenerator instance for creating context (uses default if None)
-            max_context_tokens: Maximum tokens per context
-            separator: String to use when joining chunks (legacy, not used in new approach)
         """
-        super().__init__()
-        self.prompt_synthesizer = prompt_synthesizer
+        # Create PromptSynthesizer with the provided arguments (let it use its own defaults)
+        prompt_kwargs = {"prompt": prompt, "context": ""}
+        if batch_size is not None:
+            prompt_kwargs["batch_size"] = batch_size
+        if system_prompt is not None:
+            prompt_kwargs["system_prompt"] = system_prompt
+
+        self.prompt_synthesizer = PromptSynthesizer(**prompt_kwargs)
+        super().__init__(batch_size=self.prompt_synthesizer.batch_size)
+
         self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
         self.max_context_tokens = max_context_tokens
-        self.separator = separator
         self.document_extractor = DocumentExtractor()
 
     def _compute_tests_distribution(
@@ -94,12 +103,12 @@ class DocumentSynthesizer(TestSetSynthesizer):
                 - 'content': Raw text content of the document. Overrides 'path' if both are given.
 
         Returns:
-            Combined text from all documents
+            Combined text from all documents, joined by a double newline ("\n\n").
         """
         try:
             extracted_texts = self.document_extractor.extract(documents)
-            # Join all extracted texts with separator
-            return self.separator.join(extracted_texts.values())
+            # Join all extracted texts with a double newline
+            return "\n\n".join(extracted_texts.values())
         except Exception as e:
             print(f"Warning: Failed to extract some documents: {e}")
             return ""
@@ -111,11 +120,13 @@ class DocumentSynthesizer(TestSetSynthesizer):
         Args:
             **kwargs: Keyword arguments including:
                 - documents: List of document dictionaries
-                - num_tests: Number of tests to generate
+                - num_tests: Total number of tests to generate (hard budget)
+                - tests_per_context (optional): Target tests per context.
+                    Generates tests_per_context * num_contexts total, never exceeding num_tests.
                 - Any other arguments to pass to PromptSynthesizer.generate()
 
         Returns:
-            TestSet: Generated synthetic data from the complete pipeline
+            TestSet: Generated tests with per-test context metadata and overall coverage info
         """
         documents = kwargs.get("documents", [])
         num_tests = kwargs.get("num_tests", 5)  # Total desired tests
@@ -157,7 +168,13 @@ class DocumentSynthesizer(TestSetSynthesizer):
             self.prompt_synthesizer.context = context
 
             # Generate tests for this context; override num_tests while keeping other kwargs
-            result = self.prompt_synthesizer.generate(**{**kwargs, "num_tests": per_ctx})
+            # Filter out DocumentSynthesizer-specific kwargs before passing to PromptSynthesizer
+            prompt_kwargs = {
+                k: v
+                for k, v in kwargs.items()
+                if k not in ("documents", "tests_per_context", "max_context_tokens")
+            }
+            result = self.prompt_synthesizer.generate(**{**prompt_kwargs, "num_tests": per_ctx})
 
             # Add context and document mapping to each test
             for test in result.tests:
