@@ -109,8 +109,8 @@ export default function BaseWorkflowSection({
   useEffect(() => {
     if (statusesLoaded) return;
 
-    // Use preloaded statuses if available
-    if (preloadedStatuses) {
+    // Use preloaded statuses if available and not empty
+    if (preloadedStatuses && preloadedStatuses.length > 0) {
       setStatuses(preloadedStatuses);
       setStatusesLoaded(true);
       return;
@@ -144,8 +144,8 @@ export default function BaseWorkflowSection({
   useEffect(() => {
     if (usersLoaded) return;
 
-    // Use preloaded users if available
-    if (preloadedUsers) {
+    // Use preloaded users if available and not empty
+    if (preloadedUsers && preloadedUsers.length > 0) {
       const transformedUsers = preloadedUsers
         .filter(user => user.is_active) // Only show active users
         .map(user => ({

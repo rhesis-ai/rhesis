@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Box, Stack, Paper, Typography, Button, TextField, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
@@ -22,6 +22,8 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import React from 'react';
+import { Status } from '@/utils/api-client/interfaces/status';
+import { User } from '@/utils/api-client/interfaces/user';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -39,6 +41,11 @@ interface EditData {
   explanation?: string;
 }
 
+interface StepWithId {
+  id: string;
+  content: string;
+}
+
 interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -54,138 +61,217 @@ export default function MetricDetailPage() {
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [editData, setEditData] = useState<Partial<EditData>>({});
   const [models, setModels] = useState<Model[]>([]);
+  const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const dataFetchedRef = useRef(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!session?.session_token) return;
+      if (!session?.session_token || dataFetchedRef.current) return;
+      
+      dataFetchedRef.current = true;
       
       try {
         const clientFactory = new ApiClientFactory(session.session_token);
         const metricsClient = clientFactory.getMetricsClient();
+        const statusClient = clientFactory.getStatusClient();
+        const usersClient = clientFactory.getUsersClient();
         
-        // Only fetch metric data - model data is included in the response
-        const metricData = await metricsClient.getMetric(identifier as UUID);
+        // Fetch all data in parallel
+        const [metricData, statusesData, usersData] = await Promise.all([
+          metricsClient.getMetric(identifier as UUID),
+          statusClient.getStatuses({ entity_type: 'Metric', sort_by: 'name', sort_order: 'asc' }),
+          usersClient.getUsers({ limit: 100 })
+        ]);
         
         setMetric(metricData);
+        setStatuses(statusesData || []);
+        setUsers(usersData.data || []);
         
-        // If we need models for editing, fetch them only when entering edit mode
-        // For display, we use the model data included in the metric response
+        // Model data is already included in the metric response
+        if (metricData.model) {
+          setModels([metricData.model]);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
-        notifications.show('Failed to load metric details', { severity: 'error' });
+        // Use notifications without depending on it
+        const notificationsContext = notifications;
+        notificationsContext.show('Failed to load metric details', { severity: 'error' });
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [identifier, session?.session_token, notifications]);
+  }, [identifier, session?.session_token]); // Remove notifications dependency
 
-  const handleTagsChange = async (newTags: string[]) => {
-    if (!session?.session_token || !metric) return;
+  const handleTagsChange = React.useCallback(async (newTags: string[]) => {
+    if (!session?.session_token) return;
 
-    try {
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const metricsClient = clientFactory.getMetricsClient();
-      const updatedMetric = await metricsClient.getMetric(metric.id);
-      setMetric(updatedMetric);
-    } catch (error) {
-      console.error('Error refreshing metric:', error);
-      notifications.show('Failed to refresh metric data', { severity: 'error' });
-    }
-  };
-
-  const handleEdit = async (section: EditableSectionType) => {
-    setIsEditing(section);
-    let sectionData: Partial<EditData> = {};
-
-    if (section === 'general') {
-      sectionData = {
-        name: metric?.name || '',
-        description: metric?.description || ''
-      };
-    } else if (section === 'evaluation') {
-      sectionData = {
-        model_id: metric?.model_id,
-        evaluation_prompt: metric?.evaluation_prompt || '',
-        evaluation_steps: metric?.evaluation_steps?.split('\n---\n') || [''],
-        reasoning: metric?.reasoning || ''
-      };
+    // Use functional state update to avoid depending on metric
+    setMetric(currentMetric => {
+      if (!currentMetric) return currentMetric;
       
-      // Fetch models only when entering evaluation edit mode (if not already loaded)
-      if (models.length === 0 && session?.session_token) {
+      (async () => {
         try {
-          const clientFactory = new ApiClientFactory(session.session_token);
-          const modelsClient = clientFactory.getModelsClient();
-          const modelsData = await modelsClient.getModels({ limit: 100, skip: 0 });
-          setModels(modelsData.data || []);
+          const clientFactory = new ApiClientFactory(session.session_token!);
+          const metricsClient = clientFactory.getMetricsClient();
+          const updatedMetric = await metricsClient.getMetric(currentMetric.id);
+          setMetric(updatedMetric);
         } catch (error) {
-          console.error('Error fetching models:', error);
-          notifications.show('Failed to load models for editing', { severity: 'error' });
+          console.error('Error refreshing metric:', error);
+          // Use notifications without depending on it
+          const notificationsContext = notifications;
+          notificationsContext.show('Failed to refresh metric data', { severity: 'error' });
         }
+      })();
+      
+      return currentMetric;
+    });
+  }, [session?.session_token]); // Remove notifications dependency
+
+
+
+  const handleEdit = React.useCallback(async (section: EditableSectionType) => {
+    setIsEditing(section);
+    
+    // Use functional state updates to avoid depending on current state
+    setMetric(currentMetric => {
+      if (!currentMetric) return currentMetric;
+      
+      let sectionData: Partial<EditData> = {};
+
+      if (section === 'general') {
+        sectionData = {
+          name: currentMetric.name || '',
+          description: currentMetric.description || ''
+        };
+      } else if (section === 'evaluation') {
+        const steps = currentMetric.evaluation_steps?.split('\n---\n') || [''];
+        const stepsWithIds = steps.map((step, index) => ({
+          id: `step-${Date.now()}-${index}`,
+          content: step
+        }));
+        setStepsWithIds(stepsWithIds);
+        
+        sectionData = {
+          model_id: currentMetric.model_id,
+          evaluation_prompt: currentMetric.evaluation_prompt || '',
+          evaluation_steps: steps,
+          reasoning: currentMetric.reasoning || ''
+        };
+        
+        // For editing, we need all available models, not just the current one
+        setModels(currentModels => {
+          if (currentModels.length <= 1 && session?.session_token) {
+            // Fetch models asynchronously without blocking
+            (async () => {
+              try {
+                const clientFactory = new ApiClientFactory(session.session_token!);
+                const modelsClient = clientFactory.getModelsClient();
+                const modelsData = await modelsClient.getModels({ limit: 100, skip: 0 });
+                setModels(modelsData.data || []);
+              } catch (error) {
+                console.error('Error fetching models for editing:', error);
+                // Use notifications without depending on it
+                const notificationsContext = notifications;
+                notificationsContext.show('Failed to load models for editing', { severity: 'error' });
+              }
+            })();
+          }
+          return currentModels;
+        });
+      } else if (section === 'configuration') {
+        sectionData = {
+          score_type: currentMetric.score_type || 'binary',
+          min_score: currentMetric.min_score,
+          max_score: currentMetric.max_score,
+          threshold: currentMetric.threshold,
+          explanation: currentMetric.explanation || ''
+        };
       }
-    } else if (section === 'configuration') {
-      sectionData = {
-        score_type: metric?.score_type || 'binary',
-        min_score: metric?.min_score,
-        max_score: metric?.max_score,
-        threshold: metric?.threshold,
-        explanation: metric?.explanation || ''
-      };
-    }
 
-    setEditData(sectionData);
-  };
+      setEditData(sectionData);
+      return currentMetric;
+    });
+  }, [session?.session_token]); // Remove notifications dependency
 
-  const handleCancelEdit = () => {
+
+
+  const handleCancelEdit = React.useCallback(() => {
     setIsEditing(null);
     setEditData({});
-  };
+    setStepsWithIds([]);
+  }, []);
 
-  const handleConfirmEdit = async () => {
-    if (!session?.session_token || !metric) return;
 
-    try {
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const metricsClient = clientFactory.getMetricsClient();
-      
-      // Create a copy of editData and prepare it for the API
-      const dataToSend: any = { ...editData };
-      
-      // Handle evaluation steps
-      if (Array.isArray(dataToSend.evaluation_steps)) {
-        dataToSend.evaluation_steps = dataToSend.evaluation_steps.join('\n---\n');
-      }
 
-      // Remove tags from the update data as they're handled separately
-      delete dataToSend.tags;
+  const handleConfirmEdit = React.useCallback(async () => {
+    if (!session?.session_token) return;
+
+    // Use functional state updates to avoid depending on current state
+    setMetric(currentMetric => {
+      if (!currentMetric) return currentMetric;
       
-      // Remove any undefined or null values
-      Object.keys(dataToSend).forEach(key => {
-        if (dataToSend[key] === undefined || dataToSend[key] === null) {
-          delete dataToSend[key];
+      setEditData(currentEditData => {
+        // Create a copy of editData and prepare it for the API
+        const dataToSend: any = { ...currentEditData };
+        
+        // Handle evaluation steps
+        if (Array.isArray(dataToSend.evaluation_steps)) {
+          dataToSend.evaluation_steps = dataToSend.evaluation_steps.join('\n---\n');
         }
-      });
 
-      console.log('Sending update data:', dataToSend);
+        // Remove tags from the update data as they're handled separately
+        delete dataToSend.tags;
+        
+        // Remove any undefined or null values
+        Object.keys(dataToSend).forEach(key => {
+          if (dataToSend[key] === undefined || dataToSend[key] === null) {
+            delete dataToSend[key];
+          }
+        });
+
+        console.log('Sending update data:', dataToSend);
+        
+        // Perform the async update
+        (async () => {
+          try {
+            const clientFactory = new ApiClientFactory(session.session_token!);
+            const metricsClient = clientFactory.getMetricsClient();
+            await metricsClient.updateMetric(currentMetric.id, dataToSend);
+            const updatedMetric = await metricsClient.getMetric(currentMetric.id);
+            setMetric(updatedMetric as MetricDetail);
+            setIsEditing(null);
+            setStepsWithIds([]);
+            // Use notifications without depending on it
+            const notificationsContext = notifications;
+            notificationsContext.show('Metric updated successfully', { severity: 'success' });
+          } catch (error) {
+            console.error('Error updating metric:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to update metric';
+            // Use notifications without depending on it
+            const notificationsContext = notifications;
+            notificationsContext.show(errorMessage, { severity: 'error' });
+          }
+        })();
+
+        return {}; // Clear editData
+      });
       
-      await metricsClient.updateMetric(metric.id, dataToSend);
-      const updatedMetric = await metricsClient.getMetric(metric.id);
-      setMetric(updatedMetric as MetricDetail);
-      setIsEditing(null);
-      setEditData({});
-      notifications.show('Metric updated successfully', { severity: 'success' });
-    } catch (error) {
-      console.error('Error updating metric:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update metric';
-      notifications.show(errorMessage, { severity: 'error' });
-    }
-  };
+      return currentMetric;
+    });
+  }, [session?.session_token]); // Remove metric and notifications dependencies
+
+
 
   // Memoize individual field handlers to prevent recreating them on each render
   const handleNameChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setEditData(prev => ({ ...prev, name: event.target.value }));
   }, []);
+
+
 
   const handleDescriptionChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setEditData(prev => ({ ...prev, description: event.target.value }));
@@ -203,55 +289,78 @@ export default function MetricDetailPage() {
     setEditData(prev => ({ ...prev, explanation: event.target.value }));
   }, []);
 
-  const handleStepChange = React.useCallback((index: number) => (
+  const handleStepChange = React.useCallback((stepId: string) => (
     event: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
-    setEditData(prev => {
-      const newSteps = [...(prev.evaluation_steps || [])];
-      newSteps[index] = event.target.value;
-      return {
-        ...prev,
-        evaluation_steps: newSteps
-      };
+    const newValue = event.target.value;
+    setStepsWithIds(prev => {
+      const updatedSteps = prev.map(step => 
+        step.id === stepId ? { ...step, content: newValue } : step
+      );
+      // Update editData with the new steps
+      setEditData(prevData => ({
+        ...prevData,
+        evaluation_steps: updatedSteps.map(step => step.content)
+      }));
+      return updatedSteps;
     });
   }, []);
 
   const addStep = React.useCallback(() => {
-    setEditData(prev => ({
-      ...prev,
-      evaluation_steps: [...(prev.evaluation_steps || []), '']
-    }));
-  }, []);
-
-  const removeStep = React.useCallback((index: number) => {
-    setEditData(prev => {
-      const newSteps = [...(prev.evaluation_steps || [])];
-      newSteps.splice(index, 1);
-      return {
-        ...prev,
-        evaluation_steps: newSteps
-      };
+    setStepsWithIds(prev => {
+      const newStep = { id: `step-${Date.now()}-${prev.length}`, content: '' };
+      const updatedSteps = [...prev, newStep];
+      // Update editData with the new steps
+      setEditData(prevData => ({
+        ...prevData,
+        evaluation_steps: updatedSteps.map(step => step.content)
+      }));
+      return updatedSteps;
     });
   }, []);
 
-  const EditableSection = ({ 
-    title,
-    icon,
-    section,
-    children 
-  }: { 
-    title: string;
-    icon: React.ReactNode;
-    section: EditableSectionType;
-    children: React.ReactNode;
-  }) => (
+  const removeStep = React.useCallback((stepId: string) => {
+    setStepsWithIds(prev => {
+      const updatedSteps = prev.filter(step => step.id !== stepId);
+      // Update editData with the filtered steps
+      setEditData(prevData => ({
+        ...prevData,
+        evaluation_steps: updatedSteps.map(step => step.content)
+      }));
+      return updatedSteps;
+    });
+  }, []);
+
+  // Move EditableSection completely outside the main component
+  const EditableSection = React.memo(({ 
+  title,
+  icon,
+  section,
+  children,
+  isEditing,
+  onEdit,
+  onCancel,
+  onConfirm
+}: { 
+  title: string;
+  icon: React.ReactNode;
+  section: EditableSectionType;
+  children: React.ReactNode;
+  isEditing: EditableSectionType | null;
+  onEdit: (section: EditableSectionType) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) => {
+
+  
+  return (
     <Paper sx={{ p: 3, position: 'relative' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <SectionHeader icon={icon} title={title} />
         {!isEditing && (
           <Button
             startIcon={<EditIcon />}
-            onClick={() => handleEdit(section)}
+            onClick={() => onEdit(section)}
             variant="outlined"
             size="small"
           >
@@ -278,7 +387,7 @@ export default function MetricDetailPage() {
               variant="outlined"
               color="error"
               startIcon={<CancelIcon />}
-              onClick={handleCancelEdit}
+              onClick={onCancel}
             >
               Cancel
             </Button>
@@ -286,7 +395,7 @@ export default function MetricDetailPage() {
               variant="contained"
               color="primary"
               startIcon={<CheckIcon />}
-              onClick={handleConfirmEdit}
+              onClick={onConfirm}
             >
               Save Section
             </Button>
@@ -299,22 +408,36 @@ export default function MetricDetailPage() {
       )}
     </Paper>
   );
+});
 
-  const SectionHeader = ({ icon, title }: { icon: React.ReactNode; title: string }) => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ color: 'primary.main' }}>{icon}</Box>
-      <Typography variant="h6">{title}</Typography>
-    </Box>
-  );
+EditableSection.displayName = 'EditableSection';
 
-  const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
-        {label}
-      </Typography>
-      {children}
-    </Box>
-  );
+const SectionHeader = React.memo(({ icon, title }: { icon: React.ReactNode; title: string }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={{ color: 'primary.main' }}>{icon}</Box>
+    <Typography variant="h6">{title}</Typography>
+  </Box>
+));
+
+SectionHeader.displayName = 'SectionHeader';
+
+const InfoRow = React.memo(({ label, children }: { label: string; children: React.ReactNode }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
+      {label}
+    </Typography>
+    {children}
+  </Box>
+));
+
+InfoRow.displayName = 'InfoRow';
+
+// Memoize icons to prevent recreation
+const infoIcon = <InfoIcon />;
+const assessmentIcon = <AssessmentIcon />;
+const settingsIcon = <SettingsIcon />;
+
+
 
   if (loading) {
     return (
@@ -341,19 +464,25 @@ export default function MetricDetailPage() {
       { title: 'Metrics', path: '/metrics' },
       { title: metric.name, path: `/metrics/${identifier}` }
     ]}>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-        {/* Left side - Main content */}
-        <Box sx={{ flex: 1 }}>
-          <Stack spacing={3}>
+      {/* Memoize the entire content to prevent unnecessary re-renders */}
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+      {/* Left side - Main content */}
+      <Box sx={{ flex: 1 }}>
+        <Stack spacing={3}>
             {/* General Information Section */}
             <EditableSection 
               title="General Information" 
-              icon={<InfoIcon />}
+              icon={infoIcon}
               section="general"
+              isEditing={isEditing}
+              onEdit={handleEdit}
+              onCancel={handleCancelEdit}
+              onConfirm={handleConfirmEdit}
             >
               <InfoRow label="Name">
                 {isEditing === 'general' ? (
                   <TextField
+                    key={`name-field-${metric.id}`}
                     fullWidth
                     required
                     value={editData.name || ''}
@@ -368,6 +497,7 @@ export default function MetricDetailPage() {
               <InfoRow label="Description">
                 {isEditing === 'general' ? (
                   <TextField
+                    key={`description-field-${metric.id}`}
                     fullWidth
                     multiline
                     rows={4}
@@ -397,8 +527,12 @@ export default function MetricDetailPage() {
             {/* Evaluation Process Section */}
             <EditableSection 
               title="Evaluation Process" 
-              icon={<AssessmentIcon />}
+              icon={assessmentIcon}
               section="evaluation"
+              isEditing={isEditing}
+              onEdit={handleEdit}
+              onCancel={handleCancelEdit}
+              onConfirm={handleConfirmEdit}
             >
               <InfoRow label="LLM Judge Model">
                 {isEditing === 'evaluation' ? (
@@ -406,7 +540,7 @@ export default function MetricDetailPage() {
                     <InputLabel>Model</InputLabel>
                     <Select
                       value={editData.model_id || ''}
-                      onChange={(e) => setEditData({ ...editData, model_id: e.target.value as UUID })}
+                      onChange={(e) => setEditData(prev => ({ ...prev, model_id: e.target.value as UUID }))}
                       label="Model"
                     >
                       {models.map((model) => (
@@ -425,10 +559,15 @@ export default function MetricDetailPage() {
                   </FormControl>
                 ) : (
                   <>
-                    <Typography>{metric.model?.name || '-'}</Typography>
-                    {metric.model?.description && (
+                    <Typography>
+                      {models.length > 0 
+                        ? models.find(model => model.id === metric.model_id)?.name || '-'
+                        : metric.model_id ? 'Loading model...' : '-'
+                      }
+                    </Typography>
+                    {models.length > 0 && metric.model_id && (
                       <Typography variant="body2" color="text.secondary">
-                        {metric.model.description}
+                        {models.find(model => model.id === metric.model_id)?.description || ''}
                       </Typography>
                     )}
                   </>
@@ -438,6 +577,7 @@ export default function MetricDetailPage() {
               <InfoRow label="Evaluation Prompt">
                 {isEditing === 'evaluation' ? (
                   <TextField
+                    key={`evaluation-prompt-field-${metric.id}`}
                     fullWidth
                     multiline
                     rows={4}
@@ -467,19 +607,19 @@ export default function MetricDetailPage() {
               <InfoRow label="Evaluation Steps">
                 {isEditing === 'evaluation' ? (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {(editData.evaluation_steps || ['']).map((step, index) => (
-                      <Box key={index} sx={{ display: 'flex', gap: 1 }}>
+                    {stepsWithIds.map((step, index) => (
+                      <Box key={step.id} sx={{ display: 'flex', gap: 1 }}>
                         <TextField
                           fullWidth
                           multiline
                           rows={2}
-                          value={step}
-                          onChange={handleStepChange(index)}
+                          value={step.content}
+                          onChange={handleStepChange(step.id)}
                           placeholder={`Step ${index + 1}: Describe this evaluation step...`}
                         />
                         <IconButton 
-                          onClick={() => removeStep(index)}
-                          disabled={(editData.evaluation_steps || []).length === 1}
+                          onClick={() => removeStep(step.id)}
+                          disabled={stepsWithIds.length === 1}
                           sx={{ mt: 1 }}
                           color="error"
                         >
@@ -534,6 +674,7 @@ export default function MetricDetailPage() {
               <InfoRow label="Reasoning Instructions">
                 {isEditing === 'evaluation' ? (
                   <TextField
+                    key={`reasoning-field-${metric.id}`}
                     fullWidth
                     multiline
                     rows={4}
@@ -564,8 +705,12 @@ export default function MetricDetailPage() {
             {/* Result Configuration Section */}
             <EditableSection 
               title="Result Configuration" 
-              icon={<SettingsIcon />}
+              icon={settingsIcon}
               section="configuration"
+              isEditing={isEditing}
+              onEdit={handleEdit}
+              onCancel={handleCancelEdit}
+              onConfirm={handleConfirmEdit}
             >
               <InfoRow label="Score Type">
                 {isEditing === 'configuration' ? (
@@ -573,7 +718,7 @@ export default function MetricDetailPage() {
                     <InputLabel>Score Type</InputLabel>
                     <Select
                       value={editData.score_type || 'binary'}
-                      onChange={(e) => setEditData({ ...editData, score_type: e.target.value as ScoreType })}
+                      onChange={(e) => setEditData(prev => ({ ...prev, score_type: e.target.value as ScoreType }))}
                       label="Score Type"
                     >
                       <MenuItem value="binary">Binary (Pass/Fail)</MenuItem>
@@ -605,9 +750,10 @@ export default function MetricDetailPage() {
                     <InfoRow label="Minimum Score">
                       {isEditing === 'configuration' ? (
                         <TextField
+                          key={`min-score-field-${metric.id}`}
                           type="number"
                           value={editData.min_score || ''}
-                          onChange={(e) => setEditData({ ...editData, min_score: Number(e.target.value) })}
+                          onChange={(e) => setEditData(prev => ({ ...prev, min_score: Number(e.target.value) }))}
                           fullWidth
                           placeholder="Enter minimum score"
                         />
@@ -621,9 +767,10 @@ export default function MetricDetailPage() {
                     <InfoRow label="Maximum Score">
                       {isEditing === 'configuration' ? (
                         <TextField
+                          key={`max-score-field-${metric.id}`}
                           type="number"
                           value={editData.max_score || ''}
-                          onChange={(e) => setEditData({ ...editData, max_score: Number(e.target.value) })}
+                          onChange={(e) => setEditData(prev => ({ ...prev, max_score: Number(e.target.value) }))}
                           fullWidth
                           placeholder="Enter maximum score"
                         />
@@ -638,9 +785,10 @@ export default function MetricDetailPage() {
                   <InfoRow label="Threshold">
                     {isEditing === 'configuration' ? (
                       <TextField
+                        key={`threshold-field-${metric.id}`}
                         type="number"
                         value={editData.threshold || ''}
-                        onChange={(e) => setEditData({ ...editData, threshold: Number(e.target.value) })}
+                        onChange={(e) => setEditData(prev => ({ ...prev, threshold: Number(e.target.value) }))}
                         fullWidth
                         placeholder="Enter threshold score"
                         helperText="Minimum score required to pass"
@@ -672,6 +820,7 @@ export default function MetricDetailPage() {
               <InfoRow label="Result Explanation">
                 {isEditing === 'configuration' ? (
                   <TextField
+                    key={`explanation-field-${metric.id}`}
                     fullWidth
                     multiline
                     rows={4}
@@ -704,15 +853,18 @@ export default function MetricDetailPage() {
         {/* Right side - Workflow */}
         <Box sx={{ width: { xs: '100%', md: '400px' }, flexShrink: 0 }}>
           <Paper sx={{ p: 3 }}>
-            <BaseWorkflowSection
-              title="Workflow"
-              entityId={identifier}
-              entityType="Metric"
-              status={metric.status?.name}
-              assignee={metric.assignee}
-              owner={metric.owner}
-              clientFactory={session?.session_token ? new ApiClientFactory(session.session_token) : undefined}
-              showPriority={false}
+            {!loading && (
+              <BaseWorkflowSection
+                title="Workflow"
+                entityId={identifier}
+                entityType="Metric"
+                status={metric.status?.name}
+                assignee={metric.assignee}
+                owner={metric.owner}
+                clientFactory={session?.session_token ? new ApiClientFactory(session.session_token) : undefined}
+                showPriority={false}
+                preloadedStatuses={statuses}
+                preloadedUsers={users}
 
               onUpdateEntity={async (updateData, fieldName) => {
                 if (!session?.session_token) return;
@@ -733,7 +885,8 @@ export default function MetricDetailPage() {
                   throw error; // Re-throw to let BaseWorkflowSection handle the error
                 }
               }}
-            />
+              />
+            )}
           </Paper>
         </Box>
       </Stack>
