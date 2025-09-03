@@ -1,4 +1,4 @@
-from rhesis.sdk.models.providers.gemini_provider import GeminiLLM
+from rhesis.sdk.models.providers.gemini import GeminiLLM
 from rhesis.sdk.models.providers.openai_provider import OpenAILLM
 from rhesis.sdk.models.providers.rhesis_provider import RhesisLLM
 

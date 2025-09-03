@@ -162,8 +162,8 @@ class TestGetModel:
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.gemini_provider.GeminiLLM")
-    def test_get_model_gemini_provider(self, mock_gemini_class):
+    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
+    def test_get_model_gemini(self, mock_gemini_class):
         """Test get_model with gemini provider."""
         mock_instance = Mock(spec=BaseLLM)
         mock_gemini_class.return_value = mock_instance
@@ -173,7 +173,7 @@ class TestGetModel:
         mock_gemini_class.assert_called_once_with(model_name="gemini-model")
         assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.gemini_provider.GeminiLLM")
+    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
     def test_get_model_gemini_with_default(self, mock_gemini_class):
         """Test get_model with gemini provider using default model."""
         mock_instance = Mock(spec=BaseLLM)
@@ -284,8 +284,8 @@ class TestModelFactoryIntegration:
         assert all(isinstance(model, Mock) for model in models)
         assert mock_rhesis_class.call_count == 5
 
-    @patch("rhesis.sdk.models.providers.gemini_provider.GeminiLLM")
-    def test_gemini_provider_integration(self, mock_gemini_class):
+    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
+    def test_gemini_integration(self, mock_gemini_class):
         """Test full integration with gemini provider."""
         mock_instance = Mock(spec=BaseLLM)
         mock_gemini_class.return_value = mock_instance
