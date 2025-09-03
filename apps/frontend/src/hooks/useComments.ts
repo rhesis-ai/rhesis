@@ -159,10 +159,20 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId 
         updatedComment = await commentsClient.addEmojiReaction(commentId, emoji);
       }
       
+      // Preserve the existing user information from the current comment
+      const commentWithUser: Comment = {
+        ...updatedComment,
+        user: comment?.user || {
+          id: currentUserId,
+          name: 'Current User',
+          email: ''
+        }
+      };
+      
       // Update local state
       setComments(prev => 
         prev.map(comment => 
-          comment.id === commentId ? updatedComment : comment
+          comment.id === commentId ? commentWithUser : comment
         )
       );
     } catch (err) {
