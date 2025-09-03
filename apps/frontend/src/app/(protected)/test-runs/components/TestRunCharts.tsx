@@ -3,7 +3,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { BasePieChart, BaseChartsGrid } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Box, CircularProgress, Typography, Alert } from '@mui/material';
+import { 
+  TestRunStatsStatus, 
+  TestRunStatsResults, 
+  TestRunStatsTests, 
+  TestRunStatsExecutors 
+} from '@/utils/api-client/interfaces/test-run-stats';
+import { Box, CircularProgress, Typography, Alert, Skeleton } from '@mui/material';
 
 // Fallback mock data in case the API fails
 const fallbackData = [
@@ -14,7 +20,7 @@ const fallbackData = [
 const CHART_CONFIG = {
   status: { top: 5, title: "Test Runs by Status" },
   result: { top: 5, title: "Test Runs by Result" },
-  test: { top: 5, title: "Most Run Tests" },
+  test: { top: 5, title: "Most Run Test Sets" },
   executor: { top: 5, title: "Top Test Executors" }
 };
 
@@ -24,204 +30,255 @@ const truncateName = (name: string): string => {
   return `${name.substring(0, 12)}...`;
 };
 
-// Temporary interfaces until API client is ready
-interface TestRunStats {
-  stats: {
-    status: {
-      breakdown: Record<string, number>;
-    };
-    result: {
-      breakdown: Record<string, number>;
-    };
-    test: {
-      breakdown: Record<string, number>;
-    };
-    executor: {
-      breakdown: Record<string, number>;
-    };
-  };
-}
+// Using real API interfaces now
 
 interface TestRunChartsProps {
   sessionToken: string;
 }
 
+// Individual chart state interfaces
+interface ChartState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+}
+
 export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   const isMounted = useRef(false);
-  const [testRunStats, setTestRunStats] = useState<TestRunStats | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Individual state for each chart
+  const [statusChart, setStatusChart] = useState<ChartState<TestRunStatsStatus>>({
+    data: null,
+    loading: false,
+    error: null
+  });
+  
+  const [resultChart, setResultChart] = useState<ChartState<TestRunStatsResults>>({
+    data: null,
+    loading: false,
+    error: null
+  });
+  
+  const [testChart, setTestChart] = useState<ChartState<TestRunStatsTests>>({
+    data: null,
+    loading: false,
+    error: null
+  });
+  
+  const [executorChart, setExecutorChart] = useState<ChartState<TestRunStatsExecutors>>({
+    data: null,
+    loading: false,
+    error: null
+  });
 
   useEffect(() => {
     isMounted.current = true;
 
-    const fetchTestRunStats = async () => {
+    // Helper function to create individual chart fetchers
+    const createChartFetcher = <T,>(
+      mode: 'status' | 'results' | 'test_sets' | 'executors',
+      setter: React.Dispatch<React.SetStateAction<ChartState<T>>>,
+      chartName: string
+    ) => async () => {
       if (!sessionToken) return;
       
       try {
-        setIsLoading(true);
+        setter(prev => ({ ...prev, loading: true, error: null }));
+        
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
         
-        // Temporarily return mock data until API is ready
-        const mockStats: TestRunStats = {
-          stats: {
-            status: {
-              breakdown: {
-                'Pending': 5,
-                'Running': 3,
-                'Completed': 10,
-                'Failed': 2
-              }
-            },
-            result: {
-              breakdown: {
-                'Pass': 8,
-                'Fail': 2,
-                'Error': 1,
-                'Skipped': 1
-              }
-            },
-            test: {
-              breakdown: {
-                'Test 1': 5,
-                'Test 2': 4,
-                'Test 3': 3,
-                'Test 4': 2,
-                'Test 5': 1
-              }
-            },
-            executor: {
-              breakdown: {
-                'User 1': 6,
-                'User 2': 4,
-                'User 3': 3,
-                'User 4': 2
-              }
-            }
-          }
-        };
+        const stats = await testRunsClient.getTestRunStats({
+          mode,
+          top: 5,  // Limit to top 5 items for charts
+          months: 6
+        });
         
         if (isMounted.current) {
-          setTestRunStats(mockStats);
-          setError(null);
+          setter(prev => ({ 
+            ...prev, 
+            data: stats as T, 
+            loading: false, 
+            error: null 
+          }));
         }
       } catch (err) {
-        console.error('Error fetching test run stats:', err);
+        console.error(`Error fetching ${chartName} stats:`, err);
         if (isMounted.current) {
-          setError('Failed to load test run statistics');
-        }
-      } finally {
-        if (isMounted.current) {
-          setIsLoading(false);
+          setter(prev => ({ 
+            ...prev, 
+            loading: false, 
+            error: `Failed to load ${chartName} data` 
+          }));
         }
       }
     };
 
-    fetchTestRunStats();
+    // Create individual fetchers for each chart
+    const fetchStatusStats = createChartFetcher('status', setStatusChart, 'status');
+    const fetchResultStats = createChartFetcher('results', setResultChart, 'results');
+    const fetchTestStats = createChartFetcher('test_sets', setTestChart, 'test sets');
+    const fetchExecutorStats = createChartFetcher('executors', setExecutorChart, 'executor');
+
+    // Fetch all charts in parallel for maximum speed
+    Promise.all([
+      fetchStatusStats(),
+      fetchResultStats(),
+      fetchTestStats(),
+      fetchExecutorStats()
+    ]).catch(err => {
+      console.error('Error in parallel chart fetching:', err);
+    });
 
     return () => {
       isMounted.current = false;
     };
   }, [sessionToken]);
 
-  // Generate chart data from test run stats with individual limits
+  // Generate chart data from individual chart states
   const generateStatusData = () => {
-    if (!testRunStats) return fallbackData;
+    if (!statusChart.data) return fallbackData;
     
-    const { stats } = testRunStats;
-    return Object.entries(stats.status.breakdown)
+    return statusChart.data.status_distribution
       .slice(0, CHART_CONFIG.status.top)
-      .map(([name, value]) => ({
-        name: truncateName(name),
-        value: value as number,
-        fullName: name
+      .map((item) => ({
+        name: truncateName(item.status),
+        value: item.count,
+        fullName: item.status
       }));
   };
 
   const generateResultData = () => {
-    if (!testRunStats) return fallbackData;
+    if (!resultChart.data) return fallbackData;
     
-    const { stats } = testRunStats;
-    return Object.entries(stats.result.breakdown)
-      .slice(0, CHART_CONFIG.result.top)
-      .map(([name, value]) => ({
-        name: truncateName(name),
-        value: value as number,
-        fullName: name
-      }));
+    const { result_distribution } = resultChart.data;
+    return [
+      { name: 'Passed', value: result_distribution.passed, fullName: 'Passed' },
+      { name: 'Failed', value: result_distribution.failed, fullName: 'Failed' },
+      { name: 'Pending', value: result_distribution.pending, fullName: 'Pending' }
+    ].filter(item => item.value > 0);  // Only show categories with data
   };
 
   const generateTestData = () => {
-    if (!testRunStats) return fallbackData;
+    if (!testChart.data) return fallbackData;
     
-    const { stats } = testRunStats;
-    return Object.entries(stats.test.breakdown)
+    return testChart.data.most_run_test_sets
       .slice(0, CHART_CONFIG.test.top)
-      .map(([name, value]) => ({
-        name: truncateName(name),
-        value: value as number,
-        fullName: name
+      .map((item) => ({
+        name: truncateName(item.test_set_name),
+        value: item.run_count,
+        fullName: item.test_set_name
       }));
   };
 
   const generateExecutorData = () => {
-    if (!testRunStats) return fallbackData;
+    if (!executorChart.data) return fallbackData;
     
-    const { stats } = testRunStats;
-    return Object.entries(stats.executor.breakdown)
+    return executorChart.data.top_executors
       .slice(0, CHART_CONFIG.executor.top)
-      .map(([name, value]) => ({
-        name: truncateName(name),
-        value: value as number,
-        fullName: name
+      .map((item) => ({
+        name: truncateName(item.executor_name),
+        value: item.run_count,
+        fullName: item.executor_name
       }));
   };
 
-  if (isLoading && !testRunStats) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // Component for individual chart with loading/error states
+  const ChartWithState = ({ 
+    chartState, 
+    title, 
+    dataGenerator 
+  }: { 
+    chartState: ChartState<any>, 
+    title: string, 
+    dataGenerator: () => any[] 
+  }) => {
+    if (chartState.loading) {
+      return (
+        <Box sx={{ 
+          height: 300, 
+          display: 'flex', 
+          flexDirection: 'column',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          p: 2
+        }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>{title}</Typography>
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}>
+            <CircularProgress size={40} />
+          </Box>
+        </Box>
+      );
+    }
 
-  if (error) {
+    if (chartState.error) {
+      return (
+        <Box sx={{ 
+          height: 300, 
+          display: 'flex', 
+          flexDirection: 'column',
+          border: '1px solid',
+          borderColor: 'error.main',
+          borderRadius: 1,
+          p: 2,
+          bgcolor: 'error.light',
+          opacity: 0.1
+        }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>{title}</Typography>
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}>
+            <Typography color="error" variant="body2" align="center">
+              {chartState.error}
+            </Typography>
+          </Box>
+        </Box>
+      );
+    }
+
     return (
-      <Box sx={{ p: 2 }}>
-        <Typography color="error">{error}</Typography>
-      </Box>
+      <BasePieChart
+        title={title}
+        data={dataGenerator()}
+        useThemeColors={true}
+        colorPalette="pie"
+      />
     );
-  }
+  };
 
   return (
     <BaseChartsGrid>
-      <BasePieChart
+      <ChartWithState
+        chartState={statusChart}
         title={CHART_CONFIG.status.title}
-        data={generateStatusData()}
-        useThemeColors={true}
-        colorPalette="pie"
+        dataGenerator={generateStatusData}
       />
       
-      <BasePieChart
+      <ChartWithState
+        chartState={resultChart}
         title={CHART_CONFIG.result.title}
-        data={generateResultData()}
-        useThemeColors={true}
-        colorPalette="pie"
+        dataGenerator={generateResultData}
       />
       
-      <BasePieChart
+      <ChartWithState
+        chartState={testChart}
         title={CHART_CONFIG.test.title}
-        data={generateTestData()}
-        useThemeColors={true}
-        colorPalette="pie"
+        dataGenerator={generateTestData}
       />
       
-      <BasePieChart
+      <ChartWithState
+        chartState={executorChart}
         title={CHART_CONFIG.executor.title}
-        data={generateExecutorData()}
-        useThemeColors={true}
-        colorPalette="pie"
+        dataGenerator={generateExecutorData}
       />
     </BaseChartsGrid>
   );

@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from .common import (
     parse_date_range,
@@ -12,6 +12,7 @@ from .common import (
     build_pass_rate_stats,
     build_response_data,
     build_metadata,
+    build_empty_stats_response,
     get_month_key,
     safe_get_name,
 )
@@ -110,7 +111,7 @@ def _update_dimensional_stats(result, test_passed_overall: bool, dimensional_sta
     if hasattr(result, 'test') and result.test:
         dimension_obj = getattr(result.test, dimension_attr, None)
         if dimension_obj:
-            name = dimension_obj.name or f"Unknown {dimension_name.capitalize()}"
+            name = safe_get_name(dimension_obj) or f"Unknown {dimension_name.capitalize()}"
             if name not in dimensional_stats:
                 dimensional_stats[name] = {"passed": 0, "failed": 0}
             if test_passed_overall:
@@ -258,14 +259,17 @@ def get_test_result_stats(
     # Handle date range - custom dates override months parameter
     start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
     
-    # Base query for test results with test_metrics, joining related entities
+    # Base query for test results with optimized eager loading
     base_query = (
         db.query(models.TestResult)
+        .options(
+            # Eager load essential relationships to prevent N+1 queries
+            joinedload(models.TestResult.test).joinedload(models.Test.behavior),
+            joinedload(models.TestResult.test).joinedload(models.Test.category),
+            joinedload(models.TestResult.test).joinedload(models.Test.topic),
+            joinedload(models.TestResult.test_run)
+        )
         .join(models.Test, models.TestResult.test_id == models.Test.id)
-        .outerjoin(models.Behavior, models.Test.behavior_id == models.Behavior.id)
-        .outerjoin(models.Category, models.Test.category_id == models.Category.id)
-        .outerjoin(models.Topic, models.Test.topic_id == models.Topic.id)
-        .outerjoin(models.TestRun, models.TestResult.test_run_id == models.TestRun.id)
     )
     
     # Apply all filters using the helper function
@@ -293,7 +297,13 @@ def get_test_result_stats(
     
     base_query = _apply_filters(base_query, **filter_params)
     
-    # Get all test results with metrics and related entities
+    # Add ordering for consistent results and better query optimization
+    base_query = base_query.order_by(models.TestResult.created_at.desc())
+    
+    # Note: Removed LIMIT clause to ensure complete data accuracy
+    # Performance is optimized through eager loading and efficient queries instead
+    
+    # Get all test results with optimized eager loading
     test_results = base_query.all()
     
     if not test_results:
@@ -354,7 +364,7 @@ def get_test_result_stats(
         
         # Update monthly stats
         if result.created_at:
-            month_key = result.created_at.strftime("%Y-%m")
+            month_key = get_month_key(result.created_at)
             if month_key not in monthly_stats:
                 monthly_stats[month_key] = {
                     "overall": {"passed": 0, "failed": 0},
@@ -377,12 +387,12 @@ def get_test_result_stats(
                 else:
                     monthly_stats[month_key]["metrics"][metric_name]["failed"] += 1
         
-        # Update test run stats
+        # Update test run stats (using eager loaded test_run relationship)
         if result.test_run_id:
             run_key = str(result.test_run_id)
             if run_key not in test_run_stats:
-                # Get test run info
-                test_run = db.query(models.TestRun).filter_by(id=result.test_run_id).first()
+                # Use eager loaded test_run relationship instead of separate query
+                test_run = result.test_run if hasattr(result, 'test_run') else None
                 test_run_stats[run_key] = {
                     "id": run_key,
                     "name": test_run.name if test_run and test_run.name else f"Test Run {run_key[:8]}",
@@ -432,7 +442,7 @@ def get_test_result_stats(
     # Build test run summary using helper function
     test_run_summary = _build_test_run_summary(test_run_stats)
     
-    # Build metadata
+    # Build metadata (using original approach for compatibility)
     metadata = {
         "generated_at": datetime.utcnow().isoformat(),
         "organization_id": organization_id,

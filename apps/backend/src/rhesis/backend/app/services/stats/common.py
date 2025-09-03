@@ -200,9 +200,9 @@ def infer_result_from_status(status_name: str) -> str:
     """
     status_lower = status_name.lower()
     
-    if any(keyword in status_lower for keyword in ['completed', 'finished', 'success', 'done']):
+    if any(keyword in status_lower for keyword in ['completed', 'finished', 'success', 'done', 'pass']):
         return "passed"
-    elif any(keyword in status_lower for keyword in ['failed', 'error', 'abort', 'cancel']):
+    elif any(keyword in status_lower for keyword in ['failed', 'error', 'abort', 'cancel', 'fail']):
         return "failed"
     else:
         return "pending"

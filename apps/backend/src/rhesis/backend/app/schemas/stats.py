@@ -203,7 +203,7 @@ class TestRunStatsAll(BaseModel):
     """Complete dataset - all sections"""
     status_distribution: List[StatusDistribution]
     result_distribution: ResultDistribution
-    most_run_tests: List[TestSetRunCount]
+    most_run_test_sets: List[TestSetRunCount]
     top_executors: List[ExecutorRunCount]
     timeline: List[TestRunTimelineData]
     overall_summary: TestRunOverallSummary
@@ -229,8 +229,8 @@ class TestRunStatsResults(BaseModel):
 
 
 class TestRunStatsTests(BaseModel):
-    """Most run tests only"""
-    most_run_tests: List[TestSetRunCount]
+    """Most run test sets only"""
+    most_run_test_sets: List[TestSetRunCount]
     metadata: TestRunStatsMetadata
 
 
