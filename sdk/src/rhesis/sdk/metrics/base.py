@@ -5,8 +5,8 @@ from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar, Union
 
 import tenacity
 
-from rhesis.sdk.services.base import BaseLLM
-from rhesis.sdk.services.model_factory import get_model
+from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.model_factory import get_model
 
 MetricType = Literal["rag", "generation", "classification"]
 F = TypeVar("F", bound=Callable[..., Any])
