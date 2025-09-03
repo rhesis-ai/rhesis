@@ -38,6 +38,7 @@ dependencies = [
     "markitdown[pdf,docx,pptx,xlsx]>=0.1.0",
     "tomli>=2.2.1",
     "tomli-w>=1.2.0",
+    "litellm>=1.76.0",
 ]
 
 [project.license]
