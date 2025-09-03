@@ -62,15 +62,14 @@ export default function MetricDetailPage() {
       try {
         const clientFactory = new ApiClientFactory(session.session_token);
         const metricsClient = clientFactory.getMetricsClient();
-        const modelsClient = clientFactory.getModelsClient();
         
-        const [metricData, modelsData] = await Promise.all([
-          metricsClient.getMetric(identifier as UUID),
-          modelsClient.getModels({ limit: 100, skip: 0 })
-        ]);
+        // Only fetch metric data - model data is included in the response
+        const metricData = await metricsClient.getMetric(identifier as UUID);
         
         setMetric(metricData);
-        setModels(modelsData.data || []);
+        
+        // If we need models for editing, fetch them only when entering edit mode
+        // For display, we use the model data included in the metric response
       } catch (error) {
         console.error('Error fetching data:', error);
         notifications.show('Failed to load metric details', { severity: 'error' });
@@ -96,7 +95,7 @@ export default function MetricDetailPage() {
     }
   };
 
-  const handleEdit = (section: EditableSectionType) => {
+  const handleEdit = async (section: EditableSectionType) => {
     setIsEditing(section);
     let sectionData: Partial<EditData> = {};
 
@@ -112,6 +111,19 @@ export default function MetricDetailPage() {
         evaluation_steps: metric?.evaluation_steps?.split('\n---\n') || [''],
         reasoning: metric?.reasoning || ''
       };
+      
+      // Fetch models only when entering evaluation edit mode (if not already loaded)
+      if (models.length === 0 && session?.session_token) {
+        try {
+          const clientFactory = new ApiClientFactory(session.session_token);
+          const modelsClient = clientFactory.getModelsClient();
+          const modelsData = await modelsClient.getModels({ limit: 100, skip: 0 });
+          setModels(modelsData.data || []);
+        } catch (error) {
+          console.error('Error fetching models:', error);
+          notifications.show('Failed to load models for editing', { severity: 'error' });
+        }
+      }
     } else if (section === 'configuration') {
       sectionData = {
         score_type: metric?.score_type || 'binary',
@@ -412,19 +424,14 @@ export default function MetricDetailPage() {
                     </Select>
                   </FormControl>
                 ) : (
-                  (() => {
-                    const model = models.find(m => m.id === metric.model_id);
-                    return (
-                      <>
-                        <Typography>{model?.name || '-'}</Typography>
-                        {model?.description && (
-                          <Typography variant="body2" color="text.secondary">
-                            {model.description}
-                          </Typography>
-                        )}
-                      </>
-                    );
-                  })()
+                  <>
+                    <Typography>{metric.model?.name || '-'}</Typography>
+                    {metric.model?.description && (
+                      <Typography variant="body2" color="text.secondary">
+                        {metric.model.description}
+                      </Typography>
+                    )}
+                  </>
                 )}
               </InfoRow>
 
@@ -706,6 +713,7 @@ export default function MetricDetailPage() {
               owner={metric.owner}
               clientFactory={session?.session_token ? new ApiClientFactory(session.session_token) : undefined}
               showPriority={false}
+
               onUpdateEntity={async (updateData, fieldName) => {
                 if (!session?.session_token) return;
                 

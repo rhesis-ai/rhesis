@@ -104,8 +104,8 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
   // Initialize tab value from URL parameter
   const initialTab = React.useMemo(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'directory') return 1;
-    return 0; // Default to Selected Metrics
+    if (tab === 'selected') return 1;
+    return 0; // Default to Metrics Directory
   }, [searchParams]);
   
   const [value, setValue] = React.useState(initialTab);
@@ -292,7 +292,7 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
     // Update URL to reflect tab change
     const params = new URLSearchParams(searchParams.toString());
     if (newValue === 1) {
-      params.set('tab', 'directory');
+      params.set('tab', 'selected');
     } else {
       params.delete('tab');
     }
@@ -317,15 +317,15 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
             aria-label="metrics tabs"
           >
             <Tab 
-              icon={<ChecklistIcon />} 
-              iconPosition="start" 
-              label="Selected Metrics" 
-              {...a11yProps(0)} 
-            />
-            <Tab 
               icon={<ViewQuiltIcon />} 
               iconPosition="start" 
               label="Metrics Directory" 
+              {...a11yProps(0)} 
+            />
+            <Tab 
+              icon={<ChecklistIcon />} 
+              iconPosition="start" 
+              label="Selected Metrics" 
               {...a11yProps(1)} 
             />
           </Tabs>
@@ -333,22 +333,6 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
 
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           <CustomTabPanel value={value} index={0}>
-            <SelectedMetricsTab
-              sessionToken={sessionToken}
-              organizationId={organizationId}
-              behaviorsWithMetrics={behaviorsWithMetrics}
-              behaviorMetrics={behaviorMetrics}
-              isLoading={isLoadingSelectedMetrics}
-              error={error}
-              onRefresh={handleRefresh}
-              setBehaviors={setBehaviors}
-              setBehaviorsWithMetrics={setBehaviorsWithMetrics}
-              setBehaviorMetrics={setBehaviorMetrics}
-              onTabChange={() => setValue(1)} // Switch to Metrics Directory tab
-            />
-          </CustomTabPanel>
-
-          <CustomTabPanel value={value} index={1}>
             <MetricsDirectoryTab
               sessionToken={sessionToken}
               organizationId={organizationId}
@@ -363,7 +347,23 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
               setMetrics={setMetrics}
               setBehaviorMetrics={setBehaviorMetrics}
               setBehaviorsWithMetrics={setBehaviorsWithMetrics}
-              onTabChange={() => setValue(0)} // Function to switch to Selected Metrics tab
+              onTabChange={() => setValue(1)} // Function to switch to Selected Metrics tab
+            />
+          </CustomTabPanel>
+
+          <CustomTabPanel value={value} index={1}>
+            <SelectedMetricsTab
+              sessionToken={sessionToken}
+              organizationId={organizationId}
+              behaviorsWithMetrics={behaviorsWithMetrics}
+              behaviorMetrics={behaviorMetrics}
+              isLoading={isLoadingSelectedMetrics}
+              error={error}
+              onRefresh={handleRefresh}
+              setBehaviors={setBehaviors}
+              setBehaviorsWithMetrics={setBehaviorsWithMetrics}
+              setBehaviorMetrics={setBehaviorMetrics}
+              onTabChange={() => setValue(0)} // Switch to Metrics Directory tab
             />
           </CustomTabPanel>
         </Box>
