@@ -138,11 +138,14 @@ export function CommentItem({
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* Header with user info and action buttons */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="subtitle2" fontWeight={600}>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
                 {comment.user?.name || 'UNKNOWN USER'}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ 
+                lineHeight: 1.2,
+                fontSize: '0.75rem'
+              }}>
                 {formatDate(comment.created_at)}
               </Typography>
             </Box>
