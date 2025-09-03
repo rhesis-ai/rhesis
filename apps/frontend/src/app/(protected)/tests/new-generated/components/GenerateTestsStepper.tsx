@@ -1162,7 +1162,7 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
       default:
         return null;
     }
-  }, [activeStep, sessionToken, handleConfigSubmit, handleConfigChange, documents, samples, configData, isGenerating]);
+  }, [activeStep, sessionToken, handleConfigSubmit, handleConfigChange, documents, samples, configData, isGenerating, behaviors]);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
