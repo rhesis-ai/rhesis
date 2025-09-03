@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
+from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -13,6 +14,7 @@ from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
     test_run_results_to_csv,
 )
+from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -22,6 +24,17 @@ TestRunDetailSchema = create_detailed_schema(
     models.TestRun,
     include_nested_relationships={"test_configuration": {"endpoint": ["project"], "test_set": []}},
 )
+
+
+class TestRunStatsMode(str, Enum):
+    ALL = "all"
+    STATUS = "status"
+    RESULTS = "results"
+    TESTS = "tests"
+    EXECUTORS = "executors"
+    TIMELINE = "timeline"
+    SUMMARY = "summary"
+
 
 router = APIRouter(
     prefix="/test_runs",
@@ -65,6 +78,204 @@ def read_test_runs(
         db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
     )
     return test_runs
+
+
+@router.get("/stats", response_model=schemas.TestRunStatsResponse)
+def generate_test_run_stats(
+    mode: TestRunStatsMode = Query(
+        TestRunStatsMode.ALL,
+        description="Data mode: 'summary' (lightweight), 'status' (status distribution), "
+        "'results' (result distribution), 'tests' (most run tests), "
+        "'executors' (top executors), 'timeline' (trends), 'all' (complete)",
+    ),
+    top: Optional[int] = Query(
+        None, description="Max items per dimension (e.g., top 10 executors)"
+    ),
+    months: Optional[int] = Query(
+        6, description="Months of historical data to include (default: 6)"
+    ),
+    # Test run filters
+    test_run_ids: Optional[List[UUID]] = Query(None, description="Filter by specific test run IDs"),
+    # User-related filters
+    user_ids: Optional[List[UUID]] = Query(None, description="Filter by executor user IDs"),
+    # Configuration filters
+    endpoint_ids: Optional[List[UUID]] = Query(None, description="Filter by endpoint IDs"),
+    test_set_ids: Optional[List[UUID]] = Query(None, description="Filter by test set IDs"),
+    # Status filters
+    status_list: Optional[List[str]] = Query(None, description="Filter by test run statuses"),
+    # Date range filters
+    start_date: Optional[str] = Query(
+        None, description="Start date (ISO format, overrides months parameter)"
+    ),
+    end_date: Optional[str] = Query(
+        None, description="End date (ISO format, overrides months parameter)"
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get test run statistics with configurable data modes for optimal performance
+
+    ## Available Modes
+
+    ### Performance-Optimized Modes (recommended for specific use cases):
+
+    **`summary`** - Ultra-lightweight (~5% of full data size)
+    - Returns: `overall_summary` + `metadata`
+    - Use case: Dashboard widgets, quick overviews
+    - Response time: ~50ms
+
+    **`status`** - Test run status distribution (~15% of full data size)
+    - Returns: `status_distribution` + `metadata`
+    - Contains: Count and percentage of runs by status (pending, running, completed, failed)
+    - Use case: Status monitoring dashboards, operational views
+
+    **`results`** - Test run result distribution (~15% of full data size)
+    - Returns: `result_distribution` + `metadata`
+    - Contains: Pass/fail rates and counts for test runs
+    - Use case: Success rate tracking, quality metrics
+
+    **`tests`** - Most run tests analysis (~20% of full data size)
+    - Returns: `most_run_tests` + `metadata`
+    - Contains: Test sets ranked by execution frequency
+    - Use case: Popular test identification, usage analytics
+
+    **`executors`** - Top test executors (~20% of full data size)
+    - Returns: `top_executors` + `metadata`
+    - Contains: Users ranked by test run execution count
+    - Use case: User activity tracking, workload distribution
+
+    **`timeline`** - Trend analysis (~40% of full data size)
+    - Returns: `timeline` + `metadata`
+    - Contains: Monthly test run counts and status/result breakdowns
+    - Use case: Trend charts, historical analysis, capacity planning
+
+    ### Complete Dataset Mode:
+
+    **`all`** - Complete dataset (default, full data size)
+    - Returns: All sections above combined
+    - Use case: Comprehensive dashboards, full analytics
+    - Response time: ~200-500ms depending on data volume
+
+    ## Response Structure Examples
+
+    ### Summary Mode Response:
+    ```json
+    {
+      "overall_summary": {
+        "total_runs": 150,
+        "unique_test_sets": 25,
+        "unique_executors": 8,
+        "most_common_status": "completed",
+        "pass_rate": 85.5
+      },
+      "metadata": {
+        "mode": "summary",
+        "total_test_runs": 150,
+        "available_statuses": ["completed", "failed", "running"],
+        ...
+      }
+    }
+    ```
+
+    ### Status Mode Response:
+    ```json
+    {
+      "status_distribution": [
+        {
+          "status": "completed",
+          "count": 90,
+          "percentage": 60.0
+        },
+        {
+          "status": "failed",
+          "count": 30,
+          "percentage": 20.0
+        }
+      ],
+      "metadata": { "mode": "status", ... }
+    }
+    ```
+
+    ## Comprehensive Filtering System
+
+    ### Test Run Filters
+    - `test_run_ids`: Filter specific test runs - `?test_run_ids={uuid1}&test_run_ids={uuid2}`
+
+    ### User-Related Filters
+    - `user_ids`: Filter by executors - `?user_ids={uuid1}&user_ids={uuid2}`
+
+    ### Configuration Filters
+    - `endpoint_ids`: Filter by endpoints - `?endpoint_ids={uuid1}&endpoint_ids={uuid2}`
+    - `test_set_ids`: Filter by test sets - `?test_set_ids={uuid1}&test_set_ids={uuid2}`
+
+    ### Status Filters
+    - `status_list`: Filter by statuses - `?status_list=completed&status_list=failed`
+
+    ### Date Range Filters
+    - `start_date/end_date`: Date range - `?start_date=2024-01-01&end_date=2024-12-31`
+
+    ## Usage Examples
+
+    ### Basic Usage
+    - Dashboard widget: `?mode=summary`
+    - Status monitoring: `?mode=status&months=1`
+    - Timeline charts: `?mode=timeline&months=6`
+    - Full analytics: `?mode=all` (or omit mode parameter)
+
+    ### Filtered Analysis
+    - User activity: `?mode=executors&user_ids={uuid}&months=3`
+    - Test set popularity: `?mode=tests&test_set_ids={uuid1}&test_set_ids={uuid2}`
+    - Endpoint performance: `?mode=results&endpoint_ids={uuid}`
+    - Status trends: `?mode=timeline&status_list=failed&months=12`
+
+    Args:
+        mode: Data mode to retrieve (default: 'all'). See mode descriptions above.
+        top: Optional number of top items to show per dimension
+        months: Number of months to include in historical timeline
+        (default: 6, overridden by date range)
+
+        # Test run filters
+        test_run_ids: Optional list of test run UUIDs to include
+
+        # User-related filters
+        user_ids: Optional list of user UUIDs (test run executors) to include
+
+        # Configuration filters
+        endpoint_ids: Optional list of endpoint UUIDs to include
+        test_set_ids: Optional list of test set UUIDs to include
+
+        # Status filters
+        status_list: Optional list of test run statuses to include
+
+        # Date range filters
+        start_date: Optional start date (ISO format, overrides months parameter)
+        end_date: Optional end date (ISO format, overrides months parameter)
+
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Dict: Response structure varies by mode (see examples above)
+    """
+    return get_test_run_stats(
+        db=db,
+        organization_id=str(current_user.organization_id) if current_user.organization_id else None,
+        months=months,
+        mode=mode.value,
+        top=top,
+        # Test run filters
+        test_run_ids=[str(id) for id in test_run_ids] if test_run_ids else None,
+        # User-related filters
+        user_ids=[str(id) for id in user_ids] if user_ids else None,
+        # Configuration filters
+        endpoint_ids=[str(id) for id in endpoint_ids] if endpoint_ids else None,
+        test_set_ids=[str(id) for id in test_set_ids] if test_set_ids else None,
+        # Status filters
+        status_list=status_list,
+        # Date range filters
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @router.get("/{test_run_id}", response_model=TestRunDetailSchema)

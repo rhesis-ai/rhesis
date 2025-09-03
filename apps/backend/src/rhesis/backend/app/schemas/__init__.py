@@ -44,6 +44,7 @@ from .stats import (
     TestResultStatsTimeline,
     TestResultStatsTopic,
     TestRunSummary,
+    TestRunStatsResponse,
     TimelineData,
 )
 from .status import Status, StatusBase, StatusCreate, StatusUpdate
@@ -248,6 +249,7 @@ __all__ = [
     "TestResultStatsTimeline",
     "TestResultStatsTopic",
     "TestRunSummary",
+    "TestRunStatsResponse",
     "TimelineData",
     "Metric",
     "MetricBase",
