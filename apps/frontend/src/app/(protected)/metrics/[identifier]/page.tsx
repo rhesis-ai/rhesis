@@ -113,7 +113,7 @@ export default function MetricDetailPage() {
     };
 
     fetchData();
-  }, [identifier, session?.session_token]); // Remove notifications dependency
+  }, [identifier, session?.session_token, notifications]);
 
   // Helper function to collect current field values without triggering re-renders
   const collectFieldValues = React.useCallback((): Partial<EditData> => {

@@ -275,7 +275,7 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
     };
 
     fetchData();
-  }, [sessionToken, refreshKey]); // Depend on sessionToken and refreshKey for manual refresh
+  }, [sessionToken, refreshKey, notifications]);
   
   // Debug log for useEffect triggers
   React.useEffect(() => {
