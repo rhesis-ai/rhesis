@@ -24,6 +24,8 @@ interface CommentsSectionProps {
   onDeleteComment: (commentId: string) => Promise<void>;
   onReactToComment: (commentId: string, emoji: string) => Promise<void>;
   currentUserId: string;
+  currentUserName: string;
+  currentUserPicture?: string;
   isLoading?: boolean;
 }
 
@@ -36,6 +38,8 @@ export function CommentsSection({
   onDeleteComment,
   onReactToComment,
   currentUserId,
+  currentUserName,
+  currentUserPicture,
   isLoading = false,
 }: CommentsSectionProps) {
   const [newComment, setNewComment] = useState('');
@@ -100,7 +104,9 @@ export function CommentsSection({
         borderRadius: 2,
         overflow: 'hidden',
         bgcolor: 'background.paper',
-        mt: 3
+        mt: 4,
+        mb: 3,
+        mx: 2
       }}
     >
       {/* Section Header with Icon */}
@@ -124,7 +130,7 @@ export function CommentsSection({
       </Box>
 
       {/* Comments Content */}
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 4 }}>
         {/* Comments List */}
         <Box sx={{ mb: 4 }}>
           {isLoading ? (
@@ -179,8 +185,10 @@ export function CommentsSection({
                 bgcolor: 'primary.main',
                 flexShrink: 0
               }}
+              src={currentUserPicture}
+              alt={currentUserName || 'User'}
             >
-              {currentUserId === 'current-user' ? 'Y' : 'U'}
+              {currentUserName ? currentUserName.charAt(0).toUpperCase() : 'U'}
             </Avatar>
 
             {/* Comment Input */}
