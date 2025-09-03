@@ -6,9 +6,7 @@ import {
   DialogActions,
   Button,
   Typography,
-  Box,
 } from '@mui/material';
-import { Warning as WarningIcon } from '@mui/icons-material';
 
 interface DeleteCommentModalProps {
   open: boolean;
@@ -24,55 +22,18 @@ export function DeleteCommentModal({
   isLoading = false 
 }: DeleteCommentModalProps) {
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-        }
-      }}
-    >
-      <DialogTitle sx={{ pb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <WarningIcon color="warning" />
-          <Typography variant="h6" fontWeight={600}>
-            Delete Comment
-          </Typography>
-        </Box>
-      </DialogTitle>
-      
-      <DialogContent sx={{ pb: 2 }}>
-        <Typography variant="body1" color="text.secondary">
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Delete Comment</DialogTitle>
+      <DialogContent>
+        <Typography>
           Are you sure you want to delete this comment? This action cannot be undone.
         </Typography>
       </DialogContent>
-      
-      <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-        <Button
-          onClick={onClose}
-          disabled={isLoading}
-          sx={{ 
-            textTransform: 'none',
-            borderRadius: '20px',
-            px: 3
-          }}
-        >
+      <DialogActions>
+        <Button onClick={onClose} disabled={isLoading}>
           Cancel
         </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={isLoading}
-          sx={{ 
-            textTransform: 'none',
-            borderRadius: '20px',
-            px: 3
-          }}
-        >
+        <Button onClick={onConfirm} color="error" disabled={isLoading}>
           {isLoading ? 'Deleting...' : 'Delete'}
         </Button>
       </DialogActions>
