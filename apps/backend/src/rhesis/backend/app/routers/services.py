@@ -132,6 +132,32 @@ async def create_chat_completion_endpoint(request: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/generate/content")
+async def generate_content_endpoint(request: dict):
+    """
+    OpenAI-compatible chat completions endpoint.
+    Accepts requests in the standard OpenAI chat completion format.
+
+    Args:
+        request: The complete chat completion request body matching OpenAI's format
+
+    Returns:
+        dict: The unmodified OpenAI API response
+    """
+    try:
+        from rhesis.sdk.services.providers.gemini_provider import GeminiLLM
+
+        prompt = request.get("prompt")
+        schema = request.get("schema")
+
+        model = GeminiLLM()
+        response = model.generate(prompt, schema=schema)
+
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
