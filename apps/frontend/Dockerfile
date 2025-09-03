@@ -1,7 +1,8 @@
-ARG FRONTEND_ENV
-
 # First stage: Build the application
 FROM node:22-alpine AS builder
+
+# Define ARG for this stage. Default to production if not set.
+ARG FRONTEND_ENV=production
 
 # Add build dependencies
 RUN apk add --no-cache libc6-compat
@@ -45,12 +46,16 @@ RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV FRONTEND_ENV=${FRONTEND_ENV}
 
+# Print the FRONTEND_ENV value for debugging
+RUN echo "🔍 FRONTEND_ENV value is: '${FRONTEND_ENV}'"
+
 # Build the Next.js application
 #RUN npm run build
 RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
         npm run build; \
     else \
         echo "Skipping build for non-production environment"; \
+        mkdir -p .next; \
     fi
 
 # Remove the temporary .env file
@@ -58,6 +63,9 @@ RUN rm -f .env
 
 # Second stage: Run the application
 FROM node:22-alpine AS runner
+
+# Redefine ARG for this stage
+ARG FRONTEND_ENV=production
 
 # Add runtime dependencies
 RUN apk add --no-cache curl
@@ -75,16 +83,12 @@ COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
 COPY --from=builder /app/.eslintrc.json ./
+# Copy .next directory (will be created during build for production/staging/development or as empty dir for other envs)
+COPY --from=builder /app/.next ./.next
 # Do NOT copy src, tsconfig.json, .eslintrc.json or any .env files to production image
 # Install dependencies and handle environment-specific setup
 RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || [ "$FRONTEND_ENV" = "development" ]; then \
         echo "Production mode detected"; \
-        if [ -d "/app/.next" ]; then \
-            cp -r /app/.next ./.next && \
-            echo ".next directory copied for production"; \
-        else \
-            echo "Warning: .next directory not found, but FRONTEND_ENV is production"; \
-        fi; \
         rm -rf ./src ./tsconfig.json ./.eslintrc.json && \
         echo "Source files removed for production mode"; \
         npm ci --only=production && \
