@@ -1,0 +1,397 @@
+"""Test run statistics functions with comprehensive filtering and mode-based data retrieval."""
+
+from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional
+from sqlalchemy.orm import Session
+from sqlalchemy import func, desc
+
+
+# Configuration for response modes
+MODE_DEFINITIONS = {
+    "all": [
+        "status_distribution", "result_distribution", "most_run_tests", 
+        "top_executors", "timeline", "overall_summary"
+    ],
+    "status": ["status_distribution"],
+    "results": ["result_distribution"],
+    "tests": ["most_run_tests"],
+    "executors": ["top_executors"],
+    "timeline": ["timeline"],
+    "summary": ["overall_summary"],
+}
+
+
+
+def _apply_filters(base_query, **filters):
+    """Apply all filters to the base query."""
+    from rhesis.backend.app import models
+    from rhesis.backend.app.models.tag import TaggedItem, Tag
+    from sqlalchemy import and_
+    
+    # Organization filter
+    if filters.get('organization_id'):
+        base_query = base_query.filter(models.TestRun.organization_id == filters['organization_id'])
+    
+    # Date range filters
+    if filters.get('start_date_obj'):
+        base_query = base_query.filter(models.TestRun.created_at >= filters['start_date_obj'])
+    if filters.get('end_date_obj'):
+        base_query = base_query.filter(models.TestRun.created_at <= filters['end_date_obj'])
+    
+    # Test run specific filters
+    if filters.get('test_run_ids'):
+        base_query = base_query.filter(models.TestRun.id.in_(filters['test_run_ids']))
+    
+    # User filters
+    if filters.get('user_ids'):
+        base_query = base_query.filter(models.TestRun.user_id.in_(filters['user_ids']))
+    
+    # Test configuration filters
+    if filters.get('endpoint_ids'):
+        base_query = base_query.join(
+            models.TestConfiguration, 
+            models.TestRun.test_configuration_id == models.TestConfiguration.id
+        ).filter(models.TestConfiguration.endpoint_id.in_(filters['endpoint_ids']))
+    
+    if filters.get('test_set_ids'):
+        base_query = base_query.join(
+            models.TestConfiguration, 
+            models.TestRun.test_configuration_id == models.TestConfiguration.id
+        ).filter(models.TestConfiguration.test_set_id.in_(filters['test_set_ids']))
+    
+    # Status filters
+    if filters.get('status_list'):
+        base_query = base_query.filter(models.TestRun.status.in_(filters['status_list']))
+    
+    return base_query
+
+
+def _build_pass_rate_stats(stats_dict: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, Any]]:
+    """Build pass rate statistics from raw pass/fail counts."""
+    pass_rates = {}
+    for name, stats in stats_dict.items():
+        total = stats["passed"] + stats["failed"]
+        pass_rate = round((stats["passed"] / total) * 100, 2) if total > 0 else 0
+        pass_rates[name] = {
+            "total": total,
+            "passed": stats["passed"],
+            "failed": stats["failed"],
+            "pass_rate": pass_rate
+        }
+    return pass_rates
+
+
+def _build_timeline_data(monthly_stats: Dict[str, Dict]) -> List[Dict[str, Any]]:
+    """Build timeline data from monthly statistics."""
+    timeline = []
+    for month_key in sorted(monthly_stats.keys()):
+        month_data = monthly_stats[month_key]
+        timeline.append({
+            "date": month_key,
+            "total_runs": month_data["total"],
+            "status_breakdown": month_data["statuses"],
+            "result_breakdown": month_data["results"]
+        })
+    return timeline
+
+
+def _build_response_data(mode: str, **data_sections) -> Dict[str, Any]:
+    """Build response data based on mode, including metadata in all responses."""
+    response = {"metadata": data_sections.get("metadata", {})}
+    
+    # Get the sections needed for this mode
+    required_sections = MODE_DEFINITIONS.get(mode, MODE_DEFINITIONS["all"])
+    
+    for section in required_sections:
+        if section in data_sections:
+            response[section] = data_sections[section]
+    
+    return response
+
+
+def get_test_run_stats(
+    db: Session,
+    organization_id: str | None = None,
+    months: int = 6,
+    mode: str = "all",
+    top: int | None = None,
+    # Test run filters
+    test_run_ids: List[str] | None = None,
+    # User-related filters
+    user_ids: List[str] | None = None,
+    # Configuration filters
+    endpoint_ids: List[str] | None = None,
+    test_set_ids: List[str] | None = None,
+    # Status filters
+    status_list: List[str] | None = None,
+    # Date range filters
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> Dict:
+    """
+    Get specialized statistics for test runs with comprehensive filtering and configurable data modes.
+    Analyzes test run status, results, and execution patterns.
+    Designed for React charting libraries with performance optimization.
+    
+    Args:
+        db: Database session
+        organization_id: Optional organization ID for filtering
+        months: Number of months to include in historical stats (used for timeline if no date range specified)
+        mode: Data mode to retrieve ('all', 'status', 'results', 'tests', 'executors', 'timeline', 'summary')
+        top: Optional number of top items to show per dimension
+        
+        # Test run filters
+        test_run_ids: List of test run IDs to include
+        
+        # User-related filters
+        user_ids: List of user IDs (test run executors) to include
+        
+        # Configuration filters
+        endpoint_ids: List of endpoint IDs to include
+        test_set_ids: List of test set IDs to include
+        
+        # Status filters
+        status_list: List of test run statuses to include
+        
+        # Date range filters (ISO format strings)
+        start_date: Start date for filtering (overrides months parameter)
+        end_date: End date for filtering (overrides months parameter)
+        
+    Returns:
+        Dict containing requested data sections based on mode:
+        - all: All data sections
+        - status: status_distribution only  
+        - results: result_distribution only
+        - tests: most_run_tests only
+        - executors: top_executors only
+        - timeline: timeline data only
+        - summary: overall_summary + metadata (lightweight)
+    """
+    from rhesis.backend.app import models
+    
+    # Handle date range - custom dates override months parameter
+    if start_date and end_date:
+        start_date_obj = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        end_date_obj = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+    else:
+        end_date_obj = datetime.utcnow()
+        start_date_obj = end_date_obj - timedelta(days=30 * months)
+    
+    # Base query for test runs, joining related entities
+    base_query = (
+        db.query(models.TestRun)
+        .outerjoin(models.TestConfiguration, models.TestRun.test_configuration_id == models.TestConfiguration.id)
+        .outerjoin(models.TestSet, models.TestConfiguration.test_set_id == models.TestSet.id)
+        .outerjoin(models.Endpoint, models.TestConfiguration.endpoint_id == models.Endpoint.id)
+        .outerjoin(models.User, models.TestRun.user_id == models.User.id)
+    )
+    
+    # Apply all filters using the helper function
+    filter_params = {
+        'organization_id': organization_id,
+        'test_run_ids': test_run_ids,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'user_ids': user_ids,
+        'endpoint_ids': endpoint_ids,
+        'test_set_ids': test_set_ids,
+        'status_list': status_list,
+    }
+    
+    base_query = _apply_filters(base_query, **filter_params)
+    
+    # Get all test runs with related entities
+    test_runs = base_query.all()
+    
+    if not test_runs:
+        return _empty_test_run_stats(start_date_obj, end_date_obj, months, organization_id, mode)
+    
+    # Initialize statistics containers
+    status_stats = {}  # status -> count
+    result_stats = {"passed": 0, "failed": 0, "pending": 0}  # overall results
+    test_stats = {}  # test_set_name -> count
+    executor_stats = {}  # user_name -> count
+    monthly_stats = {}  # "YYYY-MM" -> {total, statuses: {}, results: {}}
+    
+    for test_run in test_runs:
+        # Status distribution - use the actual status name from the relationship
+        status_name = test_run.status.name if test_run.status else "unknown"
+        if status_name not in status_stats:
+            status_stats[status_name] = 0
+        status_stats[status_name] += 1
+        
+        # Result distribution (based on status or result field if available)
+        if hasattr(test_run, 'result') and test_run.result:
+            if test_run.result in ['passed', 'failed', 'pending']:
+                result_stats[test_run.result] += 1
+        else:
+            # Infer from status name - use more flexible matching
+            status_lower = status_name.lower()
+            if any(keyword in status_lower for keyword in ['completed', 'finished', 'success', 'done']):
+                result_stats["passed"] += 1
+            elif any(keyword in status_lower for keyword in ['failed', 'error', 'abort', 'cancel']):
+                result_stats["failed"] += 1
+            else:
+                result_stats["pending"] += 1
+        
+        # Most run tests (by test set)
+        if test_run.test_configuration and test_run.test_configuration.test_set:
+            test_set_name = test_run.test_configuration.test_set.name
+            if test_set_name not in test_stats:
+                test_stats[test_set_name] = 0
+            test_stats[test_set_name] += 1
+        
+        # Top executors
+        if test_run.user:
+            # Use email or username or fallback to ID
+            executor_name = test_run.user.email or test_run.user.username or f"User {str(test_run.user.id)[:8]}"
+            if executor_name not in executor_stats:
+                executor_stats[executor_name] = 0
+            executor_stats[executor_name] += 1
+        
+        # Monthly timeline data
+        if test_run.created_at:
+            month_key = test_run.created_at.strftime("%Y-%m")
+            if month_key not in monthly_stats:
+                monthly_stats[month_key] = {
+                    "total": 0,
+                    "statuses": {},
+                    "results": {"passed": 0, "failed": 0, "pending": 0}
+                }
+            
+            monthly_stats[month_key]["total"] += 1
+            
+            # Monthly status breakdown
+            if status_name not in monthly_stats[month_key]["statuses"]:
+                monthly_stats[month_key]["statuses"][status_name] = 0
+            monthly_stats[month_key]["statuses"][status_name] += 1
+            
+            # Monthly result breakdown
+            if hasattr(test_run, 'result') and test_run.result and test_run.result in result_stats:
+                monthly_stats[month_key]["results"][test_run.result] += 1
+            else:
+                # Infer from status for monthly data too - use same logic as above
+                status_lower = status_name.lower()
+                if any(keyword in status_lower for keyword in ['completed', 'finished', 'success', 'done']):
+                    monthly_stats[month_key]["results"]["passed"] += 1
+                elif any(keyword in status_lower for keyword in ['failed', 'error', 'abort', 'cancel']):
+                    monthly_stats[month_key]["results"]["failed"] += 1
+                else:
+                    monthly_stats[month_key]["results"]["pending"] += 1
+    
+    # Apply top limit if specified
+    if top:
+        # Sort and limit test stats
+        test_stats = dict(sorted(test_stats.items(), key=lambda x: x[1], reverse=True)[:top])
+        # Sort and limit executor stats
+        executor_stats = dict(sorted(executor_stats.items(), key=lambda x: x[1], reverse=True)[:top])
+    
+    # Build status distribution
+    status_distribution = [
+        {"status": status, "count": count, "percentage": round((count / len(test_runs)) * 100, 2)}
+        for status, count in status_stats.items()
+    ]
+    
+    # Build result distribution
+    total_results = sum(result_stats.values())
+    result_distribution = {
+        "total": total_results,
+        "passed": result_stats["passed"],
+        "failed": result_stats["failed"],
+        "pending": result_stats["pending"],
+        "pass_rate": round((result_stats["passed"] / total_results) * 100, 2) if total_results > 0 else 0
+    }
+    
+    # Build most run tests
+    most_run_tests = [
+        {"test_set_name": name, "run_count": count}
+        for name, count in sorted(test_stats.items(), key=lambda x: x[1], reverse=True)
+    ]
+    
+    # Build top executors
+    top_executors = [
+        {"executor_name": name, "run_count": count}
+        for name, count in sorted(executor_stats.items(), key=lambda x: x[1], reverse=True)
+    ]
+    
+    # Build timeline data using helper function
+    timeline = _build_timeline_data(monthly_stats)
+    
+    # Build overall summary
+    overall_summary = {
+        "total_runs": len(test_runs),
+        "unique_test_sets": len(test_stats),
+        "unique_executors": len(executor_stats),
+        "most_common_status": max(status_stats.items(), key=lambda x: x[1])[0] if status_stats else "unknown",
+        "pass_rate": result_distribution["pass_rate"]
+    }
+    
+    # Build metadata
+    metadata = {
+        "generated_at": datetime.utcnow().isoformat(),
+        "organization_id": organization_id,
+        "period": f"Last {months} months",
+        "start_date": start_date_obj.isoformat(),
+        "end_date": end_date_obj.isoformat(),
+        "total_test_runs": len(test_runs),
+        "mode": mode,
+        "available_statuses": list(status_stats.keys()),
+        "available_test_sets": list(test_stats.keys()),
+        "available_executors": list(executor_stats.keys())
+    }
+    
+    # Return data based on mode using helper function
+    return _build_response_data(
+        mode,
+        status_distribution=status_distribution,
+        result_distribution=result_distribution,
+        most_run_tests=most_run_tests,
+        top_executors=top_executors,
+        timeline=timeline,
+        overall_summary=overall_summary,
+        metadata=metadata
+    )
+
+
+def _empty_test_run_stats(start_date, end_date, months, organization_id, mode="all"):
+    """Return empty stats structure when no test runs found, respecting mode"""
+    metadata = {
+        "generated_at": datetime.utcnow().isoformat(),
+        "organization_id": organization_id,
+        "period": f"Last {months} months",
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "total_test_runs": 0,
+        "mode": mode,
+        "available_statuses": [],
+        "available_test_sets": [],
+        "available_executors": []
+    }
+    
+    empty_result_distribution = {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "pending": 0,
+        "pass_rate": 0
+    }
+    
+    empty_overall_summary = {
+        "total_runs": 0,
+        "unique_test_sets": 0,
+        "unique_executors": 0,
+        "most_common_status": "unknown",
+        "pass_rate": 0
+    }
+    
+    # Return data based on mode using the same helper function
+    return _build_response_data(
+        mode,
+        status_distribution=[],
+        result_distribution=empty_result_distribution,
+        most_run_tests=[],
+        top_executors=[],
+        timeline=[],
+        overall_summary=empty_overall_summary,
+        metadata=metadata
+    )
