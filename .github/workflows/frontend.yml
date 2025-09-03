@@ -108,6 +108,7 @@ jobs:
       - name: Build Container
         run: |
           docker build \
+            --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
             --build-arg NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }} \
             --build-arg NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }} \
             --build-arg NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }} \
