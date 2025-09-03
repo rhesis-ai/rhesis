@@ -3,7 +3,7 @@ from typing import Optional, Union
 from rhesis.sdk.metrics.base import BaseMetric, MetricType
 from rhesis.sdk.metrics.constants import ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.score_evaluator import ScoreEvaluator
-from rhesis.sdk.services.base import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 
 class RhesisMetricBase(BaseMetric):

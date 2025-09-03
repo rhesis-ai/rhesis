@@ -1,17 +1,15 @@
 """
-Examples of using DeepEval metrics with different model configurations.
-
-This file demonstrates how to use the updated DeepEval metrics with
- Rhesis LLM service.
+Examples of using metrics of different frameworks.
 """
 
 from rhesis.sdk.metrics.deepeval.metrics import (
     DeepEvalAnswerRelevancy,
     DeepEvalFaithfulness,
 )
+from rhesis.sdk.models.model_factory import get_model
 
 
-def example_with_default_model():
+def deepeval_with_default_model():
     """Example using the default Rhesis model.
     When the model provider is not specified, Rhesis model will be used.
 
@@ -32,28 +30,25 @@ def example_with_default_model():
 
 
 # Future database configuration example
-def example_future_database_config():
+def deepeval_with_future_database_config():
     """
     Example of how this could work with database configuration in the future.
 
-    You would modify the get_model_from_config function in model_factory.py
-    to read from your database instead of environment variables.
     """
 
     # This would come from your database
-    database_model_config = {
-        "type": "openai",
+    model_config_from_database = {
+        "provider": "rhesis",
         "model_name": "gpt-4-turbo",
-        "api_key": "encrypted_key_from_database",
-        "extra_params": {"temperature": 0.2, "max_tokens": 1000},
     }
+    model = get_model(model_config_from_database)
 
-    metric = DeepEvalFaithfulness(threshold=0.8, model_config=database_model_config)  # noqa: F841
+    metric = DeepEvalFaithfulness(threshold=0.8, model=model)  # noqa: F841
 
     print("This example shows how database config could work in the future")
 
 
-def example_with_gemini_model():
+def deepeval_with_gemini_model():
     """Example using Gemini model (requires GEMINI_API_KEY env var).
     The model can be specified as a string or instance of BaseLLM.
     """
@@ -77,9 +72,27 @@ def example_with_gemini_model():
 
 
 if __name__ == "__main__":
-    print("DeepEval Metrics with Multiple Models - Examples")
-    print("=" * 50)
-    example_with_default_model()
-    print("=" * 50)
-    example_with_gemini_model()
-    print("=" * 50)
+    # print("DeepEval Metrics with Multiple Models - Examples")
+    # print("=" * 50)
+    # deepeval_with_default_model()
+    # print("=" * 50)
+    # deepeval_with_gemini_model()
+    # print("=" * 50)
+    # deepeval_with_future_database_config()
+    # print("=" * 50)
+
+    model_config_from_database = {
+        "provider": "rhesis",
+        "model_name": "gpt-4-turbo",
+    }
+    model = get_model(model_config_from_database)
+
+    metric = DeepEvalFaithfulness(threshold=0.8, model=model)  # noqa: F841
+    result = metric.evaluate(
+        input="What is the capital of France?",
+        output="The capital of France is Paris.",
+        expected_output="Paris",
+        context=["France is a country in Europe.", "Paris is the largest city in France."],
+    )
+    print(f"Score: {result.score}")
+    print(f"Details: {result.details}")
