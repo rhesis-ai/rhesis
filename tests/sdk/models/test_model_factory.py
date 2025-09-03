@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.model_factory import (
+from rhesis.sdk.models.factory import (
     DEFAULT_MODELS,
     DEFAULT_PROVIDER,
     ModelConfig,
