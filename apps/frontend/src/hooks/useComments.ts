@@ -66,11 +66,6 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       
       setComments(prev => [commentWithUser, ...prev]);
       
-      // Refetch comments after a short delay to get proper user information
-      setTimeout(() => {
-        fetchComments();
-      }, 1000);
-      
       return commentWithUser;
     } catch (err) {
       console.error('Error creating comment:', err);
@@ -107,11 +102,6 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
           comment.id === commentId ? commentWithUser : comment
         )
       );
-      
-      // Refetch comments after a short delay to get proper user information
-      setTimeout(() => {
-        fetchComments();
-      }, 1000);
       
       return commentWithUser;
     } catch (err) {
