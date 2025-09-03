@@ -10,9 +10,11 @@ interface CommentsWrapperProps {
   entityId: string;
   sessionToken: string;
   currentUserId: string;
+  currentUserName: string;
+  currentUserPicture?: string;
 }
 
-export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId }: CommentsWrapperProps) {
+export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture }: CommentsWrapperProps) {
   const {
     comments,
     isLoading,
@@ -26,7 +28,9 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
     entityType,
     entityId,
     sessionToken,
-    currentUserId
+    currentUserId,
+    currentUserName,
+    currentUserPicture
   });
 
   // Wrap the functions to match the expected Promise<void> return type
@@ -48,17 +52,19 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
 
   return (
     <Box>
-      <CommentsSection
-        entityType={entityType}
-        entityId={entityId}
-        comments={comments}
-        onCreateComment={handleCreateComment}
-        onEditComment={handleEditComment}
-        onDeleteComment={handleDeleteComment}
-        onReactToComment={handleReactToComment}
-        currentUserId={currentUserId}
-        isLoading={isLoading}
-      />
+                  <CommentsSection
+              entityType={entityType}
+              entityId={entityId}
+              comments={comments}
+              onCreateComment={handleCreateComment}
+              onEditComment={handleEditComment}
+              onDeleteComment={handleDeleteComment}
+              onReactToComment={handleReactToComment}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+              isLoading={isLoading}
+            />
     </Box>
   );
 }

@@ -129,11 +129,13 @@ export default async function TestSetPage({ params }: { params: any }) {
 
             {/* Comments Section */}
             <Paper sx={{ p: 3, mb: 4 }}>
-              <CommentsWrapper 
+                            <CommentsWrapper
                 entityType="TestSet"
                 entityId={testSet.id}
                 sessionToken={session.session_token}
                 currentUserId={session.user?.id || ''}
+                currentUserName={session.user?.name || ''}
+                currentUserPicture={session.user?.picture || undefined}
               />
             </Paper>
           </Grid>

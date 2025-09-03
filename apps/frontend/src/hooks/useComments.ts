@@ -7,9 +7,11 @@ interface UseCommentsProps {
   entityId: string;
   sessionToken: string;
   currentUserId: string;
+  currentUserName: string;
+  currentUserPicture?: string;
 }
 
-export function useComments({ entityType, entityId, sessionToken, currentUserId }: UseCommentsProps) {
+export function useComments({ entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture }: UseCommentsProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,8 +58,9 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId 
         ...newComment,
         user: {
           id: currentUserId,
-          name: 'Current User', // This will be replaced when we refetch
-          email: ''
+          name: currentUserName,
+          email: '',
+          picture: currentUserPicture
         }
       };
       
@@ -73,7 +76,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId 
       console.error('Error creating comment:', err);
       throw err;
     }
-  }, [entityType, entityId, sessionToken, currentUserId, fetchComments]);
+  }, [entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, fetchComments]);
 
   const editComment = useCallback(async (commentId: string, newText: string) => {
     if (!sessionToken) {
@@ -93,8 +96,9 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId 
         ...updatedComment,
         user: currentComment?.user || {
           id: currentUserId,
-          name: 'Current User',
-          email: ''
+          name: currentUserName,
+          email: '',
+          picture: currentUserPicture
         }
       };
       
@@ -114,7 +118,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId 
       console.error('Error editing comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, fetchComments]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, fetchComments]);
 
   const deleteComment = useCallback(async (commentId: string) => {
     if (!sessionToken) {
@@ -164,8 +168,9 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId 
         ...updatedComment,
         user: comment?.user || {
           id: currentUserId,
-          name: 'Current User',
-          email: ''
+          name: currentUserName,
+          email: '',
+          picture: currentUserPicture
         }
       };
       
@@ -179,7 +184,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId 
       console.error('Error reacting to comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture]);
 
   useEffect(() => {
     fetchComments();

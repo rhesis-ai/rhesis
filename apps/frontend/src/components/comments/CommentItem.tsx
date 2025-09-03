@@ -131,6 +131,8 @@ export function CommentItem({
             bgcolor: 'primary.main',
             flexShrink: 0
           }}
+          src={comment.user?.picture}
+          alt={comment.user?.name || 'User'}
         >
           {comment.user?.name ? comment.user.name.charAt(0).toUpperCase() : 'U'}
         </Avatar>
@@ -199,47 +201,17 @@ export function CommentItem({
 
           {/* Action Buttons */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {/* Quick Emoji Reactions */}
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              {['👍', '❤️', '😊', '🎉'].map((emoji) => {
-                const hasReacted = comment.emojis?.[emoji]?.some(reaction => 
-                  reaction.user_id === currentUserId
-                );
-                return (
-                  <IconButton
-                    key={emoji}
-                    size="small"
-                    onClick={() => onReact(comment.id, emoji)}
-                    sx={{ 
-                      color: hasReacted ? 'primary.main' : 'text.secondary',
-                      backgroundColor: hasReacted ? 'primary.light' : 'transparent',
-                      '&:hover': { 
-                        backgroundColor: hasReacted ? 'primary.main' : 'rgba(0, 0, 0, 0.04)',
-                        color: hasReacted ? 'white' : 'primary.main'
-                      },
-                      fontSize: '16px',
-                      width: 32,
-                      height: 32
-                    }}
-                    title={hasReacted ? `Remove ${emoji} reaction` : `Add ${emoji} reaction`}
-                  >
-                    {emoji}
-                  </IconButton>
-                );
-              })}
-            </Box>
-
-            {/* Emoji Picker Button */}
-            <IconButton
-              size="small"
-              onClick={openEmojiPicker}
-              sx={{ 
-                color: 'text.secondary',
-                '&:hover': { color: 'primary.main' }
-              }}
-            >
-              <EmojiIcon fontSize="small" />
-            </IconButton>
+                      {/* Emoji Picker Button */}
+          <IconButton
+            size="small"
+            onClick={openEmojiPicker}
+            sx={{ 
+              color: 'text.secondary',
+              '&:hover': { color: 'primary.main' }
+            }}
+          >
+            <EmojiIcon fontSize="small" />
+          </IconButton>
 
             {/* Edit/Delete Links (only for comment owner) */}
             {canEdit && (
@@ -309,7 +281,9 @@ export function CommentItem({
                     }}
                   >
                     <Typography variant="caption">{emoji}</Typography>
-                    <Typography variant="caption" fontWeight={600}>
+                    <Typography variant="caption" fontWeight={600} sx={{ 
+                      color: hasReacted ? 'primary.contrastText' : 'text.primary' 
+                    }}>
                       {reactionCount}
                     </Typography>
                   </Box>
