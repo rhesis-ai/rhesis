@@ -10,7 +10,6 @@ import {
   Divider,
   Paper,
 } from '@mui/material';
-import { Send as SendIcon, ChatBubbleOutline as ChatIcon } from '@mui/icons-material';
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -112,42 +111,12 @@ export function CommentsSection({
 
   return (
     <Paper sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <ChatIcon color="primary" />
-        <Typography variant="h6" fontWeight={600}>
-          Comments ({comments.length})
-        </Typography>
-      </Box>
-
-      {/* Divider after header */}
-      <Divider sx={{ mb: 3 }} />
-
       {/* Comments List */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
-      ) : comments.length === 0 ? (
-        <Box 
-          sx={{ 
-            textAlign: 'center', 
-            py: 6,
-            border: '2px dashed',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'background.default',
-            mb: 3
-          }}
-        >
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            No comments yet
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Be the first to share your thoughts about this {getEntityDisplayName(entityType)}!
-          </Typography>
-        </Box>
-      ) : (
+      ) : comments.length > 0 && (
         <Box sx={{ mb: 3 }}>
           {sortedComments.map((comment) => (
             <CommentItem
@@ -162,8 +131,8 @@ export function CommentsSection({
         </Box>
       )}
 
-      {/* Divider */}
-      <Divider sx={{ my: 3 }} />
+      {/* Divider - Only show when there are comments */}
+      {comments.length > 0 && <Divider sx={{ my: 3 }} />}
 
       {/* Comment Form */}
       <Box component="form" onSubmit={handleSubmit}>

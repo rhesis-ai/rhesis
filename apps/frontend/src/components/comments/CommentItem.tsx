@@ -267,7 +267,7 @@ export function CommentItem({
                             }
                           }}
                         >
-                          <Typography variant="body2">{emoji}</Typography>
+                          <Typography variant="body2" sx={{ fontSize: '1rem' }}>{emoji}</Typography>
                           <Typography variant="body2" fontWeight={600} sx={{ 
                             color: theme.palette.mode === 'dark' ? '#ffffff' : '#333333'
                           }}>
