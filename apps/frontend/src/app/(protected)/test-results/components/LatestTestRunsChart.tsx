@@ -185,9 +185,13 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
             />
             <Tooltip 
               contentStyle={{ fontSize: '10px' }}
-              formatter={(value: any, name: string) => {
-                if (name === 'Pass Rate') return [`${value}%`, name];
-                return [value, name];
+              formatter={(value: any, name: string, props: any) => {
+                // The value here is the pass_rate from the data
+                return [`${value}%`, 'Pass Rate'];
+              }}
+              labelFormatter={(label: string, payload: any) => {
+                // The label is the test run name
+                return label || 'Test Run';
               }}
             />
             <Legend 

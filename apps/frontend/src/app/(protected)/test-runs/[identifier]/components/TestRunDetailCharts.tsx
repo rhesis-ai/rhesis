@@ -64,6 +64,29 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
     return sortedRuns.map((item, index) => {
       // Use the name field from the test run data
       const runName = item.name || `Run ${item.id.slice(0, 8)}`;
+      
+      // Format the date for display - try both started_at and created_at
+      const formatDate = (item: any) => {
+        const dateString = item.started_at || item.created_at;
+        
+        if (!dateString) return 'Unknown date';
+        
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) return 'Invalid date';
+          
+          return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (error) {
+          console.error('Date formatting error:', error);
+          return 'Date error';
+        }
+      };
 
       return {
         name: runName,
@@ -72,7 +95,10 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
         passed: item.overall?.passed || 0,
         failed: item.overall?.failed || 0,
         test_run_id: item.id,
-        isHighlighted: testRunDetail ? item.id === testRunDetail.id : false
+        isHighlighted: testRunDetail ? item.id === testRunDetail.id : false,
+        started_at: item.started_at,
+        created_at: item.created_at,
+        formatted_date: formatDate(item)
       };
     });
   }, [testRunDetail]);
@@ -277,9 +303,12 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="name"
+                    type="category"
                     tick={false}
                     axisLine={{ strokeWidth: 1 }}
                     tickLine={false}
+                    interval={0}
+                    padding={{ left: 20, right: 20 }}
                   />
                   <YAxis
                     domain={[0, 100]}
@@ -291,17 +320,26 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                     width={35}
                   />
                   <Tooltip 
-                    contentStyle={{ fontSize: '10px' }}
-                    formatter={(value: any, name: string) => {
-                      if (name === 'Pass Rate') return [`${value}%`, name];
-                      return [value, name];
-                    }}
-                    labelFormatter={(label: any, payload: any) => {
-                      if (payload && payload.length > 0) {
+                    contentStyle={{ fontSize: '10px', backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px' }}
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length > 0) {
                         const data = payload[0].payload;
-                        return `${data.name} (${data.passed}/${data.total} passed)`;
+                        return (
+                          <div style={{ 
+                            padding: '8px', 
+                            backgroundColor: 'white', 
+                            border: '1px solid #ccc', 
+                            borderRadius: '4px',
+                            fontSize: '10px'
+                          }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{data.name}</div>
+                            <div style={{ marginBottom: '2px' }}>{data.formatted_date}</div>
+                            <div style={{ marginBottom: '2px' }}>Pass Rate: {data.pass_rate}%</div>
+                            <div>Tests: {data.passed}/{data.total} passed</div>
+                          </div>
+                        );
                       }
-                      return label;
+                      return null;
                     }}
                   />
                   <Legend 
