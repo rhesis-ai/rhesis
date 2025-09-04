@@ -110,96 +110,72 @@ export function CommentsSection({
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
-    return (
-    <Paper 
-      elevation={0}
-      sx={{ 
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 2,
-        overflow: 'hidden',
-        bgcolor: 'background.paper',
-        mt: 4,
-        mb: 3,
-        mx: 2
-      }}
-    >
-      {/* Section Header with Icon */}
-      <Box 
-        sx={{ 
-          p: 3,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.default'
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <ChatIcon color="primary" />
-          <Typography variant="h6" fontWeight={600}>
-            Comments ({comments.length})
-          </Typography>
-        </Box>
-        <Typography variant="body2" color="text.secondary">
-          Share your thoughts, ask questions, or provide feedback about this {getEntityDisplayName(entityType)}.
+  return (
+    <Paper sx={{ p: 3 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <ChatIcon color="primary" />
+        <Typography variant="h6" fontWeight={600}>
+          Comments ({comments.length})
         </Typography>
       </Box>
 
-      {/* Comments Content */}
-      <Box sx={{ p: 4 }}>
-        {/* Comments List */}
-        <Box sx={{ mb: 4 }}>
-          {isLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : comments.length === 0 ? (
-            <Box 
-              sx={{ 
-                textAlign: 'center', 
-                py: 6,
-                border: '2px dashed',
-                borderColor: 'divider',
-                borderRadius: 2,
-                bgcolor: 'background.default'
-              }}
-            >
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                No comments yet
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Be the first to share your thoughts about this {getEntityDisplayName(entityType)}!
-              </Typography>
-            </Box>
-          ) : (
-            <Box>
-              {sortedComments.map((comment) => (
-                <CommentItem
-                  key={comment.id}
-                  comment={comment}
-                  onEdit={handleEditComment}
-                  onDelete={handleDeleteComment}
-                  onReact={handleReactToComment}
-                  currentUserId={currentUserId}
-                />
-              ))}
-            </Box>
-          )}
+      {/* Divider after header */}
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Comments List */}
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
         </Box>
-
-        {/* Divider before comment form */}
-        <Divider sx={{ my: 3 }} />
-
-        {/* Comment Form */}
-        <Box component="form" onSubmit={handleSubmit}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-            {/* User Avatar */}
-            <UserAvatar 
-              userName={currentUserName}
-              userPicture={currentUserPicture}
-              size={40}
+      ) : comments.length === 0 ? (
+        <Box 
+          sx={{ 
+            textAlign: 'center', 
+            py: 6,
+            border: '2px dashed',
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: 'background.default',
+            mb: 3
+          }}
+        >
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No comments yet
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Be the first to share your thoughts about this {getEntityDisplayName(entityType)}!
+          </Typography>
+        </Box>
+      ) : (
+        <Box sx={{ mb: 3 }}>
+          {sortedComments.map((comment) => (
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              onEdit={handleEditComment}
+              onDelete={handleDeleteComment}
+              onReact={handleReactToComment}
+              currentUserId={currentUserId}
             />
+          ))}
+        </Box>
+      )}
 
-            {/* Comment Input */}
+      {/* Divider */}
+      <Divider sx={{ my: 3 }} />
+
+      {/* Comment Form */}
+      <Box component="form" onSubmit={handleSubmit}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+          {/* User Avatar */}
+          <UserAvatar 
+            userName={currentUserName}
+            userPicture={currentUserPicture}
+            size={40}
+          />
+
+                      {/* Comment Input */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <TextField
                 value={newComment}
@@ -210,9 +186,8 @@ export function CommentsSection({
                 fullWidth
                 variant="outlined"
                 size="small"
-                sx={{ mb: 2 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.ctrlKey) {
+                  if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSubmit(e);
                   }
@@ -229,25 +204,7 @@ export function CommentsSection({
                   {error}
                 </Typography>
               )}
-
-              {/* Submit Button */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={!newComment.trim() || isSubmitting}
-                  startIcon={isSubmitting ? <CircularProgress size={16} /> : <SendIcon />}
-                  sx={{
-                    borderRadius: '20px',
-                    textTransform: 'none',
-                    px: 3
-                  }}
-                >
-                  {isSubmitting ? 'Posting...' : 'Comment'}
-                </Button>
-              </Box>
             </Box>
-          </Box>
         </Box>
       </Box>
     </Paper>
