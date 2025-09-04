@@ -18,7 +18,8 @@ from pydantic import BaseModel
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.utils import validate_llm_response
-
+import litellm
+litellm.suppress_debug_info = True
 PROVIDER = "gemini"
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
