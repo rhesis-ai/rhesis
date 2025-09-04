@@ -114,13 +114,15 @@ export default async function TestSetPage({ params }: { params: any }) {
         <Grid container spacing={3}>
           {/* Main Content Column */}
           <Grid item xs={12} md={9}>
-            <TestSetDetailsSection 
-              testSet={serializedTestSet} 
-              sessionToken={session.session_token}
-            />
+            <Paper sx={{ p: 3, mb: 4 }}>
+              <TestSetDetailsSection 
+                testSet={serializedTestSet} 
+                sessionToken={session.session_token}
+              />
+            </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper sx={{ p: 3 }}>
+            <Paper sx={{ p: 3, mb: 4 }}>
               <TestSetTestsGrid
                 testSetId={identifier}
                 sessionToken={session.session_token}
@@ -128,16 +130,14 @@ export default async function TestSetPage({ params }: { params: any }) {
             </Paper>
 
             {/* Comments Section */}
-            <Paper sx={{ p: 3, mb: 4 }}>
-                            <CommentsWrapper
-                entityType="TestSet"
-                entityId={testSet.id}
-                sessionToken={session.session_token}
-                currentUserId={session.user?.id || ''}
-                currentUserName={session.user?.name || ''}
-                currentUserPicture={session.user?.picture || undefined}
-              />
-            </Paper>
+            <CommentsWrapper
+              entityType="TestSet"
+              entityId={testSet.id}
+              sessionToken={session.session_token}
+              currentUserId={session.user?.id || ''}
+              currentUserName={session.user?.name || ''}
+              currentUserPicture={session.user?.picture || undefined}
+            />
           </Grid>
 
           {/* Workflow Column */}

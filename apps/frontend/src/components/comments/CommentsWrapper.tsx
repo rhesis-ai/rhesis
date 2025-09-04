@@ -51,20 +51,18 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
   };
 
   return (
-    <Box>
-                  <CommentsSection
-              entityType={entityType}
-              entityId={entityId}
-              comments={comments}
-              onCreateComment={handleCreateComment}
-              onEditComment={handleEditComment}
-              onDeleteComment={handleDeleteComment}
-              onReactToComment={handleReactToComment}
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              currentUserPicture={currentUserPicture}
-              isLoading={isLoading}
-            />
-    </Box>
+    <CommentsSection
+      entityType={entityType}
+      entityId={entityId}
+      comments={comments}
+      onCreateComment={handleCreateComment}
+      onEditComment={handleEditComment}
+      onDeleteComment={handleDeleteComment}
+      onReactToComment={handleReactToComment}
+      currentUserId={currentUserId}
+      currentUserName={currentUserName}
+      currentUserPicture={currentUserPicture}
+      isLoading={isLoading}
+    />
   );
 }
