@@ -13,6 +13,45 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-09-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.3**
+- **Frontend 0.2.3**
+- **SDK 0.2.3**
+
+### Summary of Changes
+
+**Backend v0.2.3:**
+- Added test run stats endpoint with performance improvements.
+- Implemented comment support with CRUD operations, API endpoints, and emoji reactions.
+- Introduced LLM service integration with schema support and provider modes.
+- Improved environment variable handling for local development and deployment flexibility.
+
+
+**Frontend v0.2.3:**
+- Added comments feature for collaboration on tests, test sets, and test runs.
+- Improved metrics creation and editing workflow with visual feedback, loading states, and optimized API calls.
+- Enhanced test run details with dynamic charts and a test run stats endpoint.
+- Fixed tooltip visibility issues and improved performance of the test run datagrid.
+
+
+**SDK v0.2.3:**
+- Renamed and reorganized LLM provider components for clarity and improved structure.
+- Added support for JSON schemas in LLM requests, enabling structured responses.
+- Introduced API key handling for LLM providers.
+- Removed pip from SDK dependencies and updated uv.lock.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.2.2] - 2025-08-22
 
 ### Platform Release
