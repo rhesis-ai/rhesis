@@ -195,7 +195,7 @@ def generate_and_upload_test_set(
         self.update_state(state="PROGRESS", meta={"status": "Initializing synthesizer"})
 
         # Override synthesizer type if documents are provided
-        if "documents" in synthesizer_kwargs and synthesizer_kwargs["documents"]:
+        if synthesizer_kwargs.get("documents"):
             # Automatically use DocumentSynthesizer when documents are provided
             synth_type = SynthesizerType.DOCUMENT
             self.log_with_context(
