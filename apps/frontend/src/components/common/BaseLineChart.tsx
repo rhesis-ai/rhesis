@@ -115,10 +115,23 @@ export default function BaseLineChart({
   xAxisDataKey = 'name',
   showGrid = true,
   legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
-  tooltipProps = { contentStyle: { fontSize: '10px' } },
+  tooltipProps,
   yAxisConfig
 }: BaseLineChartProps) {
   const theme = useTheme();
+
+  // Default tooltip props with theme awareness
+  const defaultTooltipProps = {
+    contentStyle: { 
+      fontSize: '10px',
+      backgroundColor: theme.palette.background.paper,
+      border: `1px solid ${theme.palette.divider}`,
+      borderRadius: '4px',
+      color: theme.palette.text.primary
+    }
+  };
+
+  const finalTooltipProps = tooltipProps || defaultTooltipProps;
   const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
   
   return (
@@ -148,7 +161,7 @@ export default function BaseLineChart({
                 tickLine={{ strokeWidth: 1 }}
                 {...yAxisConfig}
               />
-              <Tooltip {...tooltipProps} />
+              <Tooltip {...finalTooltipProps} />
               <Legend {...legendProps} height={30} />
               {series.map((s, index) => (
                 <Line

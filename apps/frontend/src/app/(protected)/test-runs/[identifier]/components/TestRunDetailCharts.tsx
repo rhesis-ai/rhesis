@@ -40,6 +40,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
   const [error, setError] = useState<string | null>(null);
   
   // Get theme-based colors
+  const theme = useTheme();
   const { palettes } = useChartColors();
 
   // Transform test runs data similar to LatestTestRunsChart
@@ -320,22 +321,29 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                     width={35}
                   />
                   <Tooltip 
-                    contentStyle={{ fontSize: '10px', backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px' }}
+                    contentStyle={{ 
+                      fontSize: '10px', 
+                      backgroundColor: theme.palette.background.paper, 
+                      border: `1px solid ${theme.palette.divider}`, 
+                      borderRadius: '4px',
+                      color: theme.palette.text.primary
+                    }}
                     content={({ active, payload, label }) => {
                       if (active && payload && payload.length > 0) {
                         const data = payload[0].payload;
                         return (
                           <div style={{ 
                             padding: '8px', 
-                            backgroundColor: 'white', 
-                            border: '1px solid #ccc', 
+                            backgroundColor: theme.palette.background.paper, 
+                            border: `1px solid ${theme.palette.divider}`, 
                             borderRadius: '4px',
-                            fontSize: '10px'
+                            fontSize: '10px',
+                            color: theme.palette.text.primary
                           }}>
-                            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{data.name}</div>
-                            <div style={{ marginBottom: '2px' }}>{data.formatted_date}</div>
-                            <div style={{ marginBottom: '2px' }}>Pass Rate: {data.pass_rate}%</div>
-                            <div>Tests: {data.passed}/{data.total} passed</div>
+                            <div style={{ fontWeight: 'bold', marginBottom: '4px', color: theme.palette.text.primary }}>{data.name}</div>
+                            <div style={{ marginBottom: '2px', color: theme.palette.text.secondary }}>{data.formatted_date}</div>
+                            <div style={{ marginBottom: '2px', color: theme.palette.text.primary }}>Pass Rate: {data.pass_rate}%</div>
+                            <div style={{ color: theme.palette.text.primary }}>Tests: {data.passed}/{data.total} passed</div>
                           </div>
                         );
                       }
@@ -415,7 +423,13 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
         height={180}
         showPercentage={true}
         tooltipProps={{
-          contentStyle: { fontSize: '10px' },
+          contentStyle: { 
+            fontSize: '10px',
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: '4px',
+            color: theme.palette.text.primary
+          },
           formatter: (value: number, name: string, props: any) => {
             const item = props.payload;
             return [`${value} tests (${item.percentage})`, item.fullName || name];
@@ -432,7 +446,13 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
         height={180}
         showPercentage={true}
         tooltipProps={{
-          contentStyle: { fontSize: '10px' },
+          contentStyle: { 
+            fontSize: '10px',
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: '4px',
+            color: theme.palette.text.primary
+          },
           formatter: (value: number, name: string, props: any) => {
             const item = props.payload;
             return [`${value} (${item.percentage})`, item.fullName || name];
@@ -449,7 +469,13 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
         height={180}
         showPercentage={true}
         tooltipProps={{
-          contentStyle: { fontSize: '10px' },
+          contentStyle: { 
+            fontSize: '10px',
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: '4px',
+            color: theme.palette.text.primary
+          },
           formatter: (value: number, name: string, props: any) => {
             const item = props.payload;
             return [`${value} (${item.percentage})`, item.fullName || name];
