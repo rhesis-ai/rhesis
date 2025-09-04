@@ -29,7 +29,7 @@ class LiteLLM(BaseLLM):
         If a Pydantic schema is provided to `generate`, the response will be validated and returned
         as a dict.
         """
-        self.api_key = api_key  # cannot handle environment retrieval here. Too many options
+        self.api_key = api_key  # LiteLLM will handle Environment Retrieval
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
         super().__init__(model_name)
