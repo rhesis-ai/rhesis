@@ -6,8 +6,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from rhesis.sdk.errors import (
     HUGGINGFACE_MODEL_NOT_LOADED,
+    MODEL_RELOAD_WARNING,
     NO_MODEL_NAME_PROVIDED,
-    WARNING_MODEL_ALREADY_LOADED_RELOAD,
     WARNING_TOKENIZER_ALREADY_LOADED_RELOAD,
 )
 from rhesis.sdk.models.base import BaseLLM
@@ -61,7 +61,7 @@ class HuggingFaceLLM(BaseLLM):
         Load the model and tokenizer from the specified location.
         """
         if self.model is not None:
-            print(WARNING_MODEL_ALREADY_LOADED_RELOAD.format(self.model_name))
+            print(MODEL_RELOAD_WARNING.format(self.model_name))
         if self.tokenizer is not None:
             print(WARNING_TOKENIZER_ALREADY_LOADED_RELOAD.format(self.model_name))
 
