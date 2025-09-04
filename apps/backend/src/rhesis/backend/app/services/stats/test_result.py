@@ -2,7 +2,20 @@
 
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+
+from .common import (
+    parse_date_range,
+    apply_organization_filter,
+    apply_date_range_filter,
+    apply_user_filters,
+    build_pass_rate_stats,
+    build_response_data,
+    build_metadata,
+    build_empty_stats_response,
+    get_month_key,
+    safe_get_name,
+)
 
 
 # Configuration for response modes
@@ -89,19 +102,7 @@ def _apply_filters(base_query, **filters):
     return base_query
 
 
-def _build_pass_rate_stats(stats_dict: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, Any]]:
-    """Build pass rate statistics from raw pass/fail counts."""
-    pass_rates = {}
-    for name, stats in stats_dict.items():
-        total = stats["passed"] + stats["failed"]
-        pass_rate = round((stats["passed"] / total) * 100, 2) if total > 0 else 0
-        pass_rates[name] = {
-            "total": total,
-            "passed": stats["passed"],
-            "failed": stats["failed"],
-            "pass_rate": pass_rate
-        }
-    return pass_rates
+# Using shared build_pass_rate_stats from common module
 
 
 def _update_dimensional_stats(result, test_passed_overall: bool, dimensional_stats: Dict[str, Dict[str, int]], 
@@ -110,7 +111,7 @@ def _update_dimensional_stats(result, test_passed_overall: bool, dimensional_sta
     if hasattr(result, 'test') and result.test:
         dimension_obj = getattr(result.test, dimension_attr, None)
         if dimension_obj:
-            name = dimension_obj.name or f"Unknown {dimension_name.capitalize()}"
+            name = safe_get_name(dimension_obj) or f"Unknown {dimension_name.capitalize()}"
             if name not in dimensional_stats:
                 dimensional_stats[name] = {"passed": 0, "failed": 0}
             if test_passed_overall:
@@ -127,8 +128,8 @@ def _build_timeline_data(monthly_stats: Dict[str, Dict]) -> List[Dict[str, Any]]
         overall_total = month_data["overall"]["passed"] + month_data["overall"]["failed"]
         overall_pass_rate = round((month_data["overall"]["passed"] / overall_total) * 100, 2) if overall_total > 0 else 0
         
-        # Build metric breakdown for this month using helper
-        metric_breakdown = _build_pass_rate_stats(month_data["metrics"])
+        # Build metric breakdown for this month using shared helper
+        metric_breakdown = build_pass_rate_stats(month_data["metrics"])
         
         timeline.append({
             "date": month_key,
@@ -151,8 +152,8 @@ def _build_test_run_summary(test_run_stats: Dict[str, Dict]) -> List[Dict[str, A
         run_total = run_data["overall"]["passed"] + run_data["overall"]["failed"]
         run_pass_rate = round((run_data["overall"]["passed"] / run_total) * 100, 2) if run_total > 0 else 0
         
-        # Calculate metric pass rates for this run using helper
-        run_metric_breakdown = _build_pass_rate_stats(run_data["metrics"])
+        # Calculate metric pass rates for this run using shared helper
+        run_metric_breakdown = build_pass_rate_stats(run_data["metrics"])
         
         test_run_summary.append({
             "id": run_data["id"],
@@ -173,18 +174,7 @@ def _build_test_run_summary(test_run_stats: Dict[str, Dict]) -> List[Dict[str, A
     return test_run_summary
 
 
-def _build_response_data(mode: str, **data_sections) -> Dict[str, Any]:
-    """Build response data based on mode, including metadata in all responses."""
-    response = {"metadata": data_sections.get("metadata", {})}
-    
-    # Get the sections needed for this mode
-    required_sections = MODE_DEFINITIONS.get(mode, MODE_DEFINITIONS["all"])
-    
-    for section in required_sections:
-        if section in data_sections:
-            response[section] = data_sections[section]
-    
-    return response
+# Using shared build_response_data from common module
 
 
 def get_test_result_stats(
@@ -267,21 +257,19 @@ def get_test_result_stats(
     from rhesis.backend.app import models
     
     # Handle date range - custom dates override months parameter
-    if start_date and end_date:
-        start_date_obj = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        end_date_obj = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-    else:
-        end_date_obj = datetime.utcnow()
-        start_date_obj = end_date_obj - timedelta(days=30 * months)
+    start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
     
-    # Base query for test results with test_metrics, joining related entities
+    # Base query for test results with optimized eager loading
     base_query = (
         db.query(models.TestResult)
+        .options(
+            # Eager load essential relationships to prevent N+1 queries
+            joinedload(models.TestResult.test).joinedload(models.Test.behavior),
+            joinedload(models.TestResult.test).joinedload(models.Test.category),
+            joinedload(models.TestResult.test).joinedload(models.Test.topic),
+            joinedload(models.TestResult.test_run)
+        )
         .join(models.Test, models.TestResult.test_id == models.Test.id)
-        .outerjoin(models.Behavior, models.Test.behavior_id == models.Behavior.id)
-        .outerjoin(models.Category, models.Test.category_id == models.Category.id)
-        .outerjoin(models.Topic, models.Test.topic_id == models.Topic.id)
-        .outerjoin(models.TestRun, models.TestResult.test_run_id == models.TestRun.id)
     )
     
     # Apply all filters using the helper function
@@ -309,7 +297,13 @@ def get_test_result_stats(
     
     base_query = _apply_filters(base_query, **filter_params)
     
-    # Get all test results with metrics and related entities
+    # Add ordering for consistent results and better query optimization
+    base_query = base_query.order_by(models.TestResult.created_at.desc())
+    
+    # Note: Removed LIMIT clause to ensure complete data accuracy
+    # Performance is optimized through eager loading and efficient queries instead
+    
+    # Get all test results with optimized eager loading
     test_results = base_query.all()
     
     if not test_results:
@@ -370,7 +364,7 @@ def get_test_result_stats(
         
         # Update monthly stats
         if result.created_at:
-            month_key = result.created_at.strftime("%Y-%m")
+            month_key = get_month_key(result.created_at)
             if month_key not in monthly_stats:
                 monthly_stats[month_key] = {
                     "overall": {"passed": 0, "failed": 0},
@@ -393,12 +387,12 @@ def get_test_result_stats(
                 else:
                     monthly_stats[month_key]["metrics"][metric_name]["failed"] += 1
         
-        # Update test run stats
+        # Update test run stats (using eager loaded test_run relationship)
         if result.test_run_id:
             run_key = str(result.test_run_id)
             if run_key not in test_run_stats:
-                # Get test run info
-                test_run = db.query(models.TestRun).filter_by(id=result.test_run_id).first()
+                # Use eager loaded test_run relationship instead of separate query
+                test_run = result.test_run if hasattr(result, 'test_run') else None
                 test_run_stats[run_key] = {
                     "id": run_key,
                     "name": test_run.name if test_run and test_run.name else f"Test Run {run_key[:8]}",
@@ -426,11 +420,11 @@ def get_test_result_stats(
                 else:
                     test_run_stats[run_key]["metrics"][metric_name]["failed"] += 1
     
-    # Build pass rates using helper function
-    metric_pass_rates = _build_pass_rate_stats(metric_stats)
-    behavior_pass_rates = _build_pass_rate_stats(behavior_stats)
-    category_pass_rates = _build_pass_rate_stats(category_stats)
-    topic_pass_rates = _build_pass_rate_stats(topic_stats)
+    # Build pass rates using shared helper function
+    metric_pass_rates = build_pass_rate_stats(metric_stats)
+    behavior_pass_rates = build_pass_rate_stats(behavior_stats)
+    category_pass_rates = build_pass_rate_stats(category_stats)
+    topic_pass_rates = build_pass_rate_stats(topic_stats)
     
     # Build overall pass rates
     total_tests = overall_stats["passed"] + overall_stats["failed"]
@@ -448,7 +442,7 @@ def get_test_result_stats(
     # Build test run summary using helper function
     test_run_summary = _build_test_run_summary(test_run_stats)
     
-    # Build metadata
+    # Build metadata (using original approach for compatibility)
     metadata = {
         "generated_at": datetime.utcnow().isoformat(),
         "organization_id": organization_id,
@@ -465,9 +459,10 @@ def get_test_result_stats(
         "available_topics": list(topic_stats.keys())
     }
     
-    # Return data based on mode using helper function
-    return _build_response_data(
+    # Return data based on mode using shared helper function
+    return build_response_data(
         mode,
+        MODE_DEFINITIONS,
         metric_pass_rates=metric_pass_rates,
         behavior_pass_rates=behavior_pass_rates,
         category_pass_rates=category_pass_rates,
@@ -504,9 +499,10 @@ def _empty_test_result_stats(start_date, end_date, months, organization_id, test
         "pass_rate": 0
     }
     
-    # Return data based on mode using the same helper function
-    return _build_response_data(
+    # Return data based on mode using the shared helper function
+    return build_response_data(
         mode,
+        MODE_DEFINITIONS,
         metric_pass_rates={},
         behavior_pass_rates={},
         category_pass_rates={},

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -24,7 +24,7 @@ interface TestRunsTableProps {
   onRefresh?: () => void;
 }
 
-export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
+function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
   const isMounted = useRef(false);
   const router = useRouter();
   const notifications = useNotifications();
@@ -35,39 +35,10 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
   const [totalCount, setTotalCount] = useState<number>(0);
   const [projectNames, setProjectNames] = useState<ProjectCache>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
   });
-
-  // Update current time every second to refresh dynamic execution times
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchProjectName = useCallback(async (projectId: string) => {
-    if (!sessionToken || projectNames[projectId]) return;
-
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const projectsClient = clientFactory.getProjectsClient();
-      const project = await projectsClient.getProject(projectId);
-      
-      if (isMounted.current) {
-        setProjectNames(prev => ({
-          ...prev,
-          [projectId]: project.name
-        }));
-      }
-    } catch (err) {
-      console.error('Error fetching project:', err);
-    }
-  }, [sessionToken, projectNames]);
 
   const fetchTestRuns = useCallback(async (skip: number, limit: number) => {
     if (!sessionToken) return;
@@ -94,16 +65,45 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         setTotalCount(response.pagination.totalCount);
         setError(null);
 
-        // Fetch project names for new test runs
+        // Fetch project names for new test runs in batch to avoid multiple state updates
         const projectIds = response.data
           .map(run => run.test_configuration?.endpoint?.project_id)
-          .filter((id): id is string => !!id && !projectNames[id]);
+          .filter((id): id is string => !!id);
 
-        // Fetch unique project names
         const uniqueProjectIds = [...new Set(projectIds)];
-        uniqueProjectIds.forEach(projectId => {
-          fetchProjectName(projectId);
-        });
+        
+        // Check which projects we don't have cached yet
+        const uncachedProjectIds = uniqueProjectIds.filter(id => !projectNames[id]);
+        
+        if (uncachedProjectIds.length > 0) {
+          // Fetch all project names in parallel and update state once
+          Promise.all(
+            uncachedProjectIds.map(async (projectId) => {
+              try {
+                const clientFactory = new ApiClientFactory(sessionToken);
+                const projectsClient = clientFactory.getProjectsClient();
+                const project = await projectsClient.getProject(projectId);
+                return { projectId, name: project.name };
+              } catch (err) {
+                console.error(`Error fetching project ${projectId}:`, err);
+                return null;
+              }
+            })
+          ).then(results => {
+            if (isMounted.current) {
+              const newProjects = results
+                .filter((result): result is { projectId: string; name: string } => result !== null)
+                .reduce((acc, { projectId, name }) => {
+                  acc[projectId] = name;
+                  return acc;
+                }, {} as Record<string, string>);
+              
+              if (Object.keys(newProjects).length > 0) {
+                setProjectNames(prev => ({ ...prev, ...newProjects }));
+              }
+            }
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching test runs:', error);
@@ -116,7 +116,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         setLoading(false);
       }
     }
-  }, [sessionToken, projectNames, fetchProjectName]);
+  }, [sessionToken, projectNames]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -135,8 +135,8 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     };
   }, [sessionToken, paginationModel, fetchTestRuns]);
 
-  // Helper function to format execution time in a user-friendly way
-  const formatExecutionTime = useCallback((timeMs: number): string => {
+  // Memoized helper function to format execution time in a user-friendly way
+  const formatExecutionTime = useMemo(() => (timeMs: number): string => {
     const seconds = timeMs / 1000;
     
     if (seconds < 60) {
@@ -150,27 +150,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     }
   }, []);
 
-  // Helper function to calculate elapsed time for in-progress runs
-  const getElapsedTime = useCallback((startTime: string): number => {
-    const start = new Date(startTime);
-    const now = currentTime;
-    return now.getTime() - start.getTime();
-  }, [currentTime]);
-
-  // CSS for gentle glowing effect on progress status
-  const progressGlowAnimation = React.useMemo(() => ({
-    animation: 'progressGlow 3s ease-in-out infinite alternate',
-    '@keyframes progressGlow': {
-      '0%': {
-        boxShadow: '0 0 3px rgba(25, 118, 210, 0.3)',
-      },
-      '100%': {
-        boxShadow: '0 0 8px rgba(25, 118, 210, 0.5), 0 0 12px rgba(25, 118, 210, 0.2)',
-      },
-    },
-  }), []);
-
-  const columns: GridColDef[] = React.useMemo(() => [
+  const columns: GridColDef[] = useMemo(() => [
     { 
       field: 'name',
       headerName: 'Name', 
@@ -203,24 +183,17 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       flex: 1,
       align: 'right',
       headerAlign: 'right',
-      valueGetter: (_, row) => {
-        const status = row.status?.name || row.attributes?.status;
+      renderCell: (params) => {
+        const status = params.row.status?.name || params.row.attributes?.status;
         
-        // If status is Progress, show elapsed time from created_at
+        // If status is Progress, show "In Progress" instead of elapsed time
         if (status?.toLowerCase() === 'progress') {
-          const createdAt = row.created_at;
-          if (createdAt) {
-            const now = new Date();
-            const created = new Date(createdAt);
-            const elapsedMs = now.getTime() - created.getTime();
-            return formatExecutionTime(elapsedMs);
-          }
-          return '';
+          return 'In Progress';
         }
         
         // If status is completed, show total execution time
         if (status?.toLowerCase() === 'completed') {
-          const timeMs = row.attributes?.total_execution_time_ms;
+          const timeMs = params.row.attributes?.total_execution_time_ms;
           if (!timeMs) return '';
           return formatExecutionTime(timeMs);
         }
@@ -237,17 +210,11 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         const status = params.row.status?.name;
         if (!status) return null;
 
-        const isInProgress = status.toLowerCase() === 'progress' || 
-                           status.toLowerCase() === 'in progress' || 
-                           status.toLowerCase() === 'running' ||
-                           status.toLowerCase() === 'in_progress';
-
         return (
           <Chip 
             label={status} 
             size="small" 
             variant="outlined"
-            sx={isInProgress ? progressGlowAnimation : {}}
           />
         );
       }
@@ -277,7 +244,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         );
       }
     }
-  ], [formatExecutionTime, progressGlowAnimation]);
+  ], [formatExecutionTime]);
 
   // Handle row click to navigate to test run details
   const handleRowClick = useCallback((params: any) => {
@@ -304,6 +271,13 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     fetchTestRuns(skip, paginationModel.pageSize);
     onRefresh?.();
   }, [fetchTestRuns, onRefresh, paginationModel]);
+
+  // Stable pagination handler
+  const handlePaginationModelChange = useCallback((model: GridPaginationModel) => {
+    setPaginationModel(model);
+    const skip = model.page * model.pageSize;
+    fetchTestRuns(skip, model.pageSize);
+  }, [fetchTestRuns]);
 
   // Handle delete selected test runs
   const handleDeleteTestRuns = useCallback(async () => {
@@ -343,8 +317,8 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
     }
   }, [selectedRows, sessionToken, notifications, paginationModel, fetchTestRuns]);
 
-  // Dynamic action buttons based on selection
-  const getActionButtons = useCallback(() => {
+  // Memoized action buttons based on selection
+  const actionButtons = useMemo(() => {
     const buttons = [];
     const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
 
@@ -390,11 +364,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         loading={loading}
         getRowId={(row) => row.id}
         paginationModel={paginationModel}
-        onPaginationModelChange={(model) => {
-          setPaginationModel(model);
-          const skip = model.page * model.pageSize;
-          fetchTestRuns(skip, model.pageSize);
-        }}
+        onPaginationModelChange={handlePaginationModelChange}
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={Array.isArray(selectedRows) ? selectedRows : []}
         onRowClick={handleRowClick}
@@ -403,7 +373,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
         pageSizeOptions={[10, 25, 50]}
         checkboxSelection
         disableRowSelectionOnClick
-        actionButtons={getActionButtons()}
+        actionButtons={actionButtons}
       />
 
       <TestRunDrawer
@@ -414,4 +384,7 @@ export default function TestRunsTable({ sessionToken, onRefresh }: TestRunsTable
       />
     </>
   );
-} 
+}
+
+// Export memoized component to prevent unnecessary re-renders
+export default React.memo(TestRunsTable); 
