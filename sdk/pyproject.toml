@@ -39,6 +39,8 @@ dependencies = [
     "tomli>=2.2.1",
     "tomli-w>=1.2.0",
     "litellm>=1.76.0",
+    "torch>=2.8.0",
+    "transformers>=4.56.0",
 ]
 
 [project.license]
