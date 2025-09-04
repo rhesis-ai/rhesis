@@ -198,6 +198,22 @@ node_modules
 **/build/**
 **/dist/**
 
+# Documentation specific
+apps/docs/.next/
+apps/docs/out/
+apps/docs/build/
+apps/docs/dist/
+apps/docs/public/_pagefind/
+apps/docs/.DS_Store
+apps/docs/node_modules/
+apps/docs/.env.local
+apps/docs/.env.development.local
+apps/docs/.env.test.local
+apps/docs/.env.production.local
+apps/docs/.swc/
+apps/docs/coverage/
+apps/docs/.nyc_output/
+
 # Debug logs
 npm-debug.log*
 yarn-debug.log*

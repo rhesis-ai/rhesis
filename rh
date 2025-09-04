@@ -29,11 +29,13 @@ show_help() {
     echo -e "${YELLOW}Usage:${NC}"
     echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server"
     echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server"
+    echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server"
     echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo -e "  ${BLUE}./rh backend start${NC}"
     echo -e "  ${BLUE}./rh frontend start${NC}"
+    echo -e "  ${BLUE}./rh docs start${NC}"
     echo ""
 }
 
@@ -69,6 +71,22 @@ start_frontend() {
     fi
 }
 
+# Function to start docs
+start_docs() {
+    echo -e "${GREEN}📚 Starting Rhesis Documentation...${NC}"
+    cd "$SCRIPT_DIR/apps/docs" || {
+        echo -e "${RED}❌ Error: Docs directory not found${NC}"
+        exit 1
+    }
+    
+    if [ -f "start.sh" ]; then
+        ./start.sh
+    else
+        echo -e "${RED}❌ Error: Docs start.sh not found${NC}"
+        exit 1
+    fi
+}
+
 # Parse command line arguments
 case "$1" in
     "backend")
@@ -91,6 +109,18 @@ case "$1" in
             *)
                 echo -e "${RED}❌ Unknown frontend command: $2${NC}"
                 echo -e "${YELLOW}Use: ./rh frontend start${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    "docs")
+        case "$2" in
+            "start")
+                start_docs
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown docs command: $2${NC}"
+                echo -e "${YELLOW}Use: ./rh docs start${NC}"
                 exit 1
                 ;;
         esac

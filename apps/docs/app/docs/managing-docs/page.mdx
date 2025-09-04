@@ -1,0 +1,525 @@
+# Managing Documentation
+
+This guide explains how to manage and maintain the Rhesis documentation site built with Nextra.
+
+<Callout type="default">
+  **Documentation Management**
+  Learn how to run the documentation site, add new pages, configure search, and maintain the documentation effectively.
+</Callout>
+
+## Quick Start
+
+### Running the Documentation
+
+```bash
+# Navigate to docs directory
+cd apps/docs
+
+# Install dependencies (if not already done)
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm run start
+```
+
+<Callout type="default">
+  **Documentation URLs**
+  - **Development**: http://localhost:3001
+  - **Production**: After build, served on configured domain
+  - **Search**: Available after build (Pagefind indexing)
+</Callout>
+
+## Project Structure
+
+The documentation is organized using Nextra's file-based routing:
+
+```
+apps/docs/
+├── app/                    # Next.js App Router pages
+│   ├── page.mdx           # Home page (/)
+│   ├── docs/              # Documentation pages (/docs/*)
+│   │   ├── page.mdx       # Docs overview (/docs)
+│   │   ├── backend/       # Backend documentation
+│   │   ├── frontend/      # Frontend documentation
+│   │   ├── contributing/  # Contributing guide
+│   │   └── ...
+│   └── layout.jsx         # Root layout
+├── components/            # Custom React components
+├── public/               # Static assets (images, etc.)
+├── theme.config.jsx      # Nextra theme configuration
+├── mdx-components.js     # MDX component customization
+└── package.json         # Dependencies and scripts
+```
+
+## Adding New Pages
+
+### Creating a New Page
+
+1. **Create a new `.mdx` file** in the appropriate directory:
+
+```bash
+# Example: Create a new API documentation page
+touch apps/docs/app/docs/backend/api.mdx
+```
+
+2. **Add content to the page**:
+
+```mdx
+# API Reference
+
+Welcome to the Rhesis API reference documentation.
+
+<Callout type="default">
+  **API Overview**
+  This page provides comprehensive documentation for all Rhesis API endpoints.
+</Callout>
+
+## Authentication
+
+All API requests require authentication using JWT tokens.
+
+## Endpoints
+
+### Users
+
+#### GET /api/users
+
+Retrieve a list of users.
+
+**Parameters:**
+- `page` (optional): Page number for pagination
+- `limit` (optional): Number of items per page
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "1",
+      "email": "user@example.com",
+      "name": "John Doe"
+    }
+  ],
+  "total": 100,
+  "page": 1,
+  "pageSize": 20
+}
+```
+
+## Error Handling
+
+All endpoints return consistent error responses:
+
+```json
+{
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "details": {}
+}
+```
+```
+
+### Page Organization
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Backend Docs</h3>
+    <p>API documentation, architecture, and backend guides.</p>
+  </div>
+  <div>
+    <h3>Frontend Docs</h3>
+    <p>Component library, state management, and frontend guides.</p>
+  </div>
+  <div>
+    <h3>Development</h3>
+    <p>Setup guides, coding standards, and contribution guidelines.</p>
+  </div>
+  <div>
+    <h3>User Guides</h3>
+    <p>Tutorials, how-to guides, and user documentation.</p>
+  </div>
+  <div>
+    <h3>API Reference</h3>
+    <p>Complete API endpoint documentation.</p>
+  </div>
+  <div>
+    <h3>Architecture</h3>
+    <p>System design and architectural documentation.</p>
+  </div>
+</div>
+
+## Using Nextra Components
+
+### Callout Components
+
+Nextra provides built-in callout components for highlighting information:
+
+```mdx
+<Callout type="default">
+  **Default Callout**
+  This is a standard informational callout.
+</Callout>
+
+<Callout type="warning">
+  **Warning Callout**
+  This is a warning callout for important notices.
+</Callout>
+
+<Callout type="error">
+  **Error Callout**
+  This is an error callout for critical issues.
+</Callout>
+```
+
+### Grid Layouts
+
+Use CSS Grid for responsive layouts:
+
+```mdx
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Feature 1</h3>
+    <p>Description of the first feature.</p>
+  </div>
+  <div>
+    <h3>Feature 2</h3>
+    <p>Description of the second feature.</p>
+  </div>
+  <div>
+    <h3>Feature 3</h3>
+    <p>Description of the third feature.</p>
+  </div>
+</div>
+```
+
+### Code Blocks
+
+Use syntax highlighting for code examples:
+
+```mdx
+```python
+def create_user(user_data: UserCreate, db: Session) -> User:
+    """Create a new user in the database."""
+    user = User(**user_data.dict())
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+```
+
+```typescript
+const createUser = async (userData: UserCreate): Promise<User> => {
+  const response = await fetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData),
+  });
+  return response.json();
+};
+```
+```
+
+## Configuration
+
+### Theme Configuration
+
+The `theme.config.jsx` file controls the documentation appearance:
+
+```jsx
+import ThemeAwareLogo from './components/ThemeAwareLogo'
+
+export default {
+  logo: <ThemeAwareLogo />,
+  project: {
+    link: 'https://github.com/rhesis/rhesis',
+  },
+  docsRepositoryBase: 'https://github.com/rhesis/rhesis',
+  footer: {
+    text: '© 2025 Rhesis AI GmbH. Made in Germany.',
+  },
+  useNextSeoProps() {
+    return {
+      titleTemplate: '%s – Rhesis'
+    }
+  },
+  head: (
+    <>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta property="og:title" content="Rhesis Documentation" />
+      <meta property="og:description" content="AI-powered testing and evaluation platform" />
+    </>
+  ),
+  banner: {
+    key: 'rhesis-docs',
+    text: 'Welcome to Rhesis Documentation 🚀'
+  },
+}
+```
+
+### MDX Components
+
+Customize MDX rendering in `mdx-components.js`:
+
+```javascript
+import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs'
+import { Callout } from 'nextra/components'
+
+const themeComponents = getThemeComponents()
+
+export function useMDXComponents(components) {
+  return {
+    ...themeComponents,
+    ...components,
+    Callout,
+  }
+}
+```
+
+## Search Functionality
+
+### Pagefind Search
+
+Nextra 4 uses Pagefind for full-text search:
+
+<Callout type="default">
+  **Search Note**
+  Search is only available after building the documentation. During development, you'll see a message indicating that search requires a build.
+</Callout>
+
+### Building for Search
+
+```bash
+# Build the documentation
+npm run build
+
+# This automatically runs Pagefind indexing
+# The search index is generated in public/_pagefind/
+```
+
+### Search Configuration
+
+The search is automatically configured in `package.json`:
+
+```json
+{
+  "scripts": {
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind"
+  }
+}
+```
+
+## Development Workflow
+
+### Local Development
+
+```bash
+# Start development server
+npm run dev
+
+# The server will be available at http://localhost:3001
+# Changes are automatically reflected
+```
+
+### Building and Deploying
+
+```bash
+# Build for production
+npm run build
+
+# Start production server
+npm run start
+
+# Or deploy to your hosting platform
+# The built files are in .next/ and public/
+```
+
+### Continuous Integration
+
+For automated documentation deployment:
+
+```yaml
+# .github/workflows/docs.yml
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+    paths: ['apps/docs/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: cd apps/docs && npm install
+      - run: cd apps/docs && npm run build
+      - name: Deploy to hosting platform
+        # Add your deployment steps here
+```
+
+## Content Guidelines
+
+### Writing Style
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Clear and Concise</h3>
+    <p>Write in a clear, straightforward manner.</p>
+  </div>
+  <div>
+    <h3>Consistent Formatting</h3>
+    <p>Use consistent headings, lists, and code blocks.</p>
+  </div>
+  <div>
+    <h3>Examples</h3>
+    <p>Include practical examples and code snippets.</p>
+  </div>
+  <div>
+    <h3>Progressive Disclosure</h3>
+    <p>Start with basics, then add advanced topics.</p>
+  </div>
+  <div>
+    <h3>Cross-references</h3>
+    <p>Link to related pages and external resources.</p>
+  </div>
+</div>
+
+### Markdown Best Practices
+
+```mdx
+# Use proper heading hierarchy
+## Section headings
+### Subsection headings
+
+# Use lists for better readability
+- First item
+- Second item
+- Third item
+
+# Use code blocks with language specification
+```python
+def example():
+    return "Hello, World!"
+```
+
+# Use links for navigation
+[Backend API](/docs/backend/api)
+
+# Use images with alt text
+![Rhesis Logo](/rhesis-logo.png "Rhesis Logo")
+```
+
+## Troubleshooting
+
+### Common Issues
+
+<Callout type="default">
+  **Build Issues**
+  If you encounter build errors, check:
+  - All dependencies are installed
+  - MDX syntax is correct
+  - No circular imports in components
+  - Environment variables are set correctly
+</Callout>
+
+**Search Not Working:**
+```bash
+# Ensure Pagefind is installed
+npm install pagefind
+
+# Rebuild the documentation
+npm run build
+
+# Check that _pagefind directory exists
+ls public/_pagefind/
+```
+
+**Styling Issues:**
+```bash
+# Clear Next.js cache
+rm -rf .next
+
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+
+# Restart development server
+npm run dev
+```
+
+### Performance Optimization
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Image Optimization</h3>
+    <p>Use optimized images and Next.js Image component.</p>
+  </div>
+  <div>
+    <h3>Code Splitting</h3>
+    <p>Nextra automatically handles code splitting.</p>
+  </div>
+  <div>
+    <h3>Caching</h3>
+    <p>Configure proper caching headers for static assets.</p>
+  </div>
+</div>
+
+## Maintenance
+
+### Regular Tasks
+
+<Callout type="default">
+  **Maintenance Checklist**
+  - Update dependencies regularly
+  - Review and update outdated content
+  - Check for broken links
+  - Optimize images and assets
+  - Monitor search functionality
+</Callout>
+
+### Content Updates
+
+1. **Review existing content** for accuracy
+2. **Update outdated information** and examples
+3. **Add new features** and API endpoints
+4. **Remove deprecated content**
+5. **Improve navigation** and cross-references
+
+### Version Management
+
+```bash
+# Create a new documentation version
+git checkout -b docs/update-api-reference
+
+# Make your changes
+# Test locally
+npm run dev
+
+# Build and test
+npm run build
+npm run start
+
+# Commit and push
+git add .
+git commit -m "docs: update API reference with new endpoints"
+git push origin docs/update-api-reference
+```
+
+---
+
+<Callout type="default">
+  **Need Help?**
+  If you need assistance with documentation:
+  - Check the [Nextra documentation](https://nextra.site/docs)
+  - Review existing pages for examples
+  - Ask questions in [GitHub Discussions](https://github.com/rhesis/rhesis/discussions)
+</Callout>

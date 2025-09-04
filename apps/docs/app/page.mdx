@@ -1,0 +1,236 @@
+# Getting Started with Rhesis
+
+Welcome to Rhesis! This guide will help you get started with our AI-powered testing and evaluation platform.
+
+<Callout type="default">
+  **Quick Start**
+  Want to jump right in? Run these commands to get everything running:
+
+  ```bash
+  git clone https://github.com/rhesis/rhesis.git
+  cd rhesis
+  uv sync
+  ./rh backend start
+  ./rh frontend start
+  ./rh docs start
+  ```
+</Callout>
+
+## What is Rhesis?
+
+Rhesis is an AI-powered testing and evaluation platform that helps developers create, manage, and analyze test results with advanced AI capabilities. Our platform provides:
+
+- **AI-Powered Test Generation** - Automatically generate test cases using LLMs
+- **Intelligent Test Analysis** - Get insights and recommendations from your test results
+- **Comprehensive Test Management** - Organize and track your testing efforts
+- **Real-time Collaboration** - Work together with your team on test development
+- **Integration Support** - Connect with your existing CI/CD pipelines
+
+## Quick Start
+
+### Prerequisites
+
+Before you begin, make sure you have the following installed:
+
+<Callout type="default">
+  **System Requirements**
+  - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package manager
+  - **Node.js 18+** and npm
+  - **Git** for version control
+  - **Docker** (optional, for containerized deployment)
+</Callout>
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/rhesis/rhesis.git
+   cd rhesis
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   uv sync
+   ```
+
+3. **Set up environment:**
+   ```bash
+   cp env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Start services:**
+   ```bash
+   ./rh backend start
+   ./rh frontend start
+   ./rh docs start
+   ```
+
+### Access Your Application
+
+Once everything is running, you can access:
+
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:8080](http://localhost:8080)
+- **Documentation**: [http://localhost:3001](http://localhost:3001)
+
+<Callout type="default">
+  **Success!**
+  You should now see the Rhesis platform running locally. The frontend will guide you through the initial setup process.
+</Callout>
+
+## Project Architecture
+
+Rhesis is organized as a monorepo containing multiple applications and packages:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Backend Service</h3>
+    <p>FastAPI-based backend service providing REST APIs, authentication, and business logic.</p>
+  </div>
+  <div>
+    <h3>Frontend Application</h3>
+    <p>React-based frontend with TypeScript, providing the main user interface.</p>
+  </div>
+  <div>
+    <h3>Worker Service</h3>
+    <p>Celery-based background task processing for long-running operations.</p>
+  </div>
+  <div>
+    <h3>Chatbot Application</h3>
+    <p>AI-powered chatbot for interactive testing and evaluation.</p>
+  </div>
+  <div>
+    <h3>Monitoring Service</h3>
+    <p>Polyphemus service for observability and monitoring.</p>
+  </div>
+  <div>
+    <h3>Python SDK</h3>
+    <p>Comprehensive Python SDK for integrating Rhesis into your applications.</p>
+  </div>
+</div>
+
+## Development Workflow
+
+### Using the CLI Tool
+
+Our CLI tool makes it easy to manage all services:
+
+```bash
+# Start all services
+./rh backend start
+./rh frontend start
+./rh docs start
+
+# Get help
+./rh help
+```
+
+### Manual Development
+
+If you prefer to run services individually:
+
+```bash
+# Backend (FastAPI)
+cd apps/backend
+uv run uvicorn rhesis.backend.app.main:app --reload --port 8080
+
+# Frontend (React)
+cd apps/frontend
+npm run dev
+
+# Documentation (Nextra)
+cd apps/docs
+npm run dev
+```
+
+## Key Features
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>AI-Powered Testing</h3>
+    <p>Generate test cases automatically using advanced language models.</p>
+  </div>
+  <div>
+    <h3>Real-time Collaboration</h3>
+    <p>Work together with your team in real-time on test development.</p>
+  </div>
+  <div>
+    <h3>Comprehensive Analytics</h3>
+    <p>Get detailed insights and metrics from your testing efforts.</p>
+  </div>
+  <div>
+    <h3>CI/CD Integration</h3>
+    <p>Seamlessly integrate with your existing development workflows.</p>
+  </div>
+  <div>
+    <h3>Multi-language Support</h3>
+    <p>Support for multiple programming languages and frameworks.</p>
+  </div>
+  <div>
+    <h3>Scalable Architecture</h3>
+    <p>Built to scale from small teams to enterprise deployments.</p>
+  </div>
+</div>
+
+## Getting Help
+
+### Documentation
+
+- **[Contributing Guide](/docs/contributing)** - How to contribute to Rhesis
+- **[Development Setup](/docs/development-setup)** - Setting up your development environment
+- **[Coding Standards](/docs/coding-standards)** - Code style and quality guidelines
+- **[Managing Documentation](/docs/managing-docs)** - How to manage and maintain the docs
+
+### Community Support
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>GitHub Discussions</h3>
+    <p>Join our [GitHub Discussions](https://github.com/rhesis/rhesis/discussions) for community support and questions.</p>
+  </div>
+  <div>
+    <h3>GitHub Issues</h3>
+    <p>Report bugs and request features on [GitHub Issues](https://github.com/rhesis/rhesis/issues).</p>
+  </div>
+  <div>
+    <h3>Documentation</h3>
+    <p>Browse our comprehensive documentation for detailed guides and API references.</p>
+  </div>
+  <div>
+    <h3>Enterprise Support</h3>
+    <p>Contact us for enterprise support and custom solutions.</p>
+  </div>
+</div>
+
+## Next Steps
+
+<Callout type="default">
+  **Recommended Path**
+  1. **Explore the UI** - Familiarize yourself with the frontend interface
+  2. **Read the API docs** - Understand the backend capabilities
+  3. **Try the SDK** - Integrate Rhesis into your existing projects
+  4. **Join the community** - Connect with other developers
+</Callout>
+
+### Learning Resources
+
+- **API Documentation** - Explore the backend services and endpoints
+- **SDK Documentation** - Learn how to integrate Rhesis into your applications
+- **Architecture Documentation** - Understand the system design and components
+- **Tutorials** - Step-by-step guides for common use cases
+
+### Advanced Topics
+
+- **Custom Test Generators** - Create your own AI-powered test generators
+- **Integration Patterns** - Best practices for integrating with existing systems
+- **Performance Optimization** - Tips for optimizing your testing workflows
+- **Security Considerations** - Security best practices for AI-powered testing
+
+---
+
+<Callout type="default">
+  **Need immediate help?** Check out our [FAQ](/docs/faq) or reach out to our support team.
+</Callout>
+
+Happy coding! 🚀
