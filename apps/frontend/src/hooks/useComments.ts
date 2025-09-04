@@ -43,7 +43,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId, sessionToken]);
+  }, [entityType, entityId, sessionToken, notifications]);
 
   const createComment = useCallback(async (text: string) => {
     if (!sessionToken) {
@@ -81,7 +81,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error creating comment:', err);
       throw err;
     }
-  }, [entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, fetchComments]);
+  }, [entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, notifications]);
 
   const editComment = useCallback(async (commentId: string, newText: string) => {
     if (!sessionToken) {
@@ -122,7 +122,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error editing comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, fetchComments]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, notifications]);
 
   const deleteComment = useCallback(async (commentId: string) => {
     if (!sessionToken) {
@@ -146,7 +146,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error deleting comment:', err);
       throw err;
     }
-  }, [sessionToken]);
+  }, [sessionToken, notifications]);
 
   const reactToComment = useCallback(async (commentId: string, emoji: string) => {
     if (!sessionToken) {
@@ -193,7 +193,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error reacting to comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, notifications]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture]);
 
   useEffect(() => {
     fetchComments();
