@@ -47,8 +47,8 @@ async def test_answer_relevancy():
     metric = DeepEvalAnswerRelevancy(threshold=0.7, model=model)
 
     # Test Case 1: PASSING - Highly relevant answer
-    input_text = "What is the capital of France?"
-    output_text = (
+    input = "What is the capital of France?"
+    output = (
         "The capital of France is Paris, which is located in the north-central part of the country."
     )
     expected_output = "Paris"
@@ -57,7 +57,7 @@ async def test_answer_relevancy():
         "Paris is the capital and largest city of France.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Answer Relevancy",
         "PASSING - Direct answer to question",
@@ -66,8 +66,8 @@ async def test_answer_relevancy():
     )
 
     # Test Case 2: FAILING - Irrelevant answer
-    input_text = "What is the capital of France?"
-    output_text = (
+    input = "What is the capital of France?"
+    output = (
         "I love pizza and Italian food. The weather is nice today. "
         "Did you know that cats are amazing pets?"
     )
@@ -77,7 +77,7 @@ async def test_answer_relevancy():
         "Paris is the capital and largest city of France.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Answer Relevancy",
         "FAILING - Completely irrelevant answer",
@@ -94,8 +94,8 @@ async def test_faithfulness():
     metric = DeepEvalFaithfulness(threshold=0.8, model=model)
 
     # Test Case 1: PASSING - Answer faithful to context
-    input_text = "What is the population of Tokyo?"
-    output_text = (
+    input = "What is the population of Tokyo?"
+    output = (
         "According to the provided information, "
         "Tokyo has a population of approximately 14 million people."
     )
@@ -106,7 +106,7 @@ async def test_faithfulness():
         "Tokyo is one of the most populous metropolitan areas in the world.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Faithfulness",
         "PASSING - Answer based on provided context",
@@ -115,10 +115,8 @@ async def test_faithfulness():
     )
 
     # Test Case 2: FAILING - Answer contradicts context
-    input_text = "What is the population of Tokyo?"
-    output_text = (
-        "Tokyo has a population of 50 million people, making it the largest city in the world."
-    )
+    input = "What is the population of Tokyo?"
+    output = "Tokyo has a population of 50 million people, making it the largest city in the world."
     expected_output = None
     context = [
         "Tokyo is the capital of Japan.",
@@ -126,7 +124,7 @@ async def test_faithfulness():
         "Tokyo is one of the most populous metropolitan areas in the world.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Faithfulness",
         "FAILING - Answer contradicts provided context",
@@ -143,8 +141,8 @@ async def test_contextual_relevancy():
     metric = DeepEvalContextualRelevancy(threshold=0.6, model=model)
 
     # Test Case 1: PASSING - Highly relevant context
-    input_text = "How do I bake a chocolate cake?"
-    output_text = (
+    input = "How do I bake a chocolate cake?"
+    output = (
         "To bake a chocolate cake, you'll need flour, sugar, cocoa powder, eggs, and butter. "
         "Mix the dry ingredients, then add wet ingredients, and bake at 350°F for 30 minutes."
     )
@@ -155,7 +153,7 @@ async def test_contextual_relevancy():
         "Mix dry ingredients first, then gradually add wet ingredients for best results.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Contextual Relevancy",
         "PASSING - Context directly relevant to question",
@@ -164,10 +162,8 @@ async def test_contextual_relevancy():
     )
 
     # Test Case 2: FAILING - Irrelevant context
-    input_text = "How do I bake a chocolate cake?"
-    output_text = (
-        "To bake a chocolate cake, you'll need flour, sugar, cocoa powder, eggs, and butter."
-    )
+    input = "How do I bake a chocolate cake?"
+    output = "To bake a chocolate cake, you'll need flour, sugar, cocoa powder, eggs, and butter."
     expected_output = None
     context = [
         "The weather forecast shows rain for the next three days.",
@@ -175,7 +171,7 @@ async def test_contextual_relevancy():
         "The latest smartphone models were released last month.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Contextual Relevancy",
         "FAILING - Context completely irrelevant to question",
@@ -192,8 +188,8 @@ async def test_contextual_precision():
     metric = DeepEvalContextualPrecision(threshold=0.7, model=model)
 
     # Test Case 1: PASSING - High precision context (all relevant)
-    input_text = "What are the benefits of regular exercise?"
-    output_text = (
+    input = "What are the benefits of regular exercise?"
+    output = (
         "Regular exercise provides numerous health benefits including improved "
         "cardiovascular health, stronger muscles, better mental health, and increased longevity."
     )
@@ -208,7 +204,7 @@ async def test_contextual_precision():
         "Studies show that regular exercise can increase life expectancy by 3-7 years.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Contextual Precision",
         "PASSING - All context chunks are highly relevant",
@@ -217,8 +213,8 @@ async def test_contextual_precision():
     )
 
     # Test Case 2: FAILING - Low precision context (mixed relevance)
-    input_text = "What are the benefits of regular exercise?"
-    output_text = (
+    input = "What are the benefits of regular exercise?"
+    output = (
         "Regular exercise provides numerous health benefits including improved "
         "cardiovascular health and stronger muscles."
     )
@@ -234,7 +230,7 @@ async def test_contextual_precision():
         "Studies show that regular exercise can increase life expectancy.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Contextual Precision",
         "FAILING - Context contains irrelevant information",
@@ -251,8 +247,8 @@ async def test_contextual_recall():
     metric = DeepEvalContextualRecall(threshold=0.8, model=model)
 
     # Test Case 1: PASSING - High recall (comprehensive context coverage)
-    input_text = "Tell me about renewable energy sources."
-    output_text = (
+    input = "Tell me about renewable energy sources."
+    output = (
         "Renewable energy sources include solar power, wind energy, hydroelectric power, "
         "and geothermal energy. Solar power harnesses sunlight through photovoltaic cells, "
         "wind energy uses turbines to convert wind into electricity, hydroelectric power "
@@ -274,7 +270,7 @@ async def test_contextual_recall():
         "These renewable sources help reduce greenhouse gas emissions.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Contextual Recall",
         "PASSING - Answer covers most relevant context information",
@@ -283,8 +279,8 @@ async def test_contextual_recall():
     )
 
     # Test Case 2: FAILING - Low recall (incomplete context coverage)
-    input_text = "Tell me about renewable energy sources."
-    output_text = "Renewable energy sources include solar power and wind energy."
+    input = "Tell me about renewable energy sources."
+    output = "Renewable energy sources include solar power and wind energy."
     expected_output = "Renewable energy sources include solar power and wind energy."
     context = [
         "Solar power harnesses sunlight through photovoltaic cells to generate electricity.",
@@ -295,7 +291,7 @@ async def test_contextual_recall():
         "These renewable sources help reduce greenhouse gas emissions.",
     ]
 
-    result = metric.evaluate(input_text, output_text, expected_output, context)
+    result = metric.evaluate(input, output, expected_output, context)
     print_metric_result(
         "Contextual Recall",
         "FAILING - Answer misses important context information",
