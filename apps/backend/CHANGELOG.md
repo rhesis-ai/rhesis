@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-09-04
+
+### Added
+- Added a new endpoint to retrieve test run statistics, providing insights into test execution data.
+- Implemented comment support with CRUD operations and API endpoints, including emoji reactions.
+- Added `?include=metrics` query parameter to the behaviors endpoint to include related metrics.
+- Added `created_at` and `updated_at` fields to relevant entities for tracking purposes.
+
+### Changed
+- Refactored common utilities for statistics calculation, improving code maintainability.
+- Updated environment variable handling for improved local development and deployment flexibility.
+- Replaced `response_format` argument with `schema` in content generation functionality for clarity.
+- Migrated linting process to `uvx` for improved performance and consistency.
+- Updated Docker configuration and scripts for streamlined deployment.
+
+### Fixed
+- Fixed an issue causing slow loading times on the metrics confirmation page during creation.
+- Made the `name` field optional when editing metrics.
+- Resolved an issue preventing migrations from running when a revision already exists.
+- Fixed macOS IPv6 localhost connection issues.
+- Removed user-level permission check from the test run download endpoint.
+- Corrected routes formatting for improved API consistency.
+
+
 ## [0.2.2] - 2025-08-22
 
 ### Added
