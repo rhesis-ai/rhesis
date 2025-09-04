@@ -134,7 +134,7 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
 
     @property
     def requires_ground_truth(self) -> bool:
-        return False
+        return True
 
 
 class DeepEvalContextualRecall(DeepEvalMetricBase):
