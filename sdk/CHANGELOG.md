@@ -13,6 +13,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-09-04
+
+### Added
+- Support for JSON schema definitions in LLM service requests, allowing for structured responses.
+- Integration with Gemini and OpenAI LLMs via the LLM service.
+- API key handling for LLM providers.
+- Basic tests for base LLM and model factory.
+- Tests for SDK service utilities.
+
+### Changed
+- **Breaking Change:** Renamed `rhesis_provider` to `native`.
+- **Breaking Change:** Renamed `openai_provider`.
+- **Breaking Change:** Renamed `gemini`.
+- **Breaking Change:** Renamed `factory`.
+- **Breaking Change:** Renamed `rhesisllmservice`.
+- Refactored LLM service architecture, including moving `basellm`, `utils`, and `modelfactory` to new locations.
+- Renamed the `response_format` argument to `schema` for clarity and consistency.
+- Improved code structure and cleanliness in Gemini and OpenAI providers.
+- Updated linting process to use `uvx` instead of `uv run`.
+- Refactored prompt synthesizers to use helper functions for code reuse and improved maintainability.
+- Renamed 'document context' to the more generic 'context' in relevant components.
+
+### Fixed
+- Fixed a bug in the Rhesis (now Native) LLM service.
+- Fixed issues with the Rhesis provider.
+
+### Removed
+- Removed `pip` from SDK dependencies.
+
+
 ## [0.2.2] - 2025-08-22
 
 ### Added
