@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Snackbar, Alert } from '@mui/material';
+import { Snackbar, Alert, useTheme } from '@mui/material';
 
-export type NotificationSeverity = 'success' | 'info' | 'warning' | 'error';
+export type NotificationSeverity = 'success' | 'info' | 'warning' | 'error' | 'neutral';
 
 interface NotificationOptions {
   severity?: NotificationSeverity;
@@ -36,6 +36,7 @@ export function NotificationProvider({
   const [currentNotification, setCurrentNotification] = React.useState<NotificationItem | undefined>(
     undefined,
   );
+  const theme = useTheme();
 
   React.useEffect(() => {
     if (notifications.length && !currentNotification) {
@@ -83,6 +84,21 @@ export function NotificationProvider({
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = React.useMemo(() => ({ show, close }), [show, close]);
 
+  // Get custom styling for neutral severity
+  const getNeutralAlertSx = () => {
+    const isDark = theme.palette.mode === 'dark';
+    return {
+      backgroundColor: isDark ? theme.palette.grey[700] : theme.palette.grey[100],
+      color: isDark ? theme.palette.grey[100] : theme.palette.grey[800],
+      '& .MuiAlert-icon': {
+        color: isDark ? theme.palette.grey[300] : theme.palette.grey[600],
+      },
+      '& .MuiAlert-action': {
+        color: isDark ? theme.palette.grey[300] : theme.palette.grey[600],
+      },
+    };
+  };
+
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
@@ -97,9 +113,12 @@ export function NotificationProvider({
         >
           <Alert
             onClose={handleClose}
-            severity={currentNotification.options.severity || 'info'}
+            severity={currentNotification.options.severity === 'neutral' ? 'info' : currentNotification.options.severity || 'info'}
             variant="filled"
-            sx={{ width: '100%' }}
+            sx={{ 
+              width: '100%',
+              ...(currentNotification.options.severity === 'neutral' ? getNeutralAlertSx() : {})
+            }}
             elevation={6}
           >
             {currentNotification.message}

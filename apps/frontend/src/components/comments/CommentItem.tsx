@@ -229,17 +229,6 @@ export function CommentItem({
 
                         {/* Emoji Picker Button and Reactions */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-              <IconButton
-                size="small"
-                onClick={openEmojiPicker}
-                sx={{ 
-                  color: 'text.secondary',
-                  '&:hover': { color: 'primary.main' }
-                }}
-              >
-                <EmojiIcon fontSize="small" />
-              </IconButton>
-
               {/* Emoji Reactions Display */}
               {Object.keys(comment.emojis || {}).length > 0 && (
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -268,8 +257,8 @@ export function CommentItem({
                             border: '1px solid',
                             borderColor: hasReacted ? 'primary.main' : 'divider',
                             borderRadius: '16px',
-                            px: 1,
-                            py: 0.5,
+                            px: 1.5,
+                            py: 0.75,
                             cursor: 'pointer',
                             '&:hover': {
                               bgcolor: 'action.hover',
@@ -278,8 +267,8 @@ export function CommentItem({
                             }
                           }}
                         >
-                          <Typography variant="caption">{emoji}</Typography>
-                          <Typography variant="caption" fontWeight={600} sx={{ 
+                          <Typography variant="body2" sx={{ fontSize: '1rem' }}>{emoji}</Typography>
+                          <Typography variant="body2" fontWeight={600} sx={{ 
                             color: theme.palette.mode === 'dark' ? '#ffffff' : '#333333'
                           }}>
                             {reactionCount}
@@ -290,6 +279,17 @@ export function CommentItem({
                   })}
                 </Box>
               )}
+
+              <IconButton
+                size="small"
+                onClick={openEmojiPicker}
+                sx={{ 
+                  color: 'text.secondary',
+                  '&:hover': { color: 'primary.main' }
+                }}
+              >
+                <EmojiIcon fontSize="small" />
+              </IconButton>
             </Box>
         </Box>
 
