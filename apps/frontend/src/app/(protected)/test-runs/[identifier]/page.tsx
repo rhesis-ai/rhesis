@@ -85,13 +85,15 @@ export default async function TestRunPage({ params }: { params: any }) {
         <Grid container spacing={3}>
           {/* Main Content Column */}
           <Grid item xs={12} md={9}>
-            <TestRunDetailsSection 
-              testRun={testRun} 
-              sessionToken={session.session_token}
-            />
+            <Paper sx={{ p: 3, mb: 4 }}>
+              <TestRunDetailsSection 
+                testRun={testRun} 
+                sessionToken={session.session_token}
+              />
+            </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper sx={{ p: 3 }}>
+            <Paper sx={{ p: 3, mb: 4 }}>
               <TestRunTestsGrid
                 testRunId={identifier}
                 sessionToken={session.session_token}
@@ -99,16 +101,14 @@ export default async function TestRunPage({ params }: { params: any }) {
             </Paper>
 
             {/* Comments Section */}
-            <Paper sx={{ p: 3, mb: 4 }}>
-                            <CommentsWrapper
-                entityType="TestRun"
-                entityId={testRun.id}
-                sessionToken={session.session_token}
-                currentUserId={session.user?.id || ''}
-                currentUserName={session.user?.name || ''}
-                currentUserPicture={session.user?.picture || undefined}
-              />
-            </Paper>
+            <CommentsWrapper
+              entityType="TestRun"
+              entityId={testRun.id}
+              sessionToken={session.session_token}
+              currentUserId={session.user?.id || ''}
+              currentUserName={session.user?.name || ''}
+              currentUserPicture={session.user?.picture || undefined}
+            />
           </Grid>
 
           {/* Workflow Column */}

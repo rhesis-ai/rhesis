@@ -36,7 +36,10 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     } catch (err) {
       setError('Failed to fetch comments');
       console.error('Error fetching comments:', err);
-      notifications.show('Failed to fetch comments', { severity: 'error' });
+      notifications.show('Failed to fetch comments', { 
+        severity: 'error',
+        autoHideDuration: 3000
+      });
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +72,10 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       
       setComments(prev => [commentWithUser, ...prev]);
       
-      notifications.show('Comment posted successfully', { severity: 'success' });
+      notifications.show('Comment posted successfully', { 
+        severity: 'neutral',
+        autoHideDuration: 3000
+      });
       return commentWithUser;
     } catch (err) {
       console.error('Error creating comment:', err);
@@ -107,7 +113,10 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         )
       );
       
-      notifications.show('Comment updated successfully', { severity: 'success' });
+      notifications.show('Comment updated successfully', { 
+        severity: 'neutral',
+        autoHideDuration: 3000
+      });
       return commentWithUser;
     } catch (err) {
       console.error('Error editing comment:', err);
@@ -129,7 +138,10 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         prev.filter(comment => comment.id !== commentId)
       );
       
-      notifications.show('Comment deleted successfully', { severity: 'success' });
+      notifications.show('Comment deleted successfully', { 
+        severity: 'neutral',
+        autoHideDuration: 3000
+      });
     } catch (err) {
       console.error('Error deleting comment:', err);
       throw err;
