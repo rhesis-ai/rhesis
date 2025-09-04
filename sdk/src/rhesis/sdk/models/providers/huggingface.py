@@ -1,3 +1,4 @@
+import gc
 from typing import Optional
 
 import torch
@@ -18,6 +19,10 @@ class HuggingFaceLLM(BaseLLM):
     This class provides a basic structure for loading and using models from Hugging Face.
     It can be extended to include specific models or configurations as needed.
     A complete implementation may be needed for unusual models or configurations.
+    Example usage:
+        >>> llm = HugginFaceLLM("crumb/nano-mistral")
+        >>> result = llm.generate("Tell me a joke.")
+        >>> print(result)
     """
 
     def __init__(
@@ -63,7 +68,7 @@ class HuggingFaceLLM(BaseLLM):
         model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
         )
-        # check for memory size
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
 
@@ -78,10 +83,6 @@ class HuggingFaceLLM(BaseLLM):
         Aggressively unload the model and tokenizer to free up GPU/CPU memory.
         This handles edge cases such as partial allocations and hanging references.
         """
-        import gc
-
-        import torch
-
         # Unload model
         try:
             if self.model is not None:
