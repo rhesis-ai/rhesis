@@ -11,6 +11,27 @@ This guide explains how to manage and maintain the Rhesis documentation site bui
 
 ### Running the Documentation
 
+There are multiple ways to run the Rhesis documentation site. Choose the method that works best for your workflow.
+
+#### Method 1: Using the CLI Tool (Recommended)
+
+The easiest way to run the documentation is using our CLI tool from the project root:
+
+```bash
+# From the project root directory
+./rh docs start
+```
+
+This command will:
+- Navigate to the docs directory automatically
+- Install dependencies if needed
+- Start the development server on port 3001
+- Provide status feedback
+
+#### Method 2: Manual Steps
+
+If you prefer to run the documentation manually or need more control:
+
 ```bash
 # Navigate to docs directory
 cd apps/docs
@@ -20,12 +41,59 @@ npm install
 
 # Start development server
 npm run dev
+```
 
+The documentation will be available at: **http://localhost:3001**
+
+#### Method 3: Additional Commands
+
+```bash
 # Build for production
 npm run build
 
-# Start production server
+# Start production server (after building)
 npm run start
+
+# Run linting (if available)
+npm run lint
+
+# Check for outdated dependencies
+npm outdated
+```
+
+#### Verification
+
+Once the server is running, you can verify it's working correctly:
+
+```bash
+# Check if the server is responding
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3001
+
+# Expected output: 200
+```
+
+#### Troubleshooting
+
+**Port Conflicts:**
+```bash
+# Check what's using port 3001
+lsof -i :3001
+
+# Kill the process if needed
+kill -9 <PID>
+
+# Or use a different port
+PORT=3002 npm run dev
+```
+
+**Dependencies Issues:**
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Remove node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
 ```
 
 <Callout type="default">
