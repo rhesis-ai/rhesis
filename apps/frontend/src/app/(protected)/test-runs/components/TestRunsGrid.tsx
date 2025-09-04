@@ -116,7 +116,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         setLoading(false);
       }
     }
-  }, [sessionToken]);
+  }, [sessionToken, projectNames]);
 
   useEffect(() => {
     isMounted.current = true;
