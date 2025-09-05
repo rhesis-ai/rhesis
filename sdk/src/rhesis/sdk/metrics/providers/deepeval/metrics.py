@@ -1,6 +1,5 @@
 from typing import List, Optional, Union
 
-from rhesis.sdk.metrics.base import MetricResult, retry_evaluation
 from deepeval.metrics import (
     AnswerRelevancyMetric,
     ContextualPrecisionMetric,
@@ -9,6 +8,7 @@ from deepeval.metrics import (
     FaithfulnessMetric,
 )
 
+from rhesis.sdk.metrics.base import MetricResult, retry_evaluation
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
