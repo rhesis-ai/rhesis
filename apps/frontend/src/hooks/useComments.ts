@@ -36,11 +36,14 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     } catch (err) {
       setError('Failed to fetch comments');
       console.error('Error fetching comments:', err);
-      notifications.show('Failed to fetch comments', { severity: 'error' });
+      notifications.show('Failed to fetch comments', { 
+        severity: 'error',
+        autoHideDuration: 3000
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId, sessionToken]);
+  }, [entityType, entityId, sessionToken, notifications]);
 
   const createComment = useCallback(async (text: string) => {
     if (!sessionToken) {
@@ -69,13 +72,16 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       
       setComments(prev => [commentWithUser, ...prev]);
       
-      notifications.show('Comment posted successfully', { severity: 'success' });
+      notifications.show('Comment posted successfully', { 
+        severity: 'neutral',
+        autoHideDuration: 3000
+      });
       return commentWithUser;
     } catch (err) {
       console.error('Error creating comment:', err);
       throw err;
     }
-  }, [entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, fetchComments]);
+  }, [entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, notifications]);
 
   const editComment = useCallback(async (commentId: string, newText: string) => {
     if (!sessionToken) {
@@ -107,13 +113,16 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         )
       );
       
-      notifications.show('Comment updated successfully', { severity: 'success' });
+      notifications.show('Comment updated successfully', { 
+        severity: 'neutral',
+        autoHideDuration: 3000
+      });
       return commentWithUser;
     } catch (err) {
       console.error('Error editing comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, fetchComments]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, notifications]);
 
   const deleteComment = useCallback(async (commentId: string) => {
     if (!sessionToken) {
@@ -129,12 +138,15 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         prev.filter(comment => comment.id !== commentId)
       );
       
-      notifications.show('Comment deleted successfully', { severity: 'success' });
+      notifications.show('Comment deleted successfully', { 
+        severity: 'neutral',
+        autoHideDuration: 3000
+      });
     } catch (err) {
       console.error('Error deleting comment:', err);
       throw err;
     }
-  }, [sessionToken]);
+  }, [sessionToken, notifications]);
 
   const reactToComment = useCallback(async (commentId: string, emoji: string) => {
     if (!sessionToken) {
@@ -181,7 +193,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error reacting to comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, notifications]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture]);
 
   useEffect(() => {
     fetchComments();

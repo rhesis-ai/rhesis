@@ -184,10 +184,20 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               tickFormatter={(value: number) => `${value}%`}
             />
             <Tooltip 
-              contentStyle={{ fontSize: '10px' }}
-              formatter={(value: any, name: string) => {
-                if (name === 'Pass Rate') return [`${value}%`, name];
-                return [value, name];
+              contentStyle={{ 
+                fontSize: '10px',
+                backgroundColor: theme.palette.background.paper,
+                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: '4px',
+                color: theme.palette.text.primary
+              }}
+              formatter={(value: any, name: string, props: any) => {
+                // The value here is the pass_rate from the data
+                return [`${value}%`, 'Pass Rate'];
+              }}
+              labelFormatter={(label: string, payload: any) => {
+                // The label is the test run name
+                return label || 'Test Run';
               }}
             />
             <Legend 
