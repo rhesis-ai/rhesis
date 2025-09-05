@@ -3,7 +3,7 @@
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     RhesisMetricBase,
     RhesisMetricFactory,
-    RhesisPromptMetric,
+    RhesisPromptMetricNumeric,
 )
 
 # Lazy import to avoid circular dependencies
