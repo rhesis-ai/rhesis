@@ -12,10 +12,10 @@ from rhesis.sdk.metrics.providers.native.metric_base import (
 )
 
 
-class ScoreResponse(BaseModel):
-    """Model for structured score response from LLM evaluation."""
+class NumericScoreResponse(BaseModel):
+    """Model for structured numeric response from LLM evaluation."""
 
-    score: Union[float, str, int] = Field(description="Evaluation score")
+    score: float = Field(description="Evaluation score")
     reason: str = Field(description="Explanation for the score", default="")
 
 
@@ -133,7 +133,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
 
         return prompt
 
-    def _process_score(self, raw_score: Union[float, str, int]) -> float:
+    def _process_score(self, raw_score: float) -> float:
         """
         Process the raw score for numeric evaluation.
 
@@ -145,8 +145,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         """
         # For numeric scores, ensure it's a float and within range
         try:
-            score = float(raw_score)
-            return max(min(score, self.max_score), self.min_score)
+            return max(min(raw_score, self.max_score), self.min_score)
         except (ValueError, TypeError):
             return self.min_score
 
@@ -204,20 +203,10 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         # Generate the evaluation prompt
         prompt = self.get_prompt_template(input, output, expected_output or "", context or [])
 
-        # Override the provider and model at runtime
-        # Note: For Google provider, API key is set via environment variable (GEMINI_API_KEY)
-        # rather than call_params to avoid 'api_key' parameter error
-        # evaluation_fn = llm.override(
-        #     self.run_evaluation,
-        #     provider=self.provider,
-        #     model=self.model,
-        #     call_params=self.additional_params,
-        # )
-
         try:
             # Run the evaluation with structured response model
-            response = self._model.generate(prompt, schema=ScoreResponse)
-            response = ScoreResponse(**response)
+            response = self._model.generate(prompt, schema=NumericScoreResponse)
+            response = NumericScoreResponse(**response)
 
             # Get the score and process it based on score type
             raw_score = response.score
