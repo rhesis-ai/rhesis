@@ -19,9 +19,9 @@ class ScoreResponse(BaseModel):
     reason: str = Field(description="Explanation for the score", default="")
 
 
-class RhesisPromptMetric(RhesisMetricBase):
+class RhesisPromptMetricNumeric(RhesisMetricBase):
     """
-    A generic metric that evaluates outputs based on a custom prompt template.
+    A numeric metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
     """
 
@@ -32,30 +32,25 @@ class RhesisPromptMetric(RhesisMetricBase):
         evaluation_steps: str,
         reasoning: str,
         evaluation_examples: str = "",
-        score_type: Union[ScoreType, str] = ScoreType.NUMERIC,
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
         threshold: Optional[float] = None,
-        reference_score: Optional[str] = None,
         threshold_operator: Union[ThresholdOperator, str] = None,
         model: Optional[str] = None,
         metric_type="rag",
         **kwargs,
     ):
         # Convert string to enum if needed
-        if isinstance(score_type, str):
-            score_type = ScoreType(score_type)
         if isinstance(threshold_operator, str):
             threshold_operator = ThresholdOperator(threshold_operator)
 
-        self.score_type = score_type
+        self.score_type = ScoreType.NUMERIC
         self.threshold_operator = threshold_operator
+        self.model = model
 
-        # Handle different score types
-        if score_type == ScoreType.NUMERIC:
-            # For numeric scores, we need min_score, max_score, and threshold
-            self.min_score = min_score if min_score is not None else 1.0
-            self.max_score = max_score if max_score is not None else 5.0
+        # For numeric scores, we need min_score, max_score, and threshold
+        self.min_score = min_score if min_score is not None else 1.0
+        self.max_score = max_score if max_score is not None else 5.0
 
             # Handle threshold based on whether it's raw or normalized
             if threshold is None:
@@ -115,10 +110,6 @@ class RhesisPromptMetric(RhesisMetricBase):
         self.evaluation_steps = evaluation_steps
         self.reasoning = reasoning
         self.evaluation_examples = evaluation_examples
-        self.provider = provider
-
-        # Prepare call params (for Google provider, API key is handled via environment variables)
-        self.additional_params = kwargs.copy()
 
         # Set up Jinja environment
         templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
@@ -289,7 +280,7 @@ class RhesisPromptMetric(RhesisMetricBase):
 
         try:
             # Run the evaluation with structured response model
-            response = self._model.generate(prompt)
+            response = self._model.generate(prompt, schema=ScoreResponse)
             response = ScoreResponse(**response)
 
             # Get the score and process it based on score type
@@ -381,7 +372,6 @@ class RhesisPromptMetric(RhesisMetricBase):
 
             error_msg = f"Error evaluating with {self.name}: {str(e)}"
             logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
-            logger.error(f"Provider: {self.provider}, Model: {self.model}")
             logger.error(f"Exception type: {type(e).__name__}")
             logger.error(f"Exception details: {str(e)}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
@@ -392,7 +382,6 @@ class RhesisPromptMetric(RhesisMetricBase):
                 "reason": error_msg,
                 "exception_type": type(e).__name__,
                 "exception_details": str(e),
-                "provider": self.provider,
                 "model": self.model,
                 "prompt": prompt,
                 "score_type": self.score_type.value,
@@ -443,5 +432,8 @@ if __name__ == "__main__":
         "Known as the City of Light, Paris is a global center for art, culture, and fashion.",
     ]
     metric_result = metric.evaluate(input, output, expected_output, context)
+    from pprint import pprint
+
+    pprint(metric_result)
     print(metric_result)
     print("finished")
