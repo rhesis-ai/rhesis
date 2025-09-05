@@ -48,11 +48,16 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         self.threshold_operator = threshold_operator
         self.model = model
 
+        if min_score is not None and max_score is None:
+            raise ValueError("Only min_score was set, please set max_score")
+
+        if min_score is None and max_score is not None:
+            raise ValueError("Only max_score was set, please set min_score")
+
         # For numeric scores, we need min_score, max_score, and threshold
         self.min_score = min_score if min_score is not None else 0
         self.max_score = max_score if max_score is not None else 1
 
-        # Handle threshold based on whether it's raw or normalized
         if threshold is None:
             self.threshold = self.min_score + (self.max_score - self.min_score) / 2
         else:
@@ -156,38 +161,8 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         if expected_output is None and self.requires_ground_truth:
             raise ValueError(f"{self.name} metric requires ground truth but none was provided")
 
-        # Check for empty or whitespace-only output and return score of 0 immediately
-        if not output or not output.strip():
-            reason = "Empty or whitespace-only output provided. Score set to minimum value."
-
-            # Prepare details for empty output
-            details = {
-                "raw_score": self.min_score,
-                "processed_score": self.min_score,
-                "score_type": self.score_type.value,
-                "llm_response": "Not evaluated - empty output detected",
-                "prompt": "Not generated - empty output detected",
-                "reason": reason,
-                "is_successful": False,  # Empty outputs are always unsuccessful
-                "threshold_operator": (
-                    self.threshold_operator.value if self.threshold_operator else None
-                ),
-                "empty_output_detected": True,
-            }
-
-            # Add numeric score specific details
-            raw_threshold = getattr(self, "raw_threshold", self.threshold)
-            details.update(
-                {
-                    "final_score": self.min_score,
-                    "min_score": self.min_score,
-                    "max_score": self.max_score,
-                    "threshold": raw_threshold,
-                    "normalized_threshold": self.threshold,
-                    "raw_threshold": raw_threshold,
-                }
-            )
-            return MetricResult(score=self.min_score, details=details)
+        # TODO
+        # Handle empty or whitespace-only output
 
         # Generate the evaluation prompt
         prompt = self.get_prompt_template(input, output, expected_output or "", context or [])
@@ -200,12 +175,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             # Get the score and process it based on score type
             raw_score = response.score
             processed_score = self._process_score(raw_score)
-            reason = (
-                response.reason
-                if hasattr(response, "reason") and response.reason
-                else f"Score: {raw_score}"
-            )
-
+            reason = response.reason
             # For numeric scores, use the processed score directly (no normalization)
             evaluation_score = processed_score
 
@@ -242,15 +212,12 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             }
 
             # Add numeric score specific details
-            raw_threshold = getattr(self, "raw_threshold", self.threshold)
             details.update(
                 {
                     "final_score": evaluation_score,  # Raw score (not normalized)
                     "min_score": self.min_score,
                     "max_score": self.max_score,
-                    "threshold": raw_threshold,  # Raw threshold for comparison
-                    "normalized_threshold": self.threshold,  # Keep for reference
-                    "raw_threshold": raw_threshold,
+                    "threshold": self.threshold,
                 }
             )
 
@@ -306,7 +273,7 @@ if __name__ == "__main__":
         reasoning="",
     )
     input = "What is the capital of France?"
-    output = "The capital of France is Parissss. It is known as the City of Light."
+    output = ""
     expected_output = "Paris is the capital of France."
     context = [
         "Paris is the capital and largest city of France.",
