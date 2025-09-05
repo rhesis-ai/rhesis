@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.2.2"
+version = "0.2.3"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,6 +44,8 @@ dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
     "litellm>=1.76.0",
+    "torch>=2.8.0",
+    "transformers>=4.56.0",
 ]
 
 [project.license]

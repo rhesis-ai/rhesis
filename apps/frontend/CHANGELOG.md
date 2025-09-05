@@ -6,6 +6,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-09-04
+
+### Added
+- Added dynamic charts for test run details.
+- Added comments feature for collaboration on tests, test sets, and test runs.
+- Added error boundary for improved application stability.
+- Added loading spinners to metrics creation and deletion processes.
+
+### Changed
+- Improved performance of the test run stats endpoint.
+- Optimized API client interfaces and behavior client methods.
+- Refactored metrics functionality into separate components for better maintainability.
+- Improved environment variable handling for local development and deployment flexibility.
+- Updated Dockerfile for enhanced build process and environment configuration.
+
+### Fixed
+- Fixed tooltip visibility issues across different themes.
+- Fixed display issues with tooltips for test runs.
+- Fixed TypeScript warnings.
+- Fixed flickering issue in the test run datagrid.
+- Eliminated unnecessary re-renders in the metrics detail page.
+- Fixed inconsistencies and re-renders during metric editing.
+- Resolved issues with multiple API calls during metric editing.
+- Fixed display of metrics confirmation page during creation.
+- Fixed issue where metrics not associated with behaviors were not displayed.
+- Fixed macOS IPv6 localhost connection issues.
+
+
 ## [0.2.2] - 2025-08-22
 
 ### Added

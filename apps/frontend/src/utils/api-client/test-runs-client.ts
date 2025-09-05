@@ -6,6 +6,10 @@ import {
   TestRunUpdate, 
   TestRunDetail
 } from './interfaces/test-run';
+import { 
+  TestRunStatsResponse, 
+  TestRunStatsParams 
+} from './interfaces/test-run-stats';
 import { Behavior } from './interfaces/behavior';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
@@ -97,6 +101,25 @@ export class TestRunsClient extends BaseApiClient {
 
   async downloadTestRun(testRunId: string): Promise<Blob> {
     return this.fetchBlob(`${API_ENDPOINTS.testRuns}/${testRunId}/download`);
+  }
+
+  async getTestRunStats(params: TestRunStatsParams = {}): Promise<TestRunStatsResponse> {
+    const queryParams = new URLSearchParams();
+    
+    // Add all parameters to query string
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (Array.isArray(value)) {
+          // Handle array parameters (e.g., test_run_ids, user_ids)
+          value.forEach(item => queryParams.append(key, String(item)));
+        } else {
+          queryParams.append(key, String(value));
+        }
+      }
+    });
+
+    const url = `${API_ENDPOINTS.testRuns}/stats${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return this.fetch<TestRunStatsResponse>(url);
   }
 
   protected async fetchBlob(
