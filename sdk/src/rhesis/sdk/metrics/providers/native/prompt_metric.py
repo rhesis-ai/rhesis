@@ -49,38 +49,27 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         self.model = model
 
         # For numeric scores, we need min_score, max_score, and threshold
-        self.min_score = min_score if min_score is not None else 1.0
-        self.max_score = max_score if max_score is not None else 5.0
+        self.min_score = min_score if min_score is not None else 0
+        self.max_score = max_score if max_score is not None else 1
 
         # Handle threshold based on whether it's raw or normalized
         if threshold is None:
-            threshold = 0.5  # Default normalized threshold
-
-        normalized_threshold = threshold
-        if 0 <= threshold <= 1:
-            # This is already a normalized threshold
-            normalized_threshold = threshold
-        elif self.min_score <= threshold <= self.max_score:
-            # This is a raw threshold, convert to normalized
-            normalized_threshold = (threshold - self.min_score) / (self.max_score - self.min_score)
+            self.threshold = self.min_score + (self.max_score - self.min_score) / 2
         else:
-            # Invalid threshold
-            raise ValueError(
-                f"Threshold must be either between 0 and 1 (normalized) "
-                f"or between {self.min_score} and {self.max_score} (raw)"
-            )
+            self.threshold = threshold
+
+        if not (self.min_score <= self.threshold <= self.max_score):
+            raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
 
         # Pass the normalized threshold to the base class
         super().__init__(
             name=name,
-            threshold=normalized_threshold,
+            threshold=self.threshold,
             reference_score=None,
             metric_type=metric_type,
             model=model,
             **kwargs,
         )
-        # Store original threshold for reporting
-        self.raw_threshold = threshold
 
         # Store other parameters
         self.evaluation_prompt = evaluation_prompt
