@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -748,15 +748,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed", size = 60722, upload-time = "2023-12-24T09:54:32.31Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277, upload-time = "2023-12-24T09:54:30.421Z" },
-]
-
-[[package]]
-name = "docstring-parser"
-version = "0.17.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b2/9d/c3b43da9515bd270df0f80548d9944e389870713cc1fe2b8fb35fe2bcefd/docstring_parser-0.17.0.tar.gz", hash = "sha256:583de4a309722b3315439bb31d64ba3eebada841f2e2cee23b99df001434c912", size = 27442, upload-time = "2025-07-21T07:35:01.868Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/55/e2/2537ebcff11c1ee1ff17d8d0b6f4db75873e3b0fb32c2d4a2ee31ecb310a/docstring_parser-0.17.0-py3-none-any.whl", hash = "sha256:cf2569abd23dce8099b300f9b4fa8191e9582dda731fd533daf54c4551658708", size = 36896, upload-time = "2025-07-21T07:35:00.684Z" },
 ]
 
 [[package]]
@@ -2242,21 +2233,6 @@ wheels = [
 ]
 
 [[package]]
-name = "mirascope"
-version = "1.25.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "docstring-parser" },
-    { name = "jiter" },
-    { name = "pydantic" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/87/c0/34a3e147d0cf791e16ba8e7649c21bc55df4cc0bfc96548a36afd0b8a40c/mirascope-1.25.6.tar.gz", hash = "sha256:eebd0788f385c201cf97bce244a653afc34c345f99958ddcaebb8e52a5fd91c8", size = 642094, upload-time = "2025-08-14T22:53:22.712Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/b9/9ba00020216f02bb80e40d9291ea424a3e283f6b90d943c66819ccce81e9/mirascope-1.25.6-py3-none-any.whl", hash = "sha256:7ace52a00fcc4f8d5b69e1d5c7fb5edb3c099fc37ef1ecd99cbb6545da5cea81", size = 373601, upload-time = "2025-08-14T22:53:21.11Z" },
-]
-
-[[package]]
 name = "mistune"
 version = "3.1.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3167,7 +3143,7 @@ wheels = [
 
 [[package]]
 name = "posthog"
-version = "6.7.3"
+version = "6.7.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backoff" },
@@ -3177,9 +3153,9 @@ dependencies = [
     { name = "six" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/49/f3/650f728d1da777d07730b835605278206eba7be864952ef6b8c15fc5405e/posthog-6.7.3.tar.gz", hash = "sha256:3d03ab7e6328a2407dcafa5615760bd99a4c20b18b7d548160175634ab53e73c", size = 117739, upload-time = "2025-09-04T18:22:07.158Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/40/d7f585e09e47f492ebaeb8048a8e2ce5d9f49a3896856a7a975cbc1484fa/posthog-6.7.4.tar.gz", hash = "sha256:2bfa74f321ac18efe4a48a256d62034a506ca95477af7efa32292ed488a742c5", size = 118209, upload-time = "2025-09-05T15:29:21.517Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/8c/448fa7ead69c4e5b5bdb699856813bc39c8415bb58e3ed2868a1d8986fb9/posthog-6.7.3-py3-none-any.whl", hash = "sha256:c669d0a43ddd2c34762fdbfd4d89e453430991e7ff9c2baf8e7c36619525d624", size = 135930, upload-time = "2025-09-04T18:22:05.196Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/95/e795059ef73d480a7f11f1be201087f65207509525920897fb514a04914c/posthog-6.7.4-py3-none-any.whl", hash = "sha256:7f1872c53ec7e9a29b088a5a1ad03fa1be3b871d10d70c8bf6c2dafb91beaac5", size = 136409, upload-time = "2025-09-05T15:29:19.995Z" },
 ]
 
 [[package]]
@@ -3998,7 +3974,6 @@ dependencies = [
     { name = "jinja2" },
     { name = "litellm" },
     { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
-    { name = "mirascope" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "pydantic" },
@@ -4044,7 +4019,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "deepeval", specifier = ">=3.0.0" },
+    { name = "deepeval", specifier = "==3.4.7" },
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "jinja2", specifier = ">=3.1.6" },
@@ -4052,7 +4027,6 @@ requires-dist = [
     { name = "litellm", specifier = ">=1.76.0" },
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
     { name = "matplotlib", marker = "extra == 'examples'" },
-    { name = "mirascope", specifier = ">=1.24.0" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "pandas", marker = "extra == 'examples'" },
     { name = "pyarrow", specifier = ">=17.0.0" },
@@ -4291,15 +4265,15 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "2.36.0"
+version = "2.37.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a1/ac/52fcbba981793d3c90807b79cf6fa130cd25a54d152e653da3ed6d5defef/sentry_sdk-2.36.0.tar.gz", hash = "sha256:af9260e8155e41e8217615a453828e98aa40740865ac4b16b1ccb6a63b4b2e31", size = 343655, upload-time = "2025-09-04T07:56:37.688Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/9a/0b2eafc31d5c7551b6bef54ca10d29adea471e0bd16bfe985a9dc4b6633e/sentry_sdk-2.37.0.tar.gz", hash = "sha256:2c661a482dd5accf3df58464f31733545745bb4d5cf8f5e46e0e1c4eed88479f", size = 346203, upload-time = "2025-09-05T11:41:43.848Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/17/41ea723cb40f036d699cd954e2894fe7a044b0fd9a0e6bd881b1c9dda14e/sentry_sdk-2.36.0-py2.py3-none-any.whl", hash = "sha256:0f95586a141068d215376e5bf8ebd279e126f7f42805e9570190ef82a7e232b3", size = 364905, upload-time = "2025-09-04T07:56:36.159Z" },
+    { url = "https://files.pythonhosted.org/packages/07/d5/f9f4a2bf5db2ca8f692c46f3821fee1f302f1b76a0e2914aee5390fca565/sentry_sdk-2.37.0-py2.py3-none-any.whl", hash = "sha256:89c1ed205d5c25926558b64a9bed8a5b4fb295b007cecc32c0ec4bf7694da2e1", size = 368304, upload-time = "2025-09-05T11:41:41.286Z" },
 ]
 
 [[package]]
