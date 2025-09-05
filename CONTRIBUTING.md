@@ -146,6 +146,12 @@ Available targets include:
 - `make test` &mdash; Executes the test suite
 - `make all` &mdash; Runs all checks (format_diff, lint_diff, test)
 
+
+> **ℹ️ Note:**  
+> You must execute all `make` commands from within either the `apps/backend/` or `sdk/` directories.  
+> Running `make` from the repository root directory is **not supported** and will not work as expected.
+
+
 ### 📝 Pre-commit Hooks
 We implement pre-commit hooks to automatically execute formatting and linting scripts before each commit. 
 Installation requires the following command:
