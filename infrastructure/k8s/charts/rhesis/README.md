@@ -128,6 +128,14 @@ kubectl describe pods -n rhesis
 - **Solution**: Check available storage and PVC status
 - **Check**: `kubectl get pvc -n rhesis`
 
+### Start minikube (if not started yet) 
+
+```bash
+minikube start --driver=docker --memory=4096 --cpus=2 --addons=storage-provisioner --addons=default-storageclass
+
+```
+
+
 ### Resource Optimization Commands
 
 ```bash
