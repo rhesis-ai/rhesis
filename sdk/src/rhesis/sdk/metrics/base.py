@@ -1,3 +1,22 @@
+"""
+
+TODO:
+These strings are spread all over the class as strings. Can we optimize this?
+
+
+# Extract all other keys as custom parameters
+reserved_keys = {
+    "class_name",
+    "backend",
+    "threshold",
+    "reference_score",
+    "threshold_operator",
+    "description",
+    "name",
+}
+Also, the method retry_evaluationmight be better placed in a utils type of module?
+"""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import wraps

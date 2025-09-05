@@ -5,17 +5,6 @@ from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     RhesisMetricFactory,
     RhesisPromptMetric,
 )
-
-# Lazy import to avoid circular dependencies
-# from .deepeval import (  # Re-export DeepEval metrics
-#     DeepEvalMetricBase,
-#     DeepEvalMetricFactory,
-#     DeepEvalAnswerRelevancy,
-#     DeepEvalFaithfulness,
-#     DeepEvalContextualRelevancy,
-#     DeepEvalContextualPrecision,
-#     DeepEvalContextualRecall,
-# )
 from rhesis.sdk.metrics.providers.ragas import (  # Re-export Ragas metrics
     RagasAnswerRelevancy,
     RagasContextualPrecision,
@@ -52,14 +41,6 @@ __all__ = [
     "RhesisMetricBase",
     "RhesisMetricFactory",
     "RhesisPromptMetric",
-    # DeepEval metrics (commented out to avoid circular imports)
-    # "DeepEvalMetricBase",
-    # "DeepEvalMetricFactory",
-    # "DeepEvalAnswerRelevancy",
-    # "DeepEvalFaithfulness",
-    # "DeepEvalContextualRelevancy",
-    # "DeepEvalContextualPrecision",
-    # "DeepEvalContextualRecall",
     # Ragas metrics
     "RagasMetricBase",
     "RagasMetricFactory",

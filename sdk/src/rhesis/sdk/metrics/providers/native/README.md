@@ -10,7 +10,7 @@ A generic metric that evaluates outputs based on a custom prompt template. It us
 
 #### Features:
 - Supports customizable evaluation prompts, steps, and reasoning
-- Uses Mirascope's structured response models for robust parsing
+- Uses structured response models (Pydantinc and JSON Schema) for robust parsing
 - Provides both raw and normalized scores
 - Includes detailed evaluation reasoning
 
