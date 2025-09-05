@@ -4,7 +4,7 @@
 # Global configuration for local development
 global:
   environment: "local"
-  imagePullPolicy: "Never"
+  imagePullPolicy: "IfNotPresent"  # Allow pulling from cloud registries
 
 # Image configurations for local development
 images:
@@ -26,6 +26,11 @@ database:
   enabled: true
   type: "postgresql"
   postgresql:
+    # Image configuration - pull from cloud registry
+    image:
+      repository: postgres  # or use cloud registry like gcr.io/google-containers/postgres
+      tag: "16-alpine"
+      pullPolicy: "IfNotPresent"  # Changed from "Never" to pull from cloud
     persistence:
       enabled: true
       size: "1Gi"
@@ -75,6 +80,7 @@ backend:
     - name: FRONTEND_URL
       value: "http://localhost:3000"
 
+
 # Frontend configuration for local development
 frontend:
   enabled: true
@@ -95,6 +101,8 @@ frontend:
       value: "http://localhost:8080"
     - name: NEXT_PUBLIC_APP_URL
       value: "http://localhost:3000"
+    - name: BACKEND_URL
+      value: "http://backend:8080"
 
 # Worker configuration for local development
 worker:
