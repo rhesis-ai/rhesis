@@ -38,9 +38,7 @@ class RhesisPromptMetric(RhesisMetricBase):
         threshold: Optional[float] = None,
         reference_score: Optional[str] = None,
         threshold_operator: Union[ThresholdOperator, str] = None,
-        provider: str = "google",
         model: Optional[str] = None,
-        api_key: Optional[str] = None,
         metric_type="rag",
         **kwargs,
     ):
