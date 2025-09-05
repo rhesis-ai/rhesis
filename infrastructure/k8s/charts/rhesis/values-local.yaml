@@ -1,0 +1,130 @@
+# Local development specific overrides
+# Use: helm install rhesis . --values values-local.yaml --namespace rhesis
+
+# Global configuration for local development
+global:
+  environment: "local"
+  imagePullPolicy: "Never"
+
+# Image configurations for local development
+images:
+  frontend:
+    repository: rhesis-frontend
+    tag: "latest"
+    pullPolicy: "Never"
+  backend:
+    repository: rhesis-backend
+    tag: "latest"
+    pullPolicy: "Never"
+  worker:
+    repository: rhesis-worker
+    tag: "latest"
+    pullPolicy: "Never"
+
+# Database configuration for local development
+database:
+  enabled: true
+  type: "postgresql"
+  postgresql:
+    persistence:
+      enabled: true
+      size: "1Gi"
+      storageClass: ""  # Use default storage class
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+# Redis configuration for local development
+redis:
+  enabled: true
+  type: "redis"
+  persistence:
+    enabled: true
+    size: "512Mi"
+    storageClass: ""  # Use default storage class
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+# Backend configuration for local development
+backend:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  env:
+    - name: ENVIRONMENT
+      value: "development"
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: RHESIS_BASE_URL
+      value: "http://backend:8080"
+    - name: FRONTEND_URL
+      value: "http://localhost:3000"
+
+# Frontend configuration for local development
+frontend:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  env:
+    - name: FRONTEND_ENV
+      value: "local"
+    - name: NEXT_TELEMETRY_DISABLED
+      value: "1"
+    - name: NEXT_PUBLIC_API_BASE_URL
+      value: "http://localhost:8080"
+    - name: NEXT_PUBLIC_APP_URL
+      value: "http://localhost:3000"
+
+# Worker configuration for local development
+worker:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+# Disable features not needed for local development
+monitoring:
+  enabled: false
+
+ingress:
+  enabled: false
+
+networkPolicies:
+  enabled: false
+
+rbac:
+  enabled: false
+
+# Use existing secrets and configmaps
+secrets:
+  enabled: true
+  existingSecret: "rhesis-secrets"
+  configMaps:
+    enabled: true
+    existingConfigMap: "rhesis-config"

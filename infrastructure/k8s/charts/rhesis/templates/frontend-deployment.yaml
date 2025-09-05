@@ -1,0 +1,61 @@
+{{- if .Values.frontend.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: frontend
+    tier: frontend
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: frontend
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: "{{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}"
+          imagePullPolicy: {{ .Values.images.frontend.pullPolicy | default .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.frontend.service.targetPort }}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.secrets.configMaps.existingConfigMap }}
+            - secretRef:
+                name: {{ .Values.secrets.existingSecret }}
+          {{- if .Values.frontend.env }}
+          env:
+            {{- range .Values.frontend.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          # livenessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: {{ .Values.frontend.service.targetPort }}
+          #   initialDelaySeconds: 90
+          #   periodSeconds: 30
+          #   timeoutSeconds: 10
+          #   failureThreshold: 5
+          # readinessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: {{ .Values.frontend.service.targetPort }}
+          #   initialDelaySeconds: 60
+          #   periodSeconds: 15
+          #   timeoutSeconds: 10
+          #   failureThreshold: 5
+{{- end }}

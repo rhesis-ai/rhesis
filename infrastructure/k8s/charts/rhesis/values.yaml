@@ -1,0 +1,234 @@
+# Default values for Rhesis Helm chart
+# This file contains the default configuration values
+
+# Global configuration
+global:
+  environment: "local"
+  imageRegistry: ""
+  imagePullPolicy: "Never"  # For local development with Minikube
+
+# Image configurations
+images:
+  frontend:
+    repository: rhesis-frontend
+    tag: "latest"
+    pullPolicy: "Never"
+  backend:
+    repository: rhesis-backend
+    tag: "latest"
+    pullPolicy: "Never"
+  worker:
+    repository: rhesis-worker
+    tag: "latest"
+    pullPolicy: "Never"
+
+# Database configuration
+database:
+  enabled: true
+  type: "postgresql"  # postgresql, external
+  postgresql:
+    image:
+      repository: postgres
+      tag: "16-alpine"
+    persistence:
+      enabled: true
+      size: "1Gi"
+      storageClass: ""
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    auth:
+      database: "rhesis-db"
+      username: "rhesis-user"
+      password: "rhesis-password"
+      existingSecret: "rhesis-secrets"
+      secretKeys:
+        password: "POSTGRES_PASSWORD"
+        database: "SQLALCHEMY_DB_NAME"
+        username: "SQLALCHEMY_DB_USER"
+
+# Redis configuration
+redis:
+  enabled: true
+  type: "redis"  # redis, external
+  image:
+    repository: redis
+    tag: "7-alpine"
+  persistence:
+    enabled: true
+    size: "512Mi"
+    storageClass: ""
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  auth:
+    enabled: true
+    existingSecret: "rhesis-secrets"
+    secretKeys:
+      password: "REDIS_PASSWORD"
+
+# Backend configuration
+backend:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: backend.local
+        paths:
+          - path: /
+            pathType: Prefix
+  env:
+    - name: ENVIRONMENT
+      value: "development"
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: RHESIS_BASE_URL
+      value: "http://backend:8080"
+    - name: FRONTEND_URL
+      value: "http://localhost:3000"
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: frontend.local
+        paths:
+          - path: /
+            pathType: Prefix
+  env:
+    - name: FRONTEND_ENV
+      value: "local"
+    - name: NEXT_TELEMETRY_DISABLED
+      value: "1"
+    - name: NEXT_PUBLIC_API_BASE_URL
+      value: "http://localhost:8080"
+    - name: NEXT_PUBLIC_APP_URL
+      value: "http://localhost:3000"
+
+# Worker configuration
+worker:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "100m"
+    limits:
+      memory: "2Gi"
+      cpu: "200m"
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  env:
+    - name: CELERY_WORKER_CONCURRENCY
+      value: "8"
+    - name: CELERY_WORKER_PREFETCH_MULTIPLIER
+      value: "4"
+    - name: CELERY_WORKER_MAX_TASKS_PER_CHILD
+      value: "1000"
+
+# Monitoring configuration
+monitoring:
+  enabled: false
+  prometheus:
+    enabled: false
+  grafana:
+    enabled: false
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: rhesis.local
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /api
+          pathType: Prefix
+
+# Persistence configuration
+persistence:
+  storageClass: ""
+  postgres:
+    size: "1Gi"
+  redis:
+    size: "512Mi"
+
+# Secrets and ConfigMaps
+secrets:
+  enabled: true
+  existingSecret: "rhesis-secrets"
+  configMaps:
+    enabled: true
+    existingConfigMap: "rhesis-config"
+
+# Network policies
+networkPolicies:
+  enabled: false
+
+# RBAC configuration
+rbac:
+  enabled: false
+  create: false
+
+# Service account configuration
+serviceAccount:
+  enabled: false
+  create: false
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  enabled: false
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+
+# Container security context
+containerSecurityContext:
+  enabled: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
