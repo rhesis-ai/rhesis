@@ -1,0 +1,78 @@
+🎉 Rhesis has been successfully deployed to Kubernetes!
+
+## 📋 Application Status
+To check the status of your deployment, run:
+  kubectl get pods -n {{ .Release.Namespace }}
+
+## 🌐 Access Your Application
+
+### Frontend (Next.js)
+```bash
+kubectl port-forward -n {{ .Values.global.namespace }} svc/frontend 3000:3000
+```
+Then open: http://localhost:3000
+
+### Backend (FastAPI)
+```bash
+kubectl port-forward -n {{ .Values.global.namespace }} svc/backend 8080:8080
+```
+Then open: http://localhost:8080
+
+### Worker Health Check
+```bash
+kubectl port-forward -n {{ .Values.global.namespace }} svc/worker 8080:8080
+```
+Then check: http://localhost:8080/health/basic
+
+## 🔍 Useful Commands
+
+### Check all resources
+```bash
+kubectl get all -n {{ .Values.global.namespace }}
+```
+
+### Check logs
+```bash
+# Frontend logs
+kubectl logs -n {{ .Values.global.namespace }} -l app=frontend
+
+# Backend logs  
+kubectl logs -n {{ .Values.global.namespace }} -l app=backend
+
+# Worker logs
+kubectl logs -n {{ .Values.global.namespace }} -l app=worker
+```
+
+### Check database status
+```bash
+kubectl get pods -n {{ .Values.global.namespace }} -l app=postgres
+kubectl get pods -n {{ .Values.global.namespace }} -l app=redis
+```
+
+## 🚀 Helm Management
+
+### Upgrade the release
+```bash
+helm upgrade {{ .Release.Name }} ./charts/rhesis --values values-local.yaml
+```
+
+### Check release status
+```bash
+helm status {{ .Release.Name }}
+```
+
+### Uninstall the release
+```bash
+helm uninstall {{ .Release.Name }}
+```
+
+## 📚 Documentation
+For more information, see: https://github.com/your-org/rhesis
+
+## 🆘 Troubleshooting
+If you encounter issues:
+1. Check pod status: `kubectl get pods -n {{ .Values.global.namespace }}`
+2. Check pod logs: `kubectl logs -n {{ .Values.global.namespace }} <pod-name>`
+3. Check events: `kubectl get events -n {{ .Values.global.namespace }}`
+
+Happy coding! 🚀

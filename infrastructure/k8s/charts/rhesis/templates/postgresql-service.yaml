@@ -1,0 +1,24 @@
+{{- if .Values.database.enabled }}
+{{- if eq .Values.database.type "postgresql" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres
+    tier: database
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+  selector:
+    app: postgres
+    tier: database
+{{- end }}
+{{- end }}
