@@ -15,9 +15,7 @@ class RhesisMetricBase(BaseMetric):
     ):
         super().__init__(name=name, metric_type=metric_type, model=model)
 
-    def evaluate_score(
-        self,
-    ) -> bool:
+    def evaluate_score(self, *args, **kwargs) -> bool:
         """
         Evaluate if a score meets the success criteria based on score type and threshold operator.
         This method is implemented by the derived classes.
