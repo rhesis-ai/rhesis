@@ -5,9 +5,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import create_model
 
 from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.constants import ScoreType
 from rhesis.sdk.metrics.providers.native.metric_base import (
     RhesisMetricBase,
-    ScoreType,
 )
 
 
@@ -51,7 +51,6 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         # Pass successful_scores to the base class, threshold is None
         super().__init__(
             name=name,
-            successful_scores=self.successful_scores,
             metric_type=metric_type,
             model=model,
         )
@@ -144,8 +143,6 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             # Check if the evaluation meets the reference score using the base class method
             is_successful = self.evaluate_score(
                 score=score,
-                score_type=self.score_type,
-                possible_scores=self.possible_scores,
                 successful_scores=self.successful_scores,
             )
 
@@ -186,10 +183,19 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
                 "score_type": self.score_type.value,
                 "possible_scores": self.possible_scores,
                 "successful_scores": self.successful_scores,
+                "is_successful": False,
             }
 
             # Return a default failure score for binary/categorical
             return MetricResult(score="error", details=details)
+
+    def evaluate_score(self, score: str, successful_scores: List[str]) -> bool:
+        """
+        Evaluate if a score meets the success criteria based on score type and threshold operator.
+        This method is implemented by the derived classes.
+        """
+        result = score in successful_scores
+        return result
 
 
 if __name__ == "__main__":

@@ -5,10 +5,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.constants import ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.metric_base import (
     RhesisMetricBase,
-    ScoreType,
-    ThresholdOperator,
 )
 
 
@@ -69,9 +68,6 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         # Pass the normalized threshold to the base class
         super().__init__(
             name=name,
-            threshold=self.threshold,
-            reference_score=None,
-            metric_type=metric_type,
             model=model,
             **kwargs,
         )
@@ -160,7 +156,6 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             # Check if the evaluation meets the threshold using the base class method
             is_successful = self.evaluate_score(
                 score=score,
-                score_type=self.score_type,
                 threshold=self.threshold,
                 threshold_operator=self.threshold_operator,
             )
@@ -214,6 +209,16 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
 
             # Return a default minimal score for numeric
             return MetricResult(score=0.0, details=details)
+
+    def evaluate_score(
+        self, score: float, threshold: float, threshold_operator: ThresholdOperator
+    ) -> bool:
+        """
+        Evaluate if a score meets the success criteria based on score type and threshold operator.
+        This method is implemented by the derived classes.
+        """
+        result = threshold_operator(score, threshold)
+        return result
 
 
 if __name__ == "__main__":
