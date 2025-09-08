@@ -1,21 +1,14 @@
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from pydantic import BaseModel, Field
+from pydantic import create_model
 
 from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.providers.native.metric_base import (
     RhesisMetricBase,
     ScoreType,
 )
-
-
-class ScoreResponseCategorical(BaseModel):
-    """Model for structured score response from LLM evaluation."""
-
-    score: str = Field(description="Evaluation score")
-    reason: str = Field(description="Explanation for the score", default="")
 
 
 class RhesisPromptMetricCategorical(RhesisMetricBase):
@@ -148,6 +141,10 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
 
         try:
             # Run the evaluation with structured response model
+            score_literal = Literal[tuple(self.possible_scores)]
+            ScoreResponseCategorical = create_model(
+                "ScoreResponseCategorical", score=(score_literal), reason=(str)
+            )
             response = self._model.generate(prompt, schema=ScoreResponseCategorical)
             response = ScoreResponseCategorical(**response)
 
@@ -159,6 +156,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             is_successful = self.evaluate_score(
                 score=score,
                 score_type=self.score_type,
+                possible_scores=self.possible_scores,
                 successful_scores=self.successful_scores,
             )
 
@@ -212,21 +210,37 @@ if __name__ == "__main__":
     # Create a categorical metric for evaluating response quality
     metric = RhesisPromptMetricCategorical(
         name="response_quality_evaluator",
-        evaluation_prompt="Evaluate the quality of the response based on accuracy, completeness, and helpfulness.",
-        evaluation_steps="1. Check if the response directly answers the question\n2. Verify the information is accurate\n3. Assess if the response is complete and helpful",
-        reasoning="A good response should be accurate, complete, and directly address the user's question.",
-        possible_scores=["poor", "fair", "good", "excellent"],
+        evaluation_prompt=(
+            "Evaluate the quality of the response based on accuracy, completeness, and helpfulness."
+        ),
+        evaluation_steps=(
+            "1. Check if the response directly answers the question\n"
+            "2. Verify the information is accurate\n"
+            "3. Assess if the response is complete and helpful"
+        ),
+        reasoning=(
+            "A good response should be accurate, complete, and directly address the user's "
+            "question."
+        ),
+        possible_scores=["poor", "fair", "good", "perfect"],
         successful_scores=[
             "good",
-            "excellent",
+            "perfect",
         ],  # Only "good" and "excellent" are considered successful
-        evaluation_examples="Example: Question: 'What is Python?' Good response: 'Python is a programming language...' Poor response: 'I don't know.'",
+        evaluation_examples=(
+            "Example: Question: 'What is Python?' "
+            "Good response: 'Python is a programming language...' "
+            "Poor response: 'I don't know.'"
+        ),
         model="rhesis",  # Optional: specify the model to use
     )
 
     # Example evaluation
     input_query = "What is machine learning?"
-    system_output = "Machine learning is a subset of artificial intelligence that enables computers to learn and improve from experience without being explicitly programmed."
+    system_output = (
+        "Machine learning is a subset of artificial intelligence that enables computers to "
+        "learn and improve from experience without being explicitly programmed."
+    )
     expected_output = (
         "Machine learning is a field of AI that focuses on algorithms that can learn from data."
     )
@@ -245,3 +259,4 @@ if __name__ == "__main__":
     print(f"Reason: {result.details['reason']}")
     print(f"Possible Scores: {result.details['possible_scores']}")
     print(f"Successful Scores: {result.details['successful_scores']}")
+    # print(f"Details: {result.details['prompt']}")
