@@ -105,19 +105,6 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
 
         return prompt
 
-    def _process_score(self, raw_score: str) -> str:
-        """
-        Process the raw score based on the score type.
-
-        Args:
-            raw_score: The raw score from the LLM
-
-        Returns:
-            Union[float, str]: Processed score
-        """
-
-        return raw_score
-
     def evaluate(
         self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
     ) -> MetricResult:
@@ -148,8 +135,8 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             response = self._model.generate(prompt, schema=ScoreResponseCategorical)
             response = ScoreResponseCategorical(**response)
 
-            # Get the score and process it based on score type
-            score = self._process_score(response.score)
+            # Get the score directly from the response
+            score = response.score
             reason = response.reason
 
             # Check if the evaluation meets the reference score using the base class method
