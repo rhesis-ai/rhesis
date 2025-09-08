@@ -25,7 +25,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
     def __init__(
         self,
         prompt: str,
-        batch_size: int = None,
+        batch_size: int = 20,
         system_prompt: Optional[str] = None,
         max_context_tokens: int = 1000,
         strategy: Literal["sequential", "random"] = "random",
@@ -99,7 +99,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         contexts: List[str],
         tests_per_contexts: List[int],
         num_tests: int,
-        tests_per_context_param: Optional[int],
+        tests_per_context: Optional[int],
     ) -> None:
         """Print informative summary about document processing and test generation plan."""
         total_tokens = count_tokens(content)
@@ -116,11 +116,11 @@ class DocumentSynthesizer(TestSetSynthesizer):
         print(f"   • Strategy: {self.strategy} context selection")
 
         print("\n🧪 Test Generation Plan:")
-        if tests_per_context_param is not None:
-            ideal_total = tests_per_context_param * num_contexts
+        if tests_per_context is not None:
+            ideal_total = tests_per_context * num_contexts
 
             requested_msg = (
-                f"   • Requested: {tests_per_context_param} tests/context × "
+                f"   • Requested: {tests_per_context} tests/context × "
                 f"{num_contexts} contexts = {ideal_total} tests"
             )
 
@@ -138,7 +138,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
                 )
             else:
                 print(
-                    f"   • Generating {tests_per_context_param} tests/context × "
+                    f"   • Generating {tests_per_context} tests/context × "
                     f"{num_contexts} contexts = {actual_tests} tests"
                 )
         else:
@@ -246,7 +246,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
             contexts=contexts,
             tests_per_contexts=tests_per_contexts,
             num_tests=num_tests,
-            tests_per_context_param=tests_per_context,
+            tests_per_context=tests_per_context,
         )
 
         # Generate tests for each context
