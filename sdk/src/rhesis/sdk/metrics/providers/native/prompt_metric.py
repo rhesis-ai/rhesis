@@ -83,7 +83,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         self.evaluation_examples = evaluation_examples
 
         # Set up Jinja environment
-        templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
+        templates_dir = Path(__file__).resolve().parent / "templates"
         self.jinja_env = Environment(
             loader=FileSystemLoader(templates_dir),
             autoescape=select_autoescape(["html", "xml"]),
