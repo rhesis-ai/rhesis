@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rhesis-config
+  namespace: rhesis
+data:
+  # Database Configuration
+  SQLALCHEMY_DB_HOST: "postgres"
+  SQLALCHEMY_DB_DRIVER: "postgresql"
+  SQLALCHEMY_DB_PORT: "5432"
+  SQLALCHEMY_DB_NAME: "rhesis-db"
+  SQLALCHEMY_DB_USER: "rhesis-user"
+  # Database URL will be constructed from individual components + secrets
+  # SQLALCHEMY_DATABASE_URL is now built from SQLALCHEMY_DB_* + secrets
+
+  
+  # Redis Configuration
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  # Redis URLs will be constructed from individual components + secrets
+  # REDIS_URL, BROKER_URL, CELERY_RESULT_BACKEND are now built from REDIS_* + secrets
+  
+  # Application Configuration
+  ENVIRONMENT: "local"
+  FRONTEND_ENV: "local"
+  BACKEND_ENV: "local"
+  WORKER_ENV: "local"
+  LOG_LEVEL: "INFO"
+  
+  # Frontend Configuration
+  NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
+  NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+  NEXT_TELEMETRY_DISABLED: "1"
+  NEXTAUTH_URL: "http://localhost:3000"
+  NEXT_PUBLIC_AUTH0_CLIENT_ID: "YOUR_AUTH0_CLIENT_ID"
+  NEXT_PUBLIC_AUTH0_DOMAIN: "YOUR_AUTH0_DOMAIN"
+  
+  # Backend Configuration
+  RHESIS_BASE_URL: "http://backend:8080"
+  FRONTEND_URL: "http://localhost:3000"
+  BACKEND_URL: "http://backend:8080"
+  
+  # AI Model Configuration
+  AZURE_OPENAI_DEPLOYMENT_NAME: "YOUR_AZURE_OPENAI_DEPLOYMENT_NAME"
+  AZURE_OPENAI_API_VERSION: "YOUR_AZURE_OPENAI_API_VERSION"
+  OPENAI_MODEL_NAME: "gpt-4o"
+  GEMINI_MODEL_NAME: "gemini-2.0-flash-001"
+  
+  # SMTP Configuration
+  SMTP_PORT: "465"
+  
+  # Celery Configuration
+  CELERY_WORKER_CONCURRENCY: "8"
+  CELERY_WORKER_PREFETCH_MULTIPLIER: "4"
+  CELERY_WORKER_MAX_TASKS_PER_CHILD: "1000"
+  CELERY_WORKER_LOGLEVEL: "INFO"
