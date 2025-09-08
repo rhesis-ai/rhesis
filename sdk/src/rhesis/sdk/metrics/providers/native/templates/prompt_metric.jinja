@@ -19,16 +19,17 @@ Examples:
 {% endif %}
 
 Input Query: 
-{{ input }}
+{{ input if input|trim else "No input provided" }}
 
 Context Information:
-{{ context_text }}
+{{ context_text if context_text|trim else "No context provided" }}
 
 Expected Response:
-{{ expected_output }}
+{{ expected_output if expected_output|trim else "No expected response provided" }}
 
 LLM Response to Evaluate:
-{{ output }}
+{{ output if output|trim else "No response provided" }}
+
 
 Evaluation Form:
 {% if score_type == "binary" %}
