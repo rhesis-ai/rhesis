@@ -173,20 +173,14 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             response = NumericScoreResponse(**response)
 
             # Get the score and process it based on score type
-            raw_score = response.score
-            processed_score = self._process_score(raw_score)
+            score = self._process_score(response.score)
             reason = response.reason
-            # For numeric scores, use the processed score directly (no normalization)
-            evaluation_score = processed_score
-
-            # Use raw threshold for comparison with raw scores (no normalization)
-            raw_threshold = getattr(self, "raw_threshold", self.threshold)
 
             # Check if the evaluation meets the threshold using the base class method
             is_successful = self.evaluate_score(
-                score=evaluation_score,
+                score=score,
                 score_type=self.score_type,
-                threshold=raw_threshold,
+                threshold=self.threshold,
                 threshold_operator=self.threshold_operator,
             )
 
@@ -199,8 +193,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
 
             # Prepare details based on score type
             details = {
-                "raw_score": raw_score,
-                "processed_score": processed_score,
+                "score": score,
                 "score_type": self.score_type.value,
                 "llm_response": llm_response_content,
                 "prompt": prompt,
@@ -209,19 +202,12 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
                 "threshold_operator": (
                     self.threshold_operator.value if self.threshold_operator else None
                 ),
+                "min_score": self.min_score,
+                "max_score": self.max_score,
+                "threshold": self.threshold,
             }
 
-            # Add numeric score specific details
-            details.update(
-                {
-                    "final_score": evaluation_score,  # Raw score (not normalized)
-                    "min_score": self.min_score,
-                    "max_score": self.max_score,
-                    "threshold": self.threshold,
-                }
-            )
-
-            return MetricResult(score=evaluation_score, details=details)
+            return MetricResult(score=score, details=details)
 
         except Exception as e:
             # Log the error for debugging with full traceback
@@ -248,19 +234,11 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
                 "threshold_operator": (
                     self.threshold_operator.value if self.threshold_operator else None
                 ),
+                "min_score": self.min_score,
+                "max_score": self.max_score,
+                "threshold": self.threshold,
             }
 
-            # Add numeric score specific details
-            raw_threshold = getattr(self, "raw_threshold", self.threshold)
-            details.update(
-                {
-                    "min_score": self.min_score,
-                    "max_score": self.max_score,
-                    "threshold": raw_threshold,  # Use raw threshold for consistency
-                    "normalized_threshold": self.threshold,
-                    "raw_threshold": raw_threshold,
-                }
-            )
             # Return a default minimal score for numeric
             return MetricResult(score=0.0, details=details)
 
