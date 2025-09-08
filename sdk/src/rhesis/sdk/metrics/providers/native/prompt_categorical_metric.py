@@ -27,7 +27,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         successful_scores: Union[str, List[str]],
         evaluation_examples: str = "",
         model: Optional[str] = None,
-        metric_type="rag",
+        metric_type: str = "rag",
         **kwargs,
     ):
         # Convert string to enum if needed
