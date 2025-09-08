@@ -1,7 +1,7 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.sdk.metrics.providers.native.prompt_metric import RhesisPromptMetricNumeric
+from rhesis.sdk.metrics.providers.native.prompt_numeric_metric import RhesisPromptMetricNumeric
 
 
 class RhesisMetricFactory(BaseMetricFactory):
