@@ -431,19 +431,22 @@ class RhesisPromptMetric(RhesisMetricBase):
 
 
 if __name__ == "__main__":
-    metric = RhesisPromptMetric(
+    metric = RhesisPromptMetricNumeric(
         name="test",
         evaluation_prompt="",
         evaluation_steps="",
         reasoning="",
     )
     input = "What is the capital of France?"
-    output = "The capital of France is Parissss. It is known as the City of Light."
+    output = ""
     expected_output = "Paris is the capital of France."
     context = [
         "Paris is the capital and largest city of France.",
         "Known as the City of Light, Paris is a global center for art, culture, and fashion.",
     ]
     metric_result = metric.evaluate(input, output, expected_output, context)
+    from pprint import pprint
+
+    pprint(metric_result)
     print(metric_result)
     print("finished")
