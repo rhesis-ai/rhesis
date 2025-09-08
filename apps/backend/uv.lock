@@ -3721,15 +3721,20 @@ name = "rhesis-sdk"
 version = "0.2.2"
 source = { editable = "../../sdk" }
 dependencies = [
+    { name = "deepeval" },
     { name = "hatch" },
     { name = "ipykernel" },
     { name = "jinja2" },
     { name = "litellm" },
     { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
+    { name = "mirascope" },
     { name = "pandas" },
     { name = "pyarrow" },
+    { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "requests" },
+    { name = "tenacity" },
     { name = "tiktoken" },
     { name = "tomli" },
     { name = "tomli-w" },
@@ -3739,6 +3744,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "deepeval", specifier = ">=3.0.0" },
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "jinja2", specifier = ">=3.1.6" },
@@ -3746,11 +3752,15 @@ requires-dist = [
     { name = "litellm", specifier = ">=1.76.0" },
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
     { name = "matplotlib", marker = "extra == 'examples'" },
+    { name = "mirascope", specifier = ">=1.24.0" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "pandas", marker = "extra == 'examples'" },
     { name = "pyarrow", specifier = ">=17.0.0" },
+    { name = "pydantic", specifier = ">=2.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.31.0" },
+    { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
     { name = "tomli", specifier = ">=2.2.1" },
     { name = "tomli-w", specifier = ">=1.2.0" },
