@@ -758,16 +758,8 @@ helm history rhesis -n rhesis
 
 - [Helm Documentation](https://helm.sh/docs/)
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [Rhesis Project](https://github.com/your-org/rhesis)
+- [Rhesis Project](https://github.com/rhesis-ai/rhesis)
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test with `helm lint .` and `helm template .`
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the same license as the Rhesis project.
+- [Contribute to Rhesis](https://github.com/rhesis-ai/rhesis?tab=contributing-ov-file)
