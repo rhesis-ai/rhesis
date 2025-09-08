@@ -27,6 +27,7 @@ database:
   enabled: true
   type: "postgresql"  # postgresql, external
   postgresql:
+    disableSecurityContext: true  # Temporarily disable for PostgreSQL due to permission issues
     image:
       repository: postgres
       tag: "16-alpine"
@@ -113,6 +114,7 @@ backend:
 frontend:
   enabled: true
   replicas: 1
+  disableSecurityContext: true  # Temporarily disable for frontend due to permission issues
   resources:
     requests:
       memory: "256Mi"
@@ -220,15 +222,20 @@ serviceAccount:
 
 # Pod security context
 podSecurityContext:
-  enabled: false
+  enabled: true
   fsGroup: 1000
   runAsUser: 1000
   runAsGroup: 1000
+  fsGroupChangePolicy: "OnRootMismatch"
 
 # Container security context
 containerSecurityContext:
-  enabled: false
+  enabled: true
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: false
   runAsNonRoot: true
   runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL

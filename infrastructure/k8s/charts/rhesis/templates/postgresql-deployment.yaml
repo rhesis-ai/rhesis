@@ -22,10 +22,29 @@ spec:
         app: postgres
         tier: database
     spec:
+      {{- if and .Values.podSecurityContext.enabled (not .Values.database.postgresql.disableSecurityContext) }}
+      securityContext:
+        fsGroup: 999  # PostgreSQL group ID
+        runAsUser: 999  # PostgreSQL user ID
+        runAsGroup: 999  # PostgreSQL group ID
+        fsGroupChangePolicy: "OnRootMismatch"
+      {{- end }}
       containers:
         - name: postgres
           image: "{{ .Values.database.postgresql.image.repository }}:{{ .Values.database.postgresql.image.tag }}"
           imagePullPolicy: {{ .Values.database.postgresql.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- if and .Values.containerSecurityContext.enabled (not .Values.database.postgresql.disableSecurityContext) }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: false  # PostgreSQL needs write access to data directory
+            runAsNonRoot: true
+            runAsUser: 999  # PostgreSQL user ID
+            runAsGroup: 999  # PostgreSQL group ID
+            {{- if .Values.containerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml .Values.containerSecurityContext.capabilities | nindent 14 }}
+            {{- end }}
+          {{- end }}
           ports:
             - containerPort: 5432
               name: postgresql
@@ -47,32 +66,23 @@ spec:
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+              subPath: pgdata
             - name: postgres-init-script
               mountPath: /docker-entrypoint-initdb.d
           livenessProbe:
-            exec:
-              command:
-                - pg_isready
-                - -U
-                - {{ .Values.database.postgresql.auth.username }}
-                - -d
-                - {{ .Values.database.postgresql.auth.database }}
+            tcpSocket:
+              port: 5432
             initialDelaySeconds: 30
             periodSeconds: 10
-            timeoutSeconds: 1
-            failureThreshold: 3
+            timeoutSeconds: 5
+            failureThreshold: 5
           readinessProbe:
-            exec:
-              command:
-                - pg_isready
-                - -U
-                - {{ .Values.database.postgresql.auth.username }}
-                - -d
-                - {{ .Values.database.postgresql.auth.database }}
+            tcpSocket:
+              port: 5432
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: 1
-            failureThreshold: 3
+            timeoutSeconds: 5
+            failureThreshold: 5
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:

@@ -8,8 +8,13 @@ END
 $$;
 
 -- Create the rhesis-db database if it doesn't exist
-SELECT 'CREATE DATABASE "rhesis-db" OWNER "rhesis-user"'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'rhesis-db')\gexec
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'rhesis-db') THEN
+        CREATE DATABASE "rhesis-db" OWNER "rhesis-user";
+    END IF;
+END
+$$;
 
 -- Grant necessary privileges on the table in the public schema
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "rhesis-user";
