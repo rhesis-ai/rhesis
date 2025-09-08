@@ -161,9 +161,6 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         if expected_output is None and self.requires_ground_truth:
             raise ValueError(f"{self.name} metric requires ground truth but none was provided")
 
-        # TODO
-        # Handle empty or whitespace-only output
-
         # Generate the evaluation prompt
         prompt = self.get_prompt_template(input, output, expected_output or "", context or [])
 
@@ -184,18 +181,10 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
                 threshold_operator=self.threshold_operator,
             )
 
-            # Get the original LLM response content for debugging
-            llm_response_content = (
-                str(response._response.content)
-                if hasattr(response, "_response")
-                else "No raw response available"
-            )
-
             # Prepare details based on score type
             details = {
                 "score": score,
                 "score_type": self.score_type.value,
-                "llm_response": llm_response_content,
                 "prompt": prompt,
                 "reason": reason,
                 "is_successful": is_successful,
