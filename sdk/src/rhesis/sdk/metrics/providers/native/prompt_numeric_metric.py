@@ -127,22 +127,6 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
 
         return prompt
 
-    def _process_score(self, raw_score: float) -> float:
-        """
-        Process the raw score for numeric evaluation.
-
-        Args:
-            raw_score: The raw score from the LLM
-
-        Returns:
-            float: Processed numeric score within the defined range
-        """
-        # For numeric scores, ensure it's a float and within range
-        try:
-            return max(min(raw_score, self.max_score), self.min_score)
-        except (ValueError, TypeError):
-            return self.min_score
-
     def evaluate(
         self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
     ) -> MetricResult:
@@ -169,8 +153,8 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             response = self._model.generate(prompt, schema=NumericScoreResponse)
             response = NumericScoreResponse(**response)
 
-            # Get the score and process it based on score type
-            score = self._process_score(response.score)
+            # Get the score directly from the response
+            score = response.score
             reason = response.reason
 
             # Check if the evaluation meets the threshold using the base class method
