@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from rhesis.sdk.metrics.base import BaseMetric, MetricType
 from rhesis.sdk.metrics.constants import ScoreType, ThresholdOperator
@@ -13,13 +13,13 @@ class RhesisMetricBase(BaseMetric):
         self,
         name: str,
         threshold: Optional[float] = None,
-        reference_score: Optional[str] = None,
+        successful_scores: Optional[Union[str, List[str]]] = None,
         metric_type: MetricType = "rag",
         model: Optional[Union[BaseLLM, str]] = None,
     ):
         super().__init__(name=name, metric_type=metric_type, model=model)
         self._threshold = threshold
-        self._reference_score = reference_score
+        self._successful_scores = successful_scores
         self._score_evaluator = ScoreEvaluator()
 
     @property
@@ -32,12 +32,12 @@ class RhesisMetricBase(BaseMetric):
         self._threshold = value
 
     @property
-    def reference_score(self) -> Optional[str]:
-        return self._reference_score
+    def successful_scores(self) -> Optional[Union[str, List[str]]]:
+        return self._successful_scores
 
-    @reference_score.setter
-    def reference_score(self, value: Optional[str]):
-        self._reference_score = value
+    @successful_scores.setter
+    def successful_scores(self, value: Optional[Union[str, List[str]]]):
+        self._successful_scores = value
 
     def _sanitize_threshold_operator(
         self, threshold_operator: Union[ThresholdOperator, str, None]
@@ -97,7 +97,7 @@ class RhesisMetricBase(BaseMetric):
         score: Union[float, str, int],
         score_type: Union[ScoreType, str],
         threshold: Optional[float] = None,
-        reference_score: Optional[str] = None,
+        successful_scores: Optional[Union[str, List[str]]] = None,
         threshold_operator: Union[ThresholdOperator, str] = None,
     ) -> bool:
         """
@@ -108,8 +108,8 @@ class RhesisMetricBase(BaseMetric):
             score: The score to evaluate
             score_type: Type of score (binary, numeric, or categorical)
             threshold: Threshold value for numeric scores (defaults to self.threshold)
-            reference_score: Reference score for binary/categorical scores
-            (defaults to self.reference_score)
+            successful_scores: Successful scores for binary/categorical scores
+            (defaults to self.successful_scores)
             threshold_operator: Comparison operator (defaults based on score_type)
 
         Returns:
@@ -118,14 +118,14 @@ class RhesisMetricBase(BaseMetric):
         # Use default values from instance if not provided
         if threshold is None:
             threshold = self.threshold
-        if reference_score is None:
-            reference_score = self.reference_score
+        if successful_scores is None:
+            successful_scores = self.successful_scores
 
         # Delegate to the score evaluator's comprehensive implementation
         return self._score_evaluator.evaluate_score(
             score=score,
             threshold=threshold,
             threshold_operator=threshold_operator,
-            reference_score=reference_score,
+            successful_scores=successful_scores,
             score_type=score_type,
         )

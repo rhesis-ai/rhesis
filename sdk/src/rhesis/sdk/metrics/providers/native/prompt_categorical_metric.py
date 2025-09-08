@@ -31,7 +31,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         evaluation_steps: str,
         reasoning: str,
         evaluation_examples: str = "",
-        reference_score: Optional[str] = None,
+        successful_scores: Optional[Union[str, List[str]]] = None,
         model: Optional[str] = None,
         metric_type="rag",
         **kwargs,
@@ -42,17 +42,16 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         self.model = model
 
         # Handle different score types
-        if reference_score is None:
-            if self.score_type == ScoreType.BINARY:
-                reference_score = "true"  # Default reference for binary
-            else:  # CATEGORICAL
-                raise ValueError("reference_score is required for categorical score type")
+        if successful_scores is None:
+            # if self.score_type == ScoreType.BINARY:
+            #     reference_score = "true"  # Default reference for binary
+            # else:  # CATEGORICAL
+            raise ValueError("successful_scores is required for categorical score type")
 
-        # Pass reference_score to the base class, threshold is None
+        # Pass successful_scores to the base class, threshold is None
         super().__init__(
             name=name,
-            threshold=None,
-            reference_score=reference_score,
+            successful_scores=successful_scores,
             metric_type=metric_type,
             model=model,
         )
@@ -67,7 +66,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
         self.jinja_env = Environment(
             loader=FileSystemLoader(templates_dir),
-            autoescape=select_autoescape(["html", "xml"]),
+            autoescape=select_autoescape("html", "xml"),
             trim_blocks=True,
             lstrip_blocks=True,
         )
@@ -106,7 +105,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
 
         return prompt
 
-    def _process_score(self, raw_score: Union[float, str, int]) -> Union[float, str]:
+    def _process_score(self, raw_score: str) -> str:
         """
         Process the raw score based on the score type.
 
@@ -117,26 +116,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             Union[float, str]: Processed score
         """
 
-        if self.score_type == ScoreType.BINARY:
-            # For binary scores, convert to standardized string representation
-            if isinstance(raw_score, str):
-                raw_score = raw_score.lower().strip()
-                if raw_score in ["true", "yes", "1", "pass", "success", "correct"]:
-                    return "true"
-                else:
-                    return "false"
-            elif isinstance(raw_score, (int, float)):
-                return "true" if raw_score > 0 else "false"
-            elif isinstance(raw_score, bool):
-                return "true" if raw_score else "false"
-            else:
-                return "false"
-
-        elif self.score_type == ScoreType.CATEGORICAL:
-            # For categorical scores, return as string
-            return str(raw_score).strip()
-
-        return str(raw_score)
+        return raw_score
 
     def evaluate(
         self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
@@ -168,15 +148,11 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             score = self._process_score(response.score)
             reason = response.reason
 
-            # Handle evaluation based on score type
-            # For binary/categorical scores, use the processed score directly
-            evaluation_score = score
-
             # Check if the evaluation meets the reference score using the base class method
             is_successful = self.evaluate_score(
-                score=evaluation_score,
+                score=score,
                 score_type=self.score_type,
-                reference_score=self.reference_score,
+                successful_scores=self.successful_scores,
             )
 
             # Prepare details based on score type
@@ -186,7 +162,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
                 "prompt": prompt,
                 "reason": reason,
                 "is_successful": is_successful,
-                "reference_score": self.reference_score,
+                "successful_scores": self.successful_scores,
             }
 
             return MetricResult(score=score, details=details)
@@ -214,7 +190,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
                 "model": self.model,
                 "prompt": prompt,
                 "score_type": self.score_type.value,
-                "reference_score": self.reference_score,
+                "successful_scores": self.successful_scores,
             }
 
             # Return a default failure score for binary/categorical
