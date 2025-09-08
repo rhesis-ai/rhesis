@@ -201,7 +201,7 @@ git checkout -b feature/your-feature-name
 
 2. 🪝 **Enable pre-commit hooks**:
 ```bash
-pre-commit install
+uvx pre-commit install
 ```
 
 3. ✍️ **Implement changes and verify all checks pass using the Makefile**:
@@ -209,7 +209,7 @@ pre-commit install
 make format      # Format code with Ruff
 make format_diff # Show formatting differences without applying
 make lint        # Lint code with Ruff
-make type-check  # Type check with mypy
+make lint_diff   # Lint only modified files with Ruff
 make test        # Execute tests
 ```
 
