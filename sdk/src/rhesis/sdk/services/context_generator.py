@@ -33,22 +33,7 @@ class ContextGenerator:
 
     def generate_contexts(self, text: str) -> List[str]:
         """
-        Generate contexts directly from text using intelligent semantic chunking.
-
-        Args:
-            text: Input text to process
-
-        Returns:
-            List of context strings, each sized appropriately for prompts
-        """
-        if not text:
-            return []
-
-        return self.create_contexts_from_text(text)
-
-    def create_contexts_from_text(self, text: str) -> List[str]:
-        """
-        Create contexts using intelligent semantic chunking with hard size limits.
+        Generate contexts using intelligent semantic chunking with hard size limits.
 
         Strategy:
         1. Identify semantic boundaries (headers, sections, paragraphs)
@@ -56,6 +41,9 @@ class ContextGenerator:
         3. Enforce hard token limit; if a semantic span exceeds the context limit, split it abruptly
         4. If there are no internal boundaries, slice the text into token-capped windows
         """
+        if not text:
+            return []
+
         semantic_boundaries = self._identify_semantic_boundaries(text)
 
         # If no internal boundaries (just [0, len(text)]), slice linearly
