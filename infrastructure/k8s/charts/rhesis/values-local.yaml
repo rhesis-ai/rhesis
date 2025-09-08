@@ -72,7 +72,7 @@ backend:
       cpu: "1000m"
   env:
     - name: ENVIRONMENT
-      value: "development"
+      value: "local"
     - name: LOG_LEVEL
       value: "DEBUG"
     - name: RHESIS_BASE_URL
@@ -87,11 +87,11 @@ frontend:
   replicas: 1
   resources:
     requests:
-      memory: "1Gi"
-      cpu: "500m"
-    limits:
       memory: "2Gi"
       cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
   env:
     - name: FRONTEND_ENV
       value: "local"
