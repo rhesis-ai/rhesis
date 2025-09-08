@@ -13,7 +13,7 @@ git clone https://github.com/rhesis-ai/rhesis.git
 ### ⚡ Development Setup
 
 > **ℹ️ Please Read:**  
-Before contributing to the backend, **read the main [`CONTRIBUTING.md`](../CONTRIBUTING.md)** at the root of the repository. It contains essential guidelines for all contributors, including details on development workflow, code style, and tooling.
+Before contributing to the backend, **read the main [`CONTRIBUTING.md`](../../CONTRIBUTING.md)** at the root of the repository. It contains essential guidelines for all contributors, including details on development workflow, code style, and tooling.
 
 **Before you start:**  
 - Install [`uv`](https://docs.astral.sh/uv/) for Python environment management.

@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { BasePieChart, BaseLineChart, BaseChartsGrid } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetDetailStatsResponse } from '@/utils/api-client/interfaces/test-set';
-import { Box, CircularProgress, Typography, Alert } from '@mui/material';
+import { Box, CircularProgress, Typography, Alert, useTheme } from '@mui/material';
 import { useChartColors } from '@/components/common/BaseCharts';
 import { pieChartUtils } from '@/components/common/BasePieChart';
 
@@ -70,6 +70,7 @@ interface TestSetDetailChartsProps {
 }
 
 export default function TestSetDetailCharts({ testSetId, sessionToken }: TestSetDetailChartsProps) {
+  const theme = useTheme();
   const [testSetStats, setTestSetStats] = useState<TestSetDetailStatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +218,13 @@ export default function TestSetDetailCharts({ testSetId, sessionToken }: TestSet
           height={180}
           showPercentage={true}
           tooltipProps={{ 
-            contentStyle: { fontSize: '10px' },
+            contentStyle: { 
+              fontSize: '10px',
+              backgroundColor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: '4px',
+              color: theme.palette.text.primary
+            },
             formatter: (value: number, name: string, props: any) => {
               const item = props.payload;
               return [`${value} (${item.percentage})`, item.fullName || name];

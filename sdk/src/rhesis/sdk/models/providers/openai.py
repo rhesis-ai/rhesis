@@ -1,18 +1,17 @@
-from litellm import completion
+"""
+Only partially supported. No testing done yet
+"""
 
-from rhesis.sdk.models.base import BaseLLM
+import os
 
+from rhesis.sdk.models.providers.litellm import LiteLLM
 
-class OpenAILLM(BaseLLM):
-    def load_model(self, *args, **kwargs):
-        return None  # LiteLLM handles model loading internally
-
-    def generate(self, prompt: str, *args, **kwargs) -> str:
-        messages = [{"role": "user", "content": prompt}]
-        response = completion(model=self.model_name, messages=messages, *args, **kwargs)
-        return response.choices[0].message.content
+DEFAULT_MODEL_NAME = "gpt-4"
 
 
-if __name__ == "__main__":
-    openai = OpenAILLM(model_name="gpt-4")
-    print(openai.generate("Hello, how are you?"))
+class OpenAILLM(LiteLLM):
+    def __init__(self, model_name=DEFAULT_MODEL_NAME, api_key=None):
+        api_key = api_key or os.getenv("OPENAI_API_KEY")
+        if api_key is None:
+            raise ValueError("OPENAI_API_KEY is not set")
+        super().__init__(model_name, api_key=api_key)

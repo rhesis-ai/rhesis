@@ -59,7 +59,7 @@ export default function BaseScatterChart({
   yAxisLabel,
   showGrid = true,
   legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
-  tooltipProps = { contentStyle: { fontSize: '10px' } },
+  tooltipProps,
   yAxisConfig,
   xAxisConfig,
   highlightedColor,
@@ -67,6 +67,19 @@ export default function BaseScatterChart({
 }: BaseScatterChartProps) {
   const theme = useTheme();
   const { palettes } = useChartColors();
+
+  // Default tooltip props with theme awareness
+  const defaultTooltipProps = {
+    contentStyle: { 
+      fontSize: '10px',
+      backgroundColor: theme.palette.background.paper,
+      border: `1px solid ${theme.palette.divider}`,
+      borderRadius: '4px',
+      color: theme.palette.text.primary
+    }
+  };
+
+  const finalTooltipProps = tooltipProps || defaultTooltipProps;
   
   // Get colors from theme or use defaults
   const chartColors = useMemo(() => {
@@ -146,7 +159,7 @@ export default function BaseScatterChart({
                 {...yAxisConfig}
               />
               <Tooltip 
-                {...tooltipProps}
+                {...finalTooltipProps}
                 formatter={customTooltipFormatter}
                 labelFormatter={customTooltipLabelFormatter}
               />

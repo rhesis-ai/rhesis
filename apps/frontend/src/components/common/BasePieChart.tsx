@@ -7,7 +7,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { Typography, Box, Card, CardContent } from '@mui/material';
+import { Typography, Box, Card, CardContent, useTheme } from '@mui/material';
 import { useChartColors } from '../layout/BaseChartColors';
 
 // Constants to replace magic numbers
@@ -215,7 +215,7 @@ export default function BasePieChart({
     verticalAlign: 'bottom',
     align: 'center'
   },
-  tooltipProps = { contentStyle: { fontSize: '10px' } }
+  tooltipProps
 }: BasePieChartProps) {
   // Validate props in development
   if (process.env.FRONTEND_ENV === 'development') {
@@ -223,7 +223,21 @@ export default function BasePieChart({
   }
 
   // Get theme colors
+  const theme = useTheme();
   const { palettes } = useChartColors();
+
+  // Default tooltip props with theme awareness
+  const defaultTooltipProps = useMemo(() => ({
+    contentStyle: { 
+      fontSize: '10px',
+      backgroundColor: theme.palette.background.paper,
+      border: `1px solid ${theme.palette.divider}`,
+      borderRadius: '4px',
+      color: theme.palette.text.primary
+    }
+  }), [theme]);
+
+  const finalTooltipProps = tooltipProps || defaultTooltipProps;
   
   // Memoize chart colors calculation
   const chartColors = useMemo(() => {
@@ -312,7 +326,7 @@ export default function BasePieChart({
                 ))}
               </Pie>
               <Tooltip 
-                {...tooltipProps} 
+                {...finalTooltipProps} 
                 formatter={tooltipFormatter}
               />
               <Legend {...enhancedLegendProps} />
