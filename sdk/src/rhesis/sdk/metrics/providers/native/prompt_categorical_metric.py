@@ -30,28 +30,35 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         evaluation_prompt: str,
         evaluation_steps: str,
         reasoning: str,
+        possible_scores: List[str],
+        successful_scores: Union[str, List[str]],
         evaluation_examples: str = "",
-        successful_scores: Optional[Union[str, List[str]]] = None,
         model: Optional[str] = None,
         metric_type="rag",
         **kwargs,
     ):
         # Convert string to enum if needed
-
         self.score_type = ScoreType.CATEGORICAL
+        self.possible_scores = possible_scores
+        self.successful_scores = successful_scores
         self.model = model
-
-        # Handle different score types
-        if successful_scores is None:
-            # if self.score_type == ScoreType.BINARY:
-            #     reference_score = "true"  # Default reference for binary
-            # else:  # CATEGORICAL
-            raise ValueError("successful_scores is required for categorical score type")
+        if len(self.possible_scores) < 2:
+            raise ValueError("possible_scores must contain at least 2 scores")
+        if len(self.successful_scores) > len(self.possible_scores):
+            raise ValueError(
+                "The number of successful_scores must be less than the number of possible_scores"
+            )
+        if not set(self.successful_scores).issubset(set(self.possible_scores)):
+            raise ValueError(
+                f"Each value in successful_scores must be present in possible_scores.\n"
+                f"Given successful_scores: {self.successful_scores}\n"
+                f"Given possible_scores: {self.possible_scores}"
+            )
 
         # Pass successful_scores to the base class, threshold is None
         super().__init__(
             name=name,
-            successful_scores=successful_scores,
+            successful_scores=self.successful_scores,
             metric_type=metric_type,
             model=model,
         )
@@ -63,7 +70,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         self.evaluation_examples = evaluation_examples
 
         # Set up Jinja environment
-        templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
+        templates_dir = Path(__file__).resolve().parent / "templates"
         self.jinja_env = Environment(
             loader=FileSystemLoader(templates_dir),
             autoescape=select_autoescape("html", "xml"),
@@ -162,6 +169,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
                 "prompt": prompt,
                 "reason": reason,
                 "is_successful": is_successful,
+                "possible_scores": self.possible_scores,
                 "successful_scores": self.successful_scores,
             }
 
@@ -176,7 +184,6 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
 
             error_msg = f"Error evaluating with {self.name}: {str(e)}"
             logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
-            logger.error(f"Provider: {self.provider}, Model: {self.model}")
             logger.error(f"Exception type: {type(e).__name__}")
             logger.error(f"Exception details: {str(e)}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
@@ -190,6 +197,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
                 "model": self.model,
                 "prompt": prompt,
                 "score_type": self.score_type.value,
+                "possible_scores": self.possible_scores,
                 "successful_scores": self.successful_scores,
             }
 
@@ -198,4 +206,42 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
 
 
 if __name__ == "__main__":
-    pass
+    # Example usage of RhesisPromptMetricCategorical
+    print("Example: Creating a categorical metric for evaluating response quality")
+
+    # Create a categorical metric for evaluating response quality
+    metric = RhesisPromptMetricCategorical(
+        name="response_quality_evaluator",
+        evaluation_prompt="Evaluate the quality of the response based on accuracy, completeness, and helpfulness.",
+        evaluation_steps="1. Check if the response directly answers the question\n2. Verify the information is accurate\n3. Assess if the response is complete and helpful",
+        reasoning="A good response should be accurate, complete, and directly address the user's question.",
+        possible_scores=["poor", "fair", "good", "excellent"],
+        successful_scores=[
+            "good",
+            "excellent",
+        ],  # Only "good" and "excellent" are considered successful
+        evaluation_examples="Example: Question: 'What is Python?' Good response: 'Python is a programming language...' Poor response: 'I don't know.'",
+        model="rhesis",  # Optional: specify the model to use
+    )
+
+    # Example evaluation
+    input_query = "What is machine learning?"
+    system_output = "Machine learning is a subset of artificial intelligence that enables computers to learn and improve from experience without being explicitly programmed."
+    expected_output = (
+        "Machine learning is a field of AI that focuses on algorithms that can learn from data."
+    )
+
+    # Evaluate the response
+    result = metric.evaluate(
+        input=input_query,
+        output=system_output,
+        expected_output=expected_output,
+        context=["AI and machine learning concepts", "Computer science fundamentals"],
+    )
+
+    print("\nEvaluation Result:")
+    print(f"Score: {result.score}")
+    print(f"Is Successful: {result.details['is_successful']}")
+    print(f"Reason: {result.details['reason']}")
+    print(f"Possible Scores: {result.details['possible_scores']}")
+    print(f"Successful Scores: {result.details['successful_scores']}")
