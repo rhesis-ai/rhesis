@@ -1,9 +1,10 @@
 # 🚀 Contributing to Rhesis
 
-Thank you for your interest in contributing to Rhesis! This document provides comprehensive guidelines and instructions for contributing to our main repository.
+Thank you for your interest in contributing to Rhesis! This document provides **general guidelines and instructions** for contributing to our main repository.
 
 ## 📋 Table of Contents
 
+- 📖 [Component-Specific Contributing Guides](#component-specific-contributing-guides)
 - 📁 [Project Structure](#project-structure)
 - 🐧 [Tools Installation on Linux](#tools-installation-on-linux)
 - 🐍 [Python Environment Setup](#python-environment-setup)
@@ -16,6 +17,21 @@ Thank you for your interest in contributing to Rhesis! This document provides co
 - 🤖 [GitHub Automation Tools](#github-automation-tools)
 - 🏷️ [Versioning and Release Process](#versioning-and-release-process)
 - ❓ [Questions or Need Help?](#questions-or-need-help)
+
+<a id="component-specific-contributing-guides"></a>
+## 📖 Component-Specific Contributing Guides
+
+This is the **general contributing guide** for the Rhesis monorepo. Each component has its own detailed contributing guide:
+
+- 📦 **[SDK Contributing Guide](sdk/CONTRIBUTING.md)** 
+- 🔙 **[Backend Contributing Guide](apps/backend/CONTRIBUTING.md)** 
+- 🎨 **[Frontend Contributing Guide](apps/frontend/CONTRIBUTING.md)** 
+
+**Please read this general guide first, then read the specific guide for the component you're contributing to.**
+
+
+
+
 
 <a id="project-structure"></a>
 ## 📁 Project Structure
@@ -130,6 +146,12 @@ Available targets include:
 - `make test` &mdash; Executes the test suite
 - `make all` &mdash; Runs all checks (format_diff, lint_diff, test)
 
+
+> **ℹ️ Note:**  
+> You must execute all `make` commands from within either the `apps/backend/` or `sdk/` directories.  
+> Running `make` from the repository root directory is **not supported** and will not work as expected.
+
+
 ### 📝 Pre-commit Hooks
 We implement pre-commit hooks to automatically execute formatting and linting scripts before each commit. 
 Installation requires the following command:
@@ -179,7 +201,7 @@ git checkout -b feature/your-feature-name
 
 2. 🪝 **Enable pre-commit hooks**:
 ```bash
-pre-commit install
+uvx pre-commit install
 ```
 
 3. ✍️ **Implement changes and verify all checks pass using the Makefile**:
@@ -187,7 +209,7 @@ pre-commit install
 make format      # Format code with Ruff
 make format_diff # Show formatting differences without applying
 make lint        # Lint code with Ruff
-make type-check  # Type check with mypy
+make lint_diff   # Lint only modified files with Ruff
 make test        # Execute tests
 ```
 
