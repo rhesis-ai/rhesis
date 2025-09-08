@@ -98,6 +98,8 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             "expected_output": expected_output,
             "output": output,
             "score_type": self.score_type.value,
+            "possible_scores": self.possible_scores,
+            "successful_scores": self.successful_scores,
         }
 
         # Render the template with all required variables
