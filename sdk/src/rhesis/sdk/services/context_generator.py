@@ -129,7 +129,9 @@ class ContextGenerator:
             if context_text:
                 # If the single span between adjacent boundaries exceeds token limit,
                 # split it abruptly into token-capped windows
-                span_tokens = count_tokens(text[start_pos:end_pos]) or 0
+                span_tokens = count_tokens(text[start_pos:end_pos])
+                if span_tokens is None:
+                    raise ValueError("Failed to count tokens - text may be malformed or invalid")
                 if end_idx == start_idx + 1 and span_tokens > self.max_context_tokens:
                     local_start = start_pos
                     while local_start < end_pos:
@@ -155,7 +157,9 @@ class ContextGenerator:
         # Find the furthest boundary within size limit
         for i in range(start_idx + 1, len(boundaries)):
             end_pos = boundaries[i]
-            token_len = count_tokens(text[start_pos:end_pos]) or 0
+            token_len = count_tokens(text[start_pos:end_pos])
+            if token_len is None:
+                raise ValueError("Failed to count tokens - text may be malformed or invalid")
 
             if token_len > self.max_context_tokens:
                 # We've exceeded the limit, go back one
@@ -175,7 +179,9 @@ class ContextGenerator:
         best = None
         while low <= high:
             mid = (low + high) // 2
-            tokens = count_tokens(text[start_pos:mid]) or 0
+            tokens = count_tokens(text[start_pos:mid])
+            if tokens is None:
+                raise ValueError("Failed to count tokens - text may be malformed or invalid")
             if tokens <= self.max_context_tokens:
                 best = mid
                 low = mid + 1
