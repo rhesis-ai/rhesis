@@ -37,10 +37,10 @@ database:
       storageClass: ""  # Use default storage class
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
+        memory: "1Gi"
         cpu: "500m"
 
 # Redis configuration for local development
@@ -65,11 +65,11 @@ backend:
   replicas: 1
   resources:
     requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
       memory: "2Gi"
       cpu: "1000m"
-    limits:
-      memory: "4Gi"
-      cpu: "2000m"
   env:
     - name: ENVIRONMENT
       value: "development"
@@ -87,11 +87,11 @@ frontend:
   replicas: 1
   resources:
     requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
       memory: "2Gi"
       cpu: "1000m"
-    limits:
-      memory: "4Gi"
-      cpu: "2000m"
   env:
     - name: FRONTEND_ENV
       value: "local"

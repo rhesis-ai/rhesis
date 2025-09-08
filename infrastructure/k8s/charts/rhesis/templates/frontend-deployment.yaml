@@ -21,10 +21,31 @@ spec:
         app: frontend
         tier: frontend
     spec:
+      {{- if and .Values.podSecurityContext.enabled (not .Values.frontend.disableSecurityContext) }}
+      securityContext:
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
+        {{- if .Values.podSecurityContext.fsGroupChangePolicy }}
+        fsGroupChangePolicy: {{ .Values.podSecurityContext.fsGroupChangePolicy }}
+        {{- end }}
+      {{- end }}
       containers:
         - name: frontend
           image: "{{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}"
           imagePullPolicy: {{ .Values.images.frontend.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- if and .Values.containerSecurityContext.enabled (not .Values.frontend.disableSecurityContext) }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ .Values.containerSecurityContext.runAsNonRoot }}
+            runAsUser: {{ .Values.containerSecurityContext.runAsUser }}
+            runAsGroup: {{ .Values.containerSecurityContext.runAsGroup }}
+            {{- if .Values.containerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml .Values.containerSecurityContext.capabilities | nindent 14 }}
+            {{- end }}
+          {{- end }}
           ports:
             - containerPort: {{ .Values.frontend.service.targetPort }}
               name: http
