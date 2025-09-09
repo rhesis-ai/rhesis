@@ -104,8 +104,6 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        # Cache the template to avoid repeated file system access
-        self._template_cache = None
 
     @property
     def requires_ground_truth(self) -> bool:
@@ -136,10 +134,8 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             raise ValueError(f"Invalid context format: {e}") from e
 
         try:
-            # Load the template (use cache if available)
-            if self._template_cache is None:
-                self._template_cache = self.jinja_env.get_template("prompt_metric.jinja")
-            template = self._template_cache
+            # Load the template
+            template = self.jinja_env.get_template("prompt_metric.jinja")
         except Exception as e:
             raise ValueError(f"Failed to load template: {e}") from e
 
