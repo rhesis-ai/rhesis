@@ -113,15 +113,9 @@ class TestSet(BaseEntity):
         if format == "pandas":
             return pd.DataFrame(self.tests)
         elif format == "parquet":
-            try:
-                import pyarrow  # noqa: F401
-            except ImportError:
-                raise ImportError(
-                    "pyarrow is required for parquet support. Install it with: pip install pyarrow"
-                )
-            df = pd.DataFrame(self.tests)
-            file_path = f"test_set_{self.id}.parquet"
-            df.to_parquet(file_path)
+            raise ImportError(
+                "Parquet support has been removed. Please use 'pandas' format instead."
+            )
             return df
         elif format == "dict":
             return self.tests
@@ -386,20 +380,9 @@ class TestSet(BaseEntity):
             >>> test_set = TestSet(id='123')
             >>> df = test_set.to_parquet('my_test_set.parquet')
         """
-        try:
-            import pyarrow  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                "pyarrow is required for parquet support. Install it with: pip install pyarrow"
-            )
-
-        df = self.to_pandas()
-
-        if path is None:
-            path = f"test_set_{self.id}.parquet"
-
-        df.to_parquet(path)
-        return df
+        raise ImportError(
+            "Parquet support has been removed. Please use 'pandas' format instead."
+        )
 
     def to_csv(self, path: Optional[str] = None) -> pd.DataFrame:
         """Convert the test set tests to a CSV file.
