@@ -106,7 +106,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         """This metric typically requires ground truth."""
         return True
 
-    def get_prompt_template(
+    def _get_prompt_template(
         self, input: str, output: str, expected_output: str, context: List[str] = None
     ) -> str:
         """
@@ -156,7 +156,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             raise ValueError(f"{self.name} metric requires ground truth but none was provided")
 
         # Generate the evaluation prompt
-        prompt = self.get_prompt_template(input, output, expected_output or "", context or [])
+        prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
         try:
             # Run the evaluation with structured response model
@@ -168,7 +168,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             reason = response.reason
 
             # Check if the evaluation meets the threshold using the base class method
-            is_successful = self.evaluate_score(
+            is_successful = self._evaluate_score(
                 score=score,
                 threshold=self.threshold,
                 threshold_operator=self.threshold_operator,
@@ -224,7 +224,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             # Return a default minimal score for numeric
             return MetricResult(score=0.0, details=details)
 
-    def evaluate_score(
+    def _evaluate_score(
         self, score: float, threshold: float, threshold_operator: ThresholdOperator
     ) -> bool:
         """

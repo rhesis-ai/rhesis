@@ -110,7 +110,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         """This metric typically requires ground truth."""
         return True
 
-    def get_prompt_template(
+    def _get_prompt_template(
         self, input: str, output: str, expected_output: str, context: Optional[List[str]] = None
     ) -> str:
         """
@@ -195,7 +195,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             raise ValueError("context must be a list of strings or None")
 
         # Generate the evaluation prompt
-        prompt = self.get_prompt_template(input, output, expected_output or "", context or [])
+        prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
         try:
             # Run the evaluation with structured response model
@@ -217,7 +217,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             reason = response.reason
 
             # Check if the evaluation meets the reference score using the base class method
-            is_successful = self.evaluate_score(
+            is_successful = self._evaluate_score(
                 score=score,
                 successful_scores=self.successful_scores,
             )
@@ -285,7 +285,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             # Return a default failure score for categorical metrics
             return MetricResult(score="error", details=details)
 
-    def evaluate_score(self, score: str, successful_scores: List[str]) -> bool:
+    def _evaluate_score(self, score: str, successful_scores: List[str]) -> bool:
         """
         Evaluate if a score meets the success criteria based on score type and threshold operator.
         This method is implemented by the derived classes.
