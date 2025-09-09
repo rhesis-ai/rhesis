@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.logging import logger
+
 
 def update_token_usage(db: Session, token) -> None:
     """Update the last_used_at timestamp for a token."""
@@ -15,6 +16,7 @@ def update_token_usage(db: Session, token) -> None:
     except Exception as e:
         logger.error(f"Failed to update token last_used_at: {str(e)}")
         db.rollback()
+
 
 def validate_token(
     token_or_value, update_usage: bool = True, db: Session = None
@@ -52,4 +54,4 @@ def validate_token(
     if update_usage and db:
         update_token_usage(db, token)
 
-    return True, None 
+    return True, None

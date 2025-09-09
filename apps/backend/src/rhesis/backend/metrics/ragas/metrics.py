@@ -55,4 +55,4 @@ class RagasContextualPrecision(RagasMetricBase):
 
     @property
     def requires_ground_truth(self) -> bool:
-        return False 
+        return False

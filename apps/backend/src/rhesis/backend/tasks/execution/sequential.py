@@ -3,7 +3,7 @@ Sequential execution implementation for test cases.
 """
 
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -12,11 +12,11 @@ from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.shared import (
-    update_test_run_start, 
-    create_execution_result, 
-    trigger_results_collection,
+    create_execution_result,
     create_failure_result,
-    store_test_result
+    store_test_result,
+    trigger_results_collection,
+    update_test_run_start,
 )
 from rhesis.backend.tasks.execution.test_execution import execute_test
 
@@ -26,23 +26,17 @@ def execute_tests_sequentially(
 ) -> Dict[str, Any]:
     """Execute test cases sequentially, one after another."""
     logger.info(f"Starting sequential execution for test run {test_run.id} with {len(tests)} tests")
-    
+
     start_time = datetime.utcnow()
     results = []
-    
+
     # Update test run with start information using shared utility
-    update_test_run_start(
-        session, 
-        test_run, 
-        ExecutionMode.SEQUENTIAL,
-        len(tests),
-        start_time
-    )
-    
+    update_test_run_start(session, test_run, ExecutionMode.SEQUENTIAL, len(tests), start_time)
+
     # Execute tests one by one
     for i, test in enumerate(tests, 1):
         logger.info(f"Executing test {i}/{len(tests)}: {test.id}")
-        
+
         try:
             # Execute the test synchronously - call the execution logic directly
             result = execute_test(
@@ -51,51 +45,41 @@ def execute_tests_sequentially(
                 test_run_id=str(test_run.id),
                 test_id=str(test.id),
                 endpoint_id=str(test_config.endpoint_id),
-                organization_id=str(test_config.organization_id) if test_config.organization_id else None,
+                organization_id=str(test_config.organization_id)
+                if test_config.organization_id
+                else None,
                 user_id=str(test_config.user_id) if test_config.user_id else None,
             )
             results.append(result)
-            
+
             # Store the test result in the database (updates test run progress)
-            store_test_result(
-                session,
-                str(test_run.id),
-                str(test.id),
-                result
-            )
-            
+            store_test_result(session, str(test_run.id), str(test.id), result)
+
             logger.info(f"Test {i}/{len(tests)} completed successfully")
-            
+
         except Exception as e:
             logger.error(f"Test {i}/{len(tests)} failed: {str(e)}")
             # Create failure result using shared utility
             failure_result = create_failure_result(str(test.id), e)
             results.append(failure_result)
-            
+
             # Store the failure result in the database
-            store_test_result(
-                session,
-                str(test_run.id),
-                str(test.id),
-                failure_result
-            )
-    
+            store_test_result(session, str(test_run.id), str(test.id), failure_result)
+
     end_time = datetime.utcnow()
     execution_time = (end_time - start_time).total_seconds()
-    
-    logger.info(f"Sequential execution completed for test run {test_run.id} in {execution_time:.2f} seconds")
-    
+
+    logger.info(
+        f"Sequential execution completed for test run {test_run.id} in {execution_time:.2f} seconds"
+    )
+
     # Trigger results collection as a proper Celery task to get the same processing as parallel execution
     try:
-        collection_task = trigger_results_collection(
-            test_config,
-            str(test_run.id),
-            results
-        )
+        collection_task = trigger_results_collection(test_config, str(test_run.id), results)
         logger.info(f"Results collection task started: {collection_task.id}")
     except Exception as e:
         logger.error(f"Error triggering results collection: {str(e)}")
-    
+
     # Return standardized result using shared utility
     return create_execution_result(
         test_run,
@@ -103,5 +87,5 @@ def execute_tests_sequentially(
         len(tests),
         ExecutionMode.SEQUENTIAL,
         execution_time=execution_time,
-        completed_at=end_time.isoformat()
-    ) 
+        completed_at=end_time.isoformat(),
+    )

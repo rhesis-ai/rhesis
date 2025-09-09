@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
     DEFAULT_BATCH_SIZE,
-    EntityType,
     ERROR_BULK_CREATE_FAILED,
+    EntityType,
 )
 from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models.test import test_test_set_association
@@ -22,7 +22,6 @@ from rhesis.backend.app.utils.crud_utils import (
 from rhesis.backend.app.utils.uuid_utils import (
     ensure_owner_id,
     sanitize_uuid_field,
-    validate_uuid_list,
     validate_uuid_parameters,
 )
 from rhesis.backend.logging import logger
@@ -120,29 +119,31 @@ def _build_response_message(
 
     # Case: All tests were successfully associated
     if new_associations == total and missing_count == 0 and already_associated_count == 0:
-        plural = 's' if new_associations != 1 else ''
+        plural = "s" if new_associations != 1 else ""
         return f"Successfully associated {new_associations} new test{plural}."
 
     # Case: All tests were missing
     if missing_count == total and new_associations == 0 and already_associated_count == 0:
-        plural = 's' if missing_count != 1 else ''
+        plural = "s" if missing_count != 1 else ""
         return f"No tests were associated. All {missing_count} test{plural} could not be found."
 
     # Case: All tests were already associated
     if already_associated_count == total and new_associations == 0 and missing_count == 0:
-        plural = 's' if already_associated_count != 1 else ''
-        return (f"No new tests were associated. All {already_associated_count} "
-                f"test{plural} were already associated.")
+        plural = "s" if already_associated_count != 1 else ""
+        return (
+            f"No new tests were associated. All {already_associated_count} "
+            f"test{plural} were already associated."
+        )
 
     # Mixed cases
     parts = []
 
     if new_associations > 0:
-        plural = 's' if new_associations != 1 else ''
+        plural = "s" if new_associations != 1 else ""
         parts.append(f"Successfully associated {new_associations} new test{plural}")
 
     if already_associated_count > 0:
-        verb = 's were' if already_associated_count != 1 else ' was'
+        verb = "s were" if already_associated_count != 1 else " was"
         parts.append(f"{already_associated_count} test{verb} already associated")
 
     if missing_count > 0:
@@ -236,7 +237,7 @@ def create_entity_with_status(
     """Helper to create an entity with a status"""
     # Get the string value from EntityType enum and convert to lowercase
     entity_type_str = entity_type.value.lower()
-    
+
     # Prepare base entity data
     entity_data = {
         "name": name,
@@ -244,9 +245,9 @@ def create_entity_with_status(
         "user_id": user_id,
         **extra_fields,
     }
-    
+
     # Only add status_id if the model has a status_id field
-    if hasattr(model, 'status_id'):
+    if hasattr(model, "status_id"):
         status = get_or_create_status(
             db=db,
             name=defaults[entity_type_str]["status"],
@@ -269,23 +270,25 @@ def prepare_test_data(
         data = test_data.model_dump()
     else:
         data = test_data.copy()
-    
+
     # Debug: Log original data
     uuid_fields_before = {k: v for k, v in data.items() if k.endswith("_id")}
     logger.debug(f"prepare_test_data - UUID fields before sanitization: {uuid_fields_before}")
-    
+
     # Sanitize UUID fields - convert empty strings to None
     for key, value in list(data.items()):
         if key.endswith("_id"):
             original_value = value
             data[key] = sanitize_uuid_field(value)
             if original_value != data[key]:
-                logger.debug(f"prepare_test_data - Sanitized {key}: '{original_value}' -> '{data[key]}'")
-    
+                logger.debug(
+                    f"prepare_test_data - Sanitized {key}: '{original_value}' -> '{data[key]}'"
+                )
+
     # Debug: Log sanitized data
     uuid_fields_after = {k: v for k, v in data.items() if k.endswith("_id")}
     logger.debug(f"prepare_test_data - UUID fields after sanitization: {uuid_fields_after}")
-    
+
     return data
 
 
@@ -372,9 +375,11 @@ def bulk_create_tests(
             )
 
             for i, test_data in enumerate(tests_data):
-                logger.debug(f"bulk_create_tests - Processing test {i+1}/{len(tests_data)}")
+                logger.debug(f"bulk_create_tests - Processing test {i + 1}/{len(tests_data)}")
                 test_data_dict = prepare_test_data(test_data, defaults)
-                logger.debug(f"bulk_create_tests - test_data_dict after prepare_test_data: {test_data_dict}")
+                logger.debug(
+                    f"bulk_create_tests - test_data_dict after prepare_test_data: {test_data_dict}"
+                )
                 prompt_data = test_data_dict.pop("prompt", {})
 
                 # Create prompt and related entities
@@ -420,12 +425,16 @@ def bulk_create_tests(
                 # Create test with improved owner_id handling
                 original_assignee_id = test_data_dict.get("assignee_id", None)
                 original_owner_id = test_data_dict.get("owner_id", None)
-                logger.debug(f"bulk_create_tests - Original UUID values: assignee_id='{original_assignee_id}', owner_id='{original_owner_id}'")
-                
+                logger.debug(
+                    f"bulk_create_tests - Original UUID values: assignee_id='{original_assignee_id}', owner_id='{original_owner_id}'"
+                )
+
                 assignee_id = sanitize_uuid_field(test_data_dict.pop("assignee_id", None))
                 owner_id = ensure_owner_id(test_data_dict.pop("owner_id", None), user_id)
-                logger.debug(f"bulk_create_tests - Sanitized UUID values: assignee_id='{assignee_id}', owner_id='{owner_id}'")
-                
+                logger.debug(
+                    f"bulk_create_tests - Sanitized UUID values: assignee_id='{assignee_id}', owner_id='{owner_id}'"
+                )
+
                 test_params = {
                     "prompt_id": prompt.id,
                     "test_type_id": test_type.id,
@@ -448,34 +457,44 @@ def bulk_create_tests(
                     "assignee_id": assignee_id,
                     "owner_id": owner_id,
                 }
-                
+
                 # Clean any remaining UUID fields from the test data dict
-                logger.debug(f"bulk_create_tests - Remaining test_data_dict before cleaning: {test_data_dict}")
+                logger.debug(
+                    f"bulk_create_tests - Remaining test_data_dict before cleaning: {test_data_dict}"
+                )
                 for key, value in list(test_data_dict.items()):
                     if key.endswith("_id"):
                         original_value = value
                         test_data_dict[key] = sanitize_uuid_field(value)
                         if original_value != test_data_dict[key]:
-                            logger.debug(f"bulk_create_tests - Cleaned remaining field {key}: '{original_value}' -> '{test_data_dict[key]}'")
-                
+                            logger.debug(
+                                f"bulk_create_tests - Cleaned remaining field {key}: '{original_value}' -> '{test_data_dict[key]}'"
+                            )
+
                 # Add any remaining fields from test_data_dict that weren't explicitly handled
                 remaining_fields = {k: v for k, v in test_data_dict.items() if k not in test_params}
                 logger.debug(f"bulk_create_tests - Remaining fields to add: {remaining_fields}")
                 test_params.update(remaining_fields)
 
                 # Log final test parameters for debugging UUID issues
-                uuid_params = {k: v for k, v in test_params.items() if k.endswith('_id')}
+                uuid_params = {k: v for k, v in test_params.items() if k.endswith("_id")}
                 logger.debug(f"bulk_create_tests - Final UUID parameters: {uuid_params}")
                 logger.debug(f"bulk_create_tests - All test parameters: {test_params}")
-                
+
                 try:
                     test = models.Test(**test_params)
                     db.add(test)
                     created_tests.append(test)
-                    logger.debug(f"bulk_create_tests - Successfully created Test model for test {i+1}")
+                    logger.debug(
+                        f"bulk_create_tests - Successfully created Test model for test {i + 1}"
+                    )
                 except Exception as model_error:
-                    logger.error(f"bulk_create_tests - Failed to create Test model for test {i+1}: {model_error}")
-                    logger.error(f"bulk_create_tests - Test parameters that caused error: {test_params}")
+                    logger.error(
+                        f"bulk_create_tests - Failed to create Test model for test {i + 1}: {model_error}"
+                    )
+                    logger.error(
+                        f"bulk_create_tests - Test parameters that caused error: {test_params}"
+                    )
                     raise
 
             db.flush()
@@ -497,14 +516,14 @@ def bulk_create_tests(
         db.rollback()
         error_msg = str(e)
         logger.error(f"Failed to create tests: {error_msg}", exc_info=True)
-        
+
         # Provide more specific error messages for common UUID issues
         if "invalid input syntax for type uuid" in error_msg.lower():
             if '""' in error_msg or "empty string" in error_msg.lower():
                 error_msg = "Invalid UUID format: Empty string provided where UUID expected. Check assignee_id and owner_id fields."
             else:
                 error_msg = f"Invalid UUID format in test data: {error_msg}"
-        
+
         raise Exception(f"Failed to create tests: {error_msg}")
 
 
@@ -564,6 +583,7 @@ def create_test_set_associations(
             # Update test set attributes if any new associations were created
             if result.get("metadata", {}).get("new_associations", 0) > 0:
                 from rhesis.backend.app.services.test_set import update_test_set_attributes
+
                 update_test_set_attributes(db=db, test_set_id=test_set_id)
 
             # Commit the transaction
@@ -673,6 +693,7 @@ def remove_test_set_associations(
             # Update test set attributes if any associations were removed
             if removed_count > 0:
                 from rhesis.backend.app.services.test_set import update_test_set_attributes
+
                 update_test_set_attributes(db=db, test_set_id=test_set_id)
 
             # Commit the transaction
