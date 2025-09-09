@@ -5,7 +5,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.base import MetricResult
-from rhesis.sdk.metrics.constants import ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.metric_base import (
     RhesisMetricBase,
 )
@@ -34,7 +34,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
         threshold: Optional[float] = None,
-        threshold_operator: Union[ThresholdOperator, str] = None,
+        threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL,
         model: Optional[str] = None,
         metric_type="rag",
         **kwargs,
@@ -267,8 +267,6 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             # Check if the evaluation meets the threshold using the base class method
             is_successful = self._evaluate_score(
                 score=score,
-                threshold=self.threshold,
-                threshold_operator=self.threshold_operator,
             )
 
             # Prepare details based on score type
@@ -321,9 +319,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             # Return a default minimal score for numeric
             return MetricResult(score=0.0, details=details)
 
-    def _evaluate_score(
-        self, score: float, threshold: float, threshold_operator: ThresholdOperator
-    ) -> bool:
+    def _evaluate_score(self, score: float) -> bool:
         """
         Evaluate if a score meets the success criteria for numeric metrics.
 
@@ -337,7 +333,8 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         Returns:
             bool: True if the score meets the threshold criteria, False otherwise
         """
-        result = threshold_operator(score, threshold)
+        threshold_operator = OPERATOR_MAP[self.threshold_operator]
+        result = threshold_operator(score, self.threshold)
         return result
 
 
