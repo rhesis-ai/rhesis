@@ -11,25 +11,18 @@ class ContextGenerator:
 
     def __init__(
         self,
-        max_context_tokens: int = 1500,  # User's preferred max
-        absolute_max_context_tokens: int = 2500,  # Hard safety limit
+        max_context_tokens: int = 1500,
     ):
         """
         Initialize the context generator.
 
         Args:
             max_context_tokens: Maximum tokens per context (user preference)
-            absolute_max_context_tokens: Hard limit that cannot be exceeded
         """
-        self.max_context_tokens = max_context_tokens
-        self.absolute_max_context_tokens = absolute_max_context_tokens
+        self.max_context_tokens = min(max_context_tokens, 3000)
 
-        # Validate user input
-        if self.max_context_tokens > self.absolute_max_context_tokens:
-            raise ValueError(
-                f"max_context_tokens ({max_context_tokens}) cannot exceed "
-                f"absolute_max_context_tokens ({absolute_max_context_tokens})"
-            )
+        if max_context_tokens > 3000:
+            print(f"⚠️  Context size capped at 3000 tokens (you requested {max_context_tokens})")
 
     def generate_contexts(self, text: str) -> List[str]:
         """
@@ -42,7 +35,7 @@ class ContextGenerator:
         4. If there are no internal boundaries, slice the text into token-capped windows
         """
         if not text:
-            return []
+            raise ValueError("Cannot generate contexts from empty text")
 
         semantic_boundaries = self._identify_semantic_boundaries(text)
 
