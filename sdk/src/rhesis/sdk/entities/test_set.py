@@ -92,17 +92,15 @@ class TestSet(BaseEntity):
 
         Args:
             format (str, optional): The desired output format.
-                Options are "pandas", "parquet", or "dict". Defaults to "pandas".
+                Options are "pandas" or "dict". Defaults to "pandas".
 
         Returns:
             Union[pd.DataFrame, list[Any]]: The tests in the specified format.
-                Returns a pandas DataFrame if format="pandas",
-                writes to parquet file if format="parquet",
+                Returns a pandas DataFrame if format="pandas"
                 or a list of dictionaries if format="dict".
 
         Raises:
             ValueError: If an invalid format is specified.
-            ImportError: If pyarrow is not installed when using parquet format.
         """
         self.fetch()
         tests = self.get_tests()
@@ -112,11 +110,6 @@ class TestSet(BaseEntity):
 
         if format == "pandas":
             return pd.DataFrame(self.tests)
-        elif format == "parquet":
-            raise ImportError(
-                "Parquet support has been removed. Please use 'pandas' format instead."
-            )
-            return df
         elif format == "dict":
             return self.tests
         else:
