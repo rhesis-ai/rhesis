@@ -363,25 +363,6 @@ class TestSet(BaseEntity):
             self.get_tests()
         return pd.DataFrame(self.tests)
 
-    def to_parquet(self, path: Optional[str] = None) -> pd.DataFrame:
-        """Convert the test set tests to a parquet file.
-
-        Args:
-            path: The path where the parquet file should be saved.
-                 If None, uses 'test_set_{id}.parquet'
-
-        Returns:
-            pd.DataFrame: The DataFrame that was saved to parquet
-
-        Raises:
-            ImportError: If pyarrow is not installed
-
-        Example:
-            >>> test_set = TestSet(id='123')
-            >>> df = test_set.to_parquet('my_test_set.parquet')
-        """
-        raise ImportError("Parquet support has been removed. Please use 'pandas' format instead.")
-
     def to_csv(self, path: Optional[str] = None) -> pd.DataFrame:
         """Convert the test set tests to a CSV file.
 
