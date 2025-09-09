@@ -4,7 +4,7 @@ from typing import AsyncGenerator, Iterator, Union
 
 from openai import AzureOpenAI, OpenAI
 
-# Think about https://pypi.org/project/json-repair/ to enable JSON parsing 
+# Think about https://pypi.org/project/json-repair/ to enable JSON parsing
 # of OpenAI responses in stream mode
 
 
@@ -101,7 +101,7 @@ def get_json_response(prompt: str, stream: bool = False) -> Union[dict, AsyncGen
                 {
                     "role": "system",
                     "content": "You are a helpful assistant that always responds in valid "
-                              "JSON format.",
+                    "JSON format.",
                 },
                 {"role": "user", "content": prompt},
             ],

@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urlparse
 
 from rhesis.backend.app.auth.constants import FRONTEND_DOMAINS
 
+
 def build_redirect_url(request, session_token):
     """Build the redirect URL with session token"""
     # Get the original frontend URL from session or fallback to environment variable
@@ -42,4 +43,4 @@ def build_redirect_url(request, session_token):
     final_url = f"{frontend_url.rstrip('/')}/auth/signin"
     final_url = f"{final_url}?session_token={session_token}&return_to={return_to}"
 
-    return final_url 
+    return final_url

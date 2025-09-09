@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.database import maintain_tenant_context, set_tenant
-from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.metric import behavior_metric_association
+from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_behavior,
     get_or_create_category,
@@ -48,7 +48,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             # Process statuses next as they're also needed by other entities
             print("Processing statuses...")
             for item in initial_data.get("status", []):
-                get_or_create_status(db=db, name=item["name"], entity_type=item["entity_type"], commit=False)
+                get_or_create_status(
+                    db=db, name=item["name"], entity_type=item["entity_type"], commit=False
+                )
 
             # Process behaviors
             print("Processing behaviors...")
@@ -72,7 +74,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "application": item.get("application"),
                     "is_active": item.get("is_active", True),
                 }
-                get_or_create_entity(db=db, model=models.UseCase, entity_data=use_case_data, commit=False)
+                get_or_create_entity(
+                    db=db, model=models.UseCase, entity_data=use_case_data, commit=False
+                )
 
             # Process risks
             print("Processing risks...")
@@ -90,8 +94,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 # Get project status if specified
                 status = None
                 if item.get("status"):
-                    status = get_or_create_status(db=db, name=item["status"], entity_type="General", commit=False)
-                
+                    status = get_or_create_status(
+                        db=db, name=item["status"], entity_type="General", commit=False
+                    )
+
                 project_data = {
                     "name": item["name"],
                     "description": item["description"],
@@ -100,10 +106,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "user_id": user_id,  # Set the creating user
                     "owner_id": user_id,  # Set the owner to the same user
                 }
-                
+
                 if status:
                     project_data["status_id"] = status.id
-                    
+
                 get_or_create_entity(
                     db=db,
                     model=models.Project,
@@ -172,20 +178,29 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
                 # Get test status
-                status = get_or_create_status(db=db, name=item["status"], entity_type="Test", commit=False)
+                status = get_or_create_status(
+                    db=db, name=item["status"], entity_type="Test", commit=False
+                )
 
                 # Get topic
-                topic = get_or_create_topic(db=db, name=item["topic"], entity_type="Test", commit=False)
+                topic = get_or_create_topic(
+                    db=db, name=item["topic"], entity_type="Test", commit=False
+                )
 
                 # Get category
-                category = get_or_create_category(db=db, name=item["category"], entity_type="Test", commit=False)
+                category = get_or_create_category(
+                    db=db, name=item["category"], entity_type="Test", commit=False
+                )
 
                 # Get behavior
                 behavior = get_or_create_behavior(db=db, name=item["behavior"], commit=False)
 
                 # Create prompt
                 prompt = get_or_create_entity(
-                    db=db, model=models.Prompt, entity_data={"content": item["prompt"]}, commit=False
+                    db=db,
+                    model=models.Prompt,
+                    entity_data={"content": item["prompt"]},
+                    commit=False,
                 )
 
                 # Create test
@@ -209,7 +224,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             print("Processing test sets...")
             for item in initial_data.get("test_set", []):
                 # Get test set status
-                status = get_or_create_status(db=db, name=item["status"], entity_type="TestSet", commit=False)
+                status = get_or_create_status(
+                    db=db, name=item["status"], entity_type="TestSet", commit=False
+                )
 
                 # Get license type
                 license_type = get_or_create_type_lookup(
@@ -268,7 +285,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
                 # Get metric status
-                status = get_or_create_status(db=db, name=item["status"], entity_type="Metric", commit=False)
+                status = get_or_create_status(
+                    db=db, name=item["status"], entity_type="Metric", commit=False
+                )
 
                 # Create metric
                 metric_data = {
@@ -307,15 +326,15 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 for behavior_name in behavior_names:
                     # Get or create the behavior
                     behavior = get_or_create_behavior(db=db, name=behavior_name, commit=False)
-                    
+
                     # Check if association already exists
                     existing_association = db.execute(
                         behavior_metric_association.select().where(
                             behavior_metric_association.c.behavior_id == behavior.id,
-                            behavior_metric_association.c.metric_id == metric.id
+                            behavior_metric_association.c.metric_id == metric.id,
                         )
                     ).first()
-                    
+
                     # Create association if it doesn't exist
                     if not existing_association:
                         association_values = {
@@ -324,7 +343,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                             "organization_id": organization_id,
                             "user_id": user_id,
                         }
-                        db.execute(behavior_metric_association.insert().values(**association_values))
+                        db.execute(
+                            behavior_metric_association.insert().values(**association_values)
+                        )
                         db.flush()
 
             # Mark organization as initialized

@@ -13,12 +13,10 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema with metrics support and nested relationships
 BehaviorWithMetricsSchema = create_detailed_schema(
-    schemas.Behavior, 
-    models.Behavior, 
+    schemas.Behavior,
+    models.Behavior,
     include_many_to_many=True,
-    include_nested_relationships={
-        "metrics": ["metric_type", "backend_type"]
-    }
+    include_nested_relationships={"metrics": ["metric_type", "backend_type"]},
 )
 MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
 
@@ -69,31 +67,37 @@ def read_behaviors(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all behaviors with all related objects loaded using get_items_detail"""
-    
-    print(f"🔍 [DEBUG] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}")
-    print(f"🔍 [DEBUG] Current user: {current_user.id if current_user else None}, org: {current_user.organization_id if current_user else None}")
+
+    print(
+        f"🔍 [DEBUG] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}"
+    )
+    print(
+        f"🔍 [DEBUG] Current user: {current_user.id if current_user else None}, org: {current_user.organization_id if current_user else None}"
+    )
 
     try:
-        print(f"🔍 [DEBUG] Using optimized relationship loading...")
+        print("🔍 [DEBUG] Using optimized relationship loading...")
         # Use get_items_detail with optimized loading and nested relationships
         result = crud.get_items_detail(
             db=db,
             model=models.Behavior,
-            skip=skip, 
-            limit=limit, 
-            sort_by=sort_by, 
-            sort_order=sort_order, 
+            skip=skip,
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order,
             filter=filter,
-            nested_relationships={
-                "metrics": ["metric_type", "backend_type"]
-            }
+            nested_relationships={"metrics": ["metric_type", "backend_type"]},
         )
         print(f"✅ [DEBUG] get_items_detail returned {len(result)} behaviors")
         if result:
-            print(f"🔍 [DEBUG] First item: id={result[0].id}, name={result[0].name}, metrics_count={len(result[0].metrics) if hasattr(result[0], 'metrics') else 'N/A'}")
-            if hasattr(result[0], 'metrics') and result[0].metrics:
+            print(
+                f"🔍 [DEBUG] First item: id={result[0].id}, name={result[0].name}, metrics_count={len(result[0].metrics) if hasattr(result[0], 'metrics') else 'N/A'}"
+            )
+            if hasattr(result[0], "metrics") and result[0].metrics:
                 first_metric = result[0].metrics[0]
-                print(f"🔍 [DEBUG] First metric: id={first_metric.id}, name={first_metric.name}, has_metric_type={hasattr(first_metric, 'metric_type')}, has_backend_type={hasattr(first_metric, 'backend_type')}")
+                print(
+                    f"🔍 [DEBUG] First metric: id={first_metric.id}, name={first_metric.name}, has_metric_type={hasattr(first_metric, 'metric_type')}, has_backend_type={hasattr(first_metric, 'backend_type')}"
+                )
         return result
     except Exception as e:
         print(f"❌ [DEBUG] Error in read_behaviors: {type(e).__name__}: {str(e)}")

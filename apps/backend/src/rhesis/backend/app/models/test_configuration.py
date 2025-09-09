@@ -1,6 +1,6 @@
 from sqlalchemy import Column, ForeignKey
-from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
@@ -29,4 +29,3 @@ class TestConfiguration(Base, OrganizationMixin):
     test_results = relationship("TestResult", back_populates="test_configuration")
     test_runs = relationship("TestRun", back_populates="test_configuration")
     endpoint = relationship("Endpoint", back_populates="test_configurations")
-
