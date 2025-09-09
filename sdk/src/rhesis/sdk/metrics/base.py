@@ -82,12 +82,6 @@ class MetricConfig:
     backend: str
     """The backend/framework to use for this metric (e.g., 'deepeval')"""
 
-    name: Optional[str] = None
-    """Human-readable name of the metric"""
-
-    description: Optional[str] = None
-    """Human-readable description of what the metric measures"""
-
     threshold: Optional[float] = None
     """Threshold for metric success (used for numeric score types)"""
 
@@ -96,6 +90,12 @@ class MetricConfig:
 
     threshold_operator: Optional[str] = None
     """Threshold operator for comparison (e.g., '>=', '<', '=')"""
+
+    name: Optional[str] = None
+    """Human-readable name of the metric"""
+
+    description: Optional[str] = None
+    """Human-readable description of what the metric measures"""
 
     parameters: Dict[str, Any] = field(default_factory=dict)
     """Additional parameters specific to this metric implementation"""
