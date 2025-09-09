@@ -11,7 +11,7 @@ def timer(operation_name: str, enabled: bool = True) -> Generator[None, None, No
     if not enabled:
         yield
         return
-    
+
     start_time = time.time()
     print(f"Starting {operation_name}")
     try:

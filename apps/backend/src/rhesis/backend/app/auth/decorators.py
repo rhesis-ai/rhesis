@@ -1,8 +1,8 @@
 from functools import wraps
 from typing import Type
 
-from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.auth.permissions import ResourceAction, ResourcePermission
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 
 
