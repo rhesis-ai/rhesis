@@ -5,7 +5,7 @@ from typing import List
 
 from sqlalchemy.orm import Session, joinedload
 
-from rhesis.backend.app.models import Prompt, TestSet, Test
+from rhesis.backend.app.models import Prompt, Test, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
 
 
@@ -39,23 +39,27 @@ def get_prompts_for_test_set(db: Session, test_set_id: uuid.UUID) -> List[dict]:
     # Process results and avoid duplicates based on prompt ID
     seen_prompts = set()
     prompts_data = []
-    
+
     for prompt, test in results:
         if prompt.id not in seen_prompts:
             seen_prompts.add(prompt.id)
-            prompts_data.append({
-                "content": prompt.content,
-                "demographic": prompt.demographic.name if prompt.demographic else None,
-                "category": test.category.name if test.category else None,  # From Test
-                "attack_category": prompt.attack_category.name if prompt.attack_category else None,
-                "topic": test.topic.name if test.topic else None,  # From Test
-                "language_code": prompt.language_code,
-                "behavior": test.behavior.name if test.behavior else None,  # From Test
-                "expected_response": prompt.expected_response,
-                "source": prompt.source.title if prompt.source else None,
-                "status": prompt.status.name if prompt.status else None,
-            })
-    
+            prompts_data.append(
+                {
+                    "content": prompt.content,
+                    "demographic": prompt.demographic.name if prompt.demographic else None,
+                    "category": test.category.name if test.category else None,  # From Test
+                    "attack_category": prompt.attack_category.name
+                    if prompt.attack_category
+                    else None,
+                    "topic": test.topic.name if test.topic else None,  # From Test
+                    "language_code": prompt.language_code,
+                    "behavior": test.behavior.name if test.behavior else None,  # From Test
+                    "expected_response": prompt.expected_response,
+                    "source": prompt.source.title if prompt.source else None,
+                    "status": prompt.status.name if prompt.status else None,
+                }
+            )
+
     return prompts_data
 
 

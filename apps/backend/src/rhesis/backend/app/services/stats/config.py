@@ -1,12 +1,13 @@
 """Configuration and data classes for statistics calculations."""
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Type, Optional, Any
+from typing import Any, Dict, Optional, Type
 
 
 @dataclass
 class StatsConfig:
     """Configuration for stats calculations"""
+
     default_top_items: Optional[int] = None
     default_months: int = 6
     enable_timing: bool = True
@@ -16,6 +17,7 @@ class StatsConfig:
 @dataclass
 class DimensionInfo:
     """Information about a model dimension"""
+
     name: str
     model: Type
     join_column: Any
@@ -26,6 +28,7 @@ class DimensionInfo:
 @dataclass
 class StatsResult:
     """Result structure for stats calculations"""
+
     total: int
     stats: Dict[str, Any]
     history: Dict[str, Any]

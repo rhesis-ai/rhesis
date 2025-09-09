@@ -1,14 +1,14 @@
 import json
+import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
+import jsonpath_ng
 import requests
 from fastapi import HTTPException
 from jinja2 import Template
 from sqlalchemy.orm import Session
-import jsonpath_ng
-import uuid
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
@@ -50,20 +50,22 @@ class BaseEndpointInvoker(ABC):
             return endpoint.auth_token
         elif endpoint.auth_type == EndpointAuthType.CLIENT_CREDENTIALS.value:
             return self._get_client_credentials_token(db, endpoint)
-        
+
         return None
 
     def _get_client_credentials_token(self, db: Session, endpoint: Endpoint) -> str:
         """Get a new token using client credentials flow."""
         if not endpoint.token_url:
-            raise HTTPException(status_code=400, detail="Token URL is required for client credentials flow")
+            raise HTTPException(
+                status_code=400, detail="Token URL is required for client credentials flow"
+            )
 
         # Prepare token request
         payload = {
             "client_id": endpoint.client_id,
             "client_secret": endpoint.client_secret,
             "audience": endpoint.audience,
-            "grant_type": "client_credentials"
+            "grant_type": "client_credentials",
         }
 
         # Add scopes if configured
@@ -82,16 +84,26 @@ class BaseEndpointInvoker(ABC):
 
             # Update endpoint with new token info
             endpoint.last_token = token_data["access_token"]
-            endpoint.last_token_expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
+            endpoint.last_token_expires_at = datetime.utcnow() + timedelta(
+                seconds=token_data.get("expires_in", 3600)
+            )
             db.commit()
 
             return endpoint.last_token
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get client credentials token: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to get client credentials token: {str(e)}"
+            )
 
     # Shared error handling methods
-    def _create_error_response(self, error_type: str, output_message: str, message: str, 
-                             request_details: Dict = None, **kwargs) -> Dict:
+    def _create_error_response(
+        self,
+        error_type: str,
+        output_message: str,
+        message: str,
+        request_details: Dict = None,
+        **kwargs,
+    ) -> Dict:
         """Create standardized error response."""
         error_response = {
             "output": output_message,
@@ -108,10 +120,10 @@ class BaseEndpointInvoker(ABC):
         """Safely create request details from local variables."""
         return {
             "protocol": protocol,
-            "method": local_vars.get('method', "UNKNOWN"),
-            "url": local_vars.get('url', local_vars.get('uri', "UNKNOWN")),
-            "headers": local_vars.get('headers', {}),
-            "body": local_vars.get('request_body', local_vars.get('message_data'))
+            "method": local_vars.get("method", "UNKNOWN"),
+            "url": local_vars.get("url", local_vars.get("uri", "UNKNOWN")),
+            "headers": local_vars.get("headers", {}),
+            "body": local_vars.get("request_body", local_vars.get("message_data")),
         }
 
 
@@ -121,12 +133,14 @@ class TemplateRenderer:
     def render(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
         # Ensure session_id exists if it's referenced in template but missing from input
         if isinstance(template_data, (dict, str)):
-            template_str = json.dumps(template_data) if isinstance(template_data, dict) else template_data
+            template_str = (
+                json.dumps(template_data) if isinstance(template_data, dict) else template_data
+            )
             if "{{ session_id }}" in template_str and "session_id" not in input_data:
                 input_data = input_data.copy()
                 input_data["session_id"] = str(uuid.uuid4())
                 logger.info(f"Auto-generated session_id: {input_data['session_id']}")
-        
+
         if isinstance(template_data, str):
             template = Template(template_data)
             rendered = template.render(**input_data)
@@ -162,4 +176,4 @@ class ResponseMapper:
             else:
                 # If no match found, set to None
                 result[output_key] = None
-        return result 
+        return result

@@ -1,14 +1,15 @@
 from datetime import datetime
-from typing import List, Optional, Union
 from enum import Enum
+from typing import List, Optional, Union
 
-from pydantic import UUID4, Field
+from pydantic import UUID4
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.user import UserReference
 from rhesis.backend.app.schemas.status import Status
-from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.tag import Tag
+from rhesis.backend.app.schemas.type_lookup import TypeLookup
+from rhesis.backend.app.schemas.user import UserReference
+
 
 class ScoreType(str, Enum):
     BINARY = "binary"
@@ -48,6 +49,7 @@ class MetricBase(Base):
     context_required: Optional[bool] = False
     evaluation_examples: Optional[str] = None
 
+
 class MetricCreate(MetricBase):
     pass
 
@@ -73,4 +75,4 @@ class MetricDetail(Metric):
     metric_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     assignee: Optional[UserReference] = None
-    owner: Optional[UserReference] = None 
+    owner: Optional[UserReference] = None

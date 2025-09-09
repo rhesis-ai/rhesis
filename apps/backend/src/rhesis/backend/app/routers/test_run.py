@@ -1,6 +1,6 @@
+from enum import Enum
 from typing import List, Optional
 from uuid import UUID
-from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -10,11 +10,11 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
     test_run_results_to_csv,
 )
-from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 

@@ -92,17 +92,15 @@ class TestSet(BaseEntity):
 
         Args:
             format (str, optional): The desired output format.
-                Options are "pandas", "parquet", or "dict". Defaults to "pandas".
+                Options are "pandas" or "dict". Defaults to "pandas".
 
         Returns:
             Union[pd.DataFrame, list[Any]]: The tests in the specified format.
-                Returns a pandas DataFrame if format="pandas",
-                writes to parquet file if format="parquet",
+                Returns a pandas DataFrame if format="pandas"
                 or a list of dictionaries if format="dict".
 
         Raises:
             ValueError: If an invalid format is specified.
-            ImportError: If pyarrow is not installed when using parquet format.
         """
         self.fetch()
         tests = self.get_tests()
@@ -112,17 +110,6 @@ class TestSet(BaseEntity):
 
         if format == "pandas":
             return pd.DataFrame(self.tests)
-        elif format == "parquet":
-            try:
-                import pyarrow  # noqa: F401
-            except ImportError:
-                raise ImportError(
-                    "pyarrow is required for parquet support. Install it with: pip install pyarrow"
-                )
-            df = pd.DataFrame(self.tests)
-            file_path = f"test_set_{self.id}.parquet"
-            df.to_parquet(file_path)
-            return df
         elif format == "dict":
             return self.tests
         else:
@@ -368,38 +355,6 @@ class TestSet(BaseEntity):
         if self.tests is None:
             self.get_tests()
         return pd.DataFrame(self.tests)
-
-    def to_parquet(self, path: Optional[str] = None) -> pd.DataFrame:
-        """Convert the test set tests to a parquet file.
-
-        Args:
-            path: The path where the parquet file should be saved.
-                 If None, uses 'test_set_{id}.parquet'
-
-        Returns:
-            pd.DataFrame: The DataFrame that was saved to parquet
-
-        Raises:
-            ImportError: If pyarrow is not installed
-
-        Example:
-            >>> test_set = TestSet(id='123')
-            >>> df = test_set.to_parquet('my_test_set.parquet')
-        """
-        try:
-            import pyarrow  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                "pyarrow is required for parquet support. Install it with: pip install pyarrow"
-            )
-
-        df = self.to_pandas()
-
-        if path is None:
-            path = f"test_set_{self.id}.parquet"
-
-        df.to_parquet(path)
-        return df
 
     def to_csv(self, path: Optional[str] = None) -> pd.DataFrame:
         """Convert the test set tests to a CSV file.
