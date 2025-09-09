@@ -11,8 +11,4 @@ from rhesis.backend.notifications.email.template_service import EmailTemplate
 # Global email service instance
 email_service = EmailService()
 
-__all__ = [
-    'email_service',
-    'EmailService',
-    'EmailTemplate'
-] 
+__all__ = ["email_service", "EmailService", "EmailTemplate"]

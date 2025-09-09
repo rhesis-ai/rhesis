@@ -9,23 +9,21 @@ Main Components:
 """
 
 # Core classes and configurations
-from .config import StatsConfig, DimensionInfo, StatsResult
 from .calculator import StatsCalculator
-from .utils import timer
+from .config import DimensionInfo, StatsConfig, StatsResult
 
 # Specialized functions
 from .test_result import get_test_result_stats
+from .utils import timer
 
 __all__ = [
     # Core classes
     "StatsConfig",
-    "DimensionInfo", 
+    "DimensionInfo",
     "StatsResult",
     "StatsCalculator",
-    
     # Utilities
     "timer",
-    
     # Main functions
     "get_test_result_stats",
 ]

@@ -1,14 +1,14 @@
-from typing import Any, Dict, Optional, List
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4
 
 from rhesis.backend.app.models.enums import (
+    EndpointAuthType,
     EndpointConfigSource,
     EndpointEnvironment,
     EndpointProtocol,
     EndpointResponseFormat,
-    EndpointAuthType,
 )
 from rhesis.backend.app.schemas import Base
 
