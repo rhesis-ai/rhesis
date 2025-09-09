@@ -21,9 +21,13 @@ class EndpointService:
             schema_path: Optional path to the endpoint schema file. If not provided,
                        defaults to endpoint_schema.json in the same directory.
         """
-        self.schema_path = schema_path or os.path.join(os.path.dirname(__file__), "endpoint_schema.json")
+        self.schema_path = schema_path or os.path.join(
+            os.path.dirname(__file__), "endpoint_schema.json"
+        )
 
-    def invoke_endpoint(self, db: Session, endpoint_id: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def invoke_endpoint(
+        self, db: Session, endpoint_id: str, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Invoke an endpoint with the given input data.
 
@@ -44,7 +48,7 @@ class EndpointService:
         try:
             # Create appropriate invoker based on protocol
             invoker = create_invoker(endpoint)
-            
+
             # Invoke the endpoint
             return invoker.invoke(db, endpoint, input_data)
         except ValueError as e:
@@ -89,7 +93,7 @@ endpoint_service = EndpointService()
 def invoke(db: Session, endpoint_id: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convenience function that uses the singleton EndpointService.
-    
+
     Args:
         db: Database session
         endpoint_id: ID of the endpoint to invoke
@@ -104,7 +108,7 @@ def invoke(db: Session, endpoint_id: str, input_data: Dict[str, Any]) -> Dict[st
 def get_schema() -> Dict[str, Any]:
     """
     Convenience function that uses the singleton EndpointService.
-    
+
     Returns:
         Dict containing the input and output schema definitions
     """
@@ -114,6 +118,7 @@ def get_schema() -> Dict[str, Any]:
 # Add main section for command line testing
 if __name__ == "__main__":
     import argparse
+
     from rhesis.backend.app.database import SessionLocal, set_tenant
 
     parser = argparse.ArgumentParser(description="Test endpoint invocation")
@@ -135,7 +140,7 @@ if __name__ == "__main__":
     try:
         # Set tenant context
         set_tenant(db, organization_id=args.org_id, user_id=args.user_id)
-        
+
         # Invoke endpoint
         # print(f"\nInvoking endpoint {args.endpoint_id} with input: {input_data}")
         # print(f"Using organization ID: {args.org_id}")
