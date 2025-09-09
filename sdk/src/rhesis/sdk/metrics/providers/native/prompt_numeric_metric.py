@@ -47,23 +47,9 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         self.threshold_operator = threshold_operator
         self.model = model
 
-        if min_score is not None and max_score is None:
-            raise ValueError("Only min_score was set, please set max_score")
-
-        if min_score is None and max_score is not None:
-            raise ValueError("Only max_score was set, please set min_score")
-
-        # For numeric scores, we need min_score, max_score, and threshold
-        self.min_score = min_score if min_score is not None else 0
-        self.max_score = max_score if max_score is not None else 1
-
-        if threshold is None:
-            self.threshold = self.min_score + (self.max_score - self.min_score) / 2
-        else:
-            self.threshold = threshold
-
-        if not (self.min_score <= self.threshold <= self.max_score):
-            raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
+        # Validate and set up numeric score parameters
+        self._validate_score_range(min_score, max_score)
+        self._set_score_parameters(min_score, max_score, threshold)
 
         # Pass the normalized threshold to the base class
         super().__init__(
@@ -79,6 +65,34 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         self.evaluation_examples = evaluation_examples
 
         # Set up Jinja environment
+        self._setup_jinja_environment()
+
+    def _validate_score_range(self, min_score: Optional[float], max_score: Optional[float]) -> None:
+        """Validate that min_score and max_score are provided together."""
+        if min_score is not None and max_score is None:
+            raise ValueError("Only min_score was set, please set max_score")
+
+        if min_score is None and max_score is not None:
+            raise ValueError("Only max_score was set, please set min_score")
+
+    def _set_score_parameters(
+        self, min_score: Optional[float], max_score: Optional[float], threshold: Optional[float]
+    ) -> None:
+        """Set up score parameters with validation."""
+        # For numeric scores, we need min_score, max_score, and threshold
+        self.min_score = min_score if min_score is not None else 0
+        self.max_score = max_score if max_score is not None else 1
+
+        if threshold is None:
+            self.threshold = self.min_score + (self.max_score - self.min_score) / 2
+        else:
+            self.threshold = threshold
+
+        if not (self.min_score <= self.threshold <= self.max_score):
+            raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
+
+    def _setup_jinja_environment(self) -> None:
+        """Set up Jinja environment for template rendering."""
         templates_dir = Path(__file__).resolve().parent / "templates"
         self.jinja_env = Environment(
             loader=FileSystemLoader(templates_dir),
