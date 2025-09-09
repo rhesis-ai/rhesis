@@ -2,14 +2,15 @@ import base64
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
+from rhesis.backend.app.auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM
 from rhesis.backend.app.models.user import User
 from rhesis.backend.logging import logger
-from rhesis.backend.app.auth.constants import ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+
 
 def get_secret_key() -> str:
     """Get JWT secret key from environment"""
@@ -20,6 +21,7 @@ def get_secret_key() -> str:
             detail="JWT_SECRET_KEY not configured",
         )
     return secret_key
+
 
 def create_session_token(user: User) -> str:
     """Create a new session token for a user"""
@@ -48,6 +50,7 @@ def create_session_token(user: User) -> str:
     encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
     return encoded_jwt
 
+
 def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) -> Dict[str, Any]:
     """
     Verify and decode a JWT token with explicit expiration checks.
@@ -56,17 +59,17 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
     try:
         # Verify the JWT token with explicit expiration check
         payload = jwt.decode(
-            token, 
-            secret_key, 
+            token,
+            secret_key,
             algorithms=[algorithm],
             options={
                 "verify_exp": True,  # Explicitly verify expiration
                 "verify_iat": True,  # Verify issued at time
                 "require_exp": True,  # Require expiration time
                 "require_iat": True,  # Require issued at time
-            }
+            },
         )
-        
+
         # Check if it's a session token
         if payload.get("type") != "session":
             logger.warning(f"Invalid token type: {payload.get('type')}")
@@ -75,15 +78,18 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
         # Log successful verification
         if "user" in payload:
             logger.debug(f"JWT token validated for user: {payload['user'].get('email')}")
-            logger.debug(f"Token expiration: {datetime.fromtimestamp(payload['exp'], tz=timezone.utc)}")
-        
+            logger.debug(
+                f"Token expiration: {datetime.fromtimestamp(payload['exp'], tz=timezone.utc)}"
+            )
+
         return payload
-        
+
     except JWTError as e:
         logger.error(f"JWT validation error: {str(e)}")
         if "Expired token" in str(e):
             logger.warning("JWT token has expired")
         raise
+
 
 def generate_api_token() -> str:
     """Generate a secure API token in OpenAI-style format"""
@@ -91,4 +97,4 @@ def generate_api_token() -> str:
         token_bytes = secrets.token_bytes(32)
         token_b64 = base64.urlsafe_b64encode(token_bytes).decode("utf-8").rstrip("=")
         if "-" not in token_b64:
-            return f"rh-{token_b64}" 
+            return f"rh-{token_b64}"

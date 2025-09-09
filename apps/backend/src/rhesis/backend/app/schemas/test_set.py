@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel, validator
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.tag import Tag
 
+
 # TestSet schemas
 class TestSetBase(Base):
     name: str
@@ -57,13 +58,14 @@ class TestData(BaseModel):
     priority: Optional[int] = None
     metadata: Dict[str, Any] = {}
 
-    @validator('assignee_id', 'owner_id')
+    @validator("assignee_id", "owner_id")
     def validate_uuid(cls, v):
         if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
             return None
         # Additional validation for UUID format
         try:
             from uuid import UUID
+
             if isinstance(v, str):
                 UUID(v)  # This will raise ValueError if invalid
             return v
@@ -81,13 +83,14 @@ class TestSetBulkCreate(BaseModel):
     priority: Optional[int] = None
     tests: List[TestData]
 
-    @validator('owner_id', 'assignee_id')
+    @validator("owner_id", "assignee_id")
     def validate_uuid_fields(cls, v):
         if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
             return None
         # Additional validation for UUID format
         try:
             from uuid import UUID
+
             if isinstance(v, str):
                 UUID(v)  # This will raise ValueError if invalid
             return v
@@ -145,19 +148,20 @@ class TestSetBulkDisassociateResponse(BaseModel):
 
 class TestSetExecutionRequest(BaseModel):
     """Request model for test set execution with flexible execution options."""
+
     execution_options: Optional[Dict[str, Any]] = None
-    
-    @validator('execution_options')
+
+    @validator("execution_options")
     def validate_execution_options(cls, v):
         if v is None:
             return {"execution_mode": "Parallel"}
-            
+
         # Validate execution_mode if provided
         if "execution_mode" in v and v["execution_mode"] not in ["Parallel", "Sequential"]:
             raise ValueError('execution_mode must be either "Parallel" or "Sequential"')
-            
+
         # Set default execution_mode if not provided
         if "execution_mode" not in v:
             v["execution_mode"] = "Parallel"
-            
+
         return v

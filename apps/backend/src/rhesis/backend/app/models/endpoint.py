@@ -1,9 +1,13 @@
-from sqlalchemy import Column, ForeignKey, String, Text, Enum, DateTime
-from sqlalchemy.dialects.postgresql import JSON, ARRAY
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.orm import relationship
 
 from .base import Base
-from .enums import EndpointConfigSource, EndpointEnvironment, EndpointResponseFormat, EndpointAuthType
+from .enums import (
+    EndpointConfigSource,
+    EndpointEnvironment,
+    EndpointResponseFormat,
+)
 from .guid import GUID
 from .mixins import TagsMixin
 

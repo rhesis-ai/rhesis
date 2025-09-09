@@ -1,25 +1,20 @@
-import os
-from typing import Dict, List, Optional
 import asyncio
+import os
 from functools import partial
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # Remove the Rhesis import and import the entire sdk module
 import rhesis.sdk
-from rhesis.sdk.synthesizers import PromptSynthesizer
-
 from rhesis.backend.app.crud import get_user_tokens
 from rhesis.backend.app.models.user import User
+from rhesis.sdk.synthesizers import PromptSynthesizer
 
 
 async def generate_tests(
-    db: Session, 
-    user: User, 
-    prompt: str, 
-    num_tests: int = 5,
-    documents: Optional[List[Dict]] = None
+    db: Session, user: User, prompt: str, num_tests: int = 5, documents: Optional[List[Dict]] = None
 ) -> Dict:
     """
     Generate tests using the prompt synthesizer.
@@ -50,19 +45,16 @@ async def generate_tests(
         )
 
     # Set the SDK configuration at the module level
-    rhesis.sdk.base_url = os.getenv('RHESIS_BASE_URL', "https://api.rhesis.ai")
+    rhesis.sdk.base_url = os.getenv("RHESIS_BASE_URL", "https://api.rhesis.ai")
     rhesis.sdk.api_key = tokens[0].token
 
     print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
-    
+
     synthesizer = PromptSynthesizer(prompt=prompt, documents=documents)
 
     # Run the potentially blocking operation in a separate thread
     # to avoid blocking the event loop
     loop = asyncio.get_event_loop()
-    test_set = await loop.run_in_executor(
-        None, 
-        partial(synthesizer.generate, num_tests=num_tests)
-    )
+    test_set = await loop.run_in_executor(None, partial(synthesizer.generate, num_tests=num_tests))
 
     return test_set.to_dict()
