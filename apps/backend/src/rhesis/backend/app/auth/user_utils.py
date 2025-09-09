@@ -6,15 +6,15 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
+from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
+from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.database import get_db, set_tenant
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import UserCreate
-from rhesis.backend.logging import logger
-from rhesis.backend.app.auth.constants import AuthenticationMethod, UNAUTHORIZED_MESSAGE
-from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
-from rhesis.backend.app.auth.token_validation import validate_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
 
 def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: dict) -> User:
     """Find existing user or create a new one"""
@@ -69,6 +69,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
 
     return user
 
+
 async def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     """Get current user from session"""
     if "user_id" not in request.session:
@@ -86,22 +87,22 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> O
 
     return user
 
-async def get_user_from_jwt(
-    token: str, db: Session, secret_key: str
-) -> Optional[User]:
+
+async def get_user_from_jwt(token: str, db: Session, secret_key: str) -> Optional[User]:
     """Get user from JWT token"""
     try:
         payload = verify_jwt_token(token, secret_key)
         user_info = payload.get("user", {})
         user_id = user_info.get("id")
-        
+
         if user_id:
             return crud.get_user_by_id(db, user_id)
-            
+
     except Exception:
         return None
-        
+
     return None
+
 
 async def get_authenticated_user_with_context(
     request: Request,
@@ -167,6 +168,7 @@ async def get_authenticated_user_with_context(
 
     return None
 
+
 async def get_authenticated_user(
     request: Request,
     db: Session = Depends(get_db),
@@ -189,6 +191,7 @@ async def get_authenticated_user(
 
     return None, None
 
+
 async def require_current_user(
     request: Request,
     db: Session = Depends(get_db),
@@ -199,6 +202,7 @@ async def require_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=UNAUTHORIZED_MESSAGE)
     return user
+
 
 async def require_current_user_or_token(
     request: Request,
@@ -212,6 +216,7 @@ async def require_current_user_or_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
 
+
 async def require_current_user_or_token_without_context(
     request: Request,
     db: Session = Depends(get_db),
@@ -224,4 +229,4 @@ async def require_current_user_or_token_without_context(
     )
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    return user 
+    return user

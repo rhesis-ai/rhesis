@@ -222,7 +222,6 @@ def get_behaviors(
     return get_items(db, models.Behavior, skip, limit, sort_by, sort_order, filter)
 
 
-
 def create_behavior(db: Session, behavior: schemas.BehaviorCreate) -> models.Behavior:
     return create_item(db, models.Behavior, behavior)
 

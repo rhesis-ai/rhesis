@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from deepeval.metrics import (
     AnswerRelevancyMetric,
@@ -16,7 +16,12 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
     """DeepEval implementation of Answer Relevancy metric."""
 
     def __init__(self, threshold: float = 0.5, model_config: Optional[Dict[str, Any]] = None):
-        super().__init__(name="Answer Relevancy", threshold=threshold, metric_type="rag", model_config=model_config)
+        super().__init__(
+            name="Answer Relevancy",
+            threshold=threshold,
+            metric_type="rag",
+            model_config=model_config,
+        )
         self._metric = AnswerRelevancyMetric(threshold=threshold, model=self.model)
 
     @retry_evaluation()
@@ -43,7 +48,9 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
     """DeepEval implementation of Faithfulness metric."""
 
     def __init__(self, threshold: float = 0.5, model_config: Optional[Dict[str, Any]] = None):
-        super().__init__(name="Faithfulness", threshold=threshold, metric_type="rag", model_config=model_config)
+        super().__init__(
+            name="Faithfulness", threshold=threshold, metric_type="rag", model_config=model_config
+        )
         self._metric = FaithfulnessMetric(threshold=threshold, model=self.model)
 
     @retry_evaluation()
@@ -70,7 +77,12 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Relevancy metric."""
 
     def __init__(self, threshold: float = 0.5, model_config: Optional[Dict[str, Any]] = None):
-        super().__init__(name="Contextual Relevancy", threshold=threshold, metric_type="rag", model_config=model_config)
+        super().__init__(
+            name="Contextual Relevancy",
+            threshold=threshold,
+            metric_type="rag",
+            model_config=model_config,
+        )
         self._metric = ContextualRelevancyMetric(threshold=threshold, model=self.model)
 
     @retry_evaluation()
@@ -97,7 +109,12 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Precision metric."""
 
     def __init__(self, threshold: float = 0.5, model_config: Optional[Dict[str, Any]] = None):
-        super().__init__(name="Contextual Precision", threshold=threshold, metric_type="rag", model_config=model_config)
+        super().__init__(
+            name="Contextual Precision",
+            threshold=threshold,
+            metric_type="rag",
+            model_config=model_config,
+        )
         self._metric = ContextualPrecisionMetric(threshold=threshold, model=self.model)
 
     @retry_evaluation()
@@ -124,7 +141,12 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Recall metric."""
 
     def __init__(self, threshold: float = 0.5, model_config: Optional[Dict[str, Any]] = None):
-        super().__init__(name="Contextual Recall", threshold=threshold, metric_type="rag", model_config=model_config)
+        super().__init__(
+            name="Contextual Recall",
+            threshold=threshold,
+            metric_type="rag",
+            model_config=model_config,
+        )
         self._metric = ContextualRecallMetric(threshold=threshold, model=self.model)
 
     @retry_evaluation()
@@ -144,4 +166,4 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
 
     @property
     def requires_ground_truth(self) -> bool:
-        return False 
+        return False
