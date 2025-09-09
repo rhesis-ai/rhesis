@@ -43,8 +43,8 @@ from .stats import (
     TestResultStatsTestRuns,
     TestResultStatsTimeline,
     TestResultStatsTopic,
-    TestRunSummary,
     TestRunStatsResponse,
+    TestRunSummary,
     TimelineData,
 )
 from .status import Status, StatusBase, StatusCreate, StatusUpdate

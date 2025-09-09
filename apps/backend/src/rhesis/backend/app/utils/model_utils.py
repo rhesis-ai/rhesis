@@ -51,15 +51,16 @@ class QueryBuilder:
         return self
 
     def with_optimized_loads(
-        self, skip_many_to_many: bool = True, skip_one_to_many: bool = False, nested_relationships: dict = None
+        self,
+        skip_many_to_many: bool = True,
+        skip_one_to_many: bool = False,
+        nested_relationships: dict = None,
     ) -> "QueryBuilder":
         """Apply optimized loading strategy (selectinload for many-to-many, joinedload for others)"""
         self.query = apply_optimized_loads(
             self.query, self.model, skip_many_to_many, skip_one_to_many, nested_relationships
         )
         return self
-
-
 
     def with_organization_filter(self) -> "QueryBuilder":
         """Apply organization filter if the model supports it"""
@@ -221,18 +222,18 @@ def apply_joinedloads(
 
 
 def apply_optimized_loads(
-    query: Query, 
-    model: Type, 
-    skip_many_to_many: bool = True, 
+    query: Query,
+    model: Type,
+    skip_many_to_many: bool = True,
     skip_one_to_many: bool = False,
-    nested_relationships: dict = None
+    nested_relationships: dict = None,
 ) -> Query:
     """
     Apply optimized loading strategy using selectinload for many-to-many relationships
     and joinedload for one-to-many/many-to-one relationships.
-    
+
     This avoids the cartesian product problem that occurs with joinedload on many-to-many.
-    
+
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
@@ -243,9 +244,9 @@ def apply_optimized_loads(
 
     for rel_name, rel_prop in relationships.items():
         relationship_attr = getattr(model, rel_name)
-        
+
         # Use selectinload for many-to-many relationships to avoid cartesian products
-        if rel_prop.direction.name in ['MANYTOMANY']:
+        if rel_prop.direction.name in ["MANYTOMANY"]:
             if not skip_many_to_many:
                 if nested_relationships and rel_name in nested_relationships:
                     # Load the main relationship with selectinload
@@ -253,7 +254,9 @@ def apply_optimized_loads(
                     # Load each nested relationship separately
                     for nested_rel in nested_relationships[rel_name]:
                         nested_attr = getattr(rel_prop.mapper.class_, nested_rel)
-                        query = query.options(selectinload(relationship_attr).selectinload(nested_attr))
+                        query = query.options(
+                            selectinload(relationship_attr).selectinload(nested_attr)
+                        )
                 else:
                     query = query.options(selectinload(relationship_attr))
         # Use joinedload for one-to-many and many-to-one relationships
@@ -261,9 +264,6 @@ def apply_optimized_loads(
             query = query.options(joinedload(relationship_attr))
 
     return query
-
-
-
 
 
 def apply_organization_filter(db: Session, query: Query, model: Type[T]) -> Query:

@@ -3,10 +3,13 @@ Rhesis backend package.
 """
 
 import os
+
 import tomli
 
 # Find the pyproject.toml file
-_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_root_dir = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 _pyproject_path = os.path.join(_root_dir, "pyproject.toml")
 
 # Read version from pyproject.toml

@@ -33,7 +33,6 @@ dependencies = [
     "kombu==5.5.3",
     "redis==4.6.0",
     "portalocker==3.1.1",
-    "deepeval==3.0.0",
     "yaspin==3.1.0",
     "pyfiglet==1.0.2",
     "odata-query==0.10.0",

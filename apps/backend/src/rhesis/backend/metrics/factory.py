@@ -1,12 +1,12 @@
 from importlib import import_module
-from typing import List, Dict, Type
+from typing import List
 
 from .base import BaseMetric, BaseMetricFactory
 from .config.loader import MetricConfigLoader
 
 # Use lazy loading to avoid circular imports
 # from .deepeval.factory import DeepEvalMetricFactory
-# from .ragas.factory import RagasMetricFactory  
+# from .ragas.factory import RagasMetricFactory
 # from .rhesis.factory import RhesisMetricFactory
 
 
@@ -52,17 +52,21 @@ class MetricFactory:
             ValueError: If framework is not supported
             AttributeError: If the class does not exist in the framework
         """
+
         # Lazy load factories to avoid circular imports
         def get_deepeval_factory():
             from .deepeval.factory import DeepEvalMetricFactory
+
             return DeepEvalMetricFactory()
-        
+
         def get_ragas_factory():
             from .ragas.factory import RagasMetricFactory
+
             return RagasMetricFactory()
-            
+
         def get_rhesis_factory():
             from .rhesis.factory import RhesisMetricFactory
+
             return RhesisMetricFactory()
 
         factories = {
@@ -97,11 +101,14 @@ class MetricFactory:
         """
         if framework == "deepeval":
             from .deepeval.factory import DeepEvalMetricFactory
+
             return DeepEvalMetricFactory().list_supported_metrics()
         elif framework == "ragas":
             from .ragas.factory import RagasMetricFactory
+
             return RagasMetricFactory().list_supported_metrics()
         elif framework == "rhesis":
             from .rhesis.factory import RhesisMetricFactory
+
             return RhesisMetricFactory().list_supported_metrics()
         raise ValueError(f"Unsupported framework: {framework}")
