@@ -14,7 +14,13 @@
 
 
     "files.exclude": {
-        "**/.venv": true,
+        "**/.venv": true, 
+        "**/.pytest_cache": true,
+        "**/_pycache_": true,
+        "**/__pycache__": true,
+        "**/.ruff_cache": true,
+        "**/.deepeval": true,
+
     },
     "python.testing.pytestArgs": [
         "."
