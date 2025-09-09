@@ -30,6 +30,32 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         metric_type: str = "rag",
         **kwargs,
     ):
+        """
+        Initialize the categorical prompt metric.
+
+        Args:
+            name (str): Unique name for this metric instance
+            evaluation_prompt (str): The main evaluation criteria and instructions for the LLM
+            evaluation_steps (str): Step-by-step process the LLM should follow for evaluation
+            reasoning (str): Guidelines for the LLM's reasoning process during evaluation
+            possible_scores (List[str]): List of valid categorical scores the LLM can return.
+                Must contain at least 2 scores.
+            successful_scores (Union[str, List[str]]): Score(s) considered successful/passing.
+                Can be a single string or list of strings. All values must be present in
+                possible_scores.
+            evaluation_examples (str, optional): Examples to guide the LLM's evaluation.
+                Defaults to empty string.
+            model (Optional[str], optional): The LLM model to use for evaluation.
+                If None, uses the default model. Defaults to None.
+            metric_type (str, optional): Type of metric for categorization. Defaults to "rag".
+            **kwargs: Additional keyword arguments passed to the base class
+
+        Raises:
+            ValueError: If possible_scores has fewer than 2 items
+            ValueError: If successful_scores is not a string or list
+            ValueError: If successful_scores contains values not in possible_scores
+            ValueError: If the number of successful_scores exceeds possible_scores
+        """
         # Convert string to enum if needed
         self.score_type = ScoreType.CATEGORICAL
         self.possible_scores = possible_scores
@@ -42,7 +68,6 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         self._normalize_successful_scores()
         self._validate_successful_scores_subset()
 
-        # Pass successful_scores to the base class
         super().__init__(
             name=name,
             metric_type=metric_type,
@@ -59,7 +84,12 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         self._setup_jinja_environment()
 
     def _validate_possible_scores(self) -> None:
-        """Validate that possible_scores is a valid list with at least 2 scores."""
+        """
+        Validate that possible_scores is a valid list with at least 2 scores.
+
+        Raises:
+            ValueError: If possible_scores is not a list or has fewer than 2 items
+        """
         if not isinstance(self.possible_scores, list) or len(self.possible_scores) < 2:
             raise ValueError(
                 f"possible_scores must be a list with at least 2 scores, "
@@ -67,19 +97,35 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             )
 
     def _validate_successful_scores(self) -> None:
-        """Validate that successful_scores is a string or list."""
+        """
+        Validate that successful_scores is a string or list.
+
+        Raises:
+            ValueError: If successful_scores is not a string or list
+        """
         if not isinstance(self.successful_scores, (str, list)):
             raise ValueError(
                 f"successful_scores must be a string or list, got: {type(self.successful_scores)}"
             )
 
     def _normalize_successful_scores(self) -> None:
-        """Convert string successful_scores to list for consistent handling."""
+        """
+        Convert string successful_scores to list for consistent handling.
+
+        This method ensures that successful_scores is always a list, converting
+        single string values to single-item lists.
+        """
         if isinstance(self.successful_scores, str):
             self.successful_scores = [self.successful_scores]
 
     def _validate_successful_scores_subset(self) -> None:
-        """Validate that successful_scores is a subset of possible_scores."""
+        """
+        Validate that successful_scores is a subset of possible_scores.
+
+        Raises:
+            ValueError: If successful_scores contains values not in possible_scores
+            ValueError: If successful_scores has more items than possible_scores
+        """
         if len(self.successful_scores) > len(self.possible_scores):
             raise ValueError(
                 f"The number of successful_scores ({len(self.successful_scores)}) must be "
@@ -96,7 +142,12 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             )
 
     def _setup_jinja_environment(self) -> None:
-        """Set up Jinja environment for template rendering."""
+        """
+        Set up Jinja environment for template rendering.
+
+        This method initializes a Jinja2 environment with the templates directory
+        and configures it for optimal template rendering performance.
+        """
         templates_dir = Path(__file__).resolve().parent / "templates"
         self.jinja_env = Environment(
             loader=FileSystemLoader(templates_dir),
@@ -116,16 +167,22 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         """
         Generate the prompt to be sent to the LLM using a Jinja template.
 
+        This method renders the Jinja2 template with all necessary variables to create
+        a comprehensive evaluation prompt for the LLM.
+
         Args:
-            input: The input query/question
-            output: The system output/response
-            expected_output: The expected or reference output
-            context: List of context chunks used for the response
+            input (str): The input query/question
+            output (str): The system output/response
+            expected_output (str): The expected or reference output
+            context (Optional[List[str]], optional): List of context chunks used for the response.
+                Defaults to None.
 
         Returns:
-            str: The rendered prompt template
+            str: The rendered prompt template ready to be sent to the LLM
 
         Raises:
+            ValueError: If context format is invalid
+            ValueError: If template loading fails
             ValueError: If template rendering fails
         """
         try:
@@ -172,14 +229,45 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         """
         Evaluate the output using the LLM with the custom prompt template.
 
+        This method generates a comprehensive evaluation prompt using the Jinja2 template
+        system, sends it to the configured LLM, and returns a structured result with the
+        categorical score and detailed evaluation information.
+
         Args:
-            input: The input query/question
-            output: The system output/response
-            expected_output: The expected or reference output (ground truth)
-            context: List of context chunks used for the response
+            input (str): The input query/question that was posed to the system
+            output (str): The system's response/output that needs to be evaluated
+            expected_output (Optional[str]): The expected or reference output (ground truth).
+                Required for this metric as it requires ground truth for evaluation.
+            context (Optional[List[str]], optional): List of context chunks used for the response.
+                Defaults to None.
 
         Returns:
-            MetricResult: The evaluation result
+            MetricResult: The evaluation result containing:
+                - score (str): The categorical score returned by the LLM (one of possible_scores)
+                - details (Dict[str, Any]): Detailed evaluation information including:
+                    - score: The categorical score
+                    - score_type: "categorical"
+                    - prompt: The full evaluation prompt sent to the LLM
+                    - reason: The LLM's reasoning for the score
+                    - is_successful: Whether the score meets the success criteria
+                    - possible_scores: List of valid scores
+                    - successful_scores: List of successful scores
+                    - error: Error message if evaluation failed
+                    - exception_type: Type of exception if evaluation failed
+                    - exception_details: Detailed exception information if evaluation failed
+
+        Raises:
+            ValueError: If input is empty or not a string
+            ValueError: If output is not a string
+            ValueError: If expected_output is None (this metric requires ground truth)
+            ValueError: If context is provided but not a list
+            ValueError: If template rendering fails
+            ValueError: If LLM response validation fails
+
+        Note:
+            The method handles various error conditions gracefully, returning error scores
+            with detailed information rather than raising exceptions for LLM-related issues.
+            Only input validation errors are raised as exceptions.
         """
         # Validate inputs
         if not isinstance(input, str) or not input.strip():
@@ -287,8 +375,16 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
 
     def _evaluate_score(self, score: str, successful_scores: List[str]) -> bool:
         """
-        Evaluate if a score meets the success criteria based on score type and threshold operator.
-        This method is implemented by the derived classes.
+        Evaluate if a score meets the success criteria for categorical metrics.
+
+        This method checks if the provided score is present in the list of successful scores.
+
+        Args:
+            score (str): The score to evaluate
+            successful_scores (List[str]): List of scores considered successful
+
+        Returns:
+            bool: True if the score is in successful_scores, False otherwise
         """
         result = score in successful_scores
         return result
