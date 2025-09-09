@@ -17,6 +17,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # ---- Schema Utilities ----
 
+
 def sanitize_schema(schema):
     """Sanitize JSON schema for compatibility with Gemini."""
     if isinstance(schema, dict):
@@ -44,29 +45,41 @@ def sanitize_schema(schema):
         schema = [sanitize_schema(item) for item in schema]
     return schema
 
+
 # ---- Thinking Detection ----
+
 
 async def is_thinking_not_answer(text, client):
     """Use the model to determine if the text is intermediate thinking rather than a final answer."""
     # For very short inputs or known edge cases, let's just do a quick check
     lower_text = text.lower()
-    
+
     # Quick check for obvious phase/plan statements
     phase_markers = ["phase", "step", "part"]
     if any(marker in lower_text for marker in phase_markers):
         return True
-        
+
     # Quick check for statements that explicitly talk about executing plans
     if "execute the plan" in lower_text or "i will now execute" in lower_text:
         return True
-        
+
     # If very short and contains action intent, it's thinking
-    if len(lower_text.split()) < 20 and any(phrase in lower_text for phrase in [
-        "will now", "let's begin", "i'll start", "i will start", "first step", 
-        "next step", "i understand", "let me", "i need to"
-    ]):
+    if len(lower_text.split()) < 20 and any(
+        phrase in lower_text
+        for phrase in [
+            "will now",
+            "let's begin",
+            "i'll start",
+            "i will start",
+            "first step",
+            "next step",
+            "i understand",
+            "let me",
+            "i need to",
+        ]
+    ):
         return True
-        
+
     # For more complex cases, ask the model
     prompt = f"""
 Analyze the following text and determine if it is:
@@ -88,20 +101,15 @@ KEY INDICATORS OF INTERMEDIATE THINKING:
 Provide ONLY the letter A or B, with no additional explanation.
 """
 
-    thinking_check_content = [
-        types.Content(
-            role="user",
-            parts=[types.Part(text=prompt)]
-        )
-    ]
-    
+    thinking_check_content = [types.Content(role="user", parts=[types.Part(text=prompt)])]
+
     try:
         response = await asyncio.to_thread(
             client.models.generate_content,
             model="models/gemini-2.0-flash",
-            contents=thinking_check_content
+            contents=thinking_check_content,
         )
-        
+
         if response and response.candidates and response.candidates[0].content.parts:
             result = response.candidates[0].content.parts[0].text.strip().upper()
             return "A" in result  # If A is in the response, it's thinking
@@ -113,36 +121,58 @@ Provide ONLY the letter A or B, with no additional explanation.
         # Fall back to basic heuristics if model call fails
         return _basic_thinking_check(text)
 
+
 def _basic_thinking_check(text):
     """Basic fallback heuristics if model call fails."""
     lower_text = text.lower()
-    
+
     # Check for common action phrases
     action_phrases = [
-        "i will", "i'll", "let's", "now i", "next i", 
-        "going to", "plan to", "need to", "first", "step", "phase"
+        "i will",
+        "i'll",
+        "let's",
+        "now i",
+        "next i",
+        "going to",
+        "plan to",
+        "need to",
+        "first",
+        "step",
+        "phase",
     ]
     if any(phrase in lower_text for phrase in action_phrases):
         return True
-        
+
     # Check for phrases like "Okay, I understand"
     if lower_text.startswith(("okay", "ok", "i understand", "understood")):
         return True
-        
+
     # Check for phase or step markers
-    if re.search(r"\*\*phase \d", lower_text, re.IGNORECASE) or re.search(r"\*\*step \d", lower_text, re.IGNORECASE):
+    if re.search(r"\*\*phase \d", lower_text, re.IGNORECASE) or re.search(
+        r"\*\*step \d", lower_text, re.IGNORECASE
+    ):
         return True
-        
+
     # If it's short and doesn't conclude with a clear answer
     word_count = len(lower_text.split())
-    has_conclusion_marker = any(marker in lower_text for marker in [
-        "in conclusion", "therefore", "to summarize", "in summary",
-        "the answer is", "here are the tasks", "the tasks are"
-    ])
-    
+    has_conclusion_marker = any(
+        marker in lower_text
+        for marker in [
+            "in conclusion",
+            "therefore",
+            "to summarize",
+            "in summary",
+            "the answer is",
+            "here are the tasks",
+            "the tasks are",
+        ]
+    )
+
     return word_count < 50 and not has_conclusion_marker
 
+
 # ---- Plan Generation ----
+
 
 async def create_execution_plan(client, query, function_declarations):
     """Create an execution plan using the model."""
@@ -150,7 +180,7 @@ async def create_execution_plan(client, query, function_declarations):
 You need to create an execution plan for the following query: {query}
 
 Available tools:
-{[t['name'] + ': ' + t['description'] for t in function_declarations]}
+{[t["name"] + ": " + t["description"] for t in function_declarations]}
 
 NOTION DATA MODEL OVERVIEW:
 Notion structures information as a hierarchy of pages and databases with a block-based architecture:
@@ -209,19 +239,13 @@ IMPORTANT GUIDELINES:
 13. Content might be nested several levels deep - be thorough in exploring the hierarchy
 """
 
-    planning_contents = [
-        types.Content(
-            role="user",
-            parts=[types.Part(text=planning_prompt)]
-        )
-    ]
+    planning_contents = [types.Content(role="user", parts=[types.Part(text=planning_prompt)])]
 
     print("\n🔍 Creating execution plan...")
 
     try:
         planning_response = client.models.generate_content(
-            model="models/gemini-2.0-flash",
-            contents=planning_contents
+            model="models/gemini-2.0-flash", contents=planning_contents
         )
         execution_plan = planning_response.candidates[0].content.parts[0].text
         print(f"\n📋 Execution plan:\n{execution_plan}\n")
@@ -238,14 +262,18 @@ IMPORTANT GUIDELINES:
 6. Compile information into a complete answer
 """
 
+
 # ---- Conversation Setup ----
+
 
 def create_initial_conversation(query, execution_plan):
     """Create the initial conversation with the user query and execution plan."""
     return [
         types.Content(
             role="user",
-            parts=[types.Part(text=f"""
+            parts=[
+                types.Part(
+                    text=f"""
 Query: {query}
 
 Follow this execution plan:
@@ -284,27 +312,27 @@ Any response that includes phases, steps, or plans for future actions means you 
 
 Use the available tools to implement this plan and answer the query.
 """
-            )]
+                )
+            ],
         )
     ]
 
+
 # ---- Response Handling ----
+
 
 async def handle_thinking_response(text_response, contents, step, max_steps):
     """Handle a response that is determined to be intermediate thinking."""
     print(f"\n🤔 Thinking: {text_response}")
-    
+
     # Add a prompt to encourage continuing with tool calls
-    contents.append(
-        types.Content(
-            role="model",
-            parts=[types.Part(text=text_response)]
-        )
-    )
+    contents.append(types.Content(role="model", parts=[types.Part(text=text_response)]))
     contents.append(
         types.Content(
             role="user",
-            parts=[types.Part(text="""
+            parts=[
+                types.Part(
+                    text="""
 This is not a complete answer yet. Continue executing the plan by making additional tool calls.
 DO NOT stop here - use the appropriate tools to gather more information and complete the task.
 What is your next step? Make a tool call now to continue your investigation.
@@ -319,10 +347,12 @@ REMEMBER:
 - Saying what you found and what you'll do next is NOT a final answer - make the tool call to continue.
 - Phrases like "Phase 1:" or "I understand" or "I will execute the plan" indicate you should continue with tool calls.
 """
-            )]
+                )
+            ],
         )
     )
     return contents
+
 
 async def handle_tool_call(function_call, session, contents):
     """Execute a tool call and add the results to the conversation."""
@@ -334,10 +364,7 @@ async def handle_tool_call(function_call, session, contents):
 
         # Feed result back into conversation
         contents.append(
-            types.Content(
-                role="model",
-                parts=[types.Part(function_call=function_call)]
-            )
+            types.Content(role="model", parts=[types.Part(function_call=function_call)])
         )
         contents.append(
             types.Content(
@@ -346,22 +373,21 @@ async def handle_tool_call(function_call, session, contents):
                     types.Part(
                         function_response=types.FunctionResponse(
                             name=function_call.name,
-                            response=tool_result if isinstance(tool_result, dict) else {"result": str(tool_result)}
+                            response=tool_result
+                            if isinstance(tool_result, dict)
+                            else {"result": str(tool_result)},
                         )
                     )
-                ]
+                ],
             )
         )
         return contents, None
     except Exception as tool_error:
         print(f"\n❌ Error executing tool {function_call.name}: {str(tool_error)}")
-        
+
         # Feed error back into conversation
         contents.append(
-            types.Content(
-                role="model",
-                parts=[types.Part(function_call=function_call)]
-            )
+            types.Content(role="model", parts=[types.Part(function_call=function_call)])
         )
         contents.append(
             types.Content(
@@ -369,49 +395,58 @@ async def handle_tool_call(function_call, session, contents):
                 parts=[
                     types.Part(
                         function_response=types.FunctionResponse(
-                            name=function_call.name,
-                            response={"error": str(tool_error)}
+                            name=function_call.name, response={"error": str(tool_error)}
                         )
                     )
-                ]
+                ],
             )
         )
-        
+
         # Add a recovery prompt
         contents.append(
             types.Content(
                 role="user",
-                parts=[types.Part(text=f"""
+                parts=[
+                    types.Part(
+                        text=f"""
 The tool call failed with error: {str(tool_error)}
 Please try a different approach or tool to achieve the same goal.
 """
-                )]
+                    )
+                ],
             )
         )
         return contents, None
 
+
 async def generate_summary(client, contents):
     """Generate a summary of findings when max steps are reached."""
     print("\n⚠️ Reached reasoning step limit. Summarizing findings so far...")
-    
+
     try:
         contents.append(
             types.Content(
                 role="user",
-                parts=[types.Part(text="""
+                parts=[
+                    types.Part(
+                        text="""
 We've reached the maximum number of reasoning steps. Please provide a summary of what you've found so far,
 even if it's not a complete answer to the original query.
 """
-                )]
+                    )
+                ],
             )
         )
-        
+
         summary_response = client.models.generate_content(
-            model="models/gemini-2.0-flash",
-            contents=contents
+            model="models/gemini-2.0-flash", contents=contents
         )
-        
-        if summary_response and hasattr(summary_response, 'candidates') and summary_response.candidates:
+
+        if (
+            summary_response
+            and hasattr(summary_response, "candidates")
+            and summary_response.candidates
+        ):
             summary_text = summary_response.candidates[0].content.parts[0].text
             print(f"\n📝 Summary of findings:\n{summary_text}")
         else:
@@ -420,50 +455,55 @@ even if it's not a complete answer to the original query.
         print(f"\n❌ Error generating summary: {str(summary_error)}")
         print("Please review the steps above to see the information that was collected.")
 
+
 # ---- Reasoning Loop ----
+
 
 async def execute_reasoning_loop(client, session, contents, config, max_steps):
     """Execute the main reasoning loop for the agent."""
     # Create a task for proper cancellation handling
     task = asyncio.current_task()
-    
+
     try:
         for step in range(max_steps):
             if task.cancelled():
                 print("\n⚠️ Task was cancelled, cleaning up resources...")
                 break
-                
-            print(f"\n📊 Reasoning step {step+1}/{max_steps}")
-            
+
+            print(f"\n📊 Reasoning step {step + 1}/{max_steps}")
+
             try:
                 response = client.models.generate_content(
-                    model="models/gemini-2.0-flash",
-                    config=config,
-                    contents=contents
+                    model="models/gemini-2.0-flash", config=config, contents=contents
                 )
-                
+
                 # Check if response is valid
-                if not response or not hasattr(response, 'candidates') or not response.candidates:
-                    print(f"\n⚠️ Received empty or invalid response at step {step+1}. Trying to recover...")
-                    
+                if not response or not hasattr(response, "candidates") or not response.candidates:
+                    print(
+                        f"\n⚠️ Received empty or invalid response at step {step + 1}. Trying to recover..."
+                    )
+
                     # Add a recovery message to the conversation
                     contents.append(
                         types.Content(
                             role="user",
-                            parts=[types.Part(text="""
+                            parts=[
+                                types.Part(
+                                    text="""
 It seems we encountered an issue with the last response. Let's continue from where we left off.
 Please make the next logical tool call to continue gathering information for this query.
 """
-                            )]
+                                )
+                            ],
                         )
                     )
                     continue
-                
+
                 message = response.candidates[0].content.parts[0]
             except Exception as e:
                 if step < max_steps - 1:
                     # Recovery and continue
-                    print(f"\n❌ Error at reasoning step {step+1}: {str(e)}")
+                    print(f"\n❌ Error at reasoning step {step + 1}: {str(e)}")
                     print("Attempting to recover and continue execution...")
                     contents = handle_response_error(contents, e)
                     continue
@@ -482,12 +522,14 @@ Please make the next logical tool call to continue gathering information for thi
                 else:
                     # Handle text response
                     text_response = getattr(message, "text", str(message))
-                    
+
                     # Use model to check if this is intermediate thinking rather than a final answer
                     is_thinking = await is_thinking_not_answer(text_response, client)
-                    
+
                     if is_thinking and step < max_steps - 2:  # Leave 2 steps as buffer
-                        contents = await handle_thinking_response(text_response, contents, step, max_steps)
+                        contents = await handle_thinking_response(
+                            text_response, contents, step, max_steps
+                        )
                     else:
                         # Final answer found
                         print(f"\n✅ Final answer:\n{text_response}")
@@ -512,35 +554,45 @@ Please make the next logical tool call to continue gathering information for thi
         traceback.print_exc()
         raise
 
+
 # ---- Error Handling ----
+
 
 def handle_response_error(contents, error):
     """Handle error in getting a response from the model."""
     contents.append(
         types.Content(
             role="user",
-            parts=[types.Part(text=f"""
+            parts=[
+                types.Part(
+                    text=f"""
 We encountered an error: {str(error)}
 Let's continue from where we left off. Please make the next logical tool call to continue gathering information.
 """
-            )]
+                )
+            ],
         )
     )
     return contents
+
 
 def handle_process_error(contents, error):
     """Handle error in processing the model's response."""
     contents.append(
         types.Content(
             role="user",
-            parts=[types.Part(text=f"""
+            parts=[
+                types.Part(
+                    text=f"""
 We encountered an error processing the last message: {str(error)}
 Let's continue with our investigation. What is your next step? Please make a tool call.
 """
-            )]
+                )
+            ],
         )
     )
     return contents
+
 
 def print_final_error(error):
     """Print a final error message when an error occurs in the last steps."""
@@ -554,6 +606,7 @@ Please review the steps above to see the partial information that was collected.
 """
     print(f"\n✅ Final summary (after error):\n{final_summary}")
 
+
 def print_process_error(error):
     """Print a process error message when an error occurs in the last steps."""
     print("\n⚠️ Error in final steps - ending execution.")
@@ -564,7 +617,9 @@ Please review the steps above to see the partial information that was collected.
 """
     print(f"\n✅ Final summary (after error):\n{final_summary}")
 
+
 # ---- Session Setup ----
+
 
 async def setup_notion_server():
     """Set up the Notion MCP server."""
@@ -580,62 +635,64 @@ async def setup_notion_server():
         args=["-y", "@notionhq/notion-mcp-server"],
         env={
             "OPENAPI_MCP_HEADERS": f'{{"Authorization": "Bearer {notion_token}", "Notion-Version": "2022-06-28"}}'
-        }
+        },
     )
-    
+
     return notion_server, gemini_api_key
 
+
 # ---- Signal Handling ----
+
 
 def setup_signal_handlers(loop, cleanup_callback):
     """Set up signal handlers for graceful shutdown."""
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(
-            sig,
-            lambda sig=sig: asyncio.create_task(
-                cleanup_and_exit(sig, loop, cleanup_callback)
-            )
+            sig, lambda sig=sig: asyncio.create_task(cleanup_and_exit(sig, loop, cleanup_callback))
         )
+
 
 async def cleanup_and_exit(sig, loop, cleanup_callback):
     """Clean up resources and exit gracefully."""
     print(f"\n⚠️ Received signal {sig.name}, shutting down...")
-    
+
     # Call the cleanup callback if provided
     if cleanup_callback:
         try:
             await cleanup_callback()
         except Exception as e:
             print(f"Error during cleanup: {e}")
-    
+
     # Cancel all running tasks
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
     for task in tasks:
         task.cancel()
-    
+
     # Wait for all tasks to be cancelled
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     # Stop the event loop
     loop.stop()
 
+
 # ---- Main Function ----
+
 
 async def main():
     """Main function to run the Notion-Gemini integration."""
     # Get the event loop for signal handling
     loop = asyncio.get_running_loop()
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--query", required=True, help="Query to run against Notion via Gemini")
     args = parser.parse_args()
-    
+
     print(f"💬 User query: {args.query}")
-    
+
     # Set up Notion server and get API key
     notion_server, gemini_api_key = await setup_notion_server()
-    
+
     # Setup signal handlers for graceful shutdown
     tasks_to_cancel = []
     setup_signal_handlers(loop, None)  # We'll handle cleanup in the context managers
@@ -649,7 +706,7 @@ async def main():
                     {
                         "name": t.name,
                         "description": t.description,
-                        "parameters": sanitize_schema(t.inputSchema)
+                        "parameters": sanitize_schema(t.inputSchema),
                     }
                     for t in mcp_tools.tools
                 ]
@@ -659,22 +716,24 @@ async def main():
 
                 # Init Gemini client
                 client = genai.Client(api_key=gemini_api_key)
-                
+
                 # Create execution plan
-                execution_plan = await create_execution_plan(client, args.query, function_declarations)
-                
+                execution_plan = await create_execution_plan(
+                    client, args.query, function_declarations
+                )
+
                 # Set up initial conversation
                 contents = create_initial_conversation(args.query, execution_plan)
-                
+
                 # Execute reasoning loop with specified max steps
                 reasoning_task = asyncio.create_task(
                     execute_reasoning_loop(client, session, contents, config, max_steps=100)
                 )
                 tasks_to_cancel.append(reasoning_task)
-                
+
                 # Wait for the reasoning task to complete
                 await reasoning_task
-                
+
                 # Remove the completed task from our list
                 tasks_to_cancel.remove(reasoning_task)
     except KeyboardInterrupt:
@@ -691,8 +750,9 @@ async def main():
                     await task
                 except asyncio.CancelledError:
                     pass
-        
+
         print("\n👋 Exiting...")
+
 
 if __name__ == "__main__":
     # Use run with proper cleanup to avoid event loop closed errors

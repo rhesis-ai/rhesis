@@ -1,5 +1,4 @@
 from typing import Dict, List, Optional, Union
-from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -74,6 +73,7 @@ class TestResultStatsMetadata(BaseModel):
 # Mode-specific response schemas
 class TestResultStatsAll(BaseModel):
     """Complete dataset - all sections"""
+
     metric_pass_rates: Dict[str, MetricStats]
     behavior_pass_rates: Dict[str, MetricStats]
     category_pass_rates: Dict[str, MetricStats]
@@ -86,48 +86,56 @@ class TestResultStatsAll(BaseModel):
 
 class TestResultStatsSummary(BaseModel):
     """Lightweight summary - overall stats + metadata only"""
+
     overall_pass_rates: OverallStats
     metadata: TestResultStatsMetadata
 
 
 class TestResultStatsMetrics(BaseModel):
     """Individual metric pass/fail rates only"""
+
     metric_pass_rates: Dict[str, MetricStats]
     metadata: TestResultStatsMetadata
 
 
 class TestResultStatsBehavior(BaseModel):
     """Behavior pass/fail rates only"""
+
     behavior_pass_rates: Dict[str, MetricStats]
     metadata: TestResultStatsMetadata
 
 
 class TestResultStatsCategory(BaseModel):
     """Category pass/fail rates only"""
+
     category_pass_rates: Dict[str, MetricStats]
     metadata: TestResultStatsMetadata
 
 
 class TestResultStatsTopic(BaseModel):
     """Topic pass/fail rates only"""
+
     topic_pass_rates: Dict[str, MetricStats]
     metadata: TestResultStatsMetadata
 
 
 class TestResultStatsOverall(BaseModel):
     """Overall pass/fail rates only"""
+
     overall_pass_rates: OverallStats
     metadata: TestResultStatsMetadata
 
 
 class TestResultStatsTimeline(BaseModel):
     """Timeline data only"""
+
     timeline: List[TimelineData]
     metadata: TestResultStatsMetadata
 
 
 class TestResultStatsTestRuns(BaseModel):
     """Test run summary only"""
+
     test_run_summary: List[TestRunSummary]
     metadata: TestResultStatsMetadata
 
@@ -144,6 +152,7 @@ TestResultStatsResponse = Union[
     TestResultStatsTimeline,
     TestResultStatsTestRuns,
 ]
+
 
 # Test Run Stats Schemas
 class StatusDistribution(BaseModel):
@@ -201,6 +210,7 @@ class TestRunStatsMetadata(BaseModel):
 # Mode-specific test run response schemas
 class TestRunStatsAll(BaseModel):
     """Complete dataset - all sections"""
+
     status_distribution: List[StatusDistribution]
     result_distribution: ResultDistribution
     most_run_test_sets: List[TestSetRunCount]
@@ -212,36 +222,42 @@ class TestRunStatsAll(BaseModel):
 
 class TestRunStatsSummary(BaseModel):
     """Lightweight summary - overall summary + metadata only"""
+
     overall_summary: TestRunOverallSummary
     metadata: TestRunStatsMetadata
 
 
 class TestRunStatsStatus(BaseModel):
     """Status distribution only"""
+
     status_distribution: List[StatusDistribution]
     metadata: TestRunStatsMetadata
 
 
 class TestRunStatsResults(BaseModel):
     """Result distribution only"""
+
     result_distribution: ResultDistribution
     metadata: TestRunStatsMetadata
 
 
 class TestRunStatsTests(BaseModel):
     """Most run test sets only"""
+
     most_run_test_sets: List[TestSetRunCount]
     metadata: TestRunStatsMetadata
 
 
 class TestRunStatsExecutors(BaseModel):
     """Top executors only"""
+
     top_executors: List[ExecutorRunCount]
     metadata: TestRunStatsMetadata
 
 
 class TestRunStatsTimeline(BaseModel):
     """Timeline data only"""
+
     timeline: List[TestRunTimelineData]
     metadata: TestRunStatsMetadata
 

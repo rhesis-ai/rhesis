@@ -12,6 +12,7 @@ from rhesis.backend.logging import logger
 
 load_dotenv()
 
+
 def get_database_url() -> str:
     """Get the appropriate database URL based on the current mode."""
     # In test mode, prioritize SQLALCHEMY_DATABASE_TEST_URL
@@ -19,12 +20,12 @@ def get_database_url() -> str:
         test_url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL")
         if test_url:
             return test_url
-    
+
     # For production/development, use SQLALCHEMY_DATABASE_URL if available
     prod_url = os.getenv("SQLALCHEMY_DATABASE_URL")
     if prod_url:
         return prod_url
-    
+
     # Fallback: construct URL from individual components
     return _construct_database_url(is_test=os.getenv("SQLALCHEMY_DB_MODE") == "test")
 
@@ -35,17 +36,18 @@ def _construct_database_url(is_test: bool = False) -> str:
     password = os.getenv("SQLALCHEMY_DB_PASS", "")
     host = os.getenv("SQLALCHEMY_DB_HOST", "")
     db_name = os.getenv("SQLALCHEMY_DB_NAME", "")
-    
+
     # Add -test suffix for test databases
     if is_test:
         db_name += "-test"
-    
+
     # Handle Cloud SQL Unix socket connections
     if host.startswith(("/cloudsql", "/tmp/cloudsql")):
         return f"postgresql://{user}:{password}@/{db_name}?host={host}"
-    
+
     # Default to localhost TCP connection
     return f"postgresql://{user}:{password}@localhost:5432/{db_name}"
+
 
 SQLALCHEMY_DATABASE_URL = get_database_url()
 
@@ -88,10 +90,14 @@ def get_current_organization_id(session: Session) -> Optional[UUID]:
     """Get the current organization ID from the database session."""
     try:
         result = session.execute(text('SHOW "app.current_organization";')).scalar()
-        logger.debug(f"get_current_organization_id - Raw result from DB: '{result}', type: {type(result)}")
+        logger.debug(
+            f"get_current_organization_id - Raw result from DB: '{result}', type: {type(result)}"
+        )
         # Return None if result is None, empty string, or can't be converted to UUID
         if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
-            logger.debug(f"get_current_organization_id - Returning None for empty/None result: '{result}'")
+            logger.debug(
+                f"get_current_organization_id - Returning None for empty/None result: '{result}'"
+            )
             return None
         # Validate that result is a valid UUID format before converting
         try:
@@ -99,7 +105,9 @@ def get_current_organization_id(session: Session) -> Optional[UUID]:
             logger.debug(f"get_current_organization_id - Returning valid UUID: {uuid_result}")
             return uuid_result
         except (ValueError, TypeError):
-            logger.debug(f"get_current_organization_id - Invalid UUID format for organization ID: {result}")
+            logger.debug(
+                f"get_current_organization_id - Invalid UUID format for organization ID: {result}"
+            )
             return None
     except Exception as e:
         logger.debug(f"get_current_organization_id - Error getting current organization ID: {e}")
@@ -116,7 +124,7 @@ def _execute_set_tenant(
             # Validate UUID format before setting
             try:
                 UUID(organization_id)  # Validate it's a proper UUID
-                #logger.debug(f"Setting app.current_organization to: {organization_id}")
+                # logger.debug(f"Setting app.current_organization to: {organization_id}")
                 if hasattr(connection, "execute"):  # SQLAlchemy session
                     connection.execute(
                         text("SELECT set_config('app.current_organization', :org_id, false)"),
@@ -130,7 +138,9 @@ def _execute_set_tenant(
                     )
                     cursor.close()
             except (ValueError, TypeError) as uuid_error:
-                logger.debug(f"Invalid UUID format for organization_id: {organization_id}, error: {uuid_error}")
+                logger.debug(
+                    f"Invalid UUID format for organization_id: {organization_id}, error: {uuid_error}"
+                )
         else:
             pass
             # logger.debug("Not setting app.current_organization (empty or None)")
@@ -148,7 +158,9 @@ def _execute_set_tenant(
                     )
                 else:  # Raw database connection
                     cursor = connection.cursor()
-                    cursor.execute("SELECT set_config('app.current_user', %s, false)", (str(user_id),))
+                    cursor.execute(
+                        "SELECT set_config('app.current_user', %s, false)", (str(user_id),)
+                    )
                     cursor.close()
             except (ValueError, TypeError) as uuid_error:
                 logger.debug(f"Invalid UUID format for user_id: {user_id}, error: {uuid_error}")
@@ -176,7 +188,7 @@ def clear_tenant_context():
 def reset_session_context(db: Session):
     """Reset PostgreSQL session variables for row-level security."""
     try:
-        # Use set_config with NULL instead of RESET to avoid issues with 
+        # Use set_config with NULL instead of RESET to avoid issues with
         # current_user reserved keyword
         db.execute(text("SELECT set_config('app.current_organization', NULL, false)"))
         db.execute(text("SELECT set_config('app.current_user', NULL, false)"))

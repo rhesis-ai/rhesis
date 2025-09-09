@@ -49,7 +49,7 @@ async def generate_tests(
         )
 
     # Set the SDK configuration at the module level
-    rhesis.sdk.base_url = os.getenv('RHESIS_BASE_URL', "https://api.rhesis.ai")
+    rhesis.sdk.base_url = os.getenv("RHESIS_BASE_URL", "https://api.rhesis.ai")
     rhesis.sdk.api_key = tokens[0].token
 
     print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
