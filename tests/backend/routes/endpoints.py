@@ -108,6 +108,75 @@ class MetricEndpoints(BaseEntityEndpoints):
     # Base entity configuration
     _base_entity: str = "metrics"
     _id_param: str = "metric_id"
+    
+    def __post_init__(self):
+        """Initialize metric-specific endpoints"""
+        # Initialize base endpoints
+        super().__post_init__()
+        
+        # Metric-specific relationship endpoints
+        self.get_behaviors = f"/{self._base_entity}/{{{self._id_param}}}/behaviors/"
+        self.add_behavior = f"/{self._base_entity}/{{{self._id_param}}}/behaviors/{{behavior_id}}"
+        self.remove_behavior = f"/{self._base_entity}/{{{self._id_param}}}/behaviors/{{behavior_id}}"
+    
+    def behaviors(self, entity_id: str) -> str:
+        """Get metric behaviors endpoint"""
+        return self.format_path(self.get_behaviors, **{self._id_param: entity_id})
+    
+    def add_behavior_to_metric(self, entity_id: str, behavior_id: str) -> str:
+        """Add behavior to metric endpoint"""
+        return self.format_path(self.add_behavior, **{self._id_param: entity_id}, behavior_id=behavior_id)
+    
+    def remove_behavior_from_metric(self, entity_id: str, behavior_id: str) -> str:
+        """Remove behavior from metric endpoint"""
+        return self.format_path(self.remove_behavior, **{self._id_param: entity_id}, behavior_id=behavior_id)
+
+
+@dataclass
+class ModelEndpoints(BaseEntityEndpoints):
+    """Model API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "models"
+    _id_param: str = "model_id"
+    
+    def __post_init__(self):
+        """Initialize model-specific endpoints"""
+        # Initialize base endpoints
+        super().__post_init__()
+        
+        # Model-specific operation endpoints
+        self.test_connection = f"/{self._base_entity}/{{{self._id_param}}}/test"
+    
+    def test(self, entity_id: str) -> str:
+        """Test model connection endpoint"""
+        return self.format_path(self.test_connection, **{self._id_param: entity_id})
+
+
+@dataclass
+class OrganizationEndpoints(BaseEntityEndpoints):
+    """Organization API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "organizations"
+    _id_param: str = "organization_id"
+    
+    def __post_init__(self):
+        """Initialize organization-specific endpoints"""
+        # Initialize base endpoints
+        super().__post_init__()
+        
+        # Organization-specific operation endpoints
+        self.load_initial_data = f"/{self._base_entity}/{{{self._id_param}}}/load-initial-data"
+        self.rollback_initial_data = f"/{self._base_entity}/{{{self._id_param}}}/rollback-initial-data"
+    
+    def load_data(self, entity_id: str) -> str:
+        """Load initial data endpoint"""
+        return self.format_path(self.load_initial_data, **{self._id_param: entity_id})
+    
+    def rollback_data(self, entity_id: str) -> str:
+        """Rollback initial data endpoint"""
+        return self.format_path(self.rollback_initial_data, **{self._id_param: entity_id})
 
 
 @dataclass
@@ -204,6 +273,8 @@ class APIEndpoints:
     BEHAVIORS = BehaviorEndpoints()
     TOPICS = TopicEndpoints()
     METRICS = MetricEndpoints()
+    MODELS = ModelEndpoints()
+    ORGANIZATIONS = OrganizationEndpoints()
     CATEGORIES = CategoryEndpoints()
     AUTH = AuthEndpoints()
     HOME = HomeEndpoints()
@@ -213,7 +284,6 @@ class APIEndpoints:
     
     # Example of using the factory for future entities
     # PROMPTS = create_entity_endpoints("prompts")
-    # MODELS = create_entity_endpoints("models")
     
     @classmethod
     def get_all_endpoints(cls) -> Dict[str, Any]:
@@ -221,7 +291,9 @@ class APIEndpoints:
         return {
             "behaviors": cls.BEHAVIORS,
             "topics": cls.TOPICS,
-            "metrics": cls.METRICS
+            "metrics": cls.METRICS,
+            "models": cls.MODELS,
+            "organizations": cls.ORGANIZATIONS
         }
     
     @classmethod
@@ -232,12 +304,16 @@ class APIEndpoints:
             assert cls.BEHAVIORS.create.startswith("/")
             assert cls.TOPICS.create.startswith("/")
             assert cls.METRICS.create.startswith("/")
+            assert cls.MODELS.create.startswith("/")
+            assert cls.ORGANIZATIONS.create.startswith("/")
             
             # Test parameterized endpoints
             test_id = "test-id"
             assert cls.BEHAVIORS.get(test_id).endswith(test_id)
             assert cls.TOPICS.get(test_id).endswith(test_id)
             assert cls.METRICS.get(test_id).endswith(test_id)
+            assert cls.MODELS.get(test_id).endswith(test_id)
+            assert cls.ORGANIZATIONS.get(test_id).endswith(test_id)
             
             return True
         except (AssertionError, AttributeError, KeyError):
@@ -284,6 +360,8 @@ __all__ = [
     "BehaviorEndpoints", 
     "TopicEndpoints",
     "MetricEndpoints",
+    "ModelEndpoints",
+    "OrganizationEndpoints",
     "CategoryEndpoints",
     "AuthEndpoints",
     "HomeEndpoints",
