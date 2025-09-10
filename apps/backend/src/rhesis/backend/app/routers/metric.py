@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -28,13 +29,25 @@ router = APIRouter(
 def create_metric(
     metric: schemas.MetricCreate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new metric"""
-    # Set the owner to the current user if not provided
-    if not metric.owner_id:
-        metric.owner_id = current_user.id
-    return crud.create_metric(db=db, metric=metric)
+    """
+    Create metric with super optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    return crud.create_metric(
+        db=db, 
+        metric=metric, 
+        organization_id=organization_id, 
+        user_id=user_id
+    )
 
 
 @router.get("/", response_model=List[MetricDetailSchema])
@@ -74,9 +87,11 @@ def update_metric(
     metric_id: UUID,
     metric: schemas.MetricUpdate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Update a metric"""
+    organization_id, user_id = tenant_context
     db_metric = crud.get_metric(db, metric_id=metric_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
@@ -85,7 +100,13 @@ def update_metric(
     if db_metric.owner_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to update this metric")
 
-    return crud.update_metric(db=db, metric_id=metric_id, metric=metric)
+    return crud.update_metric(
+        db=db, 
+        metric_id=metric_id, 
+        metric=metric,
+        organization_id=organization_id,
+        user_id=user_id
+    )
 
 
 @router.delete("/{metric_id}", response_model=schemas.Metric)

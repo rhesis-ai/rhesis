@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 
@@ -21,15 +22,30 @@ router = APIRouter(
 def create_test_context(
     test_context: schemas.TestContextCreate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new test context"""
+    """
+    Create test context with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     # Verify that the test exists
     test = crud.get_test(db, test_id=test_context.test_id)
     if test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
-    return crud.create_test_context(db=db, test_context=test_context)
+    return crud.create_test_context(
+        db=db,
+        test_context=test_context,
+        organization_id=organization_id,
+        user_id=user_id
+    )
 
 
 @router.get("/", response_model=List[schemas.TestContext])
@@ -68,21 +84,35 @@ def update_test_context(
     test_context_id: UUID,
     test_context: schemas.TestContextUpdate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update a test context"""
-    db_test_context = crud.get_test_context(db, test_context_id=test_context_id)
+    """
+    Update test_context with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_test_context = crud.get_test_context(db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id)
     if db_test_context is None:
         raise HTTPException(status_code=404, detail="Test context not found")
 
     # If test_id is being updated, verify that the test exists
     if test_context.test_id and test_context.test_id != db_test_context.test_id:
-        test = crud.get_test(db, test_id=test_context.test_id)
+        test = crud.get_test(db, test_id=test_context.test_id, organization_id=organization_id, user_id=user_id)
         if test is None:
             raise HTTPException(status_code=404, detail="Test not found")
 
     return crud.update_test_context(
-        db=db, test_context_id=test_context_id, test_context=test_context
+        db=db, 
+        test_context_id=test_context_id, 
+        test_context=test_context,
+        organization_id=organization_id,
+        user_id=user_id
     )
 
 

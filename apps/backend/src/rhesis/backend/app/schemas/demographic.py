@@ -23,4 +23,4 @@ class DemographicUpdate(DemographicBase):
 
 
 class Demographic(DemographicBase):
-    pass
+    name: Optional[str] = None  # Allow None names in response to match database reality
