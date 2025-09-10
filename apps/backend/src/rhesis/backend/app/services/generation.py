@@ -1,23 +1,18 @@
 import asyncio
-import os
 from functools import partial
 from typing import Dict, List, Optional
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-import rhesis.sdk
-from rhesis.backend.app.crud import get_user_tokens
+# Remove the Rhesis import and import the entire sdk module
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.synthesizers import DocumentSynthesizer, PromptSynthesizer
 
+DEFAULT_MODEL = "gemini"
+
 
 async def generate_tests(
-    db: Session,
-    user: User,
-    prompt: str,
-    num_tests: int = 5,
-    documents: Optional[List[Dict]] = None
+    db: Session, user: User, prompt: str, num_tests: int = 5, documents: Optional[List[Dict]] = None
 ) -> Dict:
     """
     Generate tests using the appropriate synthesizer based on input.
@@ -40,21 +35,10 @@ async def generate_tests(
     Raises:
         HTTPException: If no valid tokens are found for the user
     """
-    # Get a valid token for the user
-    tokens = get_user_tokens(db, user.id, valid_only=True)
-    if not tokens:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No valid API tokens found. Please create a new API token.",
-        )
 
     # Set the SDK configuration at the module level
-    rhesis.sdk.base_url = os.getenv("RHESIS_BASE_URL", "https://api.rhesis.ai")
-    rhesis.sdk.api_key = tokens[0].token
-
-    print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
-
     # Choose synthesizer based on whether documents are provided
+    synthesizer = PromptSynthesizer(prompt=prompt, documents=documents, model=DEFAULT_MODEL)
     if documents:
         synthesizer = DocumentSynthesizer(prompt=prompt)
         generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
