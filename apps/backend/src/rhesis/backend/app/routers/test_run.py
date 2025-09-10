@@ -17,6 +17,7 @@ from rhesis.backend.app.services.test_run import (
     test_run_results_to_csv,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for TestRun
@@ -45,6 +46,10 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.TestRun)
+@handle_database_exceptions(
+    entity_name="test run",
+    custom_unique_message="Test run with this configuration already exists"
+)
 def create_test_run(
     test_run: schemas.TestRunCreate,
     db: Session = Depends(get_db),
@@ -319,6 +324,10 @@ def get_test_run_behaviors(
 
 
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
+@handle_database_exceptions(
+    entity_name="test run",
+    custom_unique_message="Test run with this configuration already exists"
+)
 def update_test_run(
     test_run_id: UUID,
     test_run: schemas.TestRunUpdate,

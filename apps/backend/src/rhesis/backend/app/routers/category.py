@@ -9,6 +9,7 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.odata import combine_entity_type_filter
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -24,6 +25,13 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.Category)
+@handle_database_exceptions(
+    entity_name="category",
+    custom_field_messages={
+        "parent_id": "Invalid parent category reference"
+    },
+    custom_unique_message="Category with this name already exists"
+)
 def create_category(
     category: schemas.CategoryCreate,
     db: Session = Depends(get_db),
@@ -40,33 +48,12 @@ def create_category(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    try:
-        return crud.create_category(
-            db=db, 
-            category=category, 
-            organization_id=organization_id, 
-            user_id=user_id
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        # Handle database constraint violations (like foreign key constraints)
-        error_msg = str(e)
-        if (
-            "foreign key constraint" in error_msg.lower()
-            or "violates foreign key" in error_msg.lower()
-        ):
-            if "parent_id" in error_msg.lower():
-                raise HTTPException(status_code=400, detail="Invalid parent category reference")
-            if "status_id" in error_msg.lower():
-                raise HTTPException(status_code=400, detail="Invalid status reference")
-            if "entity_type_id" in error_msg.lower():
-                raise HTTPException(status_code=400, detail="Invalid entity type reference")
-            raise HTTPException(status_code=400, detail="Invalid reference in category data")
-        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
-            raise HTTPException(status_code=400, detail="Category with this name already exists")
-        # Re-raise other database errors as 500
-        raise HTTPException(status_code=500, detail="Internal server error")
+    return crud.create_category(
+        db=db, 
+        category=category, 
+        organization_id=organization_id, 
+        user_id=user_id
+    )
 
 
 @router.get("/", response_model=list[CategoryDetailSchema])
@@ -114,6 +101,13 @@ def read_category(
 
 
 @router.put("/{category_id}", response_model=CategoryDetailSchema)
+@handle_database_exceptions(
+    entity_name="category",
+    custom_field_messages={
+        "parent_id": "Invalid parent category reference"
+    },
+    custom_unique_message="Category with this name already exists"
+)
 def update_category(
     category_id: uuid.UUID,
     category: schemas.CategoryUpdate,
@@ -131,40 +125,16 @@ def update_category(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    try:
-        db_category = crud.update_category(
-            db, 
-            category_id=category_id, 
-            category=category,
-            organization_id=organization_id,
-            user_id=user_id
-        )
-        if db_category is None:
-            raise HTTPException(status_code=404, detail="Category not found")
-        return db_category
-    except HTTPException:
-        # Re-raise HTTPExceptions (like our 404)
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        # Handle database constraint violations (like foreign key constraints)
-        error_msg = str(e)
-        if (
-            "foreign key constraint" in error_msg.lower()
-            or "violates foreign key" in error_msg.lower()
-        ):
-            if "parent_id" in error_msg.lower():
-                raise HTTPException(status_code=400, detail="Invalid parent category reference")
-            if "status_id" in error_msg.lower():
-                raise HTTPException(status_code=400, detail="Invalid status reference")
-            if "entity_type_id" in error_msg.lower():
-                raise HTTPException(status_code=400, detail="Invalid entity type reference")
-            raise HTTPException(status_code=400, detail="Invalid reference in category data")
-        if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
-            raise HTTPException(status_code=400, detail="Category with this name already exists")
-        # Re-raise other database errors as 500
-        raise HTTPException(status_code=500, detail="Internal server error")
+    db_category = crud.update_category(
+        db, 
+        category_id=category_id, 
+        category=category,
+        organization_id=organization_id,
+        user_id=user_id
+    )
+    if db_category is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return db_category
 
 
 @router.delete("/{category_id}")

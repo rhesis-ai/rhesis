@@ -12,6 +12,7 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.organization import load_initial_data, rollback_initial_data
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
 router = APIRouter(
     prefix="/organizations",
@@ -21,6 +22,10 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.Organization)
+@handle_database_exceptions(
+    entity_name="organization",
+    custom_unique_message="Organization with this name already exists"
+)
 async def create_organization(
     organization: schemas.OrganizationCreate,
     db: Session = Depends(get_db),
@@ -29,14 +34,7 @@ async def create_organization(
     if not organization.owner_id or not organization.user_id:
         raise HTTPException(status_code=400, detail="owner_id and user_id are required")
 
-    try:
-        return crud.create_organization(db=db, organization=organization)
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create organization: {str(e)}")
+    return crud.create_organization(db=db, organization=organization)
 
 
 @router.get("/", response_model=list[schemas.Organization])
@@ -105,25 +103,22 @@ def delete_organization(
 
 
 @router.put("/{organization_id}", response_model=schemas.Organization)
+@handle_database_exceptions(
+    entity_name="organization",
+    custom_unique_message="Organization with this name already exists"
+)
 def update_organization(
     organization_id: uuid.UUID,
     organization: schemas.OrganizationUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    try:
-        db_organization = crud.update_organization(
-            db, organization_id=organization_id, organization=organization
-        )
-        if db_organization is None:
-            raise HTTPException(status_code=404, detail="Organization not found")
-        return db_organization
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update organization: {str(e)}")
+    db_organization = crud.update_organization(
+        db, organization_id=organization_id, organization=organization
+    )
+    if db_organization is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return db_organization
 
 
 @router.post("/{organization_id}/load-initial-data", response_model=dict)
