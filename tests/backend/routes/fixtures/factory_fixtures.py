@@ -34,6 +34,7 @@ from .data_factories import (
     TopicDataFactory,
     CategoryDataFactory,
     MetricDataFactory,
+    ModelDataFactory,
     DimensionDataFactory
 )
 from ..endpoints import APIEndpoints
@@ -119,6 +120,14 @@ def endpoint_factory(authenticated_client: TestClient) -> Generator[EntityFactor
     factory.cleanup()
 
 
+@pytest.fixture
+def model_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
+    """🤖 Model factory with automatic cleanup"""
+    factory = create_generic_factory(authenticated_client, APIEndpoints.MODELS)
+    yield factory
+    factory.cleanup()
+
+
 # === DATA FIXTURES (NO CLEANUP NEEDED) ===
 
 @pytest.fixture
@@ -173,6 +182,12 @@ def metric_data():
 def dimension_data():
     """📏 Standard dimension test data"""
     return DimensionDataFactory.sample_data()
+
+
+@pytest.fixture
+def model_data():
+    """🤖 Standard model test data"""
+    return ModelDataFactory.sample_data()
 
 
 # === EDGE CASE DATA FIXTURES ===
@@ -314,12 +329,12 @@ def edge_case_behavior_data(request):
 __all__ = [
     # Factory fixtures
     "behavior_factory", "topic_factory", "category_factory", 
-    "metric_factory", "dimension_factory", "demographic_factory", "endpoint_factory",
+    "metric_factory", "model_factory", "dimension_factory", "demographic_factory", "endpoint_factory",
     
     # Data fixtures
     "behavior_data", "minimal_behavior_data", "behavior_update_data",
     "topic_data", "minimal_topic_data", "topic_update_data",
-    "category_data", "metric_data", "dimension_data",
+    "category_data", "metric_data", "model_data", "dimension_data",
     
     # Edge case fixtures
     "long_name_behavior_data", "special_chars_behavior_data", "unicode_behavior_data",
