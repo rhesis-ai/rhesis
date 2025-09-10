@@ -289,6 +289,17 @@ def prepare_test_data(
     uuid_fields_after = {k: v for k, v in data.items() if k.endswith("_id")}
     logger.debug(f"prepare_test_data - UUID fields after sanitization: {uuid_fields_after}")
 
+    # Merge metadata into test_configuration if present
+    metadata = data.get("metadata", {})
+    if metadata:
+        test_config = data.get("test_configuration", defaults["test"]["test_configuration"])
+        if not test_config:
+            test_config = {}
+        # Create a copy to avoid modifying defaults
+        test_config = test_config.copy()
+        test_config["metadata"] = metadata
+        data["test_configuration"] = test_config
+
     return data
 
 
