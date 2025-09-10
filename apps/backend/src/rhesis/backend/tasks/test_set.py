@@ -121,6 +121,8 @@ def generate_and_upload_test_set(
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
             For PromptSynthesizer:
                 - prompt (str, required): The generation prompt
+            For DocumentSynthesizer:
+                - prompt (str, required): The generation prompt
                 - documents (List[Dict], optional): List of documents with:
                     - name (str): Document identifier
                     - description (str): Document description
@@ -136,7 +138,7 @@ def generate_and_upload_test_set(
         # Using PromptSynthesizer
         generate_and_upload_test_set.delay(
             synthesizer_type="prompt",
-            prompt="Generate math tests",
+            prompt="Generate insurance claim tests",
             num_tests=10
         )
 
@@ -145,6 +147,18 @@ def generate_and_upload_test_set(
             synthesizer_type="paraphrasing",
             source_test_set_id="test-set-123",
             num_tests=5
+        )
+
+        # Using DocumentSynthesizer
+        generate_and_upload_test_set.delay(
+            synthesizer_type="document",
+            prompt="Generate insurance claim tests",
+            documents=[{
+                "name": "policy_doc.pdf",
+                "description": "Insurance policy terms",
+                "path": "/uploads/policy_doc.pdf"
+            }],
+            num_tests=10
         )
     """
     # Access context using the new utility method
@@ -180,14 +194,24 @@ def generate_and_upload_test_set(
         # Update task state
         self.update_state(state="PROGRESS", meta={"status": "Initializing synthesizer"})
 
-        # Convert string to enum and validate
-        try:
-            synth_type = SynthesizerType(synthesizer_type.lower())
-        except ValueError:
-            supported_types = SynthesizerFactory.get_supported_types()
-            raise ValueError(
-                f"Unsupported synthesizer type: {synthesizer_type}. Supported types: {', '.join(supported_types)}"
+        # Override synthesizer type if documents are provided
+        if synthesizer_kwargs.get("documents"):
+            # Automatically use DocumentSynthesizer when documents are provided
+            synth_type = SynthesizerType.DOCUMENT
+            self.log_with_context(
+                "info",
+                f"Documents detected, using DocumentSynthesizer instead of {synthesizer_type}",
             )
+        else:
+            # Convert string to enum and validate
+            try:
+                synth_type = SynthesizerType(synthesizer_type.lower())
+            except ValueError:
+                supported_types = SynthesizerFactory.get_supported_types()
+                raise ValueError(
+                    f"Unsupported synthesizer type: {synthesizer_type}."
+                    f"Supported types: {', '.join(supported_types)}"
+                )
 
         # Prepare synthesizer parameters based on type
         processed_kwargs = {}
