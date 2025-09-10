@@ -1022,6 +1022,11 @@ def update_organization(
     return update_item(db, models.Organization, organization_id, organization)
 
 
+def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[models.Organization]:
+    """Delete organization - requires superuser permissions (handled in router)"""
+    return delete_item(db, models.Organization, organization_id)
+
+
 # Project CRUD
 def get_project(db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Project]:
     """Get project with optimized approach - no session variables needed."""
@@ -1588,16 +1593,16 @@ def get_models(
     return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter)
 
 
-def create_model(db: Session, model: schemas.ModelCreate) -> models.Model:
-    """Create a new model"""
-    return create_item(db, models.Model, model)
+def create_model(db: Session, model: schemas.ModelCreate, organization_id: str = None, user_id: str = None) -> models.Model:
+    """Create a new model with optimized approach - no session variables needed."""
+    return create_item(db, models.Model, model, organization_id, user_id)
 
 
 def update_model(
-    db: Session, model_id: uuid.UUID, model: schemas.ModelUpdate
+    db: Session, model_id: uuid.UUID, model: schemas.ModelUpdate, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Model]:
-    """Update a model"""
-    return update_item(db, models.Model, model_id, model)
+    """Update a model with optimized approach - no session variables needed."""
+    return update_item(db, models.Model, model_id, model, organization_id, user_id)
 
 
 def delete_model(db: Session, model_id: uuid.UUID) -> Optional[models.Model]:
