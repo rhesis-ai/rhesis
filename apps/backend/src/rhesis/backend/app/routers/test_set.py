@@ -344,7 +344,12 @@ async def create_test_set_bulk(
                 "behavior": "Behavior name",
                 "category": "Category name",
                 "topic": "Topic name",
-                "test_configuration": {}  # Optional test configuration
+                "test_configuration": {}  # Optional test configuration,
+                "metadata": {
+                    "context": "Document context used for this test",
+                    "context_index": 0,
+                    "documents_used": ["doc1.pdf"]
+                    }
             }
         ]
     }
