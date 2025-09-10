@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.models.base import BaseModel
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.utils import (
@@ -24,7 +24,7 @@ class PromptSynthesizer(TestSetSynthesizer):
         batch_size: int = 20,
         system_prompt: Optional[str] = None,
         documents: Optional[List[Dict]] = None,
-        model: Optional[Union[str, BaseModel]] = None,
+        model: Optional[Union[str, BaseLLM]] = None,
     ):
         """
         Initialize the PromptSynthesizer.
