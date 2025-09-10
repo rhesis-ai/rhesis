@@ -94,11 +94,11 @@ def create_test_set_metadata(synthesizer_name: str, batch_size: int, **kwargs) -
     return base_metadata
 
 
-def create_test_set(tests: List[Dict], **metadata_kwargs) -> "TestSet":
+def create_test_set(tests: List[Dict], model: BaseLLM, **metadata_kwargs) -> "TestSet":
     """Create and configure a TestSet with metadata."""
     from rhesis.sdk.entities.test_set import TestSet
 
     metadata = create_test_set_metadata(**metadata_kwargs)
-    test_set = TestSet(tests=tests, metadata=metadata)
+    test_set = TestSet(tests=tests, metadata=metadata, model=model)
     test_set.set_properties()
     return test_set

@@ -10,7 +10,6 @@ from jinja2 import Template
 
 from rhesis.sdk.entities import BaseEntity
 from rhesis.sdk.entities.base_entity import handle_http_errors
-from rhesis.sdk.services.llm import LLMService
 from rhesis.sdk.utils import count_tokens
 
 
@@ -59,6 +58,7 @@ class TestSet(BaseEntity):
         self.short_description = fields.get("short_description", None)
         self.tests = fields.get("tests", None)
         self.metadata = fields.get("metadata", None)
+        self.model = fields.get("model", None)
 
     @handle_http_errors
     def get_tests(self, **kwargs: Any) -> list[Any]:
@@ -460,9 +460,8 @@ class TestSet(BaseEntity):
             topics=sorted(list(topics)), categories=sorted(list(categories))
         )
 
-        # Create LLM service and get response
-        llm_service = LLMService()
-        response = llm_service.run(formatted_prompt)
+        # Get response from LLLM
+        response = self.model.generate(formatted_prompt)
         # Update test set attributes
         if isinstance(response, dict):
             self.name = response.get("name")

@@ -130,6 +130,7 @@ class PromptSynthesizer(TestSetSynthesizer):
         # Use utility function to create TestSet
         return create_test_set(
             all_test_cases,
+            model=self.model,
             synthesizer_name="PromptSynthesizer",
             batch_size=self.batch_size,
             generation_prompt=self.prompt,
