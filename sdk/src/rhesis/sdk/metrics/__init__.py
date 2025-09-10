@@ -3,6 +3,7 @@
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     RhesisMetricBase,
     RhesisMetricFactory,
+    RhesisPromptMetricCategorical,
     RhesisPromptMetricNumeric,
 )
 from rhesis.sdk.metrics.providers.ragas import (  # Re-export Ragas metrics
@@ -40,7 +41,8 @@ __all__ = [
     # Rhesis metrics
     "RhesisMetricBase",
     "RhesisMetricFactory",
-    "RhesisPromptMetric",
+    "RhesisPromptMetricCategorical",
+    "RhesisPromptMetricNumeric",
     # Ragas metrics
     "RagasMetricBase",
     "RagasMetricFactory",
