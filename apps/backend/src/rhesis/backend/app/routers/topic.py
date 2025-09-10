@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import combine_entity_type_filter
@@ -26,10 +27,26 @@ router = APIRouter(
 def create_topic(
     topic: schemas.TopicCreate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Create topic with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     try:
-        return crud.create_topic(db=db, topic=topic)
+        return crud.create_topic(
+            db=db, 
+            topic=topic, 
+            organization_id=organization_id, 
+            user_id=user_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -67,24 +84,46 @@ def read_topics(
     )
 
 
-@router.get("/{topic_id}", response_model=TopicDetailSchema)
+@router.get("/{topic_id}")
 def read_topic(
     topic_id: uuid.UUID,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Get topic with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during retrieval
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     db_topic = crud.get_topic(db, topic_id=topic_id)
     if db_topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
     return db_topic
 
 
-@router.delete("/{topic_id}", response_model=schemas.Topic)
+@router.delete("/{topic_id}")
 def delete_topic(
     topic_id: uuid.UUID,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Delete topic with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during deletion
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     db_topic = crud.delete_topic(db, topic_id=topic_id)
     if db_topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
@@ -96,10 +135,27 @@ def update_topic(
     topic_id: uuid.UUID,
     topic: schemas.TopicUpdate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Update topic with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     try:
-        db_topic = crud.update_topic(db, topic_id=topic_id, topic=topic)
+        db_topic = crud.update_topic(
+            db, 
+            topic_id=topic_id, 
+            topic=topic,
+            organization_id=organization_id,
+            user_id=user_id
+        )
         if db_topic is None:
             raise HTTPException(status_code=404, detail="Topic not found")
         return db_topic

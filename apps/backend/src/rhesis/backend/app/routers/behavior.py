@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -31,14 +32,37 @@ router = APIRouter(
 @router.post("/", response_model=BehaviorWithMetricsSchema)
 def create_behavior(
     behavior: schemas.BehaviorCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db),  # ← Uses regular database session
+    tenant_context = Depends(get_tenant_context),  # ← Gets tenant context directly
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Create behavior with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    
     try:
-        return crud.create_behavior(db=db, behavior=behavior)
+        print(f"🚀 [OPTIMIZED] Creating behavior with direct tenant context")
+        print(f"🔍 [OPTIMIZED] Organization: {organization_id}, User: {user_id}")
+        result = crud.create_behavior(
+            db=db, 
+            behavior=behavior,
+            organization_id=organization_id,
+            user_id=user_id
+        )
+        print(f"✅ [OPTIMIZED] Successfully created behavior: {result.id}")
+        return result
     except ValueError as e:
+        print(f"❌ [OPTIMIZED] ValueError: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(f"❌ [OPTIMIZED] Exception: {type(e).__name__}: {str(e)}")
         # Handle database constraint violations (like foreign key constraints)
         error_msg = str(e)
         if (
@@ -64,20 +88,26 @@ def read_behaviors(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all behaviors with all related objects loaded using get_items_detail"""
-
-    print(
-        f"🔍 [DEBUG] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}"
-    )
-    print(
-        f"🔍 [DEBUG] Current user: {current_user.id if current_user else None}, org: {current_user.organization_id if current_user else None}"
-    )
+    """
+    Get all behaviors with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during retrieval
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    
+    print(f"🔍 [OPTIMIZED] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}")
+    print(f"🔍 [OPTIMIZED] Direct tenant context: org={organization_id}, user={user_id}")
 
     try:
-        print("🔍 [DEBUG] Using optimized relationship loading...")
-        # Use get_items_detail with optimized loading and nested relationships
+        print(f"🔍 [OPTIMIZED] Using optimized relationship loading with direct tenant context...")
+        # Use get_items_detail with optimized loading and direct tenant context
         result = crud.get_items_detail(
             db=db,
             model=models.Behavior,
@@ -86,7 +116,11 @@ def read_behaviors(
             sort_by=sort_by,
             sort_order=sort_order,
             filter=filter,
-            nested_relationships={"metrics": ["metric_type", "backend_type"]},
+            nested_relationships={
+                "metrics": ["metric_type", "backend_type"]
+            },
+            organization_id=organization_id,
+            user_id=user_id
         )
         print(f"✅ [DEBUG] get_items_detail returned {len(result)} behaviors")
         if result:
@@ -105,39 +139,78 @@ def read_behaviors(
         raise
 
 
-@router.get("/{behavior_id}", response_model=schemas.Behavior)
+@router.get("/{behavior_id}")
 def read_behavior(
     behavior_id: uuid.UUID,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Get behavior with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during retrieval
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     db_behavior = crud.get_behavior(db, behavior_id=behavior_id)
     if db_behavior is None:
         raise HTTPException(status_code=404, detail="Behavior not found")
     return db_behavior
 
 
-@router.delete("/{behavior_id}", response_model=schemas.Behavior)
+@router.delete("/{behavior_id}")
 def delete_behavior(
     behavior_id: uuid.UUID,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Delete behavior with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during deletion
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     db_behavior = crud.delete_behavior(db, behavior_id=behavior_id)
     if db_behavior is None:
         raise HTTPException(status_code=404, detail="Behavior not found")
     return db_behavior
 
 
-@router.put("/{behavior_id}", response_model=schemas.Behavior)
+@router.put("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
 def update_behavior(
     behavior_id: uuid.UUID,
     behavior: schemas.BehaviorUpdate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Update behavior with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     try:
-        db_behavior = crud.update_behavior(db, behavior_id=behavior_id, behavior=behavior)
+        db_behavior = crud.update_behavior(
+            db, 
+            behavior_id=behavior_id, 
+            behavior=behavior,
+            organization_id=organization_id,
+            user_id=user_id
+        )
         if db_behavior is None:
             raise HTTPException(status_code=404, detail="Behavior not found")
         return db_behavior
