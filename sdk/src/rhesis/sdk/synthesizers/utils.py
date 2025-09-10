@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from jinja2 import Template
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.services import LLMService
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.utils import extract_json_from_text
 
 
@@ -28,11 +28,11 @@ def load_prompt_template(class_name: str, custom_prompt: Optional[str] = None) -
         return Template("{{ generation_prompt }}")
 
 
-def retry_llm_call(llm_service: LLMService, prompt: str, max_attempts: int = 3) -> Any:
+def retry_llm_call(model: BaseLLM, prompt: str, max_attempts: int = 3) -> Any:
     """Retry LLM calls with error handling."""
     for attempt in range(max_attempts):
         try:
-            return llm_service.run(prompt=prompt)
+            return model.generate(prompt=prompt)
         except Exception as e:
             if attempt == max_attempts - 1:
                 raise e

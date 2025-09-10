@@ -1,9 +1,10 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.services import LLMService
+from rhesis.sdk.models.base import BaseModel
+from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
@@ -22,6 +23,8 @@ class PromptSynthesizer(TestSetSynthesizer):
         prompt: str,
         batch_size: int = 20,
         system_prompt: Optional[str] = None,
+        documents: Optional[List[Dict]] = None,
+        model: Optional[Union[str, BaseModel]] = None,
     ):
         """
         Initialize the PromptSynthesizer.
@@ -38,7 +41,10 @@ class PromptSynthesizer(TestSetSynthesizer):
         # Set system prompt using utility function
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
 
-        self.llm_service = LLMService()
+        if isinstance(model, str) or model is None:
+            self.model = get_model(model)
+        else:
+            self.model = model
 
     def _generate_batch(
         self, num_tests: int, context: Optional[str] = None
@@ -49,7 +55,7 @@ class PromptSynthesizer(TestSetSynthesizer):
         )
 
         # Use utility function for retry logic
-        response = retry_llm_call(self.llm_service, formatted_prompt)
+        response = retry_llm_call(self.model, formatted_prompt)
 
         # Use utility function for response parsing
         test_cases = parse_llm_response(response, expected_keys=["tests"])
