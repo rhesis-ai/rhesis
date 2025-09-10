@@ -29,6 +29,7 @@ from rhesis.backend.app.services.test_set import (
     get_test_set_test_stats,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
@@ -368,6 +369,10 @@ async def create_test_set_bulk(
 
 
 @router.post("/", response_model=schemas.TestSet)
+@handle_database_exceptions(
+    entity_name="test set",
+    custom_unique_message="Test set with this name already exists"
+)
 async def create_test_set(
     test_set: schemas.TestSetCreate,
     db: Session = Depends(get_db),
@@ -494,6 +499,10 @@ async def delete_test_set(
 
 @router.put("/{test_set_id}", response_model=schemas.TestSet)
 @check_resource_permission(TestSet, ResourceAction.UPDATE)
+@handle_database_exceptions(
+    entity_name="test set",
+    custom_unique_message="Test set with this name already exists"
+)
 async def update_test_set(
     test_set_id: uuid.UUID,
     test_set: schemas.TestSetUpdate,

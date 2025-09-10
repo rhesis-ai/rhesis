@@ -9,6 +9,7 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
 router = APIRouter(
     prefix="/type_lookups",
@@ -18,6 +19,10 @@ router = APIRouter(
 )
 
 
+@handle_database_exceptions(
+    entity_name="type_lookup",
+    custom_unique_message="type_lookup.py with this name already exists"
+)
 @router.post("/", response_model=schemas.TypeLookup)
 def create_type_lookup(
     type_lookup: schemas.TypeLookupCreate,

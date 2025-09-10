@@ -9,6 +9,7 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
 router = APIRouter(
     prefix="/response_patterns",
@@ -18,6 +19,10 @@ router = APIRouter(
 )
 
 
+@handle_database_exceptions(
+    entity_name="response_pattern",
+    custom_unique_message="response_pattern.py with this name already exists"
+)
 @router.post("/", response_model=schemas.ResponsePattern)
 def create_response_pattern(
     response_pattern: schemas.ResponsePatternCreate,

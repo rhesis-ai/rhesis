@@ -9,6 +9,7 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for TestRun
@@ -23,6 +24,10 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.Project)
+@handle_database_exceptions(
+    entity_name="project",
+    custom_unique_message="Project with this name already exists"
+)
 async def create_project(
     project: schemas.ProjectCreate,
     db: Session = Depends(get_db),
