@@ -1,4 +1,3 @@
-import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -8,10 +7,17 @@ import pandas as pd
 import requests
 import tqdm
 from jinja2 import Template
+from pydantic import BaseModel
 
 from rhesis.sdk.entities import BaseEntity
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.utils import count_tokens
+
+
+class TestSetProperties(BaseModel):
+    name: str
+    description: str
+    short_description: str
 
 
 class TestSet(BaseEntity):
@@ -462,8 +468,8 @@ class TestSet(BaseEntity):
         )
 
         # Get response from LLLM
-        response = self.model.generate(formatted_prompt)
-        response = json.loads(response)
+
+        response = self.model.generate(formatted_prompt, schema=TestSetProperties)
         # Update test set attributes
         if isinstance(response, dict):
             self.name = response.get("name")
