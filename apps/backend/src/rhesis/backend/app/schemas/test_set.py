@@ -82,6 +82,7 @@ class TestSetBulkCreate(BaseModel):
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = None
     tests: List[TestData]
+    metadata: Optional[Dict[str, Any]] = None
 
     @validator("owner_id", "assignee_id")
     def validate_uuid_fields(cls, v):
