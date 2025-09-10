@@ -20,19 +20,18 @@ router = APIRouter(
 
 
 @handle_database_exceptions(
-    entity_name="type_lookup",
-    custom_unique_message="type_lookup.py with this name already exists"
+    entity_name="type_lookup", custom_unique_message="type_lookup.py with this name already exists"
 )
 @router.post("/", response_model=schemas.TypeLookup)
 def create_type_lookup(
     type_lookup: schemas.TypeLookupCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create type lookup with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -41,10 +40,7 @@ def create_type_lookup(
     """
     organization_id, user_id = tenant_context
     return crud.create_type_lookup(
-        db=db,
-        type_lookup=type_lookup,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, type_lookup=type_lookup, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -70,12 +66,12 @@ def read_type_lookups(
 def read_type_lookup(
     type_lookup_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get type_lookup with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -93,12 +89,12 @@ def read_type_lookup(
 def delete_type_lookup(
     type_lookup_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete type_lookup with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -117,12 +113,12 @@ def update_type_lookup(
     type_lookup_id: uuid.UUID,
     type_lookup: schemas.TypeLookupUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update type_lookup with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -131,11 +127,11 @@ def update_type_lookup(
     """
     organization_id, user_id = tenant_context
     db_type_lookup = crud.update_type_lookup(
-        db, 
-        type_lookup_id=type_lookup_id, 
+        db,
+        type_lookup_id=type_lookup_id,
         type_lookup=type_lookup,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
     if db_type_lookup is None:
         raise HTTPException(status_code=404, detail="TypeLookup not found")

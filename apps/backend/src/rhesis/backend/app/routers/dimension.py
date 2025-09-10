@@ -21,18 +21,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Dimension)
 @handle_database_exceptions(
-    entity_name="dimension",
-    custom_unique_message="Dimension with this name already exists"
+    entity_name="dimension", custom_unique_message="Dimension with this name already exists"
 )
 def create_dimension(
-    dimension: schemas.DimensionCreate, 
+    dimension: schemas.DimensionCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create dimension with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -41,10 +40,7 @@ def create_dimension(
     """
     organization_id, user_id = tenant_context
     return crud.create_dimension(
-        db=db, 
-        dimension=dimension, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, dimension=dimension, organization_id=organization_id, user_id=user_id
     )
 
 

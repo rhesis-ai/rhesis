@@ -19,7 +19,7 @@ router = APIRouter(
 
 @handle_database_exceptions(
     entity_name="prompt_template",
-    custom_unique_message="prompt_template.py with this name already exists"
+    custom_unique_message="prompt_template.py with this name already exists",
 )
 @router.post("/", response_model=schemas.PromptTemplate)
 def create_prompt_template(template: schemas.PromptTemplate, db: Session = Depends(get_db)):

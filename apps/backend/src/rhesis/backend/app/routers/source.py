@@ -21,18 +21,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Source)
 @handle_database_exceptions(
-    entity_name="source",
-    custom_unique_message="Source with this name already exists"
+    entity_name="source", custom_unique_message="Source with this name already exists"
 )
 def create_source(
     source: schemas.SourceCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create source with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -41,10 +40,7 @@ def create_source(
     """
     organization_id, user_id = tenant_context
     return crud.create_source(
-        db=db,
-        source=source,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, source=source, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -70,12 +66,12 @@ def read_sources(
 def read_source(
     source_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get source with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -93,12 +89,12 @@ def read_source(
 def delete_source(
     source_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete source with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -117,12 +113,12 @@ def update_source(
     source_id: uuid.UUID,
     source: schemas.SourceUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update source with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed

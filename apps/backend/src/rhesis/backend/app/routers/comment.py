@@ -66,19 +66,16 @@ The structure is: {emoji_character: [list_of_user_reactions]}
 
 
 @router.post("/", response_model=schemas.Comment)
-@handle_database_exceptions(
-    entity_name="comment",
-    custom_unique_message="Comment already exists"
-)
+@handle_database_exceptions(entity_name="comment", custom_unique_message="Comment already exists")
 def create_comment(
     comment: schemas.CommentCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create comment with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -87,10 +84,7 @@ def create_comment(
     """
     organization_id, user_id = tenant_context
     return crud.create_comment(
-        db=db,
-        comment=comment,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, comment=comment, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -120,12 +114,12 @@ def read_comments(
 def read_comment(
     comment_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get comment with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -145,12 +139,12 @@ def update_comment(
     comment_id: uuid.UUID,
     comment: schemas.CommentUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update comment with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -175,12 +169,12 @@ def update_comment(
 def delete_comment(
     comment_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete comment with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed

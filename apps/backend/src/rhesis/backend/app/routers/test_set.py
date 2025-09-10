@@ -370,18 +370,17 @@ async def create_test_set_bulk(
 
 @router.post("/", response_model=schemas.TestSet)
 @handle_database_exceptions(
-    entity_name="test set",
-    custom_unique_message="Test set with this name already exists"
+    entity_name="test set", custom_unique_message="Test set with this name already exists"
 )
 async def create_test_set(
     test_set: schemas.TestSetCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create test set with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -390,10 +389,7 @@ async def create_test_set(
     """
     organization_id, user_id = tenant_context
     return crud.create_test_set(
-        db=db, 
-        test_set=test_set, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, test_set=test_set, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -500,19 +496,18 @@ async def delete_test_set(
 @router.put("/{test_set_id}", response_model=schemas.TestSet)
 @check_resource_permission(TestSet, ResourceAction.UPDATE)
 @handle_database_exceptions(
-    entity_name="test set",
-    custom_unique_message="Test set with this name already exists"
+    entity_name="test set", custom_unique_message="Test set with this name already exists"
 )
 async def update_test_set(
     test_set_id: uuid.UUID,
     test_set: schemas.TestSetUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update test_set with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -521,11 +516,11 @@ async def update_test_set(
     """
     organization_id, user_id = tenant_context
     db_test_set = crud.update_test_set(
-        db, 
-        test_set_id=test_set_id, 
+        db,
+        test_set_id=test_set_id,
         test_set=test_set,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found")

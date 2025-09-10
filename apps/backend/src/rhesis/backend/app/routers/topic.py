@@ -27,20 +27,18 @@ router = APIRouter(
 @router.post("/", response_model=schemas.Topic)
 @handle_database_exceptions(
     entity_name="topic",
-    custom_field_messages={
-        "parent_id": "Invalid parent topic reference"
-    },
-    custom_unique_message="Topic with this name already exists"
+    custom_field_messages={"parent_id": "Invalid parent topic reference"},
+    custom_unique_message="Topic with this name already exists",
 )
 def create_topic(
     topic: schemas.TopicCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create topic with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -48,12 +46,7 @@ def create_topic(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    return crud.create_topic(
-        db=db, 
-        topic=topic, 
-        organization_id=organization_id, 
-        user_id=user_id
-    )
+    return crud.create_topic(db=db, topic=topic, organization_id=organization_id, user_id=user_id)
 
 
 @router.get("/", response_model=list[TopicDetailSchema])
@@ -81,12 +74,12 @@ def read_topics(
 def read_topic(
     topic_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get topic with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -104,12 +97,12 @@ def read_topic(
 def delete_topic(
     topic_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete topic with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -126,21 +119,19 @@ def delete_topic(
 @router.put("/{topic_id}", response_model=schemas.Topic)
 @handle_database_exceptions(
     entity_name="topic",
-    custom_field_messages={
-        "parent_id": "Invalid parent topic reference"
-    },
-    custom_unique_message="Topic with this name already exists"
+    custom_field_messages={"parent_id": "Invalid parent topic reference"},
+    custom_unique_message="Topic with this name already exists",
 )
 def update_topic(
     topic_id: uuid.UUID,
     topic: schemas.TopicUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update topic with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -149,11 +140,7 @@ def update_topic(
     """
     organization_id, user_id = tenant_context
     db_topic = crud.update_topic(
-        db, 
-        topic_id=topic_id, 
-        topic=topic,
-        organization_id=organization_id,
-        user_id=user_id
+        db, topic_id=topic_id, topic=topic, organization_id=organization_id, user_id=user_id
     )
     if db_topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
