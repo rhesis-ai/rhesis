@@ -1,8 +1,8 @@
 ---
 name: "Bug Report"
 about: Report something that isn't working as expected in Rhesis AI
-title: "[Bug] <concise title>"
-labels: ["bug", "needs-triage"]
+title: "<concise title>"
+type: "Bug"
 
 ---
 
