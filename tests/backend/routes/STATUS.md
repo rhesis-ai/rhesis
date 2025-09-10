@@ -19,9 +19,9 @@ This document tracks the testing status of all backend routes/routers in the app
 | dimension | `dimension.py` | ✅ | `test_dimension.py` | Dimension management endpoints |
 | endpoint | `endpoint.py` | ✅ | `test_endpoint.py` | Endpoint configuration management |
 | home | `home.py` | ✅ | `test_home.py` | Home/dashboard endpoints |
-| metric | `metric.py` | ❌ | - | Metrics and analytics endpoints |
-| model | `model.py` | ❌ | - | Model management endpoints |
-| organization | `organization.py` | ❌ | - | Organization management endpoints |
+| metric | `metric.py` | ✅ | `test_metric.py` | Metrics and analytics endpoints |
+| model | `model.py` | ✅ | `test_model.py` | Model management endpoints |, a
+| organization | `organization.py` | ✅ | `test_organization.py` | Organization management endpoints |
 | project | `project.py` | ❌ | - | Project management endpoints |
 | prompt | `prompt.py` | ❌ | - | Prompt management endpoints |
 | prompt_template | `prompt_template.py` | ❌ | - | Prompt template endpoints |
@@ -52,9 +52,9 @@ This document tracks the testing status of all backend routes/routers in the app
 ## Summary
 
 - **Total Routers**: 29
-- **Tests Completed**: 8 (✅)
-- **Tests Missing**: 21 (❌)
-- **Completion Rate**: 27.6%
+- **Tests Completed**: 11 (✅)
+- **Tests Missing**: 18 (❌)
+- **Completion Rate**: 37.9%
 
 ### Completed Tests
 1. **auth** - Authentication and authorization functionality
@@ -64,15 +64,18 @@ This document tracks the testing status of all backend routes/routers in the app
 5. **dimension** - Dimension management functionality
 6. **endpoint** - Endpoint configuration management and invocation
 7. **home** - Home/dashboard endpoints with authentication scenarios
-8. **topic** - Topic management functionality
+8. **metric** - Metrics and analytics functionality with behavior relationships
+9. **model** - Model management functionality with connection testing
+10. **organization** - Organization management with onboarding and domain verification
+11. **topic** - Topic management functionality
 
 ### Priority for Next Tests
 Consider implementing tests for these critical routes first:
 1. **user** - User management is core functionality
-2. **organization** - Organization management affects access control
-3. **project** - Project management is likely core business logic
-4. **services** - Service endpoints may contain critical business logic
-5. **token** - Token management for API access
+2. **project** - Project management is likely core business logic
+3. **services** - Service endpoints may contain critical business logic
+4. **token** - Token management for API access
+5. **test_set** - Test set management for core testing functionality
 
 ### Testing Infrastructure
 - Base test utilities: `base.py`
