@@ -38,9 +38,17 @@ if [ -e "$SOCKET_FILE" ]; then
     sleep 1  # Give the system a moment to release the file
 fi
 
-# Start Cloud SQL Proxy
-echo -e "${GREEN}🚀 Starting Cloud SQL Proxy...${NC}"
-./cloud-sql-proxy -credential_file ./sql-proxy-key.json -dir /tmp/cloudsql -instances="$INSTANCE_CONNECTION_NAME"
+# Start Cloud SQL Proxy with optimized settings for performance
+echo -e "${GREEN}🚀 Starting Cloud SQL Proxy with performance optimizations...${NC}"
+./cloud-sql-proxy \
+  -credential_file ./sql-proxy-key.json \
+  -dir /tmp/cloudsql \
+  -instances="$INSTANCE_CONNECTION_NAME" \
+  -max_connections=100 \
+  -term_timeout=30s \
+  -structured_logs \
+  -enable_iam_login=false \
+  -verbose
 
 
 echo -e "${YELLOW}💫 Done!${NC}"
