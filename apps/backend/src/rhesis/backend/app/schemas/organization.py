@@ -33,6 +33,7 @@ class OrganizationCreate(OrganizationBase):
 
 
 class OrganizationUpdate(OrganizationBase):
+    name: Optional[str] = None  # Make name optional for updates
     email: Optional[str] = None
 
 
