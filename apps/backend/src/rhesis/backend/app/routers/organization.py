@@ -31,6 +31,8 @@ async def create_organization(
 
     try:
         return crud.create_organization(db=db, organization=organization)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -54,6 +56,8 @@ async def read_organizations(
         return crud.get_organizations(
             db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -71,6 +75,8 @@ def read_organization(
         if db_organization is None:
             raise HTTPException(status_code=404, detail="Organization not found")
         return db_organization
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -112,6 +118,8 @@ def update_organization(
         if db_organization is None:
             raise HTTPException(status_code=404, detail="Organization not found")
         return db_organization
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

@@ -79,9 +79,26 @@ def update_model(
     model_id: uuid.UUID,
     model: schemas.ModelUpdate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update a model"""
-    db_model = crud.update_model(db, model_id=model_id, model=model)
+    """
+    Update model with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_model = crud.update_model(
+        db, 
+        model_id=model_id, 
+        model=model,
+        organization_id=organization_id,
+        user_id=user_id
+    )
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return db_model
