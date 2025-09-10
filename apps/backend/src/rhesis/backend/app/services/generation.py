@@ -6,25 +6,29 @@ from typing import Dict, List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-# Remove the Rhesis import and import the entire sdk module
 import rhesis.sdk
 from rhesis.backend.app.crud import get_user_tokens
 from rhesis.backend.app.models.user import User
-from rhesis.sdk.synthesizers import PromptSynthesizer
+from rhesis.sdk.synthesizers import DocumentSynthesizer, PromptSynthesizer
 
 
 async def generate_tests(
-    db: Session, user: User, prompt: str, num_tests: int = 5, documents: Optional[List[Dict]] = None
+    db: Session,
+    user: User,
+    prompt: str,
+    num_tests: int = 5,
+    documents: Optional[List[Dict]] = None
 ) -> Dict:
     """
-    Generate tests using the prompt synthesizer.
+    Generate tests using the appropriate synthesizer based on input.
 
     Args:
         db: Database session
         user: Current user
         prompt: The generation prompt to use
         num_tests: Number of test cases to generate (default: 5)
-        documents: Optional list of document objects. Each document should contain:
+        documents: Optional list of document objects. When provided, uses DocumentSynthesizer.
+            Each document should contain:
             - name (str): Unique identifier or label for the document
             - description (str): Short description of the document's purpose or content
             - path (str): Local file path from upload endpoint
@@ -50,11 +54,17 @@ async def generate_tests(
 
     print("This is configured in Rhesis Base URL: ", rhesis.sdk.base_url)
 
-    synthesizer = PromptSynthesizer(prompt=prompt, documents=documents)
+    # Choose synthesizer based on whether documents are provided
+    if documents:
+        synthesizer = DocumentSynthesizer(prompt=prompt)
+        generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
+    else:
+        synthesizer = PromptSynthesizer(prompt=prompt)
+        generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
     # Run the potentially blocking operation in a separate thread
     # to avoid blocking the event loop
     loop = asyncio.get_event_loop()
-    test_set = await loop.run_in_executor(None, partial(synthesizer.generate, num_tests=num_tests))
+    test_set = await loop.run_in_executor(None, generate_func)
 
     return test_set.to_dict()

@@ -1,8 +1,9 @@
+"""A synthesizer that generates test cases based on a prompt using LLM."""
+
 from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.services import LLMService
-from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
@@ -21,7 +22,6 @@ class PromptSynthesizer(TestSetSynthesizer):
         prompt: str,
         batch_size: int = 20,
         system_prompt: Optional[str] = None,
-        documents: Optional[List[Dict]] = None,
     ):
         """
         Initialize the PromptSynthesizer.
@@ -30,46 +30,20 @@ class PromptSynthesizer(TestSetSynthesizer):
             batch_size: Maximum number of tests to generate in a single LLM call (reduced default
             for stability)
             system_prompt: Optional custom system prompt template to override the default
-            documents: Optional list of documents to extract content from. Each document should
-            have:
-                - name (str): Unique identifier or label for the document
-                - description (str): Short description of the document's purpose or content
-                - path (str): Local file path (optional, can be empty if content is provided)
-                - content (str): Pre-provided document content (optional)
         """
 
         super().__init__(batch_size=batch_size)
         self.prompt = prompt
-        self.documents = documents or []
-
-        # Initialize document extractor for processing document files
-        self.document_extractor = DocumentExtractor()
-
-        # Extract content from documents if provided
-        self.extracted_documents = {}
-        if self.documents:
-            try:
-                self.extracted_documents = self.document_extractor.extract(self.documents)
-            except Exception as e:
-                print(f"Warning: Failed to extract some documents: {e}")
 
         # Set system prompt using utility function
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
 
         self.llm_service = LLMService()
 
-    def _generate_batch(self, num_tests: int) -> List[Dict[str, Any]]:
+    def _generate_batch(
+        self, num_tests: int, context: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        # Prepare context for the prompt
-        context = ""
-        if self.extracted_documents:
-            context = "\n\n".join(
-                [
-                    f"Document '{name}':\n{content}"
-                    for name, content in self.extracted_documents.items()
-                ]
-            )
-
         formatted_prompt = self.system_prompt.render(
             generation_prompt=self.prompt, num_tests=num_tests, context=context
         )
@@ -90,9 +64,8 @@ class PromptSynthesizer(TestSetSynthesizer):
                     **test,
                     "metadata": {
                         "generated_by": "PromptSynthesizer",
-                        "documents_used": list(self.extracted_documents.keys())
-                        if self.extracted_documents
-                        else [],
+                        "context_used": context is not None,
+                        "context_length": len(context) if context else 0,
                     },
                 }
                 for test in valid_test_cases[:num_tests]
@@ -100,18 +73,17 @@ class PromptSynthesizer(TestSetSynthesizer):
 
         return []
 
-    def generate(self, **kwargs: Any) -> TestSet:
+    def generate(self, num_tests: int = 5, context: Optional[str] = None) -> TestSet:
         """
         Generate test cases based on the given prompt.
 
         Args:
-            **kwargs: Keyword arguments, supports:
-                num_tests (int): Total number of test cases to generate. Defaults to 5.
+            num_tests: Total number of test cases to generate. Defaults to 5.
+            context: Optional context string to use for generation.
 
         Returns:
             TestSet: A TestSet entity containing the generated test cases
         """
-        num_tests = kwargs.get("num_tests", 5)
         if not isinstance(num_tests, int):
             raise TypeError("num_tests must be an integer")
 
@@ -124,7 +96,7 @@ class PromptSynthesizer(TestSetSynthesizer):
             while remaining_tests > 0:
                 chunk_size = min(self.batch_size, remaining_tests)
                 try:
-                    chunk_tests = self._generate_batch(chunk_size)
+                    chunk_tests = self._generate_batch(chunk_size, context)
                     all_test_cases.extend(chunk_tests)
                     remaining_tests -= len(chunk_tests)
 
@@ -143,7 +115,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                         break
         else:
             # Generate all tests in a single batch
-            all_test_cases = self._generate_batch(num_tests)
+            all_test_cases = self._generate_batch(num_tests, context)
 
         # Ensure we have some test cases
         if not all_test_cases:
@@ -157,7 +129,6 @@ class PromptSynthesizer(TestSetSynthesizer):
             generation_prompt=self.prompt,
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
-            documents_used=list(self.extracted_documents.keys())
-            if self.extracted_documents
-            else [],
+            context_used=context is not None,
+            context_length=len(context) if context else 0,
         )
