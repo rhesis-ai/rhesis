@@ -32,18 +32,17 @@ router = APIRouter(
 
 @router.post("/", response_model=BehaviorWithMetricsSchema)
 @handle_database_exceptions(
-    entity_name="behavior",
-    custom_unique_message="Behavior with this name already exists"
+    entity_name="behavior", custom_unique_message="Behavior with this name already exists"
 )
 def create_behavior(
     behavior: schemas.BehaviorCreate,
     db: Session = Depends(get_db),  # ← Uses regular database session
-    tenant_context = Depends(get_tenant_context),  # ← Gets tenant context directly
+    tenant_context=Depends(get_tenant_context),  # ← Gets tenant context directly
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create behavior with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -51,14 +50,11 @@ def create_behavior(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    
+
     print(f"🚀 [OPTIMIZED] Creating behavior with direct tenant context")
     print(f"🔍 [OPTIMIZED] Organization: {organization_id}, User: {user_id}")
     result = crud.create_behavior(
-        db=db, 
-        behavior=behavior,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, behavior=behavior, organization_id=organization_id, user_id=user_id
     )
     print(f"✅ [OPTIMIZED] Successfully created behavior: {result.id}")
     return result
@@ -74,12 +70,12 @@ def read_behaviors(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get all behaviors with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -87,8 +83,10 @@ def read_behaviors(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    
-    print(f"🔍 [OPTIMIZED] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}")
+
+    print(
+        f"🔍 [OPTIMIZED] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}"
+    )
     print(f"🔍 [OPTIMIZED] Direct tenant context: org={organization_id}, user={user_id}")
 
     try:
@@ -102,11 +100,9 @@ def read_behaviors(
             sort_by=sort_by,
             sort_order=sort_order,
             filter=filter,
-            nested_relationships={
-                "metrics": ["metric_type", "backend_type"]
-            },
+            nested_relationships={"metrics": ["metric_type", "backend_type"]},
             organization_id=organization_id,
-            user_id=user_id
+            user_id=user_id,
         )
         print(f"✅ [DEBUG] get_items_detail returned {len(result)} behaviors")
         if result:
@@ -129,12 +125,12 @@ def read_behaviors(
 def read_behavior(
     behavior_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get behavior with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -152,12 +148,12 @@ def read_behavior(
 def delete_behavior(
     behavior_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete behavior with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -173,19 +169,18 @@ def delete_behavior(
 
 @router.put("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
 @handle_database_exceptions(
-    entity_name="behavior",
-    custom_unique_message="Behavior with this name already exists"
+    entity_name="behavior", custom_unique_message="Behavior with this name already exists"
 )
 def update_behavior(
     behavior_id: uuid.UUID,
     behavior: schemas.BehaviorUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update behavior with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -194,11 +189,11 @@ def update_behavior(
     """
     organization_id, user_id = tenant_context
     db_behavior = crud.update_behavior(
-        db, 
-        behavior_id=behavior_id, 
+        db,
+        behavior_id=behavior_id,
         behavior=behavior,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
     if db_behavior is None:
         raise HTTPException(status_code=404, detail="Behavior not found")

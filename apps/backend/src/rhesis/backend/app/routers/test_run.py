@@ -47,18 +47,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.TestRun)
 @handle_database_exceptions(
-    entity_name="test run",
-    custom_unique_message="Test run with this configuration already exists"
+    entity_name="test run", custom_unique_message="Test run with this configuration already exists"
 )
 def create_test_run(
     test_run: schemas.TestRunCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create test run with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -75,10 +74,7 @@ def create_test_run(
         test_run.organization_id = current_user.organization_id
 
     return crud.create_test_run(
-        db=db,
-        test_run=test_run,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, test_run=test_run, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -325,19 +321,18 @@ def get_test_run_behaviors(
 
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
 @handle_database_exceptions(
-    entity_name="test run",
-    custom_unique_message="Test run with this configuration already exists"
+    entity_name="test run", custom_unique_message="Test run with this configuration already exists"
 )
 def update_test_run(
     test_run_id: UUID,
     test_run: schemas.TestRunUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update test_run with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -345,7 +340,9 @@ def update_test_run(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_test_run = crud.get_test_run(db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
+    db_test_run = crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
@@ -354,11 +351,11 @@ def update_test_run(
         raise HTTPException(status_code=403, detail="Not authorized to update this test run")
 
     return crud.update_test_run(
-        db=db, 
-        test_run_id=test_run_id, 
+        db=db,
+        test_run_id=test_run_id,
         test_run=test_run,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
 
 

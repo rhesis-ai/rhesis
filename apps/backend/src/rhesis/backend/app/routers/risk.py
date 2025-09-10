@@ -21,18 +21,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Risk)
 @handle_database_exceptions(
-    entity_name="risk",
-    custom_unique_message="Risk with this name already exists"
+    entity_name="risk", custom_unique_message="Risk with this name already exists"
 )
 def create_risk(
     risk: schemas.RiskCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create risk with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -40,12 +39,7 @@ def create_risk(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    return crud.create_risk(
-        db=db,
-        risk=risk,
-        organization_id=organization_id,
-        user_id=user_id
-    )
+    return crud.create_risk(db=db, risk=risk, organization_id=organization_id, user_id=user_id)
 
 
 @router.get("/", response_model=list[schemas.Risk])
@@ -83,15 +77,15 @@ def delete_risk(risk_id: uuid.UUID, db: Session = Depends(get_db)):
 
 @router.put("/{risk_id}", response_model=schemas.Risk)
 def update_risk(
-    risk_id: uuid.UUID, 
-    risk: schemas.RiskUpdate, 
+    risk_id: uuid.UUID,
+    risk: schemas.RiskUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update risk with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -100,11 +94,7 @@ def update_risk(
     """
     organization_id, user_id = tenant_context
     db_risk = crud.update_risk(
-        db, 
-        risk_id=risk_id, 
-        risk=risk,
-        organization_id=organization_id,
-        user_id=user_id
+        db, risk_id=risk_id, risk=risk, organization_id=organization_id, user_id=user_id
     )
     if db_risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")

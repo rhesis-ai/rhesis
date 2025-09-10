@@ -27,20 +27,18 @@ router = APIRouter(
 @router.post("/", response_model=schemas.Category)
 @handle_database_exceptions(
     entity_name="category",
-    custom_field_messages={
-        "parent_id": "Invalid parent category reference"
-    },
-    custom_unique_message="Category with this name already exists"
+    custom_field_messages={"parent_id": "Invalid parent category reference"},
+    custom_unique_message="Category with this name already exists",
 )
 def create_category(
     category: schemas.CategoryCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create category with super optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -49,10 +47,7 @@ def create_category(
     """
     organization_id, user_id = tenant_context
     return crud.create_category(
-        db=db, 
-        category=category, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, category=category, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -81,12 +76,12 @@ def read_categories(
 def read_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get category with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -94,7 +89,9 @@ def read_category(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_category = crud.get_category(db, category_id=category_id, organization_id=organization_id, user_id=user_id)
+    db_category = crud.get_category(
+        db, category_id=category_id, organization_id=organization_id, user_id=user_id
+    )
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return db_category
@@ -103,21 +100,19 @@ def read_category(
 @router.put("/{category_id}", response_model=CategoryDetailSchema)
 @handle_database_exceptions(
     entity_name="category",
-    custom_field_messages={
-        "parent_id": "Invalid parent category reference"
-    },
-    custom_unique_message="Category with this name already exists"
+    custom_field_messages={"parent_id": "Invalid parent category reference"},
+    custom_unique_message="Category with this name already exists",
 )
 def update_category(
     category_id: uuid.UUID,
     category: schemas.CategoryUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update category with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -126,11 +121,11 @@ def update_category(
     """
     organization_id, user_id = tenant_context
     db_category = crud.update_category(
-        db, 
-        category_id=category_id, 
+        db,
+        category_id=category_id,
         category=category,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -141,12 +136,12 @@ def update_category(
 def delete_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete category with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed

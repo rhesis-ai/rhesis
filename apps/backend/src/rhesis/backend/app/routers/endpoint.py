@@ -32,18 +32,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Endpoint)
 @handle_database_exceptions(
-    entity_name="endpoint",
-    custom_unique_message="Endpoint with this name already exists"
+    entity_name="endpoint", custom_unique_message="Endpoint with this name already exists"
 )
 def create_endpoint(
     endpoint: schemas.EndpointCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create endpoint with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -52,10 +51,7 @@ def create_endpoint(
     """
     organization_id, user_id = tenant_context
     return crud.create_endpoint(
-        db=db,
-        endpoint=endpoint,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, endpoint=endpoint, organization_id=organization_id, user_id=user_id
     )
 
 

@@ -21,18 +21,18 @@ router = APIRouter(
 
 @handle_database_exceptions(
     entity_name="response_pattern",
-    custom_unique_message="response_pattern.py with this name already exists"
+    custom_unique_message="response_pattern.py with this name already exists",
 )
 @router.post("/", response_model=schemas.ResponsePattern)
 def create_response_pattern(
     response_pattern: schemas.ResponsePatternCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create response pattern with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -41,10 +41,7 @@ def create_response_pattern(
     """
     organization_id, user_id = tenant_context
     return crud.create_response_pattern(
-        db=db,
-        response_pattern=response_pattern,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, response_pattern=response_pattern, organization_id=organization_id, user_id=user_id
     )
 
 

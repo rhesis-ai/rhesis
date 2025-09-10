@@ -20,19 +20,18 @@ router = APIRouter(
 
 
 @handle_database_exceptions(
-    entity_name="use_case",
-    custom_unique_message="use_case.py with this name already exists"
+    entity_name="use_case", custom_unique_message="use_case.py with this name already exists"
 )
 @router.post("/", response_model=schemas.UseCase)
 def create_use_case(
     use_case: schemas.UseCaseCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create use case with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -41,10 +40,7 @@ def create_use_case(
     """
     organization_id, user_id = tenant_context
     return crud.create_use_case(
-        db=db,
-        use_case=use_case,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, use_case=use_case, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -70,12 +66,12 @@ def read_use_cases(
 def read_use_case(
     use_case_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get use_case with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -93,12 +89,12 @@ def read_use_case(
 def delete_use_case(
     use_case_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete use_case with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -117,12 +113,12 @@ def update_use_case(
     use_case_id: uuid.UUID,
     use_case: schemas.UseCaseUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update use_case with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -131,11 +127,11 @@ def update_use_case(
     """
     organization_id, user_id = tenant_context
     db_use_case = crud.update_use_case(
-        db, 
-        use_case_id=use_case_id, 
+        db,
+        use_case_id=use_case_id,
         use_case=use_case,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
     if db_use_case is None:
         raise HTTPException(status_code=404, detail="Use case not found")
