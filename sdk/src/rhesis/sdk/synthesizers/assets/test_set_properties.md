@@ -17,3 +17,7 @@ Requirements:
 
 ## Task:
 Now return a JSON with the test set's name, description and short description.
+Return only valid JSON. 
+Do not include explanations, comments, or extra text. 
+The JSON must be directly loadable with json.loads() therefore remove markdown formating for code
+blocks

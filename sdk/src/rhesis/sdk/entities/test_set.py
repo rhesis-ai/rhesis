@@ -462,6 +462,7 @@ class TestSet(BaseEntity):
 
         # Get response from LLLM
         response = self.model.generate(formatted_prompt)
+        response = json.loads(response)
         # Update test set attributes
         if isinstance(response, dict):
             self.name = response.get("name")
