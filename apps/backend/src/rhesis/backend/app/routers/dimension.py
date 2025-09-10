@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 
 router = APIRouter(
@@ -17,9 +19,29 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.Dimension)
-def create_dimension(dimension: schemas.DimensionCreate, db: Session = Depends(get_db)):
+def create_dimension(
+    dimension: schemas.DimensionCreate, 
+    db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Create dimension with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     try:
-        return crud.create_dimension(db=db, dimension=dimension)
+        return crud.create_dimension(
+            db=db, 
+            dimension=dimension, 
+            organization_id=organization_id, 
+            user_id=user_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

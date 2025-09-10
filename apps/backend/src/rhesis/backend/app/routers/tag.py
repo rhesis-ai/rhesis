@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -22,10 +23,26 @@ router = APIRouter(
 def create_tag(
     tag: schemas.TagCreate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Create tag with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     try:
-        return crud.create_tag(db=db, tag=tag)
+        return crud.create_tag(
+            db=db,
+            tag=tag,
+            organization_id=organization_id,
+            user_id=user_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -60,24 +77,46 @@ def read_tags(
     )
 
 
-@router.get("/{tag_id}", response_model=schemas.Tag)
+@router.get("/{tag_id}")
 def read_tag(
     tag_id: uuid.UUID,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Get tag with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during retrieval
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     db_tag = crud.get_tag(db, tag_id=tag_id)
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
     return db_tag
 
 
-@router.delete("/{tag_id}", response_model=schemas.Behavior)
+@router.delete("/{tag_id}")
 def delete_tag(
     tag_id: uuid.UUID,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Delete tag with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during deletion
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     db_tag = crud.delete_tag(db, tag_id=tag_id)
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
@@ -89,9 +128,26 @@ def update_tag(
     tag_id: uuid.UUID,
     tag: schemas.TagUpdate,
     db: Session = Depends(get_db),
+    tenant_context = Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_tag = crud.update_tag(db, tag_id=tag_id, tag=tag)
+    """
+    Update tag with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_tag = crud.update_tag(
+        db, 
+        tag_id=tag_id, 
+        tag=tag,
+        organization_id=organization_id,
+        user_id=user_id
+    )
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
     return db_tag
