@@ -223,8 +223,7 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
             get_response = authenticated_client.get(self.endpoints.get(entity_id))
             assert get_response.status_code in [
                 status.HTTP_404_NOT_FOUND,
-                status.HTTP_403_FORBIDDEN,  # RLS might prevent access to verify deletion
-                status.HTTP_500_INTERNAL_SERVER_ERROR  # Organization router wraps errors
+                status.HTTP_403_FORBIDDEN  # RLS might prevent access to verify deletion
             ]
 
     def create_entity(self, client: TestClient, data: Dict[str, Any] = None) -> Dict[str, Any]:
