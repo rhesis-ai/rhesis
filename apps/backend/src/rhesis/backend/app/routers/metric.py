@@ -28,18 +28,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Metric)
 @handle_database_exceptions(
-    entity_name="metric",
-    custom_unique_message="Metric with this name already exists"
+    entity_name="metric", custom_unique_message="Metric with this name already exists"
 )
 def create_metric(
     metric: schemas.MetricCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create metric with super optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -48,10 +47,7 @@ def create_metric(
     """
     organization_id, user_id = tenant_context
     return crud.create_metric(
-        db=db, 
-        metric=metric, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, metric=metric, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -89,14 +85,13 @@ def read_metric(
 
 @router.put("/{metric_id}", response_model=schemas.Metric)
 @handle_database_exceptions(
-    entity_name="metric",
-    custom_unique_message="Metric with this name already exists"
+    entity_name="metric", custom_unique_message="Metric with this name already exists"
 )
 def update_metric(
     metric_id: UUID,
     metric: schemas.MetricUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Update a metric"""
@@ -110,11 +105,7 @@ def update_metric(
         raise HTTPException(status_code=403, detail="Not authorized to update this metric")
 
     return crud.update_metric(
-        db=db, 
-        metric_id=metric_id, 
-        metric=metric,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id
     )
 
 

@@ -23,8 +23,7 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Organization)
 @handle_database_exceptions(
-    entity_name="organization",
-    custom_unique_message="Organization with this name already exists"
+    entity_name="organization", custom_unique_message="Organization with this name already exists"
 )
 async def create_organization(
     organization: schemas.OrganizationCreate,
@@ -104,8 +103,7 @@ def delete_organization(
 
 @router.put("/{organization_id}", response_model=schemas.Organization)
 @handle_database_exceptions(
-    entity_name="organization",
-    custom_unique_message="Organization with this name already exists"
+    entity_name="organization", custom_unique_message="Organization with this name already exists"
 )
 def update_organization(
     organization_id: uuid.UUID,

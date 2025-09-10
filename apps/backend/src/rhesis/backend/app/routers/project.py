@@ -25,18 +25,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Project)
 @handle_database_exceptions(
-    entity_name="project",
-    custom_unique_message="Project with this name already exists"
+    entity_name="project", custom_unique_message="Project with this name already exists"
 )
 async def create_project(
     project: schemas.ProjectCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create project with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -44,7 +43,7 @@ async def create_project(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    
+
     # Set the current user as the creator if not specified
     if not project.user_id:
         project.user_id = current_user.id
@@ -54,10 +53,7 @@ async def create_project(
         project.owner_id = current_user.id
 
     return crud.create_project(
-        db=db, 
-        project=project, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, project=project, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -83,12 +79,12 @@ async def read_projects(
 def read_project(
     project_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get project with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -116,12 +112,12 @@ def update_project(
     project_id: uuid.UUID,
     project: schemas.ProjectUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update project with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -144,12 +140,12 @@ def update_project(
 def delete_project(
     project_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete project with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed

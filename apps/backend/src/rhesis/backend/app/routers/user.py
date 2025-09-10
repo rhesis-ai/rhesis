@@ -30,8 +30,7 @@ router = APIRouter(
 @router.post("/", response_model=schemas.User)
 @user_limiter.limit(INVITATION_RATE_LIMIT)
 @handle_database_exceptions(
-    entity_name="user",
-    custom_unique_message="User with this email already exists"
+    entity_name="user", custom_unique_message="User with this email already exists"
 )
 async def create_user(
     request: Request,
@@ -163,8 +162,7 @@ def delete_user(
 
 @router.put("/{user_id}", response_model=schemas.User)
 @handle_database_exceptions(
-    entity_name="user",
-    custom_unique_message="User with this email already exists"
+    entity_name="user", custom_unique_message="User with this email already exists"
 )
 def update_user(
     user_id: uuid.UUID,

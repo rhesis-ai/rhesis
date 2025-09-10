@@ -26,18 +26,17 @@ router = APIRouter(
 
 @router.post("/", response_model=StatusDetailSchema)
 @handle_database_exceptions(
-    entity_name="status",
-    custom_unique_message="Status with this name already exists"
+    entity_name="status", custom_unique_message="Status with this name already exists"
 )
 def create_status(
     status: schemas.StatusCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create status with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -46,10 +45,7 @@ def create_status(
     """
     organization_id, user_id = tenant_context
     return crud.create_status(
-        db=db,
-        status=status,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, status=status, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -78,12 +74,12 @@ def read_statuses(
 def read_status(
     status_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get status with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -101,12 +97,12 @@ def read_status(
 def delete_status(
     status_id: uuid.UUID,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Delete status with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -125,12 +121,12 @@ def update_status(
     status_id: uuid.UUID,
     status: schemas.StatusUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update status with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed

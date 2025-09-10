@@ -27,18 +27,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Test)
 @handle_database_exceptions(
-    entity_name="test",
-    custom_unique_message="Test with this name already exists"
+    entity_name="test", custom_unique_message="Test with this name already exists"
 )
 def create_test(
     test: schemas.TestCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create test with super optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -46,12 +45,7 @@ def create_test(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    return crud.create_test(
-        db=db, 
-        test=test, 
-        organization_id=organization_id, 
-        user_id=user_id
-    )
+    return crud.create_test(db=db, test=test, organization_id=organization_id, user_id=user_id)
 
 
 @router.post("/bulk", response_model=schemas.TestBulkCreateResponse)
@@ -180,12 +174,12 @@ def update_test(
     test_id: UUID,
     test: schemas.TestUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update test with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -202,11 +196,7 @@ def update_test(
         raise HTTPException(status_code=403, detail="Not authorized to update this test")
 
     return crud.update_test(
-        db=db, 
-        test_id=test_id, 
-        test=test,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, test_id=test_id, test=test, organization_id=organization_id, user_id=user_id
     )
 
 

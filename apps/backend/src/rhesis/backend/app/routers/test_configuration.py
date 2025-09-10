@@ -31,17 +31,17 @@ router = APIRouter(
 @router.post("/", response_model=schemas.TestConfiguration)
 @handle_database_exceptions(
     entity_name="test configuration",
-    custom_unique_message="test configuration with this name already exists"
+    custom_unique_message="test configuration with this name already exists",
 )
 def create_test_configuration(
     test_configuration: schemas.TestConfigurationCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create test configuration with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -49,7 +49,7 @@ def create_test_configuration(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    
+
     # Set the user_id to the current user if not provided
     if not test_configuration.user_id:
         test_configuration.user_id = current_user.id
@@ -62,7 +62,7 @@ def create_test_configuration(
         db=db,
         test_configuration=test_configuration,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
 
 
@@ -105,12 +105,12 @@ def update_test_configuration(
     test_configuration_id: UUID,
     test_configuration: schemas.TestConfigurationUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update test_configuration with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -131,11 +131,11 @@ def update_test_configuration(
         )
 
     return crud.update_test_configuration(
-        db=db, 
-        test_configuration_id=test_configuration_id, 
+        db=db,
+        test_configuration_id=test_configuration_id,
         test_configuration=test_configuration,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
 
 

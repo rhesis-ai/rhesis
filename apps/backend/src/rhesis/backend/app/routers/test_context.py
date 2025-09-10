@@ -21,18 +21,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.TestContext)
 @handle_database_exceptions(
-    entity_name="test context",
-    custom_unique_message="test context with this name already exists"
+    entity_name="test context", custom_unique_message="test context with this name already exists"
 )
 def create_test_context(
     test_context: schemas.TestContextCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create test context with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -46,10 +45,7 @@ def create_test_context(
         raise HTTPException(status_code=404, detail="Test not found")
 
     return crud.create_test_context(
-        db=db,
-        test_context=test_context,
-        organization_id=organization_id,
-        user_id=user_id
+        db=db, test_context=test_context, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -89,12 +85,12 @@ def update_test_context(
     test_context_id: UUID,
     test_context: schemas.TestContextUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update test_context with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -102,22 +98,26 @@ def update_test_context(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_test_context = crud.get_test_context(db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id)
+    db_test_context = crud.get_test_context(
+        db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_context is None:
         raise HTTPException(status_code=404, detail="Test context not found")
 
     # If test_id is being updated, verify that the test exists
     if test_context.test_id and test_context.test_id != db_test_context.test_id:
-        test = crud.get_test(db, test_id=test_context.test_id, organization_id=organization_id, user_id=user_id)
+        test = crud.get_test(
+            db, test_id=test_context.test_id, organization_id=organization_id, user_id=user_id
+        )
         if test is None:
             raise HTTPException(status_code=404, detail="Test not found")
 
     return crud.update_test_context(
-        db=db, 
-        test_context_id=test_context_id, 
+        db=db,
+        test_context_id=test_context_id,
         test_context=test_context,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
 
 

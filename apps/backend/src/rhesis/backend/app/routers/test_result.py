@@ -39,18 +39,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.TestResult)
 @handle_database_exceptions(
-    entity_name="test result",
-    custom_unique_message="test result with this name already exists"
+    entity_name="test result", custom_unique_message="test result with this name already exists"
 )
 def create_test_result(
     test_result: schemas.TestResultCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create test result with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -58,16 +57,13 @@ def create_test_result(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    
+
     # Set the user_id to the current user if not provided
     if not test_result.user_id:
         test_result.user_id = current_user.id
-    
+
     return crud.create_test_result(
-        db=db, 
-        test_result=test_result, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, test_result=test_result, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -365,12 +361,12 @@ def update_test_result(
     test_result_id: UUID,
     test_result: schemas.TestResultUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update test_result with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -378,7 +374,9 @@ def update_test_result(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_test_result = crud.get_test_result(db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)
+    db_test_result = crud.get_test_result(
+        db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
 
@@ -387,11 +385,11 @@ def update_test_result(
         raise HTTPException(status_code=403, detail="Not authorized to update this test result")
 
     return crud.update_test_result(
-        db=db, 
-        test_result_id=test_result_id, 
+        db=db,
+        test_result_id=test_result_id,
         test_result=test_result,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
 
 

@@ -21,18 +21,17 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.Demographic)
 @handle_database_exceptions(
-    entity_name="demographic",
-    custom_unique_message="Demographic with this name already exists"
+    entity_name="demographic", custom_unique_message="Demographic with this name already exists"
 )
 def create_demographic(
-    demographic: schemas.DemographicCreate, 
+    demographic: schemas.DemographicCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Create demographic with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -41,10 +40,7 @@ def create_demographic(
     """
     organization_id, user_id = tenant_context
     return crud.create_demographic(
-        db=db, 
-        demographic=demographic, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, demographic=demographic, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -83,15 +79,15 @@ def delete_demographic(demographic_id: uuid.UUID, db: Session = Depends(get_db))
 
 @router.put("/{demographic_id}", response_model=schemas.Demographic)
 def update_demographic(
-    demographic_id: uuid.UUID, 
-    demographic: schemas.DemographicUpdate, 
+    demographic_id: uuid.UUID,
+    demographic: schemas.DemographicUpdate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update demographic with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -100,11 +96,11 @@ def update_demographic(
     """
     organization_id, user_id = tenant_context
     db_demographic = crud.update_demographic(
-        db, 
-        demographic_id=demographic_id, 
+        db,
+        demographic_id=demographic_id,
         demographic=demographic,
         organization_id=organization_id,
-        user_id=user_id
+        user_id=user_id,
     )
     if db_demographic is None:
         raise HTTPException(status_code=404, detail="Demographic not found")

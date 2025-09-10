@@ -20,19 +20,18 @@ router = APIRouter(
 
 
 @handle_database_exceptions(
-    entity_name="prompt",
-    custom_unique_message="prompt.py with this name already exists"
+    entity_name="prompt", custom_unique_message="prompt.py with this name already exists"
 )
 @router.post("/", response_model=schemas.Prompt)
 def create_prompt(
-    prompt: schemas.PromptCreate, 
+    prompt: schemas.PromptCreate,
     db: Session = Depends(get_db),
-    tenant_context = Depends(get_tenant_context),
-    current_user = Depends(require_current_user_or_token),
+    tenant_context=Depends(get_tenant_context),
+    current_user=Depends(require_current_user_or_token),
 ):
     """
     Create prompt with super optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -41,10 +40,7 @@ def create_prompt(
     """
     organization_id, user_id = tenant_context
     return crud.create_prompt(
-        db=db, 
-        prompt=prompt, 
-        organization_id=organization_id, 
-        user_id=user_id
+        db=db, prompt=prompt, organization_id=organization_id, user_id=user_id
     )
 
 
