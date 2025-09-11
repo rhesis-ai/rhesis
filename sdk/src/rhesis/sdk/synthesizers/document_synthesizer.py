@@ -1,5 +1,6 @@
 import random
-from typing import List, Literal, Optional
+from pathlib import Path
+from typing import Dict, List, Literal, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
@@ -75,18 +76,23 @@ class DocumentSynthesizer(TestSetSynthesizer):
         return [base + (1 if i < remainder else 0) for i in range(num_contexts)]
 
     def _compute_coverage(
-        self, content: str, contexts: List[str], tests_per_contexts: List[int]
+        self,
+        processed_documents: List[Dict[str, str]],
+        contexts_with_sources: List[Dict[str, str]],
+        tests_per_contexts: List[int],
     ) -> tuple[float, int]:
         """Compute coverage percent and number of used contexts based on token counts."""
-        total_tokens = count_tokens(content)
-        if total_tokens is None:
+        total_tokens = sum(count_tokens(doc["content"]) for doc in processed_documents)
+        if total_tokens is None or total_tokens == 0:
             raise ValueError("Failed to count tokens - content may be malformed or invalid")
 
         used_context_tokens = 0
         used_contexts = 0
-        for i, context in enumerate(contexts):
+        for i, context_doc in enumerate(contexts_with_sources):
             if i < len(tests_per_contexts) and tests_per_contexts[i] > 0:
-                used_context_tokens += count_tokens(context)
+                context_tokens = count_tokens(context_doc["content"])
+                if context_tokens:
+                    used_context_tokens += context_tokens
                 used_contexts += 1
 
         coverage_percent = (
@@ -97,19 +103,19 @@ class DocumentSynthesizer(TestSetSynthesizer):
     def _print_generation_info(
         self,
         documents: List[Document],
-        content: str,
-        contexts: List[str],
+        processed_documents: List[Dict[str, str]],
+        contexts_with_sources: List[Dict[str, str]],
         tests_per_contexts: List[int],
         num_tests: int,
         tests_per_context: Optional[int],
     ) -> None:
         """Print informative summary about document processing and test generation plan."""
-        total_tokens = count_tokens(content)
-        if total_tokens is None:
+        total_tokens = sum(count_tokens(doc["content"]) for doc in processed_documents)
+        if total_tokens is None or total_tokens == 0:
             raise ValueError("Failed to count tokens - content may be malformed or invalid")
 
         actual_tests = sum(tests_per_contexts)
-        num_contexts = len(contexts)
+        num_contexts = len(contexts_with_sources)
 
         print("\n📄 Document Analysis:")
         print(f"   • {len(documents)} document(s) processed")
@@ -170,9 +176,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
         print()
 
-    def extract_text_from_documents(self, documents: List[Document]) -> str:
+    def process_documents(self, documents: List[Document]) -> List[Dict[str, str]]:
         """
-        Extract text from documents using the existing DocumentExtractor.
+        Process documents and extract text with source tracking.
 
         Args:
             documents: List of document dictionaries with the following keys:
@@ -182,15 +188,28 @@ class DocumentSynthesizer(TestSetSynthesizer):
                 - 'content': Raw text content of the document. Overrides 'path' if both are given.
 
         Returns:
-            Combined text from all documents, joined by a double newline ("\n\n").
+            List of dictionaries with the following keys:
+                - 'source': Source identifier (filename from path or name)
+                - 'name': Name of the document.
+                - 'description': Description of the document.
+                - 'content': Raw text content of the document.
         """
         try:
             extracted_texts = self.document_extractor.extract(documents)
-            # Join all extracted texts with a double newline
-            return "\n\n".join(extracted_texts.values())
+            return [
+                {
+                    "source": Path(doc["path"]).name if doc.get("path") else doc["name"],
+                    "name": doc["name"],
+                    "description": doc["description"],
+                    "content": content,
+                }
+                for doc in documents
+                for content in [extracted_texts.get(doc["name"])]
+                if content
+            ]
         except Exception as e:
             print(f"Warning: Failed to extract some documents: {e}")
-            return ""
+            return []
 
     def generate(
         self,
@@ -212,26 +231,38 @@ class DocumentSynthesizer(TestSetSynthesizer):
             TestSet: Generated tests with per-test context metadata and overall coverage info
         """
 
-        # Extract content from documents
-        content = self.extract_text_from_documents(documents)
+        # Process documents with source tracking
+        processed_documents = self.process_documents(documents)
 
-        # Get document names for mapping
-        document_names = [doc.name for doc in documents]
+        if not processed_documents:
+            raise ValueError("No content could be extracted from documents")
 
-        # Use the existing context_generator (returns all contexts based on token limits)
-        contexts = self.context_generator.generate_contexts(content)
+        # Generate contexts with source tracking
+        contexts_with_sources = []
+        for doc in processed_documents:
+            if doc["content"].strip():
+                doc_contexts = self.context_generator.generate_contexts(doc["content"])
+                for context in doc_contexts:
+                    contexts_with_sources.append(
+                        {
+                            "source": doc["source"],
+                            "name": doc["name"],
+                            "description": doc["description"],
+                            "content": context,
+                        }
+                    )
 
-        if not contexts:
+        if not contexts_with_sources:
             raise ValueError("No contexts could be generated from the documents")
 
         # Apply strategy: shuffle contexts if random strategy is selected
         if self.strategy == "random":
-            random.shuffle(contexts)
+            random.shuffle(contexts_with_sources)
 
         all_test_cases = []
 
         # Compute distribution of tests across contexts
-        num_contexts = len(contexts)
+        num_contexts = len(contexts_with_sources)
         if num_contexts <= 0:
             raise ValueError("No contexts available for test generation")
 
@@ -244,41 +275,53 @@ class DocumentSynthesizer(TestSetSynthesizer):
         # Inform user about test distribution
         self._print_generation_info(
             documents=documents,
-            content=content,
-            contexts=contexts,
+            processed_documents=processed_documents,
+            contexts_with_sources=contexts_with_sources,
             tests_per_contexts=tests_per_contexts,
             num_tests=num_tests,
             tests_per_context=tests_per_context,
         )
 
         # Generate tests for each context
-        for i, context in enumerate(contexts):
+        for i, context_doc in enumerate(contexts_with_sources):
             per_context = tests_per_contexts[i]
             if per_context <= 0:
                 continue
             print(
-                f"Generating tests for context {i + 1}/{len(contexts)} ({len(context)} characters)"
+                f"Generating tests for context {i + 1}/{len(contexts_with_sources)} "
+                f"({len(context_doc['content'])} characters)"
             )
 
-            result = self.prompt_synthesizer.generate(num_tests=per_context, context=context)
+            result = self.prompt_synthesizer.generate(
+                num_tests=per_context, context=context_doc["content"]
+            )
 
             # Add context and document mapping to each test
             for test in result.tests:
                 test["metadata"] = {
                     **(test.get("metadata") or {}),
+                    "sources": [
+                        {
+                            "source": context_doc["source"],
+                            "name": context_doc["name"],
+                            "description": context_doc["description"],
+                            "content": context_doc["content"],
+                        }
+                    ],
                     "generated_by": "DocumentSynthesizer",
                     "context_index": i,
-                    "context_length": len(context),
-                    "context": context,
-                    "documents_used": document_names,
+                    "context_length": len(context_doc["content"]),
                 }
 
             all_test_cases.extend(result.tests)
 
         # Compute coverage of document based on tokens for used contexts
         coverage_percent, used_contexts = self._compute_coverage(
-            content, contexts, tests_per_contexts
+            processed_documents, contexts_with_sources, tests_per_contexts
         )
+
+        # Get document names for TestSet metadata
+        document_names = [doc["name"] for doc in processed_documents]
 
         # Use the same approach as PromptSynthesizer
         return create_test_set(
@@ -291,7 +334,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
             requested_tests=num_tests,
             documents_used=document_names,
             coverage_percent=coverage_percent,
-            contexts_total=len(contexts),
+            contexts_total=len(contexts_with_sources),
             contexts_used=used_contexts,
             tests_per_context=tests_per_context,
         )
