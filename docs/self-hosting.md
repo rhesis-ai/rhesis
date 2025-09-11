@@ -105,12 +105,12 @@ If you encounter errors with `docker-compose`, you're likely using the deprecate
 
 2. **📄 Copy environment variables**
    ```bash
-   cp env.example .env
+   cp env.example .env.docker
    ```
 
 3. **⚙️ Configure environment variables**
    
-   Edit the `.env` file and update the following configurations:
+   Edit the `.env.docker` file and update the following configurations:
    - Auth0 configuration
    - JWT configuration
    - Azure OpenAI configuration
@@ -121,7 +121,7 @@ If you encounter errors with `docker-compose`, you're likely using the deprecate
 
 4. **🚀 Start all services**
    ```bash
-   docker compose up -d
+   docker compose --env-file .env.docker up -d
    ```
 
 5. **🌐 Access the applications**
@@ -171,7 +171,7 @@ The backend container startup process:
 
 ### Required Environment Variables
 
-Update your `.env` file with the following configurations:
+Update your `.env.docker` file with the following configurations:
 
 #### 🔒 Authentication & Security
 These variables configure user authentication and security for the platform:
@@ -257,10 +257,10 @@ OPENAI_MODEL_NAME=gpt-4o
 **▶️ Start services:**
 ```bash
 # Start all services in detached mode
-docker compose up -d
+docker compose --env-file .env.docker up -d
 
 # Start with logs visible
-docker compose up
+docker compose --env-file .env.docker up
 ```
 
 **⏹️ Stop services:**
@@ -275,10 +275,10 @@ docker compose down -v
 **🔄 Restart services:**
 ```bash
 # Restart all services
-docker compose restart
+docker compose --env-file .env.docker restart
 
 # Restart specific service
-docker compose restart backend
+docker compose --env-file .env.docker restart backend
 ```
 
 ### 📊 Monitoring and Logs
@@ -308,13 +308,13 @@ docker compose ps
 **🏗️ Rebuild services:**
 ```bash
 # Rebuild all services
-docker compose build
+docker compose --env-file .env.docker build
 
 # Rebuild specific service
-docker compose build backend
+docker compose --env-file .env.docker build backend
 
 # Rebuild and restart
-docker compose up -d --build
+docker compose --env-file .env.docker up -d --build
 ```
 
 ### 💾 Database Operations
@@ -354,7 +354,7 @@ docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic history"
 3. Reset database (⚠️ deletes all data):
    ```bash
    docker compose down -v
-   docker compose up -d
+   docker compose --env-file .env.docker up -d
    ```
 
 **🏥 Service Health Issues:**
@@ -428,7 +428,7 @@ docker run --rm -v rhesis_postgres_data:/data -v $(pwd):/backup alpine tar czf /
 docker run --rm -v rhesis_redis_data:/data -v $(pwd):/backup alpine tar czf /backup/redis_backup.tar.gz -C /data .
 
 # Restart services
-docker compose up -d
+docker compose --env-file .env.docker up -d
 ```
 
 ## 🆘 Support and Resources
