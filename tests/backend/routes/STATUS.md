@@ -22,8 +22,8 @@ This document tracks the testing status of all backend routes/routers in the app
 | metric | `metric.py` | ✅ | `test_metric.py` | Metrics and analytics endpoints |
 | model | `model.py` | ✅ | `test_model.py` | Model management endpoints |, a
 | organization | `organization.py` | ✅ | `test_organization.py` | Organization management endpoints |
-| project | `project.py` | ❌ | - | Project management endpoints |
-| prompt | `prompt.py` | ❌ | - | Prompt management endpoints |
+| project | `project.py` | ✅ | `test_project.py` | Project management endpoints |
+| prompt | `prompt.py` | ✅ | `test_prompt.py` | Prompt management endpoints |
 | prompt_template | `prompt_template.py` | ❌ | - | Prompt template endpoints |
 | response_pattern | `response_pattern.py` | ❌ | - | Response pattern endpoints |
 | risk | `risk.py` | ❌ | - | Risk assessment endpoints |
@@ -52,9 +52,9 @@ This document tracks the testing status of all backend routes/routers in the app
 ## Summary
 
 - **Total Routers**: 29
-- **Tests Completed**: 11 (✅)
-- **Tests Missing**: 18 (❌)
-- **Completion Rate**: 37.9%
+- **Tests Completed**: 13 (✅)
+- **Tests Missing**: 16 (❌)
+- **Completion Rate**: 44.8%
 
 ### Completed Tests
 1. **auth** - Authentication and authorization functionality
@@ -67,15 +67,17 @@ This document tracks the testing status of all backend routes/routers in the app
 8. **metric** - Metrics and analytics functionality with behavior relationships
 9. **model** - Model management functionality with connection testing
 10. **organization** - Organization management with onboarding and domain verification
-11. **topic** - Topic management functionality
+11. **project** - Project management functionality with ownership and authorization
+12. **prompt** - Prompt management functionality with multiturn conversations and relationships
+13. **topic** - Topic management functionality
 
 ### Priority for Next Tests
 Consider implementing tests for these critical routes first:
 1. **user** - User management is core functionality
-2. **project** - Project management is likely core business logic
-3. **services** - Service endpoints may contain critical business logic
-4. **token** - Token management for API access
-5. **test_set** - Test set management for core testing functionality
+2. **services** - Service endpoints may contain critical business logic
+3. **token** - Token management for API access
+4. **test_set** - Test set management for core testing functionality
+5. **prompt_template** - Prompt template management (related to completed prompt tests)
 
 ### Testing Infrastructure
 - Base test utilities: `base.py`
