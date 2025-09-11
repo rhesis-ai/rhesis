@@ -23,7 +23,6 @@ class PromptSynthesizer(TestSetSynthesizer):
         prompt: str,
         batch_size: int = 20,
         system_prompt: Optional[str] = None,
-        documents: Optional[List[Dict]] = None,
         model: Optional[Union[str, BaseLLM]] = None,
     ):
         """
