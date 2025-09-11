@@ -282,8 +282,9 @@ class APIEndpoints:
     DEMOGRAPHICS = DemographicEndpoints()
     ENDPOINTS = EndpointEndpoints()
     
-    # Example of using the factory for future entities
-    # PROMPTS = create_entity_endpoints("prompts")
+    # Project and Prompt endpoints
+    PROJECTS = create_entity_endpoints("projects")
+    PROMPTS = create_entity_endpoints("prompts")
     
     @classmethod
     def get_all_endpoints(cls) -> Dict[str, Any]:
