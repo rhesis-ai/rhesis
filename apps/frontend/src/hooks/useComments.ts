@@ -34,8 +34,19 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       const fetchedComments = await commentsClient.getComments(entityType, entityId);
       setComments(fetchedComments);
     } catch (err) {
-      setError('Failed to fetch comments');
-      console.error('Error fetching comments:', err);
+      // For mock entities (like tasks), silently handle the case where no comments exist
+      // instead of showing error notifications
+      if (entityType === 'Task') {
+        setComments([]);
+        setError(null);
+      } else {
+        setError('Failed to fetch comments');
+        console.error('Error fetching comments:', err);
+        notifications.show('Failed to fetch comments', { 
+          severity: 'error',
+          autoHideDuration: 3000
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -44,6 +55,15 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
   const createComment = useCallback(async (text: string) => {
     if (!sessionToken) {
       throw new Error('No session token available');
+    }
+
+    // For mock entities (like tasks), show a message that comments are not available
+    if (entityType === 'Task') {
+      notifications.show('Comments are not available for tasks in demo mode', { 
+        severity: 'info',
+        autoHideDuration: 3000
+      });
+      return;
     }
 
     try {
@@ -84,6 +104,15 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       throw new Error('No session token available');
     }
 
+    // For mock entities (like tasks), show a message that comments are not available
+    if (entityType === 'Task') {
+      notifications.show('Comments are not available for tasks in demo mode', { 
+        severity: 'info',
+        autoHideDuration: 3000
+      });
+      return;
+    }
+
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const commentsClient = clientFactory.getCommentsClient();
@@ -118,11 +147,20 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error editing comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, notifications]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, entityType, notifications]);
 
   const deleteComment = useCallback(async (commentId: string) => {
     if (!sessionToken) {
       throw new Error('No session token available');
+    }
+
+    // For mock entities (like tasks), show a message that comments are not available
+    if (entityType === 'Task') {
+      notifications.show('Comments are not available for tasks in demo mode', { 
+        severity: 'info',
+        autoHideDuration: 3000
+      });
+      return;
     }
 
     try {
@@ -144,11 +182,20 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error deleting comment:', err);
       throw err;
     }
-  }, [sessionToken, notifications]);
+  }, [sessionToken, entityType, notifications]);
 
   const reactToComment = useCallback(async (commentId: string, emoji: string) => {
     if (!sessionToken) {
       throw new Error('No session token available');
+    }
+
+    // For mock entities (like tasks), show a message that comments are not available
+    if (entityType === 'Task') {
+      notifications.show('Comments are not available for tasks in demo mode', { 
+        severity: 'info',
+        autoHideDuration: 3000
+      });
+      return;
     }
 
     try {
@@ -181,17 +228,16 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         }
       };
       
-      // Update local state
       setComments(prev => 
-        prev.map(comment => 
-          comment.id === commentId ? commentWithUser : comment
+        prev.map(c => 
+          c.id === commentId ? commentWithUser : c
         )
       );
     } catch (err) {
       console.error('Error reacting to comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, entityType, notifications]);
 
   useEffect(() => {
     fetchComments();

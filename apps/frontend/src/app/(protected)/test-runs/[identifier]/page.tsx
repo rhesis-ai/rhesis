@@ -8,6 +8,7 @@ import TestRunTestsGrid from './components/TestRunTestsGrid';
 import TestRunDetailsSection from './components/TestRunDetailsSection';
 import TestRunWorkflowSection from './components/TestRunWorkflowSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -100,8 +101,8 @@ export default async function TestRunPage({ params }: { params: any }) {
               />
             </Paper>
 
-            {/* Comments Section */}
-            <CommentsWrapper
+            {/* Tasks and Comments Section */}
+            <TasksAndCommentsWrapper
               entityType="TestRun"
               entityId={testRun.id}
               sessionToken={session.session_token}
