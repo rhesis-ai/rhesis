@@ -1,5 +1,6 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
@@ -14,26 +15,39 @@ from rhesis.sdk.synthesizers.utils import (
 from rhesis.sdk.utils import clean_and_validate_tests
 
 
+@dataclass
+class TestContext:
+    """Dataclass representing test context information."""
+
+    project_context: str  # Select project
+    test_behaviors: str  # Behaviors
+    test_purposes: str  # Purpose
+    key_topics: str  # Topics to cover
+    specific_requirements: str  # Describe what you want to test
+    test_type: str
+    output_format: str  # Generate prompts only
+
+
 class PromptSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a prompt using LLM."""
 
     def __init__(
         self,
-        prompt: str,
+        config: TestContext,
         batch_size: int = 20,
         system_prompt: Optional[str] = None,
     ):
         """
-        Initialize the PromptSynthesizer.
+        Initialize the config synthesizer.
         Args:
-            prompt: The generation prompt to use
+            config: The generation config to use
             batch_size: Maximum number of tests to generate in a single LLM call (reduced default
             for stability)
             system_prompt: Optional custom system prompt template to override the default
         """
 
         super().__init__(batch_size=batch_size)
-        self.prompt = prompt
+        self.config = config
 
         # Set system prompt using utility function
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
