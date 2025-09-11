@@ -6,6 +6,8 @@ from typing import Dict, List
 
 from markitdown import MarkItDown
 
+from rhesis.sdk.types import Document
+
 
 class DocumentExtractor:
     """Extract plain text from supported document files using Markitdown."""
@@ -34,7 +36,7 @@ class DocumentExtractor:
 
         self.converter = MarkItDown()
 
-    def extract(self, documents: List[Dict]) -> Dict[str, str]:
+    def extract(self, documents: List[Document]) -> Dict[str, str]:
         """
         Extract text from a list of documents.
 
@@ -56,12 +58,10 @@ class DocumentExtractor:
         extracted_texts = {}
 
         for document in documents:
-            name = document.get("name")
-            if not name:
-                raise ValueError("Document must have a 'name' field")
+            name = document.name
 
-            content = document.get("content", "")
-            path = document.get("path", "")
+            content = document.content
+            path = document.path
 
             # If content is provided, use it directly
             if content:
@@ -73,9 +73,6 @@ class DocumentExtractor:
                 extracted_text = self._extract_from_file(path)
                 extracted_texts[name] = extracted_text
                 continue
-
-            # Neither content nor path provided
-            raise ValueError(f"Document '{name}' must have either 'content' or 'path' field")
 
         return extracted_texts
 
