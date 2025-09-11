@@ -19,7 +19,8 @@ import {
   SmartToyIcon, 
   GridViewIcon, 
   ApiIcon, 
-  TerminalIcon 
+  TerminalIcon,
+  AssignmentIcon
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -115,6 +116,12 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
       segment: 'test-results',
       title: 'Test Results',
       icon: <AssessmentIcon />,
+    },
+    {
+      kind: 'page',
+      segment: 'tasks',
+      title: 'Tasks',
+      icon: <AssignmentIcon />,
     },
     {
       kind: 'page',

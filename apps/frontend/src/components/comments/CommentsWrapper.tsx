@@ -4,17 +4,19 @@ import React from 'react';
 import { Box } from '@mui/material';
 import { CommentsSection } from './CommentsSection';
 import { useComments } from '@/hooks/useComments';
+import { EntityType } from '@/types/comments';
 
 interface CommentsWrapperProps {
-  entityType: 'Test' | 'TestSet' | 'TestRun' | 'TestResult' | 'Metric' | 'Model' | 'Prompt' | 'Behavior' | 'Category';
+  entityType: EntityType;
   entityId: string;
   sessionToken: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  onCreateTask?: (commentId: string) => void;
 }
 
-export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture }: CommentsWrapperProps) {
+export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, onCreateTask }: CommentsWrapperProps) {
   const {
     comments,
     isLoading,
@@ -59,6 +61,7 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
       onEditComment={handleEditComment}
       onDeleteComment={handleDeleteComment}
       onReactToComment={handleReactToComment}
+      onCreateTask={onCreateTask}
       currentUserId={currentUserId}
       currentUserName={currentUserName}
       currentUserPicture={currentUserPicture}

@@ -22,6 +22,7 @@ interface CommentsSectionProps {
   onEditComment: (commentId: string, newText: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
   onReactToComment: (commentId: string, emoji: string) => Promise<void>;
+  onCreateTask?: (commentId: string) => void;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -36,6 +37,7 @@ export function CommentsSection({
   onEditComment,
   onDeleteComment,
   onReactToComment,
+  onCreateTask,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -125,6 +127,7 @@ export function CommentsSection({
               onEdit={handleEditComment}
               onDelete={handleDeleteComment}
               onReact={handleReactToComment}
+              onCreateTask={onCreateTask}
               currentUserId={currentUserId}
             />
           ))}

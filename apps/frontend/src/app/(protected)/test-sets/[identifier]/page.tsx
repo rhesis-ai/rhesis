@@ -3,6 +3,7 @@ import TestSetTestsGrid from './components/TestSetTestsGrid';
 import TestSetDetailsSection from './components/TestSetDetailsSection';
 import TestSetWorkflowSection from './components/TestSetWorkflowSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Added import
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
@@ -129,8 +130,8 @@ export default async function TestSetPage({ params }: { params: any }) {
               />
             </Paper>
 
-            {/* Comments Section */}
-            <CommentsWrapper
+            {/* Tasks and Comments Section */}
+            <TasksAndCommentsWrapper
               entityType="TestSet"
               entityId={testSet.id}
               sessionToken={session.session_token}

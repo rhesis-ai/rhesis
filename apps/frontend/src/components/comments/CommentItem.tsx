@@ -16,6 +16,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   EmojiEmotions as EmojiIcon,
+  Assignment as TaskIcon,
 } from '@mui/icons-material';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
@@ -29,6 +30,7 @@ interface CommentItemProps {
   onEdit: (commentId: string, newText: string) => Promise<void>;
   onDelete: (commentId: string) => Promise<void>;
   onReact: (commentId: string, emoji: string) => Promise<void>;
+  onCreateTask?: (commentId: string) => void;
   currentUserId: string;
 }
 
@@ -37,6 +39,7 @@ export function CommentItem({
   onEdit, 
   onDelete, 
   onReact, 
+  onCreateTask,
   currentUserId 
 }: CommentItemProps) {
   const theme = useTheme();
@@ -152,6 +155,22 @@ export function CommentItem({
 
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Create Task Button */}
+              {onCreateTask && (
+                <Tooltip title="Create Task from Comment">
+                  <IconButton
+                    size="small"
+                    onClick={() => onCreateTask(comment.id)}
+                    sx={{ 
+                      color: 'text.secondary',
+                      '&:hover': { color: 'warning.main' }
+                    }}
+                  >
+                    <TaskIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+
               {/* Edit/Delete Icons (only for comment owner) */}
               {canEdit && (
                 <IconButton
