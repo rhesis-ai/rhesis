@@ -63,20 +63,4 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
-          # livenessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: {{ .Values.frontend.service.targetPort }}
-          #   initialDelaySeconds: 90
-          #   periodSeconds: 30
-          #   timeoutSeconds: 10
-          #   failureThreshold: 5
-          # readinessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: {{ .Values.frontend.service.targetPort }}
-          #   initialDelaySeconds: 60
-          #   periodSeconds: 15
-          #   timeoutSeconds: 10
-          #   failureThreshold: 5
 {{- end }}
