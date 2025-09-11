@@ -1,5 +1,5 @@
 import random
-from typing import List, Literal, Optional, TypedDict, Union
+from typing import List, Literal, Optional
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
@@ -9,16 +9,8 @@ from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
+from rhesis.sdk.types import Document
 from rhesis.sdk.utils import count_tokens
-
-
-class Document(TypedDict):
-    """Document structure for the DocumentSynthesizer."""
-
-    name: str
-    description: str
-    path: Optional[str]  # File path (used if 'content' is not provided)
-    content: Optional[str]  # Raw text content (overrides 'path' if provided)
 
 
 class DocumentSynthesizer(TestSetSynthesizer):
@@ -224,7 +216,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         content = self.extract_text_from_documents(documents)
 
         # Get document names for mapping
-        document_names = [doc["name"] for doc in documents]
+        document_names = [doc.name for doc in documents]
 
         # Use the existing context_generator (returns all contexts based on token limits)
         contexts = self.context_generator.generate_contexts(content)
