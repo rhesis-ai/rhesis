@@ -31,11 +31,14 @@ __all__ = [
     # Entity factory fixtures
     "behavior_factory", "topic_factory", "category_factory", 
     "metric_factory", "model_factory", "dimension_factory", "demographic_factory", "endpoint_factory",
+    "project_factory", "prompt_factory",
     
     # Data fixtures
     "behavior_data", "minimal_behavior_data", "behavior_update_data",
     "topic_data", "minimal_topic_data", "topic_update_data",
     "category_data", "metric_data", "model_data", "dimension_data",
+    "project_data", "minimal_project_data", "project_update_data",
+    "prompt_data", "minimal_prompt_data", "prompt_update_data",
     
     # Edge case fixtures
     "long_name_behavior_data", "special_chars_behavior_data", "unicode_behavior_data",

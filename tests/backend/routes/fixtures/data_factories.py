@@ -608,6 +608,156 @@ class DimensionDataFactory(BaseDataFactory):
         }
 
 
+@dataclass
+class ProjectDataFactory(BaseDataFactory):
+    """Factory for generating project test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal project data (only required fields)"""
+        return {
+            "name": fake.catch_phrase() + " Project"
+        }
+    
+    @classmethod
+    def sample_data(cls, include_description: bool = True) -> Dict[str, Any]:
+        """
+        Generate sample project data (following working behavior pattern)
+        
+        Args:
+            include_description: Whether to include description field
+            
+        Returns:
+            Dict containing project test data
+        """
+        data = {
+            "name": fake.company() + " " + fake.bs().title() + " Project"
+        }
+        
+        if include_description:
+            data["description"] = fake.text(max_nb_chars=200)
+            
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate project update data"""
+        return {
+            "name": fake.catch_phrase() + " Updated Project",
+            "description": fake.paragraph(nb_sentences=2),
+            "icon": "🔄"
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate edge case project data"""
+        if case_type == "long_name":
+            return {
+                "name": fake.text(max_nb_chars=500).replace('\n', ' ') + " Project",
+                "description": fake.text(max_nb_chars=100)
+            }
+        elif case_type == "special_chars":
+            return {
+                "name": f"🚀 {fake.company()} with émoji & spëcial chars! Project {fake.random_element(elements=['@', '#', '$', '%'])}",
+                "description": fake.text(max_nb_chars=150)
+            }
+        elif case_type == "inactive":
+            return {
+                "name": fake.company() + " Inactive Project",
+                "description": fake.text(max_nb_chars=100)
+            }
+        
+        return cls.sample_data()
+
+
+@dataclass
+class PromptDataFactory(BaseDataFactory):
+    """Factory for generating prompt test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal prompt data (only required fields)"""
+        return {
+            "content": fake.sentence(nb_words=8),
+            "language_code": "en"
+        }
+    
+    @classmethod
+    def sample_data(cls, include_expected_response: bool = True,
+                   include_relationships: bool = True,
+                   language_code: str = "en") -> Dict[str, Any]:
+        """
+        Generate sample prompt data
+        
+        Args:
+            include_expected_response: Whether to include expected response
+            include_relationships: Whether to include relationship fields
+            language_code: Language code for the prompt
+            
+        Returns:
+            Dict containing prompt test data
+        """
+        data = {
+            "content": fake.paragraph(nb_sentences=3),
+            "language_code": language_code
+        }
+        
+        if include_expected_response:
+            data["expected_response"] = fake.paragraph(nb_sentences=2)
+        
+        # Note: Relationship fields (demographic_id, category_id, etc.) 
+        # are typically set by fixtures or test setup, not in sample data
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate prompt update data"""
+        return {
+            "content": fake.paragraph(nb_sentences=4),
+            "expected_response": fake.paragraph(nb_sentences=3),
+            "language_code": fake.random_element(elements=["en", "es", "fr", "de"])
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate edge case prompt data"""
+        if case_type == "long_content":
+            return {
+                "content": fake.text(max_nb_chars=2000),
+                "language_code": "en",
+                "expected_response": fake.text(max_nb_chars=1000)
+            }
+        elif case_type == "special_chars":
+            return {
+                "content": f"🤖 {fake.sentence()} with émoji & spëcial chars! {fake.random_element(elements=['@', '#', '$', '%'])}",
+                "language_code": "en"
+            }
+        elif case_type == "multilingual":
+            return {
+                "content": "¿Cómo estás? Comment allez-vous? Wie geht es dir?",
+                "language_code": "es",
+                "expected_response": "I am doing well, thank you!"
+            }
+        elif case_type == "multiturn":
+            return {
+                "content": fake.sentence(nb_words=10),
+                "language_code": "en",
+                # parent_id would be set by the test when creating child prompts
+            }
+        
+        return cls.sample_data()
+    
+    @classmethod
+    def conversation_data(cls, turn_number: int = 1) -> Dict[str, Any]:
+        """Generate conversation turn data for multiturn scenarios"""
+        return {
+            "content": f"Turn {turn_number}: {fake.sentence(nb_words=8)}",
+            "language_code": "en",
+            "expected_response": f"Response to turn {turn_number}: {fake.sentence(nb_words=6)}"
+        }
+
+
 # Factory registry for dynamic access
 FACTORY_REGISTRY = {
     "behavior": BehaviorDataFactory,
@@ -617,6 +767,8 @@ FACTORY_REGISTRY = {
     "model": ModelDataFactory,
     "organization": OrganizationDataFactory,
     "dimension": DimensionDataFactory,
+    "project": ProjectDataFactory,
+    "prompt": PromptDataFactory,
 }
 
 

@@ -35,7 +35,9 @@ from .data_factories import (
     CategoryDataFactory,
     MetricDataFactory,
     ModelDataFactory,
-    DimensionDataFactory
+    DimensionDataFactory,
+    ProjectDataFactory,
+    PromptDataFactory
 )
 from ..endpoints import APIEndpoints
 
@@ -128,6 +130,22 @@ def model_factory(authenticated_client: TestClient) -> Generator[EntityFactory, 
     factory.cleanup()
 
 
+@pytest.fixture
+def project_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
+    """🚀 Project factory with automatic cleanup"""
+    factory = create_generic_factory(authenticated_client, APIEndpoints.PROJECTS)
+    yield factory
+    factory.cleanup()
+
+
+@pytest.fixture
+def prompt_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
+    """🤖 Prompt factory with automatic cleanup"""
+    factory = create_generic_factory(authenticated_client, APIEndpoints.PROMPTS)
+    yield factory
+    factory.cleanup()
+
+
 # === DATA FIXTURES (NO CLEANUP NEEDED) ===
 
 @pytest.fixture
@@ -182,6 +200,42 @@ def metric_data():
 def dimension_data():
     """📏 Standard dimension test data"""
     return DimensionDataFactory.sample_data()
+
+
+@pytest.fixture
+def project_data():
+    """🚀 Sample project data"""
+    return ProjectDataFactory.sample_data()
+
+
+@pytest.fixture
+def minimal_project_data():
+    """🚀 Minimal project data"""
+    return ProjectDataFactory.minimal_data()
+
+
+@pytest.fixture
+def project_update_data():
+    """🚀 Project update data"""
+    return ProjectDataFactory.update_data()
+
+
+@pytest.fixture
+def prompt_data():
+    """🤖 Sample prompt data"""
+    return PromptDataFactory.sample_data()
+
+
+@pytest.fixture
+def minimal_prompt_data():
+    """🤖 Minimal prompt data"""
+    return PromptDataFactory.minimal_data()
+
+
+@pytest.fixture
+def prompt_update_data():
+    """🤖 Prompt update data"""
+    return PromptDataFactory.update_data()
 
 
 @pytest.fixture
@@ -243,7 +297,9 @@ def behavior_with_metrics(behavior_factory, metric_factory):
     """
     🎯📊 Behavior with associated metrics
     
-    Creates a behavior and associates it with metrics for relationship testing.
+    Creates a behavior and metrics for relationship testing.
+    Note: This creates separate entities but doesn't establish backend associations
+    since the association endpoints may not be implemented yet.
     
     Returns:
         Dict with 'behavior' and 'metrics' keys
@@ -253,13 +309,9 @@ def behavior_with_metrics(behavior_factory, metric_factory):
         MetricDataFactory.sample_data(),
         MetricDataFactory.sample_data()
     ])
-    metric_ids = [m["id"] for m in metrics]
     
-    # Create behavior with metrics
-    behavior = behavior_factory.create_with_metrics(
-        BehaviorDataFactory.sample_data(),
-        metric_ids
-    )
+    # Create behavior separately (no association for now)
+    behavior = behavior_factory.create(BehaviorDataFactory.sample_data())
     
     return {
         "behavior": behavior,
