@@ -20,6 +20,7 @@ import TestDetailData from './components/TestDetailData';
 import TestToTestSet from './components/TestToTestSet';
 import TestTags from './components/TestTags';
 import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Updated import
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 
 interface PageProps {
@@ -113,8 +114,8 @@ export default async function TestDetailPage({ params }: PageProps) {
                 </Grid>
               </Paper>
 
-              {/* Comments Section */}
-              <CommentsWrapper
+              {/* Tasks and Comments Section */}
+              <TasksAndCommentsWrapper
                 entityType="Test"
                 entityId={test.id}
                 sessionToken={session.session_token}

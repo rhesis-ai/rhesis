@@ -47,6 +47,7 @@ export { default as CheckIcon } from '@mui/icons-material/Check';
 export { default as CloseIcon } from '@mui/icons-material/Close';
 export { default as InfoIcon } from '@mui/icons-material/Info';
 export { default as SettingsIcon } from '@mui/icons-material/Settings';
+export { default as AssignmentIcon } from '@mui/icons-material/Assignment';
 
 // Common UI icons
 export { default as PersonIcon } from '@mui/icons-material/Person';
