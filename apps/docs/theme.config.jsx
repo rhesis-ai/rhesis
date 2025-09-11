@@ -3,9 +3,9 @@ import ThemeAwareLogo from './components/ThemeAwareLogo'
 export default {
   logo: <ThemeAwareLogo />,
   project: {
-    link: 'https://github.com/rhesis/rhesis',
+    link: 'https://github.com/rhesis-ai/rhesis',
   },
-  docsRepositoryBase: 'https://github.com/rhesis/rhesis',
+  docsRepositoryBase: 'https://github.com/rhesis-ai/rhesis',
   footer: {
     text: '© 2025 Rhesis AI GmbH. Made in Germany.',
   },
