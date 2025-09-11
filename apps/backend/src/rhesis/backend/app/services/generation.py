@@ -38,12 +38,11 @@ async def generate_tests(
 
     # Set the SDK configuration at the module level
     # Choose synthesizer based on whether documents are provided
-    synthesizer = PromptSynthesizer(prompt=prompt, documents=documents, model=DEFAULT_MODEL)
     if documents:
-        synthesizer = DocumentSynthesizer(prompt=prompt)
+        synthesizer = DocumentSynthesizer(prompt=prompt, model=DEFAULT_MODEL)
         generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
     else:
-        synthesizer = PromptSynthesizer(prompt=prompt)
+        synthesizer = PromptSynthesizer(prompt=prompt, model=DEFAULT_MODEL)
         generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
     # Run the potentially blocking operation in a separate thread
