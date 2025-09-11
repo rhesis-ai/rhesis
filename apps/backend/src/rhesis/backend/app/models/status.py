@@ -31,3 +31,4 @@ class Status(Base, OrganizationAndUserMixin):
     projects = relationship("Project", back_populates="status")
     metrics = relationship("Metric", back_populates="status")
     models = relationship("Model", back_populates="status")
+    tasks = relationship("Task", back_populates="status")
