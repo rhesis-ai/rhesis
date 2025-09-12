@@ -1,7 +1,9 @@
 import random
-from typing import List, Literal, Optional, TypedDict
+from typing import List, Literal, Optional, TypedDict, Union
 
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.context_generator import ContextGenerator
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
@@ -29,6 +31,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         system_prompt: Optional[str] = None,
         max_context_tokens: int = 1000,
         strategy: Literal["sequential", "random"] = "random",
+        model: Optional[Union[str, BaseLLM]] = None,
     ):
         """
         Initialize the document synthesizer.
@@ -40,7 +43,14 @@ class DocumentSynthesizer(TestSetSynthesizer):
             max_context_tokens: Maximum tokens per context used by the ContextGenerator
             strategy: Context selection strategy - "sequential" (from start) or "random" (shuffled)
         """
-        self.prompt_synthesizer = PromptSynthesizer(prompt=prompt, batch_size=batch_size)
+        if isinstance(model, str) or model is None:
+            self.model = get_model(model)
+        else:
+            self.model = model
+
+        self.prompt_synthesizer = PromptSynthesizer(
+            prompt=prompt, batch_size=batch_size, model=model
+        )
         super().__init__(batch_size=self.prompt_synthesizer.batch_size)
 
         self.context_generator = ContextGenerator(max_context_tokens=max_context_tokens)
@@ -281,6 +291,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         # Use the same approach as PromptSynthesizer
         return create_test_set(
             all_test_cases,
+            model=self.model,
             synthesizer_name="DocumentSynthesizer",
             batch_size=self.batch_size,
             generation_prompt=self.prompt_synthesizer.prompt,
