@@ -26,11 +26,18 @@ export default function ClientWrapper({ project, sessionToken, projectId }: Clie
   const router = useRouter();
   const params = useParams<{ identifier: string }>();
   const activePage = useActivePage();
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [currentProject, setCurrentProject] = useState<Project>(project);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const notifications = useNotifications();
+
+  // Create dynamic breadcrumbs based on the current project (reactive to currentProject changes)
+  const title = currentProject.name || `Project ${params.identifier}`;
   
-  // Create dynamic breadcrumbs based on the current project
-  const title = project.name || `Project ${params.identifier}`;
-  
-  // Create fallback breadcrumbs when activePage is null
+  // Create fallback breadcrumbs when activePage is null (reactive to currentProject changes)
   let breadcrumbs: Breadcrumb[] = [];
   if (activePage) {
     const path = `${activePage.path}/${params.identifier}`;
@@ -43,20 +50,21 @@ export default function ClientWrapper({ project, sessionToken, projectId }: Clie
     ];
   }
 
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [currentProject, setCurrentProject] = useState<Project>(project);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const notifications = useNotifications();
-
   const handleUpdateProject = useCallback(async (updatedProject: Partial<Project>) => {
     setIsUpdating(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const projectsClient = apiFactory.getProjectsClient();
       const response = await projectsClient.updateProject(projectId, updatedProject);
-      setCurrentProject(response);
+      
+      // Preserve the owner object from currentProject if response doesn't include it
+      const updatedProjectWithOwner = {
+        ...response,
+        owner: response.owner || currentProject.owner,
+        owner_id: response.owner_id || currentProject.owner_id
+      };
+      
+      setCurrentProject(updatedProjectWithOwner);
       setIsDrawerOpen(false);
       notifications.show('Project updated successfully', { severity: 'success' });
     } catch (error) {
@@ -64,7 +72,7 @@ export default function ClientWrapper({ project, sessionToken, projectId }: Clie
     } finally {
       setIsUpdating(false);
     }
-  }, [projectId, sessionToken, notifications]);
+  }, [projectId, sessionToken, notifications, currentProject]);
 
   const handleDeleteClick = () => {
     setDeleteConfirmOpen(true);
