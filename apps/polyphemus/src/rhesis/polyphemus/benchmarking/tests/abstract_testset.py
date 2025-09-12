@@ -1,6 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 from dataclasses import asdict
+import os
 from pathlib import Path
 from typing import List
 
@@ -34,6 +35,7 @@ class AbstractTestSet(ABC):
         self.base_path: Path = Path(__file__).parent.joinpath(
             "test_sets", self.json_file_name
         )
+        self.results_dir: Path = Path(os.path.join("results", "polyphemus", "benchmarking"))
         # Unified data structure: list of (Test, [TestResult, ...]) pairs
         self.tests: List[Test] = []
         self.models: List[BaseLLM] = []  # only need the model names
@@ -82,8 +84,8 @@ class AbstractTestSet(ABC):
         """
         results = []
         for _, model in enumerate(self.models):
-            model_results_dir = Path(__file__).parent.joinpath(
-                "results", model.model_name
+            model_results_dir = self.results_dir.joinpath(
+                model.model_name
             )
             json_path = model_results_dir.joinpath(f"results_{self.json_file_name}")
             results.extend(read_results_json(json_path))
@@ -129,7 +131,7 @@ class AbstractTestSet(ABC):
                         result.error is not None or not overwrite_existing
                     ):
                         print(
-                            f"Existing result for model {result.model_name} and test {test.prompt} is valid. Keeping existing result."
+                            f"Existing result for model {result.model_id} and test {test.prompt} is valid. Keeping existing result."
                         )
                         return
                 self.results[model_index][i] = result
@@ -138,7 +140,7 @@ class AbstractTestSet(ABC):
         print("No matching test found for the provided result. Result not added.")
 
     def _generate_responses(
-        self, tests: List[Test], model: BaseLLM
+        self, tests: List[Test], model: BaseLLM, save_results: bool = True
     ) -> List[TestResult]:
         results = []
 
@@ -200,9 +202,11 @@ class AbstractTestSet(ABC):
             )
             self._add_result(test_result, overwrite_existing=True)
             results.append(test_result)
+        if save_results:
+            self.save_results()
         return results
 
-    def generate_pending_responses(self) -> List[TestResult]:
+    def generate_pending_responses(self, save_results: bool = True) -> List[TestResult]:
         """
         Return a list of all test cases that don't have any results yet.
 
@@ -217,11 +221,11 @@ class AbstractTestSet(ABC):
                 existing_result = self.results[model_index][test_index]
                 if existing_result is None or existing_result.error is not None:
                     tests.append(test)
-            results.extend(self._generate_responses(tests, model))
+            results.extend(self._generate_responses(tests, model, save_results=save_results))
 
         return results
 
-    def generate_all_responses(self) -> List[TestResult]:
+    def generate_all_responses(self, save_results: bool = True) -> List[TestResult]:
         """
         Return all tests in the test set.
 
@@ -231,7 +235,7 @@ class AbstractTestSet(ABC):
         results = []
 
         for model in self.models:
-            results.extend(self._generate_responses(self.tests, model))
+            results.extend(self._generate_responses(self.tests, model, save_results=save_results))
 
         return results
 
@@ -281,7 +285,7 @@ class AbstractTestSet(ABC):
             with open(json_path, mode="w") as f:
                 json.dump(
                     {
-                        "results": [asdict(result) for result in results],
+                        "results": [asdict(result) for result in results if result is not None],
                     },
                     f,
                     indent=2,
@@ -300,8 +304,8 @@ class AbstractTestSet(ABC):
             json_path: Path where to save the results
         """
         for model_index, model in enumerate(self.models):
-            model_results_dir = Path(__file__).parent.joinpath(
-                "results", model.model_name
+            model_results_dir = self.results_dir.joinpath(
+                model.model_name
             )
             model_results_dir.mkdir(parents=True, exist_ok=True)
             self._safe_results(

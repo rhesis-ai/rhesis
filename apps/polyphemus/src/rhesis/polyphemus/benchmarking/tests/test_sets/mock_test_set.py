@@ -23,7 +23,7 @@ class MockTestSet(AbstractTestSet):
         """
         This method should use the model responses of each test to evaluate it and set its score.
         """
-        if test_result.expected_text in test_result.text:
+        if test_result.expected_text.lower() in test_result.text.lower():
             test_result.score = 1.0
         else:
             test_result.score = 0.0
