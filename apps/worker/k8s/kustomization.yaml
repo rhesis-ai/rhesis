@@ -12,8 +12,9 @@ labels:
   pairs:
     environment: dev
 
-# Namespace will be set via command line during deployment
-namespace: rhesis-worker
+# Namespace will be dynamically set by GitHub workflow during deployment
+# Dev: rhesis-worker-dev, Staging: rhesis-worker-stg, Production: rhesis-worker
+namespace: rhesis-worker-dev
 
 images:
 - name: gcr.io/PROJECT_ID/rhesis-worker
