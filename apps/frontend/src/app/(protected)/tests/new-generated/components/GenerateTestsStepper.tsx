@@ -129,17 +129,16 @@ const getLabelText = (value: number) => {
   return `${value} Star${value !== 1 ? 's' : ''}, ${RATING_LABELS[value]}`;
 };
 
-const generatePromptFromConfig = (config: ConfigData): string => {
-  const parts = [
-    `Project Context: ${config.project?.name || 'General'}`,
-    `Test Behaviors: ${config.behaviors.join(', ')}`,
-    `Test Purposes: ${config.purposes.join(', ')}`,
-    `Key Topics: ${config.tags.join(', ')}`,
-    `Specific Requirements: ${config.description}`,
-    `Test Type: ${config.testType === 'single_turn' ? 'Single interaction tests' : 'Multi-turn conversation tests'}`,
-    `Output Format: ${config.responseGeneration === 'prompt_only' ? 'Generate only user inputs' : 'Generate both user inputs and expected responses'}`
-  ];
-  return parts.join('\n');
+const generatePromptFromConfig = (config: ConfigData): object => {
+  return {
+    project_context: config.project?.name || 'General',
+    test_behaviors: config.behaviors,
+    test_purposes: config.purposes,
+    key_topics: config.tags,
+    specific_requirements: config.description,
+    test_type: config.testType === 'single_turn' ? 'Single interaction tests' : 'Multi-turn conversation tests',
+    output_format: config.responseGeneration === 'prompt_only' ? 'Generate only user inputs' : 'Generate both user inputs and expected responses'
+  };
 };
 
 // Step 1: Configuration Component
@@ -273,7 +272,7 @@ const ConfigureGeneration = ({ sessionToken, onSubmit, configData, onConfigChang
               )}
             >
               {behaviors.map((behavior) => (
-                <MenuItem key={behavior.id} value={behavior.id}>
+                <MenuItem key={behavior.id} value={behavior.name}>
                   {behavior.name}
                 </MenuItem>
               ))}
@@ -710,14 +709,14 @@ const ReviewSamples = ({
       console.log('ServicesClient (regenerateSample):', servicesClient);
       console.log('generateTests method exists:', typeof servicesClient.generateTests === 'function');
       
-      const prompt = `
-        Original Test: "${sample.text}"
-        Test Type: ${sample.behavior}
-        Topic: ${sample.topic}
-        User Rating: ${sample.rating}/5 stars
-        Improvement Feedback: "${sample.feedback}"
-        
-        Please generate a new version of this test that addresses the feedback.`;
+      const prompt = {
+        original_test: sample.text,
+        test_type: sample.behavior,
+        topic: sample.topic,
+        user_rating: `${sample.rating}/5 stars`,
+        improvement_feedback: sample.feedback,
+        instruction: "Please generate a new version of this test that addresses the feedback."
+      };
 
       const response = await servicesClient.generateTests({
         prompt,
@@ -913,12 +912,9 @@ const ConfirmGenerate = ({
 
           <Typography variant="body2" color="text.secondary">Behaviors</Typography>
           <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-            {configData.behaviors.map(behaviorId => {
-              const behavior = behaviors.find(b => b.id === behaviorId);
-              return (
-                <Chip key={behaviorId} label={behavior?.name || behaviorId} size="small" />
-              );
-            })}
+            {configData.behaviors.map(behaviorName => (
+              <Chip key={behaviorName} label={behaviorName} size="small" />
+            ))}
           </Stack>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Topics</Typography>

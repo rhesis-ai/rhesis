@@ -26,7 +26,7 @@ class ChatRequest(BaseModel):
 
 
 class GenerateTestsRequest(BaseModel):
-    prompt: str
+    prompt: dict
     num_tests: int = 5
     documents: Optional[List[Document]] = None
 

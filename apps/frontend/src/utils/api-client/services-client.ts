@@ -23,7 +23,7 @@ interface Test {
 import { Document } from './interfaces/documents';
 
 interface GenerateTestsRequest {
-  prompt: string;
+  prompt: object;
   num_tests?: number;
   documents?: Document[];
 }
