@@ -13,7 +13,7 @@ labels:
     environment: dev
 
 # Namespace will be set via command line during deployment
-namespace: rhesis-worker
+namespace: rhesis-worker-dev
 
 images:
 - name: gcr.io/PROJECT_ID/rhesis-worker
