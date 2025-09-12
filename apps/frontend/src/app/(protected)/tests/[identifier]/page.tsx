@@ -51,7 +51,8 @@ export default async function TestDetailPage({ params }: PageProps) {
     }
     
     // Define title and breadcrumbs for PageContainer
-    const title = `${test.id}`;
+    const content = test.prompt?.content || '';
+    const title = content ? (content.length > 45 ?`${content.substring(0, 45)}...` : content) : test.id;
     const breadcrumbs = [
       { title: 'Tests', path: '/tests' },
       { title, path: `/tests/${identifier}` }
