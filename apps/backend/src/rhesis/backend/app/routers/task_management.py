@@ -97,9 +97,9 @@ def list_tasks(
     db: Session = Depends(get_db),
     response: Response = None,
 ):
-    """List tasks with filtering and sorting"""
+    """List tasks with filtering, sorting, and comment counts"""
     try:
-        return crud.get_tasks(
+        return crud.get_tasks_with_comment_counts(
             db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
         )
     except Exception as e:

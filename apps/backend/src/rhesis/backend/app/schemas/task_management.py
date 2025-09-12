@@ -57,6 +57,7 @@ class Task(Base):
     entity_type: Optional[str] = None
     completed_at: Optional[datetime] = None
     task_metadata: Optional[Dict] = None
+    total_comments: Optional[int] = 0
 
     # User relationships
     creator: Optional[User] = None

@@ -1744,3 +1744,79 @@ def delete_task(db: Session, task_id: uuid.UUID) -> bool:
     """Delete a task"""
     result = delete_item(db, models.Task, task_id)
     return result is not None
+
+
+def get_tasks_with_comment_counts(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str = None,
+) -> List[models.Task]:
+    """
+    Get tasks with comment counts using PostgreSQL aggregation.
+    Uses a subquery to count comments for each task efficiently.
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import aliased
+
+    # Create alias for Comment model
+    Comment = aliased(models.Comment)
+
+    # Subquery to count comments for each task
+    comment_count_subquery = (
+        select(Comment.entity_id, func.count(Comment.id).label("total_comments"))
+        .where(Comment.entity_type == "Task")
+        .group_by(Comment.entity_id)
+        .subquery()
+    )
+
+    # First get the tasks with organization filter
+    from rhesis.backend.app.utils.model_utils import apply_organization_filter
+
+    base_query = db.query(models.Task)
+    base_query = apply_organization_filter(db, base_query, models.Task)
+
+    # Apply OData filter if provided
+    if filter:
+        from rhesis.backend.app.utils.odata import apply_odata_filter
+
+        base_query = apply_odata_filter(base_query, models.Task, filter)
+
+    # Apply sorting
+    sort_column = getattr(models.Task, sort_by, models.Task.created_at)
+    if sort_order.lower() == "desc":
+        base_query = base_query.order_by(sort_column.desc())
+    else:
+        base_query = base_query.order_by(sort_column.asc())
+
+    # Apply pagination
+    base_query = base_query.offset(skip).limit(limit)
+
+    # Execute the base query to get tasks
+    tasks = base_query.all()
+
+    # Now get comment counts for these tasks
+    task_ids = [task.id for task in tasks]
+
+    if task_ids:
+        # Get comment counts for the tasks
+        comment_counts = (
+            db.query(Comment.entity_id, func.count(Comment.id).label("total_comments"))
+            .where(Comment.entity_type == "Task")
+            .where(Comment.entity_id.in_(task_ids))
+            .group_by(Comment.entity_id)
+            .all()
+        )
+
+        # Create a mapping of task_id to comment count
+        comment_count_map = {str(task_id): count for task_id, count in comment_counts}
+    else:
+        comment_count_map = {}
+
+    # Add total_comments to each task
+    for task in tasks:
+        task.total_comments = comment_count_map.get(str(task.id), 0)
+
+    return tasks
