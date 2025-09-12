@@ -7,6 +7,7 @@ from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.context_generator import ContextGenerator
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 from rhesis.sdk.synthesizers.utils import create_test_set
 from rhesis.sdk.utils import count_tokens
@@ -32,6 +33,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         max_context_tokens: int = 1000,
         strategy: Literal["sequential", "random"] = "random",
         model: Optional[Union[str, BaseLLM]] = None,
+        config: Optional[GenerationConfig] = None,
     ):
         """
         Initialize the document synthesizer.
@@ -57,6 +59,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         self.max_context_tokens = max_context_tokens
         self.strategy = strategy
         self.document_extractor = DocumentExtractor()
+        self.config = config
 
     def _compute_tests_distribution(
         self,
@@ -261,6 +264,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
 
         # Generate tests for each context
         for i, context in enumerate(contexts):
+            print(i)
             per_context = tests_per_contexts[i]
             if per_context <= 0:
                 continue
@@ -268,7 +272,9 @@ class DocumentSynthesizer(TestSetSynthesizer):
                 f"Generating tests for context {i + 1}/{len(contexts)} ({len(context)} characters)"
             )
 
-            result = self.prompt_synthesizer.generate(num_tests=per_context, context=context)
+            result = self.prompt_synthesizer.generate(
+                num_tests=per_context, context=context, config=self.config
+            )
 
             # Add context and document mapping to each test
             for test in result.tests:
@@ -303,3 +309,24 @@ class DocumentSynthesizer(TestSetSynthesizer):
             contexts_used=used_contexts,
             tests_per_context=tests_per_context,
         )
+
+
+if __name__ == "__main__":
+    config = GenerationConfig(
+        project_context="Web application that allows users to search for and book flights.",
+        test_behaviors="Robustness",
+        test_purposes="To test the robustness of the LLM.",
+        key_topics="Flights, Booking, Search",
+        specific_requirements="The LLM should be able to detect frauds",
+        test_type="config",
+        output_format="json",
+    )
+    synthesizer = DocumentSynthesizer(prompt=" ", config=config, model="gemini")
+    document = Document(
+        name="test",
+        description="test",
+        path="/Users/arek/Downloads/sample.pdf",
+    )
+    tests = synthesizer.generate(documents=[document], num_tests=3)
+    print(tests.tests)
+    print("finished")

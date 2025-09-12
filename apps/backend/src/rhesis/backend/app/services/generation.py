@@ -46,12 +46,11 @@ async def generate_tests(
 
     # Set the SDK configuration at the module level
     # Choose synthesizer based on whether documents are provided
+    config = GenerationConfig(**prompt)
     if documents:
-        synthesizer = DocumentSynthesizer(prompt=prompt, model=DEFAULT_MODEL)
+        synthesizer = DocumentSynthesizer(prompt=prompt, model=DEFAULT_MODEL, config=config)
         generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
     else:
-        config = GenerationConfig(**prompt)
-        print(config)
         synthesizer = ConfigSynthesizer(config=config, model=DEFAULT_MODEL)
         generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
