@@ -1,4 +1,5 @@
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+from rhesis.sdk.synthesizers.config_synthesizer import ConfigSynthesizer, GenerationConfig
 from rhesis.sdk.synthesizers.document_synthesizer import DocumentSynthesizer
 from rhesis.sdk.synthesizers.factory import SynthesizerFactory, SynthesizerType
 from rhesis.sdk.synthesizers.paraphrasing_synthesizer import ParaphrasingSynthesizer
@@ -11,4 +12,6 @@ __all__ = [
     "DocumentSynthesizer",
     "SynthesizerFactory",
     "SynthesizerType",
+    "ConfigSynthesizer",
+    "GenerationConfig",
 ]
