@@ -1710,3 +1710,37 @@ def remove_emoji_reaction(
     db.refresh(comment)
 
     return comment
+
+
+# Task CRUD
+def get_task(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
+    """Get a single task by ID"""
+    return get_item_detail(db, models.Task, task_id)
+
+
+def get_tasks(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+) -> List[models.Task]:
+    """Get tasks with filtering and sorting"""
+    return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter)
+
+
+def create_task(db: Session, task: schemas.TaskCreate) -> models.Task:
+    """Create a new task"""
+    return create_item(db, models.Task, task)
+
+
+def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate) -> Optional[models.Task]:
+    """Update a task"""
+    return update_item(db, models.Task, task_id, task)
+
+
+def delete_task(db: Session, task_id: uuid.UUID) -> bool:
+    """Delete a task"""
+    result = delete_item(db, models.Task, task_id)
+    return result is not None

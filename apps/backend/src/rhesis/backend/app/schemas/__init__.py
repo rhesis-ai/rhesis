@@ -60,6 +60,7 @@ from .task import (
     WorkerStats,
     WorkerStatus,
 )
+from .task_management import Task, TaskBase, TaskCreate, TaskUpdate
 from .test import (
     Test,
     TestBase,
@@ -203,6 +204,10 @@ __all__ = [
     "UserBase",
     "UserCreate",
     "UserUpdate",
+    "Task",
+    "TaskBase",
+    "TaskCreate",
+    "TaskUpdate",
     "Token",
     "TokenBase",
     "TokenCreate",

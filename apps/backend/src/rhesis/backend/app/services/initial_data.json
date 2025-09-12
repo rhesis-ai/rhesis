@@ -119,6 +119,26 @@
             "name": "Active",
             "description": "Describes an active project",
             "entity_type": "Project"
+        },
+        {
+            "name": "Open",
+            "description": "Newly created, not yet started",
+            "entity_type": "Task"
+        },
+        {
+            "name": "In Progress",
+            "description": "Currently being worked on",
+            "entity_type": "Task"
+        },
+        {
+            "name": "Completed",
+            "description": "Work finished successfully",
+            "entity_type": "Task"
+        },
+        {
+            "name": "Cancelled",
+            "description": "Task no longer needed",
+            "entity_type": "Task"
         }
     ],
     "type_lookup": [
@@ -351,6 +371,21 @@
             "type_name": "BackendType",
             "type_value": "custom",
             "description": "Custom evaluation backend"
+        },
+        {
+            "type_name": "TaskPriority",
+            "type_value": "Low",
+            "description": "Low priority task"
+        },
+        {
+            "type_name": "TaskPriority",
+            "type_value": "Medium",
+            "description": "Medium priority task"
+        },
+        {
+            "type_name": "TaskPriority",
+            "type_value": "High",
+            "description": "High priority task"
         }
     ],
     "behavior": [
