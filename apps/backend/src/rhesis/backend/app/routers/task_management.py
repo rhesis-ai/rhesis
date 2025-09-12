@@ -1,3 +1,4 @@
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -6,6 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.services.task_notification_service import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -15,9 +17,40 @@ from rhesis.backend.logging import logger
 # Create the detailed schema for Task
 TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
 
+
+def _send_task_assignment_email(task_id: str, frontend_url: str = None, db: Session = None):
+    """
+    Send task assignment email.
+    """
+    try:
+        if db:
+            from rhesis.backend.app import models
+
+            task = db.query(models.Task).filter(models.Task.id == task_id).first()
+            if task and task.assignee_id:
+                success = send_task_assignment_notification(
+                    db=db, task=task, frontend_url=frontend_url
+                )
+                if success:
+                    logger.info(f"Task assignment email sent successfully for task {task_id}")
+                    return True
+                else:
+                    logger.error(f"Task assignment email failed for task {task_id}")
+                    return False
+            else:
+                logger.warning(f"Task {task_id} not found or has no assignee")
+                return False
+        else:
+            logger.error("No database session provided for email sending")
+            return False
+    except Exception as error:
+        logger.error(f"Email sending failed for task {task_id}: {error}")
+        return False
+
+
 router = APIRouter(
-    prefix="/task-management",
-    tags=["task-management"],
+    prefix="/tasks",
+    tags=["tasks"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
 )
@@ -27,7 +60,16 @@ router = APIRouter(
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     """Create a new task"""
     try:
-        return crud.create_task(db=db, task=task)
+        created_task = crud.create_task(db=db, task=task)
+
+        # Send email notification if task has an assignee
+        if created_task.assignee_id:
+            frontend_url = os.getenv("FRONTEND_URL")
+            _send_task_assignment_email(
+                task_id=str(created_task.id), frontend_url=frontend_url, db=db
+            )
+
+        return created_task
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -108,9 +150,27 @@ def get_tasks_by_entity(
 def update_task(task_id: uuid.UUID, task: schemas.TaskUpdate, db: Session = Depends(get_db)):
     """Update a task"""
     try:
+        # Get the current task to check for assignee changes
+        current_task = crud.get_task(db=db, task_id=task_id)
+        if current_task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Check if assignee is being changed
+        assignee_changed = (
+            task.assignee_id is not None and task.assignee_id != current_task.assignee_id
+        )
+
         updated_task = crud.update_task(db=db, task_id=task_id, task=task)
         if updated_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
+
+        # Send email notification if assignee was changed to a new user
+        if assignee_changed and updated_task.assignee_id:
+            frontend_url = os.getenv("FRONTEND_URL")
+            _send_task_assignment_email(
+                task_id=str(updated_task.id), frontend_url=frontend_url, db=db
+            )
+
         return updated_task
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
