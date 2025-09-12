@@ -54,7 +54,11 @@ def load_defaults():
 
 
 def generate_test_set_attributes(
-    db: Session, test_set: models.TestSet, defaults: Dict[str, Any], license_type: models.TypeLookup
+    db: Session,
+    test_set: models.TestSet,
+    defaults: Dict[str, Any],
+    license_type: models.TypeLookup,
+    additional_metadata: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
     Generate or update test set attributes based on its associated tests and prompts.
@@ -104,6 +108,7 @@ def generate_test_set_attributes(
             "license_type": license_type.type_value,
             "total_prompts": total_prompts,
             "total_tests": len(test_set.tests),
+            **(additional_metadata or {}),
         },
     }
 
