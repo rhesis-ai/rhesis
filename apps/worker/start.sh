@@ -8,9 +8,20 @@ echo "=== Environment Configuration Debug ==="
 echo "BROKER_URL exists: $(if [ ! -z "$BROKER_URL" ]; then echo "yes"; else echo "no"; fi)"
 echo "CELERY_RESULT_BACKEND exists: $(if [ ! -z "$CELERY_RESULT_BACKEND" ]; then echo "yes"; else echo "no"; fi)"
 echo "SQLALCHEMY_DATABASE_URL exists: $(if [ ! -z "$SQLALCHEMY_DATABASE_URL" ]; then echo "yes"; else echo "no"; fi)"
-echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
-echo "Celery worker max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000}"
-echo "Celery worker log level: ${CELERY_WORKER_LOGLEVEL:-INFO}"
+echo "Worker environment: ${WORKER_ENV:-not_set}"
+echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
+echo "Celery worker max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500}"
+
+# Set log level based on worker environment
+if [ "${WORKER_ENV}" = "development" ]; then
+    export CELERY_WORKER_LOGLEVEL="DEBUG"
+    echo "🔧 Development environment detected - setting log level to DEBUG"
+else
+    export CELERY_WORKER_LOGLEVEL="${CELERY_WORKER_LOGLEVEL:-WARNING}"
+    echo "🔧 Production/staging environment - using log level: ${CELERY_WORKER_LOGLEVEL}"
+fi
+
+echo "Celery worker log level: ${CELERY_WORKER_LOGLEVEL}"
 
 # Enhanced TLS detection and debugging
 if [[ "$BROKER_URL" == rediss://* ]]; then
@@ -237,15 +248,15 @@ echo ""
 echo "=== Celery Worker Startup ==="
 echo "Starting Celery worker with full output..."
 
-# Build the complete command
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} --concurrency=${CELERY_WORKER_CONCURRENCY:-8} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} ${CELERY_WORKER_OPTS}"
+# Build the complete command with memory optimizations
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --pool=prefork --optimization=fair ${CELERY_WORKER_OPTS}"
 
 echo "Command: $CELERY_CMD"
 echo "Queues: celery,execution"
-echo "Log level: ${CELERY_WORKER_LOGLEVEL:-INFO}"
-echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
-echo "Prefetch multiplier: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}"
-echo "Max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000}"
+echo "Log level: ${CELERY_WORKER_LOGLEVEL}"
+echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
+echo "Prefetch multiplier: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}"
+echo "Max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500}"
 echo "Additional opts: ${CELERY_WORKER_OPTS:-none}"
 
 # Run celery worker in background
