@@ -213,6 +213,11 @@
             "description": "Entity type for prompt templates"
         },
         {
+            "type_name": "EntityType",
+            "type_value": "Task",
+            "description": "Entity type for tasks"
+        },
+        {
             "type_name": "ResponsePatternType",
             "type_value": "Refusal",
             "description": "Response pattern type for refusals"
