@@ -32,6 +32,7 @@ class Test(Base, TagsMixin, OrganizationMixin):
     behavior_id = Column(GUID(), ForeignKey("behavior.id"))
     category_id = Column(GUID(), ForeignKey("category.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
+    test_metadata = Column(JSONB)
 
     # Relationships
     prompt = relationship("Prompt", back_populates="tests")

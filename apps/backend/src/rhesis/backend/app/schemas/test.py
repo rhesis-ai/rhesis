@@ -94,6 +94,7 @@ class TestBase(Base):
     category_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
+    test_metadata: Optional[Dict[str, str]] = None
 
 
 class TestCreate(TestBase):
