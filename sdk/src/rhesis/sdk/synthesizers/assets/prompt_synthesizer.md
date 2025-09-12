@@ -30,8 +30,44 @@ You are an **LLM system reviewer** tasked with generating diverse test cases bas
    - Create tests adequate for the custom behavior mentioned, while adjusting the behavior description accordingly
    - IMPORTANT: the name of the behavior should not be 'Custom', it must match what the generation prompt determines.
 
-### Generate EXACTLY {{ num_tests }} test cases for this prompt:
+### Generate EXACTLY {{ num_tests }} test cases for this prompt consider the following information:
 {{ generation_prompt }}
+
+
+{% if project_context %}
+### Project Context
+{{ project_context }}
+### End of Project Context
+{% endif %}
+
+{% if test_behaviors %}
+### Test Behaviors
+{{ test_behaviors }}
+### End of Test Behaviors
+{% endif %}
+
+
+{% if test_purposes %}
+### Test Purposes
+{{ test_purposes }}
+### End of Test Purposes
+{% endif %}
+
+{% if key_topics %}
+### Key Topics
+{{ key_topics }}
+### End of Key Topics
+{% endif %}
+
+{% if specific_requirements %}
+### Specific Requirements
+{{ specific_requirements }}
+### End of Specific Requirements
+{% endif %}
+
+
+
+
 
 {% if context %}
 ### Context (use this information to inform your test case generation):

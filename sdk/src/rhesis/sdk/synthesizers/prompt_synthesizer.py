@@ -1,11 +1,13 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
     load_prompt_template,
@@ -46,11 +48,16 @@ class PromptSynthesizer(TestSetSynthesizer):
             self.model = model
 
     def _generate_batch(
-        self, num_tests: int, context: Optional[str] = None
+        self,
+        num_tests: int,
+        context: Optional[str] = None,
+        config: Optional[GenerationConfig] = None,
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
+
+        config = asdict(config)
         formatted_prompt = self.system_prompt.render(
-            generation_prompt=self.prompt, num_tests=num_tests, context=context
+            generation_prompt=self.prompt, **config, num_tests=num_tests, context=context
         )
 
         # Use utility function for retry logic
@@ -78,7 +85,12 @@ class PromptSynthesizer(TestSetSynthesizer):
 
         return []
 
-    def generate(self, num_tests: int = 5, context: Optional[str] = None) -> TestSet:
+    def generate(
+        self,
+        num_tests: int = 5,
+        context: Optional[str] = None,
+        config: Optional[GenerationConfig] = None,
+    ) -> TestSet:
         """
         Generate test cases based on the given prompt.
 
@@ -101,7 +113,7 @@ class PromptSynthesizer(TestSetSynthesizer):
             while remaining_tests > 0:
                 chunk_size = min(self.batch_size, remaining_tests)
                 try:
-                    chunk_tests = self._generate_batch(chunk_size, context)
+                    chunk_tests = self._generate_batch(chunk_size, context, config)
                     all_test_cases.extend(chunk_tests)
                     remaining_tests -= len(chunk_tests)
 
@@ -120,7 +132,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                         break
         else:
             # Generate all tests in a single batch
-            all_test_cases = self._generate_batch(num_tests, context)
+            all_test_cases = self._generate_batch(num_tests, context, config)
 
         # Ensure we have some test cases
         if not all_test_cases:
