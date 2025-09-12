@@ -5,6 +5,9 @@ export default {
   project: {
     link: 'https://github.com/rhesis-ai/rhesis',
   },
+  chat: {
+    link: 'https://discord.rhesis.ai',
+  },
   docsRepositoryBase: 'https://github.com/rhesis-ai/rhesis',
   footer: {
     text: '© 2025 Rhesis AI GmbH. Made in Germany.',

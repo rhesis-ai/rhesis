@@ -2,6 +2,7 @@ import { Footer, Layout, Navbar } from 'nextra-theme-docs'
 import { Banner, Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
 import ThemeAwareLogo from '../components/ThemeAwareLogo'
+import { NavbarGoToAppButton } from '../components/Button'
 import 'nextra-theme-docs/style.css'
  
 export const metadata = {
@@ -13,8 +14,11 @@ const banner = <Banner storageKey="rhesis-docs">Welcome to Rhesis Documentation 
 const navbar = (
   <Navbar
     logo={<ThemeAwareLogo />}
-    // ... Your additional navbar options
-  />
+    projectLink="https://github.com/rhesis-ai/rhesis"
+    chatLink="https://discord.rhesis.ai"
+  >
+    <NavbarGoToAppButton />
+  </Navbar>
 )
 const footer = <Footer>© 2025 Rhesis AI GmbH. Made in Germany.</Footer>
  
