@@ -43,12 +43,9 @@ database:
         memory: "512Mi"
         cpu: "500m"
     auth:
-      database: "rhesis-db"
-      username: "rhesis-user"
-      password: "rhesis-password"
       existingSecret: "rhesis-secrets"
       secretKeys:
-        password: "POSTGRES_PASSWORD"
+        password: "SQLALCHEMY_DB_PASS"
         database: "SQLALCHEMY_DB_NAME"
         username: "SQLALCHEMY_DB_USER"
 
