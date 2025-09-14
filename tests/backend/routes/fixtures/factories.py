@@ -106,6 +106,84 @@ class EntityFactory:
             entities.append(entity)
         return entities
     
+    def get(self, entity_id: str, expect_status: int = status.HTTP_200_OK) -> Dict[str, Any]:
+        """
+        Get entity by ID
+        
+        Args:
+            entity_id: ID of entity to retrieve
+            expect_status: Expected HTTP status code
+            
+        Returns:
+            Entity data
+            
+        Raises:
+            AssertionError: If retrieval fails or returns unexpected status
+        """
+        response = self.client.get(self.endpoints.get(entity_id))
+        
+        if response.status_code != expect_status:
+            raise AssertionError(
+                f"Entity retrieval failed. Expected {expect_status}, got {response.status_code}. "
+                f"Response: {response.text}"
+            )
+        
+        return response.json()
+    
+    def update(self, entity_id: str, data: Dict[str, Any], 
+              expect_status: int = status.HTTP_200_OK) -> Dict[str, Any]:
+        """
+        Update entity by ID
+        
+        Args:
+            entity_id: ID of entity to update
+            data: Update data
+            expect_status: Expected HTTP status code
+            
+        Returns:
+            Updated entity data
+            
+        Raises:
+            AssertionError: If update fails or returns unexpected status
+        """
+        response = self.client.put(self.endpoints.put(entity_id), json=data)
+        
+        if response.status_code != expect_status:
+            raise AssertionError(
+                f"Entity update failed. Expected {expect_status}, got {response.status_code}. "
+                f"Response: {response.text}"
+            )
+        
+        return response.json()
+    
+    def delete(self, entity_id: str, expect_status: int = status.HTTP_200_OK) -> Dict[str, Any]:
+        """
+        Delete entity by ID
+        
+        Args:
+            entity_id: ID of entity to delete
+            expect_status: Expected HTTP status code
+            
+        Returns:
+            Deleted entity data
+            
+        Raises:
+            AssertionError: If deletion fails or returns unexpected status
+        """
+        response = self.client.delete(self.endpoints.remove(entity_id))
+        
+        if response.status_code != expect_status:
+            raise AssertionError(
+                f"Entity deletion failed. Expected {expect_status}, got {response.status_code}. "
+                f"Response: {response.text}"
+            )
+        
+        # Remove from tracking since it's explicitly deleted
+        if entity_id in self.created_entities:
+            self.created_entities.remove(entity_id)
+        
+        return response.json()
+    
     def get_created_ids(self) -> List[str]:
         """Get list of all created entity IDs"""
         return self.created_entities.copy()
