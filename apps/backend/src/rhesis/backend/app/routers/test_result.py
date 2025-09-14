@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.stats import get_test_result_stats
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 TestResultDetailSchema = create_detailed_schema(schemas.TestResult, models.TestResult)
@@ -36,16 +38,33 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.TestResult)
+@handle_database_exceptions(
+    entity_name="test result", custom_unique_message="test result with this name already exists"
+)
 def create_test_result(
     test_result: schemas.TestResultCreate,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new test result"""
+    """
+    Create test result with optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+
     # Set the user_id to the current user if not provided
     if not test_result.user_id:
         test_result.user_id = current_user.id
-    return crud.create_test_result(db=db, test_result=test_result)
+
+    return crud.create_test_result(
+        db=db, test_result=test_result, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.get("/", response_model=List[TestResultDetailSchema])
@@ -342,10 +361,22 @@ def update_test_result(
     test_result_id: UUID,
     test_result: schemas.TestResultUpdate,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update a test result"""
-    db_test_result = crud.get_test_result(db, test_result_id=test_result_id)
+    """
+    Update test_result with optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_test_result = crud.get_test_result(
+        db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
 
@@ -353,7 +384,13 @@ def update_test_result(
     if db_test_result.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to update this test result")
 
-    return crud.update_test_result(db=db, test_result_id=test_result_id, test_result=test_result)
+    return crud.update_test_result(
+        db=db,
+        test_result_id=test_result_id,
+        test_result=test_result,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 @router.delete("/{test_result_id}", response_model=schemas.TestResult)
