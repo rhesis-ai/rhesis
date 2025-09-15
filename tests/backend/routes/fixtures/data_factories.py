@@ -1456,6 +1456,159 @@ class TopicDataFactory(BaseDataFactory):
 
 
 @dataclass
+class TokenDataFactory(BaseDataFactory):
+    """Factory for generating token test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal token data (only required fields) - API format"""
+        return {
+            "name": f"Test Token {fake.word()}"
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample token data - API format"""
+        data = {
+            "name": f"Test Token {fake.word()}"
+        }
+        
+        if include_optional:
+            # Add expiration in days (API format)
+            data.update({
+                "expires_in_days": 30
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate token update data"""
+        token_value = cls._generate_test_token()
+        from datetime import datetime, timezone
+        return {
+            "name": f"Updated Token {fake.word()}",
+            "token": token_value,
+            "token_obfuscated": cls._obfuscate_token(token_value),
+            "last_refreshed_at": datetime.now(timezone.utc)
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate token edge case data - API format"""
+        
+        if case_type == "expired_token":
+            return {
+                "name": f"Expired Token {fake.word()}",
+                "expires_in_days": -1  # Expired (will be handled by API)
+            }
+        elif case_type == "long_lived_token":
+            return {
+                "name": f"Long-lived Token {fake.word()}",
+                "expires_in_days": 365  # 1 year
+            }
+        elif case_type == "never_expires":
+            return {
+                "name": f"Never Expires Token {fake.word()}"
+                # No expires_in_days means it never expires
+            }
+        elif case_type == "api_integration":
+            return {
+                "name": f"API Integration - {fake.company()}",
+                "expires_in_days": 90
+            }
+        elif case_type == "development_token":
+            return {
+                "name": f"Development Token - {fake.user_name()}",
+                "expires_in_days": 7  # Short-lived for dev
+            }
+        elif case_type == "production_token":
+            return {
+                "name": f"Production Token - {fake.catch_phrase()}",
+                "expires_in_days": 180  # 6 months
+            }
+        elif case_type == "recently_used":
+            return {
+                "name": f"Recently Used Token {fake.word()}",
+                "expires_in_days": 30
+            }
+        elif case_type == "recently_refreshed":
+            return {
+                "name": f"Recently Refreshed Token {fake.word()}",
+                "expires_in_days": 30
+            }
+        elif case_type == "long_token_name":
+            # Ensure the name is actually longer than 100 characters
+            long_name = fake.text(max_nb_chars=200).replace('\n', ' ')
+            while len(long_name) <= 100:
+                long_name += f" {fake.sentence(nb_words=10).replace('.', '')}"
+            return {
+                "name": long_name[:150],  # Cap at 150 to avoid excessive length
+                "expires_in_days": 30
+            }
+        elif case_type == "special_chars_name":
+            return {
+                "name": f"Token with Special Chars @#$%^&*()_+ {fake.word()}",
+                "expires_in_days": 30
+            }
+        
+        return super().edge_case_data(case_type)
+    
+    @classmethod
+    def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
+        """
+        Generate batch of token data - API format
+        
+        Args:
+            count: Number of token records to generate
+            variation: Whether to vary the data or use similar patterns
+            
+        Returns:
+            List of token data dictionaries
+        """
+        tokens = []
+        categories = ["api_integration", "development_token", "production_token", "long_lived_token"]
+        
+        for i in range(count):
+            if variation:
+                # Create varied data using different categories
+                if i < len(categories):
+                    data = cls.edge_case_data(categories[i % len(categories)])
+                else:
+                    data = cls.sample_data(
+                        include_optional=fake.boolean(chance_of_getting_true=80),
+                    )
+            else:
+                # Create similar data with incremental names
+                data = {
+                    "name": f"Batch Token {i+1}",
+                    "expires_in_days": 30
+                }
+            tokens.append(data)
+        
+        return tokens
+    
+    @classmethod
+    def _generate_test_token(cls) -> str:
+        """Generate a test token value"""
+        import secrets
+        import string
+        
+        # Generate a secure random token for testing
+        # Use rhesis prefix to identify test tokens
+        alphabet = string.ascii_letters + string.digits
+        token_suffix = ''.join(secrets.choice(alphabet) for _ in range(32))
+        return f"rh-test_{token_suffix}"
+    
+    @classmethod
+    def _obfuscate_token(cls, token: str) -> str:
+        """Create an obfuscated version of the token"""
+        if len(token) < 8:
+            return token  # Too short to obfuscate safely
+        return f"{token[:3]}...{token[-4:]}"
+
+
+@dataclass
 class TypeLookupDataFactory(BaseDataFactory):
     """Factory for generating type lookup test data"""
     
@@ -1720,6 +1873,7 @@ FACTORY_REGISTRY.update({
     "source": SourceDataFactory,
     "status": StatusDataFactory,
     "tag": TagDataFactory,
+    "token": TokenDataFactory,
     "topic": TopicDataFactory,
     "type_lookup": TypeLookupDataFactory,
     "use_case": UseCaseDataFactory,
@@ -1742,6 +1896,7 @@ __all__ = [
     "SourceDataFactory",
     "StatusDataFactory",
     "TagDataFactory",
+    "TokenDataFactory",
     "TopicDataFactory",
     "TypeLookupDataFactory",
     "UseCaseDataFactory",

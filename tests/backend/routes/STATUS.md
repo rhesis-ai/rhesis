@@ -32,7 +32,7 @@ This document tracks the testing status of all backend routes/routers in the app
 | status | `status.py` | ✅ | `test_status.py` | Status management endpoints |
 | tag | `tag.py` | ✅ | `test_tag.py` | Tag management endpoints |
 | task | `task.py` | ❌ | - | Task management endpoints |
-| token | `token.py` | ❌ | - | Token management endpoints |
+| token | `token.py` | ✅ | `test_token.py` | Token management endpoints |
 | topic | `topic.py` | ✅ | `test_topic.py` | Topic management endpoints |
 | type_lookup | `type_lookup.py` | ✅ | `test_type_lookup.py` | Type lookup endpoints |
 | use_case | `use_case.py` | ✅ | `test_use_case.py` | Use case management endpoints |
