@@ -62,14 +62,6 @@ test_engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
-def override_get_db():
-    """Override the get_db dependency for testing."""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
     """Set up the test database before any tests run."""
@@ -80,22 +72,67 @@ def setup_test_database():
     Base.metadata.drop_all(bind=test_engine)
 
 @pytest.fixture
-def test_db():
-    """🗄️ Provide a database session for testing with automatic rollback."""
+def test_db(test_org_id, authenticated_user_id):
+    """🗄️ Provide a database session for testing compatible with get_org_aware_db pattern but with rollback."""
+    from rhesis.backend.app.database import clear_tenant_context, _current_tenant_organization_id, _current_tenant_user_id
+    from sqlalchemy import text
+    from uuid import UUID
+    
+    # Use the same connection approach as production but with test-specific transaction handling
     connection = test_engine.connect()
     transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
+    db = TestingSessionLocal(bind=connection)
     
     try:
-        yield session
+        # Set session variables using SET LOCAL (same as get_org_aware_db)
+        # SET LOCAL only affects the current transaction
+        if test_org_id:
+            try:
+                UUID(test_org_id)  # Validate UUID format
+                db.execute(
+                    text('SET LOCAL "app.current_organization" = :org_id'), 
+                    {"org_id": test_org_id}
+                )
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Invalid test_org_id: {test_org_id}")
+        
+        if authenticated_user_id:
+            try:
+                UUID(authenticated_user_id)  # Validate UUID format
+                db.execute(
+                    text('SET LOCAL "app.current_user" = :user_id'), 
+                    {"user_id": authenticated_user_id}
+                )
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Invalid authenticated_user_id: {authenticated_user_id}")
+        
+        # Store in context vars for any legacy code that might need it (same as get_org_aware_db)
+        _current_tenant_organization_id.set(test_org_id)
+        if authenticated_user_id:
+            _current_tenant_user_id.set(authenticated_user_id)
+            
+        yield db
+        
     finally:
-        session.close()
-        transaction.rollback()
+        # Clear context vars (same as get_org_aware_db)
+        clear_tenant_context()
+        db.close()
+        # Rollback for tests (different from get_org_aware_db which commits)
+        try:
+            transaction.rollback()
+        except Exception:
+            # Transaction may already be closed/rolled back
+            pass
         connection.close()
 
 @pytest.fixture
-def client():
+def client(test_db):
     """🌐 FastAPI test client with test database."""
+    # Create override function that uses the same session as test fixtures
+    def override_get_db():
+        """Override the get_db dependency to use the same session as fixtures."""
+        yield test_db
+    
     # Override the database dependency
     app.dependency_overrides[get_db] = override_get_db
     

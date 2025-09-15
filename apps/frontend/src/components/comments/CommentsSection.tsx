@@ -9,7 +9,9 @@ import {
   CircularProgress,
   Divider,
   Paper,
+  IconButton,
 } from '@mui/material';
+import { Send as SendIcon } from '@mui/icons-material';
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -144,36 +146,61 @@ export function CommentsSection({
             size={40}
           />
 
-                      {/* Comment Input */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <TextField
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add comment ..."
-                multiline
-                rows={3}
-                fullWidth
-                variant="outlined"
-                size="small"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-              />
-              
-              {/* Error Message */}
-              {error && (
-                <Typography 
-                  variant="caption" 
-                  color="error" 
-                  sx={{ mt: 1, display: 'block' }}
-                >
-                  {error}
-                </Typography>
-              )}
-            </Box>
+          {/* Comment Input */}
+          <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
+            <TextField
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add comment ..."
+              multiline
+              rows={3}
+              fullWidth
+              variant="outlined"
+              size="small"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+              InputProps={{
+                endAdornment: newComment.trim().length > 0 ? (
+                  <IconButton
+                    type="submit"
+                    disabled={isSubmitting || !newComment.trim()}
+                    size="small"
+                    sx={{ 
+                      mr: 0.5,
+                      color: 'text.secondary',
+                      '&:hover': {
+                        color: 'primary.main',
+                      },
+                      '&:disabled': {
+                        color: 'action.disabled',
+                      }
+                    }}
+                  >
+                    {isSubmitting ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      <SendIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                ) : null
+              }}
+            />
+            
+            {/* Error Message */}
+            {error && (
+              <Typography 
+                variant="caption" 
+                color="error" 
+                sx={{ mt: 1, display: 'block' }}
+              >
+                {error}
+              </Typography>
+            )}
+          </Box>
         </Box>
       </Box>
     </Paper>

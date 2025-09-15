@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: rhesis-worker-network-policy
+  namespace: rhesis-worker-dev
   labels:
     app: rhesis-worker
 spec:
