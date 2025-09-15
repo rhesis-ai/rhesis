@@ -85,7 +85,7 @@ def get_api_key() -> str:
     Get the API key from module level variable or environment variable.
     Raises ValueError if no API key is found.
     """
-    return _get_config_value("api_key", api_key, "RHESIS_API_KEY", required=True)
+    return _get_config_value("api_key", api_key, "RHESIS_API_KEY", required=False)
 
 
 def get_base_url() -> str:

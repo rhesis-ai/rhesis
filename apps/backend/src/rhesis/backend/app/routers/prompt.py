@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
 router = APIRouter(
     prefix="/prompts",
@@ -16,9 +19,29 @@ router = APIRouter(
 )
 
 
+@handle_database_exceptions(
+    entity_name="prompt", custom_unique_message="prompt.py with this name already exists"
+)
 @router.post("/", response_model=schemas.Prompt)
-def create_prompt(prompt: schemas.PromptCreate, db: Session = Depends(get_db)):
-    return crud.create_prompt(db=db, prompt=prompt)
+def create_prompt(
+    prompt: schemas.PromptCreate,
+    db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
+    current_user=Depends(require_current_user_or_token),
+):
+    """
+    Create prompt with super optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    return crud.create_prompt(
+        db=db, prompt=prompt, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.get("/", response_model=list[schemas.Prompt])
