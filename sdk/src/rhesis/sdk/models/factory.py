@@ -104,7 +104,6 @@ def get_model(
         cfg = config
     else:
         cfg = ModelConfig()
-
     # Case: shorthand string like "provider/model"
     if provider and "/" in provider and model_name is None:
         # split only first "/" so that names like "rhesis/rhesis-default" still work
@@ -126,7 +125,7 @@ def get_model(
     elif config.provider == "gemini":
         from rhesis.sdk.models.providers.gemini import GeminiLLM
 
-        return GeminiLLM(model_name=config.model_name)
+        return GeminiLLM(model_name=config.model_name, api_key=api_key)
 
     elif config.provider == "ollama":
         from rhesis.sdk.models.providers.ollama import OllamaLLM
@@ -136,7 +135,7 @@ def get_model(
     elif config.provider == "openai":
         from rhesis.sdk.models.providers.openai import OpenAILLM
 
-        return OpenAILLM(model_name=config.model_name, api_key=config.api_key)
+        return OpenAILLM(model_name=config.model_name, api_key=api_key)
 
     else:
         raise ValueError(f"Provider {config.provider} not supported")
