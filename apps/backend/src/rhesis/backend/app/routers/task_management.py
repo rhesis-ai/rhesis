@@ -35,12 +35,19 @@ def create_task(
 ):
     """Create a new task"""
     try:
+        # Auto-populate creator_id from authenticated user
+        task_data = task.dict()
+        task_data["creator_id"] = current_user.id
+
+        # Create new task object with populated creator_id
+        task_with_creator = schemas.TaskCreate(**task_data)
+
         # Validate organization-level constraints
-        validate_task_organization_constraints(db, task, current_user)
+        validate_task_organization_constraints(db, task_with_creator, current_user)
 
         created_task = crud.create_task(
             db=db,
-            task=task,
+            task=task_with_creator,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
         )
