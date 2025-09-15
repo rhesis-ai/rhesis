@@ -51,7 +51,10 @@ class QueryBuilder:
         return self
 
     def with_optimized_loads(
-        self, skip_many_to_many: bool = True, skip_one_to_many: bool = False, nested_relationships: dict = None
+        self,
+        skip_many_to_many: bool = True,
+        skip_one_to_many: bool = False,
+        nested_relationships: dict = None,
     ) -> "QueryBuilder":
         """Apply optimized loading strategy (selectinload for many-to-many, joinedload for others)"""
         self.query = apply_optimized_loads(
@@ -61,10 +64,22 @@ class QueryBuilder:
 
 
 
-    def with_organization_filter(self) -> "QueryBuilder":
-        """Apply organization filter if the model supports it"""
+    def with_organization_filter(self, organization_id: str = None) -> "QueryBuilder":
+        """
+        Apply organization filter with optimized approach - no session variables needed.
+        
+        Performance improvements:
+        - Completely bypasses database session variables
+        - No SHOW queries for organization context
+        - Direct organization ID filtering
+        """
         if has_organization_id(self.model):
-            self.query = apply_organization_filter(self.db, self.query, self.model)
+            if organization_id:
+                # Use direct organization_id filtering (optimized)
+                self.query = self.query.filter(self.model.organization_id == organization_id)
+            else:
+                # Fallback to session variable approach for backward compatibility
+                self.query = apply_organization_filter(self.db, self.query, self.model)
         return self
 
     def with_visibility_filter(self) -> "QueryBuilder":
@@ -221,18 +236,18 @@ def apply_joinedloads(
 
 
 def apply_optimized_loads(
-    query: Query, 
-    model: Type, 
-    skip_many_to_many: bool = True, 
+    query: Query,
+    model: Type,
+    skip_many_to_many: bool = True,
     skip_one_to_many: bool = False,
-    nested_relationships: dict = None
+    nested_relationships: dict = None,
 ) -> Query:
     """
     Apply optimized loading strategy using selectinload for many-to-many relationships
     and joinedload for one-to-many/many-to-one relationships.
-    
+
     This avoids the cartesian product problem that occurs with joinedload on many-to-many.
-    
+
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
@@ -243,9 +258,9 @@ def apply_optimized_loads(
 
     for rel_name, rel_prop in relationships.items():
         relationship_attr = getattr(model, rel_name)
-        
+
         # Use selectinload for many-to-many relationships to avoid cartesian products
-        if rel_prop.direction.name in ['MANYTOMANY']:
+        if rel_prop.direction.name in ["MANYTOMANY"]:
             if not skip_many_to_many:
                 if nested_relationships and rel_name in nested_relationships:
                     # Load the main relationship with selectinload
@@ -253,7 +268,9 @@ def apply_optimized_loads(
                     # Load each nested relationship separately
                     for nested_rel in nested_relationships[rel_name]:
                         nested_attr = getattr(rel_prop.mapper.class_, nested_rel)
-                        query = query.options(selectinload(relationship_attr).selectinload(nested_attr))
+                        query = query.options(
+                            selectinload(relationship_attr).selectinload(nested_attr)
+                        )
                 else:
                     query = query.options(selectinload(relationship_attr))
         # Use joinedload for one-to-many and many-to-one relationships
@@ -261,9 +278,6 @@ def apply_optimized_loads(
             query = query.options(joinedload(relationship_attr))
 
     return query
-
-
-
 
 
 def apply_organization_filter(db: Session, query: Query, model: Type[T]) -> Query:

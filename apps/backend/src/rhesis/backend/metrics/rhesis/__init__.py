@@ -3,8 +3,8 @@
 from .factory import RhesisMetricFactory
 from .metric_base import RhesisMetricBase
 from .prompt_metric import (
-    RhesisPromptMetric, 
-    ScoreResponse, 
+    RhesisPromptMetric,
+    ScoreResponse,
 )
 
 __all__ = [
@@ -13,4 +13,4 @@ __all__ = [
     "RhesisPromptMetric",
     "ScoreResponse",
     "DetailedScoreResponse",
-] 
+]

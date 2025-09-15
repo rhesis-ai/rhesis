@@ -1,0 +1,449 @@
+# Development Setup
+
+This guide will walk you through setting up your development environment for Rhesis, ensuring you have everything needed to contribute effectively.
+
+<Callout type="default">
+  **Complete Setup Guide**
+  Follow this guide step-by-step to get your Rhesis development environment up and running. This covers everything from prerequisites to running your first test.
+</Callout>
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed on your system:
+
+<Callout type="default">
+  **System Requirements**
+  - **Operating System**: macOS, Linux, or Windows (WSL recommended)
+  - **Python 3.8+**: For backend development
+  - **Node.js 18+**: For frontend development
+  - **Git**: For version control
+  - **Docker**: For containerized development (optional)
+  - **PostgreSQL**: For database development
+  - **Redis**: For background task processing
+</Callout>
+
+### Installing Prerequisites
+
+#### Python Setup
+
+We use [uv](https://docs.astral.sh/uv/) as our Python package manager for faster, more reliable dependency management.
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Verify installation
+uv --version
+```
+
+#### Node.js Setup
+
+We recommend using [nvm](https://github.com/nvm-sh/nvm) for Node.js version management:
+
+```bash
+# Install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+# Restart your terminal or run
+source ~/.bashrc
+
+# Install Node.js 18
+nvm install 18
+nvm use 18
+
+# Verify installation
+node --version
+npm --version
+```
+
+#### Database Setup
+
+**PostgreSQL:**
+```bash
+# macOS (using Homebrew)
+brew install postgresql
+brew services start postgresql
+
+# Ubuntu/Debian
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+
+# Create database
+createdb rhesis_dev
+```
+
+**Redis:**
+```bash
+# macOS (using Homebrew)
+brew install redis
+brew services start redis
+
+# Ubuntu/Debian
+sudo apt install redis-server
+sudo systemctl start redis-server
+```
+
+## Environment Setup
+
+### 1. Clone the Repository
+
+```bash
+# Fork the repository on GitHub first, then clone your fork
+git clone https://github.com/YOUR_USERNAME/rhesis.git
+cd rhesis
+
+# Add the upstream repository
+git remote add upstream https://github.com/rhesis-ai/rhesis.git
+```
+
+### 2. Install Dependencies
+
+```bash
+# Install Python dependencies
+uv sync
+
+# Install frontend dependencies
+cd apps/frontend
+npm install
+
+# Install documentation dependencies
+cd ../docs
+npm install
+
+# Return to root
+cd ../..
+```
+
+### 3. Environment Configuration
+
+```bash
+# Copy the example environment file
+cp env.example .env
+
+# Edit the environment file with your configuration
+# You'll need to set up database URLs, API keys, etc.
+```
+
+**Key Environment Variables:**
+
+```bash
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost/rhesis_dev
+TEST_DATABASE_URL=postgresql://username:password@localhost/rhesis_test
+
+# Redis Configuration
+REDIS_URL=redis://localhost:6379
+
+# Authentication
+SECRET_KEY=your-secret-key-here
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# External Services
+OPENAI_API_KEY=your-openai-api-key
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# Development Settings
+DEBUG=true
+ENVIRONMENT=development
+```
+
+### 4. Database Setup
+
+```bash
+# Navigate to backend directory
+cd apps/backend
+
+# Run database migrations
+uv run alembic upgrade head
+
+# Create initial data (if needed)
+uv run python -m rhesis.backend.scripts.create_initial_data
+
+# Return to root
+cd ../..
+```
+
+## Starting Development Servers
+
+### Using the CLI Tool
+
+We provide a convenient CLI tool for managing services:
+
+```bash
+# Start all services
+./rh backend start
+./rh frontend start
+./rh docs start
+
+# Or start them all at once (if configured)
+./rh start all
+```
+
+### Manual Startup
+
+If you prefer to start services manually:
+
+```bash
+# Backend (FastAPI)
+cd apps/backend
+uv run uvicorn rhesis.backend.app.main:app --reload --port 8080
+
+# Frontend (Next.js)
+cd apps/frontend
+npm run dev
+
+# Documentation (Nextra)
+cd apps/documentation
+npm run dev
+
+# Worker (Celery)
+cd apps/worker
+uv run celery -A rhesis.worker worker --loglevel=info
+```
+
+## Verification
+
+### Check Service Status
+
+Once all services are running, verify they're working correctly:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Backend API</h3>
+    <p>Visit http://localhost:8080/docs for API documentation</p>
+  </div>
+  <div>
+    <h3>Frontend App</h3>
+    <p>Visit http://localhost:3000 for the main application</p>
+  </div>
+  <div>
+    <h3>Documentation</h3>
+    <p>Visit http://localhost:3001 for the documentation site</p>
+  </div>
+  <div>
+    <h3>Health Check</h3>
+    <p>Visit http://localhost:8080/health for backend status</p>
+  </div>
+  <div>
+    <h3>Database</h3>
+    <p>Check database connection and migrations</p>
+  </div>
+  <div>
+    <h3>Redis</h3>
+    <p>Verify Redis connection for background tasks</p>
+  </div>
+</div>
+
+### Quick Health Check
+
+```bash
+# Test backend health
+curl http://localhost:8080/health
+
+# Test database connection
+cd apps/backend
+uv run python -c "from rhesis.backend.database import get_db; print('Database OK')"
+
+# Test Redis connection
+uv run python -c "import redis; r = redis.Redis(); print('Redis OK')"
+```
+
+## Development Tools
+
+### Code Quality Tools
+
+We use several tools to maintain code quality:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Python Tools</h3>
+    <p>Ruff for linting and formatting</p>
+  </div>
+  <div>
+    <h3>TypeScript Tools</h3>
+    <p>ESLint and Prettier for code quality</p>
+  </div>
+  <div>
+    <h3>Testing Tools</h3>
+    <p>pytest for Python, Jest for JavaScript</p>
+  </div>
+  <div>
+    <h3>Pre-commit Hooks</h3>
+    <p>Automated checks before commits</p>
+  </div>
+</div>
+
+### Setting Up Pre-commit Hooks
+
+```bash
+# Install pre-commit hooks
+uvx pre-commit install
+
+# Run pre-commit on all files
+uvx pre-commit run --all-files
+```
+
+### IDE Configuration
+
+**VS Code Extensions:**
+- Python
+- TypeScript and JavaScript
+- ESLint
+- Prettier
+- GitLens
+- Docker
+
+**VS Code Settings:**
+```json
+{
+  "python.defaultInterpreter": "./.venv/bin/python",
+  "python.formatting.provider": "ruff",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  }
+}
+```
+
+## Testing Your Setup
+
+### Run the Test Suite
+
+```bash
+# Backend tests
+cd apps/backend
+uv run pytest
+
+# Frontend tests
+cd ../frontend
+npm test
+
+# All tests from root
+uv run pytest tests/
+```
+
+### Create Your First Test
+
+```python
+# apps/backend/tests/test_example.py
+def test_health_endpoint(client):
+    """Test the health check endpoint."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+<Callout type="default">
+  **Port Conflicts**
+  If you get port conflicts, check what's running on the ports:
+  - Backend: 8080
+  - Frontend: 3000
+  - Documentation: 3001
+  - Database: 5432
+  - Redis: 6379
+</Callout>
+
+**Database Connection Issues:**
+```bash
+# Check if PostgreSQL is running
+sudo systemctl status postgresql
+
+# Check if Redis is running
+sudo systemctl status redis-server
+
+# Test database connection
+psql -h localhost -U your_username -d rhesis_dev
+```
+
+**Python Environment Issues:**
+```bash
+# Recreate virtual environment
+rm -rf .venv
+uv sync
+
+# Check Python version
+python --version
+```
+
+**Node.js Issues:**
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Getting Help
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Documentation</h3>
+    <p>Check our comprehensive documentation</p>
+  </div>
+  <div>
+    <h3>GitHub Issues</h3>
+    <p>Search existing issues or create new ones</p>
+  </div>
+  <div>
+    <h3>Community</h3>
+    <p>Join our GitHub Discussions</p>
+  </div>
+  <div>
+    <h3>Logs</h3>
+    <p>Check application logs for errors</p>
+  </div>
+</div>
+
+## Next Steps
+
+<Callout type="default">
+  **Ready to Develop**
+  Now that your environment is set up, you can:
+  - Explore the codebase structure
+  - Run the test suite
+  - Make your first contribution
+  - Join our community discussions
+</Callout>
+
+### Recommended Next Steps
+
+1. **Explore the Codebase**
+   - Read through the project structure
+   - Understand the architecture
+   - Review the coding standards
+
+2. **Run Tests**
+   - Ensure all tests pass
+   - Understand the testing patterns
+   - Add tests for new features
+
+3. **Make Your First Contribution**
+   - Pick a "good first issue"
+   - Create a feature branch
+   - Submit a pull request
+
+4. **Join the Community**
+   - Participate in discussions
+   - Help other contributors
+   - Share your experience
+
+---
+
+<Callout type="default">
+  **Need Help?**
+  If you encounter any issues during setup, don't hesitate to:
+  - Check our [Troubleshooting Guide](/docs/troubleshooting)
+  - Ask questions in [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
+  - Report issues on [GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)
+</Callout>
+
+Happy coding! 🚀

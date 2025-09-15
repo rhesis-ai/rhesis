@@ -1,6 +1,6 @@
+from enum import Enum
 from typing import List, Optional
 from uuid import UUID
-from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -9,13 +9,15 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
     test_run_results_to_csv,
 )
-from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for TestRun
@@ -44,12 +46,25 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.TestRun)
+@handle_database_exceptions(
+    entity_name="test run", custom_unique_message="Test run with this configuration already exists"
+)
 def create_test_run(
     test_run: schemas.TestRunCreate,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new test run"""
+    """
+    Create test run with optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     # Set the user_id to the current user if not provided
     if not test_run.user_id:
         test_run.user_id = current_user.id
@@ -58,7 +73,9 @@ def create_test_run(
     if not test_run.organization_id:
         test_run.organization_id = current_user.organization_id
 
-    return crud.create_test_run(db=db, test_run=test_run)
+    return crud.create_test_run(
+        db=db, test_run=test_run, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.get("/", response_model=List[TestRunDetailSchema])
@@ -303,14 +320,29 @@ def get_test_run_behaviors(
 
 
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
+@handle_database_exceptions(
+    entity_name="test run", custom_unique_message="Test run with this configuration already exists"
+)
 def update_test_run(
     test_run_id: UUID,
     test_run: schemas.TestRunUpdate,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update a test run"""
-    db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
+    """
+    Update test_run with optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_test_run = crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
@@ -318,7 +350,13 @@ def update_test_run(
     if db_test_run.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to update this test run")
 
-    return crud.update_test_run(db=db, test_run_id=test_run_id, test_run=test_run)
+    return crud.update_test_run(
+        db=db,
+        test_run_id=test_run_id,
+        test_run=test_run,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 @router.delete("/{test_run_id}", response_model=schemas.TestRun)
