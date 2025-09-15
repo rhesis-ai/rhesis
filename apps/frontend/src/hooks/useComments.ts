@@ -36,14 +36,10 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     } catch (err) {
       setError('Failed to fetch comments');
       console.error('Error fetching comments:', err);
-      notifications.show('Failed to fetch comments', { 
-        severity: 'error',
-        autoHideDuration: 3000
-      });
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId, sessionToken, notifications]);
+  }, [entityType, entityId, sessionToken]);
 
   const createComment = useCallback(async (text: string) => {
     if (!sessionToken) {

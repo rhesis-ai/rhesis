@@ -225,10 +225,11 @@ yarn-error.log*
 **/.env.development
 **/.env.test
 **/.env.production
-**/.env.docker
 **/.env.*
 !**/.env.example
 **/.env-*
+**/env.*
+!**/env.example
 
 # Docker files
 
@@ -298,3 +299,10 @@ deepeval_telemetry.jsonl.gz.part
 
 # Playground
 playground/*
+
+# K8s files
+infrastructure/k8s/manifests/secrets/*
+infrastructure/k8s/manifests/configmaps/*
+# Exclude example files
+!infrastructure/k8s/manifests/secrets/rhesis-secrets.yaml.example
+!infrastructure/k8s/manifests/configmaps/rhesis-config.yaml.example
