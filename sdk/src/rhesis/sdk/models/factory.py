@@ -15,8 +15,9 @@ from rhesis.sdk.models.base import BaseLLM
 DEFAULT_PROVIDER = "rhesis"
 DEFAULT_MODELS = {
     "rhesis": "rhesis-default",
-    "rhesis_premium": "rhesis-premium-default",
     "gemini": "gemini-2.0-flash-lite-preview-02-05",
+    "ollama": "llama3.1",
+    "openai": "gpt-4o",
 }
 
 
@@ -25,7 +26,7 @@ class ModelConfig:
     """Configuration for a model instance.
 
     Args:
-        provider: The provider name (e.g., "rhesis", "rhesis_premium")
+        provider: The provider name (e.g., "rhesis", "gemini", "ollama")
         model_name: Specific model name (E.g gpt-4o, gemini-2.0-flash, etc)
         api_key: The API key to use for the model.
         extra_params: Extra parameters to pass to the model.
@@ -55,7 +56,7 @@ def get_model(
     5. **Full config**: `get_model(config=ModelConfig(...))`
 
     Args:
-        provider: Provider name (e.g., "rhesis", "rhesis_premium")
+        provider: Provider name (e.g., "rhesis", "gemini", "ollama")
         model_name: Specific model name
         api_key: API key for authentication
         config: Complete configuration object
@@ -103,11 +104,13 @@ def get_model(
         cfg = config
     else:
         cfg = ModelConfig()
+
     # Case: shorthand string like "provider/model"
     if provider and "/" in provider and model_name is None:
         # split only first "/" so that names like "rhesis/rhesis-default" still work
         prov, model = provider.split("/", 1)
         provider, model_name = prov, model
+
     provider = provider or cfg.provider or DEFAULT_PROVIDER
     if provider not in DEFAULT_MODELS.keys():
         raise ValueError(f"Provider {provider} not supported")
@@ -119,9 +122,21 @@ def get_model(
         from rhesis.sdk.models.providers.native import RhesisLLM
 
         return RhesisLLM(model_name=config.model_name, api_key=config.api_key)
+
     elif config.provider == "gemini":
         from rhesis.sdk.models.providers.gemini import GeminiLLM
 
         return GeminiLLM(model_name=config.model_name)
+
+    elif config.provider == "ollama":
+        from rhesis.sdk.models.providers.ollama import OllamaLLM
+
+        return OllamaLLM(model_name=config.model_name)
+
+    elif config.provider == "openai":
+        from rhesis.sdk.models.providers.openai import OpenAILLM
+
+        return OpenAILLM(model_name=config.model_name, api_key=config.api_key)
+
     else:
         raise ValueError(f"Provider {config.provider} not supported")
