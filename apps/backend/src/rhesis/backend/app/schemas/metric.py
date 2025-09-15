@@ -46,8 +46,11 @@ class MetricBase(Base):
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     class_name: Optional[str] = None
+    ground_truth_required: Optional[bool] = False
     context_required: Optional[bool] = False
     evaluation_examples: Optional[str] = None
+    organization_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
 
 
 class MetricCreate(MetricBase):

@@ -225,10 +225,11 @@ yarn-error.log*
 **/.env.development
 **/.env.test
 **/.env.production
-**/.env.docker
 **/.env.*
 !**/.env.example
 **/.env-*
+**/env.*
+!**/env.example
 
 # Docker files
 

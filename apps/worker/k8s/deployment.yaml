@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rhesis-worker
+  namespace: rhesis-worker-dev
   labels:
     app: rhesis-worker
     component: worker
@@ -26,10 +27,10 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: "1.5Gi"
+            cpu: "250m"
           limits:
-            memory: "2Gi"
+            memory: "4Gi"
             cpu: "1000m"
         env:
         - name: BROKER_URL
@@ -154,6 +155,23 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: FRONTEND_URL
+        # Memory optimization settings
+        - name: PYTHONMALLOC
+          value: "malloc"
+        - name: MALLOC_TRIM_THRESHOLD_
+          value: "100000"
+        - name: MALLOC_MMAP_THRESHOLD_
+          value: "131072"
+        - name: CELERY_WORKER_HIJACK_ROOT_LOGGER
+          value: "False"
+        - name: CELERY_WORKER_LOG_COLOR
+          value: "False"
+        - name: WORKER_ENV
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: worker_env
+              optional: true
         ports:
         - containerPort: 8080
           name: health
@@ -164,18 +182,18 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 180
           periodSeconds: 60
-          timeoutSeconds: 20
-          failureThreshold: 5
+          timeoutSeconds: 30
+          failureThreshold: 10
           successThreshold: 1
         readinessProbe:
           httpGet:
             path: /health/basic
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 30
-          periodSeconds: 15
-          timeoutSeconds: 10
-          failureThreshold: 5
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 15
+          failureThreshold: 10
           successThreshold: 1
       
       # Cloud SQL Auth Proxy sidecar
