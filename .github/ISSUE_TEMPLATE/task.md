@@ -1,8 +1,8 @@
 ---
 name: "Task"
 about: Track a piece of work that is not a bug or new feature
-title: "[Task] <concise title>"
-labels: ["task", "needs-triage"]
+title: "<concise title>"
+type: "Task"
 ---
 
 <!-- Keep sections crisp. Delete notes you don’t need. -->

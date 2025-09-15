@@ -13,6 +13,7 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.auth import create_session_token
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
 from rhesis.backend.app.utils.validation import validate_and_normalize_email
 from rhesis.backend.logging.rhesis_logger import logger
@@ -28,6 +29,9 @@ router = APIRouter(
 
 @router.post("/", response_model=schemas.User)
 @user_limiter.limit(INVITATION_RATE_LIMIT)
+@handle_database_exceptions(
+    entity_name="user", custom_unique_message="User with this email already exists"
+)
 async def create_user(
     request: Request,
     user: schemas.UserCreate,
@@ -157,6 +161,9 @@ def delete_user(
 
 
 @router.put("/{user_id}", response_model=schemas.User)
+@handle_database_exceptions(
+    entity_name="user", custom_unique_message="User with this email already exists"
+)
 def update_user(
     user_id: uuid.UUID,
     user: schemas.UserUpdate,
