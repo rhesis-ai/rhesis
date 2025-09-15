@@ -181,11 +181,7 @@ class DocumentSynthesizer(TestSetSynthesizer):
         Process documents and extract text with source tracking.
 
         Args:
-            documents: List of document dictionaries with the following keys:
-                - 'name': Name of the document.
-                - 'description': Required description.
-                - 'path': File path to the document (used if 'content' is not provided).
-                - 'content': Raw text content of the document. Overrides 'path' if both are given.
+            documents: List of Document dataclass objects
 
         Returns:
             List of dictionaries with the following keys:
@@ -198,13 +194,13 @@ class DocumentSynthesizer(TestSetSynthesizer):
             extracted_texts = self.document_extractor.extract(documents)
             return [
                 {
-                    "source": Path(doc["path"]).name if doc.get("path") else doc["name"],
-                    "name": doc["name"],
-                    "description": doc["description"],
+                    "source": Path(doc.path).name if doc.path else doc.name,
+                    "name": doc.name,
+                    "description": doc.description,
                     "content": content,
                 }
                 for doc in documents
-                for content in [extracted_texts.get(doc["name"])]
+                for content in [extracted_texts.get(doc.name)]
                 if content
             ]
         except Exception as e:
