@@ -71,18 +71,15 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             **kwargs,
         )
         # Convert string to enum if needed
+        self.score_type = ScoreType.NUMERIC
         if isinstance(threshold_operator, str):
             threshold_operator = ThresholdOperator(threshold_operator)
-
-        self.score_type = ScoreType.NUMERIC
         self.threshold_operator = threshold_operator
         self.model = model
 
         # Validate and set up numeric score parameters
         self._validate_score_range(min_score, max_score)
         self._set_score_parameters(min_score, max_score, threshold)
-
-        # Pass the normalized threshold to the base class
 
         # Store other parameters
         self.evaluation_prompt = evaluation_prompt
@@ -178,8 +175,11 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             "max_score": self.max_score,
         }
 
-        # Render the template with all required variables
-        prompt = template.render(**template_vars)
+        try:
+            # Render the template with all required variables
+            prompt = template.render(**template_vars)
+        except Exception as e:
+            raise ValueError(f"Failed to render template: {e}") from e
 
         return prompt
 

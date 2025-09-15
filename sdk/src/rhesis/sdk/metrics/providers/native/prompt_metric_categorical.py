@@ -77,7 +77,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         self.reasoning = reasoning
         self.evaluation_examples = evaluation_examples
 
-        # Set up Jinja environment (cached for performance)
+        # Set up Jinja environment
         self._setup_jinja_environment()
 
     def _validate_possible_scores(self) -> None:
