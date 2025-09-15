@@ -58,6 +58,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             name=name,
             metric_type=metric_type,
             model=model,
+            **kwargs,
         )
         # Convert string to enum if needed
         self.score_type = ScoreType.CATEGORICAL
