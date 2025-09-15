@@ -962,13 +962,15 @@ def create_token(db: Session, token: schemas.TokenCreate, organization_id: str =
 
 
 def update_token(
-    db: Session, token_id: uuid.UUID, token: schemas.TokenUpdate
+    db: Session, token_id: uuid.UUID, token: schemas.TokenUpdate, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Token]:
-    return update_item(db, models.Token, token_id, token)
+    """Update token with optimized approach - no session variables needed."""
+    return update_item(db, models.Token, token_id, token, organization_id, user_id)
 
 
-def revoke_token(db: Session, token_id: uuid.UUID) -> Optional[models.Token]:
-    return delete_item(db, models.Token, token_id)
+def revoke_token(db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Token]:
+    """Delete token with optimized approach - no session variables needed."""
+    return delete_item(db, models.Token, token_id, organization_id, user_id)
 
 
 def revoke_user_tokens(db: Session, user_id: uuid.UUID) -> List[models.Token]:

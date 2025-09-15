@@ -306,6 +306,7 @@ class APIEndpoints:
     SOURCES = create_entity_endpoints("sources")
     STATUSES = create_entity_endpoints("statuses")
     TAGS = create_entity_endpoints("tags")
+    TOKENS = create_entity_endpoints("tokens")
     TYPE_LOOKUPS = create_entity_endpoints("type_lookups")
     USE_CASES = create_entity_endpoints("use_cases")
     

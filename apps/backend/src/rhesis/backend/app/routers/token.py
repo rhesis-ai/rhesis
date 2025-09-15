@@ -7,10 +7,11 @@ from fastapi.responses import JSONResponse
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.token import TokenCreate, TokenRead, TokenUpdate
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -23,19 +24,33 @@ router = APIRouter(
 )
 
 
-@router.post("/")
-async def create_api_token(
+@router.post("/", response_model=TokenRead)
+@handle_database_exceptions(
+    entity_name="token", custom_unique_message="Token with this name already exists"
+)
+def create_token(
     request: Request,
     data: dict = Body(...),
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
+    """
+    Create token with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
     name = data.get("name")
     expires_in_days = data.get("expires_in_days")
 
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
 
+    organization_id, user_id = tenant_context
     token_value = generate_api_token()
     token_data = {
         "name": name,
@@ -47,20 +62,12 @@ async def create_api_token(
             if expires_in_days is not None
             else None
         ),
-        "user_id": current_user.id,
-        "organization_id": current_user.organization_id,
+        "user_id": user_id,
+        "organization_id": organization_id,
     }
 
     token_create = TokenCreate(**token_data)
-    token = crud.create_token(db=db, token=token_create)
-
-    return JSONResponse(
-        content={
-            "access_token": token.token,
-            "token_type": token.token_type,
-            "expires_at": token.expires_at.isoformat() if token.expires_at else None,
-        }
-    )
+    return crud.create_token(db=db, token=token_create, organization_id=organization_id, user_id=user_id)
 
 
 @router.get("/", response_model=List[TokenRead])
@@ -88,63 +95,102 @@ async def read_tokens(
 
 
 @router.get("/{token_id}", response_model=TokenRead)
-async def read_token(
+def read_token(
     token_id: uuid.UUID,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get a specific token's details"""
-    token = crud.get_token(db=db, token_id=token_id)
-    if not token or str(token.user_id) != str(current_user.id):
+    """
+    Get token with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during retrieval
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_token = crud.get_token(db, token_id=token_id, organization_id=organization_id, user_id=user_id)
+    if db_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
-    return token
+    return db_token
 
 
-@router.delete("/{token_id}", status_code=200)
-async def delete_token(
+@router.delete("/{token_id}")
+def delete_token(
     token_id: uuid.UUID,
-    request: Request,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Delete a specific API token. Only the token owner can delete it."""
-    # Get the token and verify ownership
-    token = crud.get_token(db=db, token_id=token_id)
-    if not token or str(token.user_id) != str(current_user.id):
+    """
+    Delete token with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during deletion
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_token = crud.revoke_token(db, token_id=token_id, organization_id=organization_id, user_id=user_id)
+    if db_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
-
-    # Delete the token
-    crud.revoke_token(db=db, token_id=token_id)
-    return {"message": "Token deleted successfully"}
+    return db_token
 
 
-@router.post("/{token_id}/refresh")
-async def refresh_token(
-    token_id: UUID4,
+@router.put("/{token_id}", response_model=TokenRead)
+def update_token(
+    token_id: uuid.UUID,
+    token: TokenUpdate,
+    db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Update token with optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_token = crud.update_token(
+        db,
+        token_id=token_id,
+        token=token,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    if db_token is None:
+        raise HTTPException(status_code=404, detail="Token not found")
+    return db_token
+
+
+@router.post("/{token_id}/refresh", response_model=TokenRead)
+def refresh_token(
+    token_id: uuid.UUID,
     data: dict = Body(...),
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    print("\n=== Token Refresh Debug ===")
-    print(f"1. Original request data: {data}")
-
-    token = crud.get_token(db=db, token_id=token_id)
-    print(f"2. Current token expires_at: {token.expires_at}")
-
+    """Refresh token with new value and expiration"""
+    organization_id, user_id = tenant_context
+    
+    token = crud.get_token(db=db, token_id=token_id, organization_id=organization_id, user_id=user_id)
     if not token:
         raise HTTPException(status_code=404, detail="Token not found")
 
-    if token.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to refresh this token")
-
     new_token_value = generate_api_token()
     expires_in_days = data.get("expires_in_days")
-    print(f"3. Requested expires_in_days: {expires_in_days}")
 
     expires_at = None
     if expires_in_days is not None:
         expires_at = datetime.now(timezone.utc) + timedelta(days=int(expires_in_days))
-    print(f"4. Calculated new expires_at: {expires_at}")
 
     token_update = TokenUpdate(
         token=new_token_value,
@@ -152,19 +198,8 @@ async def refresh_token(
         last_refreshed_at=datetime.now(timezone.utc),
         expires_at=expires_at,
     )
-    print(f"5. Token update data: {token_update.dict()}")
 
     updated_token = crud.update_token(db=db, token_id=token.id, token=token_update)
-    print(f"6. Updated token expires_at: {updated_token.expires_at}")
-
-    response = {
-        "access_token": updated_token.token,
-        "token_type": updated_token.token_type,
-        "token_obfuscated": updated_token.token_obfuscated,
-        "expires_at": updated_token.expires_at.isoformat() if updated_token.expires_at else None,
-        "name": updated_token.name,
-    }
-    print(f"7. Final response: {response}")
-    print("=== End Debug ===\n")
-
-    return JSONResponse(content=response)
+    if updated_token is None:
+        raise HTTPException(status_code=404, detail="Token not found")
+    return updated_token
