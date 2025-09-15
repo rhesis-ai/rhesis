@@ -304,6 +304,7 @@ class APIEndpoints:
     RESPONSE_PATTERNS = create_entity_endpoints("response_patterns")
     SOURCES = create_entity_endpoints("sources")
     STATUSES = create_entity_endpoints("statuses")
+    TAGS = create_entity_endpoints("tags")
     
     @classmethod
     def get_all_endpoints(cls) -> Dict[str, Any]:

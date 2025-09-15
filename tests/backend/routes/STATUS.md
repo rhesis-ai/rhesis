@@ -30,7 +30,7 @@ This document tracks the testing status of all backend routes/routers in the app
 | services | `services.py` | 🚧 | test_services.py | Service management endpoints |
 | source | `source.py` | ✅ | `test_source.py` | Source management endpoints |
 | status | `status.py` | ✅ | `test_status.py` | Status management endpoints |
-| tag | `tag.py` | ❌ | - | Tag management endpoints |
+| tag | `tag.py` | ✅ | `test_tag.py` | Tag management endpoints |
 | task | `task.py` | ❌ | - | Task management endpoints |
 | token | `token.py` | ❌ | - | Token management endpoints |
 | topic | `topic.py` | ✅ | `test_topic.py` | Topic management endpoints |

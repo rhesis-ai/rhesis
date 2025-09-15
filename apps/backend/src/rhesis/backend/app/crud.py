@@ -792,6 +792,11 @@ def update_tag(db: Session, tag_id: uuid.UUID, tag: schemas.TagUpdate, organizat
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
 
 
+def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Tag]:
+    """Delete tag with optimized approach - no session variables needed."""
+    return delete_item(db, models.Tag, tag_id, organization_id, user_id)
+
+
 def assign_tag(
     db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType
 ) -> models.Tag:
