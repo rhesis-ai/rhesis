@@ -25,11 +25,11 @@ if __name__ == "__main__":
             "A good response should be accurate, complete, and directly "
             "address the user's question."
         ),
-        possible_scores=["poor", "fair", "good", "perfect"],
-        successful_scores=[
+        categories=["poor", "fair", "good", "perfect"],
+        passing_categories=[
             "good",
             "perfect",
-        ],  # Only "good" and "excellent" are considered successful
+        ],  # Only "good" and "perfect" are considered passing
         evaluation_examples=(
             "Example: Question: 'What is Python?' "
             "Good response: 'Python is a programming language...' "
