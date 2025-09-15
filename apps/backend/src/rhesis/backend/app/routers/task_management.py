@@ -8,6 +8,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.services.task_notification_service import send_task_assignment_notification
+from rhesis.backend.app.services.task_service import validate_task_organization_constraints
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -27,10 +28,22 @@ router = APIRouter(
 
 
 @router.post("/", response_model=schemas.Task)
-def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
+def create_task(
+    task: schemas.TaskCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_current_user_or_token),
+):
     """Create a new task"""
     try:
-        created_task = crud.create_task(db=db, task=task)
+        # Validate organization-level constraints
+        validate_task_organization_constraints(db, task, current_user)
+
+        created_task = crud.create_task(
+            db=db,
+            task=task,
+            organization_id=str(current_user.organization_id),
+            user_id=str(current_user.id),
+        )
 
         # Send email notification if task has an assignee
         if created_task.assignee_id:
@@ -115,13 +128,21 @@ def get_tasks_by_entity(
 
 
 @router.patch("/{task_id}", response_model=schemas.Task)
-def update_task(task_id: uuid.UUID, task: schemas.TaskUpdate, db: Session = Depends(get_db)):
+def update_task(
+    task_id: uuid.UUID,
+    task: schemas.TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_current_user_or_token),
+):
     """Update a task"""
     try:
         # Get the current task to check for assignee changes
         current_task = crud.get_task(db=db, task_id=task_id)
         if current_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
+
+        # Validate organization-level constraints
+        validate_task_organization_constraints(db, task, current_user, current_task)
 
         # Check if assignee is being changed
         assignee_changed = (
@@ -158,6 +179,9 @@ def delete_task(task_id: uuid.UUID, db: Session = Depends(get_db)):
         if not success:
             raise HTTPException(status_code=404, detail="Task not found")
         return {"message": "Task deleted successfully"}
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404) without modification
+        raise
     except Exception as e:
         logger.error(f"Error deleting task {task_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
