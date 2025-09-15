@@ -18,36 +18,6 @@ from rhesis.backend.logging import logger
 TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
 
 
-def _send_task_assignment_email(task_id: str, frontend_url: str = None, db: Session = None):
-    """
-    Send task assignment email.
-    """
-    try:
-        if db:
-            from rhesis.backend.app import models
-
-            task = db.query(models.Task).filter(models.Task.id == task_id).first()
-            if task and task.assignee_id:
-                success = send_task_assignment_notification(
-                    db=db, task=task, frontend_url=frontend_url
-                )
-                if success:
-                    logger.info(f"Task assignment email sent successfully for task {task_id}")
-                    return True
-                else:
-                    logger.error(f"Task assignment email failed for task {task_id}")
-                    return False
-            else:
-                logger.warning(f"Task {task_id} not found or has no assignee")
-                return False
-        else:
-            logger.error("No database session provided for email sending")
-            return False
-    except Exception as error:
-        logger.error(f"Email sending failed for task {task_id}: {error}")
-        return False
-
-
 router = APIRouter(
     prefix="/tasks",
     tags=["tasks"],
@@ -65,9 +35,7 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
         # Send email notification if task has an assignee
         if created_task.assignee_id:
             frontend_url = os.getenv("FRONTEND_URL")
-            _send_task_assignment_email(
-                task_id=str(created_task.id), frontend_url=frontend_url, db=db
-            )
+            send_task_assignment_notification(db=db, task=created_task, frontend_url=frontend_url)
 
         return created_task
     except ValueError as e:
@@ -110,7 +78,7 @@ def list_tasks(
 @router.get("/{task_id}", response_model=TaskDetailSchema)
 def get_task(task_id: uuid.UUID, db: Session = Depends(get_db)):
     """Get a single task by ID"""
-    task = crud.get_task(db=db, task_id=task_id)
+    task = crud.get_task_with_comment_count(db=db, task_id=task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
@@ -167,9 +135,7 @@ def update_task(task_id: uuid.UUID, task: schemas.TaskUpdate, db: Session = Depe
         # Send email notification if assignee was changed to a new user
         if assignee_changed and updated_task.assignee_id:
             frontend_url = os.getenv("FRONTEND_URL")
-            _send_task_assignment_email(
-                task_id=str(updated_task.id), frontend_url=frontend_url, db=db
-            )
+            send_task_assignment_notification(db=db, task=updated_task, frontend_url=frontend_url)
 
         return updated_task
     except ValueError as e:

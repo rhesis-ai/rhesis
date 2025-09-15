@@ -76,7 +76,7 @@
                 <td style="padding: 8px 0; font-weight: bold;">Related to:</td>
                 <td style="padding: 8px 0;">
                     {{ entity_type }}
-                    {%- if entity_name %} - {{ entity_name }}{%- endif %}
+                    {%- if entity_name and entity_name != 'N/A' and entity_name != 'None' %} - {{ entity_name }}{%- endif %}
                     <br>
                     <span style="color: #6c757d; font-family: monospace; font-size: 1.1em; font-weight: bold;">{{ entity_id }}</span>
                 </td>
