@@ -8,8 +8,8 @@ from rhesis.backend.app.schemas import Base
 # ResponsePattern schemas
 class ResponsePatternBase(Base):
     text: str
-    behavior_id: int
-    reponse_type: Optional[str] = None
+    behavior_id: UUID4
+    response_pattern_type_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
 
@@ -20,7 +20,7 @@ class ResponsePatternCreate(ResponsePatternBase):
 
 class ResponsePatternUpdate(ResponsePatternBase):
     text: Optional[str] = None
-    behavior_id: Optional[int] = None
+    behavior_id: Optional[UUID4] = None
 
 
 class ResponsePattern(ResponsePatternBase):

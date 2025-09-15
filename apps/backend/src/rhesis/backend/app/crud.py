@@ -168,9 +168,10 @@ def get_prompt_templates(
 
 
 def create_prompt_template(
-    db: Session, prompt_template: schemas.PromptTemplateCreate
+    db: Session, prompt_template: schemas.PromptTemplateCreate, organization_id: str = None, user_id: str = None
 ) -> models.PromptTemplate:
-    return create_item(db, models.PromptTemplate, prompt_template)
+    """Create prompt template with optimized approach - no session variables needed."""
+    return create_item(db, models.PromptTemplate, prompt_template, organization_id, user_id)
 
 
 def update_prompt_template(
@@ -275,9 +276,10 @@ def get_response_patterns(
 
 
 def create_response_pattern(
-    db: Session, response_pattern: schemas.ResponsePatternCreate
+    db: Session, response_pattern: schemas.ResponsePatternCreate, organization_id: str = None, user_id: str = None
 ) -> models.ResponsePattern:
-    return create_item(db, models.ResponsePattern, response_pattern)
+    """Create response pattern with optimized approach - no session variables needed."""
+    return create_item(db, models.ResponsePattern, response_pattern, organization_id, user_id)
 
 
 def update_response_pattern(
@@ -550,6 +552,11 @@ def update_status(
     return update_item(db, models.Status, status_id, status, organization_id, user_id)
 
 
+def delete_status(db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Status]:
+    """Delete status with optimized approach - no session variables needed."""
+    return delete_item(db, models.Status, status_id, organization_id, user_id)
+
+
 # Source CRUD
 def get_source(db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Source]:
     """Get source with optimized approach - no session variables needed."""
@@ -577,6 +584,11 @@ def update_source(
 ) -> Optional[models.Source]:
     """Update source with optimized approach - no session variables needed."""
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
+
+
+def delete_source(db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Source]:
+    """Delete source with optimized approach - no session variables needed."""
+    return delete_item(db, models.Source, source_id, organization_id, user_id)
 
 
 # Topic CRUD

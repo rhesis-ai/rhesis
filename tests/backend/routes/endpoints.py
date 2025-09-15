@@ -259,10 +259,23 @@ def create_entity_endpoints(entity_name: str, entity_class=BaseEntityEndpoints):
     Returns:
         Configured endpoint instance
     """
+    # Handle irregular plurals properly
+    irregular_plurals = {
+        "statuses": "status",
+        "responses": "response", 
+        # Add more as needed
+    }
+    
+    # Get singular form
+    if entity_name in irregular_plurals:
+        singular = irregular_plurals[entity_name]
+    else:
+        singular = entity_name.rstrip('s')
+    
     @dataclass
     class DynamicEntityEndpoints(entity_class):
         _base_entity: str = entity_name
-        _id_param: str = f"{entity_name.rstrip('s')}_id"
+        _id_param: str = f"{singular}_id"
     
     return DynamicEntityEndpoints()
 
@@ -285,6 +298,12 @@ class APIEndpoints:
     # Project and Prompt endpoints
     PROJECTS = create_entity_endpoints("projects")
     PROMPTS = create_entity_endpoints("prompts")
+    
+    # New entity endpoints
+    PROMPT_TEMPLATES = create_entity_endpoints("prompt_templates")
+    RESPONSE_PATTERNS = create_entity_endpoints("response_patterns")
+    SOURCES = create_entity_endpoints("sources")
+    STATUSES = create_entity_endpoints("statuses")
     
     @classmethod
     def get_all_endpoints(cls) -> Dict[str, Any]:
