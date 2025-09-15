@@ -72,7 +72,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-rhesis-db}
       POSTGRES_USER: ${POSTGRES_USER:-rhesis-user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rhesis-password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-secured-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql

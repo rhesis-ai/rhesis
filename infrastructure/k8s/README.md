@@ -292,7 +292,8 @@ minikube status
 
 ```bash
 # Clean up any existing deployment
-kubectl scale deployment frontend --replicas=0 -n rhesis
+kubectl scale deployment --all --replicas=0 -n rhesis
+kubectl delete pvc --all -n rhesis
 kubectl delete namespace rhesis 2>/dev/null || true
 minikube image rm rhesis-frontend:latest rhesis-backend:latest rhesis-worker:latest 2>/dev/null || true
 

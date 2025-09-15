@@ -5,11 +5,24 @@ metadata:
   namespace: rhesis
 data:
   init-db.sql: |
+    -- =====================================================
+    -- IMPORTANT: SECURITY CONFIGURATION REQUIRED
+    -- =====================================================
+    -- This configuration uses a placeholder password that MUST be changed
+    -- for production deployments. Please update the following:
+    -- 1. Change 'your-secured-password' to a strong, unique password
+    -- 2. Update the corresponding password in your secrets configuration
+    -- 3. Ensure the password matches between this init script and your secrets
+    -- 
+    -- Security Note: This placeholder password is for development/testing only
+    -- and should never be used in production environments.
+    -- =====================================================
+    
     -- Create the rhesis-user if it doesn't exist
     DO $$
     BEGIN
         IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'rhesis-user') THEN
-            CREATE USER "rhesis-user" WITH PASSWORD 'rhesis-password';
+            CREATE USER "rhesis-user" WITH PASSWORD 'your-secured-password';
         END IF;
     END
     $$;
