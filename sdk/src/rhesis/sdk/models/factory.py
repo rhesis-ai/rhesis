@@ -7,7 +7,7 @@ with smart defaults and comprehensive error handling.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Dict, Optional
 
 from rhesis.sdk.models.base import BaseLLM
 
@@ -18,6 +18,47 @@ DEFAULT_MODELS = {
     "gemini": "gemini-2.0-flash-lite-preview-02-05",
     "ollama": "llama3.1",
     "openai": "gpt-4o",
+}
+
+
+# Factory functions for each provider, the are used to create the model instance and
+# avoid circular imports
+
+
+def _create_rhesis_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for RhesisLLM."""
+    from rhesis.sdk.models.providers.native import RhesisLLM
+
+    return RhesisLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_gemini_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for GeminiLLM."""
+    from rhesis.sdk.models.providers.gemini import GeminiLLM
+
+    return GeminiLLM(model_name=model_name, api_key=api_key)
+
+
+def _create_ollama_llm(model_name: str) -> BaseLLM:
+    """Factory function for OllamaLLM."""
+    from rhesis.sdk.models.providers.ollama import OllamaLLM
+
+    return OllamaLLM(model_name=model_name)
+
+
+def _create_openai_llm(model_name: str, api_key: Optional[str]) -> BaseLLM:
+    """Factory function for OpenAILLM."""
+    from rhesis.sdk.models.providers.openai import OpenAILLM
+
+    return OpenAILLM(model_name=model_name, api_key=api_key)
+
+
+# Provider registry mapping provider names to their factory functions
+PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
+    "rhesis": _create_rhesis_llm,
+    "gemini": _create_gemini_llm,
+    "ollama": _create_ollama_llm,
+    "openai": _create_openai_llm,
 }
 
 
@@ -115,30 +156,13 @@ def get_model(
         raise ValueError(f"Provider {provider} not supported")
     model_name = model_name or cfg.model_name or DEFAULT_MODELS[provider]
     api_key = api_key or cfg.api_key
+
     config = ModelConfig(provider=provider, model_name=model_name, api_key=api_key)
 
-    if config.provider == "rhesis":
-        from rhesis.sdk.models.providers.native import RhesisLLM
-
-        if api_key is None:
-            api_key = config.api_key
-
-        return RhesisLLM(model_name=config.model_name, api_key=api_key)
-
-    elif config.provider == "gemini":
-        from rhesis.sdk.models.providers.gemini import GeminiLLM
-
-        return GeminiLLM(model_name=config.model_name, api_key=api_key)
-
-    elif config.provider == "ollama":
-        from rhesis.sdk.models.providers.ollama import OllamaLLM
-
-        return OllamaLLM(model_name=config.model_name)
-
-    elif config.provider == "openai":
-        from rhesis.sdk.models.providers.openai import OpenAILLM
-
-        return OpenAILLM(model_name=config.model_name, api_key=api_key)
-
-    else:
+    # Get the factory function for the provider
+    factory_func = PROVIDER_REGISTRY.get(config.provider)
+    if factory_func is None:
         raise ValueError(f"Provider {config.provider} not supported")
+
+    # Use the factory function to create the model instance
+    return factory_func(config.model_name, config.api_key)
