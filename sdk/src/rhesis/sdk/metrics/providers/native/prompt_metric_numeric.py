@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOperator
-from rhesis.sdk.metrics.providers.native.metric_base import (
-    RhesisMetricBase,
+from rhesis.sdk.metrics.providers.native.prompt_metric import (
+    RhesisPromptMetricBase,
 )
 
 
@@ -16,7 +16,7 @@ class NumericScoreResponse(BaseModel):
     reason: str = Field(description="Explanation for the score", default="")
 
 
-class RhesisPromptMetricNumeric(RhesisMetricBase):
+class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
     """
     A numeric metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -142,8 +142,7 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         """
         Generate the prompt to be sent to the LLM using a Jinja template.
 
-        This method renders the Jinja2 template with all necessary variables to create
-        a comprehensive evaluation prompt for the LLM.
+        This method uses the base class implementation with numeric-specific template variables.
 
         Args:
             input (str): The input query/question
@@ -155,33 +154,14 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         Returns:
             str: The rendered prompt template ready to be sent to the LLM
         """
-        context_text = "\n".join(context) if context else "No context provided."
-
-        # Load the template
-        template = self.jinja_env.get_template("prompt_metric.jinja")
-
-        # Prepare template variables for numeric scoring
-        template_vars = {
-            "evaluation_prompt": self.evaluation_prompt,
-            "evaluation_steps": self.evaluation_steps,
-            "reasoning": self.reasoning,
-            "evaluation_examples": self.evaluation_examples,
-            "input": input,
-            "context_text": context_text,
-            "expected_output": expected_output,
-            "output": output,
-            "score_type": self.score_type.value,
-            "min_score": self.min_score,
-            "max_score": self.max_score,
-        }
-
-        try:
-            # Render the template with all required variables
-            prompt = template.render(**template_vars)
-        except Exception as e:
-            raise ValueError(f"Failed to render template: {e}") from e
-
-        return prompt
+        return super()._get_prompt_template(
+            input=input,
+            output=output,
+            expected_output=expected_output,
+            context=context,
+            min_score=self.min_score,
+            max_score=self.max_score,
+        )
 
     def evaluate(
         self, input: str, output: str, expected_output: Optional[str], context: List[str] = None

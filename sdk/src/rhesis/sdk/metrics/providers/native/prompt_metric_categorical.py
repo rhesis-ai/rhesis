@@ -4,12 +4,12 @@ from pydantic import create_model
 
 from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.constants import ScoreType
-from rhesis.sdk.metrics.providers.native.metric_base import (
-    RhesisMetricBase,
+from rhesis.sdk.metrics.providers.native.prompt_metric import (
+    RhesisPromptMetricBase,
 )
 
 
-class RhesisPromptMetricCategorical(RhesisMetricBase):
+class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -144,8 +144,7 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         """
         Generate the prompt to be sent to the LLM using a Jinja template.
 
-        This method renders the Jinja2 template with all necessary variables to create
-        a comprehensive evaluation prompt for the LLM.
+        This method uses the base class implementation with categorical-specific template variables.
 
         Args:
             input (str): The input query/question
@@ -156,45 +155,15 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
 
         Returns:
             str: The rendered prompt template ready to be sent to the LLM
-
-        Raises:
-            ValueError: If context format is invalid
-            ValueError: If template loading fails
-            ValueError: If template rendering fails
         """
-        try:
-            context_text = "\n".join(context) if context else "No context provided."
-        except (TypeError, AttributeError) as e:
-            raise ValueError(f"Invalid context format: {e}") from e
-
-        try:
-            # Load the template
-            template = self.jinja_env.get_template("prompt_metric.jinja")
-        except Exception as e:
-            raise ValueError(f"Failed to load template: {e}") from e
-
-        # Prepare template variables based on score type
-        template_vars = {
-            "evaluation_prompt": self.evaluation_prompt,
-            "evaluation_steps": self.evaluation_steps,
-            "reasoning": self.reasoning,
-            "evaluation_examples": self.evaluation_examples,
-            "input": input,
-            "context_text": context_text,
-            "expected_output": expected_output,
-            "output": output,
-            "score_type": self.score_type.value,
-            "possible_scores": self.possible_scores,
-            "successful_scores": self.successful_scores,
-        }
-
-        try:
-            # Render the template with all required variables
-            prompt = template.render(**template_vars)
-        except Exception as e:
-            raise ValueError(f"Failed to render template: {e}") from e
-
-        return prompt
+        return super()._get_prompt_template(
+            input=input,
+            output=output,
+            expected_output=expected_output,
+            context=context,
+            possible_scores=self.possible_scores,
+            successful_scores=self.successful_scores,
+        )
 
     def evaluate(
         self,
