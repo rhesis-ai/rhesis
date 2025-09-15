@@ -269,27 +269,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
 
             return MetricResult(score=score, details=details)
 
-        except (ValueError, TypeError) as e:
-            # Handle validation errors - these are user errors, don't log as errors
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Validation error in {self.name}: {str(e)}")
-
-            details: Dict[str, Any] = {
-                "error": f"Validation error: {str(e)}",
-                "reason": f"Invalid input: {str(e)}",
-                "exception_type": type(e).__name__,
-                "exception_details": str(e),
-                "model": self.model,
-                "prompt": prompt,
-                "score_type": self.score_type.value,
-                "possible_scores": self.possible_scores,
-                "successful_scores": self.successful_scores,
-                "is_successful": False,
-            }
-            return MetricResult(score="error", details=details)
-
         except Exception as e:
             # Log unexpected errors for debugging
             import logging
