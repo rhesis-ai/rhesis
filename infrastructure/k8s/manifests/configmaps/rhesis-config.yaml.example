@@ -4,53 +4,137 @@ metadata:
   name: rhesis-config
   namespace: rhesis
 data:
-  # Database Configuration
+  #####################################################################################
+  # ⚙️ RHESIS KUBERNETES CONFIGURATION
+  #####################################################################################
+  # This file contains all non-sensitive environment variables for the Rhesis application.
+  # Copy this file to rhesis-config.yaml and fill in your actual values.
+  #
+  # 📋 CONFIGURATION CATEGORIES:
+  # 1. 🔧 USER-DEFINED (Required) - You MUST set these values
+  # 2. ⚙️  OPTIONAL (Recommended) - Set these for enhanced functionality
+  # 3. 🏗️  RHESIS-DEFINED (Don't change) - Internal configuration
+  #
+  # 💡 TIP: Start with USER-DEFINED variables, then add OPTIONAL ones as needed.
+  # 🔒 SECURITY: This file contains only non-sensitive configuration!
+  #####################################################################################
+
+  #####################################################################################
+  # 🔧 USER-DEFINED CONFIGURATION (REQUIRED)
+  # These variables MUST be set for the application to run properly
+  #####################################################################################
+
+  # =============================================================================
+  # 🔐 AUTHENTICATION & AUTHORIZATION
+  # =============================================================================
+  # Auth0 Configuration - Get these from https://manage.auth0.com/
+  # These are PUBLIC values that can be exposed in the frontend
+  NEXT_PUBLIC_AUTH0_CLIENT_ID: "YOUR_AUTH0_CLIENT_ID"
+  NEXT_PUBLIC_AUTH0_DOMAIN: "YOUR_AUTH0_DOMAIN"
+
+  #####################################################################################
+  # ⚙️ OPTIONAL CONFIGURATION (RECOMMENDED)
+  # These variables enhance functionality but are not required for basic operation
+  #####################################################################################
+
+  # =============================================================================
+  # 🤖 AI MODEL CONFIGURATION
+  # =============================================================================
+  # Choose one or more AI providers based on your needs
+
+  # Azure OpenAI (if using Azure)
+  AZURE_OPENAI_DEPLOYMENT_NAME: "YOUR_AZURE_OPENAI_DEPLOYMENT_NAME"
+  AZURE_OPENAI_API_VERSION: "YOUR_AZURE_OPENAI_API_VERSION"
+
+  # OpenAI (if using OpenAI directly)
+  OPENAI_MODEL_NAME: "gpt-4o"
+
+  # Google Gemini (if using Google AI)
+  GEMINI_MODEL_NAME: "gemini-2.0-flash-001"
+
+  # =============================================================================
+  # 📧 EMAIL CONFIGURATION
+  # =============================================================================
+  # SMTP settings for email notifications (optional)
+  SMTP_PORT: "465"
+
+  #####################################################################################
+  # 🏗️ RHESIS-DEFINED CONFIGURATION (DON'T CHANGE)
+  # These are internal application settings - modify only if you know what you're doing
+  #####################################################################################
+
+  # =============================================================================
+  # 🗄️ DATABASE INTERNAL CONFIGURATION
+  # =============================================================================
+  # Database connection settings (non-sensitive)
   SQLALCHEMY_DB_HOST: "postgres"
   SQLALCHEMY_DB_DRIVER: "postgresql"
   SQLALCHEMY_DB_PORT: "5432"
   SQLALCHEMY_DB_NAME: "rhesis-db"
   SQLALCHEMY_DB_USER: "rhesis-user"
-  # Database URL will be constructed from individual components + secrets
-  # SQLALCHEMY_DATABASE_URL is now built from SQLALCHEMY_DB_* + secrets
+  # Note: SQLALCHEMY_DATABASE_URL is constructed from these + secrets
 
-  
-  # Redis Configuration
+  # =============================================================================
+  # 🔴 REDIS INTERNAL CONFIGURATION
+  # =============================================================================
+  # Redis connection settings (non-sensitive)
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
-  # Redis URLs will be constructed from individual components + secrets
-  # REDIS_URL, BROKER_URL, CELERY_RESULT_BACKEND are now built from REDIS_* + secrets
-  
-  # Application Configuration
+  # Note: REDIS_URL, BROKER_URL, CELERY_RESULT_BACKEND are constructed from these + secrets
+
+  # =============================================================================
+  # 🌐 SERVICE CONFIGURATION
+  # =============================================================================
+  # Service Ports
+  BACKEND_PORT: "8080"
+  FRONTEND_PORT: "3000"
+
+  # Environment Settings
   ENVIRONMENT: "local"
   FRONTEND_ENV: "local"
   BACKEND_ENV: "local"
   WORKER_ENV: "local"
   LOG_LEVEL: "INFO"
-  
-  # Frontend Configuration
-  NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
-  NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-  NEXT_TELEMETRY_DISABLED: "1"
-  NEXTAUTH_URL: "http://localhost:3000"
-  NEXT_PUBLIC_AUTH0_CLIENT_ID: "YOUR_AUTH0_CLIENT_ID"
-  NEXT_PUBLIC_AUTH0_DOMAIN: "YOUR_AUTH0_DOMAIN"
-  
-  # Backend Configuration
+
+  # =============================================================================
+  # 🔗 INTERNAL URLS
+  # =============================================================================
+  # Application URLs (internal service communication)
   RHESIS_BASE_URL: "http://backend:8080"
   FRONTEND_URL: "http://localhost:3000"
   BACKEND_URL: "http://backend:8080"
-  
-  # AI Model Configuration
-  AZURE_OPENAI_DEPLOYMENT_NAME: "YOUR_AZURE_OPENAI_DEPLOYMENT_NAME"
-  AZURE_OPENAI_API_VERSION: "YOUR_AZURE_OPENAI_API_VERSION"
-  OPENAI_MODEL_NAME: "gpt-4o"
-  GEMINI_MODEL_NAME: "gemini-2.0-flash-001"
-  
-  # SMTP Configuration
-  SMTP_PORT: "465"
-  
-  # Celery Configuration
+
+  # Frontend URLs (public-facing)
+  NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
+  NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+  NEXTAUTH_URL: "http://localhost:3000"
+
+  # =============================================================================
+  # 📊 CELERY WORKER CONFIGURATION
+  # =============================================================================
+  # Celery worker settings
   CELERY_WORKER_CONCURRENCY: "8"
   CELERY_WORKER_PREFETCH_MULTIPLIER: "4"
   CELERY_WORKER_MAX_TASKS_PER_CHILD: "1000"
   CELERY_WORKER_LOGLEVEL: "INFO"
+
+  # =============================================================================
+  # 🔧 FRONTEND CONFIGURATION
+  # =============================================================================
+  # Frontend-specific settings
+  NEXT_TELEMETRY_DISABLED: "1"
+
+  #####################################################################################
+  # 📚 QUICK START GUIDE
+  #####################################################################################
+  # 1. Copy this file: cp rhesis-config.yaml.example rhesis-config.yaml
+  # 2. Set required USER-DEFINED variables (minimum for basic operation):
+  #    - NEXT_PUBLIC_AUTH0_CLIENT_ID, NEXT_PUBLIC_AUTH0_DOMAIN
+  # 3. Optionally set OPTIONAL variables for enhanced functionality
+  # 4. Apply the configmap: kubectl apply -f rhesis-config.yaml
+  #
+  # 🔒 SECURITY NOTES:
+  # - This file contains only non-sensitive configuration
+  # - Sensitive data (passwords, API keys) should go in rhesis-secrets.yaml
+  # - Public Auth0 values are safe to expose in the frontend
+  #####################################################################################
