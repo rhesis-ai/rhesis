@@ -24,10 +24,19 @@ class TaskBase(BaseModel):
     task_metadata: Optional[Dict] = None
 
 
-class TaskCreate(TaskBase):
-    """Schema for creating a new Task"""
+class TaskCreate(BaseModel):
+    """Schema for creating a new Task - creator_id is auto-populated from authenticated user"""
 
-    pass
+    title: str
+    description: Optional[str] = None
+    creator_id: Optional[UUID4] = None  # Auto-populated from current user
+    assignee_id: Optional[UUID4] = None
+    status_id: UUID4
+    priority_id: Optional[UUID4] = None
+    entity_id: Optional[UUID4] = None
+    entity_type: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    task_metadata: Optional[Dict] = None
 
 
 class TaskUpdate(BaseModel):
