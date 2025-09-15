@@ -62,10 +62,24 @@ class QueryBuilder:
         )
         return self
 
-    def with_organization_filter(self) -> "QueryBuilder":
-        """Apply organization filter if the model supports it"""
+
+
+    def with_organization_filter(self, organization_id: str = None) -> "QueryBuilder":
+        """
+        Apply organization filter with optimized approach - no session variables needed.
+        
+        Performance improvements:
+        - Completely bypasses database session variables
+        - No SHOW queries for organization context
+        - Direct organization ID filtering
+        """
         if has_organization_id(self.model):
-            self.query = apply_organization_filter(self.db, self.query, self.model)
+            if organization_id:
+                # Use direct organization_id filtering (optimized)
+                self.query = self.query.filter(self.model.organization_id == organization_id)
+            else:
+                # Fallback to session variable approach for backward compatibility
+                self.query = apply_organization_filter(self.db, self.query, self.model)
         return self
 
     def with_visibility_filter(self) -> "QueryBuilder":

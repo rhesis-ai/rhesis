@@ -252,8 +252,8 @@ export function CommentItem({
                             display: 'flex',
                             alignItems: 'center',
                             gap: 0.5,
-                            bgcolor: theme.palette.mode === 'dark' ? 'background.default' : '#f5f5f5',
-                            color: theme.palette.mode === 'dark' ? '#ffffff' : '#666666',
+                            bgcolor: 'background.default',
+                            color: 'text.primary',
                             border: '1px solid',
                             borderColor: hasReacted ? 'primary.main' : 'divider',
                             borderRadius: '16px',
@@ -262,14 +262,14 @@ export function CommentItem({
                             cursor: 'pointer',
                             '&:hover': {
                               bgcolor: 'action.hover',
-                              color: theme.palette.mode === 'dark' ? '#ffffff' : '#333333',
+                              color: 'text.primary',
                               borderColor: hasReacted ? 'primary.main' : 'text.primary'
                             }
                           }}
                         >
                           <Typography variant="body2" sx={{ fontSize: '1rem' }}>{emoji}</Typography>
                           <Typography variant="body2" fontWeight={600} sx={{ 
-                            color: theme.palette.mode === 'dark' ? '#ffffff' : '#333333'
+                            color: 'text.primary'
                           }}>
                             {reactionCount}
                           </Typography>
