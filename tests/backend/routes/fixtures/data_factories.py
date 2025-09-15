@@ -1773,6 +1773,141 @@ class TypeLookupDataFactory(BaseDataFactory):
 
 
 @dataclass
+class CommentDataFactory(BaseDataFactory):
+    """Factory for generating comment test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal comment data (only required fields)"""
+        return {
+            "content": fake.sentence(nb_words=8),
+            "entity_id": fake.uuid4(),  # Will be replaced with real entity ID in tests
+            "entity_type": fake.random_element(elements=["Test", "TestSet", "TestRun", "TestResult", "Metric", "Model", "Prompt", "Behavior", "Category"])
+        }
+    
+    @classmethod
+    def sample_data(cls, entity_id: Optional[str] = None, entity_type: str = "Test") -> Dict[str, Any]:
+        """
+        Generate sample comment data
+        
+        Args:
+            entity_id: Optional entity ID (will use fake UUID if not provided)
+            entity_type: Type of entity the comment belongs to
+            
+        Returns:
+            Dict containing comment test data
+        """
+        return {
+            "content": fake.paragraph(nb_sentences=2),
+            "entity_id": entity_id or fake.uuid4(),  # Will be replaced with real entity ID in tests
+            "entity_type": entity_type,
+            "emojis": {}  # Start with no emoji reactions
+        }
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate comment update data"""
+        return {
+            "content": fake.paragraph(nb_sentences=3)
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate comment edge case data"""
+        if case_type == "long_content":
+            return {
+                "content": fake.text(max_nb_chars=2000),
+                "entity_id": fake.uuid4(),
+                "entity_type": "Test"
+            }
+        elif case_type == "special_chars":
+            return {
+                "content": f"Comment with émojis 💬 and spëcial chars! @#$%^&*()",
+                "entity_id": fake.uuid4(),
+                "entity_type": "Test"
+            }
+        elif case_type == "unicode":
+            return {
+                "content": f"Comment 测试 тест テスト {fake.sentence()}",
+                "entity_id": fake.uuid4(),
+                "entity_type": "Test"
+            }
+        elif case_type == "empty_content":
+            return {
+                "content": "",
+                "entity_id": fake.uuid4(),
+                "entity_type": "Test"
+            }
+        elif case_type == "sql_injection":
+            return {
+                "content": "'; DROP TABLE comments; --",
+                "entity_id": fake.uuid4(),
+                "entity_type": "Test"
+            }
+        
+        return super().edge_case_data(case_type)
+    
+    @classmethod
+    def with_emoji_reactions(cls, emoji_reactions: Dict[str, List[Dict[str, str]]] = None) -> Dict[str, Any]:
+        """
+        Generate comment data with emoji reactions
+        
+        Args:
+            emoji_reactions: Dict of emoji reactions in format {emoji: [list_of_user_reactions]}
+            
+        Returns:
+            Dict containing comment data with emoji reactions
+        """
+        if emoji_reactions is None:
+            # Default emoji reactions for testing
+            emoji_reactions = {
+                "🚀": [
+                    {"user_id": str(fake.uuid4()), "user_name": fake.name()},
+                    {"user_id": str(fake.uuid4()), "user_name": fake.name()}
+                ],
+                "👍": [
+                    {"user_id": str(fake.uuid4()), "user_name": fake.name()}
+                ]
+            }
+        
+        data = cls.sample_data()
+        data["emojis"] = emoji_reactions
+        return data
+    
+    @classmethod
+    def batch_data(cls, count: int, variation: bool = True, entity_type: str = "Test") -> List[Dict[str, Any]]:
+        """
+        Generate batch of comment data
+        
+        Args:
+            count: Number of comment records to generate
+            variation: Whether to vary the data or use similar patterns
+            entity_type: Entity type for all comments
+            
+        Returns:
+            List of comment data dictionaries
+        """
+        comments = []
+        for i in range(count):
+            if variation:
+                # Create varied data
+                data = cls.sample_data(
+                    entity_type=fake.random_element(elements=["Test", "TestSet", "TestRun", "Behavior", "Metric"])
+                )
+            else:
+                # Create similar data with incremental content
+                data = {
+                    "content": f"Test comment {i+1}: {fake.sentence()}",
+                    "entity_id": fake.uuid4(),
+                    "entity_type": entity_type,
+                    "emojis": {}
+                }
+            comments.append(data)
+        
+        return comments
+
+
+@dataclass
 class TagDataFactory(BaseDataFactory):
     """Factory for generating tag test data"""
     
@@ -1867,6 +2002,7 @@ class TagDataFactory(BaseDataFactory):
 
 # Update factory registry with new factories
 FACTORY_REGISTRY.update({
+    "comment": CommentDataFactory,
     "prompt_template": PromptTemplateDataFactory,
     "response_pattern": ResponsePatternDataFactory,
     "risk": RiskDataFactory,
@@ -1886,6 +2022,7 @@ __all__ = [
     "BehaviorDataFactory",
     "TopicDataFactory", 
     "CategoryDataFactory",
+    "CommentDataFactory",
     "MetricDataFactory",
     "ModelDataFactory",
     "OrganizationDataFactory",

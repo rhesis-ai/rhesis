@@ -1666,9 +1666,9 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
 
 
 # Comment CRUD
-def get_comment(db: Session, comment_id: uuid.UUID) -> Optional[models.Comment]:
-    """Get a specific comment by ID"""
-    return get_item(db, models.Comment, comment_id)
+def get_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+    """Get a specific comment by ID with optimized tenant context"""
+    return get_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
 def get_comments(
@@ -1721,15 +1721,15 @@ def create_comment(db: Session, comment: Union[schemas.CommentCreate, dict], org
 
 
 def update_comment(
-    db: Session, comment_id: uuid.UUID, comment: schemas.CommentUpdate
+    db: Session, comment_id: uuid.UUID, comment: schemas.CommentUpdate, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Comment]:
-    """Update a comment"""
-    return update_item(db, models.Comment, comment_id, comment)
+    """Update a comment with optimized tenant context"""
+    return update_item(db, models.Comment, comment_id, comment, organization_id, user_id)
 
 
-def delete_comment(db: Session, comment_id: uuid.UUID) -> Optional[models.Comment]:
-    """Delete a comment"""
-    return delete_item(db, models.Comment, comment_id)
+def delete_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+    """Delete a comment with optimized tenant context"""
+    return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
 def add_emoji_reaction(

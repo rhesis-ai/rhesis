@@ -189,6 +189,37 @@ class CategoryEndpoints(BaseEntityEndpoints):
 
 
 @dataclass
+class CommentEndpoints(BaseEntityEndpoints):
+    """Comment API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "comments"
+    _id_param: str = "comment_id"
+    
+    def __post_init__(self):
+        """Initialize comment-specific endpoints"""
+        # Initialize base endpoints
+        super().__post_init__()
+        
+        # Comment-specific endpoints
+        self.get_by_entity = f"/{self._base_entity}/entity/{{entity_type}}/{{entity_id}}"
+        self.add_emoji = f"/{self._base_entity}/{{{self._id_param}}}/emoji/{{emoji}}"
+        self.remove_emoji = f"/{self._base_entity}/{{{self._id_param}}}/emoji/{{emoji}}"
+    
+    def by_entity(self, entity_type: str, entity_id: str) -> str:
+        """Get comments by entity endpoint"""
+        return self.format_path(self.get_by_entity, entity_type=entity_type, entity_id=entity_id)
+    
+    def add_emoji_reaction(self, comment_id: str, emoji: str) -> str:
+        """Add emoji reaction endpoint"""
+        return self.format_path(self.add_emoji, **{self._id_param: comment_id}, emoji=emoji)
+    
+    def remove_emoji_reaction(self, comment_id: str, emoji: str) -> str:
+        """Remove emoji reaction endpoint"""
+        return self.format_path(self.remove_emoji, **{self._id_param: comment_id}, emoji=emoji)
+
+
+@dataclass
 class AuthEndpoints:
     """Authentication API endpoints"""
     
@@ -289,6 +320,7 @@ class APIEndpoints:
     MODELS = ModelEndpoints()
     ORGANIZATIONS = OrganizationEndpoints()
     CATEGORIES = CategoryEndpoints()
+    COMMENTS = CommentEndpoints()
     AUTH = AuthEndpoints()
     HOME = HomeEndpoints()
     DIMENSIONS = DimensionEndpoints()
@@ -388,6 +420,7 @@ __all__ = [
     "ModelEndpoints",
     "OrganizationEndpoints",
     "CategoryEndpoints",
+    "CommentEndpoints",
     "AuthEndpoints",
     "HomeEndpoints",
     "DimensionEndpoints",
