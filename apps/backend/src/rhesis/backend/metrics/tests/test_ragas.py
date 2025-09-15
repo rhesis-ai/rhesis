@@ -39,9 +39,9 @@ def test_ragas_metric_evaluate_placeholder(sample_data):
         input=sample_data["input"],
         output=sample_data["output"],
         expected_output=sample_data["expected_output"],
-        context=sample_data["context"]
+        context=sample_data["context"],
     )
-    
+
     # Since this is a placeholder, we just check the structure
     assert result.score == 0.0
     assert "reason" in result.details
@@ -54,10 +54,10 @@ def test_metric_threshold_validation():
     """Test threshold validation."""
     with pytest.raises(ValueError):
         RagasAnswerRelevancy(threshold=-0.1)
-    
+
     with pytest.raises(ValueError):
         RagasAnswerRelevancy(threshold=1.1)
 
 
 if __name__ == "__main__":
-    pytest.main([__file__]) 
+    pytest.main([__file__])

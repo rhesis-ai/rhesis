@@ -5,9 +5,14 @@
 # IMPORTANT: The python version must match the version in the .python-version file.
 FROM python:3.10.17-slim
 
-# Set environment variables
+# Set environment variables for Python optimization
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONHASHSEED=0 \
+    PYTHONMALLOC=malloc \
+    MALLOC_TRIM_THRESHOLD_=100000 \
+    MALLOC_MMAP_THRESHOLD_=131072 \
+    MALLOC_TOP_PAD_=131072
 
 # Set working directory
 WORKDIR /app
@@ -61,8 +66,12 @@ ENV UV_NO_MANAGED_PYTHON=1
 # Add the virtual environment to the PATH. It activates the virtual environment allowing to
 # call python from the command line.
 ENV PATH="/app/.venv/bin:$PATH"
-# Set Python path to find the modules
-ENV PYTHONPATH=/app:/app/backend/src
+# Set Python path to find the modules and add GC optimizations
+ENV PYTHONPATH=/app:/app/backend/src \
+    CELERY_OPTIMIZATION=fair \
+    CELERY_DISABLE_RATE_LIMITS=True \
+    CELERY_TASK_ALWAYS_EAGER=False \
+    CELERY_TASK_EAGER_PROPAGATES=False
 
 RUN uv add /app/sdk 
 
@@ -79,11 +88,11 @@ RUN apt-get purge -y gcc \
 USER celery_user
 
 # Default Celery configuration (can be overridden at runtime)
-ENV CELERY_WORKER_CONCURRENCY=8 \
-    CELERY_WORKER_PREFETCH_MULTIPLIER=4 \
-    CELERY_WORKER_MAX_TASKS_PER_CHILD=1000 \
-    CELERY_WORKER_LOGLEVEL=INFO \
-    CELERY_WORKER_OPTS=""
+ENV CELERY_WORKER_CONCURRENCY=2 \
+    CELERY_WORKER_PREFETCH_MULTIPLIER=1 \
+    CELERY_WORKER_MAX_TASKS_PER_CHILD=500 \
+    CELERY_WORKER_LOGLEVEL=WARNING \
+    CELERY_WORKER_OPTS="--without-gossip --without-mingle --without-heartbeat"
 
 # Expose port for health check (Google Cloud Run)
 EXPOSE 8080

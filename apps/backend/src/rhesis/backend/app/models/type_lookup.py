@@ -21,6 +21,10 @@ class TypeLookup(Base, OrganizationAndUserMixin):
     topics = relationship("Topic", back_populates="entity_type")
     test_sets = relationship("TestSet", back_populates="license_type")
     tests = relationship("Test", back_populates="test_type")
-    metrics = relationship("Metric", foreign_keys="[Metric.metric_type_id]", back_populates="metric_type")
+    metrics = relationship(
+        "Metric", foreign_keys="[Metric.metric_type_id]", back_populates="metric_type"
+    )
     models = relationship("Model", back_populates="provider_type")
-    backend_types = relationship("Metric", foreign_keys="[Metric.backend_type_id]", back_populates="backend_type")
+    backend_types = relationship(
+        "Metric", foreign_keys="[Metric.backend_type_id]", back_populates="backend_type"
+    )

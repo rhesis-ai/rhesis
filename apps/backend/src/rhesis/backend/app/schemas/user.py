@@ -1,7 +1,7 @@
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
-from pydantic import UUID4, field_validator, Field
+from pydantic import UUID4, Field, field_validator
 
 from rhesis.backend.app.schemas import Base
 
@@ -18,12 +18,12 @@ class UserBase(Base):
     is_superuser: Optional[bool] = None
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None
-    
-    @field_validator('email')
+
+    @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError('Email address cannot be empty or whitespace-only')
+            raise ValueError("Email address cannot be empty or whitespace-only")
         return v.strip()
 
 

@@ -1,7 +1,7 @@
-import os
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
+
 from rhesis.backend.app.schemas.documents import Document
 
 
@@ -29,6 +29,7 @@ class GenerateTestsRequest(BaseModel):
     prompt: str
     num_tests: int = 5
     documents: Optional[List[Document]] = None
+
 
 class TestPrompt(BaseModel):
     content: str
@@ -62,4 +63,4 @@ class ExtractDocumentRequest(BaseModel):
 
 class ExtractDocumentResponse(BaseModel):
     content: str
-    format: str  
+    format: str

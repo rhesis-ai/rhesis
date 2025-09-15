@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
-    EntityType,
     ERROR_BULK_CREATE_FAILED,
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
+    EntityType,
 )
 from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models import Prompt, TestSet
@@ -82,7 +82,9 @@ def generate_test_set_attributes(
     sample = None
     if test_set.tests:
         # Filter tests that have prompts with content
-        tests_with_prompts = [test for test in test_set.tests if test.prompt and test.prompt.content]
+        tests_with_prompts = [
+            test for test in test_set.tests if test.prompt and test.prompt.content
+        ]
         if tests_with_prompts:
             sample = random.choice(tests_with_prompts).prompt.content
 
@@ -141,9 +143,9 @@ def bulk_create_test_set(
             )
 
             # Sanitize UUID fields for test set
-            raw_owner_id = getattr(test_set_data, 'owner_id', None)
-            raw_assignee_id = getattr(test_set_data, 'assignee_id', None)
-            
+            raw_owner_id = getattr(test_set_data, "owner_id", None)
+            raw_assignee_id = getattr(test_set_data, "assignee_id", None)
+
             # Create test set with minimal attributes
             test_set = models.TestSet(
                 name=test_set_data.name,
@@ -155,7 +157,8 @@ def bulk_create_test_set(
                 organization_id=organization_id,
                 owner_id=ensure_owner_id(raw_owner_id, user_id),
                 assignee_id=sanitize_uuid_field(raw_assignee_id),  # Sanitize assignee_id
-                priority=getattr(test_set_data, 'priority', None) or defaults["test_set"]["priority"],
+                priority=getattr(test_set_data, "priority", None)
+                or defaults["test_set"]["priority"],
                 visibility=defaults["test_set"]["visibility"],
                 attributes={},  # Will be updated after tests are created
             )
@@ -446,26 +449,24 @@ def execute_test_set_on_endpoint(
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration and submitting it for execution.
-    
+
     Args:
         db: Database session
         test_set_identifier: Test set identifier (UUID, nano_id, or slug)
         endpoint_id: Endpoint UUID
         current_user: Current authenticated user
         test_configuration_attributes: Optional attributes for test configuration
-        
+
     Returns:
         Dict containing execution status and metadata
-        
+
     Raises:
         ValueError: For validation errors
         PermissionError: For access control errors
         RuntimeError: For execution errors
     """
     from rhesis.backend.app import crud
-    from rhesis.backend.app import schemas
-    from rhesis.backend.tasks import task_launcher
-    
+
     logger.info(
         f"Starting test set execution for identifier: {test_set_identifier} "
         f"and endpoint: {endpoint_id}, user: {current_user.id}"
@@ -519,9 +520,7 @@ def execute_test_set_on_endpoint(
 
 
 def _validate_user_access(
-    current_user: models.User, 
-    db_test_set: models.TestSet, 
-    db_endpoint: models.Endpoint
+    current_user: models.User, db_test_set: models.TestSet, db_endpoint: models.Endpoint
 ) -> None:
     """Validate user has access to both test set and endpoint."""
     # Check if user has access to the test set
@@ -550,26 +549,28 @@ def _validate_user_access(
 
 
 def _create_test_configuration(
-    db: Session, 
-    endpoint_id: uuid.UUID, 
-    test_set_id: uuid.UUID, 
+    db: Session,
+    endpoint_id: uuid.UUID,
+    test_set_id: uuid.UUID,
     current_user: models.User,
-    test_configuration_attributes: Dict[str, Any] = None
+    test_configuration_attributes: Dict[str, Any] = None,
 ) -> str:
     """Create test configuration and return its ID as string."""
     from rhesis.backend.app import crud, schemas
-    
+
     logger.debug(
         f"Creating test configuration for test_set_id={test_set_id}, "
         f"endpoint_id={endpoint_id}, user_id={current_user.id}"
     )
-    
+
     # Prepare attributes with execution options
     attributes = {}
     if test_configuration_attributes:
         attributes.update(test_configuration_attributes)
-        logger.debug(f"Adding execution options to test configuration: {test_configuration_attributes}")
-    
+        logger.debug(
+            f"Adding execution options to test configuration: {test_configuration_attributes}"
+        )
+
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,
         test_set_id=test_set_id,
@@ -578,7 +579,7 @@ def _create_test_configuration(
         attributes=attributes if attributes else None,
     )
     logger.debug(f"Test configuration schema created: {test_config}")
-    
+
     # Create the test configuration
     db_test_config = crud.create_test_configuration(db=db, test_configuration=test_config)
     print(f"I got db_test_config: {db_test_config}")
@@ -586,23 +587,21 @@ def _create_test_configuration(
     # This avoids any potential session expiration or RLS context issues
     test_config_id = str(db_test_config.id)
     logger.info(f"Created test configuration with ID: {test_config_id}")
-    
+
     # Return just the ID string instead of trying to access the object later
     return test_config_id
 
 
 def _submit_test_configuration_for_execution(test_config_id: str, current_user: models.User):
     """Submit test configuration for background execution."""
-    from rhesis.backend.tasks.test_configuration import execute_test_configuration
     from rhesis.backend.tasks import task_launcher
-    
-    logger.debug(f"Submitting test configuration for execution: test_configuration_id={test_config_id}")
-    
-    result = task_launcher(
-        execute_test_configuration,
-        test_config_id,
-        current_user=current_user
+    from rhesis.backend.tasks.test_configuration import execute_test_configuration
+
+    logger.debug(
+        f"Submitting test configuration for execution: test_configuration_id={test_config_id}"
     )
-    
+
+    result = task_launcher(execute_test_configuration, test_config_id, current_user=current_user)
+
     logger.info(f"Test configuration execution submitted with task ID: {result.id}")
     return result
