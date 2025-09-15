@@ -22,7 +22,8 @@ if __name__ == "__main__":
             "3. Assess if the response is complete and helpful"
         ),
         reasoning=(
-            "A good response should be accurate, complete, and directly address the user's question."
+            "A good response should be accurate, complete, and directly "
+            "address the user's question."
         ),
         possible_scores=["poor", "fair", "good", "perfect"],
         successful_scores=[
@@ -113,8 +114,18 @@ if __name__ == "__main__":
 
     # Example data for evaluation
     test_input = "What are the main benefits of renewable energy?"
-    test_output = "Renewable energy sources like solar and wind power are clean, sustainable, and help reduce greenhouse gas emissions. They also create jobs and reduce dependence on fossil fuels."
-    expected_output = "The main benefits of renewable energy include: 1) Environmental benefits - reduced greenhouse gas emissions and air pollution, 2) Economic benefits - job creation and energy cost savings, 3) Energy security - reduced dependence on foreign fossil fuels, 4) Sustainability - inexhaustible energy sources"
+    test_output = (
+        "Renewable energy sources like solar and wind power are clean, sustainable, "
+        "and help reduce greenhouse gas emissions. They also create jobs and reduce "
+        "dependence on fossil fuels."
+    )
+    expected_output = (
+        "The main benefits of renewable energy include: 1) Environmental benefits - "
+        "reduced greenhouse gas emissions and air pollution, 2) Economic benefits - "
+        "job creation and energy cost savings, 3) Energy security - reduced "
+        "dependence on foreign fossil fuels, 4) Sustainability - inexhaustible "
+        "energy sources"
+    )
 
     result = metric.evaluate(input=test_input, output=test_output, expected_output=expected_output)
 
