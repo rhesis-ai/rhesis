@@ -21,8 +21,8 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         evaluation_prompt: str,
         evaluation_steps: str,
         reasoning: str,
-        possible_scores: List[str],
-        successful_scores: Union[str, List[str]],
+        categories: List[str],
+        passing_categories: Union[str, List[str]],
         evaluation_examples: str = "",
         model: Optional[str] = None,
         metric_type: str = "rag",
@@ -36,11 +36,11 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             evaluation_prompt (str): The main evaluation criteria and instructions for the LLM
             evaluation_steps (str): Step-by-step process the LLM should follow for evaluation
             reasoning (str): Guidelines for the LLM's reasoning process during evaluation
-            possible_scores (List[str]): List of valid categorical scores the LLM can return.
+            categories (List[str]): List of valid categories the LLM can return.
                 Must contain at least 2 scores.
-            successful_scores (Union[str, List[str]]): Score(s) considered successful/passing.
+            passing_categories (Union[str, List[str]]): Category(s) considered successful/passing.
                 Can be a single string or list of strings. All values must be present in
-                possible_scores.
+                categories.
             evaluation_examples (str, optional): Examples to guide the LLM's evaluation.
                 Defaults to empty string.
             model (Optional[str], optional): The LLM model to use for evaluation.
@@ -49,10 +49,10 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             **kwargs: Additional keyword arguments passed to the base class
 
         Raises:
-            ValueError: If possible_scores has fewer than 2 items
-            ValueError: If successful_scores is not a string or list
-            ValueError: If successful_scores contains values not in possible_scores
-            ValueError: If the number of successful_scores exceeds possible_scores
+            ValueError: If categories has fewer than 2 items
+            ValueError: If passing_categories is not a string or list
+            ValueError: If passing_categories contains values not in categories
+            ValueError: If the number of passing_categories exceeds categories
         """
         super().__init__(
             name=name,
@@ -62,15 +62,15 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         )
         # Convert string to enum if needed
         self.score_type = ScoreType.CATEGORICAL
-        self.possible_scores = possible_scores
-        self.successful_scores = successful_scores
+        self.categories = categories
+        self.passing_categories = passing_categories
         self.model = model
 
         # Validate input parameters
-        self._validate_possible_scores()
-        self._validate_successful_scores()
-        self._normalize_successful_scores()
-        self._validate_successful_scores_subset()
+        self._validate_categories()
+        self._validate_passing_categories()
+        self._normalize_passing_categories()
+        self._validate_passing_categories_subset()
 
         # Store other parameters
         self.evaluation_prompt = evaluation_prompt
@@ -81,62 +81,61 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         # Set up Jinja environment
         self._setup_jinja_environment()
 
-    def _validate_possible_scores(self) -> None:
+    def _validate_categories(self) -> None:
         """
-        Validate that possible_scores is a valid list with at least 2 scores.
+        Validate that categories is a valid list with at least 2 scores.
 
         Raises:
-            ValueError: If possible_scores is not a list or has fewer than 2 items
+            ValueError: If categories is not a list or has fewer than 2 items
         """
-        if not isinstance(self.possible_scores, list) or len(self.possible_scores) < 2:
+        if not isinstance(self.categories, list) or len(self.categories) < 2:
             raise ValueError(
-                f"possible_scores must be a list with at least 2 scores, "
-                f"got: {self.possible_scores}"
+                f"categories must be a list with at least 2 scores, got: {self.categories}"
             )
 
-    def _validate_successful_scores(self) -> None:
+    def _validate_passing_categories(self) -> None:
         """
-        Validate that successful_scores is a string or list.
+        Validate that passing_categories is a string or list.
 
         Raises:
-            ValueError: If successful_scores is not a string or list
+            ValueError: If passing_categories is not a string or list
         """
-        if not isinstance(self.successful_scores, (str, list)):
+        if not isinstance(self.passing_categories, (str, list)):
             raise ValueError(
-                f"successful_scores must be a string or list, got: {type(self.successful_scores)}"
+                f"passing_categories must be a string or list, got: {type(self.passing_categories)}"
             )
 
-    def _normalize_successful_scores(self) -> None:
+    def _normalize_passing_categories(self) -> None:
         """
-        Convert string successful_scores to list for consistent handling.
+        Convert string passing_categories to list for consistent handling.
 
-        This method ensures that successful_scores is always a list, converting
+        This method ensures that passing_categories is always a list, converting
         single string values to single-item lists.
         """
-        if isinstance(self.successful_scores, str):
-            self.successful_scores = [self.successful_scores]
+        if isinstance(self.passing_categories, str):
+            self.passing_categories = [self.passing_categories]
 
-    def _validate_successful_scores_subset(self) -> None:
+    def _validate_passing_categories_subset(self) -> None:
         """
-        Validate that successful_scores is a subset of possible_scores.
+        Validate that passing_categories is a subset of categories.
 
         Raises:
-            ValueError: If successful_scores contains values not in possible_scores
-            ValueError: If successful_scores has more items than possible_scores
+            ValueError: If passing_categories contains values not in categories
+            ValueError: If passing_categories has more items than categories
         """
-        if len(self.successful_scores) > len(self.possible_scores):
+        if len(self.passing_categories) > len(self.categories):
             raise ValueError(
-                f"The number of successful_scores ({len(self.successful_scores)}) must be "
-                f"less than or equal to the number of possible_scores ({len(self.possible_scores)})"
+                f"The number of passing_categories ({len(self.passing_categories)}) must be "
+                f"less than or equal to the number of categories ({len(self.categories)})"
             )
 
-        if not set(self.successful_scores).issubset(set(self.possible_scores)):
-            missing_scores = set(self.successful_scores) - set(self.possible_scores)
+        if not set(self.passing_categories).issubset(set(self.categories)):
+            missing_scores = set(self.passing_categories) - set(self.categories)
             raise ValueError(
-                f"Each value in successful_scores must be present in possible_scores. "
+                f"Each value in passing_categories must be present in categories. "
                 f"Missing scores: {missing_scores}\n"
-                f"Given successful_scores: {self.successful_scores}\n"
-                f"Given possible_scores: {self.possible_scores}"
+                f"Given passing_categories: {self.passing_categories}\n"
+                f"Given categories: {self.categories}"
             )
 
     def _get_prompt_template(
@@ -162,8 +161,8 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             output=output,
             expected_output=expected_output,
             context=context,
-            possible_scores=self.possible_scores,
-            successful_scores=self.successful_scores,
+            categories=self.categories,
+            passing_categories=self.passing_categories,
         )
 
     def evaluate(
@@ -190,7 +189,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
 
         Returns:
             MetricResult: The evaluation result containing:
-                - score (str): The categorical score returned by the LLM (one of possible_scores)
+                - score (str): The categorical score returned by the LLM (one of categories)
                 - details (Dict[str, Any]): Detailed evaluation information including:
                     - score: The categorical score
                     - score_type: "categorical"
@@ -236,18 +235,18 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         details: Dict[str, Any] = {
             "score_type": self.score_type.value,
             "prompt": prompt,
-            "possible_scores": self.possible_scores,
-            "successful_scores": self.successful_scores,
+            "categories": self.categories,
+            "passing_categories": self.passing_categories,
         }
 
         try:
             # Run the evaluation with structured response model
             # Create a proper Literal type from the possible scores
-            if len(self.possible_scores) == 1:
-                score_literal = Literal[self.possible_scores[0]]
+            if len(self.categories) == 1:
+                score_literal = Literal[self.categories[0]]
             else:
                 # Create individual string literals - use a more compatible approach
-                score_literal = Literal[tuple(self.possible_scores)]
+                score_literal = Literal[tuple(self.categories)]
 
             ScoreResponseCategorical = create_model(
                 "ScoreResponseCategorical", score=(score_literal, ...), reason=(str, ...)
@@ -262,7 +261,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             # Check if the evaluation meets the reference score using the base class method
             is_successful = self._evaluate_score(
                 score=score,
-                successful_scores=self.successful_scores,
+                successful_scores=self.passing_categories,
             )
 
             # Update details with success-specific fields
@@ -303,7 +302,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             # Return a default failure score for categorical metrics
             return MetricResult(score="error", details=details)
 
-    def _evaluate_score(self, score: str, successful_scores: List[str]) -> bool:
+    def _evaluate_score(self, score: str, passing_categories: List[str]) -> bool:
         """
         Evaluate if a score meets the success criteria for categorical metrics.
 
@@ -311,10 +310,10 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
 
         Args:
             score (str): The score to evaluate
-            successful_scores (List[str]): List of scores considered successful
+            passing_categories (List[str]): List of categories considered successful
 
         Returns:
             bool: True if the score is in successful_scores, False otherwise
         """
-        result = score in successful_scores
+        result = score in passing_categories
         return result
