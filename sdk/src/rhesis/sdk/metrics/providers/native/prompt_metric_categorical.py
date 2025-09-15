@@ -196,8 +196,8 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
                     - prompt: The full evaluation prompt sent to the LLM
                     - reason: The LLM's reasoning for the score
                     - is_successful: Whether the score meets the success criteria
-                    - possible_scores: List of valid scores
-                    - successful_scores: List of successful scores
+                    - categories: List of valid categories
+                    - passing_categories: List of passing categories
                     - error: Error message if evaluation failed
                     - exception_type: Type of exception if evaluation failed
                     - exception_details: Detailed exception information if evaluation failed
@@ -261,7 +261,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             # Check if the evaluation meets the reference score using the base class method
             is_successful = self._evaluate_score(
                 score=score,
-                successful_scores=self.passing_categories,
+                passing_categories=self.passing_categories,
             )
 
             # Update details with success-specific fields
@@ -306,14 +306,14 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         """
         Evaluate if a score meets the success criteria for categorical metrics.
 
-        This method checks if the provided score is present in the list of successful scores.
+        This method checks if the provided score is present in the list of passing categories.
 
         Args:
             score (str): The score to evaluate
-            passing_categories (List[str]): List of categories considered successful
+            passing_categories (List[str]): List of categories considered passing
 
         Returns:
-            bool: True if the score is in successful_scores, False otherwise
+            bool: True if the score is in passing_categories, False otherwise
         """
         result = score in passing_categories
         return result
