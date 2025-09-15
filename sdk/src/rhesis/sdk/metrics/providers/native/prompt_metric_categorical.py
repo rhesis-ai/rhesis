@@ -56,6 +56,11 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
             ValueError: If successful_scores contains values not in possible_scores
             ValueError: If the number of successful_scores exceeds possible_scores
         """
+        super().__init__(
+            name=name,
+            metric_type=metric_type,
+            model=model,
+        )
         # Convert string to enum if needed
         self.score_type = ScoreType.CATEGORICAL
         self.possible_scores = possible_scores
@@ -67,12 +72,6 @@ class RhesisPromptMetricCategorical(RhesisMetricBase):
         self._validate_successful_scores()
         self._normalize_successful_scores()
         self._validate_successful_scores_subset()
-
-        super().__init__(
-            name=name,
-            metric_type=metric_type,
-            model=model,
-        )
 
         # Store other parameters
         self.evaluation_prompt = evaluation_prompt
@@ -419,7 +418,7 @@ if __name__ == "__main__":
             "Good response: 'Python is a programming language...' "
             "Poor response: 'I don't know.'"
         ),
-        model="rhesis",  # Optional: specify the model to use
+        model="gemini",  # Optional: specify the model to use
     )
 
     # Example evaluation
@@ -446,4 +445,4 @@ if __name__ == "__main__":
     print(f"Reason: {result.details['reason']}")
     print(f"Possible Scores: {result.details['possible_scores']}")
     print(f"Successful Scores: {result.details['successful_scores']}")
-    # print(f"Details: {result.details['prompt']}")
+    print(f"Details: {result.details['prompt']}")

@@ -67,6 +67,11 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
             ValueError: If threshold is outside the [min_score, max_score] range
             ValueError: If threshold_operator string is invalid
         """
+        super().__init__(
+            name=name,
+            model=model,
+            **kwargs,
+        )
         # Convert string to enum if needed
         if isinstance(threshold_operator, str):
             threshold_operator = ThresholdOperator(threshold_operator)
@@ -80,11 +85,6 @@ class RhesisPromptMetricNumeric(RhesisMetricBase):
         self._set_score_parameters(min_score, max_score, threshold)
 
         # Pass the normalized threshold to the base class
-        super().__init__(
-            name=name,
-            model=model,
-            **kwargs,
-        )
 
         # Store other parameters
         self.evaluation_prompt = evaluation_prompt
@@ -344,9 +344,10 @@ if __name__ == "__main__":
         evaluation_prompt="",
         evaluation_steps="",
         reasoning="",
+        model="gemini",
     )
     input = "What is the capital of France?"
-    output = ""
+    output = "Lion"
     expected_output = "Paris is the capital of France."
     context = [
         "Paris is the capital and largest city of France.",
