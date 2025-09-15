@@ -1,21 +1,48 @@
 # Kubernetes Quick Reference - Rhesis Project
 
 ## 🚀 Essential Commands
-
-### Start Everything
+### Start
 ```bash
-# 1. Start Minikube
-minikube start --driver=docker --memory=4096 --cpus=2
+# Build frontend in local mode (recommended for development)
+cd apps/frontend
+docker build -t rhesis-frontend:latest . --build-arg FRONTEND_ENV=local
 
-# 2. Load Docker images
-minikube image load rhesis-frontend:latest
-minikube image load rhesis-backend:latest
-minikube image load rhesis-worker:latest
+# Build backend
+cd ../backend
+docker build -t rhesis-backend:latest .
 
-# 3. Deploy to Kubernetes
-cd k8s
-./scripts/deploy.sh dev
+# Build worker
+cd ../worker
+docker build -t rhesis-worker:latest .
+
+# Start Minikube
+minikube start --driver=docker --memory=8192 --cpus=2 --addons=storage-provisioner --addons=default-storageclass
+
+# Deploy 
+cd /rhesis/infrastructure/k8s/charts/rhesis
+./deploy-local.sh
+
 ```
+
+
+#### 📋 Files That Need Password Changes:
+
+**🔧 Core Configuration Files:**
+- `docker-compose.yml` - PostgreSQL default password
+
+**🗄️ Database Files:**
+- `infrastructure/k8s/manifests/deployments/postgres/init-db.sql` - PostgreSQL user creation
+- `infrastructure/k8s/manifests/configmaps/postgres-init-config.yaml` - Kubernetes init script
+
+**⚙️ Application Files:**
+- `apps/backend/migrate.sh` - Migration script fallback password
+
+**🔐 Secret Files (Manual Update Required):**
+- `infrastructure/k8s/manifests/secrets/rhesis-secrets.yaml` - Base64 encoded password
+  - Update: `SQLALCHEMY_DB_PASS: <your-base64-encoded-password>`
+
+
+**⚠️ Security Note:** Always change the default password "your-secured-password" to a strong, unique password before deploying to production!
 
 ### Check Status
 ```bash
@@ -40,6 +67,8 @@ kubectl port-forward -n rhesis svc/backend 8080:8080
 # Browser: http://localhost:8080
 ```
 
+
+
 ### Troubleshooting
 ```bash
 # Check pod details
@@ -55,8 +84,23 @@ kubectl get events -n rhesis
 ### Cleanup
 ```bash
 # Stop port-forwarding: Ctrl+C
-# Stop Minikube: minikube stop
-# Delete cluster: minikube delete
+
+# Scale down all deployments
+kubectl scale deployment --all --replicas=0 -n rhesis
+
+# Delete all pods and volumes
+kubectl delete pods --all -n rhesis
+kubectl delete pvc --all -n rhesis
+kubectl delete pv --all
+
+# Or uninstall Helm release completely
+helm uninstall rhesis -n rhesis
+
+# Stop Minikube
+minikube stop
+
+# Delete cluster (if needed)
+minikube delete
 ```
 
 ## 📋 Prerequisites Checklist
@@ -64,8 +108,29 @@ kubectl get events -n rhesis
 - [ ] Docker Desktop running
 - [ ] Minikube installed
 - [ ] kubectl installed
+- [ ] Helm installed (v3.x)
 - [ ] Docker images built
 - [ ] Images loaded into Minikube
+
+## 🚀 Helm Management
+
+```bash
+# Check Helm release status
+helm status rhesis -n rhesis
+
+# Upgrade release
+cd charts/rhesis
+helm upgrade rhesis . --values values-local.yaml
+
+# Check release history
+helm history rhesis -n rhesis
+
+# Rollback to previous version
+helm rollback rhesis 1 -n rhesis
+
+# Uninstall release
+helm uninstall rhesis -n rhesis
+```
 
 ## 🔧 Common Issues & Solutions
 
@@ -75,6 +140,8 @@ kubectl get events -n rhesis
 | `secret not found` | `kubectl apply -f manifests/secrets/` |
 | Pod not ready | Check logs: `kubectl logs -n rhesis <pod>` |
 | Port-forward fails | Ensure pod is running first |
+| Helm chart not found | Navigate to `charts/rhesis` directory |
+| Password auth failed | Update password using Password Management section |
 
 ## 📱 Quick Status Check
 ```bash
