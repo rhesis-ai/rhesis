@@ -7,12 +7,17 @@ from sqlalchemy.orm import Session
 # Remove the Rhesis import and import the entire sdk module
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.synthesizers import DocumentSynthesizer, PromptSynthesizer
+from rhesis.sdk.types import Document
 
 DEFAULT_MODEL = "gemini"
 
 
 async def generate_tests(
-    db: Session, user: User, prompt: str, num_tests: int = 5, documents: Optional[List[Dict]] = None
+    db: Session,
+    user: User,
+    prompt: str,
+    num_tests: int = 5,
+    documents: Optional[List[Document]] = None,
 ) -> Dict:
     """
     Generate tests using the appropriate synthesizer based on input.

@@ -123,7 +123,7 @@ def generate_and_upload_test_set(
                 - prompt (str, required): The generation prompt
             For DocumentSynthesizer:
                 - prompt (str, required): The generation prompt
-                - documents (List[Dict], optional): List of documents with:
+                - documents (List[Document], optional): List of documents with:
                     - name (str): Document identifier
                     - description (str): Document description
                     - path (str): Local file path from upload endpoint
