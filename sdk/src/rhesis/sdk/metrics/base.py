@@ -19,57 +19,13 @@ Also, the method retry_evaluationmight be better placed in a utils type of modul
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from functools import wraps
 from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar, Union
-
-import tenacity
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 
 MetricType = Literal["rag", "generation", "classification"]
 F = TypeVar("F", bound=Callable[..., Any])
-
-
-def retry_evaluation(
-    max_retries: int = 3,
-    retry_delay: float = 1.0,
-    retry_backoff: float = 2.0,
-    retry_max_delay: float = 30.0,
-    retry_exceptions: tuple = (ConnectionError, TimeoutError),
-) -> Callable[[F], F]:
-    """
-    Decorator that adds retry logic to evaluation methods.
-
-    Args:
-        max_retries: Maximum number of retry attempts
-        retry_delay: Initial delay between retries in seconds
-        retry_backoff: Exponential backoff multiplier
-        retry_max_delay: Maximum delay between retries
-        retry_exceptions: Exception types that should trigger a retry
-
-    Returns:
-        Decorated function with retry logic
-    """
-
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            @tenacity.retry(
-                stop=tenacity.stop_after_attempt(max_retries),
-                wait=tenacity.wait_exponential(
-                    multiplier=retry_delay, exp_base=retry_backoff, max=retry_max_delay
-                ),
-                retry=tenacity.retry_if_exception_type(retry_exceptions),
-            )
-            def _execute_with_retry():
-                return func(*args, **kwargs)
-
-            return _execute_with_retry()
-
-        return wrapper
-
-    return decorator
 
 
 @dataclass
