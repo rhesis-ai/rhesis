@@ -41,3 +41,8 @@ class RhesisPromptMetricBase(RhesisMetricBase):
             trim_blocks=True,
             lstrip_blocks=True,
         )
+
+    @property
+    def requires_ground_truth(self) -> bool:
+        """This metric typically requires ground truth."""
+        return True
