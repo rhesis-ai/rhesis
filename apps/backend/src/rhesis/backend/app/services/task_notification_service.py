@@ -49,6 +49,9 @@ def send_task_assignment_notification(
         entity_name = None
         if task.entity_type and task.entity_id:
             entity_name = _get_entity_name(db, task.entity_type, task.entity_id)
+            # Ensure we don't pass "N/A" or None as entity_name
+            if entity_name in [None, "N/A", "None"]:
+                entity_name = None
 
         # Prepare template variables
         template_variables = {

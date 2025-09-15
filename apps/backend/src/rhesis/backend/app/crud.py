@@ -1718,6 +1718,29 @@ def get_task(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
     return get_item_detail(db, models.Task, task_id)
 
 
+def get_task_with_comment_count(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
+    """Get a single task by ID with comment count"""
+    from sqlalchemy import func
+
+    # Get the task
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        return None
+
+    # Get comment count for this specific task
+    comment_count = (
+        db.query(func.count(models.Comment.id))
+        .filter(models.Comment.entity_id == task_id)
+        .filter(models.Comment.entity_type == "Task")
+        .scalar()
+    ) or 0
+
+    # Add total_comments to the task
+    task.total_comments = comment_count
+
+    return task
+
+
 def get_tasks(
     db: Session,
     skip: int = 0,
@@ -1732,11 +1755,29 @@ def get_tasks(
 
 def create_task(db: Session, task: schemas.TaskCreate) -> models.Task:
     """Create a new task"""
+    # Check if task is being created with "Completed" status
+    if task.status_id is not None:
+        status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
+        if status and status.name == "Completed":
+            # Set completed_at to current timestamp
+            task.completed_at = datetime.utcnow()
+
     return create_item(db, models.Task, task)
 
 
 def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate) -> Optional[models.Task]:
     """Update a task"""
+    # Check if status is being changed to "Completed"
+    if task.status_id is not None:
+        # Get current task to compare status
+        current_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        if current_task and task.status_id != current_task.status_id:
+            # Get the new status to check if it's "Completed"
+            new_status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
+            if new_status and new_status.name == "Completed":
+                # Set completed_at to current timestamp
+                task.completed_at = datetime.utcnow()
+
     return update_item(db, models.Task, task_id, task)
 
 
