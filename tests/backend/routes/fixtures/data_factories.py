@@ -1032,12 +1032,106 @@ class StatusDataFactory(BaseDataFactory):
         return super().edge_case_data(case_type)
 
 
+@dataclass
+class TagDataFactory(BaseDataFactory):
+    """Factory for generating tag test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal tag data (only required fields)"""
+        return {
+            "name": fake.word().title()
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample tag data"""
+        data = {
+            "name": fake.word().title()
+        }
+        
+        if include_optional:
+            # Unicode icons/emojis for tags
+            icons = ["🏷️", "📌", "⭐", "🔖", "📋", "🎯", "💼", "🔍", "📊", "⚡", "🎨", "🔧"]
+            data.update({
+                "icon_unicode": fake.random_element(elements=icons)
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate tag update data"""
+        icons = ["🏷️", "📌", "⭐", "🔖", "📋", "🎯", "💼", "🔍", "📊", "⚡", "🎨", "🔧"]
+        return {
+            "name": fake.word().title(),
+            "icon_unicode": fake.random_element(elements=icons)
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate tag edge case data"""
+        if case_type == "long_name":
+            return {
+                "name": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "icon_unicode": "📋"
+            }
+        elif case_type == "special_chars":
+            return {
+                "name": f"Tag with émojis 🏷️ and spëcial chars! @#$%^&*()",
+                "icon_unicode": "🏷️"
+            }
+        elif case_type == "unicode":
+            return {
+                "name": f"Tag 测试 тест テスト {fake.word()}",
+                "icon_unicode": "🌍"
+            }
+        elif case_type == "common_tags":
+            common_names = ["Important", "Urgent", "Review", "Draft", "Complete", "In Progress", "Bug", "Feature"]
+            return {
+                "name": fake.random_element(elements=common_names),
+                "icon_unicode": fake.random_element(elements=["⭐", "🔥", "📋", "✅"])
+            }
+        
+        return super().edge_case_data(case_type)
+    
+    @classmethod
+    def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
+        """
+        Generate batch of tag data
+        
+        Args:
+            count: Number of tag records to generate
+            variation: Whether to vary the data or use similar patterns
+            
+        Returns:
+            List of tag data dictionaries
+        """
+        tags = []
+        for i in range(count):
+            if variation:
+                # Create varied data
+                data = cls.sample_data(
+                    include_optional=fake.boolean(),
+                )
+            else:
+                # Create similar data with incremental names
+                data = {
+                    "name": f"Tag {i+1}",
+                    "icon_unicode": "🏷️"
+                }
+            tags.append(data)
+        
+        return tags
+
+
 # Update factory registry with new factories
 FACTORY_REGISTRY.update({
     "prompt_template": PromptTemplateDataFactory,
     "response_pattern": ResponsePatternDataFactory,
     "source": SourceDataFactory,
     "status": StatusDataFactory,
+    "tag": TagDataFactory,
 })
 
 
@@ -1055,6 +1149,7 @@ __all__ = [
     "ResponsePatternDataFactory", 
     "SourceDataFactory",
     "StatusDataFactory",
+    "TagDataFactory",
     "FACTORY_REGISTRY",
     "get_factory",
     "generate_test_data"
