@@ -32,18 +32,7 @@ LLM Response to Evaluate:
 
 
 Evaluation Form:
-{% if score_type == "binary" %}
-Please provide a binary evaluation (true/false or 1/0) and a brief explanation.
-
-IMPORTANT: Return ONLY a valid JSON object without any markdown formatting, code blocks, or backticks. The response must be directly parseable as JSON.
-
-The JSON object must contain:
-1. A 'score' field with your binary evaluation (true/false, 1/0, or "pass"/"fail")
-2. A 'reason' field with your brief explanation as a string
-
-Example valid response format:
-{"score": true, "reason": "The response meets all the specified criteria."}
-{% elif score_type == "categorical" %}
+{% if score_type == "categorical" %}
 Please provide a categorical evaluation and a brief explanation.
 
 IMPORTANT: Return ONLY a valid JSON object without any markdown formatting, code blocks, or backticks. The response must be directly parseable as JSON.
