@@ -231,6 +231,14 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
+        # Initialize common details fields
+        details: Dict[str, Any] = {
+            "score_type": self.score_type.value,
+            "prompt": prompt,
+            "possible_scores": self.possible_scores,
+            "successful_scores": self.successful_scores,
+        }
+
         try:
             # Run the evaluation with structured response model
             # Create a proper Literal type from the possible scores
@@ -256,16 +264,14 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
                 successful_scores=self.successful_scores,
             )
 
-            # Prepare details based on score type
-            details: Dict[str, Any] = {
-                "score": score,
-                "score_type": self.score_type.value,
-                "prompt": prompt,
-                "reason": reason,
-                "is_successful": is_successful,
-                "possible_scores": self.possible_scores,
-                "successful_scores": self.successful_scores,
-            }
+            # Update details with success-specific fields
+            details.update(
+                {
+                    "score": score,
+                    "reason": reason,
+                    "is_successful": is_successful,
+                }
+            )
 
             return MetricResult(score=score, details=details)
 
@@ -281,19 +287,17 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             logger.error(f"Exception details: {str(e)}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
 
-            # Return a fallback score with error information
-            details: Dict[str, Any] = {
-                "error": error_msg,
-                "reason": f"Unexpected error: {str(e)}",
-                "exception_type": type(e).__name__,
-                "exception_details": str(e),
-                "model": self.model,
-                "prompt": prompt,
-                "score_type": self.score_type.value,
-                "possible_scores": self.possible_scores,
-                "successful_scores": self.successful_scores,
-                "is_successful": False,
-            }
+            # Update details with error-specific fields
+            details.update(
+                {
+                    "error": error_msg,
+                    "reason": f"Unexpected error: {str(e)}",
+                    "exception_type": type(e).__name__,
+                    "exception_details": str(e),
+                    "model": self.model,
+                    "is_successful": False,
+                }
+            )
 
             # Return a default failure score for categorical metrics
             return MetricResult(score="error", details=details)
