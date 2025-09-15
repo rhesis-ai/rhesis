@@ -1,6 +1,6 @@
 import random
 from pathlib import Path
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
