@@ -117,7 +117,7 @@ def read_token(
     return db_token
 
 
-@router.delete("/{token_id}")
+@router.delete("/{token_id}", response_model=TokenRead)
 def delete_token(
     token_id: uuid.UUID,
     db: Session = Depends(get_db),
