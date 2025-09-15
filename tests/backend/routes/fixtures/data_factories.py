@@ -758,7 +758,7 @@ class PromptDataFactory(BaseDataFactory):
         }
 
 
-# Factory registry for dynamic access
+# Factory registry for dynamic access - moved after all factory definitions
 FACTORY_REGISTRY = {
     "behavior": BehaviorDataFactory,
     "topic": TopicDataFactory,
@@ -819,6 +819,228 @@ def generate_test_data(entity_type: str, data_type: str = "sample",
         raise ValueError(f"Unknown data type: {data_type}")
 
 
+@dataclass
+class PromptTemplateDataFactory(BaseDataFactory):
+    """Factory for generating prompt template test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal prompt template data (only required fields)"""
+        return {
+            "content": fake.text(max_nb_chars=100),
+            "language_code": "en"
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample prompt template data"""
+        data = {
+            "content": fake.text(max_nb_chars=200),
+            "language_code": fake.random_element(elements=("en", "es", "fr", "de", "zh"))
+        }
+        
+        if include_optional:
+            data.update({
+                "is_summary": fake.boolean(),
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate prompt template update data"""
+        return {
+            "content": fake.text(max_nb_chars=150),
+            "language_code": fake.random_element(elements=("en", "es", "fr"))
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate prompt template edge case data"""
+        if case_type == "long_content":
+            return {
+                "content": fake.text(max_nb_chars=5000),
+                "language_code": "en"
+            }
+        elif case_type == "special_chars":
+            return {
+                "content": f"Template with émojis 🤖 and spëcial chars! @#$%^&*()",
+                "language_code": "en"
+            }
+        elif case_type == "unicode":
+            return {
+                "content": f"Template 测试 тест テスト {fake.text(max_nb_chars=50)}",
+                "language_code": "zh"
+            }
+        
+        return super().edge_case_data(case_type)
+
+
+@dataclass
+class ResponsePatternDataFactory(BaseDataFactory):
+    """Factory for generating response pattern test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal response pattern data (only required fields)"""
+        return {
+            "text": fake.text(max_nb_chars=100),
+            "behavior_id": fake.uuid4()
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample response pattern data"""
+        data = {
+            "text": fake.text(max_nb_chars=200),
+            "behavior_id": fake.uuid4()
+        }
+        
+        # Note: response_pattern_type_id is optional but requires a valid foreign key
+        # For now, we'll omit it to avoid foreign key constraints in tests
+        # Individual tests can add it if they create the necessary type_lookup entries
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate response pattern update data"""
+        return {
+            "text": fake.text(max_nb_chars=150),
+            "behavior_id": fake.uuid4()
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate response pattern edge case data"""
+        if case_type == "long_text":
+            return {
+                "text": fake.text(max_nb_chars=5000),
+                "behavior_id": fake.uuid4()
+            }
+        elif case_type == "special_chars":
+            return {
+                "text": f"Response with émojis 🤖 and spëcial chars! @#$%^&*()",
+                "behavior_id": fake.uuid4()
+            }
+        
+        return super().edge_case_data(case_type)
+
+
+@dataclass
+class SourceDataFactory(BaseDataFactory):
+    """Factory for generating source test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal source data (only required fields)"""
+        return {
+            "title": fake.sentence(nb_words=3).rstrip('.')
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample source data"""
+        data = {
+            "title": fake.sentence(nb_words=4).rstrip('.')
+        }
+        
+        if include_optional:
+            data.update({
+                "description": fake.text(max_nb_chars=300),
+                "entity_type": fake.random_element(elements=("website", "paper", "book", "article", "documentation")),
+                "url": fake.url(),  # Faker returns string, which is what we want
+                "citation": f"{fake.name()} et al. ({fake.year()}). {fake.sentence()}",
+                "language_code": fake.random_element(elements=("en", "es", "fr", "de", "zh"))
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate source update data"""
+        return {
+            "title": fake.sentence(nb_words=3).rstrip('.'),
+            "description": fake.text(max_nb_chars=200),
+            "entity_type": fake.random_element(elements=("website", "paper", "book"))
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate source edge case data"""
+        if case_type == "long_title":
+            return {
+                "title": fake.text(max_nb_chars=500).replace('\n', ' '),
+                "description": fake.text(max_nb_chars=100)
+            }
+        elif case_type == "special_chars":
+            return {
+                "title": f"Source with émojis 📚 and spëcial chars! @#$%^&*()",
+                "description": fake.text(max_nb_chars=100)
+            }
+        
+        return super().edge_case_data(case_type)
+
+
+@dataclass
+class StatusDataFactory(BaseDataFactory):
+    """Factory for generating status test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal status data (only required fields)"""
+        return {
+            "name": fake.word().title()
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample status data"""
+        data = {
+            "name": fake.word().title()
+        }
+        
+        if include_optional:
+            data.update({
+                "description": fake.text(max_nb_chars=200)
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate status update data"""
+        return {
+            "name": fake.word().title(),
+            "description": fake.text(max_nb_chars=150)
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate status edge case data"""
+        if case_type == "long_name":
+            return {
+                "name": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "description": fake.text(max_nb_chars=100)
+            }
+        elif case_type == "special_chars":
+            return {
+                "name": f"Status with émojis ⚡ and spëcial chars! @#$%^&*()",
+                "description": fake.text(max_nb_chars=100)
+            }
+        
+        return super().edge_case_data(case_type)
+
+
+# Update factory registry with new factories
+FACTORY_REGISTRY.update({
+    "prompt_template": PromptTemplateDataFactory,
+    "response_pattern": ResponsePatternDataFactory,
+    "source": SourceDataFactory,
+    "status": StatusDataFactory,
+})
+
+
 # Export main classes and functions
 __all__ = [
     "BaseDataFactory",
@@ -829,6 +1051,10 @@ __all__ = [
     "ModelDataFactory",
     "OrganizationDataFactory",
     "DimensionDataFactory",
+    "PromptTemplateDataFactory",
+    "ResponsePatternDataFactory", 
+    "SourceDataFactory",
+    "StatusDataFactory",
     "FACTORY_REGISTRY",
     "get_factory",
     "generate_test_data"
