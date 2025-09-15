@@ -57,7 +57,7 @@ spec:
           env:
             # Construct database URL from individual components + secrets
             - name: SQLALCHEMY_DATABASE_URL
-              value: "postgresql://$(SQLALCHEMY_DB_USER):$(SQLALCHEMY_DB_PASSWORD)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
+              value: "postgresql://$(SQLALCHEMY_DB_USER):$(SQLALCHEMY_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
             # Construct Redis URLs from individual components + secrets
             - name: REDIS_URL
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
