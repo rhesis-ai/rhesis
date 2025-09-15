@@ -1,0 +1,28 @@
+apiVersion: v2
+name: rhesis
+description: A Helm chart for Rhesis AI application stack
+type: application
+version: 0.1.0
+appVersion: "0.2.2"
+keywords:
+  - rhesis
+  - ai
+  - testing
+  - kubernetes
+home: https://github.com/your-org/rhesis
+sources:
+  - https://github.com/your-org/rhesis
+maintainers:
+  - name: Rhesis Team
+    email: team@rhesis.ai
+icon: https://rhesis.ai/favicon.ico
+
+# Dependencies for external services (optional)
+dependencies:
+  # Uncomment if you want to use external PostgreSQL/Redis
+  # - name: postgresql
+  #   version: 12.x.x
+  #   repository: https://charts.bitnami.com/bitnami
+  # - name: redis
+  #   version: 17.x.x
+  #   repository: https://charts.bitnami.com/bitnami
