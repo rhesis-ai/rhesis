@@ -213,6 +213,18 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
+        # Base details dictionary with common fields
+        details = {
+            "score_type": self.score_type.value,
+            "prompt": prompt,
+            "threshold_operator": (
+                self.threshold_operator.value if self.threshold_operator else None
+            ),
+            "min_score": self.min_score,
+            "max_score": self.max_score,
+            "threshold": self.threshold,
+        }
+
         try:
             # Run the evaluation with structured response model
             response = self._model.generate(prompt, schema=NumericScoreResponse)
@@ -223,24 +235,16 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             reason = response.reason
 
             # Check if the evaluation meets the threshold using the base class method
-            is_successful = self._evaluate_score(
-                score=score,
-            )
+            is_successful = self._evaluate_score(score=score)
 
-            # Prepare details based on score type
-            details = {
-                "score": score,
-                "score_type": self.score_type.value,
-                "prompt": prompt,
-                "reason": reason,
-                "is_successful": is_successful,
-                "threshold_operator": (
-                    self.threshold_operator.value if self.threshold_operator else None
-                ),
-                "min_score": self.min_score,
-                "max_score": self.max_score,
-                "threshold": self.threshold,
-            }
+            # Update details with success-specific fields
+            details.update(
+                {
+                    "score": score,
+                    "reason": reason,
+                    "is_successful": is_successful,
+                }
+            )
 
             return MetricResult(score=score, details=details)
 
@@ -257,22 +261,16 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             logger.error(f"Exception details: {str(e)}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
 
-            # Return a fallback score with error information
-            details = {
-                "error": error_msg,
-                "reason": error_msg,
-                "exception_type": type(e).__name__,
-                "exception_details": str(e),
-                "model": self.model,
-                "prompt": prompt,
-                "score_type": self.score_type.value,
-                "threshold_operator": (
-                    self.threshold_operator.value if self.threshold_operator else None
-                ),
-                "min_score": self.min_score,
-                "max_score": self.max_score,
-                "threshold": self.threshold,
-            }
+            # Update details with error-specific fields
+            details.update(
+                {
+                    "error": error_msg,
+                    "reason": error_msg,
+                    "exception_type": type(e).__name__,
+                    "exception_details": str(e),
+                    "model": self.model,
+                }
+            )
 
             # Return a default minimal score for numeric
             return MetricResult(score=0.0, details=details)
