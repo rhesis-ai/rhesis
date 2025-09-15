@@ -1033,6 +1033,593 @@ class StatusDataFactory(BaseDataFactory):
 
 
 @dataclass
+class RiskDataFactory(BaseDataFactory):
+    """Factory for generating risk test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal risk data (only required fields)"""
+        return {
+            "name": f"Risk: {fake.catch_phrase()}"
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample risk data"""
+        data = {
+            "name": f"Risk: {fake.catch_phrase()}"
+        }
+        
+        if include_optional:
+            data.update({
+                "description": fake.paragraph(nb_sentences=3),
+                # Foreign key relationships will be handled by fixtures
+                # parent_id: Optional - self-referential for hierarchical risks
+                # use_case_id: Optional - reference to use case
+                # status_id: Optional - reference to status
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate risk update data"""
+        return {
+            "name": f"Updated Risk: {fake.catch_phrase()}",
+            "description": fake.paragraph(nb_sentences=2),
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate risk edge case data"""
+        if case_type == "long_name":
+            return {
+                "name": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "description": fake.paragraph(nb_sentences=5)
+            }
+        elif case_type == "security_risk":
+            security_risks = [
+                "Risk: Data breach vulnerability in authentication system",
+                "Risk: SQL injection vulnerability in user input validation",
+                "Risk: Cross-site scripting (XSS) vulnerability in web forms",
+                "Risk: Unauthorized access to sensitive customer data",
+                "Risk: Insufficient encryption of data in transit"
+            ]
+            return {
+                "name": fake.random_element(elements=security_risks),
+                "description": fake.paragraph(nb_sentences=4)
+            }
+        elif case_type == "operational_risk":
+            operational_risks = [
+                "Risk: System downtime during peak business hours",
+                "Risk: Database corruption due to hardware failure",
+                "Risk: Third-party service dependency failure",
+                "Risk: Insufficient backup and disaster recovery procedures",
+                "Risk: Staff unavailability during critical operations"
+            ]
+            return {
+                "name": fake.random_element(elements=operational_risks),
+                "description": fake.paragraph(nb_sentences=3)
+            }
+        elif case_type == "compliance_risk":
+            compliance_risks = [
+                "Risk: Non-compliance with GDPR data protection requirements",
+                "Risk: Failure to meet industry regulatory standards",
+                "Risk: Inadequate audit trail for financial transactions",
+                "Risk: Missing documentation for compliance reporting",
+                "Risk: Insufficient data retention policy implementation"
+            ]
+            return {
+                "name": fake.random_element(elements=compliance_risks),
+                "description": fake.paragraph(nb_sentences=4)
+            }
+        elif case_type == "financial_risk":
+            financial_risks = [
+                "Risk: Budget overrun due to scope creep",
+                "Risk: Revenue loss from service interruptions",
+                "Risk: Cost escalation in third-party services",
+                "Risk: Currency exchange rate fluctuations",
+                "Risk: Unexpected infrastructure scaling costs"
+            ]
+            return {
+                "name": fake.random_element(elements=financial_risks),
+                "description": fake.paragraph(nb_sentences=3)
+            }
+        
+        return super().edge_case_data(case_type)
+    
+    @classmethod
+    def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
+        """
+        Generate batch of risk data
+        
+        Args:
+            count: Number of risk records to generate
+            variation: Whether to vary the data or use similar patterns
+            
+        Returns:
+            List of risk data dictionaries
+        """
+        risks = []
+        risk_categories = ["security_risk", "operational_risk", "compliance_risk", "financial_risk"]
+        
+        for i in range(count):
+            if variation:
+                # Create varied data using different risk categories
+                if i < len(risk_categories):
+                    data = cls.edge_case_data(risk_categories[i])
+                else:
+                    data = cls.sample_data(
+                        include_optional=fake.boolean(),
+                    )
+            else:
+                # Create similar data with incremental names
+                data = {
+                    "name": f"Risk {i+1}: {fake.catch_phrase()}",
+                    "description": fake.paragraph(nb_sentences=2)
+                }
+            risks.append(data)
+        
+        return risks
+
+
+@dataclass
+class UseCaseDataFactory(BaseDataFactory):
+    """Factory for generating use case test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal use case data (only required fields)"""
+        return {
+            "name": f"Use Case: {fake.catch_phrase()}",
+            "description": fake.paragraph(nb_sentences=2)
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample use case data"""
+        data = {
+            "name": f"Use Case: {fake.catch_phrase()}",
+            "description": fake.paragraph(nb_sentences=3)
+        }
+        
+        if include_optional:
+            industries = [
+                "Healthcare", "Finance", "E-commerce", "Education", "Manufacturing",
+                "Technology", "Retail", "Automotive", "Media", "Real Estate",
+                "Insurance", "Telecommunications", "Energy", "Transportation"
+            ]
+            
+            applications = [
+                "Customer Support", "Data Analysis", "Content Generation", "Process Automation",
+                "Quality Assurance", "Risk Assessment", "Fraud Detection", "Personalization",
+                "Recommendation Systems", "Document Processing", "Image Recognition",
+                "Natural Language Processing", "Predictive Analytics", "Workflow Optimization"
+            ]
+            
+            data.update({
+                "industry": fake.random_element(elements=industries),
+                "application": fake.random_element(elements=applications),
+                "is_active": fake.boolean(chance_of_getting_true=80),  # Most use cases are active
+                # Foreign key relationships will be handled by fixtures
+                # status_id: Optional - reference to status
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate use case update data"""
+        industries = ["Technology", "Healthcare", "Finance", "E-commerce", "Education"]
+        applications = ["AI/ML", "Automation", "Analytics", "Customer Service", "Quality Control"]
+        
+        return {
+            "name": f"Updated Use Case: {fake.catch_phrase()}",
+            "description": fake.paragraph(nb_sentences=2),
+            "industry": fake.random_element(elements=industries),
+            "application": fake.random_element(elements=applications),
+            "is_active": fake.boolean(chance_of_getting_true=75)
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate use case edge case data"""
+        if case_type == "long_name":
+            return {
+                "name": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "description": fake.paragraph(nb_sentences=5),
+                "industry": "Technology",
+                "application": "Complex System Integration"
+            }
+        elif case_type == "healthcare":
+            healthcare_use_cases = [
+                "Use Case: Patient Data Analysis for Personalized Treatment Plans",
+                "Use Case: Medical Image Analysis for Early Disease Detection",
+                "Use Case: Drug Discovery and Development Acceleration",
+                "Use Case: Electronic Health Record Management and Analytics",
+                "Use Case: Telemedicine Platform with AI-Powered Diagnosis"
+            ]
+            return {
+                "name": fake.random_element(elements=healthcare_use_cases),
+                "description": fake.paragraph(nb_sentences=4),
+                "industry": "Healthcare",
+                "application": fake.random_element(elements=[
+                    "Clinical Decision Support", "Medical Imaging", "Drug Discovery",
+                    "Electronic Health Records", "Telemedicine"
+                ]),
+                "is_active": True
+            }
+        elif case_type == "finance":
+            finance_use_cases = [
+                "Use Case: Automated Fraud Detection and Prevention System",
+                "Use Case: Algorithmic Trading Strategy Optimization",
+                "Use Case: Credit Risk Assessment and Loan Approval Automation",
+                "Use Case: Regulatory Compliance Monitoring and Reporting",
+                "Use Case: Customer Portfolio Management and Investment Advisory"
+            ]
+            return {
+                "name": fake.random_element(elements=finance_use_cases),
+                "description": fake.paragraph(nb_sentences=4),
+                "industry": "Finance",
+                "application": fake.random_element(elements=[
+                    "Fraud Detection", "Algorithmic Trading", "Risk Assessment",
+                    "Compliance", "Portfolio Management"
+                ]),
+                "is_active": True
+            }
+        elif case_type == "ecommerce":
+            ecommerce_use_cases = [
+                "Use Case: Personalized Product Recommendation Engine",
+                "Use Case: Dynamic Pricing Optimization Based on Market Conditions",
+                "Use Case: Customer Behavior Analysis for Marketing Campaigns",
+                "Use Case: Inventory Management and Demand Forecasting",
+                "Use Case: Chatbot Customer Service and Support Automation"
+            ]
+            return {
+                "name": fake.random_element(elements=ecommerce_use_cases),
+                "description": fake.paragraph(nb_sentences=3),
+                "industry": "E-commerce",
+                "application": fake.random_element(elements=[
+                    "Recommendation Systems", "Dynamic Pricing", "Customer Analytics",
+                    "Inventory Management", "Customer Support"
+                ]),
+                "is_active": True
+            }
+        elif case_type == "inactive":
+            return {
+                "name": f"Use Case: Deprecated - {fake.catch_phrase()}",
+                "description": f"This use case has been deprecated. {fake.paragraph(nb_sentences=2)}",
+                "industry": fake.random_element(elements=["Legacy Systems", "Outdated Technology"]),
+                "application": "Discontinued Service",
+                "is_active": False
+            }
+        
+        return super().edge_case_data(case_type)
+    
+    @classmethod
+    def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
+        """
+        Generate batch of use case data
+        
+        Args:
+            count: Number of use case records to generate
+            variation: Whether to vary the data or use similar patterns
+            
+        Returns:
+            List of use case data dictionaries
+        """
+        use_cases = []
+        categories = ["healthcare", "finance", "ecommerce", "inactive"]
+        
+        for i in range(count):
+            if variation:
+                # Create varied data using different categories
+                if i < len(categories):
+                    data = cls.edge_case_data(categories[i])
+                else:
+                    data = cls.sample_data(
+                        include_optional=fake.boolean(chance_of_getting_true=80),
+                    )
+            else:
+                # Create similar data with incremental names
+                data = {
+                    "name": f"Use Case {i+1}: {fake.catch_phrase()}",
+                    "description": fake.paragraph(nb_sentences=2),
+                    "industry": "Technology",
+                    "application": "General Purpose",
+                    "is_active": True
+                }
+            use_cases.append(data)
+        
+        return use_cases
+
+
+@dataclass
+class TopicDataFactory(BaseDataFactory):
+    """Factory for generating topic test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal topic data (only required fields)"""
+        return {
+            "name": f"Topic: {fake.catch_phrase()}"
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample topic data"""
+        data = {
+            "name": f"Topic: {fake.catch_phrase()}"
+        }
+        
+        if include_optional:
+            data.update({
+                "description": fake.paragraph(nb_sentences=2),
+                # Foreign key relationships will be handled by fixtures
+                # parent_id: Optional - self-referential for hierarchical structure
+                # entity_type_id: Optional - reference to entity type
+                # status_id: Optional - reference to status
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate topic update data"""
+        return {
+            "name": f"Updated Topic: {fake.catch_phrase()}",
+            "description": fake.paragraph(nb_sentences=1)
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate topic edge case data"""
+        if case_type == "long_name":
+            return {
+                "name": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "description": fake.paragraph(nb_sentences=3)
+            }
+        elif case_type == "hierarchical_topics":
+            # Topics for hierarchical testing
+            topic_categories = [
+                "Technology: Artificial Intelligence and Machine Learning",
+                "Business: Strategic Planning and Operations", 
+                "Science: Research Methodology and Analysis",
+                "Education: Curriculum Development and Assessment",
+                "Healthcare: Patient Care and Medical Innovation"
+            ]
+            return {
+                "name": fake.random_element(elements=topic_categories),
+                "description": fake.paragraph(nb_sentences=2)
+            }
+        elif case_type == "specialized_domains":
+            # Domain-specific topics
+            domains = {
+                "AI/ML": ["Deep Learning", "Neural Networks", "Computer Vision", "Natural Language Processing"],
+                "Business": ["Market Analysis", "Financial Planning", "Risk Management", "Customer Experience"],
+                "Science": ["Data Analysis", "Research Design", "Statistical Methods", "Experimental Design"],
+                "Technology": ["Software Architecture", "Cloud Computing", "DevOps", "Cybersecurity"],
+                "Healthcare": ["Clinical Trials", "Patient Safety", "Medical Devices", "Telemedicine"]
+            }
+            domain = fake.random_element(elements=list(domains.keys()))
+            topic = fake.random_element(elements=domains[domain])
+            return {
+                "name": f"Topic: {domain} - {topic}",
+                "description": f"Comprehensive coverage of {topic.lower()} within the {domain.lower()} domain. {fake.paragraph(nb_sentences=1)}"
+            }
+        elif case_type == "empty_description":
+            return {
+                "name": f"Topic: {fake.catch_phrase()}",
+                "description": ""
+            }
+        elif case_type == "null_description":
+            return {
+                "name": f"Topic: {fake.catch_phrase()}",
+                "description": None
+            }
+        
+        return super().edge_case_data(case_type)
+    
+    @classmethod
+    def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
+        """
+        Generate batch of topic data
+        
+        Args:
+            count: Number of topic records to generate
+            variation: Whether to vary the data or use similar patterns
+            
+        Returns:
+            List of topic data dictionaries
+        """
+        topics = []
+        categories = ["hierarchical_topics", "specialized_domains"]
+        
+        for i in range(count):
+            if variation:
+                # Create varied data using different categories
+                if i < len(categories):
+                    data = cls.edge_case_data(categories[i % len(categories)])
+                else:
+                    data = cls.sample_data(
+                        include_optional=fake.boolean(chance_of_getting_true=80),
+                    )
+            else:
+                # Create similar data with incremental names
+                data = {
+                    "name": f"Topic {i+1}: {fake.catch_phrase()}",
+                    "description": fake.paragraph(nb_sentences=1)
+                }
+            topics.append(data)
+        
+        return topics
+
+
+@dataclass
+class TypeLookupDataFactory(BaseDataFactory):
+    """Factory for generating type lookup test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal type lookup data (only required fields)"""
+        return {
+            "type_name": f"test_type_{fake.word()}",
+            "type_value": f"test_value_{fake.word()}"
+        }
+    
+    @classmethod
+    def sample_data(cls, include_optional: bool = True) -> Dict[str, Any]:
+        """Generate sample type lookup data"""
+        data = {
+            "type_name": f"test_type_{fake.word()}",
+            "type_value": f"test_value_{fake.word()}"
+        }
+        
+        if include_optional:
+            data.update({
+                "description": fake.sentence(nb_words=6)
+            })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate type lookup update data"""
+        return {
+            "type_name": f"updated_type_{fake.word()}",
+            "type_value": f"updated_value_{fake.word()}",
+            "description": fake.sentence(nb_words=4)
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate type lookup edge case data"""
+        if case_type == "priority_levels":
+            priority_types = [
+                ("priority", "low", "Low priority items"),
+                ("priority", "medium", "Medium priority items"),
+                ("priority", "high", "High priority items"),
+                ("priority", "critical", "Critical priority items"),
+                ("priority", "urgent", "Urgent priority items")
+            ]
+            type_name, type_value, description = fake.random_element(elements=priority_types)
+            return {
+                "type_name": type_name,
+                "type_value": type_value,
+                "description": description
+            }
+        elif case_type == "status_types":
+            status_types = [
+                ("status", "active", "Active status"),
+                ("status", "inactive", "Inactive status"),
+                ("status", "pending", "Pending status"),
+                ("status", "completed", "Completed status"),
+                ("status", "cancelled", "Cancelled status"),
+                ("status", "draft", "Draft status"),
+                ("status", "published", "Published status")
+            ]
+            type_name, type_value, description = fake.random_element(elements=status_types)
+            return {
+                "type_name": type_name,
+                "type_value": type_value,
+                "description": description
+            }
+        elif case_type == "category_types":
+            category_types = [
+                ("category", "business", "Business category"),
+                ("category", "technology", "Technology category"),
+                ("category", "finance", "Finance category"),
+                ("category", "healthcare", "Healthcare category"),
+                ("category", "education", "Education category"),
+                ("category", "research", "Research category"),
+                ("category", "marketing", "Marketing category")
+            ]
+            type_name, type_value, description = fake.random_element(elements=category_types)
+            return {
+                "type_name": type_name,
+                "type_value": type_value,
+                "description": description
+            }
+        elif case_type == "entity_types":
+            entity_types = [
+                ("entity_type", "user", "User entity type"),
+                ("entity_type", "organization", "Organization entity type"),
+                ("entity_type", "project", "Project entity type"),
+                ("entity_type", "task", "Task entity type"),
+                ("entity_type", "document", "Document entity type"),
+                ("entity_type", "report", "Report entity type"),
+                ("entity_type", "metric", "Metric entity type")
+            ]
+            type_name, type_value, description = fake.random_element(elements=entity_types)
+            return {
+                "type_name": type_name,
+                "type_value": type_value,
+                "description": description
+            }
+        elif case_type == "long_values":
+            return {
+                "type_name": f"long_type_{fake.word()}",
+                "type_value": fake.text(max_nb_chars=200).replace('\n', ' '),
+                "description": fake.paragraph(nb_sentences=3)
+            }
+        elif case_type == "special_characters":
+            return {
+                "type_name": f"special_type_{fake.word()}",
+                "type_value": "value_with_special_chars_@#$%^&*()_+[]|\\:;\"'<>?,./",
+                "description": "Type lookup with special characters in value"
+            }
+        elif case_type == "null_description":
+            return {
+                "type_name": f"no_desc_type_{fake.word()}",
+                "type_value": f"no_desc_value_{fake.word()}",
+                "description": None
+            }
+        elif case_type == "empty_description":
+            return {
+                "type_name": f"empty_desc_type_{fake.word()}",
+                "type_value": f"empty_desc_value_{fake.word()}",
+                "description": ""
+            }
+        
+        return super().edge_case_data(case_type)
+    
+    @classmethod
+    def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
+        """
+        Generate batch of type lookup data
+        
+        Args:
+            count: Number of type lookup records to generate
+            variation: Whether to vary the data or use similar patterns
+            
+        Returns:
+            List of type lookup data dictionaries
+        """
+        type_lookups = []
+        categories = ["priority_levels", "status_types", "category_types", "entity_types"]
+        
+        for i in range(count):
+            if variation:
+                # Create varied data using different categories
+                if i < len(categories):
+                    data = cls.edge_case_data(categories[i % len(categories)])
+                else:
+                    data = cls.sample_data(
+                        include_optional=fake.boolean(chance_of_getting_true=80),
+                    )
+            else:
+                # Create similar data with incremental names
+                data = {
+                    "type_name": f"batch_type_{i+1}",
+                    "type_value": f"batch_value_{i+1}",
+                    "description": f"Batch generated type lookup {i+1}"
+                }
+            type_lookups.append(data)
+        
+        return type_lookups
+
+
+@dataclass
 class TagDataFactory(BaseDataFactory):
     """Factory for generating tag test data"""
     
@@ -1129,9 +1716,13 @@ class TagDataFactory(BaseDataFactory):
 FACTORY_REGISTRY.update({
     "prompt_template": PromptTemplateDataFactory,
     "response_pattern": ResponsePatternDataFactory,
+    "risk": RiskDataFactory,
     "source": SourceDataFactory,
     "status": StatusDataFactory,
     "tag": TagDataFactory,
+    "topic": TopicDataFactory,
+    "type_lookup": TypeLookupDataFactory,
+    "use_case": UseCaseDataFactory,
 })
 
 
@@ -1147,9 +1738,13 @@ __all__ = [
     "DimensionDataFactory",
     "PromptTemplateDataFactory",
     "ResponsePatternDataFactory", 
+    "RiskDataFactory",
     "SourceDataFactory",
     "StatusDataFactory",
     "TagDataFactory",
+    "TopicDataFactory",
+    "TypeLookupDataFactory",
+    "UseCaseDataFactory",
     "FACTORY_REGISTRY",
     "get_factory",
     "generate_test_data"

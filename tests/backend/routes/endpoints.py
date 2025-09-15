@@ -302,9 +302,12 @@ class APIEndpoints:
     # New entity endpoints
     PROMPT_TEMPLATES = create_entity_endpoints("prompt_templates")
     RESPONSE_PATTERNS = create_entity_endpoints("response_patterns")
+    RISKS = create_entity_endpoints("risks")
     SOURCES = create_entity_endpoints("sources")
     STATUSES = create_entity_endpoints("statuses")
     TAGS = create_entity_endpoints("tags")
+    TYPE_LOOKUPS = create_entity_endpoints("type_lookups")
+    USE_CASES = create_entity_endpoints("use_cases")
     
     @classmethod
     def get_all_endpoints(cls) -> Dict[str, Any]:

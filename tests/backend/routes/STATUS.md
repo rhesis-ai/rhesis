@@ -26,7 +26,7 @@ This document tracks the testing status of all backend routes/routers in the app
 | prompt | `prompt.py` | ✅ | `test_prompt.py` | Prompt management endpoints |
 | prompt_template | `prompt_template.py` | ✅ | `test_prompt_template.py` | Prompt template endpoints |
 | response_pattern | `response_pattern.py` | ✅ | `test_response_pattern.py` | Response pattern endpoints |
-| risk | `risk.py` | ❌ | - | Risk assessment endpoints |
+| risk | `risk.py` | ✅ | `test_risk.py` | Risk assessment endpoints |
 | services | `services.py` | 🚧 | test_services.py | Service management endpoints |
 | source | `source.py` | ✅ | `test_source.py` | Source management endpoints |
 | status | `status.py` | ✅ | `test_status.py` | Status management endpoints |
@@ -34,8 +34,8 @@ This document tracks the testing status of all backend routes/routers in the app
 | task | `task.py` | ❌ | - | Task management endpoints |
 | token | `token.py` | ❌ | - | Token management endpoints |
 | topic | `topic.py` | ✅ | `test_topic.py` | Topic management endpoints |
-| type_lookup | `type_lookup.py` | ❌ | - | Type lookup endpoints |
-| use_case | `use_case.py` | ❌ | - | Use case management endpoints |
+| type_lookup | `type_lookup.py` | ✅ | `test_type_lookup.py` | Type lookup endpoints |
+| use_case | `use_case.py` | ✅ | `test_use_case.py` | Use case management endpoints |
 | user | `user.py` | ❌ | - | User management endpoints |
 
 ## Testing Routes
