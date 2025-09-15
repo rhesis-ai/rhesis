@@ -120,7 +120,10 @@ def get_model(
     if config.provider == "rhesis":
         from rhesis.sdk.models.providers.native import RhesisLLM
 
-        return RhesisLLM(model_name=config.model_name, api_key=config.api_key)
+        if api_key is None:
+            api_key = config.api_key
+
+        return RhesisLLM(model_name=config.model_name, api_key=api_key)
 
     elif config.provider == "gemini":
         from rhesis.sdk.models.providers.gemini import GeminiLLM
