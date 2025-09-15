@@ -112,8 +112,9 @@ def update_use_case(
     return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
 
 
-def delete_use_case(db: Session, use_case_id: uuid.UUID) -> Optional[models.UseCase]:
-    return delete_item(db, models.UseCase, use_case_id)
+def delete_use_case(db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.UseCase]:
+    """Delete use case with optimized approach - no session variables needed."""
+    return delete_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
 
 # Prompt CRUD
@@ -523,6 +524,11 @@ def update_risk(db: Session, risk_id: uuid.UUID, risk: schemas.RiskUpdate, organ
     return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
 
 
+def delete_risk(db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Risk]:
+    """Delete risk with optimized approach - no session variables needed."""
+    return delete_item(db, models.Risk, risk_id, organization_id, user_id)
+
+
 # Status CRUD
 def get_status(db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Status]:
     """Get status with optimized approach - no session variables needed."""
@@ -620,8 +626,9 @@ def update_topic(
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)
 
 
-def delete_topic(db: Session, topic_id: uuid.UUID) -> Optional[models.Topic]:
-    return delete_item(db, models.Topic, topic_id)
+def delete_topic(db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Topic]:
+    """Delete topic with optimized approach - no session variables needed."""
+    return delete_item(db, models.Topic, topic_id, organization_id, user_id)
 
 
 # Demographic CRUD
@@ -1340,8 +1347,9 @@ def update_type_lookup(
     return update_item(db, models.TypeLookup, type_lookup_id, type_lookup, organization_id, user_id)
 
 
-def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID) -> Optional[models.TypeLookup]:
-    return delete_item(db, models.TypeLookup, type_lookup_id)
+def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TypeLookup]:
+    """Delete type lookup with optimized approach - no session variables needed."""
+    return delete_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
 
 def get_type_lookup_by_name_and_value(
