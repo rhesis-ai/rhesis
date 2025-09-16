@@ -1,46 +1,62 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+from jinja2 import Template
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
-from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
-    load_prompt_template,
     parse_llm_response,
     retry_llm_call,
 )
 from rhesis.sdk.utils import clean_and_validate_tests
 
+TEMPLATE_NAME = "config_synthesizer.md"
 
-class PromptSynthesizer(TestSetSynthesizer):
+
+@dataclass
+class GenerationConfig:
+    """Dataclass representing generation config information."""
+
+    project_context: str  # Select project
+    test_behaviors: list[str]  # Behaviors
+    test_purposes: list[str]  # Purpose
+    key_topics: list[str]  # Topics to cover
+    specific_requirements: str  # Describe what you want to test
+    test_type: str
+    output_format: str  # Generate prompts only
+
+
+class ConfigSynthesizer(TestSetSynthesizer):
     """A synthesizer that generates test cases based on a prompt using LLM."""
 
     def __init__(
         self,
-        prompt: str,
+        config: GenerationConfig,
         batch_size: int = 20,
-        system_prompt: Optional[str] = None,
         model: Optional[Union[str, BaseLLM]] = None,
     ):
         """
-        Initialize the PromptSynthesizer.
+        Initialize the ConfigSynthesizer.
         Args:
-            prompt: The generation prompt to use
+            config: The generation config to use
             batch_size: Maximum number of tests to generate in a single LLM call (reduced default
             for stability)
             system_prompt: Optional custom system prompt template to override the default
         """
 
         super().__init__(batch_size=batch_size)
-        self.prompt = prompt
+        self.config = config
 
         # Set system prompt using utility function
-        self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
+        template_path = Path(__file__).parent / "assets" / TEMPLATE_NAME
+        self.template = Template(template_path.read_text())
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
@@ -48,17 +64,10 @@ class PromptSynthesizer(TestSetSynthesizer):
             self.model = model
 
     def _generate_batch(
-        self,
-        num_tests: int,
-        context: Optional[str] = None,
-        config: Optional[GenerationConfig] = None,
+        self, num_tests: int, context: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-
-        config = asdict(config)
-        formatted_prompt = self.system_prompt.render(
-            generation_prompt=self.prompt, **config, num_tests=num_tests, context=context
-        )
+        formatted_prompt = self.template.render(**asdict(self.config))
 
         # Use utility function for retry logic
         response = retry_llm_call(self.model, formatted_prompt)
@@ -75,7 +84,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                 {
                     **test,
                     "metadata": {
-                        "generated_by": "PromptSynthesizer",
+                        "generated_by": "ConfigSynthesizer",
                         "context_used": context is not None,
                         "context_length": len(context) if context else 0,
                     },
@@ -85,12 +94,7 @@ class PromptSynthesizer(TestSetSynthesizer):
 
         return []
 
-    def generate(
-        self,
-        num_tests: int = 5,
-        context: Optional[str] = None,
-        config: Optional[GenerationConfig] = None,
-    ) -> TestSet:
+    def generate(self, num_tests: int = 5, context: Optional[str] = None) -> TestSet:
         """
         Generate test cases based on the given prompt.
 
@@ -113,7 +117,7 @@ class PromptSynthesizer(TestSetSynthesizer):
             while remaining_tests > 0:
                 chunk_size = min(self.batch_size, remaining_tests)
                 try:
-                    chunk_tests = self._generate_batch(chunk_size, context, config)
+                    chunk_tests = self._generate_batch(chunk_size, context)
                     all_test_cases.extend(chunk_tests)
                     remaining_tests -= len(chunk_tests)
 
@@ -132,7 +136,7 @@ class PromptSynthesizer(TestSetSynthesizer):
                         break
         else:
             # Generate all tests in a single batch
-            all_test_cases = self._generate_batch(num_tests, context, config)
+            all_test_cases = self._generate_batch(num_tests, context)
 
         # Ensure we have some test cases
         if not all_test_cases:
@@ -144,7 +148,7 @@ class PromptSynthesizer(TestSetSynthesizer):
             model=self.model,
             synthesizer_name="PromptSynthesizer",
             batch_size=self.batch_size,
-            generation_prompt=self.prompt,
+            # generation_prompt=self.prompt,
             num_tests=len(all_test_cases),
             requested_tests=num_tests,
             context_used=context is not None,
