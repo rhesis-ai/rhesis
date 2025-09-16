@@ -73,6 +73,7 @@ export interface TestSet {
       topics?: string[];
       sample?: string;
       license_type?: string;
+      sources?: Array<{document: string, name: string, description: string}>;
     };
     topics?: string[];
     behaviors?: string[];
@@ -266,4 +267,4 @@ export interface TestSetGenerationResponse {
   task_id: string;
   message: string;
   estimated_tests: number;
-} 
+}
