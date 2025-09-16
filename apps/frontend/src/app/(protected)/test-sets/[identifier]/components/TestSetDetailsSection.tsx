@@ -62,7 +62,7 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
             variant="outlined"
             size="small"
             color="secondary"
-            sx={{ 
+            sx={{
               fontWeight: 'medium',
             }}
           />
@@ -79,7 +79,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { data: session } = useSession();
-  
+
   if (!session) {
     return null;
   }
@@ -95,16 +95,16 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
 
   const handleConfirmEdit = async () => {
     if (!sessionToken) return;
-    
+
     setIsUpdating(true);
     try {
       const clientFactory: ApiClientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
-      
+
       await testSetsClient.updateTestSet(testSet.id, {
         description: editedDescription
       });
-      
+
       setIsEditingDescription(false);
       // Note: In a real app, you might want to refresh the test set data here
       // or use a state management solution to update the parent component
@@ -117,14 +117,14 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
 
   const handleDownloadTestSet = async () => {
     if (!sessionToken) return;
-    
+
     setIsDownloading(true);
     try {
       const clientFactory: ApiClientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
-      
+
       const blob = await testSetsClient.downloadTestSet(testSet.id);
-      
+
       // Create a download link and trigger the download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -146,6 +146,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
   const behaviors = testSet.attributes?.metadata?.behaviors || [];
   const categories = testSet.attributes?.metadata?.categories || [];
   const topics = testSet.attributes?.metadata?.topics || [];
+  const sources = testSet.attributes?.metadata?.sources || [];
 
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
@@ -181,7 +182,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
           rows={4}
           value={isEditingDescription ? editedDescription : (testSet.description || '')}
           onChange={(e) => setEditedDescription(e.target.value)}
-          sx={{ 
+          sx={{
             mb: isEditingDescription ? 1 : 0,
             '& .MuiInputBase-root': {
               paddingRight: !isEditingDescription ? '80px' : '0',
@@ -191,15 +192,15 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
             readOnly: !isEditingDescription,
           }}
         />
-        
+
         {!isEditingDescription ? (
           <Button
             variant="text"
             startIcon={<EditIcon />}
             onClick={handleEditDescription}
-            sx={{ 
-              position: 'absolute', 
-              top: 8, 
+            sx={{
+              position: 'absolute',
+              top: 8,
               right: 8,
               zIndex: 1,
               backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -241,10 +242,47 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
         <MetadataField label="Topics" items={topics} />
       </Box>
 
+      {/* Source Documents Section */}
+      {sources.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+            Source Documents
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {sources.map((source: any, index: number) => (
+              <Box
+                key={index}
+                sx={{
+                  p: 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  backgroundColor: 'background.paper'
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  📄 {source.name || source.document || 'Unknown Document'}
+                </Typography>
+                {source.description && (
+                  <Typography variant="body2" color="text.secondary">
+                    {source.description}
+                  </Typography>
+                )}
+                {source.document && source.document !== source.name && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    File: {source.document}
+                  </Typography>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
+
       {/* Tags Section */}
-      <TestSetTags 
-        sessionToken={sessionToken} 
-        testSet={testSet} 
+      <TestSetTags
+        sessionToken={sessionToken}
+        testSet={testSet}
       />
 
       <ExecuteTestSetDrawer
@@ -255,4 +293,4 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
       />
     </Paper>
   );
-} 
+}
