@@ -57,7 +57,10 @@ class MetricConfig:
     """Human-readable description of what the metric measures"""
 
     score_type: Optional[str] = None
-    """The score type of the metric"""
+    """The score type of the metric eg. numeric, categorical, etc."""
+
+    metric_type: Optional[MetricType] = None
+    """The type of the metric eg. rag, generation, classification"""
 
     ground_truth_required: Optional[bool] = False
     """Whether the metric requires a ground truth reference"""
@@ -98,20 +101,6 @@ class BaseMetric(ABC):
             self._model = get_model(model)
         else:
             raise ValueError(f"Invalid model type: {type(model)}")
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def metric_type(self) -> MetricType:
-        return self._metric_type
-
-    @property
-    @abstractmethod
-    def requires_ground_truth(self) -> bool:
-        """Whether this metric requires a ground truth reference."""
-        pass
 
     @abstractmethod
     def evaluate(
