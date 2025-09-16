@@ -37,7 +37,7 @@ def send_task_assignment_notification(
             return False
 
         # Get creator details
-        creator = get_user(db, task.creator_id) if task.creator_id else None
+        creator = get_user(db, task.user_id) if task.user_id else None
 
         # Get status details
         status = get_status(db, task.status_id) if task.status_id else None

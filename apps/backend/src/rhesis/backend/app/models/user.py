@@ -81,7 +81,6 @@ class User(Base):
     comments = relationship("Comment", back_populates="user")
 
     # Task relationships
-    created_tasks = relationship("Task", foreign_keys="[Task.creator_id]", back_populates="creator")
     assigned_tasks = relationship(
         "Task", foreign_keys="[Task.assignee_id]", back_populates="assignee"
     )
