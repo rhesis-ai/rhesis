@@ -6,13 +6,21 @@ from sqlalchemy.orm import Session
 
 # Remove the Rhesis import and import the entire sdk module
 from rhesis.backend.app.models.user import User
-from rhesis.sdk.synthesizers import DocumentSynthesizer, PromptSynthesizer
+from rhesis.sdk.synthesizers import (
+    ConfigSynthesizer,
+    DocumentSynthesizer,
+    GenerationConfig,
+)
 
 DEFAULT_MODEL = "gemini"
 
 
 async def generate_tests(
-    db: Session, user: User, prompt: str, num_tests: int = 5, documents: Optional[List[Dict]] = None
+    db: Session,
+    user: User,
+    prompt: Dict,
+    num_tests: int = 5,
+    documents: Optional[List[Dict]] = None,
 ) -> Dict:
     """
     Generate tests using the appropriate synthesizer based on input.
@@ -20,7 +28,7 @@ async def generate_tests(
     Args:
         db: Database session
         user: Current user
-        prompt: The generation prompt to use
+        prompt: The generation prompt configuration as a dictionary
         num_tests: Number of test cases to generate (default: 5)
         documents: Optional list of document objects. When provided, uses DocumentSynthesizer.
             Each document should contain:
@@ -38,11 +46,12 @@ async def generate_tests(
 
     # Set the SDK configuration at the module level
     # Choose synthesizer based on whether documents are provided
+    config = GenerationConfig(**prompt)
     if documents:
-        synthesizer = DocumentSynthesizer(prompt=prompt, model=DEFAULT_MODEL)
+        synthesizer = DocumentSynthesizer(prompt=prompt, model=DEFAULT_MODEL, config=config)
         generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
     else:
-        synthesizer = PromptSynthesizer(prompt=prompt, model=DEFAULT_MODEL)
+        synthesizer = ConfigSynthesizer(config=config, model=DEFAULT_MODEL)
         generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
     # Run the potentially blocking operation in a separate thread
