@@ -32,22 +32,22 @@ F = TypeVar("F", bound=Callable[..., Any])
 class MetricConfig:
     """Standard configuration for a metric instance."""
 
-    class_name: str
+    class_name: str  # rhesis prompt metric, numeric default
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
 
-    backend: str
+    backend: str  # native
     """The backend/framework to use for this metric (e.g., 'deepeval')"""
 
     evaluation_prompt: str
     """The evaluation prompt for the metric"""
 
-    evaluation_steps: str
+    evaluation_steps: Optional[str]
     """The evaluation steps for the metric"""
 
-    reasoning: str
+    reasoning: Optional[str]
     """The reasoning for the metric"""
 
-    evaluation_examples: str
+    evaluation_examples: Optional[str]
     """The evaluation examples for the metric"""
 
     name: Optional[str] = None
@@ -56,10 +56,10 @@ class MetricConfig:
     description: Optional[str] = None
     """Human-readable description of what the metric measures"""
 
-    score_type: Optional[str] = None
+    score_type: Optional[str] = None  # string or enum
     """The score type of the metric eg. numeric, categorical, etc."""
 
-    metric_type: Optional[MetricType] = None
+    metric_type: Optional[MetricType] = None  # string or enum
     """The type of the metric eg. rag, generation, classification"""
 
     ground_truth_required: Optional[bool] = False

@@ -25,10 +25,10 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
     def __init__(
         self,
         name: str,
-        evaluation_prompt: str,
-        evaluation_steps: str,
-        reasoning: str,
-        evaluation_examples: str = "",
+        evaluation_prompt: str,  # optional
+        evaluation_steps: str,  # optional
+        reasoning: str,  # optional
+        evaluation_examples: str = "",  # optional
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
         threshold: Optional[float] = None,
