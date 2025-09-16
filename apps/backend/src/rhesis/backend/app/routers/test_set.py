@@ -28,8 +28,8 @@ from rhesis.backend.app.services.test_set import (
     get_test_set_stats,
     get_test_set_test_stats,
 )
-from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
@@ -346,10 +346,18 @@ async def create_test_set_bulk(
                 "topic": "Topic name",
                 "test_configuration": {}  # Optional test configuration,
                 "metadata": {
-                    "context": "Document context used for this test",
+                    "sources": [
+                        {
+                            "source": "doc1.pdf",
+                            "name": "Document Name",
+                            "description": "Document description",
+                            "content": "Document content used for this test"
+                        }
+                    ],
+                    "generated_by": "DocumentSynthesizer",
                     "context_index": 0,
-                    "documents_used": ["doc1.pdf"]
-                    }
+                    "context_length": 1500
+                }
             }
         ]
     }
