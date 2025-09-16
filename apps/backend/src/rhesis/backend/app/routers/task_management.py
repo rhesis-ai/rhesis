@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.services.task_notification_service import send_task_assignment_notification
-from rhesis.backend.app.services.task_service import validate_task_organization_constraints
+from rhesis.backend.app.services.task_management import validate_task_organization_constraints
+from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -35,19 +35,12 @@ def create_task(
 ):
     """Create a new task"""
     try:
-        # Auto-populate creator_id from authenticated user
-        task_data = task.dict()
-        task_data["creator_id"] = current_user.id
-
-        # Create new task object with populated creator_id
-        task_with_creator = schemas.TaskCreate(**task_data)
-
         # Validate organization-level constraints
-        validate_task_organization_constraints(db, task_with_creator, current_user)
+        validate_task_organization_constraints(db, task, current_user)
 
         created_task = crud.create_task(
             db=db,
-            task=task_with_creator,
+            task=task,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
         )

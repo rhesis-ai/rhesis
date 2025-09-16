@@ -15,7 +15,6 @@ class Task(Base, OrganizationAndUserMixin, TagsMixin):
     description = Column(Text)
 
     # User relationships
-    creator_id = Column(GUID(), ForeignKey("user.id"), nullable=False)
     assignee_id = Column(GUID(), ForeignKey("user.id"), nullable=True)
 
     # Status and priority relationships
@@ -33,7 +32,6 @@ class Task(Base, OrganizationAndUserMixin, TagsMixin):
     task_metadata = Column(JSON, default=dict)
 
     # Relationships
-    creator = relationship("User", foreign_keys=[creator_id], back_populates="created_tasks")
     assignee = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_tasks")
     status = relationship("Status", back_populates="tasks")
     priority = relationship("TypeLookup", back_populates="task_priorities")

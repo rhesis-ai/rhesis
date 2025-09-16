@@ -14,7 +14,6 @@ class TaskBase(BaseModel):
 
     title: str
     description: Optional[str] = None
-    creator_id: UUID4
     assignee_id: Optional[UUID4] = None
     status_id: UUID4
     priority_id: Optional[UUID4] = None
@@ -25,11 +24,10 @@ class TaskBase(BaseModel):
 
 
 class TaskCreate(BaseModel):
-    """Schema for creating a new Task - creator_id is auto-populated from authenticated user"""
+    """Schema for creating a new Task - user_id is auto-populated from authenticated user"""
 
     title: str
     description: Optional[str] = None
-    creator_id: Optional[UUID4] = None  # Auto-populated from current user
     assignee_id: Optional[UUID4] = None
     status_id: UUID4
     priority_id: Optional[UUID4] = None
@@ -58,7 +56,7 @@ class Task(Base):
 
     title: str
     description: Optional[str] = None
-    creator_id: UUID4
+    user_id: UUID4  # Creator/owner of the task (from OrganizationAndUserMixin)
     assignee_id: Optional[UUID4] = None
     status_id: UUID4
     priority_id: Optional[UUID4] = None
@@ -69,7 +67,7 @@ class Task(Base):
     total_comments: Optional[int] = 0
 
     # User relationships
-    creator: Optional[User] = None
+    user: Optional[User] = None  # Creator/owner (from OrganizationAndUserMixin)
     assignee: Optional[User] = None
 
     # Status and priority
