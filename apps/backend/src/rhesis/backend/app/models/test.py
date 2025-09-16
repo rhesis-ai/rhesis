@@ -56,4 +56,10 @@ class Test(Base, TagsMixin, OrganizationMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(Test.id), Comment.entity_type == 'Test')",
         viewonly=True,
+        uselist=True,
     )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this test"""
+        return len(self.comments) if self.comments else 0
