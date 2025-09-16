@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
-from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult
 from rhesis.sdk.metrics.constants import ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
@@ -317,3 +317,22 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         """
         result = score in passing_categories
         return result
+
+    def to_config(self) -> MetricConfig:
+        """Convert the metric to a dictionary."""
+        config = MetricConfig(
+            class_name=self.__class__.__name__,
+            backend="native",
+            evaluation_prompt=self.evaluation_prompt,
+            evaluation_steps=self.evaluation_steps,
+            reasoning=self.reasoning,
+            evaluation_examples=self.evaluation_examples,
+            score_type=self.score_type,
+            ground_truth_required=self.ground_truth_required,
+            context_required=self.context_required,
+            parameters={
+                "categories": self.categories,
+                "passing_categories": self.passing_categories,
+            },
+        )
+        return config
