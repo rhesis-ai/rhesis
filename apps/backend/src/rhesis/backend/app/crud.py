@@ -51,7 +51,9 @@ def get_session_variables(db: Session):
 
 
 # Endpoint CRUD
-def get_endpoint(db: Session, endpoint_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Endpoint]:
+def get_endpoint(
+    db: Session, endpoint_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Endpoint]:
     """Get endpoint with optimized approach - no session variables needed."""
     return get_item(db, models.Endpoint, endpoint_id, organization_id, user_id)
 
@@ -67,13 +69,19 @@ def get_endpoints(
     return get_items_detail(db, models.Endpoint, skip, limit, sort_by, sort_order, filter)
 
 
-def create_endpoint(db: Session, endpoint: schemas.EndpointCreate, organization_id: str = None, user_id: str = None) -> models.Endpoint:
+def create_endpoint(
+    db: Session, endpoint: schemas.EndpointCreate, organization_id: str = None, user_id: str = None
+) -> models.Endpoint:
     """Create endpoint with optimized approach - no session variables needed."""
     return create_item(db, models.Endpoint, endpoint, organization_id, user_id)
 
 
 def update_endpoint(
-    db: Session, endpoint_id: uuid.UUID, endpoint: schemas.EndpointUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    endpoint_id: uuid.UUID,
+    endpoint: schemas.EndpointUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Endpoint]:
     """Update endpoint with optimized approach - no session variables needed."""
     return update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
@@ -84,7 +92,9 @@ def delete_endpoint(db: Session, endpoint_id: uuid.UUID) -> Optional[models.Endp
 
 
 # UseCase CRUD
-def get_use_case(db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.UseCase]:
+def get_use_case(
+    db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.UseCase]:
     """Get use_case with optimized approach - no session variables needed."""
     return get_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
@@ -100,13 +110,19 @@ def get_use_cases(
     return get_items(db, models.UseCase, skip, limit, sort_by, sort_order, filter)
 
 
-def create_use_case(db: Session, use_case: schemas.UseCaseCreate, organization_id: str = None, user_id: str = None) -> models.UseCase:
+def create_use_case(
+    db: Session, use_case: schemas.UseCaseCreate, organization_id: str = None, user_id: str = None
+) -> models.UseCase:
     """Create use_case with optimized approach - no session variables needed."""
     return create_item(db, models.UseCase, use_case, organization_id, user_id)
 
 
 def update_use_case(
-    db: Session, use_case_id: uuid.UUID, use_case: schemas.UseCaseUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    use_case_id: uuid.UUID,
+    use_case: schemas.UseCaseUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.UseCase]:
     """Update use_case with optimized approach - no session variables needed."""
     return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
@@ -117,7 +133,9 @@ def delete_use_case(db: Session, use_case_id: uuid.UUID) -> Optional[models.UseC
 
 
 # Prompt CRUD
-def get_prompt(db: Session, prompt_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Prompt]:
+def get_prompt(
+    db: Session, prompt_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Prompt]:
     """Get prompt with optimized approach - no session variables needed."""
     return get_item(db, models.Prompt, prompt_id, organization_id, user_id)
 
@@ -133,13 +151,19 @@ def get_prompts(
     return get_items(db, models.Prompt, skip, limit, sort_by, sort_order, filter)
 
 
-def create_prompt(db: Session, prompt: schemas.PromptCreate, organization_id: str = None, user_id: str = None) -> models.Prompt:
+def create_prompt(
+    db: Session, prompt: schemas.PromptCreate, organization_id: str = None, user_id: str = None
+) -> models.Prompt:
     """Create prompt with optimized approach - no session variables needed."""
     return create_item(db, models.Prompt, prompt, organization_id, user_id)
 
 
 def update_prompt(
-    db: Session, prompt_id: uuid.UUID, prompt: schemas.PromptUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    prompt_id: uuid.UUID,
+    prompt: schemas.PromptUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Prompt]:
     """Update prompt with optimized approach - no session variables needed."""
     return update_item(db, models.Prompt, prompt_id, prompt, organization_id, user_id)
@@ -186,7 +210,9 @@ def delete_prompt_template(
 
 
 # Category CRUD
-def get_category(db: Session, category_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Category]:
+def get_category(
+    db: Session, category_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Category]:
     """Get category with optimized approach - no session variables needed."""
     return get_item(db, models.Category, category_id, organization_id, user_id)
 
@@ -202,13 +228,19 @@ def get_categories(
     return get_items(db, models.Category, skip, limit, sort_by, sort_order, filter)
 
 
-def create_category(db: Session, category: schemas.CategoryCreate, organization_id: str = None, user_id: str = None) -> models.Category:
+def create_category(
+    db: Session, category: schemas.CategoryCreate, organization_id: str = None, user_id: str = None
+) -> models.Category:
     """Create category with optimized approach - no session variables needed."""
     return create_item(db, models.Category, category, organization_id, user_id)
 
 
 def update_category(
-    db: Session, category_id: uuid.UUID, category: schemas.CategoryUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    category_id: uuid.UUID,
+    category: schemas.CategoryUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Category]:
     """Update category with optimized approach - no session variables needed."""
     return update_item(db, models.Category, category_id, category, organization_id, user_id)
@@ -219,7 +251,9 @@ def delete_category(db: Session, category_id: uuid.UUID) -> Optional[models.Cate
 
 
 # Behavior CRUD
-def get_behavior(db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Behavior]:
+def get_behavior(
+    db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Behavior]:
     """Get behavior with optimized approach - no session variables needed."""
     return get_item(db, models.Behavior, behavior_id, organization_id, user_id)
 
@@ -235,23 +269,32 @@ def get_behaviors(
     user_id: str = None,
 ) -> List[models.Behavior]:
     """Get behaviors with optimized approach - no session variables needed."""
-    return get_items(db, models.Behavior, skip, limit, sort_by, sort_order, filter, organization_id, user_id)
+    return get_items(
+        db, models.Behavior, skip, limit, sort_by, sort_order, filter, organization_id, user_id
+    )
 
 
-
-def create_behavior(db: Session, behavior: schemas.BehaviorCreate, organization_id: str = None, user_id: str = None) -> models.Behavior:
+def create_behavior(
+    db: Session, behavior: schemas.BehaviorCreate, organization_id: str = None, user_id: str = None
+) -> models.Behavior:
     """Create behavior with optimized approach - no session variables needed."""
     return create_item(db, models.Behavior, behavior, organization_id, user_id)
 
 
 def update_behavior(
-    db: Session, behavior_id: uuid.UUID, behavior: schemas.BehaviorUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    behavior_id: uuid.UUID,
+    behavior: schemas.BehaviorUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Behavior]:
     """Update behavior with optimized approach - no session variables needed."""
     return update_item(db, models.Behavior, behavior_id, behavior, organization_id, user_id)
 
 
-def delete_behavior(db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Behavior]:
+def delete_behavior(
+    db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Behavior]:
     """Delete behavior with optimized approach - no session variables needed."""
     return delete_item(db, models.Behavior, behavior_id, organization_id, user_id)
 
@@ -360,13 +403,19 @@ def get_test_sets(
     return query_builder.all()
 
 
-def create_test_set(db: Session, test_set: schemas.TestSetCreate, organization_id: str = None, user_id: str = None) -> models.TestSet:
+def create_test_set(
+    db: Session, test_set: schemas.TestSetCreate, organization_id: str = None, user_id: str = None
+) -> models.TestSet:
     """Create test_set with optimized approach - no session variables needed."""
     return create_item(db, models.TestSet, test_set, organization_id, user_id)
 
 
 def update_test_set(
-    db: Session, test_set_id: uuid.UUID, test_set: schemas.TestSetUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_set_id: uuid.UUID,
+    test_set: schemas.TestSetUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.TestSet]:
     """Update test_set with optimized approach - no session variables needed."""
     return update_item(db, models.TestSet, test_set_id, test_set, organization_id, user_id)
@@ -491,11 +540,20 @@ def update_test_configuration(
     user_id: str = None,
 ) -> Optional[models.TestConfiguration]:
     """Update test_configuration with optimized approach - no session variables needed."""
-    return update_item(db, models.TestConfiguration, test_configuration_id, test_configuration, organization_id, user_id)
+    return update_item(
+        db,
+        models.TestConfiguration,
+        test_configuration_id,
+        test_configuration,
+        organization_id,
+        user_id,
+    )
 
 
 # Risk CRUD
-def get_risk(db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Risk]:
+def get_risk(
+    db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Risk]:
     """Get risk with optimized approach - no session variables needed."""
     return get_item(db, models.Risk, risk_id, organization_id, user_id)
 
@@ -511,18 +569,28 @@ def get_risks(
     return get_items(db, models.Risk, skip, limit, sort_by, sort_order, filter)
 
 
-def create_risk(db: Session, risk: schemas.RiskCreate, organization_id: str = None, user_id: str = None) -> models.Risk:
+def create_risk(
+    db: Session, risk: schemas.RiskCreate, organization_id: str = None, user_id: str = None
+) -> models.Risk:
     """Create risk with optimized approach - no session variables needed."""
     return create_item(db, models.Risk, risk, organization_id, user_id)
 
 
-def update_risk(db: Session, risk_id: uuid.UUID, risk: schemas.RiskUpdate, organization_id: str = None, user_id: str = None) -> Optional[models.Risk]:
+def update_risk(
+    db: Session,
+    risk_id: uuid.UUID,
+    risk: schemas.RiskUpdate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.Risk]:
     """Update risk with optimized approach - no session variables needed."""
     return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
 
 
 # Status CRUD
-def get_status(db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Status]:
+def get_status(
+    db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Status]:
     """Get status with optimized approach - no session variables needed."""
     return get_item(db, models.Status, status_id, organization_id, user_id)
 
@@ -538,20 +606,28 @@ def get_statuses(
     return get_items(db, models.Status, skip, limit, sort_by, sort_order, filter)
 
 
-def create_status(db: Session, status: schemas.StatusCreate, organization_id: str = None, user_id: str = None) -> models.Status:
+def create_status(
+    db: Session, status: schemas.StatusCreate, organization_id: str = None, user_id: str = None
+) -> models.Status:
     """Create status with optimized approach - no session variables needed."""
     return create_item(db, models.Status, status, organization_id, user_id)
 
 
 def update_status(
-    db: Session, status_id: uuid.UUID, status: schemas.StatusUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    status_id: uuid.UUID,
+    status: schemas.StatusUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Status]:
     """Update status with optimized approach - no session variables needed."""
     return update_item(db, models.Status, status_id, status, organization_id, user_id)
 
 
 # Source CRUD
-def get_source(db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Source]:
+def get_source(
+    db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Source]:
     """Get source with optimized approach - no session variables needed."""
     return get_item(db, models.Source, source_id, organization_id, user_id)
 
@@ -567,20 +643,28 @@ def get_sources(
     return get_items(db, models.Source, skip, limit, sort_by, sort_order, filter)
 
 
-def create_source(db: Session, source: schemas.SourceCreate, organization_id: str = None, user_id: str = None) -> models.Source:
+def create_source(
+    db: Session, source: schemas.SourceCreate, organization_id: str = None, user_id: str = None
+) -> models.Source:
     """Create source with optimized approach - no session variables needed."""
     return create_item(db, models.Source, source, organization_id, user_id)
 
 
 def update_source(
-    db: Session, source_id: uuid.UUID, source: schemas.SourceUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    source_id: uuid.UUID,
+    source: schemas.SourceUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Source]:
     """Update source with optimized approach - no session variables needed."""
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
 
 
 # Topic CRUD
-def get_topic(db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Topic]:
+def get_topic(
+    db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Topic]:
     """Get topic with optimized approach - no session variables needed."""
     return get_item(db, models.Topic, topic_id, organization_id, user_id)
 
@@ -596,13 +680,19 @@ def get_topics(
     return get_items(db, models.Topic, skip, limit, sort_by, sort_order, filter)
 
 
-def create_topic(db: Session, topic: schemas.TopicCreate, organization_id: str = None, user_id: str = None) -> models.Topic:
+def create_topic(
+    db: Session, topic: schemas.TopicCreate, organization_id: str = None, user_id: str = None
+) -> models.Topic:
     """Create topic with optimized approach - no session variables needed."""
     return create_item(db, models.Topic, topic, organization_id, user_id)
 
 
 def update_topic(
-    db: Session, topic_id: uuid.UUID, topic: schemas.TopicUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    topic_id: uuid.UUID,
+    topic: schemas.TopicUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Topic]:
     """Update topic with optimized approach - no session variables needed."""
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)
@@ -613,7 +703,9 @@ def delete_topic(db: Session, topic_id: uuid.UUID) -> Optional[models.Topic]:
 
 
 # Demographic CRUD
-def get_demographic(db: Session, demographic_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Demographic]:
+def get_demographic(
+    db: Session, demographic_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Demographic]:
     """Get demographic with optimized approach - no session variables needed."""
     return get_item(db, models.Demographic, demographic_id, organization_id, user_id)
 
@@ -629,16 +721,27 @@ def get_demographics(
     return get_items(db, models.Demographic, skip, limit, sort_by, sort_order, filter)
 
 
-def create_demographic(db: Session, demographic: schemas.DemographicCreate, organization_id: str = None, user_id: str = None) -> models.Demographic:
+def create_demographic(
+    db: Session,
+    demographic: schemas.DemographicCreate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> models.Demographic:
     """Create demographic with optimized approach - no session variables needed."""
     return create_item(db, models.Demographic, demographic, organization_id, user_id)
 
 
 def update_demographic(
-    db: Session, demographic_id: uuid.UUID, demographic: schemas.DemographicUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    demographic_id: uuid.UUID,
+    demographic: schemas.DemographicUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Demographic]:
     """Update demographic with optimized approach - no session variables needed."""
-    return update_item(db, models.Demographic, demographic_id, demographic, organization_id, user_id)
+    return update_item(
+        db, models.Demographic, demographic_id, demographic, organization_id, user_id
+    )
 
 
 def delete_demographic(db: Session, demographic_id: uuid.UUID) -> Optional[models.Demographic]:
@@ -646,7 +749,9 @@ def delete_demographic(db: Session, demographic_id: uuid.UUID) -> Optional[model
 
 
 # Dimension CRUD
-def get_dimension(db: Session, dimension_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Dimension]:
+def get_dimension(
+    db: Session, dimension_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Dimension]:
     """Get dimension with optimized approach - no session variables needed."""
     return get_item(db, models.Dimension, dimension_id, organization_id, user_id)
 
@@ -662,13 +767,22 @@ def get_dimensions(
     return get_items(db, models.Dimension, skip, limit, sort_by, sort_order, filter)
 
 
-def create_dimension(db: Session, dimension: schemas.DimensionCreate, organization_id: str = None, user_id: str = None) -> models.Dimension:
+def create_dimension(
+    db: Session,
+    dimension: schemas.DimensionCreate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> models.Dimension:
     """Create dimension with optimized approach - no session variables needed."""
     return create_item(db, models.Dimension, dimension, organization_id, user_id)
 
 
 def update_dimension(
-    db: Session, dimension_id: uuid.UUID, dimension: schemas.DimensionUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    dimension_id: uuid.UUID,
+    dimension: schemas.DimensionUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Dimension]:
     """Update dimension with optimized approach - no session variables needed."""
     return update_item(db, models.Dimension, dimension_id, dimension, organization_id, user_id)
@@ -679,7 +793,9 @@ def delete_dimension(db: Session, dimension_id: uuid.UUID) -> Optional[models.Di
 
 
 # User CRUD
-def get_user(db: Session, user_id: uuid.UUID, organization_id: str = None, tenant_user_id: str = None) -> Optional[models.User]:
+def get_user(
+    db: Session, user_id: uuid.UUID, organization_id: str = None, tenant_user_id: str = None
+) -> Optional[models.User]:
     """Get user with optimized approach - no session variables needed."""
     return get_item(db, models.User, user_id, organization_id, tenant_user_id)
 
@@ -754,7 +870,9 @@ def get_user_by_id(db: Session, user_id: Union[str, UUID]) -> Optional[models.Us
 
 
 # Tag CRUD
-def get_tag(db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Tag]:
+def get_tag(
+    db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Tag]:
     """Get tag with optimized approach - no session variables needed."""
     return get_item(db, models.Tag, tag_id, organization_id, user_id)
 
@@ -770,12 +888,20 @@ def get_tags(
     return get_items(db, models.Tag, skip, limit, sort_by, sort_order, filter)
 
 
-def create_tag(db: Session, tag: schemas.TagCreate, organization_id: str = None, user_id: str = None) -> models.Tag:
+def create_tag(
+    db: Session, tag: schemas.TagCreate, organization_id: str = None, user_id: str = None
+) -> models.Tag:
     """Create tag with optimized approach - no session variables needed."""
     return create_item(db, models.Tag, tag, organization_id, user_id)
 
 
-def update_tag(db: Session, tag_id: uuid.UUID, tag: schemas.TagUpdate, organization_id: str = None, user_id: str = None) -> Optional[models.Tag]:
+def update_tag(
+    db: Session,
+    tag_id: uuid.UUID,
+    tag: schemas.TagUpdate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.Tag]:
     """Update tag with optimized approach - no session variables needed."""
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
 
@@ -865,7 +991,9 @@ def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityTy
 
 
 # Token CRUD
-def get_token(db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Token]:
+def get_token(
+    db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Token]:
     """Get token with optimized approach - no session variables needed."""
     return get_item(db, models.Token, token_id, organization_id, user_id)
 
@@ -932,7 +1060,9 @@ def get_user_tokens(
     )
 
 
-def create_token(db: Session, token: schemas.TokenCreate, organization_id: str = None, user_id: str = None) -> models.Token:
+def create_token(
+    db: Session, token: schemas.TokenCreate, organization_id: str = None, user_id: str = None
+) -> models.Token:
     """Create token with optimized approach - no session variables needed."""
     return create_item(db, models.Token, token, organization_id, user_id)
 
@@ -961,7 +1091,9 @@ def get_token_by_value(db: Session, token_value: str):
 
 
 # Organization CRUD
-def get_organization(db: Session, organization_id: uuid.UUID, tenant_organization_id: str = None, user_id: str = None) -> Optional[models.Organization]:
+def get_organization(
+    db: Session, organization_id: uuid.UUID, tenant_organization_id: str = None, user_id: str = None
+) -> Optional[models.Organization]:
     """Get organization with optimized approach - no session variables needed."""
     return get_item(db, models.Organization, organization_id, tenant_organization_id, user_id)
 
@@ -1028,7 +1160,9 @@ def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[mod
 
 
 # Project CRUD
-def get_project(db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Project]:
+def get_project(
+    db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Project]:
     """Get project with optimized approach - no session variables needed."""
     return get_item(db, models.Project, project_id, organization_id, user_id)
 
@@ -1044,7 +1178,9 @@ def get_projects(
     return get_items_detail(db, models.Project, skip, limit, sort_by, sort_order, filter)
 
 
-def create_project(db: Session, project: schemas.ProjectCreate, organization_id: str = None, user_id: str = None) -> models.Project:
+def create_project(
+    db: Session, project: schemas.ProjectCreate, organization_id: str = None, user_id: str = None
+) -> models.Project:
     """Create project with optimized approach - no session variables needed."""
     return create_item(db, models.Project, project, organization_id, user_id)
 
@@ -1055,7 +1191,9 @@ def update_project(
     return update_item(db, models.Project, project_id, project)
 
 
-def get_test(db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Test]:
+def get_test(
+    db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Test]:
     """Get test with optimized approach - no session variables needed."""
     return get_item(db, models.Test, test_id, organization_id, user_id)
 
@@ -1068,15 +1206,37 @@ def get_tests(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Test]:
-    return get_items_detail(db, models.Test, skip, limit, sort_by, sort_order, filter)
+    """Get tests with comments loaded for comment_count property"""
+    return (
+        QueryBuilder(db, models.Test)
+        .with_optimized_loads(
+            skip_many_to_many=False,
+            skip_one_to_many=False,  # Load one-to-many relationships like comments
+            nested_relationships=None,
+        )
+        .with_organization_filter()
+        .with_visibility_filter()
+        .with_odata_filter(filter)
+        .with_pagination(skip, limit)
+        .with_sorting(sort_by, sort_order)
+        .all()
+    )
 
 
-def create_test(db: Session, test: schemas.TestCreate, organization_id: str = None, user_id: str = None) -> models.Test:
+def create_test(
+    db: Session, test: schemas.TestCreate, organization_id: str = None, user_id: str = None
+) -> models.Test:
     """Create test with optimized approach - no session variables needed."""
     return create_item(db, models.Test, test, organization_id, user_id)
 
 
-def update_test(db: Session, test_id: uuid.UUID, test: schemas.TestUpdate, organization_id: str = None, user_id: str = None) -> Optional[models.Test]:
+def update_test(
+    db: Session,
+    test_id: uuid.UUID,
+    test: schemas.TestUpdate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.Test]:
     """Update test with optimized approach - no session variables needed."""
     return update_item(db, models.Test, test_id, test, organization_id, user_id)
 
@@ -1114,7 +1274,9 @@ def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
 
 
 # TestContext CRUD
-def get_test_context(db: Session, test_context_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TestContext]:
+def get_test_context(
+    db: Session, test_context_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.TestContext]:
     """Get test_context with optimized approach - no session variables needed."""
     return get_item(db, models.TestContext, test_context_id, organization_id, user_id)
 
@@ -1139,16 +1301,27 @@ def get_test_contexts_by_test(db: Session, test_id: uuid.UUID) -> List[models.Te
     )
 
 
-def create_test_context(db: Session, test_context: schemas.TestContextCreate, organization_id: str = None, user_id: str = None) -> models.TestContext:
+def create_test_context(
+    db: Session,
+    test_context: schemas.TestContextCreate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> models.TestContext:
     """Create test_context with optimized approach - no session variables needed."""
     return create_item(db, models.TestContext, test_context, organization_id, user_id)
 
 
 def update_test_context(
-    db: Session, test_context_id: uuid.UUID, test_context: schemas.TestContextUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_context_id: uuid.UUID,
+    test_context: schemas.TestContextUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.TestContext]:
     """Update test_context with optimized approach - no session variables needed."""
-    return update_item(db, models.TestContext, test_context_id, test_context, organization_id, user_id)
+    return update_item(
+        db, models.TestContext, test_context_id, test_context, organization_id, user_id
+    )
 
 
 def delete_test_context(db: Session, test_context_id: uuid.UUID) -> Optional[models.TestContext]:
@@ -1156,7 +1329,9 @@ def delete_test_context(db: Session, test_context_id: uuid.UUID) -> Optional[mod
 
 
 # Test Run CRUD
-def get_test_run(db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TestRun]:
+def get_test_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.TestRun]:
     """Get test_run with optimized approach - no session variables needed."""
     return get_item(db, models.TestRun, test_run_id, organization_id, user_id)
 
@@ -1247,7 +1422,11 @@ def create_test_run(db: Session, test_run: schemas.TestRunCreate) -> models.Test
 
 
 def update_test_run(
-    db: Session, test_run_id: uuid.UUID, test_run: schemas.TestRunUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_run_id: uuid.UUID,
+    test_run: schemas.TestRunUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.TestRun]:
     """Update test_run with optimized approach - no session variables needed."""
     return update_item(db, models.TestRun, test_run_id, test_run, organization_id, user_id)
@@ -1258,7 +1437,9 @@ def delete_test_run(db: Session, test_run_id: uuid.UUID) -> Optional[models.Test
 
 
 # Test Result CRUD
-def get_test_result(db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TestResult]:
+def get_test_result(
+    db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.TestResult]:
     """Get test_result with optimized approach - no session variables needed."""
     return get_item(db, models.TestResult, test_result_id, organization_id, user_id)
 
@@ -1274,13 +1455,22 @@ def get_test_results(
     return get_items(db, models.TestResult, skip, limit, sort_by, sort_order, filter)
 
 
-def create_test_result(db: Session, test_result: schemas.TestResultCreate, organization_id: str = None, user_id: str = None) -> models.TestResult:
+def create_test_result(
+    db: Session,
+    test_result: schemas.TestResultCreate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> models.TestResult:
     """Create test_result with optimized approach - no session variables needed."""
     return create_item(db, models.TestResult, test_result, organization_id, user_id)
 
 
 def update_test_result(
-    db: Session, test_result_id: uuid.UUID, test_result: schemas.TestResultUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_result_id: uuid.UUID,
+    test_result: schemas.TestResultUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.TestResult]:
     """Update test_result with optimized approach - no session variables needed."""
     return update_item(db, models.TestResult, test_result_id, test_result, organization_id, user_id)
@@ -1295,7 +1485,9 @@ def delete_project(db: Session, project_id: uuid.UUID) -> Optional[models.Projec
 
 
 # TypeLookup CRUD
-def get_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TypeLookup]:
+def get_type_lookup(
+    db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.TypeLookup]:
     """Get type_lookup with optimized approach - no session variables needed."""
     return get_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
@@ -1311,13 +1503,22 @@ def get_type_lookups(
     return get_items(db, models.TypeLookup, skip, limit, sort_by, sort_order, filter)
 
 
-def create_type_lookup(db: Session, type_lookup: schemas.TypeLookupCreate, organization_id: str = None, user_id: str = None) -> models.TypeLookup:
+def create_type_lookup(
+    db: Session,
+    type_lookup: schemas.TypeLookupCreate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> models.TypeLookup:
     """Create type_lookup with optimized approach - no session variables needed."""
     return create_item(db, models.TypeLookup, type_lookup, organization_id, user_id)
 
 
 def update_type_lookup(
-    db: Session, type_lookup_id: uuid.UUID, type_lookup: schemas.TypeLookupUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    type_lookup_id: uuid.UUID,
+    type_lookup: schemas.TypeLookupUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.TypeLookup]:
     """Update type_lookup with optimized approach - no session variables needed."""
     return update_item(db, models.TypeLookup, type_lookup_id, type_lookup, organization_id, user_id)
@@ -1379,13 +1580,19 @@ def get_metrics(
         )
 
 
-def create_metric(db: Session, metric: schemas.MetricCreate, organization_id: str = None, user_id: str = None) -> models.Metric:
+def create_metric(
+    db: Session, metric: schemas.MetricCreate, organization_id: str = None, user_id: str = None
+) -> models.Metric:
     """Create a new metric with optimized approach - no session variables needed."""
     return create_item(db, models.Metric, metric, organization_id, user_id)
 
 
 def update_metric(
-    db: Session, metric_id: uuid.UUID, metric: schemas.MetricUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    metric_id: uuid.UUID,
+    metric: schemas.MetricUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Metric]:
     """Update a metric with optimized approach - no session variables needed."""
     return update_item(db, models.Metric, metric_id, metric, organization_id, user_id)
@@ -1593,13 +1800,19 @@ def get_models(
     return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter)
 
 
-def create_model(db: Session, model: schemas.ModelCreate, organization_id: str = None, user_id: str = None) -> models.Model:
+def create_model(
+    db: Session, model: schemas.ModelCreate, organization_id: str = None, user_id: str = None
+) -> models.Model:
     """Create a new model with optimized approach - no session variables needed."""
     return create_item(db, models.Model, model, organization_id, user_id)
 
 
 def update_model(
-    db: Session, model_id: uuid.UUID, model: schemas.ModelUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    model_id: uuid.UUID,
+    model: schemas.ModelUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Model]:
     """Update a model with optimized approach - no session variables needed."""
     return update_item(db, models.Model, model_id, model, organization_id, user_id)
@@ -1680,7 +1893,12 @@ def get_comments_by_entity(
     )
 
 
-def create_comment(db: Session, comment: Union[schemas.CommentCreate, dict], organization_id: str = None, user_id: str = None) -> models.Comment:
+def create_comment(
+    db: Session,
+    comment: Union[schemas.CommentCreate, dict],
+    organization_id: str = None,
+    user_id: str = None,
+) -> models.Comment:
     """Create comment with optimized approach - no session variables needed."""
     # If it's a dict, convert it to CommentCreate schema first
     if isinstance(comment, dict):
