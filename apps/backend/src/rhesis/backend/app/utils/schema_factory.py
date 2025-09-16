@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional, Type, Union
 from pydantic import UUID4, BaseModel, create_model
 
 from rhesis.backend.app.schemas.base import Base
-from rhesis.backend.app.schemas.comment import Comment
 from rhesis.backend.app.schemas.tag import TagRead
 from rhesis.backend.app.schemas.test_set import TestSet
 from rhesis.backend.app.utils.model_utils import get_model_relationships
@@ -158,10 +157,6 @@ def create_detailed_schema(
         else:
             # For scalar relationships (many-to-one, one-to-one), use Optional
             fields[rel_name] = (Optional[related_schema], None)
-
-    # Add comments field specifically for models that have a comments relationship
-    if hasattr(model, "comments") and "comments" in relationships:
-        fields["comments"] = (Optional[List[Comment]], [])
 
     # Add comment_count field for Test model
     if model.__name__ == "Test":
