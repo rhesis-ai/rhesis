@@ -11,6 +11,7 @@ from rhesis.sdk.synthesizers import (
     DocumentSynthesizer,
     GenerationConfig,
 )
+from rhesis.sdk.types import Document
 
 DEFAULT_MODEL = "gemini"
 
@@ -20,7 +21,7 @@ async def generate_tests(
     user: User,
     prompt: Dict,
     num_tests: int = 5,
-    documents: Optional[List[Dict]] = None,
+    documents: Optional[List[Document]] = None,
 ) -> Dict:
     """
     Generate tests using the appropriate synthesizer based on input.
