@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
@@ -293,3 +293,39 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         threshold_operator = OPERATOR_MAP[self.threshold_operator]
         result = threshold_operator(score, self.threshold)
         return result
+
+    def to_config(self) -> MetricConfig:
+        """Convert the metric to a dictionary."""
+        config = MetricConfig(
+            class_name=self.__class__.__name__,
+            backend="native",
+            evaluation_prompt=self.evaluation_prompt,
+            evaluation_steps=self.evaluation_steps,
+            reasoning=self.reasoning,
+            evaluation_examples=self.evaluation_examples,
+            score_type=self.score_type,
+            ground_truth_required=self.ground_truth_required,
+            context_required=self.context_required,
+            parameters={
+                "min_score": self.min_score,
+                "max_score": self.max_score,
+                "threshold": self.threshold,
+                "threshold_operator": self.threshold_operator,
+            },
+        )
+        return config
+
+    def from_config(self, config: MetricConfig) -> "RhesisPromptMetricNumeric":
+        """Create a metric from a dictionary."""
+        return RhesisPromptMetricNumeric(
+            name=config.name,
+            evaluation_prompt=config.evaluation_prompt,
+            evaluation_steps=config.evaluation_steps,
+            reasoning=config.reasoning,
+            evaluation_examples=config.evaluation_examples,
+            min_score=config.parameters.get("min_score"),
+            max_score=config.parameters.get("max_score"),
+            threshold=config.parameters.get("threshold"),
+            threshold_operator=config.parameters.get("threshold_operator"),
+            metric_type=config.metric_type,
+        )
