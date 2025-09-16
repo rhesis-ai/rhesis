@@ -1,0 +1,24 @@
+{{- if .Values.redis.enabled }}
+{{- if eq .Values.redis.type "redis" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redis
+    tier: cache
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: redis
+    tier: cache
+{{- end }}
+{{- end }}

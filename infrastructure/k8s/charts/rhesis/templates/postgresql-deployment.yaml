@@ -1,0 +1,97 @@
+{{- if .Values.database.enabled }}
+{{- if eq .Values.database.type "postgresql" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres
+    tier: database
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      tier: database
+  template:
+    metadata:
+      labels:
+        app: postgres
+        tier: database
+    spec:
+      {{- if and .Values.podSecurityContext.enabled (not .Values.database.postgresql.disableSecurityContext) }}
+      securityContext:
+        fsGroup: 999  # PostgreSQL group ID
+        runAsUser: 999  # PostgreSQL user ID
+        runAsGroup: 999  # PostgreSQL group ID
+        fsGroupChangePolicy: "OnRootMismatch"
+      {{- end }}
+      containers:
+        - name: postgres
+          image: "{{ .Values.database.postgresql.image.repository }}:{{ .Values.database.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.database.postgresql.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- if and .Values.containerSecurityContext.enabled (not .Values.database.postgresql.disableSecurityContext) }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: false  # PostgreSQL needs write access to data directory
+            runAsNonRoot: true
+            runAsUser: 999  # PostgreSQL user ID
+            runAsGroup: 999  # PostgreSQL group ID
+            {{- if .Values.containerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml .Values.containerSecurityContext.capabilities | nindent 14 }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
+                  key: SQLALCHEMY_DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
+                  key: SQLALCHEMY_DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.postgresql.auth.existingSecret }}
+                  key: {{ .Values.database.postgresql.auth.secretKeys.password }}
+          resources:
+            {{- toYaml .Values.database.postgresql.resources | nindent 12 }}
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+            - name: postgres-init-script
+              mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+        - name: postgres-init-script
+          configMap:
+            name: postgres-init-config
+{{- end }}
+{{- end }}
