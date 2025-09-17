@@ -102,8 +102,8 @@ class BaseMetric(ABC):
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
-        self._name = name
-        self._metric_type = metric_type
+        self.name = name
+        self.metric_type = metric_type
         if isinstance(model, BaseLLM):
             self._model = model
         elif isinstance(model, str) or model is None:
