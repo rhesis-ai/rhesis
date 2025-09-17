@@ -31,8 +31,8 @@ class RhesisPromptMetricBase(BaseMetric):
             **kwargs,
         )
 
-        self.ground_truth_required = True
-        self.context_required = False
+        self.ground_truth_required = False  # set up by subclasses
+        self.context_required = False  # set up by subclasses
 
     def _setup_jinja_environment(self) -> None:
         """

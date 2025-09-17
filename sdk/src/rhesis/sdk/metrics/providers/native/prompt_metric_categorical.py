@@ -7,6 +7,7 @@ from rhesis.sdk.metrics.constants import ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
+from rhesis.sdk.models.base import BaseLLM
 
 
 class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
@@ -25,7 +26,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         evaluation_examples: Optional[str] = None,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        model: Optional[str] = None,
+        model: Optional[Union[BaseLLM, str]] = None,
         metric_type: Optional[str] = "rag",
         **kwargs,
     ):
