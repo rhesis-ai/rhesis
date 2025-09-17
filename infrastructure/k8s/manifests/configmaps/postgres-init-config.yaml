@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-config
+  namespace: rhesis
+data:
+  init-db.sql: |
+    -- =====================================================
+    -- IMPORTANT: SECURITY CONFIGURATION REQUIRED
+    -- =====================================================
+    -- This configuration uses a placeholder password that MUST be changed
+    -- for production deployments. Please update the following:
+    -- 1. Change 'your-secured-password' to a strong, unique password
+    -- 2. Update the corresponding password in your secrets configuration
+    -- 3. Ensure the password matches between this init script and your secrets
+    -- 
+    -- Security Note: This placeholder password is for development/testing only
+    -- and should never be used in production environments.
+    -- =====================================================
+    
+    -- Create the rhesis-user if it doesn't exist
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'rhesis-user') THEN
+            CREATE USER "rhesis-user" WITH PASSWORD 'your-secured-password';
+        END IF;
+    END
+    $$;
+
+    -- Create the rhesis-db database if it doesn't exist
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'rhesis-db') THEN
+            CREATE DATABASE "rhesis-db" OWNER "rhesis-user";
+        END IF;
+    END
+    $$;
+
+    -- Grant necessary privileges on the table in the public schema
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "rhesis-user";
+
+    -- Grant the same privileges on any future tables in the public schema
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "rhesis-user";
+
+    -- Grant CONNECT privilege to the user for the rhesis-db database
+    GRANT CONNECT ON DATABASE "rhesis-db" TO "rhesis-user";
+
+    -- Grant USAGE privilege on the public schema
+    GRANT USAGE ON SCHEMA public TO "rhesis-user";
+
+    -- Grant CREATE privilege on the public schema (for migrations)
+    GRANT CREATE ON SCHEMA public TO "rhesis-user";

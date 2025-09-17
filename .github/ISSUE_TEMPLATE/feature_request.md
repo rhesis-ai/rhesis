@@ -1,8 +1,8 @@
 ---
-name: "✨ Feature Request"
+name: "Feature Request"
 about: Propose a new feature or improvement for Rhesis AI
-title: "[Feature] <concise title>"
-labels: ["feature", "needs-triage"]
+title: "<concise title>"
+type: "Feature"
 ---
 
 <!-- Keep sections crisp. Delete notes you don’t need. -->

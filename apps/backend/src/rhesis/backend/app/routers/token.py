@@ -14,6 +14,7 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.token import TokenCreate, TokenRead, TokenUpdate
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
 router = APIRouter(
     prefix="/tokens",

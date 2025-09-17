@@ -1,0 +1,15 @@
+---
+alwaysApply: false
+---
+The rule is to create a new issue in Github.
+
+Follow the following rules:
+1. The issue could be either a "Bug", "Feature" or a "Task", set up a correct template for the issue.
+2. To create a new issue use Github CLI tool
+2. Select the appropriate template for the issue from .github/ISSUE_TEMPLATE
+3. List the existing labels using `gh label list` and select the appropriate label for the issue.
+ Do not add issue type labels - bug, feature, task.
+Use only the labels from the returned list.
+4. Select appropriate title for the issue
+5. The issuse should be short and to the point, avoid using too many words, you can remove sections
+from the template that are not relevant to the issue
