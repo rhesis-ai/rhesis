@@ -32,4 +32,10 @@ class TestResult(Base):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(TestResult.id), Comment.entity_type == 'TestResult')",
         viewonly=True,
+        uselist=True,
     )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this test result"""
+        return len(self.comments) if self.comments else 0

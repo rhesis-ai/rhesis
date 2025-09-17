@@ -22,6 +22,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_item_detail,
     get_items,
     get_items_detail,
+    get_items_detail_with_comments,
     maintain_tenant_context,
     update_item,
 )
@@ -148,7 +149,10 @@ def get_prompts(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Prompt]:
-    return get_items(db, models.Prompt, skip, limit, sort_by, sort_order, filter)
+    """Get prompts with comments loaded for comment_count property"""
+    return get_items_detail_with_comments(
+        db, models.Prompt, skip, limit, sort_by, sort_order, filter
+    )
 
 
 def create_prompt(
@@ -225,7 +229,10 @@ def get_categories(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Category]:
-    return get_items(db, models.Category, skip, limit, sort_by, sort_order, filter)
+    """Get categories with comments loaded for comment_count property"""
+    return get_items_detail_with_comments(
+        db, models.Category, skip, limit, sort_by, sort_order, filter
+    )
 
 
 def create_category(
@@ -268,9 +275,18 @@ def get_behaviors(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Behavior]:
-    """Get behaviors with optimized approach - no session variables needed."""
-    return get_items(
-        db, models.Behavior, skip, limit, sort_by, sort_order, filter, organization_id, user_id
+    """Get behaviors with comments loaded for comment_count property"""
+    return get_items_detail_with_comments(
+        db,
+        models.Behavior,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        None,
+        organization_id,
+        user_id,
     )
 
 
@@ -1207,20 +1223,7 @@ def get_tests(
     filter: str | None = None,
 ) -> List[models.Test]:
     """Get tests with comments loaded for comment_count property"""
-    return (
-        QueryBuilder(db, models.Test)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=False,  # Load one-to-many relationships like comments
-            nested_relationships=None,
-        )
-        .with_organization_filter()
-        .with_visibility_filter()
-        .with_odata_filter(filter)
-        .with_pagination(skip, limit)
-        .with_sorting(sort_by, sort_order)
-        .all()
-    )
+    return get_items_detail_with_comments(db, models.Test, skip, limit, sort_by, sort_order, filter)
 
 
 def create_test(
@@ -1344,7 +1347,10 @@ def get_test_runs(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.TestRun]:
-    return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
+    """Get test runs with comments loaded for comment_count property"""
+    return get_items_detail_with_comments(
+        db, models.TestRun, skip, limit, sort_by, sort_order, filter
+    )
 
 
 def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID) -> List[models.Behavior]:
@@ -1796,8 +1802,10 @@ def get_models(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Model]:
-    """Get all models with their related objects"""
-    return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter)
+    """Get all models with comments loaded for comment_count property"""
+    return get_items_detail_with_comments(
+        db, models.Model, skip, limit, sort_by, sort_order, filter
+    )
 
 
 def create_model(

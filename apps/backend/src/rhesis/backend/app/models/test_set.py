@@ -83,7 +83,13 @@ class TestSet(Base, TagsMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(TestSet.id), Comment.entity_type == 'TestSet')",
         viewonly=True,
+        uselist=True,
     )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this test set"""
+        return len(self.comments) if self.comments else 0
 
     def _get_related_items(self, model_class, attribute_key):
         """Helper method to fetch related items from attributes"""

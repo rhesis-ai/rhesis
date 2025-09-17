@@ -158,8 +158,19 @@ def create_detailed_schema(
             # For scalar relationships (many-to-one, one-to-one), use Optional
             fields[rel_name] = (Optional[related_schema], None)
 
-    # Add comment_count field for Test model
-    if model.__name__ == "Test":
+    # Add comment_count field for models that have comments relationship
+    entities_with_comments = [
+        "Test",
+        "TestSet",
+        "TestRun",
+        "TestResult",
+        "Model",
+        "Metric",
+        "Prompt",
+        "Behavior",
+        "Category",
+    ]
+    if model.__name__ in entities_with_comments:
         fields["comment_count"] = (Optional[int], 0)
 
     # Create new schema class
