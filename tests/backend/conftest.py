@@ -16,6 +16,7 @@ os.environ["SQLALCHEMY_DB_MODE"] = "test"
 from rhesis.backend.app.main import app
 from rhesis.backend.app.database import Base, get_db
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import EntityType
 
 
 
@@ -223,6 +224,22 @@ def test_org_id(authenticated_user_info) -> str:
     """🏢 Get the test organization ID from authenticated API key"""
     org_id, _ = authenticated_user_info
     return org_id
+
+
+@pytest.fixture
+def test_entity_type(test_db, test_org_id, authenticated_user_id):
+    """Create a test EntityType TypeLookup for testing Status relationships."""
+    # Create a TypeLookup for EntityType.TEST
+    entity_type = models.TypeLookup(
+        type_name="EntityType",
+        type_value=EntityType.TEST.value,
+        organization_id=test_org_id,
+        user_id=authenticated_user_id
+    )
+    test_db.add(entity_type)
+    test_db.commit()
+    test_db.refresh(entity_type)
+    return entity_type
 
 
 @pytest.fixture(scope="session")
