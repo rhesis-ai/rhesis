@@ -25,8 +25,8 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
     def __init__(
         self,
         evaluation_prompt: str,  # optional
-        evaluation_steps: Optional[str],
-        reasoning: Optional[str],
+        evaluation_steps: Optional[str] = None,
+        reasoning: Optional[str] = None,
         evaluation_examples: Optional[str] = None,
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
@@ -68,7 +68,9 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         """
         super().__init__(
             name=name,
+            description=description,
             metric_type=metric_type,
+            score_type=ScoreType.NUMERIC,
             model=model,
             **kwargs,
         )
@@ -77,7 +79,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         if isinstance(threshold_operator, str):
             threshold_operator = ThresholdOperator(threshold_operator)
         self.threshold_operator = threshold_operator
-        self.model = model
 
         # Validate and set up numeric score parameters
         self._validate_score_range(min_score, max_score)
@@ -229,7 +230,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
         try:
             # Run the evaluation with structured response model
-            response = self._model.generate(prompt, schema=NumericScoreResponse)
+            response = self.model.generate(prompt, schema=NumericScoreResponse)
             response = NumericScoreResponse(**response)
 
             # Get the score directly from the response
@@ -313,7 +314,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             name=config.name,
             description=config.description,
             metric_type=config.metric_type,
-            score_type=config.score_type,
             # Custom items
             evaluation_prompt=config.evaluation_prompt,
             evaluation_steps=config.evaluation_steps,
