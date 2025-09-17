@@ -17,13 +17,14 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
 
     def __init__(
         self,
-        name: str,
         evaluation_prompt: str,
         categories: List[str],
         passing_categories: Union[str, List[str]],
         evaluation_steps: Optional[str] = None,
         reasoning: Optional[str] = None,
         evaluation_examples: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
         model: Optional[str] = None,
         metric_type: Optional[str] = "rag",
         **kwargs,
@@ -320,19 +321,33 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
 
     def to_config(self) -> MetricConfig:
         """Convert the metric to a dictionary."""
-        config = MetricConfig(
-            class_name=self.__class__.__name__,
-            backend="native",
-            evaluation_prompt=self.evaluation_prompt,
-            evaluation_steps=self.evaluation_steps,
-            reasoning=self.reasoning,
-            evaluation_examples=self.evaluation_examples,
-            score_type=self.score_type,
-            ground_truth_required=self.ground_truth_required,
-            context_required=self.context_required,
-            parameters={
-                "categories": self.categories,
-                "passing_categories": self.passing_categories,
-            },
-        )
+        config = super().to_config()
+        config.parameters = {
+            "categories": self.categories,
+            "passing_categories": self.passing_categories,
+        }
         return config
+
+    def from_config(self, config: MetricConfig) -> "RhesisPromptMetricCategorical":
+        """Create a metric from a dictionary."""
+        return RhesisPromptMetricCategorical(
+            name=config.name,
+            description=config.description,
+            evaluation_prompt=config.evaluation_prompt,
+            evaluation_steps=config.evaluation_steps,
+            reasoning=config.reasoning,
+            evaluation_examples=config.evaluation_examples,
+            categories=config.parameters.get("categories"),
+            passing_categories=config.parameters.get("passing_categories"),
+            metric_type=config.metric_type,
+        )
+
+
+if __name__ == "__main__":
+    metric = RhesisPromptMetricCategorical(
+        name="test",
+        evaluation_prompt="test",
+        categories=["test"],
+        passing_categories=["test"],
+    )
+    print(metric.to_config())

@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from rhesis.sdk.metrics.base import MetricConfig
 from rhesis.sdk.metrics.providers.native.metric_base import (
     RhesisMetricBase,
 )
@@ -28,6 +29,9 @@ class RhesisPromptMetricBase(RhesisMetricBase):
             **kwargs,
         )
 
+        self.ground_truth_required = True
+        self.context_required = False
+
     def _setup_jinja_environment(self) -> None:
         """
         Set up Jinja environment for template rendering.
@@ -42,11 +46,6 @@ class RhesisPromptMetricBase(RhesisMetricBase):
             trim_blocks=True,
             lstrip_blocks=True,
         )
-
-    @property
-    def requires_ground_truth(self) -> bool:
-        """This metric typically requires ground truth."""
-        return True
 
     def _get_prompt_template(
         self,
@@ -112,3 +111,23 @@ class RhesisPromptMetricBase(RhesisMetricBase):
             raise ValueError(f"Failed to render template: {e}") from e
 
         return prompt
+
+    def to_config(self) -> MetricConfig:
+        """Convert the metric to a dictionary."""
+        """Subclasses should override this method to add their own parameters."""
+        config = MetricConfig(
+            class_name=self.__class__.__name__,
+            backend="native",
+            evaluation_prompt=self.evaluation_prompt,
+            evaluation_steps=self.evaluation_steps,
+            reasoning=self.reasoning,
+            evaluation_examples=self.evaluation_examples,
+            score_type=self.score_type,
+            ground_truth_required=self.ground_truth_required,
+            context_required=self.context_required,
+            name=self.name,
+            description=self.description,
+            parameters={},
+        )
+
+        return config
