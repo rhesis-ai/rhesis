@@ -11,6 +11,7 @@ from typing import Any, Dict, Type
 import rhesis.sdk
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+from rhesis.sdk.synthesizers.document_synthesizer import DocumentSynthesizer
 from rhesis.sdk.synthesizers.paraphrasing_synthesizer import ParaphrasingSynthesizer
 from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
 
@@ -20,6 +21,7 @@ class SynthesizerType(str, Enum):
 
     PROMPT = "prompt"
     PARAPHRASING = "paraphrasing"
+    DOCUMENT = "document"
 
 
 class SynthesizerFactory:
@@ -29,6 +31,7 @@ class SynthesizerFactory:
     _SYNTHESIZER_CLASSES: Dict[SynthesizerType, Type[TestSetSynthesizer]] = {
         SynthesizerType.PROMPT: PromptSynthesizer,
         SynthesizerType.PARAPHRASING: ParaphrasingSynthesizer,
+        SynthesizerType.DOCUMENT: DocumentSynthesizer,
     }
 
     @classmethod
@@ -42,8 +45,9 @@ class SynthesizerFactory:
             synthesizer_type: The type of synthesizer to create
             batch_size: Batch size for the synthesizer
             **kwargs: Additional arguments specific to the synthesizer type
-                For PromptSynthesizer: prompt (str, required)
-                For ParaphrasingSynthesizer: test_set (TestSet, required)
+                For PromptSynthesizer: prompt (str)
+                For DocumentSynthesizer: prompt (str), documents (List[Document])
+                For ParaphrasingSynthesizer: test_set (TestSet)
 
         Returns:
             TestSetSynthesizer: An instance of the requested synthesizer
@@ -70,6 +74,12 @@ class SynthesizerFactory:
             if "test_set" not in kwargs:
                 raise ValueError("'test_set' argument is required for ParaphrasingSynthesizer")
             return synthesizer_class(test_set=kwargs["test_set"], batch_size=batch_size)
+
+        elif synthesizer_type == SynthesizerType.DOCUMENT:
+            if "prompt" not in kwargs:
+                raise ValueError("'prompt' argument is required for DocumentSynthesizer")
+            # Pass documents through kwargs
+            return synthesizer_class(prompt=kwargs["prompt"], batch_size=batch_size, **kwargs)
 
         # This should never be reached given the validation above, but adding for completeness
         raise ValueError(f"Unknown synthesizer configuration for type: {synthesizer_type}")

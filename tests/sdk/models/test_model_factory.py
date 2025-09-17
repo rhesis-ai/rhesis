@@ -157,7 +157,9 @@ class TestGetModel:
 
         result = get_model("gemini", "gemini-model")
 
-        mock_gemini_class.assert_called_once_with(model_name="gemini-model")
+        mock_gemini_class.assert_called_once_with(
+            model_name="gemini-model", api_key=None
+        )
         assert result == mock_instance
 
     @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
@@ -168,7 +170,9 @@ class TestGetModel:
 
         result = get_model("gemini")
 
-        mock_gemini_class.assert_called_once_with(model_name=DEFAULT_MODELS["gemini"])
+        mock_gemini_class.assert_called_once_with(
+            model_name=DEFAULT_MODELS["gemini"], api_key=None
+        )
         assert result == mock_instance
 
     def test_get_model_unsupported_provider(self):

@@ -1,7 +1,10 @@
 from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
-from rhesis.sdk.metrics.providers.native.prompt_metric import RhesisPromptMetric
+from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
+    RhesisPromptMetricCategorical,
+)
+from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import RhesisPromptMetricNumeric
 
 
 class RhesisMetricFactory(BaseMetricFactory):
@@ -11,13 +14,14 @@ class RhesisMetricFactory(BaseMetricFactory):
     _metrics = {
         # Add metrics as they're implemented, e.g.:
         # "RhesisCustomMetric": RhesisCustomMetric,
-        "RhesisPromptMetric": RhesisPromptMetric
+        "RhesisPromptMetricCategorical": RhesisPromptMetricCategorical,
+        "RhesisPromptMetricNumeric": RhesisPromptMetricNumeric,
     }
 
     # Define which parameters each metric class accepts
     _supported_params = {
         # Example: "RhesisCustomMetric": {"threshold", "custom_param1", "custom_param2"},
-        "RhesisPromptMetric": {
+        "RhesisPromptMetricNumeric": {
             "threshold",
             "reference_score",
             "threshold_operator",
@@ -34,7 +38,7 @@ class RhesisMetricFactory(BaseMetricFactory):
             "metric_type",
             "name",
         },
-        "RhesisDetailedPromptMetric": {
+        "RhesisDetailedPromptMetricNumeric": {
             "threshold",
             "reference_score",
             "threshold_operator",
@@ -55,14 +59,14 @@ class RhesisMetricFactory(BaseMetricFactory):
 
     # Define required parameters for each metric class
     _required_params = {
-        "RhesisPromptMetric": {"name", "evaluation_prompt", "evaluation_steps", "reasoning"}
+        "RhesisPromptMetricNumeric": {"name", "evaluation_prompt", "evaluation_steps", "reasoning"}
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
         """Create a metric instance using class name.
 
         Args:
-            class_name: The class name to instantiate (e.g., 'RhesisPromptMetric')
+            class_name: The class name to instantiate (e.g., 'RhesisPromptMetricNumeric')
             **kwargs: Additional parameters to pass to the class constructor
 
         Returns:

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from jinja2 import Template
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.services import LLMService
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.utils import extract_json_from_text
 
 
@@ -28,11 +28,11 @@ def load_prompt_template(class_name: str, custom_prompt: Optional[str] = None) -
         return Template("{{ generation_prompt }}")
 
 
-def retry_llm_call(llm_service: LLMService, prompt: str, max_attempts: int = 3) -> Any:
+def retry_llm_call(model: BaseLLM, prompt: str, max_attempts: int = 3) -> Any:
     """Retry LLM calls with error handling."""
     for attempt in range(max_attempts):
         try:
-            return llm_service.run(prompt=prompt)
+            return model.generate(prompt=prompt)
         except Exception as e:
             if attempt == max_attempts - 1:
                 raise e
@@ -94,11 +94,11 @@ def create_test_set_metadata(synthesizer_name: str, batch_size: int, **kwargs) -
     return base_metadata
 
 
-def create_test_set(tests: List[Dict], **metadata_kwargs) -> "TestSet":
+def create_test_set(tests: List[Dict], model: BaseLLM, **metadata_kwargs) -> "TestSet":
     """Create and configure a TestSet with metadata."""
     from rhesis.sdk.entities.test_set import TestSet
 
     metadata = create_test_set_metadata(**metadata_kwargs)
-    test_set = TestSet(tests=tests, metadata=metadata)
+    test_set = TestSet(tests=tests, metadata=metadata, model=model)
     test_set.set_properties()
     return test_set

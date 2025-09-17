@@ -26,6 +26,7 @@ from rhesis.backend.app.services.gemini_client import (
 from rhesis.backend.app.services.generation import generate_tests
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.sdk.services.extractor import DocumentExtractor
+from rhesis.sdk.types import Document
 
 router = APIRouter(
     prefix="/services",
@@ -190,21 +191,21 @@ async def generate_tests_endpoint(
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt is required")
 
-        # Convert Pydantic models to dicts
-        documents_dict = [doc.dict() for doc in documents] if documents else None
+        # Convert Pydantic models to Document objects
+        documents_sdk = [Document(**doc.dict()) for doc in documents] if documents else None
 
-        test_cases = await generate_tests(db, current_user, prompt, num_tests, documents_dict)
+        test_cases = await generate_tests(db, current_user, prompt, num_tests, documents_sdk)
         return {"tests": test_cases}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     finally:
         # Cleanup documents regardless of success or failure
-        if documents_dict:
+        if documents_sdk:
             handler = DocumentHandler()
-            for doc in documents_dict:
-                if doc.get("path"):
-                    await handler.cleanup(doc["path"])
+            for doc in documents_sdk:
+                if doc.path:  # dataclass attribute, not dict key
+                    await handler.cleanup(doc.path)
 
 
 @router.post("/generate/text", response_model=TextResponse)
@@ -314,7 +315,7 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
             )
 
         # Prepare document for extraction
-        document = {"name": "document", "path": request.path}
+        document = Document(name="document", description="Uploaded document", path=request.path)
 
         # Extract content
         extracted_texts = extractor.extract([document])

@@ -12,6 +12,7 @@ from rhesis.backend.app.auth.decorators import check_resource_permission
 from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.documents import Document
@@ -27,6 +28,7 @@ from rhesis.backend.app.services.test_set import (
     get_test_set_stats,
     get_test_set_test_stats,
 )
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
@@ -342,7 +344,20 @@ async def create_test_set_bulk(
                 "behavior": "Behavior name",
                 "category": "Category name",
                 "topic": "Topic name",
-                "test_configuration": {}  # Optional test configuration
+                "test_configuration": {}  # Optional test configuration,
+                "metadata": {
+                    "sources": [
+                        {
+                            "source": "doc1.pdf",
+                            "name": "Document Name",
+                            "description": "Document description",
+                            "content": "Document content used for this test"
+                        }
+                    ],
+                    "generated_by": "DocumentSynthesizer",
+                    "context_index": 0,
+                    "context_length": 1500
+                }
             }
         ]
     }
@@ -367,12 +382,28 @@ async def create_test_set_bulk(
 
 
 @router.post("/", response_model=schemas.TestSet)
+@handle_database_exceptions(
+    entity_name="test set", custom_unique_message="Test set with this name already exists"
+)
 async def create_test_set(
     test_set: schemas.TestSetCreate,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    return crud.create_test_set(db=db, test_set=test_set)
+    """
+    Create test set with optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during entity creation
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    return crud.create_test_set(
+        db=db, test_set=test_set, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.get("/", response_model=list[TestSetDetailSchema])
@@ -477,13 +508,33 @@ async def delete_test_set(
 
 @router.put("/{test_set_id}", response_model=schemas.TestSet)
 @check_resource_permission(TestSet, ResourceAction.UPDATE)
+@handle_database_exceptions(
+    entity_name="test set", custom_unique_message="Test set with this name already exists"
+)
 async def update_test_set(
     test_set_id: uuid.UUID,
     test_set: schemas.TestSetUpdate,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_test_set = crud.update_test_set(db, test_set_id=test_set_id, test_set=test_set)
+    """
+    Update test_set with optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during update
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = crud.update_test_set(
+        db,
+        test_set_id=test_set_id,
+        test_set=test_set,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found")
     return db_test_set

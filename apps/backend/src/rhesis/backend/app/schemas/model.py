@@ -19,6 +19,8 @@ class ModelBase(Base):
     endpoint: str
     key: str
     request_headers: Optional[Dict] = None
+    organization_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
 
 
 class ModelCreate(ModelBase):
@@ -47,6 +49,10 @@ class Model(ModelBase):
     """Complete Model schema with relationships"""
 
     id: UUID4
+    provider_type_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    owner_id: Optional[UUID4] = None
+    assignee_id: Optional[UUID4] = None
     provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     owner: Optional[User] = None
