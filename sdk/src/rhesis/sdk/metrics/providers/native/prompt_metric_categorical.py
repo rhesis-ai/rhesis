@@ -57,6 +57,8 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         """
         super().__init__(
             name=name,
+            description=description,
+            score_type=ScoreType.CATEGORICAL,
             metric_type=metric_type,
             model=model,
             **kwargs,
@@ -252,7 +254,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             ScoreResponseCategorical = create_model(
                 "ScoreResponseCategorical", score=(score_literal, ...), reason=(str, ...)
             )
-            response = self._model.generate(prompt, schema=ScoreResponseCategorical)
+            response = self.model.generate(prompt, schema=ScoreResponseCategorical)
             response = ScoreResponseCategorical(**response)
 
             # Get the score directly from the response
@@ -331,15 +333,17 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
     def from_config(self, config: MetricConfig) -> "RhesisPromptMetricCategorical":
         """Create a metric from a dictionary."""
         return RhesisPromptMetricCategorical(
+            # Backend required items
             name=config.name,
             description=config.description,
+            metric_type=config.metric_type,
+            # Custom parameters
             evaluation_prompt=config.evaluation_prompt,
             evaluation_steps=config.evaluation_steps,
             reasoning=config.reasoning,
             evaluation_examples=config.evaluation_examples,
             categories=config.parameters.get("categories"),
             passing_categories=config.parameters.get("passing_categories"),
-            metric_type=config.metric_type,
         )
 
 

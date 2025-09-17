@@ -1,7 +1,6 @@
 """Metrics for evaluating RAG and generation systems."""
 
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
-    RhesisMetricBase,
     RhesisMetricFactory,
     RhesisPromptMetricCategorical,
     RhesisPromptMetricNumeric,
