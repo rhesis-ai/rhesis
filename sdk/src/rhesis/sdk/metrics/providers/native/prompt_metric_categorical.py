@@ -19,13 +19,13 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         self,
         name: str,
         evaluation_prompt: str,
-        evaluation_steps: str,
-        reasoning: str,
         categories: List[str],
         passing_categories: Union[str, List[str]],
-        evaluation_examples: str = "",
+        evaluation_steps: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        evaluation_examples: Optional[str] = None,
         model: Optional[str] = None,
-        metric_type: str = "rag",
+        metric_type: Optional[str] = "rag",
         **kwargs,
     ):
         """
