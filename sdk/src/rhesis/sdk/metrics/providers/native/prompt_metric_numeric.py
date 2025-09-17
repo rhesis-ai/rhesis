@@ -24,7 +24,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
     def __init__(
         self,
-        name: str,
         evaluation_prompt: str,  # optional
         evaluation_steps: Optional[str],
         reasoning: Optional[str],
@@ -33,6 +32,8 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         max_score: Optional[float] = None,
         threshold: Optional[float] = None,
         threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
         model: Optional[str] = None,
         metric_type: Optional[str] = "rag",
         **kwargs,
@@ -296,29 +297,20 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
     def to_config(self) -> MetricConfig:
         """Convert the metric to a dictionary."""
-        config = MetricConfig(
-            class_name=self.__class__.__name__,
-            backend="native",
-            evaluation_prompt=self.evaluation_prompt,
-            evaluation_steps=self.evaluation_steps,
-            reasoning=self.reasoning,
-            evaluation_examples=self.evaluation_examples,
-            score_type=self.score_type,
-            ground_truth_required=self.ground_truth_required,
-            context_required=self.context_required,
-            parameters={
-                "min_score": self.min_score,
-                "max_score": self.max_score,
-                "threshold": self.threshold,
-                "threshold_operator": self.threshold_operator,
-            },
-        )
+        config = super().to_config()
+        config.parameters = {
+            "min_score": self.min_score,
+            "max_score": self.max_score,
+            "threshold": self.threshold,
+            "threshold_operator": self.threshold_operator,
+        }
         return config
 
     def from_config(self, config: MetricConfig) -> "RhesisPromptMetricNumeric":
         """Create a metric from a dictionary."""
         return RhesisPromptMetricNumeric(
             name=config.name,
+            description=config.description,
             evaluation_prompt=config.evaluation_prompt,
             evaluation_steps=config.evaluation_steps,
             reasoning=config.reasoning,
