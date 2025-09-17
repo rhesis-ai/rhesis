@@ -45,9 +45,9 @@ class SynthesizerFactory:
             synthesizer_type: The type of synthesizer to create
             batch_size: Batch size for the synthesizer
             **kwargs: Additional arguments specific to the synthesizer type
-                For PromptSynthesizer: prompt (str, required)
-                For DocumentSynthesizer: prompt (str, required), documents (List[Dict], optional)
-                For ParaphrasingSynthesizer: test_set (TestSet, required)
+                For PromptSynthesizer: prompt (str)
+                For DocumentSynthesizer: prompt (str), documents (List[Document])
+                For ParaphrasingSynthesizer: test_set (TestSet)
 
         Returns:
             TestSetSynthesizer: An instance of the requested synthesizer
