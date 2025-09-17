@@ -30,7 +30,16 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 @dataclass
 class MetricConfig:
-    """Standard configuration for a metric instance."""
+    """Standard configuration for a metric instance
+
+    Backend required items:
+    - class_name
+    - backend
+    - name
+    - description
+    - score_type
+    - metric_type
+    """
 
     class_name: str = "RhesisPromptMetricNumeric"
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
@@ -38,16 +47,16 @@ class MetricConfig:
     backend: str = "rhesis"
     """The backend/framework to use for this metric (e.g., 'deepeval')"""
 
-    evaluation_prompt: str
+    evaluation_prompt: str = None
     """The evaluation prompt for the metric"""
 
-    evaluation_steps: Optional[str]
+    evaluation_steps: Optional[str] = None
     """The evaluation steps for the metric"""
 
-    reasoning: Optional[str]
+    reasoning: Optional[str] = None
     """The reasoning for the metric"""
 
-    evaluation_examples: Optional[str]
+    evaluation_examples: Optional[str] = None
     """The evaluation examples for the metric"""
 
     name: Optional[str] = None
