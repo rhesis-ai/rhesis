@@ -26,15 +26,15 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         self,
         name: str,
         evaluation_prompt: str,  # optional
-        evaluation_steps: str,  # optional
-        reasoning: str,  # optional
-        evaluation_examples: str = "",  # optional
+        evaluation_steps: Optional[str],
+        reasoning: Optional[str],
+        evaluation_examples: Optional[str] = None,
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
         threshold: Optional[float] = None,
         threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL,
         model: Optional[str] = None,
-        metric_type="rag",
+        metric_type: Optional[str] = "rag",
         **kwargs,
     ):
         """

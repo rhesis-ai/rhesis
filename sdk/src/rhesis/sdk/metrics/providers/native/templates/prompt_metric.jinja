@@ -7,11 +7,15 @@ Please make sure you read and understand these instructions carefully.
 Evaluation Criteria:
 {{ evaluation_prompt }}
 
+{% if evaluation_steps %}
 Evaluation Steps:
 {{ evaluation_steps }}
+{% endif %}
 
+{% if reasoning %}
 Reasoning Process:
 {{ reasoning }}
+{% endif %}
 
 {% if evaluation_examples %}
 Examples:
