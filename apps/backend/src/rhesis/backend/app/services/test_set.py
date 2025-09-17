@@ -54,7 +54,10 @@ def load_defaults():
 
 
 def generate_test_set_attributes(
-    db: Session, test_set: models.TestSet, defaults: Dict[str, Any], license_type: models.TypeLookup
+    db: Session,
+    test_set: models.TestSet,
+    defaults: Dict[str, Any],
+    license_type: models.TypeLookup,
 ) -> Dict[str, Any]:
     """
     Generate or update test set attributes based on its associated tests and prompts.
@@ -92,19 +95,36 @@ def generate_test_set_attributes(
     unique_prompt_ids = set(str(test.prompt_id) for test in test_set.tests if test.prompt_id)
     total_prompts = len(unique_prompt_ids)
 
+    # Extract unique documents from test metadata
+    documents_dict = {}
+    for test in test_set.tests:
+        if test.test_metadata and "sources" in test.test_metadata:
+            for source in test.test_metadata["sources"]:
+                if "source" in source and source["source"] not in documents_dict:
+                    documents_dict[source["source"]] = {
+                        "document": source["source"],
+                        "name": source.get("name", source["source"]),
+                        "description": source.get("description", ""),
+                    }
+
+    metadata = {
+        "sample": sample,
+        "topics": topic_names,
+        "behaviors": behavior_names,
+        "categories": category_names,
+        "license_type": license_type.type_value,
+        "total_prompts": total_prompts,
+        "total_tests": len(test_set.tests),
+    }
+
+    if documents_dict:
+        metadata["sources"] = list(documents_dict.values())
+
     return {
         "topics": topics,
         "behaviors": behaviors,
         "categories": categories,
-        "metadata": {
-            "sample": sample,
-            "topics": topic_names,
-            "behaviors": behavior_names,
-            "categories": category_names,
-            "license_type": license_type.type_value,
-            "total_prompts": total_prompts,
-            "total_tests": len(test_set.tests),
-        },
+        "metadata": metadata,
     }
 
 
