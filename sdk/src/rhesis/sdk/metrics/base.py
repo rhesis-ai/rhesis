@@ -97,13 +97,18 @@ class BaseMetric(ABC):
 
     def __init__(
         self,
-        name: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        score_type: Optional[str] = None,
         metric_type: MetricType = "rag",
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
         self.name = name
+        self.description = description
         self.metric_type = metric_type
+        self.score_type = score_type
+
         if isinstance(model, BaseLLM):
             self._model = model
         elif isinstance(model, str) or model is None:
@@ -113,7 +118,9 @@ class BaseMetric(ABC):
 
     @abstractmethod
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
         """
         Evaluate the metric on the given input, output, and context.
@@ -121,13 +128,10 @@ class BaseMetric(ABC):
         Args:
             input: The input query/question
             output: The system output/response
-            expected_output: The expected or reference output (ground truth)
-            context: List of context chunks used for the response
 
         Returns:
             MetricResult: The evaluation result
         """
-        pass
 
 
 class BaseMetricFactory(ABC):
