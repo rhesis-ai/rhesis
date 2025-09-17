@@ -120,7 +120,7 @@ case "$1" in
                 ;;
             *)
                 echo -e "${RED}❌ Unknown docs command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh docs start${NC}"
+                echo -e "${YELLOW}Use: ./rh documentation start${NC}"
                 exit 1
                 ;;
         esac
