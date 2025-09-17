@@ -1,15 +1,13 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from rhesis.sdk.metrics.base import MetricConfig
-from rhesis.sdk.metrics.providers.native.metric_base import (
-    RhesisMetricBase,
-)
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig
+from rhesis.sdk.models.base import BaseLLM
 
 
-class RhesisPromptMetricBase(RhesisMetricBase):
+class RhesisPromptMetricBase(BaseMetric):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -17,13 +15,17 @@ class RhesisPromptMetricBase(RhesisMetricBase):
 
     def __init__(
         self,
-        name: str,
-        metric_type: str,
-        model: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        score_type: Optional[str] = None,
+        metric_type: Optional[str] = None,
+        model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
         super().__init__(
             name=name,
+            description=description,
+            score_type=score_type,
             metric_type=metric_type,
             model=model,
             **kwargs,
@@ -116,17 +118,20 @@ class RhesisPromptMetricBase(RhesisMetricBase):
         """Convert the metric to a dictionary."""
         """Subclasses should override this method to add their own parameters."""
         config = MetricConfig(
+            # Backend required items
             class_name=self.__class__.__name__,
             backend="native",
+            name=self.name,
+            description=self.description,
+            score_type=self.score_type,
+            metric_type=self.metric_type,
+            ground_truth_required=self.ground_truth_required,
+            context_required=self.context_required,
+            # Custom parameters
             evaluation_prompt=self.evaluation_prompt,
             evaluation_steps=self.evaluation_steps,
             reasoning=self.reasoning,
             evaluation_examples=self.evaluation_examples,
-            score_type=self.score_type,
-            ground_truth_required=self.ground_truth_required,
-            context_required=self.context_required,
-            name=self.name,
-            description=self.description,
             parameters={},
         )
 

@@ -41,23 +41,13 @@ class MetricConfig:
     - metric_type
     """
 
+    # Backend required items
+
     class_name: str = "RhesisPromptMetricNumeric"
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
 
     backend: str = "rhesis"
     """The backend/framework to use for this metric (e.g., 'deepeval')"""
-
-    evaluation_prompt: str = None
-    """The evaluation prompt for the metric"""
-
-    evaluation_steps: Optional[str] = None
-    """The evaluation steps for the metric"""
-
-    reasoning: Optional[str] = None
-    """The reasoning for the metric"""
-
-    evaluation_examples: Optional[str] = None
-    """The evaluation examples for the metric"""
 
     name: Optional[str] = None
     """Human-readable name of the metric"""
@@ -76,6 +66,20 @@ class MetricConfig:
 
     context_required: Optional[bool] = False
     """Whether the metric requires a context"""
+
+    # Custom parameters
+
+    evaluation_prompt: str = None
+    """The evaluation prompt for the metric"""
+
+    evaluation_steps: Optional[str] = None
+    """The evaluation steps for the metric"""
+
+    reasoning: Optional[str] = None
+    """The reasoning for the metric"""
+
+    evaluation_examples: Optional[str] = None
+    """The evaluation examples for the metric"""
 
     parameters: Dict[str, Any] = field(default_factory=dict)
     """Additional parameters specific to this metric implementation"""
@@ -109,10 +113,15 @@ class BaseMetric(ABC):
         self.metric_type = metric_type
         self.score_type = score_type
 
+        self.model = self.set_model(model)
+
+    def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
+        if model is None:
+            self.model = None
         if isinstance(model, BaseLLM):
-            self._model = model
+            self.model = model
         elif isinstance(model, str) or model is None:
-            self._model = get_model(model)
+            self.model = get_model(model)
         else:
             raise ValueError(f"Invalid model type: {type(model)}")
 
