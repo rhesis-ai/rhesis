@@ -426,13 +426,18 @@ def bulk_create_tests(
                 original_assignee_id = test_data_dict.get("assignee_id", None)
                 original_owner_id = test_data_dict.get("owner_id", None)
                 logger.debug(
-                    f"bulk_create_tests - Original UUID values: assignee_id='{original_assignee_id}', owner_id='{original_owner_id}'"
+                    f"bulk_create_tests - Original UUID values: "
+                    f"assignee_id='{original_assignee_id}', "
+                    f"owner_id='{original_owner_id}'"
                 )
 
                 assignee_id = sanitize_uuid_field(test_data_dict.pop("assignee_id", None))
                 owner_id = ensure_owner_id(test_data_dict.pop("owner_id", None), user_id)
+
                 logger.debug(
-                    f"bulk_create_tests - Sanitized UUID values: assignee_id='{assignee_id}', owner_id='{owner_id}'"
+                    f"bulk_create_tests - Sanitized UUID values: "
+                    f"assignee_id='{assignee_id}', "
+                    f"owner_id='{owner_id}'"
                 )
 
                 test_params = {
@@ -460,15 +465,18 @@ def bulk_create_tests(
 
                 # Clean any remaining UUID fields from the test data dict
                 logger.debug(
-                    f"bulk_create_tests - Remaining test_data_dict before cleaning: {test_data_dict}"
+                    f"bulk_create_tests - Remaining test_data_dict before cleaning: "
+                    f"{test_data_dict}"
                 )
+
                 for key, value in list(test_data_dict.items()):
                     if key.endswith("_id"):
                         original_value = value
                         test_data_dict[key] = sanitize_uuid_field(value)
                         if original_value != test_data_dict[key]:
                             logger.debug(
-                                f"bulk_create_tests - Cleaned remaining field {key}: '{original_value}' -> '{test_data_dict[key]}'"
+                                f"bulk_create_tests - Cleaned remaining field {key}: "
+                                f"'{original_value}' -> '{test_data_dict[key]}'"
                             )
 
                 # Add any remaining fields from test_data_dict that weren't explicitly handled
@@ -490,7 +498,8 @@ def bulk_create_tests(
                     )
                 except Exception as model_error:
                     logger.error(
-                        f"bulk_create_tests - Failed to create Test model for test {i + 1}: {model_error}"
+                        f"bulk_create_tests - Failed to create Test model for test {i + 1}: "
+                        f"{model_error}"
                     )
                     logger.error(
                         f"bulk_create_tests - Test parameters that caused error: {test_params}"
@@ -520,7 +529,10 @@ def bulk_create_tests(
         # Provide more specific error messages for common UUID issues
         if "invalid input syntax for type uuid" in error_msg.lower():
             if '""' in error_msg or "empty string" in error_msg.lower():
-                error_msg = "Invalid UUID format: Empty string provided where UUID expected. Check assignee_id and owner_id fields."
+                error_msg = (
+                    "Invalid UUID format: Empty string provided where UUID expected. "
+                    "Check assignee_id and owner_id fields."
+                )
             else:
                 error_msg = f"Invalid UUID format in test data: {error_msg}"
 
