@@ -309,8 +309,12 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
     def from_config(self, config: MetricConfig) -> "RhesisPromptMetricNumeric":
         """Create a metric from a dictionary."""
         return RhesisPromptMetricNumeric(
+            # Backend required items
             name=config.name,
             description=config.description,
+            metric_type=config.metric_type,
+            score_type=config.score_type,
+            # Custom items
             evaluation_prompt=config.evaluation_prompt,
             evaluation_steps=config.evaluation_steps,
             reasoning=config.reasoning,
@@ -319,5 +323,4 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             max_score=config.parameters.get("max_score"),
             threshold=config.parameters.get("threshold"),
             threshold_operator=config.parameters.get("threshold_operator"),
-            metric_type=config.metric_type,
         )
