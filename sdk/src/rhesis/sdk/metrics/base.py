@@ -32,10 +32,10 @@ F = TypeVar("F", bound=Callable[..., Any])
 class MetricConfig:
     """Standard configuration for a metric instance."""
 
-    class_name: str  # rhesis prompt metric, numeric default
+    class_name: str = "RhesisPromptMetricNumeric"
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
 
-    backend: str  # native
+    backend: str = "rhesis"
     """The backend/framework to use for this metric (e.g., 'deepeval')"""
 
     evaluation_prompt: str
