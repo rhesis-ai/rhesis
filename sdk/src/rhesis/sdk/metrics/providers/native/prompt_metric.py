@@ -1,14 +1,13 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from rhesis.sdk.metrics.providers.native.metric_base import (
-    RhesisMetricBase,
-)
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig
+from rhesis.sdk.models.base import BaseLLM
 
 
-class RhesisPromptMetricBase(RhesisMetricBase):
+class RhesisPromptMetricBase(BaseMetric):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
@@ -16,17 +15,24 @@ class RhesisPromptMetricBase(RhesisMetricBase):
 
     def __init__(
         self,
-        name: str,
-        metric_type: str,
-        model: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        score_type: Optional[str] = None,
+        metric_type: Optional[str] = None,
+        model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
         super().__init__(
             name=name,
+            description=description,
+            score_type=score_type,
             metric_type=metric_type,
             model=model,
             **kwargs,
         )
+
+        self.ground_truth_required = False  # set up by subclasses
+        self.context_required = False  # set up by subclasses
 
     def _setup_jinja_environment(self) -> None:
         """
@@ -42,11 +48,6 @@ class RhesisPromptMetricBase(RhesisMetricBase):
             trim_blocks=True,
             lstrip_blocks=True,
         )
-
-    @property
-    def requires_ground_truth(self) -> bool:
-        """This metric typically requires ground truth."""
-        return True
 
     def _get_prompt_template(
         self,
@@ -112,3 +113,26 @@ class RhesisPromptMetricBase(RhesisMetricBase):
             raise ValueError(f"Failed to render template: {e}") from e
 
         return prompt
+
+    def to_config(self) -> MetricConfig:
+        """Convert the metric to a dictionary."""
+        """Subclasses should override this method to add their own parameters."""
+        config = MetricConfig(
+            # Backend required items
+            class_name=self.__class__.__name__,
+            backend="native",
+            name=self.name,
+            description=self.description,
+            score_type=self.score_type,
+            metric_type=self.metric_type,
+            ground_truth_required=self.ground_truth_required,
+            context_required=self.context_required,
+            # Custom parameters
+            evaluation_prompt=self.evaluation_prompt,
+            evaluation_steps=self.evaluation_steps,
+            reasoning=self.reasoning,
+            evaluation_examples=self.evaluation_examples,
+            parameters={},
+        )
+
+        return config

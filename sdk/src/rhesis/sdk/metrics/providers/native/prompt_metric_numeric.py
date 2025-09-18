@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
@@ -24,17 +24,18 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
     def __init__(
         self,
-        name: str,
-        evaluation_prompt: str,
-        evaluation_steps: str,
-        reasoning: str,
-        evaluation_examples: str = "",
+        evaluation_prompt: str,  # optional
+        evaluation_steps: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        evaluation_examples: Optional[str] = None,
         min_score: Optional[float] = None,
         max_score: Optional[float] = None,
         threshold: Optional[float] = None,
         threshold_operator: Union[ThresholdOperator, str] = ThresholdOperator.GREATER_THAN_OR_EQUAL,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
         model: Optional[str] = None,
-        metric_type="rag",
+        metric_type: Optional[str] = "rag",
         **kwargs,
     ):
         """
@@ -67,7 +68,9 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         """
         super().__init__(
             name=name,
+            description=description,
             metric_type=metric_type,
+            score_type=ScoreType.NUMERIC,
             model=model,
             **kwargs,
         )
@@ -76,7 +79,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         if isinstance(threshold_operator, str):
             threshold_operator = ThresholdOperator(threshold_operator)
         self.threshold_operator = threshold_operator
-        self.model = model
 
         # Validate and set up numeric score parameters
         self._validate_score_range(min_score, max_score)
@@ -228,7 +230,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
         try:
             # Run the evaluation with structured response model
-            response = self._model.generate(prompt, schema=NumericScoreResponse)
+            response = self.model.generate(prompt, schema=NumericScoreResponse)
             response = NumericScoreResponse(**response)
 
             # Get the score directly from the response
@@ -293,3 +295,32 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         threshold_operator = OPERATOR_MAP[self.threshold_operator]
         result = threshold_operator(score, self.threshold)
         return result
+
+    def to_config(self) -> MetricConfig:
+        """Convert the metric to a dictionary."""
+        config = super().to_config()
+        config.parameters = {
+            "min_score": self.min_score,
+            "max_score": self.max_score,
+            "threshold": self.threshold,
+            "threshold_operator": self.threshold_operator,
+        }
+        return config
+
+    def from_config(self, config: MetricConfig) -> "RhesisPromptMetricNumeric":
+        """Create a metric from a dictionary."""
+        return RhesisPromptMetricNumeric(
+            # Backend required items
+            name=config.name,
+            description=config.description,
+            metric_type=config.metric_type,
+            # Custom items
+            evaluation_prompt=config.evaluation_prompt,
+            evaluation_steps=config.evaluation_steps,
+            reasoning=config.reasoning,
+            evaluation_examples=config.evaluation_examples,
+            min_score=config.parameters.get("min_score"),
+            max_score=config.parameters.get("max_score"),
+            threshold=config.parameters.get("threshold"),
+            threshold_operator=config.parameters.get("threshold_operator"),
+        )
