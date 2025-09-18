@@ -201,6 +201,27 @@ services:
       retries: 3
       start_period: 60s
 
+  # Documentation
+  documentation:
+    build:
+      context: ./apps/documentation
+      dockerfile: Dockerfile
+    container_name: rhesis-documentation
+    environment:
+      <<: [*common-environment]
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
 volumes:
   postgres_data:
     driver: local

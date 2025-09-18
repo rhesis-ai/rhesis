@@ -32,7 +32,7 @@ from .fixtures.data_factories import generate_test_data
 
 # Explicit imports for all fixtures to ensure availability
 from .fixtures.factory_fixtures import (
-    behavior_factory, topic_factory, category_factory, metric_factory,
+    behavior_factory, topic_factory, category_factory, comment_factory, metric_factory,
     dimension_factory, endpoint_factory, model_factory,
     project_factory, prompt_factory,
     behavior_data, minimal_behavior_data, behavior_update_data,

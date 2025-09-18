@@ -12,8 +12,7 @@ class PromptTemplateBase(Base):
     category_id: Optional[UUID4] = None
     topic_id: Optional[UUID4] = None
     parent_id: Optional[UUID4] = None
-    demographic_id: Optional[UUID4] = None
-    language_code: Optional[str]
+    language_code: Optional[str] = None
     is_summary: Optional[bool] = False
     source_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None

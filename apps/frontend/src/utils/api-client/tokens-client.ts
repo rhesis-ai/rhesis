@@ -40,8 +40,8 @@ export class TokensClient extends BaseApiClient {
     }
   }
 
-  async deleteToken(tokenId: string): Promise<void> {
-    return this.fetch(`${API_ENDPOINTS.tokens}/${tokenId}`, {
+  async deleteToken(tokenId: string): Promise<Token> {
+    return this.fetch<Token>(`${API_ENDPOINTS.tokens}/${tokenId}`, {
       method: 'DELETE',
     });
   }
