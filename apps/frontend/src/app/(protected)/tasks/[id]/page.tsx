@@ -186,7 +186,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                 <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
                   {task.title}
                 </Typography>
-                {task.task_metadata?.comment_id && (
+                {(task.task_metadata?.comment_id || (task.entity_type && task.entity_id)) && (
                   <Button
                     variant="outlined"
                     endIcon={<ArrowForward />}
@@ -199,13 +199,17 @@ export default function TaskDetailPage({ params }: PageProps) {
                       }
                     }}
                     onClick={() => {
-                      // Navigate to the associated comment
-                      if (task.entity_type && task.entity_id) {
+                      // Navigate to the associated comment or entity
+                      if (task.task_metadata?.comment_id && task.entity_type && task.entity_id) {
+                        // If there's a comment, go to the comment
                         router.push(`/${task.entity_type.toLowerCase()}/${task.entity_id}#comment-${task.task_metadata.comment_id}`);
+                      } else if (task.entity_type && task.entity_id) {
+                        // If there's no comment but there's an entity, go to the entity
+                        router.push(`/${task.entity_type.toLowerCase()}/${task.entity_id}`);
                       }
                     }}
                   >
-                    Go to associated comment
+                    {task.task_metadata?.comment_id ? 'Go to associated comment' : `Go to ${task.entity_type}`}
                   </Button>
                 )}
               </Box>
