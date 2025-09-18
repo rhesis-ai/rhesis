@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 from websockets.asyncio.client import connect
-from websockets.exceptions import InvalidStatusCode
+from websockets.exceptions import InvalidStatus
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.logging import logger
@@ -354,36 +354,36 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
                     return mapped_response
 
-            except InvalidStatusCode as status_err:
+            except InvalidStatus as status_err:
                 connection_duration = (
                     time.time() - connection_start_time if connection_start_time else 0
                 )
                 logger.error(f"WebSocket connection rejected after {connection_duration:.2f}s")
-                logger.error(f"Status code: {status_err.status_code}")
+                logger.error(f"Status code: {status_err.response.status_code}")
                 logger.error(
-                    f"Response headers: {dict(status_err.headers) if status_err.headers else 'None'}"
+                    f"Response headers: {dict(status_err.response.headers) if status_err.response.headers else 'None'}"
                 )
-                logger.error(f"Response body: {status_err.body}")
+                logger.error(f"Response body: {status_err.response.body}")
                 logger.debug(f"Connection URI: {uri}")
                 logger.debug(f"Connection headers: {json.dumps(additional_headers, indent=2)}")
 
-                error_output = f"WebSocket connection rejected: HTTP {status_err.status_code}"
-                if status_err.body:
-                    error_output += f". Response: {status_err.body}"
+                error_output = f"WebSocket connection rejected: HTTP {status_err.response.status_code}"
+                if status_err.response.body:
+                    error_output += f". Response: {status_err.response.body}"
 
                 return self._create_error_response(
                     error_type="websocket_connection_error",
                     output_message=error_output,
-                    message=f"WebSocket connection rejected: HTTP {status_err.status_code}",
+                    message=f"WebSocket connection rejected: HTTP {status_err.response.status_code}",
                     request_details={
                         "protocol": "WebSocket",
                         "uri": uri,
                         "headers": additional_headers,
                         "body": message_data,
                     },
-                    status_code=status_err.status_code,
-                    response_headers=dict(status_err.headers) if status_err.headers else {},
-                    response_body=status_err.body,
+                    status_code=status_err.response.status_code,
+                    response_headers=dict(status_err.response.headers) if status_err.response.headers else {},
+                    response_body=status_err.response.body,
                 )
 
             except Exception as e:
