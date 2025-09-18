@@ -13,6 +13,45 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-09-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.4**
+- **Frontend 0.2.4**
+- **SDK 0.2.4**
+
+### Summary of Changes
+
+**Backend v0.2.4:**
+- Added task management functionality with statuses, priorities, assignments, and email notifications.
+- Integrated DocumentSynthesizer for automated document-based test generation.
+- Enhanced test set attributes with document sources and metadata tracking.
+- Improved database session handling and refactored routes for better performance and maintainability.
+
+
+**Frontend v0.2.4:**
+- Added "Source Documents" section to individual test detail and Test Set Details pages.
+- Test sets now display document name and description.
+- Project title/description updates without requiring a page reload.
+- Added a send button to the comment text box.
+
+
+**SDK v0.2.4:**
+- Rewritten benchmarking framework to integrate SDK modules and improve model handling.
+- Introduced `Document` dataclass and `DocumentSynthesizer` for document text extraction and chunking, replacing dictionary-based document handling.
+- Added new LLM providers (including Ollama) and improved error handling.
+- Refactored metrics, including prompt metrics, and moved them from the backend to the SDK.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.2.3] - 2025-09-04
 
 ### Platform Release
