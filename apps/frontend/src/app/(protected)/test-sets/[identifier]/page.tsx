@@ -1,7 +1,6 @@
 import TestSetDetailCharts from './components/TestSetDetailCharts';
 import TestSetTestsGrid from './components/TestSetTestsGrid';
 import TestSetDetailsSection from './components/TestSetDetailsSection';
-import TestSetWorkflowSection from './components/TestSetWorkflowSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Added import
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { auth } from '@/auth';
@@ -114,7 +113,7 @@ export default async function TestSetPage({ params }: { params: any }) {
 
         <Grid container spacing={3}>
           {/* Main Content Column */}
-          <Grid item xs={12} md={9}>
+          <Grid item xs={12}>
             <Paper sx={{ p: 3, mb: 4 }}>
               <TestSetDetailsSection 
                 testSet={serializedTestSet} 
@@ -139,23 +138,6 @@ export default async function TestSetPage({ params }: { params: any }) {
               currentUserName={session.user?.name || ''}
               currentUserPicture={session.user?.picture || undefined}
             />
-          </Grid>
-
-          {/* Workflow Column */}
-          <Grid item xs={12} md={3}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Workflow
-              </Typography>
-              <TestSetWorkflowSection 
-                sessionToken={session.session_token} 
-                testSetId={identifier}
-                status={typeof testSet.status === 'string' ? testSet.status : testSet.status.name}
-                priority={testSet.priority}
-                assignee={testSet.assignee}
-                owner={testSet.owner}
-              />
-            </Paper>
           </Grid>
         </Grid>
       </Box>

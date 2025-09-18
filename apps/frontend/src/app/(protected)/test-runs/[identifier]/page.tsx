@@ -6,7 +6,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestRunDetailCharts from './components/TestRunDetailCharts';
 import TestRunTestsGrid from './components/TestRunTestsGrid';
 import TestRunDetailsSection from './components/TestRunDetailsSection';
-import TestRunWorkflowSection from './components/TestRunWorkflowSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
@@ -85,7 +84,7 @@ export default async function TestRunPage({ params }: { params: any }) {
 
         <Grid container spacing={3}>
           {/* Main Content Column */}
-          <Grid item xs={12} md={9}>
+          <Grid item xs={12}>
             <Paper sx={{ p: 3, mb: 4 }}>
               <TestRunDetailsSection 
                 testRun={testRun} 
@@ -110,20 +109,6 @@ export default async function TestRunPage({ params }: { params: any }) {
               currentUserName={session.user?.name || ''}
               currentUserPicture={session.user?.picture || undefined}
             />
-          </Grid>
-
-          {/* Workflow Column */}
-          <Grid item xs={12} md={3}>
-            <Paper sx={{ p: 3 }}>
-              <TestRunWorkflowSection 
-                sessionToken={session.session_token} 
-                testRunId={identifier}
-                status={testRun.status?.name || undefined}
-                assignee={testRun.assignee}
-                owner={testRun.owner}
-                testConfigurationId={testRun.test_configuration_id}
-              />
-            </Paper>
           </Grid>
         </Grid>
       </Box>
