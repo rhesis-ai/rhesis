@@ -41,7 +41,7 @@ def db_project(test_db: Session, test_organization, db_user, db_owner_user, db_s
         status_id=db_status.id
     )
     test_db.add(project)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(project)
     return project
 
@@ -72,7 +72,7 @@ def db_inactive_project(test_db: Session, test_organization, db_user, db_owner_u
         status_id=db_inactive_status.id
     )
     test_db.add(project)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(project)
     return project
 
@@ -103,6 +103,6 @@ def db_draft_project(test_db: Session, test_organization, db_user, db_owner_user
         status_id=db_draft_status.id
     )
     test_db.add(project)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(project)
     return project
