@@ -41,9 +41,7 @@ class AbstractTestSet(ABC):
         self.relative_path: Path = Path(
             os.path.relpath(self.base_path, Path(__file__).parent)
         )
-        self.results_dir: Path = Path(
-            os.path.join("results", "polyphemus", "benchmarking")
-        )
+        self.results_dir: Path = Path("results", "polyphemus", "benchmarking")
         self.base_file: str = self.base_path.name
         # Unified data structure: list of (Test, [TestResult, ...]) pairs
         self.tests: List[Test] = []
