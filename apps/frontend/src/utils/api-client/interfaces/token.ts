@@ -1,7 +1,6 @@
 export interface Token {
   id: string;
   name: string;
-  token: string;
   token_obfuscated: string;
   token_type: string;
   expires_at: string;
@@ -9,6 +8,8 @@ export interface Token {
   last_refreshed_at?: string;
   user_id: string;
   organization_id?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TokenResponse {

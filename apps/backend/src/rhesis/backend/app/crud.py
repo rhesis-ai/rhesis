@@ -129,8 +129,9 @@ def update_use_case(
     return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
 
 
-def delete_use_case(db: Session, use_case_id: uuid.UUID) -> Optional[models.UseCase]:
-    return delete_item(db, models.UseCase, use_case_id)
+def delete_use_case(db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.UseCase]:
+    """Delete use case with optimized approach - no session variables needed."""
+    return delete_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
 
 # Prompt CRUD
@@ -196,9 +197,10 @@ def get_prompt_templates(
 
 
 def create_prompt_template(
-    db: Session, prompt_template: schemas.PromptTemplateCreate
+    db: Session, prompt_template: schemas.PromptTemplateCreate, organization_id: str = None, user_id: str = None
 ) -> models.PromptTemplate:
-    return create_item(db, models.PromptTemplate, prompt_template)
+    """Create prompt template with optimized approach - no session variables needed."""
+    return create_item(db, models.PromptTemplate, prompt_template, organization_id, user_id)
 
 
 def update_prompt_template(
@@ -334,9 +336,10 @@ def get_response_patterns(
 
 
 def create_response_pattern(
-    db: Session, response_pattern: schemas.ResponsePatternCreate
+    db: Session, response_pattern: schemas.ResponsePatternCreate, organization_id: str = None, user_id: str = None
 ) -> models.ResponsePattern:
-    return create_item(db, models.ResponsePattern, response_pattern)
+    """Create response pattern with optimized approach - no session variables needed."""
+    return create_item(db, models.ResponsePattern, response_pattern, organization_id, user_id)
 
 
 def update_response_pattern(
@@ -603,6 +606,11 @@ def update_risk(
     return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
 
 
+def delete_risk(db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Risk]:
+    """Delete risk with optimized approach - no session variables needed."""
+    return delete_item(db, models.Risk, risk_id, organization_id, user_id)
+
+
 # Status CRUD
 def get_status(
     db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -638,6 +646,11 @@ def update_status(
 ) -> Optional[models.Status]:
     """Update status with optimized approach - no session variables needed."""
     return update_item(db, models.Status, status_id, status, organization_id, user_id)
+
+
+def delete_status(db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Status]:
+    """Delete status with optimized approach - no session variables needed."""
+    return delete_item(db, models.Status, status_id, organization_id, user_id)
 
 
 # Source CRUD
@@ -677,6 +690,11 @@ def update_source(
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
 
 
+def delete_source(db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Source]:
+    """Delete source with optimized approach - no session variables needed."""
+    return delete_item(db, models.Source, source_id, organization_id, user_id)
+
+
 # Topic CRUD
 def get_topic(
     db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -714,8 +732,9 @@ def update_topic(
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)
 
 
-def delete_topic(db: Session, topic_id: uuid.UUID) -> Optional[models.Topic]:
-    return delete_item(db, models.Topic, topic_id)
+def delete_topic(db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Topic]:
+    """Delete topic with optimized approach - no session variables needed."""
+    return delete_item(db, models.Topic, topic_id, organization_id, user_id)
 
 
 # Demographic CRUD
@@ -922,6 +941,11 @@ def update_tag(
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
 
 
+def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Tag]:
+    """Delete tag with optimized approach - no session variables needed."""
+    return delete_item(db, models.Tag, tag_id, organization_id, user_id)
+
+
 def assign_tag(
     db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType
 ) -> models.Tag:
@@ -1084,13 +1108,15 @@ def create_token(
 
 
 def update_token(
-    db: Session, token_id: uuid.UUID, token: schemas.TokenUpdate
+    db: Session, token_id: uuid.UUID, token: schemas.TokenUpdate, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Token]:
-    return update_item(db, models.Token, token_id, token)
+    """Update token with optimized approach - no session variables needed."""
+    return update_item(db, models.Token, token_id, token, organization_id, user_id)
 
 
-def revoke_token(db: Session, token_id: uuid.UUID) -> Optional[models.Token]:
-    return delete_item(db, models.Token, token_id)
+def revoke_token(db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Token]:
+    """Delete token with optimized approach - no session variables needed."""
+    return delete_item(db, models.Token, token_id, organization_id, user_id)
 
 
 def revoke_user_tokens(db: Session, user_id: uuid.UUID) -> List[models.Token]:
@@ -1530,8 +1556,9 @@ def update_type_lookup(
     return update_item(db, models.TypeLookup, type_lookup_id, type_lookup, organization_id, user_id)
 
 
-def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID) -> Optional[models.TypeLookup]:
-    return delete_item(db, models.TypeLookup, type_lookup_id)
+def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TypeLookup]:
+    """Delete type lookup with optimized approach - no session variables needed."""
+    return delete_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
 
 def get_type_lookup_by_name_and_value(
@@ -1860,9 +1887,9 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
 
 
 # Comment CRUD
-def get_comment(db: Session, comment_id: uuid.UUID) -> Optional[models.Comment]:
-    """Get a specific comment by ID"""
-    return get_item(db, models.Comment, comment_id)
+def get_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+    """Get a specific comment by ID with optimized tenant context"""
+    return get_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
 def get_comments(
@@ -1920,15 +1947,15 @@ def create_comment(
 
 
 def update_comment(
-    db: Session, comment_id: uuid.UUID, comment: schemas.CommentUpdate
+    db: Session, comment_id: uuid.UUID, comment: schemas.CommentUpdate, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Comment]:
-    """Update a comment"""
-    return update_item(db, models.Comment, comment_id, comment)
+    """Update a comment with optimized tenant context"""
+    return update_item(db, models.Comment, comment_id, comment, organization_id, user_id)
 
 
-def delete_comment(db: Session, comment_id: uuid.UUID) -> Optional[models.Comment]:
-    """Delete a comment"""
-    return delete_item(db, models.Comment, comment_id)
+def delete_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+    """Delete a comment with optimized tenant context"""
+    return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
 def add_emoji_reaction(

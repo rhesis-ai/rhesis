@@ -24,18 +24,18 @@ This document tracks the testing status of all backend routes/routers in the app
 | organization | `organization.py` | ✅ | `test_organization.py` | Organization management endpoints |
 | project | `project.py` | ✅ | `test_project.py` | Project management endpoints |
 | prompt | `prompt.py` | ✅ | `test_prompt.py` | Prompt management endpoints |
-| prompt_template | `prompt_template.py` | ❌ | - | Prompt template endpoints |
-| response_pattern | `response_pattern.py` | ❌ | - | Response pattern endpoints |
-| risk | `risk.py` | ❌ | - | Risk assessment endpoints |
+| prompt_template | `prompt_template.py` | ✅ | `test_prompt_template.py` | Prompt template endpoints |
+| response_pattern | `response_pattern.py` | ✅ | `test_response_pattern.py` | Response pattern endpoints |
+| risk | `risk.py` | ✅ | `test_risk.py` | Risk assessment endpoints |
 | services | `services.py` | 🚧 | test_services.py | Service management endpoints |
-| source | `source.py` | ❌ | - | Source management endpoints |
-| status | `status.py` | ❌ | - | Status management endpoints |
-| tag | `tag.py` | ❌ | - | Tag management endpoints |
+| source | `source.py` | ✅ | `test_source.py` | Source management endpoints |
+| status | `status.py` | ✅ | `test_status.py` | Status management endpoints |
+| tag | `tag.py` | ✅ | `test_tag.py` | Tag management endpoints |
 | task | `task.py` | ❌ | - | Task management endpoints |
-| token | `token.py` | ❌ | - | Token management endpoints |
+| token | `token.py` | ✅ | `test_token.py` | Token management endpoints |
 | topic | `topic.py` | ✅ | `test_topic.py` | Topic management endpoints |
-| type_lookup | `type_lookup.py` | ❌ | - | Type lookup endpoints |
-| use_case | `use_case.py` | ❌ | - | Use case management endpoints |
+| type_lookup | `type_lookup.py` | ✅ | `test_type_lookup.py` | Type lookup endpoints |
+| use_case | `use_case.py` | ✅ | `test_use_case.py` | Use case management endpoints |
 | user | `user.py` | ❌ | - | User management endpoints |
 
 ## Testing Routes
@@ -52,9 +52,9 @@ This document tracks the testing status of all backend routes/routers in the app
 ## Summary
 
 - **Total Routers**: 29
-- **Tests Completed**: 13 (✅)
-- **Tests Missing**: 16 (❌)
-- **Completion Rate**: 44.8%
+- **Tests Completed**: 17 (✅)
+- **Tests Missing**: 12 (❌)
+- **Completion Rate**: 58.6%
 
 ### Completed Tests
 1. **auth** - Authentication and authorization functionality
@@ -69,15 +69,19 @@ This document tracks the testing status of all backend routes/routers in the app
 10. **organization** - Organization management with onboarding and domain verification
 11. **project** - Project management functionality with ownership and authorization
 12. **prompt** - Prompt management functionality with multiturn conversations and relationships
-13. **topic** - Topic management functionality
+13. **prompt_template** - Prompt template management with multilingual support and content validation
+14. **response_pattern** - Response pattern management with behavior relationships and type classification
+15. **source** - Source management with URL validation, citations, and entity type support
+16. **status** - Status management with workflow support and entity type relationships
+17. **topic** - Topic management functionality
 
 ### Priority for Next Tests
 Consider implementing tests for these critical routes first:
 1. **user** - User management is core functionality
-2. **services** - Service endpoints may contain critical business logic
+2. **services** - Service endpoints may contain critical business logic (partially implemented)
 3. **token** - Token management for API access
 4. **test_set** - Test set management for core testing functionality
-5. **prompt_template** - Prompt template management (related to completed prompt tests)
+5. **risk** - Risk assessment endpoints for security and compliance
 
 ### Testing Infrastructure
 - Base test utilities: `base.py`
