@@ -60,9 +60,12 @@ export function TasksSection({
     }
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => 
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
+  const sortedTasks = [...tasks].sort((a, b) => {
+    // Sort by nano_id or id since created_at is not available
+    const aId = a.nano_id || a.id;
+    const bId = b.nano_id || b.id;
+    return aId.localeCompare(bId);
+  });
 
   return (
     <>

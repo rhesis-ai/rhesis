@@ -126,7 +126,7 @@ export function CommentItem({
   };
 
   // Get task count for this comment (placeholder - would need API call in real implementation)
-  const taskCount = 0; // TODO: Implement API call to get task count by comment ID
+  const taskCount: number = 0; // TODO: Implement API call to get task count by comment ID
 
   return (
     <>

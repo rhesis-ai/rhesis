@@ -1,72 +1,61 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { 
-  Task, 
-  TaskCreate, 
-  TaskUpdate, 
-  TasksQueryParams 
-} from './interfaces/task';
-import { UUID } from 'crypto';
+import { Task, TaskCreate, TaskUpdate, TasksQueryParams } from './interfaces/task';
 
 export class TasksClient extends BaseApiClient {
+  constructor(sessionToken: string) {
+    super(sessionToken);
+  }
+
   async getTasks(params: TasksQueryParams = {}): Promise<Task[]> {
-    const { skip = 0, limit = 100, sort_by = 'created_at', sort_order = 'desc', $filter } = params;
-    
-    // Build query string
     const queryParams = new URLSearchParams();
-    queryParams.append('skip', skip.toString());
-    queryParams.append('limit', limit.toString());
-    queryParams.append('sort_by', sort_by);
-    queryParams.append('sort_order', sort_order);
-    if ($filter) {
-      queryParams.append('$filter', $filter);
-    }
     
-    const url = `${API_ENDPOINTS.tasks}?${queryParams.toString()}`;
-    
-    return this.fetch<Task[]>(url, {
-      cache: 'no-store'
-    });
+    if (params.skip !== undefined) queryParams.append('skip', params.skip.toString());
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params.sort_order) queryParams.append('sort_order', params.sort_order);
+    if (params.$filter) queryParams.append('$filter', params.$filter);
+
+    const response = await this.fetch<Task[]>(`${API_ENDPOINTS.tasks}?${queryParams.toString()}`);
+    return response;
   }
 
-  async getTask(id: UUID): Promise<Task> {
-    return this.fetch<Task>(`${API_ENDPOINTS.tasks}/${id}`);
+  async getTask(taskId: string): Promise<Task> {
+    const response = await this.fetch<Task>(`${API_ENDPOINTS.tasks}/${taskId}`);
+    return response;
   }
 
-  async createTask(task: TaskCreate): Promise<Task> {
-    return this.fetch<Task>(API_ENDPOINTS.tasks, {
+  async createTask(taskData: TaskCreate): Promise<Task> {
+    const response = await this.fetch<Task>(API_ENDPOINTS.tasks, {
       method: 'POST',
-      body: JSON.stringify(task),
+      body: JSON.stringify(taskData)
     });
+    return response;
   }
 
-  async updateTask(id: UUID, task: TaskUpdate): Promise<Task> {
-    return this.fetch<Task>(`${API_ENDPOINTS.tasks}/${id}`, {
+  async updateTask(taskId: string, taskData: TaskUpdate): Promise<Task> {
+    const response = await this.fetch<Task>(`${API_ENDPOINTS.tasks}/${taskId}`, {
       method: 'PATCH',
-      body: JSON.stringify(task),
+      body: JSON.stringify(taskData)
+    });
+    return response;
+  }
+
+  async deleteTask(taskId: string): Promise<void> {
+    await this.fetch<void>(`${API_ENDPOINTS.tasks}/${taskId}`, {
+      method: 'DELETE'
     });
   }
 
-  async deleteTask(id: UUID): Promise<void> {
-    return this.fetch<void>(`${API_ENDPOINTS.tasks}/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async getTasksByEntity(entityType: string, entityId: UUID, params: TasksQueryParams = {}): Promise<Task[]> {
-    const { skip = 0, limit = 100, sort_by = 'created_at', sort_order = 'desc' } = params;
-    
-    // Build query string
+  async getTasksByEntity(entityType: string, entityId: string, params: TasksQueryParams = {}): Promise<Task[]> {
     const queryParams = new URLSearchParams();
-    queryParams.append('skip', skip.toString());
-    queryParams.append('limit', limit.toString());
-    queryParams.append('sort_by', sort_by);
-    queryParams.append('sort_order', sort_order);
     
-    const url = `${API_ENDPOINTS.tasks}/${entityType}/${entityId}?${queryParams.toString()}`;
-    
-    return this.fetch<Task[]>(url, {
-      cache: 'no-store'
-    });
+    if (params.skip !== undefined) queryParams.append('skip', params.skip.toString());
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+    if (params.sort_order) queryParams.append('sort_order', params.sort_order);
+
+    const response = await this.fetch<Task[]>(`${API_ENDPOINTS.tasks}/${entityType}/${entityId}?${queryParams.toString()}`);
+    return response;
   }
 }

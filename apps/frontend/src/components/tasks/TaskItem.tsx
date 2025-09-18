@@ -39,7 +39,7 @@ export function TaskItem({
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
 
-  const isOwner = task.creator_id === currentUserId;
+  const isOwner = task.user_id === currentUserId;
   const canEdit = isOwner || task.assignee_id === currentUserId;
   const canDelete = isOwner;
 
@@ -196,36 +196,36 @@ export function TaskItem({
 
       {/* Status and Priority */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-        <Chip
-          label={task.status?.name || 'Unknown'}
-          size="small"
-          color={getStatusColor(task.status?.name)}
-          variant="outlined"
-        />
-        <Chip
-          label={task.priority?.name || 'Unknown'}
-          size="small"
-          color={getPriorityColor(task.priority?.name)}
-          variant="outlined"
-        />
+          <Chip
+            label={task.status?.name || 'Unknown'}
+            size="small"
+            color={getStatusColor(task.status?.name)}
+            variant="outlined"
+          />
+          <Chip
+            label={task.priority?.type_value || 'Unknown'}
+            size="small"
+            color={getPriorityColor(task.priority?.type_value)}
+            variant="outlined"
+          />
       </Box>
 
       {/* Footer */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         {/* Assignee */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <UserAvatar 
-            userName={task.assignee?.name || task.creator?.name || 'Unknown'}
-            size={24}
-          />
-          <Typography variant="caption" color="text.secondary">
-            {task.assignee?.name ? `Assigned to ${task.assignee.name}` : `Created by ${task.creator?.name || 'Unknown'}`}
-          </Typography>
+        <UserAvatar
+          userName={task.assignee?.name || task.user?.name || 'Unknown'}
+          size={24}
+        />
+        <Typography variant="caption" color="text.secondary">
+          {task.assignee?.name ? `Assigned to ${task.assignee.name}` : `Created by ${task.user?.name}`}
+        </Typography>
         </Box>
 
         {/* Timestamp */}
         <Typography variant="caption" color="text.secondary">
-          {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
+          {task.nano_id || task.id?.slice(0, 8) || 'N/A'}
         </Typography>
       </Box>
 
@@ -233,27 +233,12 @@ export function TaskItem({
       {showEntityLink && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="caption" color="text.secondary">
-            Related to: {getEntityDisplayName(task.entity_type)}
+            Related to: {getEntityDisplayName(task.entity_type || '')}
           </Typography>
         </Box>
       )}
 
-      {/* Comment Link */}
-      {task.task_metadata?.comment_id && (
-        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Link 
-            href={`/${getEntityPath(task.entity_type || '')}/${task.entity_id}#comment-${task.task_metadata.comment_id}`}
-            sx={{ 
-              textDecoration: 'none',
-              '&:hover': { textDecoration: 'underline' }
-            }}
-          >
-            <Typography variant="caption" color="primary">
-              Created from comment → View Comment
-            </Typography>
-          </Link>
-        </Box>
-      )}
+      {/* Comment Link - removed as comment_id is not in API */}
     </Box>
   );
 }

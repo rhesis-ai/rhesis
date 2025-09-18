@@ -1,27 +1,34 @@
-import { UUID } from 'crypto';
-
-// Base interfaces matching backend schemas
-export interface TaskBase {
+export interface Task {
+  id: string;
+  nano_id?: string;
   title: string;
   description?: string;
-  creator_id: UUID;
-  assignee_id?: UUID;
-  status_id: UUID;
-  priority_id?: UUID;
-  entity_id?: UUID;
+  user_id: string;
+  assignee_id?: string;
+  status_id: string;
+  priority_id?: string;
+  entity_id?: string;
   entity_type?: string;
   completed_at?: string;
   task_metadata?: Record<string, any>;
+  total_comments?: number;
+  organization_id?: string;
+  tags?: Tag[];
+  
+  // Relationships
+  user?: User;
+  assignee?: User;
+  status?: Status;
+  priority?: Priority;
 }
 
 export interface TaskCreate {
   title: string;
   description?: string;
-  creator_id?: UUID; // Auto-populated from authenticated user
-  assignee_id?: UUID;
-  status_id: UUID;
-  priority_id?: UUID;
-  entity_id?: UUID;
+  assignee_id?: string;
+  status_id: string;
+  priority_id?: string;
+  entity_id?: string;
   entity_type?: string;
   completed_at?: string;
   task_metadata?: Record<string, any>;
@@ -30,69 +37,57 @@ export interface TaskCreate {
 export interface TaskUpdate {
   title?: string;
   description?: string;
-  assignee_id?: UUID;
-  status_id?: UUID;
-  priority_id?: UUID;
+  assignee_id?: string;
+  status_id?: string;
+  priority_id?: string;
+  entity_id?: string;
+  entity_type?: string;
   completed_at?: string;
   task_metadata?: Record<string, any>;
 }
 
-// User interface for relationships
-export interface User {
-  id: UUID;
-  name?: string;
-  email?: string;
-  picture?: string;
-}
-
-// Status interface for relationships
-export interface Status {
-  id: UUID;
-  name: string;
-  description?: string;
-}
-
-// Priority interface (TypeLookup)
-export interface Priority {
-  id: UUID;
-  name: string;
-  description?: string;
-}
-
-// Complete Task interface with relationships
-export interface Task extends TaskBase {
-  id: UUID;
-  nano_id?: string;
-  created_at: string;
-  updated_at: string;
-  organization_id?: UUID;
-  user_id?: UUID;
-  total_comments?: number;
-
-  // Relationships
-  creator?: User;
-  assignee?: User;
-  status?: Status;
-  priority?: Priority;
-}
-
-// Query parameters for task listing
 export interface TasksQueryParams {
   skip?: number;
   limit?: number;
   sort_by?: string;
-  sort_order?: 'asc' | 'desc';
+  sort_order?: string;
   $filter?: string;
 }
 
-// Entity types that tasks can be associated with
-export type EntityType = 'Test' | 'TestSet' | 'TestRun' | 'TestResult' | 'Comment' | 'Task';
-
-// Task statistics
 export interface TaskStats {
   total: number;
   open: number;
-  in_progress: number;
+  inProgress: number;
   completed: number;
   cancelled: number;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+}
+
+export interface Status {
+  id: string;
+  name: string;
+  description?: string;
+  entity_type_id?: string;
+}
+
+export interface Priority {
+  id: string;
+  type_name?: string;
+  type_value?: string;
+  description?: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+}
+
+export type EntityType = 'Test' | 'TestSet' | 'TestRun' | 'TestResult' | 'Task';
