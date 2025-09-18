@@ -2,6 +2,7 @@
 
 import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Paper, Divider } from '@mui/material';
 import { EntityType } from '@/types/tasks';
 import { useTasks } from '@/hooks/useTasks';
 import { TasksSection } from './TasksSection';
@@ -72,7 +73,7 @@ export function TasksAndCommentsWrapper({
   }, [router, entityType, entityId]);
 
   return (
-    <>
+    <Paper sx={{ p: 3 }}>
       {/* Tasks Section */}
       <TasksSection
         entityType={entityType}
@@ -86,6 +87,9 @@ export function TasksAndCommentsWrapper({
         isLoading={isLoading}
       />
 
+      {/* Divider between Tasks and Comments */}
+      <Divider sx={{ my: 3 }} />
+
       {/* Comments Section with Task Creation Integration */}
       <CommentsWrapper
         entityType={entityType}
@@ -97,6 +101,6 @@ export function TasksAndCommentsWrapper({
         onCreateTask={handleCreateTaskFromComment}
         onCreateTaskFromEntity={handleCreateTaskFromEntity}
       />
-    </>
+    </Paper>
   );
 }
