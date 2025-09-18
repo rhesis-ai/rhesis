@@ -60,12 +60,10 @@ class AbstractTestSet(ABC):
         Populates self.tests with loaded test cases.
         """
         if self.base_path is None or not self.base_path.exists():
-            print("No valid basepath to load. No file to read.")
-            return
+            raise FileNotFoundError("No valid basepath to load. No file to read.")
         tests = read_tests_json(self.base_path)
         if tests is None or len(tests) == 0:
-            print("WARNING: No tests found.")
-            return
+            raise ValueError("No tests found.")
         self.tests = tests
 
     def add_model(self, model: BaseLLM):
@@ -126,14 +124,9 @@ class AbstractTestSet(ABC):
             If True, overwrite existing valid results.
         """
         # Find model index or dismiss if model is unknown
-        model_index = -1
-        for i, model in enumerate(self.models):
-            if model.get_model_name() == result.model_id:
-                model_index = i
-                break
-        if model_index == -1:
-            print(f"Unknown model: {result.model_id}. Result not added.")
-            return
+        models_names = [model.get_model_name() for model in self.models]
+        model_index = models_names.index(result.model_id)
+
         # Find the test this result belongs to
         for i, test in enumerate(self.tests):
             if update_if_result_matches_test(result, test):
@@ -172,7 +165,7 @@ class AbstractTestSet(ABC):
             List of generated test results.
         """
         results = []
-        if len(tests) == 0:
+        if not tests:
             print(f"No pending test cases for model {model.model_name}. Nothing to do.")
             return results
         # load model and tokenizer
@@ -319,7 +312,7 @@ class AbstractTestSet(ABC):
                 self._evaluate_test_result(test_result)
                 self.save_results(model_index_to_save=model_index)
 
-    def _safe_results(self, results: List[TestResult], json_path: Path):
+    def _save_results(self, results: List[TestResult], json_path: Path):
         """
         Save the test results to the given path. Overwrites any existing file.
 
@@ -367,4 +360,4 @@ class AbstractTestSet(ABC):
             json_path = model_results_dir.joinpath(
                 self.relative_path.parent, f"results_{self.base_file}"
             )
-            self._safe_results(self.results[model_index], json_path)
+            self._save_results(self.results[model_index], json_path)
