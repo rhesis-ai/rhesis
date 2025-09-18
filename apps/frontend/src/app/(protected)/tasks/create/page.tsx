@@ -16,15 +16,21 @@ import {
   Card,
   CardContent,
   Divider,
+  Alert,
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
-import { TaskStatus, TaskPriority, EntityType } from '@/types/tasks';
+import { TaskStatus, TaskPriority, EntityType, TaskCreate } from '@/types/tasks';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useTasks } from '@/hooks/useTasks';
+import { getStatuses, getPriorities, getStatusByName, getPriorityByName } from '@/utils/task-lookup';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { User } from '@/utils/api-client/interfaces/task';
 
 export default function CreateTaskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { show } = useNotifications();
+  const { createTask } = useTasks({ autoFetch: false });
   
   const [formData, setFormData] = useState({
     title: '',
@@ -35,6 +41,45 @@ export default function CreateTaskPage() {
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<any[]>([]);
+  const [priorities, setPriorities] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+
+  // Load initial data
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Load statuses, priorities, and users in parallel
+        const [fetchedStatuses, fetchedPriorities, fetchedUsers] = await Promise.all([
+          getStatuses(session.session_token),
+          getPriorities(session.session_token),
+          (async () => {
+            const clientFactory = new ApiClientFactory(session.session_token);
+            const usersClient = clientFactory.getUsersClient();
+            const response = await usersClient.getUsers();
+            return response.data;
+          })(),
+        ]);
+
+        setStatuses(fetchedStatuses);
+        setPriorities(fetchedPriorities);
+        setUsers(fetchedUsers);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load form data';
+        setError(errorMessage);
+        show(errorMessage, { severity: 'error' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, [show, session]);
 
   // Pre-fill form with query parameters
   useEffect(() => {
@@ -104,34 +149,48 @@ export default function CreateTaskPage() {
     setIsSubmitting(true);
     
     try {
-      // In a real app, this would make an API call
-      console.log('Creating task:', {
-        ...formData,
-        entityType: searchParams.get('entityType'),
-        entityId: searchParams.get('entityId'),
-        commentId: searchParams.get('commentId'),
-      });
+      // Get status and priority IDs
+      const statusObj = await getStatusByName(formData.status);
+      const priorityObj = await getPriorityByName(formData.priority);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!statusObj) {
+        throw new Error(`Status "${formData.status}" not found`);
+      }
       
-      show('Task created successfully!', { severity: 'neutral' });
+      // Prepare task data
+      const taskData: TaskCreate = {
+        title: formData.title,
+        description: formData.description,
+        status_id: statusObj.id,
+        priority_id: priorityObj?.id,
+        assignee_id: formData.assignee_id || undefined,
+        entity_type: searchParams.get('entityType') || undefined,
+        entity_id: searchParams.get('entityId') || undefined,
+        task_metadata: searchParams.get('commentId') ? { comment_id: searchParams.get('commentId') } : undefined,
+      };
       
-      // Navigate back to the entity page or tasks overview
-      const entityType = searchParams.get('entityType');
-      const entityId = searchParams.get('entityId');
+      const newTask = await createTask(taskData);
       
-      if (entityType && entityId) {
-        // Navigate back to the specific entity page
-        const entityPath = getEntityPath(entityType as EntityType);
-        router.push(`/${entityPath}/${entityId}`);
-      } else {
-        // Navigate to tasks overview
-        router.push('/tasks');
+      if (newTask) {
+        show('Task created successfully!', { severity: 'success' });
+        
+        // Navigate back to the entity page or tasks overview
+        const entityType = searchParams.get('entityType');
+        const entityId = searchParams.get('entityId');
+        
+        if (entityType && entityId) {
+          // Navigate back to the specific entity page
+          const entityPath = getEntityPath(entityType as EntityType);
+          router.push(`/${entityPath}/${entityId}`);
+        } else {
+          // Navigate to tasks overview
+          router.push('/tasks');
+        }
       }
     } catch (error) {
       console.error('Failed to create task:', error);
-      show('Failed to create task. Please try again.', { severity: 'error' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create task. Please try again.';
+      show(errorMessage, { severity: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -151,6 +210,12 @@ export default function CreateTaskPage() {
 
   return (
     <Box sx={{ p: 3 }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         <Button
@@ -245,11 +310,13 @@ export default function CreateTaskPage() {
                   value={formData.status}
                   onChange={(e) => handleInputChange('status', e.target.value)}
                   label="Status"
+                  disabled={isLoading}
                 >
-                  <MenuItem value="Open">Open</MenuItem>
-                  <MenuItem value="In Progress">In Progress</MenuItem>
-                  <MenuItem value="Completed">Completed</MenuItem>
-                  <MenuItem value="Cancelled">Cancelled</MenuItem>
+                  {statuses.map((status) => (
+                    <MenuItem key={status.id} value={status.name}>
+                      {status.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -261,23 +328,37 @@ export default function CreateTaskPage() {
                   value={formData.priority}
                   onChange={(e) => handleInputChange('priority', e.target.value)}
                   label="Priority"
+                  disabled={isLoading}
                 >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
+                  {priorities.map((priority) => (
+                    <MenuItem key={priority.id} value={priority.name}>
+                      {priority.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
 
             {/* Assignee */}
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Assignee ID"
-                value={formData.assignee_id}
-                onChange={(e) => handleInputChange('assignee_id', e.target.value)}
-                placeholder="Enter user ID to assign this task (optional)"
-              />
+              <FormControl fullWidth>
+                <InputLabel>Assignee</InputLabel>
+                <Select
+                  value={formData.assignee_id}
+                  onChange={(e) => handleInputChange('assignee_id', e.target.value)}
+                  label="Assignee"
+                  disabled={isLoading}
+                >
+                  <MenuItem value="">
+                    <em>Unassigned</em>
+                  </MenuItem>
+                  {users.map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.name || user.email}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
 

@@ -25,7 +25,6 @@ import { Comment } from '@/types/comments';
 import { DeleteCommentModal } from './DeleteCommentModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
-import { getTaskCountByComment } from '@/utils/mock-data/tasks';
 
 interface CommentItemProps {
   comment: Comment;
@@ -126,8 +125,8 @@ export function CommentItem({
     }
   };
 
-  // Get task count for this comment
-  const taskCount = getTaskCountByComment(comment.id);
+  // Get task count for this comment (placeholder - would need API call in real implementation)
+  const taskCount = 0; // TODO: Implement API call to get task count by comment ID
 
   return (
     <>

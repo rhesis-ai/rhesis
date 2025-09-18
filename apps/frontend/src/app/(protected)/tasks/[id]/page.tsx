@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -15,6 +15,7 @@ import {
   Divider,
   Link,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -24,10 +25,13 @@ import {
 } from '@mui/icons-material';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useSession } from 'next-auth/react';
-import { Task, TaskStatus, TaskPriority, EntityType } from '@/types/tasks';
-import { mockTasks, mockUsers } from '@/utils/mock-data/tasks';
+import { Task, TaskStatus, TaskPriority, EntityType, TaskUpdate } from '@/types/tasks';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import { useTasks } from '@/hooks/useTasks';
+import { getStatuses, getPriorities, getStatusByName, getPriorityByName } from '@/utils/task-lookup';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { User } from '@/utils/api-client/interfaces/task';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -40,17 +44,57 @@ export default function TaskDetailPage({ params }: PageProps) {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [taskId, setTaskId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<any[]>([]);
+  const [priorities, setPriorities] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+
+  const { getTask, updateTask } = useTasks({ autoFetch: false });
 
   // Get the task ID from params
-  React.useEffect(() => {
+  useEffect(() => {
     params.then(({ id }) => {
       setTaskId(id);
       setIsLoading(false);
     });
   }, [params]);
 
-  // Find the task (in a real app, this would come from an API)
-  const task = mockTasks.find(t => t.id === taskId);
+  // Load initial data
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Load statuses, priorities, users, and task data in parallel
+        const [fetchedStatuses, fetchedPriorities, fetchedUsers, taskData] = await Promise.all([
+          getStatuses(session.session_token),
+          getPriorities(session.session_token),
+          (async () => {
+            const clientFactory = new ApiClientFactory(session.session_token);
+            const usersClient = clientFactory.getUsersClient();
+            const response = await usersClient.getUsers();
+            return response.data;
+          })(),
+          taskId ? getTask(taskId) : null,
+        ]);
+
+        setStatuses(fetchedStatuses);
+        setPriorities(fetchedPriorities);
+        setUsers(fetchedUsers);
+        setEditedTask(taskData);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load task data';
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (taskId && session?.session_token) {
+      loadInitialData();
+    }
+  }, [taskId, getTask, session?.session_token]);
 
   // Show loading state while taskId is being set
   if (isLoading) {
@@ -61,8 +105,19 @@ export default function TaskDetailPage({ params }: PageProps) {
     );
   }
 
-  // Show error if task not found
-  if (!task) {
+  // Show error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  // Show not found state
+  if (!editedTask) {
     return (
       <Box sx={{ p: 3, maxWidth: 800, mx: 'auto', textAlign: 'center' }}>
         <Typography variant="h5" color="error" gutterBottom>
@@ -75,22 +130,45 @@ export default function TaskDetailPage({ params }: PageProps) {
     );
   }
 
+  const task = editedTask;
+
   const handleEdit = () => {
     setEditedTask({ ...task });
     setIsEditing(true);
   };
 
   const handleSave = async () => {
+    if (!editedTask) return;
+    
     setIsSaving(true);
     try {
-      // In a real app, this would make an API call
-      console.log('Saving task:', editedTask);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setIsEditing(false);
-      setEditedTask(null);
+      // Get status and priority IDs
+      const statusObj = await getStatusByName(editedTask.status?.name || 'Open');
+      const priorityObj = await getPriorityByName(editedTask.priority?.name || 'Medium');
+      
+      if (!statusObj) {
+        throw new Error(`Status "${editedTask.status?.name}" not found`);
+      }
+      
+      // Prepare task update data
+      const updateData: TaskUpdate = {
+        title: editedTask.title,
+        description: editedTask.description,
+        status_id: statusObj.id,
+        priority_id: priorityObj?.id,
+        assignee_id: editedTask.assignee_id || undefined,
+      };
+      
+      const updatedTask = await updateTask(taskId, updateData);
+      
+      if (updatedTask) {
+        setEditedTask(updatedTask);
+        setIsEditing(false);
+      }
     } catch (error) {
       console.error('Failed to save task:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save task';
+      setError(errorMessage);
     } finally {
       setIsSaving(false);
     }

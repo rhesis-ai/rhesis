@@ -17,7 +17,6 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { TaskPriority, EntityType } from '@/types/tasks';
-import { mockUsers } from '@/utils/mock-data/tasks';
 
 interface TaskCreationModalProps {
   open: boolean;
@@ -160,11 +159,12 @@ export function TaskCreationModal({
                   <MenuItem value="">
                     <em>Unassigned</em>
                   </MenuItem>
-                  {mockUsers.map((user) => (
+                  {/* TODO: Load users from API */}
+                  {/* {mockUsers.map((user) => (
                     <MenuItem key={user.id} value={user.id}>
                       {user.name}
                     </MenuItem>
-                  ))}
+                  ))} */}
                 </Select>
               </FormControl>
             </Box>
