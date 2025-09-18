@@ -225,7 +225,9 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION }}" >> $GITHUB_ENV
+          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          echo "REGION=$REGION" >> $GITHUB_ENV
+          
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             echo "SERVICE_NAME=rhesis-backend" >> $GITHUB_ENV
             echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_ENV
@@ -409,11 +411,9 @@ jobs:
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, output the commit-specific URL
             DEPLOYED_URL="https://${{ env.COMMIT_SHA }}---${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
-            echo "🌐 Preview Service URL: $DEPLOYED_URL"
           else
             # For regular deployments, output the standard service URL
             DEPLOYED_URL="https://${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
-            echo "🌐 Production Service URL: $DEPLOYED_URL"
           fi
           
           # Set as output for potential use in other workflows
