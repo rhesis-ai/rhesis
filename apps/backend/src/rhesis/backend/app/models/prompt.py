@@ -64,7 +64,13 @@ class Prompt(Base, TagsMixin, OrganizationMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(Prompt.id), Comment.entity_type == 'Prompt')",
         viewonly=True,
+        uselist=True,
     )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this prompt"""
+        return len(self.comments) if self.comments else 0
 
     def to_dict(self):
         """Convert the Prompt object to a dictionary with related names."""

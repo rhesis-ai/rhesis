@@ -23,4 +23,10 @@ class Behavior(Base, OrganizationAndUserMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(Behavior.id), Comment.entity_type == 'Behavior')",
         viewonly=True,
+        uselist=True,
     )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this behavior"""
+        return len(self.comments) if self.comments else 0

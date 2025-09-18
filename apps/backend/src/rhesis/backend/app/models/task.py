@@ -35,3 +35,16 @@ class Task(Base, OrganizationAndUserMixin, TagsMixin):
     assignee = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_tasks")
     status = relationship("Status", back_populates="tasks")
     priority = relationship("TypeLookup", back_populates="task_priorities")
+
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Task.id), Comment.entity_type == 'Task')",
+        viewonly=True,
+        uselist=True,
+    )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this task"""
+        return len(self.comments) if self.comments else 0

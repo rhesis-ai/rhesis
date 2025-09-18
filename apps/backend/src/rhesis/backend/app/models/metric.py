@@ -80,4 +80,10 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(Metric.id), Comment.entity_type == 'Metric')",
         viewonly=True,
+        uselist=True,
     )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this metric"""
+        return len(self.comments) if self.comments else 0

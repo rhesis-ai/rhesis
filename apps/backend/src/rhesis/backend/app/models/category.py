@@ -30,4 +30,10 @@ class Category(Base, OrganizationAndUserMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(Category.id), Comment.entity_type == 'Category')",
         viewonly=True,
+        uselist=True,
     )
+
+    @property
+    def comment_count(self):
+        """Get the count of comments for this category"""
+        return len(self.comments) if self.comments else 0

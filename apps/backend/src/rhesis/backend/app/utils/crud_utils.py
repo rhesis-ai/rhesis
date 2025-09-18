@@ -12,11 +12,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.database import (
-    get_current_organization_id,
-    get_current_user_id,
     maintain_tenant_context,
-    get_current_organization_id_cached,
-    get_current_user_id_cached,
 )
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.model_utils import QueryBuilder
@@ -76,10 +72,12 @@ def _clean_uuid_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str, A
     return cleaned_data
 
 
-def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], organization_id: str = None, user_id: str = None) -> Dict[str, Any]:
+def _auto_populate_tenant_fields(
+    model: Type[T], item_data: Dict[str, Any], organization_id: str = None, user_id: str = None
+) -> Dict[str, Any]:
     """
     Auto-populate organization_id and user_id using directly provided values.
-    
+
     OPTIMIZED VERSION: Completely bypasses database queries and session variables.
     This eliminates ALL delays by directly using provided tenant context.
     """
@@ -87,33 +85,48 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
     populated_data = item_data.copy()
 
     logger.debug(f"_auto_populate_tenant_fields - model: {model.__name__}, input data: {item_data}")
-    
+
     # Auto-populate organization_id (direct - no DB queries, no session variables!)
-    if "organization_id" in columns and not populated_data.get("organization_id") and organization_id:
+    if (
+        "organization_id" in columns
+        and not populated_data.get("organization_id")
+        and organization_id
+    ):
         try:
             org_uuid = UUID(organization_id)
             populated_data["organization_id"] = org_uuid
-            logger.debug(f"_auto_populate_tenant_fields - Auto-populating organization_id: '{org_uuid}' (direct)")
+            logger.debug(
+                f"_auto_populate_tenant_fields - Auto-populating organization_id: '{org_uuid}' (direct)"
+            )
         except (ValueError, TypeError) as e:
-            logger.debug(f"_auto_populate_tenant_fields - Invalid organization_id: {organization_id}, error: {e}")
-    
+            logger.debug(
+                f"_auto_populate_tenant_fields - Invalid organization_id: {organization_id}, error: {e}"
+            )
+
     # Auto-populate user_id (direct - no DB queries, no session variables!)
     if "user_id" in columns and not populated_data.get("user_id") and user_id:
         try:
             user_uuid = UUID(user_id)
             populated_data["user_id"] = user_uuid
-            logger.debug(f"_auto_populate_tenant_fields - Auto-populating user_id: '{user_uuid}' (direct)")
+            logger.debug(
+                f"_auto_populate_tenant_fields - Auto-populating user_id: '{user_uuid}' (direct)"
+            )
         except (ValueError, TypeError) as e:
             logger.debug(f"_auto_populate_tenant_fields - Invalid user_id: {user_id}, error: {e}")
-    
+
     logger.debug(f"_auto_populate_tenant_fields - Final populated data: {populated_data}")
     return populated_data
 
 
-def _prepare_item_data(model: Type[T], item_data: Union[Dict[str, Any], BaseModel], organization_id: str = None, user_id: str = None) -> Dict[str, Any]:
+def _prepare_item_data(
+    model: Type[T],
+    item_data: Union[Dict[str, Any], BaseModel],
+    organization_id: str = None,
+    user_id: str = None,
+) -> Dict[str, Any]:
     """
     Prepare item data for database operations using directly provided tenant context.
-    
+
     OPTIMIZED VERSION: Completely bypasses database queries and session variables.
     """
     # Convert Pydantic to dict
@@ -121,16 +134,16 @@ def _prepare_item_data(model: Type[T], item_data: Union[Dict[str, Any], BaseMode
 
     # Clean UUID fields
     data = _clean_uuid_fields(model, data)
-    
+
     # Auto-populate tenant fields using direct values
     data = _auto_populate_tenant_fields(model, data, organization_id, user_id)
-    
+
     return data
 
 
-
-
-def _prepare_update_data(db: Session, model: Type[T], item_data: Union[Dict[str, Any], BaseModel]) -> Dict[str, Any]:
+def _prepare_update_data(
+    db: Session, model: Type[T], item_data: Union[Dict[str, Any], BaseModel]
+) -> Dict[str, Any]:
     """Prepare item data for update operations."""
     # Convert Pydantic to dict (excluding unset fields for updates)
     data = _convert_pydantic_to_dict_exclude_unset(item_data)
@@ -161,10 +174,17 @@ def _create_db_item_with_transaction(
 # Core CRUD Operations
 # ============================================================================
 
-def get_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[T]:
+
+def get_item(
+    db: Session,
+    model: Type[T],
+    item_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[T]:
     """
     Get a single item by ID with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -179,10 +199,16 @@ def get_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id: s
     )
 
 
-def get_item_detail(db: Session, model: Type[T], item_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[T]:
+def get_item_detail(
+    db: Session,
+    model: Type[T],
+    item_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[T]:
     """
     Get a single item with all relationships loaded using optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -211,7 +237,7 @@ def get_items(
 ) -> List[T]:
     """
     Get multiple items with pagination, sorting, and filtering using optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -244,13 +270,13 @@ def get_items_detail(
     """
     Get multiple items with optimized relationship loading using optimized approach - no session variables needed.
     Uses selectinload for many-to-many relationships to avoid cartesian products.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during retrieval
     - Direct tenant context injection
-    
+
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
@@ -258,9 +284,9 @@ def get_items_detail(
     return (
         QueryBuilder(db, model)
         .with_optimized_loads(
-            skip_many_to_many=False, 
-            skip_one_to_many=True, 
-            nested_relationships=nested_relationships
+            skip_many_to_many=False,
+            skip_one_to_many=True,
+            nested_relationships=nested_relationships,
         )
         .with_organization_filter(organization_id)
         .with_visibility_filter()
@@ -271,13 +297,61 @@ def get_items_detail(
     )
 
 
-def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], BaseModel], organization_id: str = None, user_id: str = None, commit: bool = True) -> T:
+def get_items_detail_with_comments(
+    db: Session,
+    model: Type[T],
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    nested_relationships: dict = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[T]:
+    """
+    Get multiple items with comments loaded for comment_count property.
+    This is optimized for entities that need comment counts.
+
+    Performance improvements:
+    - Loads comments relationship for counting
+    - Uses optimized loading strategy
+    - Direct tenant context injection
+
+    Args:
+        nested_relationships: Dict specifying nested relationships to load.
+                            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
+    """
+    return (
+        QueryBuilder(db, model)
+        .with_optimized_loads(
+            skip_many_to_many=False,
+            skip_one_to_many=False,  # Load one-to-many relationships like comments
+            nested_relationships=nested_relationships,
+        )
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .with_odata_filter(filter)
+        .with_pagination(skip, limit)
+        .with_sorting(sort_by, sort_order)
+        .all()
+    )
+
+
+def create_item(
+    db: Session,
+    model: Type[T],
+    item_data: Union[Dict[str, Any], BaseModel],
+    organization_id: str = None,
+    user_id: str = None,
+    commit: bool = True,
+) -> T:
     """
     Create a new item with optimized approach - no session variables needed.
-    
+
     OPTIMIZED VERSION: Completely bypasses database queries and session variables.
     This reduces creation time significantly by directly providing tenant context.
-    
+
     Args:
         db: Database session (regular SessionLocal)
         model: SQLAlchemy model class
@@ -291,10 +365,9 @@ def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], Ba
     """
     # Prepare data for creation using direct tenant context
     prepared_data = _prepare_item_data(model, item_data, organization_id, user_id)
-    
+
     # Create item directly without session variable overhead
     return _create_db_item_with_transaction(db, model, prepared_data, commit=commit)
-
 
 
 def update_item(
@@ -307,13 +380,13 @@ def update_item(
 ) -> Optional[T]:
     """
     Update an existing item with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during update
     - Direct tenant context injection
-    
+
     Args:
         db: Database session
         model: SQLAlchemy model class
@@ -321,7 +394,7 @@ def update_item(
         item_data: Updated item data as dict or Pydantic model
         organization_id: Direct organization ID for tenant context
         user_id: Direct user ID for tenant context
-        
+
     Returns:
         Updated database item or None if not found
     """
@@ -332,17 +405,21 @@ def update_item(
 
     # Prepare update data with tenant context
     update_data = _prepare_update_data(db, model, item_data)
-    
+
     # Auto-populate tenant fields if provided (for updates that should update these fields)
     if organization_id is not None:
         columns = inspect(model).columns.keys()
         if "organization_id" in columns:
             try:
                 update_data["organization_id"] = UUID(organization_id)
-                logger.debug(f"update_item - Auto-populating organization_id: '{organization_id}' for update")
+                logger.debug(
+                    f"update_item - Auto-populating organization_id: '{organization_id}' for update"
+                )
             except (ValueError, TypeError) as e:
-                logger.debug(f"update_item - Invalid organization_id: {organization_id}, error: {e}")
-    
+                logger.debug(
+                    f"update_item - Invalid organization_id: {organization_id}, error: {e}"
+                )
+
     if user_id is not None:
         columns = inspect(model).columns.keys()
         if "user_id" in columns:
@@ -361,27 +438,33 @@ def update_item(
     db.flush()
     db.refresh(db_item)
     db.commit()
-    
+
     return db_item
 
 
-def delete_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[T]:
+def delete_item(
+    db: Session,
+    model: Type[T],
+    item_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[T]:
     """
     Delete an item and return the deleted item with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during deletion
     - Direct tenant context injection
-    
+
     Args:
         db: Database session
         model: SQLAlchemy model class
         item_id: ID of item to delete
         organization_id: Direct organization ID for tenant context
         user_id: Direct user ID for tenant context
-        
+
     Returns:
         Deleted database item or None if not found
     """
@@ -396,7 +479,7 @@ def delete_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id
     # Delete and commit
     db.delete(db_item)
     db.commit()
-    
+
     return deleted_item
 
 
