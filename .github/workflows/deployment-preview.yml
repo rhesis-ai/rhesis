@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  empty:
+  placeholder:
     runs-on: ubuntu-latest
-    steps: []
+    steps:
+      - name: Placeholder step
+        run: echo "This is a placeholder workflow for manual triggering"
