@@ -196,7 +196,6 @@ export function TasksSection({
           paginationModel={{ page: 0, pageSize: 10 }}
           getRowId={(row) => row.id}
           showToolbar={true}
-          enableQuickFilter={true}
           sx={{
             '& .MuiDataGrid-row': {
               cursor: 'pointer',

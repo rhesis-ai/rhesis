@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -25,6 +25,8 @@ import { Comment } from '@/types/comments';
 import { DeleteCommentModal } from './DeleteCommentModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
+import { useTasks } from '@/hooks/useTasks';
+import { Task } from '@/utils/api-client/interfaces/task';
 
 interface CommentItemProps {
   comment: Comment;
@@ -34,6 +36,7 @@ interface CommentItemProps {
   onCreateTask?: (commentId: string) => void;
   currentUserId: string;
   entityType?: string; // Add entityType to determine if Create Task button should show
+  isHighlighted?: boolean; // Add highlighting prop
 }
 
 export function CommentItem({ 
@@ -43,7 +46,8 @@ export function CommentItem({
   onReact, 
   onCreateTask,
   currentUserId,
-  entityType 
+  entityType,
+  isHighlighted = false
 }: CommentItemProps) {
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -52,10 +56,31 @@ export function CommentItem({
   const [emojiAnchorEl, setEmojiAnchorEl] = useState<HTMLElement | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [associatedTasks, setAssociatedTasks] = useState<Task[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+
+  const { fetchTasksByCommentId } = useTasks({ autoFetch: false });
 
   const isOwner = comment.user_id === currentUserId;
   const canEdit = isOwner;
   const canDelete = isOwner;
+
+  // Fetch associated tasks when component mounts
+  useEffect(() => {
+    const loadAssociatedTasks = async () => {
+      setIsLoadingTasks(true);
+      try {
+        const tasks = await fetchTasksByCommentId(comment.id);
+        setAssociatedTasks(tasks);
+      } catch (error) {
+        console.error('Failed to fetch associated tasks:', error);
+      } finally {
+        setIsLoadingTasks(false);
+      }
+    };
+
+    loadAssociatedTasks();
+  }, [comment.id, fetchTasksByCommentId]);
 
   const handleSaveEdit = async () => {
     if (!editText.trim()) return;
@@ -136,7 +161,16 @@ export function CommentItem({
           display: 'flex', 
           gap: 2, 
           mb: 3,
-          alignItems: 'flex-start'
+          alignItems: 'flex-start',
+          // Highlighting styles
+          ...(isHighlighted && {
+            backgroundColor: 'rgba(25, 118, 210, 0.08)', // Light blue background
+            border: '2px solid',
+            borderColor: 'primary.main',
+            borderRadius: 2,
+            p: 2,
+            mb: 3,
+          })
         }}
       >
         {/* User Avatar */}
@@ -339,6 +373,49 @@ export function CommentItem({
                 <EmojiIcon fontSize="small" />
               </IconButton>
             </Box>
+
+            {/* Associated Tasks */}
+            {associatedTasks.length > 0 && (
+              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  Associated Tasks:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {associatedTasks.map((task) => (
+                    <Box
+                      key={task.id}
+                      onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        bgcolor: 'background.default',
+                        color: 'text.primary',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: '16px',
+                        px: 1.5,
+                        py: 0.75,
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          color: 'text.primary',
+                          borderColor: 'text.primary'
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontSize: '1rem' }}>📋</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ 
+                        color: 'text.primary',
+                        fontSize: '0.75rem'
+                      }}>
+                        {task.title}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
         </Box>
 
         {/* Emoji Picker Popover */}

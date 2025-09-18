@@ -20,7 +20,7 @@ import {
   Avatar,
   IconButton
 } from '@mui/material';
-import { Save, ArrowForward, Edit, Cancel } from '@mui/icons-material';
+import { Save, ArrowForward, Edit, Cancel, Science, Category, PlayArrow, Chat } from '@mui/icons-material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
@@ -55,7 +55,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   useEffect(() => {
     const loadInitialData = async () => {
-      // Skip if already loaded and session token hasn't changed
+      // Skip if already loaded
       if (statuses.length > 0 && priorities.length > 0 && users.length > 0 && editedTask) {
         return;
       }
@@ -96,7 +96,7 @@ export default function TaskDetailPage({ params }: PageProps) {
     if (taskId) {
       loadInitialData();
     }
-  }, [taskId, getTask, show, session?.session_token, statuses.length, priorities.length, users.length, editedTask]);
+  }, [taskId, getTask, show, session?.session_token]);
 
   // Show loading state while taskId is being set
   if (isLoading) {
@@ -186,31 +186,43 @@ export default function TaskDetailPage({ params }: PageProps) {
                 <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
                   {task.title}
                 </Typography>
-                {(task.task_metadata?.comment_id || (task.entity_type && task.entity_id)) && (
-                  <Button
-                    variant="outlined"
-                    endIcon={<ArrowForward />}
+                {(task.entity_type && task.entity_id) && (
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      // Always navigate to the entity, optionally with comment hash
+                      if (task.entity_type && task.entity_id) {
+                        // Map entity types to correct URL paths (plural)
+                        const entityUrlMap: Record<string, string> = {
+                          'Test': 'tests',
+                          'TestSet': 'test-sets',
+                          'TestRun': 'test-runs',
+                          'TestResult': 'test-results'
+                        };
+                        const entityPath = entityUrlMap[task.entity_type] || task.entity_type.toLowerCase();
+                        const baseUrl = `/${entityPath}/${task.entity_id}`;
+                        const commentHash = task.task_metadata?.comment_id ? `#comment-${task.task_metadata.comment_id}` : '';
+                        router.push(`${baseUrl}${commentHash}`);
+                      }
+                    }}
                     sx={{ 
                       color: 'text.secondary',
-                      borderColor: 'grey.300',
-                      '&:hover': {
-                        borderColor: 'grey.400',
-                        backgroundColor: 'grey.50'
-                      }
+                      '&:hover': { color: 'primary.main' }
                     }}
-                    onClick={() => {
-                      // Navigate to the associated comment or entity
-                      if (task.task_metadata?.comment_id && task.entity_type && task.entity_id) {
-                        // If there's a comment, go to the comment
-                        router.push(`/${task.entity_type.toLowerCase()}/${task.entity_id}#comment-${task.task_metadata.comment_id}`);
-                      } else if (task.entity_type && task.entity_id) {
-                        // If there's no comment but there's an entity, go to the entity
-                        router.push(`/${task.entity_type.toLowerCase()}/${task.entity_id}`);
-                      }
-                    }}
+                    title={task.task_metadata?.comment_id ? `Go to ${task.entity_type} (highlight comment)` : `Go to ${task.entity_type}`}
                   >
-                    {task.task_metadata?.comment_id ? 'Go to associated comment' : `Go to ${task.entity_type}`}
-                  </Button>
+                    {task.task_metadata?.comment_id ? (
+                      <Chat fontSize="small" />
+                    ) : task.entity_type === 'Test' ? (
+                      <Science fontSize="small" />
+                    ) : task.entity_type === 'TestSet' ? (
+                      <Category fontSize="small" />
+                    ) : task.entity_type === 'TestRun' ? (
+                      <PlayArrow fontSize="small" />
+                    ) : (
+                      <ArrowForward fontSize="small" />
+                    )}
+                  </IconButton>
                 )}
               </Box>
 
@@ -430,7 +442,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                 sessionToken={session?.session_token || ''}
                 currentUserId={session?.user?.id || ''}
                 currentUserName={session?.user?.name || 'Unknown User'}
-                currentUserPicture={session?.user?.picture}
+                currentUserPicture={session?.user?.picture || undefined}
                 onCreateTask={undefined} // No task creation from task comments
               />
             </Paper>

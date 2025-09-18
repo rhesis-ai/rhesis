@@ -16,7 +16,7 @@ import { Task } from '@/utils/api-client/interfaces/task';
 import { Typography, Box, Alert, Chip, Button } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import { combineTaskFiltersToOData } from '@/utils/odata-filter';
 
 interface TasksGridProps {
   sessionToken: string;
@@ -56,8 +56,13 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
       
-      // Convert filter model to OData filter
-      const oDataFilter = convertGridFilterModelToOData(filterModel);
+      // Convert filter model to OData filter (includes both regular filters and quick filter)
+      const oDataFilter = combineTaskFiltersToOData(filterModel);
+      
+      // Debug logging for search functionality
+      if (oDataFilter) {
+        console.log('🔍 Task search/filter OData:', oDataFilter);
+      }
       
       const response = await tasksClient.getTasks({
         skip,

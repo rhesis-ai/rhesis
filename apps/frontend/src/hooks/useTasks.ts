@@ -156,6 +156,30 @@ export function useTasks(options: UseTasksOptions = {}) {
     }
   }, [session?.session_token, show]);
 
+  const fetchTasksByCommentId = useCallback(async (commentId: string, params: TasksQueryParams = {}): Promise<Task[]> => {
+    if (status === 'loading') {
+      return []; // Wait for session to load
+    }
+    
+    if (!session?.session_token) {
+      setError('No session token available');
+      return [];
+    }
+
+    try {
+      console.log('🔄 Fetching tasks by comment ID:', commentId);
+      const clientFactory = new ApiClientFactory(session.session_token);
+      const tasksClient = clientFactory.getTasksClient();
+
+      const fetchedTasks = await tasksClient.getTasksByCommentId(commentId, params);
+      console.log('✅ Tasks fetched by comment ID:', fetchedTasks.length, 'tasks');
+      return fetchedTasks;
+    } catch (err) {
+      console.error('❌ Failed to fetch tasks by comment ID:', err);
+      return [];
+    }
+  }, [session?.session_token, status]);
+
   // Auto-fetch tasks when component mounts or dependencies change
   useEffect(() => {
     if (autoFetch) {
@@ -171,6 +195,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     createTask,
     updateTask,
     deleteTask,
-    getTask
+    getTask,
+    fetchTasksByCommentId
   };
 }

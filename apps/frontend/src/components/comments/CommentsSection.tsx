@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -47,6 +47,29 @@ export function CommentsSection({
   currentUserPicture,
   isLoading = false,
 }: CommentsSectionProps) {
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+
+  // Check for comment hash in URL and highlight the comment
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#comment-')) {
+      const commentId = hash.substring(9); // Remove '#comment-' prefix
+      setHighlightedCommentId(commentId);
+      
+      // Scroll to the comment after a short delay to ensure it's rendered
+      setTimeout(() => {
+        const element = document.getElementById(`comment-${commentId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
+      // Remove highlight after 5 seconds
+      setTimeout(() => {
+        setHighlightedCommentId(null);
+      }, 5000);
+    }
+  }, [comments]); // Re-run when comments change
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +157,7 @@ export function CommentsSection({
               onCreateTask={onCreateTask}
               currentUserId={currentUserId}
               entityType={entityType}
+              isHighlighted={highlightedCommentId === comment.id}
             />
           ))}
         </Box>
