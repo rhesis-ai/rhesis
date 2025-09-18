@@ -8,7 +8,7 @@ from rhesis.backend.app.schemas import Base
 # ResponsePattern schemas
 class ResponsePatternBase(Base):
     text: str
-    behavior_id: UUID4
+    behavior_id: Optional[UUID4] = None
     response_pattern_type_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
