@@ -28,6 +28,27 @@ on:
         default: false
         type: boolean
       deploy_preview:
+        description: '⚠️  DEPRECATED: Use "Preview Deployment (Full Stack)" workflow instead for coordinated frontend+backend previews'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      deploy_preview:
         description: 'Deploy preview (will deploy new revision with commit)'
         required: false
         default: false
@@ -37,6 +58,17 @@ on:
         required: false
         type: string
         default: 'Manual deployment'
+      backend_preview_url_override:
+        description: 'Override backend URL for preview deployments'
+        required: false
+        type: string
+    outputs:
+      backend_preview_url:
+        description: 'The backend preview URL if deployed as preview'
+        value: ${{ jobs.deploy.outputs.backend_preview_url }}
+      deployed_url:
+        description: 'The deployed service URL'
+        value: ${{ jobs.deploy.outputs.deployed_url }}
 
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'
@@ -48,10 +80,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
     
     env:
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       SERVICE: backend
 
     outputs:
@@ -93,7 +125,7 @@ jobs:
         id: set_env
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.TF_VAR_REGION }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
           
           # Get commit SHA (short version for URLs)
           COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
@@ -101,7 +133,7 @@ jobs:
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           
           # Check if this is a preview deployment
-          IS_PREVIEW="${{ github.event.inputs.deploy_preview == 'true' }}"
+          IS_PREVIEW="${{ inputs.deploy_preview == 'true' || github.event.inputs.deploy_preview == 'true' }}"
           echo "IS_PREVIEW=$IS_PREVIEW" >> $GITHUB_ENV
           echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
           
@@ -148,17 +180,21 @@ jobs:
 
   deploy:
     needs: build
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
     
     env:
-      ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
       COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
       IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
+
+    outputs:
+      backend_preview_url: ${{ steps.output_url.outputs.backend_preview_url }}
+      deployed_url: ${{ steps.output_url.outputs.deployed_url }}
       
     steps:
       - name: Create and validate service account key file
@@ -208,9 +244,14 @@ jobs:
             echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
             echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
             
-            # Generate the Cloud Run URL for this preview
-            PREVIEW_CLOUD_RUN_URL="https://${{ env.COMMIT_SHA }}---${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
-            echo "🌐 Preview will be accessible at: $PREVIEW_CLOUD_RUN_URL"
+            # Generate the Cloud Run URL for this preview (or use override)
+            if [ -n "${{ inputs.backend_preview_url_override }}" ]; then
+              PREVIEW_CLOUD_RUN_URL="${{ inputs.backend_preview_url_override }}"
+              echo "🔗 Using provided backend URL override: $PREVIEW_CLOUD_RUN_URL"
+            else
+              PREVIEW_CLOUD_RUN_URL="https://${{ env.COMMIT_SHA }}---${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
+              echo "🌐 Preview will be accessible at: $PREVIEW_CLOUD_RUN_URL"
+            fi
             
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
@@ -382,3 +423,16 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🌐 Deployed Service" >> $GITHUB_STEP_SUMMARY
           echo "**Service URL:** [$DEPLOYED_URL]($DEPLOYED_URL)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Set Workflow Outputs
+        id: output_url
+        run: |
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            BACKEND_PREVIEW_URL="https://${{ env.COMMIT_SHA }}---${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
+            DEPLOYED_URL="$BACKEND_PREVIEW_URL"
+            echo "backend_preview_url=$BACKEND_PREVIEW_URL" >> $GITHUB_OUTPUT
+          else
+            DEPLOYED_URL="https://${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
+            echo "backend_preview_url=" >> $GITHUB_OUTPUT
+          fi
+          echo "deployed_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
