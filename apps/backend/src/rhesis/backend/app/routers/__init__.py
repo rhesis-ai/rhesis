@@ -7,6 +7,10 @@ from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
 from .home import router as home_router
+
+# ... other imports
+# Import new routers
+from .job import router as task_router
 from .metric import router as metric_router
 from .model import router as model_router
 from .organization import router as organization_router
@@ -16,12 +20,10 @@ from .prompt_template import router as prompt_template_router
 from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
+from .source import router as source_router
 from .status import router as status_router
 from .tag import router as tag_router
-
-# ... other imports
-# Import new routers
-from .task import router as task_router
+from .task_management import router as task_management_router
 from .test import router as test_router
 from .test_configuration import router as test_configuration_router
 from .test_context import router as test_context_router
@@ -67,6 +69,7 @@ __all__ = [
     "metric",
     "model",
     "task",
+    "task_management",
 ]
 
 # Export all routers for use in main.py
@@ -83,6 +86,7 @@ routers = sorted(
         test_set_router,
         test_configuration_router,
         test_result_router,
+        source_router,
         status_router,
         risk_router,
         topic_router,
@@ -103,6 +107,7 @@ routers = sorted(
         metric_router,
         model_router,
         task_router,
+        task_management_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

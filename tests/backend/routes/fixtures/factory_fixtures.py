@@ -33,6 +33,7 @@ from .data_factories import (
     BehaviorDataFactory,
     TopicDataFactory,
     CategoryDataFactory,
+    CommentDataFactory,
     MetricDataFactory,
     ModelDataFactory,
     DimensionDataFactory,
@@ -86,6 +87,14 @@ def topic_factory(authenticated_client: TestClient) -> Generator[TopicFactory, N
 def category_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
     """🗂️ Category factory with automatic cleanup"""
     factory = create_generic_factory(authenticated_client, APIEndpoints.CATEGORIES)
+    yield factory
+    factory.cleanup()
+
+
+@pytest.fixture
+def comment_factory(authenticated_client: TestClient) -> Generator[EntityFactory, None, None]:
+    """💬 Comment factory with automatic cleanup"""
+    factory = create_generic_factory(authenticated_client, APIEndpoints.COMMENTS)
     yield factory
     factory.cleanup()
 
@@ -380,7 +389,7 @@ def edge_case_behavior_data(request):
 # Export fixture names for documentation
 __all__ = [
     # Factory fixtures
-    "behavior_factory", "topic_factory", "category_factory", 
+    "behavior_factory", "topic_factory", "category_factory", "comment_factory",
     "metric_factory", "model_factory", "dimension_factory", "demographic_factory", "endpoint_factory",
     
     # Data fixtures
