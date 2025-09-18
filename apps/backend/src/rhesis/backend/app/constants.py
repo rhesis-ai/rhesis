@@ -16,6 +16,7 @@ class EntityType(Enum):
     TOPIC = "Topic"
     DIMENSION = "Dimension"
     DEMOGRAPHIC = "Demographic"
+    TASK = "Task"
 
     @classmethod
     def get_value(cls, entity_type):

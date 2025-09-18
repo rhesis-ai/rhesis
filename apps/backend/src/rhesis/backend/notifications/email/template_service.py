@@ -18,6 +18,7 @@ class EmailTemplate(Enum):
     TASK_COMPLETION = "task_completion.html.jinja2"
     TEST_EXECUTION_SUMMARY = "test_execution_summary.html.jinja2"
     TEAM_INVITATION = "team_invitation.html.jinja2"
+    TASK_ASSIGNMENT = "task_assignment.html.jinja2"
 
 
 class TemplateService:
@@ -76,6 +77,21 @@ class TemplateService:
                 "organization_website",
                 "inviter_name",
                 "inviter_email",
+                "frontend_url",
+            },
+            EmailTemplate.TASK_ASSIGNMENT: {
+                "assignee_name",
+                "assigner_name",
+                "task_title",
+                "task_description",
+                "task_id",
+                "status_name",
+                "priority_name",
+                "entity_type",
+                "entity_id",
+                "entity_name",
+                "created_at",
+                "task_metadata",
                 "frontend_url",
             },
         }

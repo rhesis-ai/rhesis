@@ -80,6 +80,11 @@ class User(Base):
     # Comment relationships
     comments = relationship("Comment", back_populates="user")
 
+    # Task relationships
+    assigned_tasks = relationship(
+        "Task", foreign_keys="[Task.assignee_id]", back_populates="assignee"
+    )
+
     @classmethod
     def from_auth0(cls, userinfo: dict) -> "User":
         """Create a User instance from Auth0 userinfo"""
