@@ -13,3 +13,4 @@ Use only the labels from the returned list.
 4. Select appropriate title for the issue
 5. The issuse should be short and to the point, avoid using too many words, you can remove sections
 from the template that are not relevant to the issue
+6. Before creating an issue, ask the user for confirmation.
