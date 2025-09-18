@@ -64,7 +64,7 @@ export default function CreateTaskPage() {
 
   useEffect(() => {
     const loadInitialData = async () => {
-      // Skip if already loaded and session token hasn't changed
+      // Skip if already loaded
       if (statuses.length > 0 && priorities.length > 0 && users.length > 0) {
         return;
       }
@@ -108,7 +108,7 @@ export default function CreateTaskPage() {
     };
 
     loadInitialData();
-  }, [show, session?.session_token, statuses.length, priorities.length, users.length]);
+  }, [show, session?.session_token]);
 
   // Pre-fill form with query parameters
   useEffect(() => {
@@ -208,7 +208,7 @@ export default function CreateTaskPage() {
                         formData.task_metadata?.comment_id 
                           ? "Enter task title related to the comment..."
                           : formData.entity_type 
-                            ? `Enter task title for ${getEntityDisplayName(formData.entity_type)}...`
+                            ? `Enter task title for ${getEntityDisplayName(formData.entity_type as EntityType)}...`
                             : "Enter task title..."
                       }
                     />
@@ -227,7 +227,7 @@ export default function CreateTaskPage() {
                         formData.task_metadata?.comment_id 
                           ? "Describe the task related to this comment..."
                           : formData.entity_type 
-                            ? `Describe the task for ${getEntityDisplayName(formData.entity_type)}...`
+                            ? `Describe the task for ${getEntityDisplayName(formData.entity_type as EntityType)}...`
                             : "Describe the task..."
                       }
                     />

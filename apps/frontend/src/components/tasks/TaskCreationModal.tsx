@@ -55,7 +55,9 @@ export function TaskCreationModal({
       description: description.trim(),
       priority,
       assignee_id: assigneeId || undefined,
-      comment_id: commentId,
+      entity_type: entityType,
+      entity_id: entityId,
+      task_metadata: commentId ? { comment_id: commentId } : undefined,
     });
 
     // Reset form
