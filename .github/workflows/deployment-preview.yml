@@ -1,4 +1,4 @@
-name: Empty Workflow
+name: Preview Deployment (Full Stack)
 
 on:
   workflow_dispatch:
@@ -9,3 +9,4 @@ jobs:
     steps:
       - name: Placeholder step
         run: echo "This is a placeholder workflow for manual triggering"
+
