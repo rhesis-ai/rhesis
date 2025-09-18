@@ -8,9 +8,8 @@ from rhesis.backend.app.schemas import Base
 # Risk schemas
 class RiskBase(Base):
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     parent_id: Optional[UUID4] = None
-    use_case_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None

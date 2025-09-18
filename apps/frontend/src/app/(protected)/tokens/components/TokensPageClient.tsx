@@ -112,7 +112,7 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
   const confirmDelete = async () => {
     if (deleteTokenId) {
       try {
-        await tokensClientRef.current.deleteToken(deleteTokenId);
+        const deletedToken = await tokensClientRef.current.deleteToken(deleteTokenId);
         await loadTokens();
         setDeleteTokenId(null);
       } catch (error) {

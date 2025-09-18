@@ -189,6 +189,37 @@ class CategoryEndpoints(BaseEntityEndpoints):
 
 
 @dataclass
+class CommentEndpoints(BaseEntityEndpoints):
+    """Comment API endpoints"""
+
+    # Base entity configuration
+    _base_entity: str = "comments"
+    _id_param: str = "comment_id"
+    
+    def __post_init__(self):
+        """Initialize comment-specific endpoints"""
+        # Initialize base endpoints
+        super().__post_init__()
+        
+        # Comment-specific endpoints
+        self.get_by_entity = f"/{self._base_entity}/entity/{{entity_type}}/{{entity_id}}"
+        self.add_emoji = f"/{self._base_entity}/{{{self._id_param}}}/emoji/{{emoji}}"
+        self.remove_emoji = f"/{self._base_entity}/{{{self._id_param}}}/emoji/{{emoji}}"
+    
+    def by_entity(self, entity_type: str, entity_id: str) -> str:
+        """Get comments by entity endpoint"""
+        return self.format_path(self.get_by_entity, entity_type=entity_type, entity_id=entity_id)
+    
+    def add_emoji_reaction(self, comment_id: str, emoji: str) -> str:
+        """Add emoji reaction endpoint"""
+        return self.format_path(self.add_emoji, **{self._id_param: comment_id}, emoji=emoji)
+    
+    def remove_emoji_reaction(self, comment_id: str, emoji: str) -> str:
+        """Remove emoji reaction endpoint"""
+        return self.format_path(self.remove_emoji, **{self._id_param: comment_id}, emoji=emoji)
+
+
+@dataclass
 class AuthEndpoints:
     """Authentication API endpoints"""
     
@@ -259,10 +290,23 @@ def create_entity_endpoints(entity_name: str, entity_class=BaseEntityEndpoints):
     Returns:
         Configured endpoint instance
     """
+    # Handle irregular plurals properly
+    irregular_plurals = {
+        "statuses": "status",
+        "responses": "response", 
+        # Add more as needed
+    }
+    
+    # Get singular form
+    if entity_name in irregular_plurals:
+        singular = irregular_plurals[entity_name]
+    else:
+        singular = entity_name.rstrip('s')
+    
     @dataclass
     class DynamicEntityEndpoints(entity_class):
         _base_entity: str = entity_name
-        _id_param: str = f"{entity_name.rstrip('s')}_id"
+        _id_param: str = f"{singular}_id"
     
     return DynamicEntityEndpoints()
 
@@ -276,6 +320,7 @@ class APIEndpoints:
     MODELS = ModelEndpoints()
     ORGANIZATIONS = OrganizationEndpoints()
     CATEGORIES = CategoryEndpoints()
+    COMMENTS = CommentEndpoints()
     AUTH = AuthEndpoints()
     HOME = HomeEndpoints()
     DIMENSIONS = DimensionEndpoints()
@@ -285,6 +330,17 @@ class APIEndpoints:
     # Project and Prompt endpoints
     PROJECTS = create_entity_endpoints("projects")
     PROMPTS = create_entity_endpoints("prompts")
+    
+    # New entity endpoints
+    PROMPT_TEMPLATES = create_entity_endpoints("prompt_templates")
+    RESPONSE_PATTERNS = create_entity_endpoints("response_patterns")
+    RISKS = create_entity_endpoints("risks")
+    SOURCES = create_entity_endpoints("sources")
+    STATUSES = create_entity_endpoints("statuses")
+    TAGS = create_entity_endpoints("tags")
+    TOKENS = create_entity_endpoints("tokens")
+    TYPE_LOOKUPS = create_entity_endpoints("type_lookups")
+    USE_CASES = create_entity_endpoints("use_cases")
     
     @classmethod
     def get_all_endpoints(cls) -> Dict[str, Any]:
@@ -364,6 +420,7 @@ __all__ = [
     "ModelEndpoints",
     "OrganizationEndpoints",
     "CategoryEndpoints",
+    "CommentEndpoints",
     "AuthEndpoints",
     "HomeEndpoints",
     "DimensionEndpoints",
