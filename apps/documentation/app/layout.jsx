@@ -3,35 +3,43 @@ import { Banner, Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
 import ThemeAwareLogo from '../components/ThemeAwareLogo'
 import 'nextra-theme-docs/style.css'
- 
+
 export const metadata = {
-  // Define your metadata here
-  // For more information on metadata API, see: https://nextjs.org/docs/app/building-your-application/optimizing/metadata
+  title: {
+    template: '%s – Rhesis',
+    default: 'Rhesis Documentation'
+  },
+  description: 'AI-powered testing and evaluation platform',
 }
- 
-const banner = <Banner storageKey="rhesis-docs">Welcome to Rhesis Documentation 🚀</Banner>
+
+const banner = (
+  <Banner storageKey="rhesis-docs">
+    Welcome to Rhesis Documentation 🚀
+  </Banner>
+)
+
 const navbar = (
   <Navbar
     logo={<ThemeAwareLogo />}
-    // ... Your additional navbar options
+    projectLink="https://github.com/rhesis-ai/rhesis"
+    chatLink="https://discord.rhesis.ai"
   />
 )
-const footer = <Footer>© 2025 Rhesis AI GmbH. Made in Germany.</Footer>
- 
+
+const footer = (
+  <Footer>
+    © 2025 Rhesis AI GmbH. Made in Germany.
+  </Footer>
+)
+
 export default async function RootLayout({ children }) {
   return (
-    <html
-      // Not required, but good for SEO
-      lang="en"
-      // Required to be set
-      dir="ltr"
-      // Suggested by `next-themes` package https://github.com/pacocoursey/next-themes#with-app
-      suppressHydrationWarning
-    >
-      <Head
-      // ... Your additional head options
-      >
-        {/* Your additional tags should be passed as `children` of `<Head>` element */}
+    <html lang="en" dir="ltr" suppressHydrationWarning>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta property="og:title" content="Rhesis Documentation" />
+        <meta property="og:description" content="AI-powered testing and evaluation platform" />
+        <link rel="icon" type="image/svg+xml" href="/Rhesis AI_Logo_RGB_Favicon_white.svg" />
       </Head>
       <body>
         <Layout
@@ -40,7 +48,11 @@ export default async function RootLayout({ children }) {
           pageMap={await getPageMap()}
           docsRepositoryBase="https://github.com/rhesis-ai/rhesis"
           footer={footer}
-          // ... Your additional layout options
+          sidebar={{
+            defaultMenuCollapseLevel: 1,
+            autoCollapse: true,
+            toggleButton: true
+          }}
         >
           {children}
         </Layout>
