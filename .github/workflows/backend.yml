@@ -336,9 +336,15 @@ jobs:
           echo "Latest revision: $LATEST_REVISION"
           
           # Tag the latest revision to get a commit-specific URL
+          # First, set the revision to receive 0% traffic (if not already)
           gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --to-revisions="$LATEST_REVISION=0" \
-            --to-tags "${{ env.COMMIT_SHA }}=0" \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+          
+          # Then, create the tag for the commit-specific URL
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --set-tags "${{ env.COMMIT_SHA }}=$LATEST_REVISION" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }}
           
