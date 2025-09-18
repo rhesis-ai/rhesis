@@ -26,12 +26,16 @@ class Test(Base, TagsMixin, OrganizationMixin):
     user_id = Column(GUID(), ForeignKey("user.id"))
     assignee_id = Column(GUID(), ForeignKey("user.id"))
     owner_id = Column(GUID(), ForeignKey("user.id"))
+    # Configuration for test execution
     test_configuration = Column(JSONB)
     parent_id = Column(GUID(), ForeignKey("test.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"))
     behavior_id = Column(GUID(), ForeignKey("behavior.id"))
     category_id = Column(GUID(), ForeignKey("category.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
+    # Test source info (origin, inputs, context)
+    # Named 'test_metadata' to avoid SQLAlchemy's reserved 'metadata' attribute
+    test_metadata = Column(JSONB)
 
     # Relationships
     prompt = relationship("Prompt", back_populates="tests")
