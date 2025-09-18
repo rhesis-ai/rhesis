@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-09-18
+
+### Added
+- Added task management functionality, including task creation, assignment, status tracking, and comment count.
+- Added document sources to test set attributes.
+- Added `test_metadata` column for document source tracking in test sets.
+- Added metadata field to `TestSetBulkCreate` schema.
+- Added support for tags, prompt templates, response patterns, sources, and statuses in backend testing.
+- Added Alembic SQL Template System for database migrations.
+- Added task statuses and priorities to the database.
+- Added task assignment email notifications.
+- Integrated DocumentSynthesizer for document-based test generation and auto-selected it in the task system.
+- Added migration script for merging task and metadata revisions.
+
+### Changed
+- Refactored task model and management logic.
+- Updated backend to use SDK Document dataclass.
+- Optimized test patterns and fixed websockets deprecation warnings.
+- Refactored database exceptions for CRUD routes.
+- Refactored all routes to use improved database session handling.
+- Enhanced task management with comment count and completion tracking.
+- Updated backend schema to accept arrays in `test_metadata` instead of strings.
+- Updated backend to use LLM service and promptsynth accepting models.
+- Auto-populated `creator_id` in task creation and updated `TaskCreate` schema.
+- Implemented organization-level validation for task assignments.
+
+### Fixed
+- Fixed model selection logic.
+- Fixed route behavior for metric, model, and organization.
+- Fixed comment and token frontend interface compatibility with the backend.
+- Fixed bulk test set metadata format in API docs.
+- Fixed an issue where the documents parameter was not properly passed to the task system.
+- Fixed Python package version conflicts.
+
+### Removed
+- Removed unnecessary column alterations in the task model migration script.
+- Removed metrics from the backend (moved to SDK).
+
+
 ## [0.2.3] - 2025-09-04
 
 ### Added
