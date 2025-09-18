@@ -13,6 +13,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-09-18
+
+### Added
+- Added `DocumentSynthesizer` for document text extraction and chunking, enabling the creation of context from documents.
+- Added `ContextGenerator` service with semantic chunking for improved context selection.
+- Added support for Ollama LLM provider.
+- Added document source tracking to `DocumentSynthesizer`.
+- Added `strategy` parameter to `DocumentSynthesizer` for sequential vs random context selection.
+- Added comprehensive user feedback for test generation plan.
+
+### Changed
+- Refactored benchmarking framework to integrate SDK modules and improve model handling.
+- Refactored `PromptSynthesizer` to use context instead of documents.
+- Refactored `RhesisPromptMetric` for improved performance and maintainability.
+- Updated `DocumentSynthesizer` to use `Document` dataclass instead of dictionaries.
+- Updated LLM providers to inherit from LiteLLM for GeminiLLM and OpenAILLM.
+- Improved model factory for easier model selection and configuration.
+- Metrics now accept a model directly, allowing for more flexible model integration.
+- Replaced `ContextSynthesizer` with `ContextGenerator` service.
+- Enforced hard size limits with semantic-first splitting in `ContextGenerator`.
+
+### Fixed
+- Fixed batch size None comparison error.
+- Fixed testset generation issues.
+- Fixed minor issues in LLM provider implementations.
+- Fixed template path for metrics.
+- Fixed Python package version conflicts.
+
+### Removed
+- Removed `pyarrow` dependency to reduce environment and Docker image sizes.
+- Removed the template caching mechanism.
+- Removed binary and categorical functionality from prompt metrics.
+- Removed the absolute_max_context_tokens limit.
+- Removed document support from `PromptSynthesizer`.
+- Removed the need for API keys in some configurations.
+
+
 ## [0.2.3] - 2025-09-04
 
 ### Added

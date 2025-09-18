@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-09-18
+
+### Added
+- Added "Source Documents" section to individual Test Detail page, displaying associated documents.
+- Added "Source Documents" section to Test Set Details page, displaying associated documents.
+- Added document, name, and description fields to the Test Set interface.
+- Added `test_metadata` field to the `TestBase` interface.
+- Added a send button to the comment text box.
+
+### Changed
+- Updated project title and description to update reactively upon editing, without requiring a page reload.
+- Updated breadcrumb and title in the test header to display content instead of UUID.
+- Improved test coverage.
+
+### Fixed
+- Ensured compatibility between comment and token frontend interfaces and the backend.
+- Fixed test stepper return behavior.
+
+
 ## [0.2.3] - 2025-09-04
 
 ### Added
