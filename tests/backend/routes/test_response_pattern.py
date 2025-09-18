@@ -422,15 +422,18 @@ class TestResponsePatternRoutes(ResponsePatternTestMixin, BaseEntityRouteTests):
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     def test_create_response_pattern_without_behavior_id(self, authenticated_client):
-        """Test creating response pattern without required behavior_id field"""
-        invalid_data = {"text": "Some response text"}
+        """Test creating response pattern without behavior_id field (now optional)"""
+        valid_data = {"text": "Some response text"}
         
         response = authenticated_client.post(
             self.endpoints.create,
-            json=invalid_data,
+            json=valid_data,
         )
         
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_200_OK
+        created_pattern = response.json()
+        assert created_pattern["text"] == valid_data["text"]
+        assert created_pattern["behavior_id"] is None
     
     def test_create_response_pattern_with_empty_text(self, authenticated_client):
         """Test creating response pattern with empty text"""
