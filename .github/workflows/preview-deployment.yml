@@ -1,0 +1,73 @@
+name: Preview Deployment (Full Stack)
+
+# Coordinated preview deployment for both backend and frontend
+# This ensures frontend gets the correct backend preview URL
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      reason:
+        description: 'Reason for preview deployment'
+        required: false
+        type: string
+        default: 'Full-stack preview deployment'
+
+jobs:
+  deploy-backend-preview:
+    name: Deploy Backend Preview
+    uses: ./.github/workflows/backend.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      deploy_preview: true
+      deploy_only: false
+      reason: ${{ github.event.inputs.reason || 'Coordinated preview deployment - Backend' }}
+    secrets: inherit
+
+  deploy-frontend-preview:
+    name: Deploy Frontend Preview
+    needs: deploy-backend-preview
+    uses: ./.github/workflows/frontend.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      deploy_preview: true
+      deploy_only: false
+      reason: ${{ github.event.inputs.reason || 'Coordinated preview deployment - Frontend' }}
+      backend_preview_url: ${{ needs.deploy-backend-preview.outputs.backend_preview_url }}
+    secrets: inherit
+
+  generate-summary:
+    name: Generate Deployment Summary
+    needs: [deploy-backend-preview, deploy-frontend-preview]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Full-Stack Summary
+        run: |
+          echo "## 🚀 Full-Stack Preview Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Preview URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend:** [${{ needs.deploy-backend-preview.outputs.backend_preview_url }}](${{ needs.deploy-backend-preview.outputs.backend_preview_url }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend:** [${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }}](${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Coordination Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend is configured to communicate with the backend preview" >> $GITHUB_STEP_SUMMARY
+          echo "- Both services receive 0% production traffic" >> $GITHUB_STEP_SUMMARY
+          echo "- Preview environment is fully functional and isolated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🧪 Testing" >> $GITHUB_STEP_SUMMARY
+          echo "Access the frontend URL above to test the full-stack preview deployment." >> $GITHUB_STEP_SUMMARY
+          
+          echo "🎯 Full-stack preview deployment completed successfully!"
+          echo "🔗 Backend:  ${{ needs.deploy-backend-preview.outputs.backend_preview_url }}"
+          echo "🔗 Frontend: ${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }}"
