@@ -20,6 +20,7 @@ from .prompt_template import router as prompt_template_router
 from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
+from .source import router as source_router
 from .status import router as status_router
 from .tag import router as tag_router
 from .task_management import router as task_management_router
@@ -85,6 +86,7 @@ routers = sorted(
         test_set_router,
         test_configuration_router,
         test_result_router,
+        source_router,
         status_router,
         risk_router,
         topic_router,

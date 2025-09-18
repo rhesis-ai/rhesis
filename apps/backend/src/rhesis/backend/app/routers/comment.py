@@ -96,9 +96,18 @@ def read_comments(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all comments with filtering and pagination"""
+    """
+    Get all comments with filtering and pagination - optimized approach.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     comments = crud.get_comments(
         db=db,
         skip=skip,
@@ -128,7 +137,7 @@ def read_comment(
     """
     organization_id, user_id = tenant_context
     """Get a specific comment by ID"""
-    comment = crud.get_comment(db=db, comment_id=comment_id)
+    comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
     if comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
     return comment
@@ -154,7 +163,7 @@ def update_comment(
     organization_id, user_id = tenant_context
     """Update a comment"""
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id)
+    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
@@ -162,10 +171,10 @@ def update_comment(
     if db_comment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to update this comment")
 
-    return crud.update_comment(db=db, comment_id=comment_id, comment=comment)
+    return crud.update_comment(db=db, comment_id=comment_id, comment=comment, organization_id=organization_id, user_id=user_id)
 
 
-@router.delete("/{comment_id}")
+@router.delete("/{comment_id}", response_model=schemas.Comment)
 def delete_comment(
     comment_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -184,7 +193,7 @@ def delete_comment(
     organization_id, user_id = tenant_context
     """Delete a comment"""
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id)
+    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
@@ -192,8 +201,7 @@ def delete_comment(
     if db_comment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
 
-    crud.delete_comment(db=db, comment_id=comment_id)
-    return {"message": "Comment deleted successfully"}
+    return crud.delete_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
 
 
 @router.get("/entity/{entity_type}/{entity_id}", response_model=List[CommentDetailSchema])
@@ -205,9 +213,20 @@ def read_comments_by_entity(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all comments for a specific entity (Test, TestSet, TestRun, TestResult, Metric, Model, Prompt, Behavior, Category)"""
+    """
+    Get all comments for a specific entity - optimized approach.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - Direct tenant context injection
+    
+    Supported entities: Test, TestSet, TestRun, TestResult, Metric, Model, Prompt, Behavior, Category
+    """
+    organization_id, user_id = tenant_context
     # Validate entity type
     try:
         EntityType(entity_type)
@@ -235,6 +254,7 @@ def add_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -272,8 +292,9 @@ def add_emoji_reaction(
     - **User Data**: Each reaction includes `user_id` and `user_name`
     - **No Duplicates**: A user can only react once per emoji per comment
     """
+    organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id)
+    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
@@ -297,11 +318,20 @@ def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Remove an emoji reaction from a comment"""
+    """
+    Remove an emoji reaction from a comment - optimized approach.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - Direct tenant context injection
+    """
+    organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id)
+    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 

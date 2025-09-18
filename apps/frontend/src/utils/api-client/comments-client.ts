@@ -30,8 +30,8 @@ export class CommentsClient extends BaseApiClient {
     return response;
   }
 
-  async deleteComment(commentId: string): Promise<void> {
-    await this.fetch(`${API_ENDPOINTS.comments}/${commentId}`, {
+  async deleteComment(commentId: string): Promise<Comment> {
+    return this.fetch<Comment>(`${API_ENDPOINTS.comments}/${commentId}`, {
       method: 'DELETE'
     });
   }

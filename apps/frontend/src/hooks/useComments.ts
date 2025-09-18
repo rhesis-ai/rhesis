@@ -128,7 +128,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const commentsClient = clientFactory.getCommentsClient();
-      await commentsClient.deleteComment(commentId);
+      const deletedComment = await commentsClient.deleteComment(commentId);
       
       setComments(prev => 
         prev.filter(comment => comment.id !== commentId)
@@ -138,6 +138,8 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         severity: 'neutral',
         autoHideDuration: 3000
       });
+      
+      return deletedComment;
     } catch (err) {
       console.error('Error deleting comment:', err);
       throw err;
