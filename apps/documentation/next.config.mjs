@@ -1,6 +1,6 @@
 import nextra from 'nextra'
  
-// Nextra 4.x configuration with content directory
+// Nextra 4.x configuration
 const withNextra = nextra({
   defaultShowCopyCode: true
 })
