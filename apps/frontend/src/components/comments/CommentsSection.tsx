@@ -11,7 +11,11 @@ import {
   Paper,
   IconButton,
 } from '@mui/material';
+<<<<<<< HEAD
 import { Send as SendIcon } from '@mui/icons-material';
+=======
+import { Add as AddIcon } from '@mui/icons-material';
+>>>>>>> b300f1b (feature/tasks_for_collabortaion)
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -25,6 +29,7 @@ interface CommentsSectionProps {
   onDeleteComment: (commentId: string) => Promise<void>;
   onReactToComment: (commentId: string, emoji: string) => Promise<void>;
   onCreateTask?: (commentId: string) => void;
+  onCreateTaskFromEntity?: () => void;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -40,6 +45,7 @@ export function CommentsSection({
   onDeleteComment,
   onReactToComment,
   onCreateTask,
+  onCreateTaskFromEntity,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -115,6 +121,20 @@ export function CommentsSection({
 
   return (
     <Paper sx={{ p: 3 }}>
+      {/* Create Task Button - Top Left */}
+      {onCreateTaskFromEntity && (
+        <Box sx={{ mb: 3 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={onCreateTaskFromEntity}
+            size="small"
+          >
+            Create Task
+          </Button>
+        </Box>
+      )}
+
       {/* Comments List */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -131,6 +151,7 @@ export function CommentsSection({
               onReact={handleReactToComment}
               onCreateTask={onCreateTask}
               currentUserId={currentUserId}
+              entityType={entityType}
             />
           ))}
         </Box>

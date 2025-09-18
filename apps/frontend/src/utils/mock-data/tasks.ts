@@ -137,8 +137,12 @@ export const getTasksByEntity = (entityType: EntityType, entityId: string): Task
   );
 };
 
-export const getTasksByAssignee = (assigneeId: string): Task[] => {
-  return mockTasks.filter(task => task.assignee_id === assigneeId);
+export const getTasksByComment = (commentId: string): Task[] => {
+  return mockTasks.filter(task => task.comment_id === commentId);
+};
+
+export const getTaskCountByComment = (commentId: string): number => {
+  return mockTasks.filter(task => task.comment_id === commentId).length;
 };
 
 export const getTasksByStatus = (status: TaskStatus): Task[] => {

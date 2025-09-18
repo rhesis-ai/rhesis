@@ -16,6 +16,7 @@ import {
   Assignment as TaskIcon,
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import { Task, TaskStatus, TaskPriority } from '@/types/tasks';
 import { UserAvatar } from '@/components/common/UserAvatar';
 
@@ -35,6 +36,7 @@ export function TaskItem({
   showEntityLink = false 
 }: TaskItemProps) {
   const theme = useTheme();
+  const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
 
   const isOwner = task.creator_id === currentUserId;
@@ -84,6 +86,29 @@ export function TaskItem({
     }
   };
 
+  const getEntityPath = (entityType: string): string => {
+    switch (entityType) {
+      case 'Test':
+        return 'tests';
+      case 'TestSet':
+        return 'test-sets';
+      case 'TestRun':
+        return 'test-runs';
+      case 'TestResult':
+        return 'test-results';
+      default:
+        return entityType.toLowerCase();
+    }
+  };
+
+  const handleTaskClick = (e: React.MouseEvent) => {
+    // Prevent navigation if clicking on action buttons
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    router.push(`/tasks/${task.id}`);
+  };
+
   return (
     <Box
       sx={{
@@ -93,6 +118,7 @@ export function TaskItem({
         borderRadius: 2,
         bgcolor: 'background.paper',
         transition: 'all 0.2s ease-in-out',
+        cursor: 'pointer',
         '&:hover': {
           borderColor: 'primary.main',
           boxShadow: 1,
@@ -101,6 +127,7 @@ export function TaskItem({
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleTaskClick}
     >
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -208,6 +235,23 @@ export function TaskItem({
           <Typography variant="caption" color="text.secondary">
             Related to: {getEntityDisplayName(task.entity_type)}
           </Typography>
+        </Box>
+      )}
+
+      {/* Comment Link */}
+      {task.comment_id && (
+        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Link 
+            href={`/${getEntityPath(task.entity_type)}/${task.entity_id}#comment-${task.comment_id}`}
+            sx={{ 
+              textDecoration: 'none',
+              '&:hover': { textDecoration: 'underline' }
+            }}
+          >
+            <Typography variant="caption" color="primary">
+              Created from comment → View Comment
+            </Typography>
+          </Link>
         </Box>
       )}
     </Box>

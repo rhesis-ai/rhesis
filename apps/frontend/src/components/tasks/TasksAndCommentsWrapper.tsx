@@ -114,23 +114,6 @@ export function TasksAndCommentsWrapper({
         currentUserName={currentUserName}
       />
 
-      {/* Create Task Button above Comments */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" fontWeight={600}>
-            Comments
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateTaskFromEntity}
-            size="small"
-          >
-            Create Task
-          </Button>
-        </Box>
-      </Paper>
-
       {/* Comments Section with Task Creation Integration */}
       <CommentsWrapper
         entityType={entityType}
@@ -140,6 +123,7 @@ export function TasksAndCommentsWrapper({
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}
         onCreateTask={handleCreateTaskFromComment}
+        onCreateTaskFromEntity={handleCreateTaskFromEntity}
       />
     </>
   );

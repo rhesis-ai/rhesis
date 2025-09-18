@@ -14,9 +14,10 @@ interface CommentsWrapperProps {
   currentUserName: string;
   currentUserPicture?: string;
   onCreateTask?: (commentId: string) => void;
+  onCreateTaskFromEntity?: () => void;
 }
 
-export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, onCreateTask }: CommentsWrapperProps) {
+export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, onCreateTask, onCreateTaskFromEntity }: CommentsWrapperProps) {
   const {
     comments,
     isLoading,
@@ -62,6 +63,7 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
       onDeleteComment={handleDeleteComment}
       onReactToComment={handleReactToComment}
       onCreateTask={onCreateTask}
+      onCreateTaskFromEntity={onCreateTaskFromEntity}
       currentUserId={currentUserId}
       currentUserName={currentUserName}
       currentUserPicture={currentUserPicture}
