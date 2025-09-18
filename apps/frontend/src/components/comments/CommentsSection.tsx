@@ -11,11 +11,7 @@ import {
   Paper,
   IconButton,
 } from '@mui/material';
-<<<<<<< HEAD
 import { Send as SendIcon } from '@mui/icons-material';
-=======
-import { Add as AddIcon } from '@mui/icons-material';
->>>>>>> b300f1b (feature/tasks_for_collabortaion)
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -120,21 +116,7 @@ export function CommentsSection({
   );
 
   return (
-    <Paper sx={{ p: 3 }}>
-      {/* Create Task Button - Top Left */}
-      {onCreateTaskFromEntity && (
-        <Box sx={{ mb: 3 }}>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={onCreateTaskFromEntity}
-            size="small"
-          >
-            Create Task
-          </Button>
-        </Box>
-      )}
-
+    <Box>
       {/* Comments List */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -227,6 +209,6 @@ export function CommentsSection({
           </Box>
         </Box>
       </Box>
-    </Paper>
+    </Box>
   );
 }

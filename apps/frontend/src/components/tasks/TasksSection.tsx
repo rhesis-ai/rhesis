@@ -6,9 +6,14 @@ import {
   Typography,
   CircularProgress,
   Paper,
+  Button,
+  Chip,
 } from '@mui/material';
+import { Add as AddIcon, Assignment as AssignmentIcon } from '@mui/icons-material';
 import { Task, EntityType } from '@/types/tasks';
-import { TaskItem } from './TaskItem';
+import BaseDataGrid from '@/components/common/BaseDataGrid';
+import { GridColDef } from '@mui/x-data-grid';
+import { useRouter } from 'next/navigation';
 
 interface TasksSectionProps {
   entityType: EntityType;
@@ -33,7 +38,7 @@ export function TasksSection({
   currentUserName,
   isLoading = false,
 }: TasksSectionProps) {
-
+  const router = useRouter();
 
   const handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {
@@ -60,62 +65,146 @@ export function TasksSection({
     }
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => {
-    // Sort by nano_id or id since created_at is not available
-    const aId = a.nano_id || a.id;
-    const bId = b.nano_id || b.id;
-    return aId.localeCompare(bId);
-  });
+  const handleRowClick = (params: any) => {
+    router.push(`/tasks/${params.id}`);
+  };
 
-  return (
-    <>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" fontWeight={600}>
-            Tasks ({tasks.length})
+  const handleCreateTask = () => {
+    const queryParams = new URLSearchParams({
+      entityType,
+      entityId,
+    });
+    router.push(`/tasks/create?${queryParams.toString()}`);
+  };
+
+  // Column definitions for the table
+  const columns: GridColDef[] = [
+    {
+      field: 'title',
+      headerName: 'Title',
+      width: 300,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <AssignmentIcon fontSize="small" color="action" />
+          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+            {params.row.title}
           </Typography>
         </Box>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 120,
+      renderCell: (params) => {
+        const getStatusColor = (status?: string) => {
+          switch (status) {
+            case 'Completed': return 'success';
+            case 'In Progress': return 'primary';
+            case 'Cancelled': return 'error';
+            default: return 'default';
+          }
+        };
+        
+        return (
+          <Chip 
+            label={params.row.status?.name || 'Unknown'} 
+            color={getStatusColor(params.row.status?.name) as any}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'priority',
+      headerName: 'Priority',
+      width: 120,
+      renderCell: (params) => {
+        const getPriorityColor = (priority?: string) => {
+          switch (priority) {
+            case 'High': return 'error';
+            case 'Medium': return 'warning';
+            case 'Low': return 'default';
+            default: return 'default';
+          }
+        };
+        
+        return (
+          <Chip 
+            label={params.row.priority?.type_value || 'Unknown'} 
+            color={getPriorityColor(params.row.priority?.type_value) as any}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'assignee',
+      headerName: 'Assignee',
+      width: 150,
+      renderCell: (params) => (
+        <Typography variant="body2">
+          {params.row.assignee?.name || 'Unassigned'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'user',
+      headerName: 'Creator',
+      width: 150,
+      renderCell: (params) => (
+        <Typography variant="body2">
+          {params.row.user?.name || 'Unknown'}
+        </Typography>
+      ),
+    },
+  ];
 
-        {/* Tasks List */}
-        {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : tasks.length === 0 ? (
-          <Box 
-            sx={{ 
-              textAlign: 'center', 
-              py: 6,
-              border: '2px dashed',
-              borderColor: 'divider',
-              borderRadius: 2,
-              bgcolor: 'background.default',
-            }}
-          >
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No tasks yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Create the first task for this {getEntityDisplayName(entityType)}.
-            </Typography>
-          </Box>
-        ) : (
-          <Box>
-            {sortedTasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onEdit={onEditTask}
-                onDelete={handleDeleteTask}
-                currentUserId={currentUserId}
-                showEntityLink={false}
-              />
-            ))}
-          </Box>
-        )}
-      </Paper>
+  return (
+    <Box>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" component="h2">
+          Tasks ({tasks.length})
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreateTask}
+        >
+          Create Task
+        </Button>
+      </Box>
 
-    </>
+      {/* Tasks Table */}
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : tasks.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+          No tasks yet. Create the first task for this {getEntityDisplayName(entityType).toLowerCase()}.
+        </Typography>
+      ) : (
+        <BaseDataGrid
+          rows={tasks}
+          columns={columns}
+          loading={isLoading}
+          onRowClick={handleRowClick}
+          disableRowSelectionOnClick
+          pageSizeOptions={[5, 10, 25]}
+          paginationModel={{ page: 0, pageSize: 10 }}
+          getRowId={(row) => row.id}
+          showToolbar={true}
+          enableQuickFilter={true}
+          sx={{
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+            },
+            minHeight: Math.min(tasks.length * 52 + 120, 400), // Dynamic height
+          }}
+        />
+      )}
+    </Box>
   );
 }

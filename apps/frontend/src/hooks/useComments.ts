@@ -34,19 +34,12 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       const fetchedComments = await commentsClient.getComments(entityType, entityId);
       setComments(fetchedComments);
     } catch (err) {
-      // For mock entities (like tasks), silently handle the case where no comments exist
-      // instead of showing error notifications
-      if (entityType === 'Task') {
-        setComments([]);
-        setError(null);
-      } else {
-        setError('Failed to fetch comments');
-        console.error('Error fetching comments:', err);
-        notifications.show('Failed to fetch comments', { 
-          severity: 'error',
-          autoHideDuration: 3000
-        });
-      }
+      setError('Failed to fetch comments');
+      console.error('Error fetching comments:', err);
+      notifications.show('Failed to fetch comments', { 
+        severity: 'error',
+        autoHideDuration: 3000
+      });
     } finally {
       setIsLoading(false);
     }
@@ -55,15 +48,6 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
   const createComment = useCallback(async (text: string) => {
     if (!sessionToken) {
       throw new Error('No session token available');
-    }
-
-    // For mock entities (like tasks), show a message that comments are not available
-    if (entityType === 'Task') {
-      notifications.show('Comments are not available for tasks in demo mode', { 
-        severity: 'info',
-        autoHideDuration: 3000
-      });
-      return;
     }
 
     try {
@@ -102,15 +86,6 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
   const editComment = useCallback(async (commentId: string, newText: string) => {
     if (!sessionToken) {
       throw new Error('No session token available');
-    }
-
-    // For mock entities (like tasks), show a message that comments are not available
-    if (entityType === 'Task') {
-      notifications.show('Comments are not available for tasks in demo mode', { 
-        severity: 'info',
-        autoHideDuration: 3000
-      });
-      return;
     }
 
     try {
@@ -154,15 +129,6 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       throw new Error('No session token available');
     }
 
-    // For mock entities (like tasks), show a message that comments are not available
-    if (entityType === 'Task') {
-      notifications.show('Comments are not available for tasks in demo mode', { 
-        severity: 'info',
-        autoHideDuration: 3000
-      });
-      return;
-    }
-
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const commentsClient = clientFactory.getCommentsClient();
@@ -187,15 +153,6 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
   const reactToComment = useCallback(async (commentId: string, emoji: string) => {
     if (!sessionToken) {
       throw new Error('No session token available');
-    }
-
-    // For mock entities (like tasks), show a message that comments are not available
-    if (entityType === 'Task') {
-      notifications.show('Comments are not available for tasks in demo mode', { 
-        severity: 'info',
-        autoHideDuration: 3000
-      });
-      return;
     }
 
     try {
