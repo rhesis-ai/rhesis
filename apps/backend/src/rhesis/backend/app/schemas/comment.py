@@ -23,7 +23,10 @@ class CommentBase(Base):
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
     entity_type: EntityType = Field(
         ...,
-        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category', 'Task'",
+        description=(
+            "Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', "
+            "'Model', 'Prompt', 'Behavior', 'Category', 'Task'"
+        ),
     )
 
 
@@ -35,7 +38,10 @@ class CommentCreate(BaseModel):
     entity_id: UUID = Field(..., description="ID of the entity this comment belongs to")
     entity_type: EntityType = Field(
         ...,
-        description="Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', 'Model', 'Prompt', 'Behavior', 'Category', 'Task'",
+        description=(
+            "Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', "
+            "'Model', 'Prompt', 'Behavior', 'Category', 'Task'"
+        ),
     )
 
     class Config:

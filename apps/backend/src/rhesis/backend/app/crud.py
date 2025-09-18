@@ -2007,3 +2007,156 @@ def remove_emoji_reaction(
     db.refresh(comment)
 
     return comment
+
+
+# Task CRUD
+def get_task(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
+    """Get a single task by ID"""
+    return get_item_detail(db, models.Task, task_id)
+
+
+def get_task_with_comment_count(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
+    """Get a single task by ID with comment count"""
+    from sqlalchemy import func
+
+    # Get the task
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        return None
+
+    # Get comment count for this specific task
+    comment_count = (
+        db.query(func.count(models.Comment.id))
+        .filter(models.Comment.entity_id == task_id)
+        .filter(models.Comment.entity_type == "Task")
+        .scalar()
+    ) or 0
+
+    # Add total_comments to the task
+    task.total_comments = comment_count
+
+    return task
+
+
+def get_tasks(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+) -> List[models.Task]:
+    """Get tasks with filtering and sorting"""
+    return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter)
+
+
+def create_task(
+    db: Session, task: schemas.TaskCreate, organization_id: str = None, user_id: str = None
+) -> models.Task:
+    """Create a new task"""
+    # Check if task is being created with "Completed" status
+    if task.status_id is not None:
+        status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
+        if status and status.name == "Completed":
+            # Set completed_at to current timestamp
+            task.completed_at = datetime.utcnow()
+
+    return create_item(db, models.Task, task, organization_id=organization_id, user_id=user_id)
+
+
+def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate) -> Optional[models.Task]:
+    """Update a task"""
+    # Check if status is being changed to "Completed"
+    if task.status_id is not None:
+        # Get current task to compare status
+        current_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        if current_task and task.status_id != current_task.status_id:
+            # Get the new status to check if it's "Completed"
+            new_status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
+            if new_status and new_status.name == "Completed":
+                # Set completed_at to current timestamp
+                task.completed_at = datetime.utcnow()
+
+    return update_item(db, models.Task, task_id, task)
+
+
+def delete_task(db: Session, task_id: uuid.UUID) -> bool:
+    """Delete a task"""
+    result = delete_item(db, models.Task, task_id)
+    return result is not None
+
+
+def get_tasks_with_comment_counts(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str = None,
+) -> List[models.Task]:
+    """
+    Get tasks with comment counts using PostgreSQL aggregation.
+    Uses a subquery to count comments for each task efficiently.
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import aliased
+
+    # Create alias for Comment model
+    Comment = aliased(models.Comment)
+
+    # Subquery to count comments for each task
+    comment_count_subquery = (
+        select(Comment.entity_id, func.count(Comment.id).label("total_comments"))
+        .where(Comment.entity_type == "Task")
+        .group_by(Comment.entity_id)
+        .subquery()
+    )
+
+    # First get the tasks with organization filter
+    from rhesis.backend.app.utils.model_utils import apply_organization_filter
+
+    base_query = db.query(models.Task)
+    base_query = apply_organization_filter(db, base_query, models.Task)
+
+    # Apply OData filter if provided
+    if filter:
+        from rhesis.backend.app.utils.odata import apply_odata_filter
+
+        base_query = apply_odata_filter(base_query, models.Task, filter)
+
+    # Apply sorting
+    sort_column = getattr(models.Task, sort_by, models.Task.created_at)
+    if sort_order.lower() == "desc":
+        base_query = base_query.order_by(sort_column.desc())
+    else:
+        base_query = base_query.order_by(sort_column.asc())
+
+    # Apply pagination
+    base_query = base_query.offset(skip).limit(limit)
+
+    # Execute the base query to get tasks
+    tasks = base_query.all()
+
+    # Now get comment counts for these tasks
+    task_ids = [task.id for task in tasks]
+
+    if task_ids:
+        # Get comment counts for the tasks
+        comment_counts = (
+            db.query(Comment.entity_id, func.count(Comment.id).label("total_comments"))
+            .where(Comment.entity_type == "Task")
+            .where(Comment.entity_id.in_(task_ids))
+            .group_by(Comment.entity_id)
+            .all()
+        )
+
+        # Create a mapping of task_id to comment count
+        comment_count_map = {str(task_id): count for task_id, count in comment_counts}
+    else:
+        comment_count_map = {}
+
+    # Add total_comments to each task
+    for task in tasks:
+        task.total_comments = comment_count_map.get(str(task.id), 0)
+
+    return tasks
