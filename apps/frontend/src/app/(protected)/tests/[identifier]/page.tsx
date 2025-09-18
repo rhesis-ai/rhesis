@@ -13,7 +13,6 @@ import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 import { PageContainer } from '@toolpad/core/PageContainer';
-import TestWorkflowSection from './components/TestWorkflowSection';
 
 import TestDetailCharts from './components/TestDetailCharts';
 import TestDetailData from './components/TestDetailData';
@@ -72,7 +71,7 @@ export default async function TestDetailPage({ params }: PageProps) {
 
           <Grid container spacing={3}>
             {/* Main Content Column */}
-            <Grid item xs={12} md={9}>
+            <Grid item xs={12}>
               <Paper sx={{ p: 3, mb: 4 }}>
                 <Grid container spacing={3}>
                   {/* Action Buttons */}
@@ -123,23 +122,6 @@ export default async function TestDetailPage({ params }: PageProps) {
                 currentUserName={session.user?.name || ''}
                 currentUserPicture={session.user?.picture || undefined}
               />
-            </Grid>
-
-            {/* Workflow Column */}
-            <Grid item xs={12} md={3}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Workflow
-                </Typography>
-                <TestWorkflowSection 
-                  sessionToken={session.session_token} 
-                  testId={identifier}
-                  status={test.status?.name}
-                  priority={test.priority}
-                  assignee={test.assignee}
-                  owner={test.owner}
-                />
-              </Paper>
             </Grid>
           </Grid>
         </Box>
