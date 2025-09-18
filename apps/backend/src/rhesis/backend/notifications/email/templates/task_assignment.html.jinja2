@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Task Assignment Notification</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: #e3f2fd; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h2 style="color: #1976d2; margin-top: 0;">
+            📋 New Task Assignment
+        </h2>
+        <p>
+            {%- if assignee_name -%}
+            Hello {{ assignee_name }},
+            {%- else -%}
+            Hello,
+            {%- endif %}
+        </p>
+        <p>You have been assigned a new task by 
+            {%- if assigner_name -%}
+            <strong> {{ assigner_name }}</strong>
+            {%- else -%}
+            <strong> a team member</strong>
+            {%- endif %}
+        </p>
+    </div>
+    
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px;">
+        <h3 style="color: #495057; margin-top: 0;">Task Details</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Task Title:</td>
+                <td style="padding: 8px 0;">{{ task_title }}</td>
+            </tr>
+            {%- if task_description %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Description:</td>
+                <td style="padding: 8px 0;">{{ task_description }}</td>
+            </tr>
+            {%- endif %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Task ID:</td>
+                <td style="padding: 8px 0; font-family: monospace; font-size: 1.1em; font-weight: bold;">{{ task_id }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Status:</td>
+                <td style="padding: 8px 0; color: #007bff; font-weight: bold;">
+                    {{ status_name }}
+                </td>
+            </tr>
+            {%- if priority_name %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Priority:</td>
+                <td style="padding: 8px 0;">
+                    <span style="
+                        padding: 4px 8px; 
+                        border-radius: 4px; 
+                        font-size: 0.8em; 
+                        font-weight: bold;
+                        {%- if priority_name.lower() == 'high' -%}
+                        background: #ffebee; color: #c62828;
+                        {%- elif priority_name.lower() == 'medium' -%}
+                        background: #fff3e0; color: #ef6c00;
+                        {%- else -%}
+                        background: #e8f5e8; color: #2e7d32;
+                        {%- endif %}
+                    ">
+                        {{ priority_name }}
+                    </span>
+                </td>
+            </tr>
+            {%- endif %}
+            {%- if entity_type and entity_id %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Related to:</td>
+                <td style="padding: 8px 0;">
+                    {{ entity_type }}
+                    {%- if entity_name and entity_name != 'N/A' and entity_name != 'None' %} - {{ entity_name }}{%- endif %}
+                    <br>
+                    <span style="color: #6c757d; font-family: monospace; font-size: 1.1em; font-weight: bold;">{{ entity_id }}</span>
+                </td>
+            </tr>
+            {%- endif %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Created:</td>
+                <td style="padding: 8px 0;">{{ created_at }}</td>
+            </tr>
+        </table>
+    </div>
+
+    {%- if task_metadata and task_metadata.comment_id %}
+    <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h3 style="color: #495057; margin-top: 0;">Related Comment</h3>
+        <p style="margin: 0; color: #6c757d; font-size: 0.9em;">
+            This task was created from a comment. 
+            <small style="font-family: monospace;">Comment ID: {{ task_metadata.comment_id }}</small>
+        </p>
+    </div>
+    {%- endif %}
+
+    {%- if frontend_url %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ frontend_url }}/tasks/{{ task_id }}" 
+           style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+            View Task
+        </a>
+    </div>
+    {%- endif %}
+    
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em;">
+        <p>Best regards,<br>Rhesis AI Team</p>
+    </div>
+</body>
+</html>
