@@ -33,7 +33,7 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
       if (!sessionToken) return;
 
       const apiFactory = new ApiClientFactory(sessionToken);
-      
+
       // Fetch behaviors with sorting
       const behaviorsClient = apiFactory.getBehaviorClient();
       const behaviorsData = await behaviorsClient.getBehaviors({ sort_by: 'name', sort_order: 'asc' });
@@ -42,7 +42,7 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           .filter((b: { id: UUID; name: string }) => b.id && b.name && b.name.trim() !== '')
           .map((b: { id: UUID; name: string }) => ({ id: b.id, name: b.name }))
       );
-      
+
       // Fetch test types using the API client
       try {
         const typeLookupClient = apiFactory.getTypeLookupClient();
@@ -56,12 +56,12 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
         console.error('Error fetching test types:', error);
         setTypes([]);
       }
-      
+
       // Fetch topics with entity_type filter and sorting
       const topicsClient = apiFactory.getTopicClient();
       const topicsData = await topicsClient.getTopics({ entity_type: 'Test', sort_by: 'name', sort_order: 'asc' });
       setTopics(topicsData.map((t: { id: UUID; name: string }) => ({ id: t.id, name: t.name })));
-      
+
       // Fetch categories with entity_type filter and sorting
       const categoriesClient = apiFactory.getCategoryClient();
       const categoriesData = await categoriesClient.getCategories({ entity_type: 'Test', sort_by: 'name', sort_order: 'asc' });
@@ -73,21 +73,21 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
 
   const refreshTest = React.useCallback(async () => {
     if (!sessionToken || isUpdating) return;
-    
+
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testsClient = apiFactory.getTestsClient();
       const promptsClient = apiFactory.getPromptsClient();
-      
+
       // Fetch updated test data
       const updatedTest = await testsClient.getTest(test.id);
-      
+
       // Fetch complete prompt data
       if (updatedTest.prompt_id) {
         const promptData = await promptsClient.getPrompt(updatedTest.prompt_id);
         updatedTest.prompt = promptData;
       }
-      
+
       setTest(updatedTest);
     } catch (error) {
       console.error('Error refreshing test:', error);
@@ -96,15 +96,15 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
 
   const handleUpdate = async (field: string, value: string | AutocompleteOption | null) => {
     if (!sessionToken || isUpdating) return;
-    
+
     setIsUpdating(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testsClient = apiFactory.getTestsClient();
-      
+
       // Prepare the update payload based on the field
       const updatePayload: Record<string, any> = {};
-      
+
       if (typeof value === 'string') {
         // If it's a string, it's a new value that needs to be created
         // This would require additional API calls to create the entity
@@ -120,10 +120,10 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
       } else if (value) {
         // If it's an object with an id, use that id
         updatePayload[`${field}_id`] = value.id;
-        
+
         // Update the test
         await testsClient.updateTest(test.id, updatePayload);
-        
+
         notifications.show(
           `Successfully updated test ${field}`,
           {
@@ -131,16 +131,16 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
             autoHideDuration: 6000
           }
         );
-        
+
         // Refresh the test data
         await refreshTest();
       } else {
         // If value is null, we're clearing the field
         updatePayload[`${field}_id`] = null;
-        
+
         // Update the test
         await testsClient.updateTest(test.id, updatePayload);
-        
+
         notifications.show(
           `Successfully cleared test ${field}`,
           {
@@ -148,13 +148,13 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
             autoHideDuration: 6000
           }
         );
-        
+
         // Refresh the test data
         await refreshTest();
       }
     } catch (error) {
       console.error(`Error updating test ${field}:`, error);
-      
+
       notifications.show(
         `Failed to update test ${field}`,
         {
@@ -298,6 +298,42 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           fieldName="expected_response"
         />
       </Grid>
+
+      {/* Source Documents Section */}
+      {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Source Documents
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {test.test_metadata.sources.map((source: any, index: number) => (
+              <Box key={index}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  📄 {source.document || source.source || 'Unknown Document'}
+                </Typography>
+                <Box
+                  sx={{
+                    p: 2,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    backgroundColor: 'background.paper',
+                    minHeight: '100px',
+                    maxHeight: '300px',
+                    overflow: 'auto',
+                    fontFamily: 'monospace',
+                    fontSize: '0.875rem',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  {source.content || 'No content available'}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Grid>
+      )}
     </Grid>
   );
-} 
+}
