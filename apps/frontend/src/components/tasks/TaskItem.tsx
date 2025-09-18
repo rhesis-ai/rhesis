@@ -43,7 +43,7 @@ export function TaskItem({
   const canEdit = isOwner || task.assignee_id === currentUserId;
   const canDelete = isOwner;
 
-  const getStatusColor = (status: TaskStatus) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'Open':
         return 'default';
@@ -58,7 +58,7 @@ export function TaskItem({
     }
   };
 
-  const getPriorityColor = (priority: TaskPriority) => {
+  const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'Low':
         return 'default';
@@ -197,15 +197,15 @@ export function TaskItem({
       {/* Status and Priority */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
         <Chip
-          label={task.status}
+          label={task.status?.name || 'Unknown'}
           size="small"
-          color={getStatusColor(task.status)}
+          color={getStatusColor(task.status?.name)}
           variant="outlined"
         />
         <Chip
-          label={task.priority}
+          label={task.priority?.name || 'Unknown'}
           size="small"
-          color={getPriorityColor(task.priority)}
+          color={getPriorityColor(task.priority?.name)}
           variant="outlined"
         />
       </Box>
@@ -215,11 +215,11 @@ export function TaskItem({
         {/* Assignee */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <UserAvatar 
-            userName={task.assignee_name || task.creator_name}
+            userName={task.assignee?.name || task.creator?.name || 'Unknown'}
             size={24}
           />
           <Typography variant="caption" color="text.secondary">
-            {task.assignee_name ? `Assigned to ${task.assignee_name}` : `Created by ${task.creator_name}`}
+            {task.assignee?.name ? `Assigned to ${task.assignee.name}` : `Created by ${task.creator?.name || 'Unknown'}`}
           </Typography>
         </Box>
 
@@ -239,10 +239,10 @@ export function TaskItem({
       )}
 
       {/* Comment Link */}
-      {task.comment_id && (
+      {task.task_metadata?.comment_id && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <Link 
-            href={`/${getEntityPath(task.entity_type)}/${task.entity_id}#comment-${task.comment_id}`}
+            href={`/${getEntityPath(task.entity_type || '')}/${task.entity_id}#comment-${task.task_metadata.comment_id}`}
             sx={{ 
               textDecoration: 'none',
               '&:hover': { textDecoration: 'underline' }

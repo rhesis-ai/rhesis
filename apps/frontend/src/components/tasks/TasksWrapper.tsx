@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { Task, EntityType } from '@/types/tasks';
-import { getTasksByEntity } from '@/utils/mock-data/tasks';
+import React, { useCallback } from 'react';
+import { EntityType } from '@/types/tasks';
+import { useTasks } from '@/hooks/useTasks';
 import { TasksSection } from './TasksSection';
 import { TaskCreationModal } from './TaskCreationModal';
 
@@ -21,65 +21,32 @@ export function TasksWrapper({
   currentUserName,
   currentUserPicture,
 }: TasksWrapperProps) {
-  const [tasks, setTasks] = useState<Task[]>(() => getTasksByEntity(entityType, entityId));
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { tasks, isLoading, createTask, deleteTask } = useTasks({ 
+    entityType, 
+    entityId, 
+    autoFetch: true 
+  });
 
   const handleCreateTask = useCallback(async (taskData: any) => {
-    setIsSubmitting(true);
     try {
-      // In a real app, this would make an API call
-      console.log('Creating task:', taskData);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create a new task with mock data
-      const newTask: Task = {
-        id: `task-${Date.now()}`,
-        title: taskData.title,
-        description: taskData.description,
-        status: 'Open',
-        priority: taskData.priority,
-        creator_id: currentUserId,
-        creator_name: currentUserName,
-        assignee_id: taskData.assignee_id,
-        assignee_name: taskData.assignee_id ? 'Assigned User' : undefined,
-        entity_type: taskData.entity_type,
-        entity_id: taskData.entity_id,
-        comment_id: taskData.comment_id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      setTasks(prev => [...prev, newTask]);
-      setShowCreateModal(false);
+      await createTask(taskData);
     } catch (error) {
       console.error('Failed to create task:', error);
-    } finally {
-      setIsSubmitting(false);
     }
-  }, [currentUserId, currentUserName]);
+  }, [createTask]);
 
   const handleEditTask = useCallback((taskId: string) => {
-    // In a real app, this would navigate to the task detail page
-    console.log('Edit task:', taskId);
+    // Navigate to the task detail page
     window.open(`/tasks/${taskId}`, '_blank');
   }, []);
 
   const handleDeleteTask = useCallback(async (taskId: string) => {
     try {
-      // In a real app, this would make an API call
-      console.log('Deleting task:', taskId);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setTasks(prev => prev.filter(task => task.id !== taskId));
+      await deleteTask(taskId);
     } catch (error) {
       console.error('Failed to delete task:', error);
     }
-  }, []);
+  }, [deleteTask]);
 
   return (
     <>
@@ -92,13 +59,13 @@ export function TasksWrapper({
         onDeleteTask={handleDeleteTask}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
+        isLoading={isLoading}
       />
 
       {/* Task Creation Modal */}
       <TaskCreationModal
-        open={showCreateModal}
+        open={false} // This will be controlled by the TasksSection component
         onClose={() => {
-          setShowCreateModal(false);
           (window as any).pendingCommentId = undefined;
         }}
         onSubmit={handleCreateTask}
@@ -106,7 +73,7 @@ export function TasksWrapper({
         entityId={entityId}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
-        isLoading={isSubmitting}
+        isLoading={false}
         commentId={(window as any).pendingCommentId}
       />
     </>

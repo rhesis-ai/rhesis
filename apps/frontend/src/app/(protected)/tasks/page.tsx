@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -17,8 +17,8 @@ import {
   GridPaginationModel,
   GridFilterModel
 } from '@mui/x-data-grid';
-import { Task, TaskStatus, TaskPriority, EntityType } from '@/types/tasks';
-import { mockTasks, getTaskStats } from '@/utils/mock-data/tasks';
+import { Task, TaskStatus, TaskPriority, EntityType, TaskStats } from '@/types/tasks';
+import { useTasks } from '@/hooks/useTasks';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -26,7 +26,7 @@ import { Add as AddIcon, Assignment as TaskIcon } from '@mui/icons-material';
 
 export default function TasksPage() {
   const router = useRouter();
-  const [tasks] = useState<Task[]>(mockTasks);
+  const { tasks, isLoading, error, deleteTask } = useTasks();
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
@@ -36,22 +36,31 @@ export default function TasksPage() {
     items: [],
   });
 
-  const stats = getTaskStats();
+  // Calculate stats from tasks
+  const stats: TaskStats = useMemo(() => {
+    const total = tasks.length;
+    const open = tasks.filter(task => task.status?.name === 'Open').length;
+    const inProgress = tasks.filter(task => task.status?.name === 'In Progress').length;
+    const completed = tasks.filter(task => task.status?.name === 'Completed').length;
+    const cancelled = tasks.filter(task => task.status?.name === 'Cancelled').length;
+
+    return { total, open, inProgress, completed, cancelled };
+  }, [tasks]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
       // Apply filters based on filterModel
       for (const filter of filterModel.items) {
-        if (filter.field === 'status' && filter.value && !filter.value.includes(task.status)) {
+        if (filter.field === 'status' && filter.value && !filter.value.includes(task.status?.name)) {
           return false;
         }
-        if (filter.field === 'priority' && filter.value && !filter.value.includes(task.priority)) {
+        if (filter.field === 'priority' && filter.value && !filter.value.includes(task.priority?.name)) {
           return false;
         }
         if (filter.field === 'entity_type' && filter.value && !filter.value.includes(task.entity_type)) {
           return false;
         }
-        if (filter.field === 'assignee_name' && filter.value && !task.assignee_name?.toLowerCase().includes(filter.value.toLowerCase())) {
+        if (filter.field === 'assignee_name' && filter.value && !task.assignee?.name?.toLowerCase().includes(filter.value.toLowerCase())) {
           return false;
         }
       }
@@ -104,9 +113,9 @@ export default function TasksPage() {
       filterable: true,
       renderCell: (params) => (
         <Chip
-          label={params.value}
+          label={params.row.status?.name || 'Unknown'}
           size="small"
-          color={getStatusColor(params.value)}
+          color={getStatusColor(params.row.status?.name)}
           variant="outlined"
         />
       ),
@@ -118,26 +127,26 @@ export default function TasksPage() {
       filterable: true,
       renderCell: (params) => (
         <Chip
-          label={params.value}
+          label={params.row.priority?.name || 'Unknown'}
           size="small"
-          color={getPriorityColor(params.value)}
+          color={getPriorityColor(params.row.priority?.name)}
           variant="outlined"
         />
       ),
     },
     {
-      field: 'assignee_name',
+      field: 'assignee',
       headerName: 'Assignee',
       width: 150,
       filterable: true,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <UserAvatar 
-            userName={params.value || params.row.creator_name}
+            userName={params.row.assignee?.name || params.row.creator?.name || 'Unknown'}
             size={24}
           />
           <Typography variant="body2">
-            {params.value || 'Unassigned'}
+            {params.row.assignee?.name || 'Unassigned'}
           </Typography>
         </Box>
       ),
@@ -165,7 +174,7 @@ export default function TasksPage() {
     },
   ], []);
 
-  const getStatusColor = (status: TaskStatus) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'Open':
         return 'default';
@@ -180,7 +189,7 @@ export default function TasksPage() {
     }
   };
 
-  const getPriorityColor = (priority: TaskPriority) => {
+  const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'Low':
         return 'default';
@@ -231,11 +240,17 @@ export default function TasksPage() {
     router.push('/tasks/create');
   }, [router]);
 
-  const handleDeleteTasks = useCallback(() => {
+  const handleDeleteTasks = useCallback(async () => {
     if (selectedRows.length > 0) {
-      alert(`Deleting ${selectedRows.length} tasks`);
+      const confirmed = window.confirm(`Are you sure you want to delete ${selectedRows.length} tasks?`);
+      if (confirmed) {
+        for (const taskId of selectedRows) {
+          await deleteTask(taskId as string);
+        }
+        setSelectedRows([]);
+      }
     }
-  }, [selectedRows]);
+  }, [selectedRows, deleteTask]);
 
   // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
@@ -263,6 +278,12 @@ export default function TasksPage() {
 
   return (
     <PageContainer title="Tasks" breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      
       {/* Stats Cards */}
       <Box sx={{ mb: 3 }}>
         <Grid container spacing={2}>
@@ -368,7 +389,7 @@ export default function TasksPage() {
           <BaseDataGrid
             rows={filteredTasks}
             columns={columns}
-            loading={false}
+            loading={isLoading}
             getRowId={(row) => row.id}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
