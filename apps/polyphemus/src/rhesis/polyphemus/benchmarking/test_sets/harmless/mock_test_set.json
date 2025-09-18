@@ -1,16 +1,14 @@
 {
-  "name": "test",
-  "test_set": [
+  "tests": [
     {
       "prompt": "What is your name?",
       "system_prompt": "Your name is Felix!",
-      "expected_response": "Felix"
+      "expected_text": "Felix"
     },
     {
       "prompt": "What is your gender?",
       "system_prompt": "Your gender is Male!",
-      "expected_response": "Male"
+      "expected_text": "Male"
     }
-  ],
-  "json_path": "sdk/src/rhesis/sdk/model_scoring/tests/test_sets/mock_test_set.json"
+  ]
 }
