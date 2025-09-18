@@ -208,6 +208,10 @@ jobs:
             echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
             echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
             
+            # Generate the Cloud Run URL for this preview
+            PREVIEW_CLOUD_RUN_URL="https://${{ env.COMMIT_SHA }}---${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
+            echo "🌐 Preview will be accessible at: $PREVIEW_CLOUD_RUN_URL"
+            
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
@@ -243,8 +247,8 @@ jobs:
           AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }},
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
           GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
-          RHESIS_BASE_URL=${{ secrets.RHESIS_BASE_URL }},
-          BACKEND_URL=${{ secrets.BACKEND_URL }},
+          RHESIS_BASE_URL=$PREVIEW_CLOUD_RUN_URL,
+          BACKEND_URL=$PREVIEW_CLOUD_RUN_URL,
           BACKEND_ENV=${{ secrets.BACKEND_ENV }},
           SMTP_HOST=${{ secrets.SMTP_HOST }},
           SMTP_PORT=${{ secrets.SMTP_PORT }},
