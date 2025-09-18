@@ -2,6 +2,7 @@ name: Preview Deployment (Full Stack)
 
 # Coordinated preview deployment for both backend and frontend
 # This ensures frontend gets the correct backend preview URL
+# Updated: Manual trigger workflow for full-stack preview deployments
 
 on:
   workflow_dispatch:
