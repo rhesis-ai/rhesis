@@ -14,8 +14,9 @@ os.environ["SQLALCHEMY_DB_MODE"] = "test"
 
 # Now import backend modules after setting test mode
 from rhesis.backend.app.main import app
-from rhesis.backend.app.database import Base, get_db
+from rhesis.backend.app.database import Base, get_db, get_database_url
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import EntityType
 
 
 
@@ -49,18 +50,36 @@ def rhesis_api_key():
     print(f"🔍 DEBUG: Using environment API key: {repr(api_key)}")
     return api_key
 
-# Test database configuration - PostgreSQL only
-SQLALCHEMY_DATABASE_TEST_URL = os.getenv("SQLALCHEMY_DATABASE_TEST_URL")
-if not SQLALCHEMY_DATABASE_TEST_URL:
-    raise ValueError("SQLALCHEMY_DATABASE_TEST_URL environment variable is required for testing")
+# Test database configuration - use the same logic as main database file
+# This ensures consistency between test and production database connections
+SQLALCHEMY_DATABASE_TEST_URL = get_database_url()
 
-# Create separate test engine for PostgreSQL
+# Create test engine with the same configuration as production
+# but optimized for testing (smaller pool sizes)
 test_engine = create_engine(
     SQLALCHEMY_DATABASE_TEST_URL,
-    pool_pre_ping=True,
-    pool_recycle=300
+    # Reduced pool settings for testing
+    pool_size=5,                   # Smaller than production (10)
+    max_overflow=10,               # Smaller than production (20)
+    pool_pre_ping=True,            # Same as production
+    pool_recycle=3600,             # Same as production (1 hour)
+    pool_timeout=10,               # Same as production
+    # Same connection args as production
+    connect_args={
+        "connect_timeout": 10,          # Same as production
+        "application_name": "rhesis-backend-test",  # Distinguish test connections
+        "keepalives_idle": "300",       # Same as production
+        "keepalives_interval": "10",    # Same as production
+        "keepalives_count": "3",        # Same as production
+        "tcp_user_timeout": "30000",    # Same as production
+    }
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+TestingSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=test_engine,
+    expire_on_commit=False,  # Same as production
+)
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
@@ -71,26 +90,66 @@ def setup_test_database():
     # Clean up after all tests are done
     Base.metadata.drop_all(bind=test_engine)
 
+
+@pytest.fixture(autouse=True)
+def clean_test_database():
+    """Clean test database between tests for isolation while maintaining production behavior."""
+    # Clean up BEFORE each test to ensure isolation
+    try:
+        with test_engine.connect() as connection:
+            with connection.begin():
+                # Simple approach: truncate all tables except reference data
+                # This is faster and more reliable than DELETE
+                
+                # List of tables to truncate (in dependency order)
+                tables_to_truncate = [
+                    # Main entity tables (reverse dependency order)
+                    'test_test_set_associations',
+                    'test_set_execution_results',
+                    'test_execution_results', 
+                    'tests',
+                    'test_sets',
+                    'endpoints',
+                    'organizations',
+                    '"user"',  # user is a reserved word, needs quotes
+                    # Add other tables as needed
+                ]
+                
+                for table_name in tables_to_truncate:
+                    try:
+                        # TRUNCATE is faster than DELETE and resets sequences
+                        connection.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE'))
+                    except Exception as e:
+                        # Table might not exist or have other issues - try DELETE as fallback
+                        try:
+                            connection.execute(text(f'DELETE FROM {table_name}'))
+                        except Exception:
+                            # If both fail, continue - some tables might not exist yet
+                            pass
+                            
+    except Exception as e:
+        # If cleanup fails completely, continue - tests might still work
+        print(f"Database cleanup failed: {e}")
+        pass
+    
+    yield  # Test runs here
+
 @pytest.fixture
 def test_db(test_org_id, authenticated_user_id):
-    """🗄️ Provide a database session for testing compatible with get_org_aware_db pattern but with rollback."""
+    """🗄️ Provide a database session for testing - allows service code to manage transactions."""
     from rhesis.backend.app.database import clear_tenant_context, _current_tenant_organization_id, _current_tenant_user_id
     from sqlalchemy import text
     from uuid import UUID
     
-    # Use the same connection approach as production but with test-specific transaction handling
-    connection = test_engine.connect()
-    transaction = connection.begin()
-    db = TestingSessionLocal(bind=connection)
-    
+    # Create session but let service code manage transactions (like production)
+    db = TestingSessionLocal()
     try:
-        # Set session variables using SET LOCAL (same as get_org_aware_db)
-        # SET LOCAL only affects the current transaction
+        # Set session variables (without SET LOCAL since no transaction context yet)
         if test_org_id:
             try:
                 UUID(test_org_id)  # Validate UUID format
                 db.execute(
-                    text('SET LOCAL "app.current_organization" = :org_id'), 
+                    text('SET "app.current_organization" = :org_id'), 
                     {"org_id": test_org_id}
                 )
             except (ValueError, TypeError) as e:
@@ -100,30 +159,31 @@ def test_db(test_org_id, authenticated_user_id):
             try:
                 UUID(authenticated_user_id)  # Validate UUID format
                 db.execute(
-                    text('SET LOCAL "app.current_user" = :user_id'), 
+                    text('SET "app.current_user" = :user_id'), 
                     {"user_id": authenticated_user_id}
                 )
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Invalid authenticated_user_id: {authenticated_user_id}")
         
-        # Store in context vars for any legacy code that might need it (same as get_org_aware_db)
+        # Store in context vars for any legacy code that might need it
         _current_tenant_organization_id.set(test_org_id)
         if authenticated_user_id:
             _current_tenant_user_id.set(authenticated_user_id)
             
         yield db
+        # Let service code handle commit/rollback as it does in production
         
     finally:
-        # Clear context vars (same as get_org_aware_db)
+        # Ensure any open transaction is rolled back
+        try:
+            if db.in_transaction():
+                db.rollback()
+        except Exception:
+            pass
+        
+        # Clear context vars and close session
         clear_tenant_context()
         db.close()
-        # Rollback for tests (different from get_org_aware_db which commits)
-        try:
-            transaction.rollback()
-        except Exception:
-            # Transaction may already be closed/rolled back
-            pass
-        connection.close()
 
 @pytest.fixture
 def client(test_db):
@@ -223,6 +283,22 @@ def test_org_id(authenticated_user_info) -> str:
     """🏢 Get the test organization ID from authenticated API key"""
     org_id, _ = authenticated_user_info
     return org_id
+
+
+@pytest.fixture
+def test_entity_type(test_db, test_org_id, authenticated_user_id):
+    """Create a test EntityType TypeLookup for testing Status relationships."""
+    # Create a TypeLookup for EntityType.TEST
+    entity_type = models.TypeLookup(
+        type_name="EntityType",
+        type_value=EntityType.TEST.value,
+        organization_id=test_org_id,
+        user_id=authenticated_user_id
+    )
+    test_db.add(entity_type)
+    test_db.commit()
+    test_db.refresh(entity_type)
+    return entity_type
 
 
 @pytest.fixture(scope="session")
