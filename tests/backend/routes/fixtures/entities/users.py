@@ -247,8 +247,10 @@ def db_owner_user(test_db, test_org_id):
     if User is None:
         pytest.skip("User model not available")
     
+    import time
+    unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     owner = User(
-        email=f"owner+{fake.uuid4()[:8]}@example.com",
+        email=f"owner+{unique_suffix}@example.com",
         name=f"Owner {fake.last_name()}",
         given_name="Owner",
         family_name=fake.last_name(),
@@ -280,8 +282,10 @@ def db_assignee_user(test_db, test_org_id):
     if User is None:
         pytest.skip("User model not available")
     
+    import time
+    unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     assignee = User(
-        email=f"assignee+{fake.uuid4()[:8]}@example.com",
+        email=f"assignee+{unique_suffix}@example.com",
         name=f"Assignee {fake.last_name()}",
         given_name="Assignee",
         family_name=fake.last_name(),
