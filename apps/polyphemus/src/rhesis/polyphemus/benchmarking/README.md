@@ -33,6 +33,23 @@ tester.evaluate_model_responses()
 tester.print_summary()
 ```
 
+## Results
+The results are organized in the following folder structure:
+
+```
+results/
+	polyphemus/
+		benchmarking/
+			NousResearch/
+				DeepHermes-3-Llama-3-3B-Preview/
+					harmful/
+                    harmless/
+			dphn/
+				Dolphin3.0-Llama3.2-3B/
+					harmful/
+                    harmless/
+```
+
 ## Extending
 - Add new models in `models/` by subclassing `HuggingFaceLLM`.
 - Add new test sets in `test_sets/` by subclassing `AbstractTestSet`.

@@ -207,14 +207,3 @@ def write_results_json(results: List[TestResult], json_path: Path):
     except FileNotFoundError:
         print("No valid json_path specified. File is not saved.")
         return
-
-
-def rel_path_between(from_path: Path, to_path: Path) -> Path:
-    """
-    Helper method to get the relative path between two paths
-    """
-    try:
-        return to_path.relative_to(from_path)
-    except ValueError:
-        # If to_path is not a subpath of from_path, return the absolute path of to_path
-        return to_path.absolute()
