@@ -169,6 +169,7 @@ def create_detailed_schema(
         "Prompt",
         "Behavior",
         "Category",
+        "Task",
     ]
     if model.__name__ in entities_with_comments:
         fields["comment_count"] = (Optional[int], 0)
