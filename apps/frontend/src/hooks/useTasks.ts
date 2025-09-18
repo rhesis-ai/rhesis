@@ -32,18 +32,23 @@ export function useTasks(options: UseTasksOptions = {}) {
     setError(null);
 
     try {
+      console.log('🔄 Fetching tasks...', { entityType, entityId, params });
       const clientFactory = new ApiClientFactory(session.session_token);
       const tasksClient = clientFactory.getTasksClient();
 
       let fetchedTasks: Task[];
       if (entityType && entityId) {
+        console.log('🔄 Fetching tasks by entity:', entityType, entityId);
         fetchedTasks = await tasksClient.getTasksByEntity(entityType, entityId, params);
       } else {
+        console.log('🔄 Fetching all tasks');
         fetchedTasks = await tasksClient.getTasks(params);
       }
 
+      console.log('✅ Tasks fetched successfully:', fetchedTasks.length, 'tasks');
       setTasks(fetchedTasks);
     } catch (err) {
+      console.error('❌ Error fetching tasks:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch tasks';
       setError(errorMessage);
       show(errorMessage, { severity: 'error' });
@@ -59,17 +64,20 @@ export function useTasks(options: UseTasksOptions = {}) {
     }
 
     try {
+      console.log('🔄 Creating task...', taskData);
       const clientFactory = new ApiClientFactory(session.session_token);
       const tasksClient = clientFactory.getTasksClient();
 
       const newTask = await tasksClient.createTask(taskData);
       
+      console.log('✅ Task created successfully:', newTask);
       // Add the new task to the current list
       setTasks(prev => [newTask, ...prev]);
       
       show('Task created successfully', { severity: 'success' });
       return newTask;
     } catch (err) {
+      console.error('❌ Error creating task:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to create task';
       setError(errorMessage);
       show(errorMessage, { severity: 'error' });
@@ -87,7 +95,7 @@ export function useTasks(options: UseTasksOptions = {}) {
       const clientFactory = new ApiClientFactory(session.session_token);
       const tasksClient = clientFactory.getTasksClient();
 
-      const updatedTask = await tasksClient.updateTask(taskId as any, taskData);
+      const updatedTask = await tasksClient.updateTask(taskId, taskData);
       
       // Update the task in the current list
       setTasks(prev => prev.map(task => 
@@ -114,7 +122,7 @@ export function useTasks(options: UseTasksOptions = {}) {
       const clientFactory = new ApiClientFactory(session.session_token);
       const tasksClient = clientFactory.getTasksClient();
 
-      await tasksClient.deleteTask(taskId as any);
+      await tasksClient.deleteTask(taskId);
       
       // Remove the task from the current list
       setTasks(prev => prev.filter(task => task.id !== taskId));
@@ -139,7 +147,7 @@ export function useTasks(options: UseTasksOptions = {}) {
       const clientFactory = new ApiClientFactory(session.session_token);
       const tasksClient = clientFactory.getTasksClient();
 
-      return await tasksClient.getTask(taskId as any);
+      return await tasksClient.getTask(taskId);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch task';
       setError(errorMessage);
@@ -153,7 +161,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     if (autoFetch) {
       fetchTasks();
     }
-  }, [fetchTasks, autoFetch]);
+  }, [autoFetch, fetchTasks]);
 
   return {
     tasks,
@@ -163,6 +171,6 @@ export function useTasks(options: UseTasksOptions = {}) {
     createTask,
     updateTask,
     deleteTask,
-    getTask,
+    getTask
   };
 }
