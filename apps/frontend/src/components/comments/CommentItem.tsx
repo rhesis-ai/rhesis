@@ -11,6 +11,7 @@ import {
   TextField,
   Tooltip,
   useTheme,
+  Chip,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -24,6 +25,7 @@ import { Comment } from '@/types/comments';
 import { DeleteCommentModal } from './DeleteCommentModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
+import { getTaskCountByComment } from '@/utils/mock-data/tasks';
 
 interface CommentItemProps {
   comment: Comment;
@@ -32,6 +34,7 @@ interface CommentItemProps {
   onReact: (commentId: string, emoji: string) => Promise<void>;
   onCreateTask?: (commentId: string) => void;
   currentUserId: string;
+  entityType?: string; // Add entityType to determine if Create Task button should show
 }
 
 export function CommentItem({ 
@@ -40,7 +43,8 @@ export function CommentItem({
   onDelete, 
   onReact, 
   onCreateTask,
-  currentUserId 
+  currentUserId,
+  entityType 
 }: CommentItemProps) {
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -122,14 +126,20 @@ export function CommentItem({
     }
   };
 
+  // Get task count for this comment
+  const taskCount = getTaskCountByComment(comment.id);
+
   return (
     <>
-      <Box sx={{ 
-        display: 'flex', 
-        gap: 2, 
-        mb: 3,
-        alignItems: 'flex-start'
-      }}>
+      <Box 
+        id={`comment-${comment.id}`}
+        sx={{ 
+          display: 'flex', 
+          gap: 2, 
+          mb: 3,
+          alignItems: 'flex-start'
+        }}
+      >
         {/* User Avatar */}
         <UserAvatar 
           userName={comment.user?.name}
@@ -153,10 +163,30 @@ export function CommentItem({
               </Typography>
             </Box>
 
-            {/* Action Buttons */}
+            {/* Action Buttons and Task Counter */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Task Counter */}
+              {taskCount > 0 && (
+                <Tooltip title={`${taskCount} task${taskCount === 1 ? '' : 's'} created from this comment`}>
+                  <Chip
+                    icon={<TaskIcon />}
+                    label={taskCount}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    sx={{ 
+                      height: 24,
+                      fontSize: '0.75rem',
+                      '& .MuiChip-icon': {
+                        fontSize: '0.875rem'
+                      }
+                    }}
+                  />
+                </Tooltip>
+              )}
+
               {/* Create Task Button */}
-              {onCreateTask && (
+              {onCreateTask && entityType !== 'Task' && (
                 <Tooltip title="Create Task from Comment">
                   <IconButton
                     size="small"
