@@ -27,6 +27,11 @@ on:
         required: false
         default: false
         type: boolean
+      deploy_preview:
+        description: 'Deploy preview (will deploy new revision with commit)'
+        required: false
+        default: false
+        type: boolean
       reason:
         description: 'Reason for manual deployment'
         required: false
@@ -53,6 +58,8 @@ jobs:
       image_name: ${{ steps.set_env.outputs.image_name }}
       service_name: ${{ steps.set_env.outputs.service_name }}
       environment: ${{ env.ENVIRONMENT }}
+      commit_sha: ${{ steps.set_env.outputs.commit_sha }}
+      is_preview: ${{ steps.set_env.outputs.is_preview }}
 
     steps:
       - uses: actions/checkout@v4
@@ -87,6 +94,17 @@ jobs:
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ secrets.TF_VAR_REGION }}" >> $GITHUB_ENV
+          
+          # Get commit SHA (short version for URLs)
+          COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          
+          # Check if this is a preview deployment
+          IS_PREVIEW="${{ github.event.inputs.deploy_preview == 'true' }}"
+          echo "IS_PREVIEW=$IS_PREVIEW" >> $GITHUB_ENV
+          echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
+          
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             echo "SERVICE_NAME=rhesis-backend" >> $GITHUB_ENV
             echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_ENV
@@ -106,11 +124,27 @@ jobs:
 
       - name: Build Container
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/backend/Dockerfile .
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # For preview deployments, tag with commit SHA
+            docker build -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/backend/Dockerfile .
+            echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+          else
+            # For regular deployments, use latest tag
+            docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/backend/Dockerfile .
+            echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
+          fi
 
       - name: Push Container
         run: |
-          docker push ${{ env.IMAGE_NAME }}:latest
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # For preview deployments, push commit SHA tagged image
+            docker push ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
+            echo "Pushed preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+          else
+            # For regular deployments, push latest tagged image
+            docker push ${{ env.IMAGE_NAME }}:latest
+            echo "Pushed regular image: ${{ env.IMAGE_NAME }}:latest"
+          fi
 
   deploy:
     needs: build
@@ -123,6 +157,8 @@ jobs:
     
     env:
       ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
+      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+      IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
       
     steps:
       - name: Create and validate service account key file
@@ -164,19 +200,26 @@ jobs:
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
+        id: deploy
         run: |
-          echo "Deploying image: ${{ env.IMAGE_NAME }}:latest"
-          echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.IMAGE_NAME }}:latest \
-            --project=${{ env.PROJECT_ID }} \
-            --vpc-connector=redis-connector \
-            --vpc-egress=private-ranges-only \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
-            --set-env-vars="$(cat <<EOF
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # Preview deployment with commit SHA
+            IMAGE_TAG="${{ env.COMMIT_SHA }}"
+            echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
+            echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
+            
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
+              --project=${{ env.PROJECT_ID }} \
+              --vpc-connector=redis-connector \
+              --vpc-egress=private-ranges-only \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --no-traffic \
+              --revision-suffix=${{ env.COMMIT_SHA }} \
+              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+              --set-env-vars="$(cat <<EOF
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
@@ -212,3 +255,105 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}
           EOF
           )"
+            
+            echo "✅ Preview revision deployed successfully"
+          else
+            # Regular deployment with latest tag
+            echo "🚀 Deploying regular revision"
+            echo "Image: ${{ env.IMAGE_NAME }}:latest"
+            echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
+            
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ env.IMAGE_NAME }}:latest \
+              --project=${{ env.PROJECT_ID }} \
+              --vpc-connector=redis-connector \
+              --vpc-egress=private-ranges-only \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+              --set-env-vars="$(cat <<EOF
+          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
+          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
+          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
+          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
+          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          LOG_LEVEL=${{ secrets.LOG_LEVEL }},
+          AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},
+          AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},
+          AUTH0_CLIENT_ID=${{ secrets.AUTH0_CLIENT_ID }},
+          AUTH0_CLIENT_SECRET=${{ secrets.AUTH0_CLIENT_SECRET }},
+          AUTH0_SECRET_KEY=${{ secrets.AUTH0_SECRET_KEY }},
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
+          JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }},
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }},
+          FRONTEND_URL=${{ secrets.FRONTEND_URL }},
+          AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }},
+          AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }},
+          AZURE_OPENAI_DEPLOYMENT_NAME=${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }},
+          AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }},
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
+          GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
+          RHESIS_BASE_URL=${{ secrets.RHESIS_BASE_URL }},
+          BACKEND_URL=${{ secrets.BACKEND_URL }},
+          BACKEND_ENV=${{ secrets.BACKEND_ENV }},
+          SMTP_HOST=${{ secrets.SMTP_HOST }},
+          SMTP_PORT=${{ secrets.SMTP_PORT }},
+          SMTP_USER=${{ secrets.SMTP_USER }},
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }},
+          BROKER_URL=${{ secrets.BROKER_URL }},
+          CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}
+          EOF
+          )"
+            
+            echo "✅ Regular deployment completed successfully"
+          fi
+
+      - name: Tag revision for commit-specific URL
+        if: env.IS_PREVIEW == 'true'
+        run: |
+          echo "🏷️ Creating tag for commit-specific URL"
+          
+          # Tag the revision to get a commit-specific URL
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --to-tags ${{ env.COMMIT_SHA }}=0 \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+          
+          # Generate the commit-specific URL
+          PREVIEW_URL="https://${{ env.COMMIT_SHA }}---${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
+          echo "🎉 Preview URL created: $PREVIEW_URL"
+          
+          # Output for use in other steps or jobs
+          echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
+          
+          # Add to job summary for easy access
+          echo "## 🚀 Preview Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit SHA:** \`${{ env.COMMIT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Preview URL:** [$PREVIEW_URL]($PREVIEW_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This preview revision receives no production traffic and is accessible only via the tagged URL above." >> $GITHUB_STEP_SUMMARY
+
+      - name: Output deployed service URL
+        run: |
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # For preview deployments, output the commit-specific URL
+            DEPLOYED_URL="https://${{ env.COMMIT_SHA }}---${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
+            echo "🌐 Preview Service URL: $DEPLOYED_URL"
+          else
+            # For regular deployments, output the standard service URL
+            DEPLOYED_URL="https://${{ env.SERVICE_NAME }}-${{ env.REGION }}.run.app"
+            echo "🌐 Production Service URL: $DEPLOYED_URL"
+          fi
+          
+          # Set as output for potential use in other workflows
+          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
+          
+          # Add to job summary
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🌐 Deployed Service" >> $GITHUB_STEP_SUMMARY
+          echo "**Service URL:** [$DEPLOYED_URL]($DEPLOYED_URL)" >> $GITHUB_STEP_SUMMARY
