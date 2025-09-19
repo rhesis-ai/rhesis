@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Metadata } from 'next';
 import Image from 'next/image';
 import { Box } from '@mui/material';
+import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 import { 
   DashboardIcon, 
@@ -190,17 +191,7 @@ export const metadata: Metadata = {
 
 const BRANDING: BrandingProps = {
   title: "",
-  logo: (
-    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-      <Image
-        src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
-        alt="Rhesis AI Logo"
-        width={140}
-        height={28}
-        style={{ width: 'auto' }}
-      />
-    </Box>
-  ),
+  logo: <ThemeAwareLogo />,
 };
 
 const AUTHENTICATION: AuthenticationProps = {
