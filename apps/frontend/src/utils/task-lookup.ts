@@ -123,9 +123,7 @@ export async function getStatusesForTask(sessionToken?: string, existingTaskStat
             id: specificStatus.id,
             name: specificStatus.name,
             description: specificStatus.description,
-            entity_type_id: specificStatus.entity_type,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            entity_type_id: specificStatus.entity_type
           };
           return [...allStatuses, additionalStatus];
         }
@@ -155,9 +153,7 @@ export async function getPrioritiesForTask(sessionToken?: string, existingTaskPr
             id: specificPriority.id,
             type_name: specificPriority.type_name,
             type_value: specificPriority.type_value,
-            description: specificPriority.description,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            description: specificPriority.description
           };
           return [...allPriorities, additionalPriority];
         }
