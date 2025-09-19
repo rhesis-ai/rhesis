@@ -184,7 +184,7 @@ export const metadata: Metadata = {
   },
   description: 'Rhesis AI | OSS Gen AI Testing Platform',
   icons: {
-    icon: '/Rhesis AI_Logo_RGB_Favicon.svg',
+    icon: '/logos/Rhesis AI_Logo_RGB_Favicon.svg',
   },
 };
 
@@ -193,7 +193,7 @@ const BRANDING: BrandingProps = {
   logo: (
     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
       <Image
-        src="/Rhesis AI_Logo_RGB_Website logo.png"
+        src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
         alt="Rhesis AI Logo"
         width={140}
         height={28}
