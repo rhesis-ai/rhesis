@@ -78,7 +78,7 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
         }}
       >
         <Typography variant="h6" align="center">
-          Sign In
+          All paws on deck for testing!
         </Typography>
 
         <Button
