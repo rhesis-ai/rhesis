@@ -109,14 +109,14 @@ export default function LandingPage() {
   if (status === 'authenticated' && session && !sessionExpired && backendSessionValid === true) {
     return (
       <Grid container component="main" sx={{ height: '100vh' }}>
-        {/* Left side - Background image and content - same as unauthenticated view */}
+        {/* Left side - Background and content */}
         <Grid
           item
           xs={false}
           sm={4}
           md={7}
           sx={{
-            background: 'linear-gradient(175deg, rgba(16,24,40,1) 0%, rgba(29,41,57,1) 49%, rgba(52,64,84,1) 80%)',
+            backgroundColor: '#2AA1CE',
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
@@ -134,9 +134,9 @@ export default function LandingPage() {
             <Toolbar>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Image
-                  src="/rhesis-logo-white.png"
-                  alt="Rhesis Logo"
-                  width={180}
+                  src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                  alt="Rhesis AI Logo"
+                  width={200}
                   height={0}
                   style={{ height: 'auto' }}
                   priority
@@ -159,37 +159,37 @@ export default function LandingPage() {
             {/* Feature points - same as unauthenticated view */}
             <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <CheckCircleIcon sx={{ color: 'white' }} /> Your expertise, in every test.
+                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <CheckCircleIcon sx={{ color: '#FFFFFF' }} /> Your expertise, in every test.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Transform business knowledge and expert input directly into powerful, actionable test cases.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <GroupAddIcon sx={{ color: 'white' }} /> Collaboration built in.
+                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <GroupAddIcon sx={{ color: '#FFFFFF' }} /> Collaboration built in.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ControlCameraIcon sx={{ color: 'white' }} /> End-to-end control.
+                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <ControlCameraIcon sx={{ color: '#FFFFFF' }} /> End-to-end control.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   From test generation to execution to results, manage the entire validation process in one place.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <TuneIcon sx={{ color: 'white' }} /> Scale your validation power.
+                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <TuneIcon sx={{ color: '#FFFFFF' }} /> Scale your validation power.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
                 </Typography>
               </Box>
@@ -213,9 +213,9 @@ export default function LandingPage() {
             {isMobile && (
               <Box sx={{ mb: 4 }}>
                 <Image
-                  src="/rhesis-logo.png"
-                  alt="Rhesis Logo"
-                  width={150}
+                  src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                  alt="Rhesis AI Logo"
+                  width={160}
                   height={0}
                   style={{ height: 'auto' }}
                   priority
@@ -248,14 +248,14 @@ export default function LandingPage() {
 
   return (
     <Grid container component="main" sx={{ height: '100vh' }}>
-      {/* Left side - Background image and content */}
+      {/* Left side - Background and content */}
       <Grid
         item
         xs={false}
         sm={4}
         md={7}
         sx={{
-          background: 'linear-gradient(175deg, rgba(16,24,40,1) 0%, rgba(29,41,57,1) 49%, rgba(52,64,84,1) 80%)',
+          backgroundColor: '#2AA1CE',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
@@ -273,9 +273,9 @@ export default function LandingPage() {
           <Toolbar>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Image
-                src="/rhesis-logo-white.png"
-                alt="Rhesis Logo"
-                width={180}
+                src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                alt="Rhesis AI Logo"
+                width={200}
                 height={0}
                 style={{ height: 'auto' }}
                 priority
@@ -299,46 +299,46 @@ export default function LandingPage() {
           {/* Feature points */}
           <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <CheckCircleIcon sx={{ color: 'white' }} /> Your expertise, in every test.
+              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <CheckCircleIcon sx={{ color: '#FFFFFF' }} /> Your expertise, in every test.
               </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Transform business knowledge and expert input directly into powerful, actionable test cases.
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <GroupAddIcon sx={{ color: 'white' }} /> Collaboration built in.
+              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <GroupAddIcon sx={{ color: '#FFFFFF' }} /> Collaboration built in.
               </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <ControlCameraIcon sx={{ color: 'white' }} /> End-to-end control.
+              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <ControlCameraIcon sx={{ color: '#FFFFFF' }} /> End-to-end control.
               </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 From test generation to execution to results, manage the entire validation process in one place.
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <TuneIcon sx={{ color: 'white' }} /> Scale your validation power.
+              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <TuneIcon sx={{ color: '#FFFFFF' }} /> Scale your validation power.
               </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
+              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
               </Typography>
             </Box>
           </Box>
         </Box>
-      </Grid>
+        </Grid>
 
-      {/* Right side - Login form */}
-      <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+        {/* Right side - Login form */}
+        <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
         <Box
           sx={{
             display: 'flex',
@@ -353,9 +353,9 @@ export default function LandingPage() {
           {isMobile && (
             <Box sx={{ mb: 4 }}>
               <Image
-                src="/rhesis-logo.png"
-                alt="Rhesis Logo"
-                width={150}
+                src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                alt="Rhesis AI Logo"
+                width={160}
                 height={0}
                 style={{ height: 'auto' }}
                 priority

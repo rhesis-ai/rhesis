@@ -6,50 +6,121 @@ const getDesignTokens = (mode: PaletteMode) => ({
   palette: {
     mode,
     ...(mode === 'light' ? {
-      // Light mode - keeping original colors
+      // Light mode - Rhesis AI colors
       primary: {
-        main: '#1D2939',
-        light: '#1D2939',
-        dark: '#1D2939',
-        contrastText: '#fff',
+        main: '#50B9E0', // Primary Blue
+        light: '#97D5EE', // Primary Light Blue
+        dark: '#2AA1CE', // Primary CTA Blue
+        contrastText: '#FFFFFF',
       },
       secondary: {
-        main: '#F38755',
-        light: '#F38755',
-        dark: '#F38755',
-        contrastText: '#fff',
-      }
-    } : {
-      // Dark mode colors
-      primary: {
-        main: '#ffffff',
-        light: '#ffffff',
-        dark: '#ffffff',
-        contrastText: '#1D2939',
-      },
-      secondary: {
-        main: '#F38755',
-        light: '#F38755',
-        dark: '#F38755',
-        contrastText: '#1D2939',
+        main: '#FD6E12', // Secondary CTA Orange
+        light: '#FDD803', // Accent Yellow
+        dark: '#1A1A1A', // Dark Black
+        contrastText: '#FFFFFF',
       },
       background: {
-        default: '#1D2939',
-        paper: '#344054',
+        default: '#FFFFFF', // White Background
+        paper: '#FFFFFF', // White Background
+        // Custom Rhesis AI background variants
+        light1: '#F2F9FD',
+        light2: '#E4F2FA',
+        light3: '#C2E5F5',
+        light4: '#97D5EE'
       },
       text: {
-        primary: '#ffffff',
-        secondary: '#E5E7EB',
+        primary: '#3D3D3D', // Dark Text
+        secondary: '#1A1A1A', // Dark Black
+      }
+    } : {
+      // Dark mode colors - Professional dark theme with Rhesis AI brand accents
+      primary: {
+        main: '#2AA1CE', // Primary CTA Blue
+        light: '#3BC4F2', // Hover/active state for links & CTAs
+        dark: '#2AA1CE', // Primary CTA Blue
+        contrastText: '#FFFFFF',
+      },
+      secondary: {
+        main: '#FD6E12', // Secondary CTA Orange
+        light: '#F78166', // Warning/alert tone
+        dark: '#58A6FF', // Info highlight
+        contrastText: '#FFFFFF',
+      },
+      background: {
+        default: '#0D1117', // Primary background (soft black)
+        paper: '#161B22', // Secondary background/cards
+        light1: '#0D1117', // Primary background
+        light2: '#161B22', // Secondary background
+        light3: '#1F242B', // Tertiary background/hover states
+        light4: '#2C2C2C' // Subtle dividers/neutral contrast
+      },
+      text: {
+        primary: '#E6EDF3', // Primary text (light gray, easy on eyes)
+        secondary: '#A9B1BB', // Secondary text (subdued gray)
       },
     }),
+  },
+  typography: {
+    fontFamily: '"Be Vietnam Pro", "Roboto", "Helvetica", "Arial", sans-serif',
+    h1: {
+      fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
+      fontWeight: 600, // Semibold
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    h2: {
+      fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
+      fontWeight: 500, // Medium
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    h3: {
+      fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
+      fontWeight: 400, // Regular
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    h4: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 600, // Semibold
+      fontSize: '1.75rem', // Smaller than default h4 (18px instead of ~24px)
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    h5: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 500, // Medium
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    h6: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 400, // Regular
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    body1: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 400, // Regular
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    body2: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 300, // Light
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    button: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 600, // Semibold
+      textTransform: 'none' as const
+    },
+    caption: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 300, // Light
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    }
   },
   components: {
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#1D2939' : '#344054',
+          backgroundColor: mode === 'light' ? '#50B9E0' : '#161B22', // Rhesis primary blue / secondary dark bg
           '& .MuiSvgIcon-root': {
-            color: '#ffffff',
+            color: '#FFFFFF',
           },
         },
       },
@@ -58,24 +129,24 @@ const getDesignTokens = (mode: PaletteMode) => ({
       styleOverrides: {
         root: {
           '& .MuiPaper-root': {
-            backgroundColor: mode === 'light' ? '#ffffff' : '#1D2939',
-            color: mode === 'light' ? '#1D2939' : '#ffffff',
+            backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
+            color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
           },
           '& .MuiSvgIcon-root': {
-            color: mode === 'light' ? '#1D2939' : '#ffffff',
+            color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
           },
           '& .MuiButtonBase-root.Mui-selected': {
-            backgroundColor: mode === 'light' ? '#1D2939' : '#4B5563',
+            backgroundColor: mode === 'light' ? '#50B9E0' : '#2AA1CE', // Rhesis primary blue / primary CTA
             '& .MuiSvgIcon-root': {
-              color: '#ffffff',
+              color: '#FFFFFF',
             },
             '& .MuiTypography-root.MuiListItemText-primary': {
-              color: '#ffffff',
+              color: '#FFFFFF',
             },
           },
           '& .MuiDivider-root': {
             margin: '16px 0',
-            borderColor: mode === 'light' ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)',
+            borderColor: mode === 'light' ? 'rgba(61, 61, 61, 0.12)' : '#2C2C2C',
           },
         },
       },
@@ -83,40 +154,74 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#ffffff' : '#344054',
+          backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
         },
       },
     },
     MuiButton: {
       styleOverrides: {
         root: {
-          // Fix text button colors in dark mode
-          '&.MuiButton-textPrimary': {
-            color: mode === 'dark' ? '#1D2939' : undefined,
+          fontFamily: '"Be Vietnam Pro", sans-serif',
+          fontWeight: 600,
+          // Primary button styling
+          '&.MuiButton-containedPrimary': {
+            backgroundColor: '#2AA1CE', // Primary CTA Blue
+            color: '#FFFFFF',
             '&:hover': {
-              color: mode === 'dark' ? '#1D2939' : undefined,
+              backgroundColor: '#50B9E0', // Primary Blue on hover
             },
-            '& .MuiSvgIcon-root': {
-              color: mode === 'dark' ? '#1D2939' : undefined,
+          },
+          // Secondary button styling
+          '&.MuiButton-containedSecondary': {
+            backgroundColor: '#FD6E12', // Secondary CTA Orange
+            color: '#FFFFFF',
+            '&:hover': {
+              backgroundColor: '#FDD803', // Accent Yellow on hover
+              color: '#1A1A1A',
+            },
+          },
+          // Text button styling
+          '&.MuiButton-textPrimary': {
+            color: mode === 'light' ? '#50B9E0' : '#3BC4F2',
+            '&:hover': {
+              backgroundColor: mode === 'light' ? 'rgba(80, 185, 224, 0.04)' : '#1F242B',
             },
           },
         },
       },
     },
-
-    
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontFamily: '"Be Vietnam Pro", sans-serif',
+          fontWeight: 500,
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
+          borderRadius: 12,
+          boxShadow: mode === 'light' 
+            ? '0 2px 8px rgba(80, 185, 224, 0.08)' 
+            : '0 2px 8px rgba(0, 0, 0, 0.3)',
+        },
+      },
+    },
   },
   chartPalettes: {
-    line: ['#1976d2', '#9c27b0', '#2e7d32', '#ed6c02'], // primary, secondary, success, warning
-    pie: ['#42a5f5', '#1976d2', '#1565c0'], // primary light, main, dark
-    status: ['#2e7d32', '#ed6c02', '#d32f2f'] // success, warning, error
+    line: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803'], // Rhesis primary blue, orange, CTA blue, yellow
+    pie: ['#97D5EE', '#50B9E0', '#2AA1CE'], // Rhesis light blue, primary blue, CTA blue
+    status: ['#2AA1CE', '#FDD803', '#FD6E12'] // success (CTA blue), warning (yellow), error (orange)
   }
 });
 
-// Create the theme instance
-const theme = createTheme(getDesignTokens('light'));
+// Create theme instances for both modes
+const lightTheme = createTheme(getDesignTokens('light'));
+const darkTheme = createTheme(getDesignTokens('dark'));
 
-// Add chartPalettes to theme type
+// Add custom theme extensions
 declare module '@mui/material/styles' {
   interface Theme {
     chartPalettes: {
@@ -132,10 +237,17 @@ declare module '@mui/material/styles' {
       status: string[];
     }
   }
+  interface TypeBackground {
+    light1?: string;
+    light2?: string;
+    light3?: string;
+    light4?: string;
+  }
 }
 
-export default theme;
+// Export light theme as default for backward compatibility
+export default lightTheme;
 
-// Export the getDesignTokens function to be used by the theme provider
-export { getDesignTokens };
+// Export both theme instances and the getDesignTokens function
+export { lightTheme, darkTheme, getDesignTokens };
   
