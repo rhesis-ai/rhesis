@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -24,6 +24,8 @@ interface CommentsSectionProps {
   onEditComment: (commentId: string, newText: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
   onReactToComment: (commentId: string, emoji: string) => Promise<void>;
+  onCreateTask?: (commentId: string) => void;
+  onCreateTaskFromEntity?: () => void;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -38,11 +40,36 @@ export function CommentsSection({
   onEditComment,
   onDeleteComment,
   onReactToComment,
+  onCreateTask,
+  onCreateTaskFromEntity,
   currentUserId,
   currentUserName,
   currentUserPicture,
   isLoading = false,
 }: CommentsSectionProps) {
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+
+  // Check for comment hash in URL and highlight the comment
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#comment-')) {
+      const commentId = hash.substring(9); // Remove '#comment-' prefix
+      setHighlightedCommentId(commentId);
+      
+      // Scroll to the comment after a short delay to ensure it's rendered
+      setTimeout(() => {
+        const element = document.getElementById(`comment-${commentId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
+      // Remove highlight after 5 seconds
+      setTimeout(() => {
+        setHighlightedCommentId(null);
+      }, 5000);
+    }
+  }, [comments]); // Re-run when comments change
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +139,7 @@ export function CommentsSection({
   );
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Box>
       {/* Comments List */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -127,7 +154,10 @@ export function CommentsSection({
               onEdit={handleEditComment}
               onDelete={handleDeleteComment}
               onReact={handleReactToComment}
+              onCreateTask={onCreateTask}
               currentUserId={currentUserId}
+              entityType={entityType}
+              isHighlighted={highlightedCommentId === comment.id}
             />
           ))}
         </Box>
@@ -203,6 +233,6 @@ export function CommentsSection({
           </Box>
         </Box>
       </Box>
-    </Paper>
+    </Box>
   );
 }

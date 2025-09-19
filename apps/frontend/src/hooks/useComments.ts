@@ -36,6 +36,10 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     } catch (err) {
       setError('Failed to fetch comments');
       console.error('Error fetching comments:', err);
+      notifications.show('Failed to fetch comments', { 
+        severity: 'error',
+        autoHideDuration: 3000
+      });
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +122,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error editing comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, notifications]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, entityType, notifications]);
 
   const deleteComment = useCallback(async (commentId: string) => {
     if (!sessionToken) {
@@ -144,7 +148,7 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
       console.error('Error deleting comment:', err);
       throw err;
     }
-  }, [sessionToken, notifications]);
+  }, [sessionToken, entityType, notifications]);
 
   const reactToComment = useCallback(async (commentId: string, emoji: string) => {
     if (!sessionToken) {
@@ -181,17 +185,16 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         }
       };
       
-      // Update local state
       setComments(prev => 
-        prev.map(comment => 
-          comment.id === commentId ? commentWithUser : comment
+        prev.map(c => 
+          c.id === commentId ? commentWithUser : c
         )
       );
     } catch (err) {
       console.error('Error reacting to comment:', err);
       throw err;
     }
-  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture]);
+  }, [sessionToken, comments, currentUserId, currentUserName, currentUserPicture, entityType, notifications]);
 
   useEffect(() => {
     fetchComments();

@@ -1,6 +1,32 @@
 import { GridFilterModel, GridFilterItem } from '@mui/x-data-grid';
 
 /**
+ * Creates a wildcard search filter for tasks that searches across all major text fields
+ * This simulates a $search functionality by using OR conditions across multiple fields
+ */
+export function createTaskWildcardSearchFilter(searchTerm: string): string {
+  if (!searchTerm || searchTerm.trim() === '') {
+    return '';
+  }
+
+  const escapedTerm = escapeODataValue(searchTerm.trim());
+  
+  // Define all the searchable fields for tasks - only title and description
+  const searchableFields = [
+    'title',
+    'description'
+  ];
+
+  // Create contains conditions for each field
+  const conditions = searchableFields.map(field => 
+    `contains(tolower(${field}), tolower('${escapedTerm}'))`
+  );
+
+  // Join all conditions with OR
+  return conditions.join(' or ');
+}
+
+/**
  * Creates a wildcard search filter that searches across all major text fields
  * This simulates a $search functionality by using OR conditions across multiple fields
  */
@@ -115,6 +141,107 @@ function convertFilterItemToOData(item: GridFilterItem): string {
 }
 
 /**
+ * Converts a MUI DataGrid filter item to an OData filter expression
+ * Optimized for Tasks filtering with proper field mapping
+ */
+function convertTaskFilterItemToOData(item: GridFilterItem): string {
+  const { field, operator, value } = item;
+  
+  if (!field || !operator || value === undefined || value === null || value === '') {
+    return '';
+  }
+
+  // Handle quick filter (global search) - MUI DataGrid adds this as a special field
+  if (field === '__quickFilter__' || field === 'quickFilter') {
+    return convertTaskQuickFilterToOData([value]);
+  }
+
+  // Map task-specific fields to their OData relationship syntax
+  let odataField = field;
+  
+  // Handle relationship fields
+  switch (field) {
+    case 'status':
+      odataField = 'status/name';
+      break;
+    case 'assignee':
+      odataField = 'assignee/name';
+      break;
+    case 'priority':
+      odataField = 'priority/type_value';
+      break;
+    case 'user':
+      odataField = 'user/name';
+      break;
+    default:
+      // For direct fields like 'title', 'description', keep as is
+      odataField = field;
+  }
+
+  // Handle different operators following the official OData guide patterns
+  switch (operator) {
+    case 'contains':
+      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+    
+    case 'startsWith':
+      return `startswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+    
+    case 'endsWith':
+      return `endswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+    
+    case 'equals':
+    case '=':
+    case 'is':
+      // For string fields, use case-insensitive comparison
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
+      }
+      return `${odataField} eq '${escapeODataValue(value)}'`;
+    
+    case 'not':
+    case '!=':
+      // For string fields, use case-insensitive comparison
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
+      }
+      return `${odataField} ne '${escapeODataValue(value)}'`;
+    
+    case 'greaterThan':
+    case '>':
+      return `${odataField} gt ${escapeODataValue(value)}`;
+    
+    case 'greaterThanOrEqual':
+    case '>=':
+      return `${odataField} ge ${escapeODataValue(value)}`;
+    
+    case 'lessThan':
+    case '<':
+      return `${odataField} lt ${escapeODataValue(value)}`;
+    
+    case 'lessThanOrEqual':
+    case '<=':
+      return `${odataField} le ${escapeODataValue(value)}`;
+    
+    case 'isEmpty':
+      return `${odataField} eq null or ${odataField} eq ''`;
+    
+    case 'isNotEmpty':
+      return `${odataField} ne null and ${odataField} ne ''`;
+    
+    case 'isAnyOf':
+      if (Array.isArray(value) && value.length > 0) {
+        const conditions = value.map(v => `${odataField} eq '${escapeODataValue(v)}'`).join(' or ');
+        return `(${conditions})`;
+      }
+      return '';
+    
+    default:
+      // Fallback for unknown operators - treat as contains
+      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+  }
+}
+
+/**
  * Escapes special characters in OData filter values
  */
 function escapeODataValue(value: any): string {
@@ -124,6 +251,33 @@ function escapeODataValue(value: any): string {
   
   // Escape single quotes by doubling them
   return value.replace(/'/g, "''");
+}
+
+/**
+ * Converts a MUI DataGrid filter model to an OData filter expression
+ * Optimized for Tasks filtering
+ */
+export function convertTaskFilterModelToOData(filterModel: GridFilterModel): string {
+  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
+    return '';
+  }
+
+  // Convert each filter item to OData expression using task-specific converter
+  const filterExpressions = filterModel.items
+    .map(item => convertTaskFilterItemToOData(item))
+    .filter(expr => expr !== ''); // Remove empty expressions
+
+  if (filterExpressions.length === 0) {
+    return '';
+  }
+
+  if (filterExpressions.length === 1) {
+    return filterExpressions[0];
+  }
+
+  // Join multiple filters with the logic operator
+  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
+  return `(${filterExpressions.join(logicOperator)})`;
 }
 
 /**
@@ -186,6 +340,57 @@ export function convertQuickFilterToOData(quickFilterValues: any[], searchFields
 }
 
 /**
+ * Combines regular filters and quick filters into a single OData expression for tasks
+ */
+export function combineTaskFiltersToOData(
+  filterModel: GridFilterModel
+): string {
+  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
+    return '';
+  }
+
+  // Separate regular filters from quick filters
+  const regularFilters: GridFilterItem[] = [];
+  const quickFilterValues: any[] = [];
+
+  filterModel.items.forEach(item => {
+    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
+      quickFilterValues.push(item.value);
+    } else {
+      regularFilters.push(item);
+    }
+  });
+
+  // Convert regular filters
+  const regularFilterExpressions = regularFilters
+    .map(item => convertTaskFilterItemToOData(item))
+    .filter(expr => expr !== '');
+
+  // Convert quick filters
+  const quickFilterExpression = quickFilterValues.length > 0 
+    ? convertTaskQuickFilterToOData(quickFilterValues)
+    : '';
+
+  // Combine both types of filters
+  const allExpressions = [...regularFilterExpressions];
+  if (quickFilterExpression) {
+    allExpressions.push(quickFilterExpression);
+  }
+
+  if (allExpressions.length === 0) {
+    return '';
+  }
+
+  if (allExpressions.length === 1) {
+    return allExpressions[0];
+  }
+
+  // Join multiple filters with the logic operator
+  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
+  return `(${allExpressions.join(logicOperator)})`;
+}
+
+/**
  * Combines regular filters and quick filters into a single OData expression
  */
 export function combineFiltersToOData(
@@ -203,4 +408,42 @@ export function combineFiltersToOData(
   }
 
   return regularFilter || quickFilter || '';
+}
+
+/**
+ * Handles quick filter (global search) conversion to OData for tasks
+ */
+export function convertTaskQuickFilterToOData(quickFilterValues: any[]): string {
+  if (!quickFilterValues || quickFilterValues.length === 0) {
+    return '';
+  }
+
+  // Define task searchable fields - only title and description
+  const searchFields = [
+    'title',
+    'description'
+  ];
+
+  const quickFilterExpressions = quickFilterValues.map(value => {
+    if (!value || value === '') return '';
+    
+    // Create a contains condition for each search field
+    const fieldConditions = searchFields.map(field => 
+      `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
+    );
+    
+    // Join field conditions with OR (search in any field)
+    return `(${fieldConditions.join(' or ')})`;
+  }).filter(expr => expr !== '');
+
+  if (quickFilterExpressions.length === 0) {
+    return '';
+  }
+
+  if (quickFilterExpressions.length === 1) {
+    return quickFilterExpressions[0];
+  }
+
+  // Join multiple quick filter values with AND (all values must match)
+  return `(${quickFilterExpressions.join(' and ')})`;
 } 
