@@ -20,7 +20,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
         contrastText: '#FFFFFF',
       },
       background: {
-        default: '#F2F9FD', // Light Background 1
+        default: '#FFFFFF', // White Background
         paper: '#FFFFFF', // White Background
         // Custom Rhesis AI background variants
         light1: '#F2F9FD',
@@ -33,30 +33,30 @@ const getDesignTokens = (mode: PaletteMode) => ({
         secondary: '#1A1A1A', // Dark Black
       }
     } : {
-      // Dark mode colors - adapted for Rhesis AI
+      // Dark mode colors - Professional dark theme with Rhesis AI brand accents
       primary: {
-        main: '#50B9E0',
-        light: '#97D5EE',
-        dark: '#2AA1CE',
-        contrastText: '#1A1A1A',
+        main: '#2AA1CE', // Primary CTA Blue
+        light: '#3BC4F2', // Hover/active state for links & CTAs
+        dark: '#2AA1CE', // Primary CTA Blue
+        contrastText: '#FFFFFF',
       },
       secondary: {
-        main: '#FD6E12',
-        light: '#FDD803',
-        dark: '#3D3D3D',
+        main: '#FD6E12', // Secondary CTA Orange
+        light: '#F78166', // Warning/alert tone
+        dark: '#58A6FF', // Info highlight
         contrastText: '#FFFFFF',
       },
       background: {
-        default: '#1A1A1A',
-        paper: '#3D3D3D',
-        light1: '#2A2A2A',
-        light2: '#333333',
-        light3: '#404040',
-        light4: '#4D4D4D'
+        default: '#0D1117', // Primary background (soft black)
+        paper: '#161B22', // Secondary background/cards
+        light1: '#0D1117', // Primary background
+        light2: '#161B22', // Secondary background
+        light3: '#1F242B', // Tertiary background/hover states
+        light4: '#2C2C2C' // Subtle dividers/neutral contrast
       },
       text: {
-        primary: '#FFFFFF',
-        secondary: '#E5E7EB',
+        primary: '#E6EDF3', // Primary text (light gray, easy on eyes)
+        secondary: '#A9B1BB', // Secondary text (subdued gray)
       },
     }),
   },
@@ -80,6 +80,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     h4: {
       fontFamily: '"Be Vietnam Pro", sans-serif',
       fontWeight: 600, // Semibold
+      fontSize: '1.75rem', // Smaller than default h4 (18px instead of ~24px)
       color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
     },
     h5: {
@@ -105,7 +106,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     button: {
       fontFamily: '"Be Vietnam Pro", sans-serif',
       fontWeight: 600, // Semibold
-      textTransform: 'none'
+      textTransform: 'none' as const
     },
     caption: {
       fontFamily: '"Be Vietnam Pro", sans-serif',
@@ -117,7 +118,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#50B9E0' : '#1A1A1A', // Rhesis primary blue / dark black
+          backgroundColor: mode === 'light' ? '#50B9E0' : '#161B22', // Rhesis primary blue / secondary dark bg
           '& .MuiSvgIcon-root': {
             color: '#FFFFFF',
           },
@@ -128,14 +129,14 @@ const getDesignTokens = (mode: PaletteMode) => ({
       styleOverrides: {
         root: {
           '& .MuiPaper-root': {
-            backgroundColor: mode === 'light' ? '#FFFFFF' : '#1A1A1A',
-            color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
+            backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
+            color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
           },
           '& .MuiSvgIcon-root': {
             color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
           },
           '& .MuiButtonBase-root.Mui-selected': {
-            backgroundColor: mode === 'light' ? '#50B9E0' : '#50B9E0', // Rhesis primary blue
+            backgroundColor: mode === 'light' ? '#50B9E0' : '#2AA1CE', // Rhesis primary blue / primary CTA
             '& .MuiSvgIcon-root': {
               color: '#FFFFFF',
             },
@@ -145,7 +146,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
           },
           '& .MuiDivider-root': {
             margin: '16px 0',
-            borderColor: mode === 'light' ? 'rgba(61, 61, 61, 0.12)' : 'rgba(255, 255, 255, 0.12)',
+            borderColor: mode === 'light' ? 'rgba(61, 61, 61, 0.12)' : '#2C2C2C',
           },
         },
       },
@@ -153,7 +154,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#FFFFFF' : '#3D3D3D',
+          backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
         },
       },
     },
@@ -181,9 +182,9 @@ const getDesignTokens = (mode: PaletteMode) => ({
           },
           // Text button styling
           '&.MuiButton-textPrimary': {
-            color: mode === 'light' ? '#50B9E0' : '#97D5EE',
+            color: mode === 'light' ? '#50B9E0' : '#3BC4F2',
             '&:hover': {
-              backgroundColor: mode === 'light' ? 'rgba(80, 185, 224, 0.04)' : 'rgba(151, 213, 238, 0.04)',
+              backgroundColor: mode === 'light' ? 'rgba(80, 185, 224, 0.04)' : '#1F242B',
             },
           },
         },
@@ -200,11 +201,11 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#FFFFFF' : '#3D3D3D',
+          backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
           borderRadius: 12,
           boxShadow: mode === 'light' 
             ? '0 2px 8px rgba(80, 185, 224, 0.08)' 
-            : '0 2px 8px rgba(0, 0, 0, 0.24)',
+            : '0 2px 8px rgba(0, 0, 0, 0.3)',
         },
       },
     },
@@ -216,8 +217,9 @@ const getDesignTokens = (mode: PaletteMode) => ({
   }
 });
 
-// Create the theme instance
-const theme = createTheme(getDesignTokens('light'));
+// Create theme instances for both modes
+const lightTheme = createTheme(getDesignTokens('light'));
+const darkTheme = createTheme(getDesignTokens('dark'));
 
 // Add custom theme extensions
 declare module '@mui/material/styles' {
@@ -243,8 +245,9 @@ declare module '@mui/material/styles' {
   }
 }
 
-export default theme;
+// Export light theme as default for backward compatibility
+export default lightTheme;
 
-// Export the getDesignTokens function to be used by the theme provider
-export { getDesignTokens };
+// Export both theme instances and the getDesignTokens function
+export { lightTheme, darkTheme, getDesignTokens };
   

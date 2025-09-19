@@ -1,0 +1,27 @@
+'use client';
+
+import React from 'react';
+import Image from 'next/image';
+import { Box } from '@mui/material';
+import { ColorModeContext } from '../providers/ThemeProvider';
+
+export default function ThemeAwareLogo() {
+  const { mode } = React.useContext(ColorModeContext);
+  
+  const logoSrc = mode === 'dark' 
+    ? '/logos/Rhesis AI_Logo_RGB_Website logo_white.png'
+    : '/logos/Rhesis AI_Logo_RGB_Website logo.png';
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+      <Image
+        src={logoSrc}
+        alt="Rhesis AI Logo"
+        width={150}
+        height={50}
+        style={{ width: 'auto' }}
+        priority
+      />
+    </Box>
+  );
+}
