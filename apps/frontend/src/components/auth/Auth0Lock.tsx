@@ -103,6 +103,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<GoogleIcon />}
             onClick={() => handleLogin('google-oauth2')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with Google
           </Button>
@@ -113,6 +116,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<GitHubIcon />}
             onClick={() => handleLogin('github')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with GitHub
           </Button>
@@ -123,6 +129,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<AppleIcon />}
             onClick={() => handleLogin('apple')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with Apple
           </Button>
@@ -133,6 +142,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<MicrosoftIcon />}
             onClick={() => handleLogin('windowslive')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with Microsoft
           </Button>
