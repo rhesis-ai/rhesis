@@ -3,19 +3,22 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse
-from pydantic import UUID4
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import crud, models
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.token import TokenCreate, TokenRead, TokenUpdate
-from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.schemas.token import (
+    TokenCreate,
+    TokenCreateResponse,
+    TokenRead,
+    TokenUpdate,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.decorators import with_count_header
 
 router = APIRouter(
     prefix="/tokens",
@@ -24,7 +27,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=TokenRead)
+@router.post("/", response_model=TokenCreateResponse)
 @handle_database_exceptions(
     entity_name="token", custom_unique_message="Token with this name already exists"
 )
@@ -37,7 +40,7 @@ def create_token(
 ):
     """
     Create token with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -67,7 +70,18 @@ def create_token(
     }
 
     token_create = TokenCreate(**token_data)
-    return crud.create_token(db=db, token=token_create, organization_id=organization_id, user_id=user_id)
+    created_token = crud.create_token(
+        db=db, token=token_create, organization_id=organization_id, user_id=user_id
+    )
+
+    # Return the special response that includes the actual token value
+    return TokenCreateResponse(
+        access_token=created_token.token,
+        token_obfuscated=created_token.token_obfuscated,
+        token_type=created_token.token_type,
+        expires_at=created_token.expires_at,
+        name=created_token.name,
+    )
 
 
 @router.get("/", response_model=List[TokenRead])
@@ -103,7 +117,7 @@ def read_token(
 ):
     """
     Get token with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -111,7 +125,9 @@ def read_token(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_token = crud.get_token(db, token_id=token_id, organization_id=organization_id, user_id=user_id)
+    db_token = crud.get_token(
+        db, token_id=token_id, organization_id=organization_id, user_id=user_id
+    )
     if db_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
     return db_token
@@ -126,7 +142,7 @@ def delete_token(
 ):
     """
     Delete token with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -134,7 +150,9 @@ def delete_token(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_token = crud.revoke_token(db, token_id=token_id, organization_id=organization_id, user_id=user_id)
+    db_token = crud.revoke_token(
+        db, token_id=token_id, organization_id=organization_id, user_id=user_id
+    )
     if db_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
     return db_token
@@ -150,7 +168,7 @@ def update_token(
 ):
     """
     Update token with optimized approach - no session variables needed.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -170,7 +188,7 @@ def update_token(
     return db_token
 
 
-@router.post("/{token_id}/refresh", response_model=TokenRead)
+@router.post("/{token_id}/refresh", response_model=TokenCreateResponse)
 def refresh_token(
     token_id: uuid.UUID,
     data: dict = Body(...),
@@ -180,8 +198,10 @@ def refresh_token(
 ):
     """Refresh token with new value and expiration"""
     organization_id, user_id = tenant_context
-    
-    token = crud.get_token(db=db, token_id=token_id, organization_id=organization_id, user_id=user_id)
+
+    token = crud.get_token(
+        db=db, token_id=token_id, organization_id=organization_id, user_id=user_id
+    )
     if not token:
         raise HTTPException(status_code=404, detail="Token not found")
 
@@ -202,4 +222,12 @@ def refresh_token(
     updated_token = crud.update_token(db=db, token_id=token.id, token=token_update)
     if updated_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
-    return updated_token
+
+    # Return the special response that includes the actual token value
+    return TokenCreateResponse(
+        access_token=updated_token.token,
+        token_obfuscated=updated_token.token_obfuscated,
+        token_type=updated_token.token_type,
+        expires_at=updated_token.expires_at,
+        name=updated_token.name,
+    )
