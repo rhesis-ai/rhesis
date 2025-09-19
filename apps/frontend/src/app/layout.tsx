@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Metadata } from 'next';
 import Image from 'next/image';
 import { Box } from '@mui/material';
+import '../styles/fonts.css';
 import { 
   DashboardIcon, 
   ScienceIcon, 
@@ -183,7 +184,7 @@ export const metadata: Metadata = {
   },
   description: 'Rhesis AI | OSS Gen AI Testing Platform',
   icons: {
-    icon: '/rhesis-favicon.png',
+    icon: '/Rhesis AI_Logo_RGB_Favicon.svg',
   },
 };
 
@@ -192,10 +193,10 @@ const BRANDING: BrandingProps = {
   logo: (
     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
       <Image
-        src="/rhesis-logo-white.png"
-        alt="Rhesis Icon"
-        width={120}
-        height={24}
+        src="/Rhesis AI_Logo_RGB_Website logo.png"
+        alt="Rhesis AI Logo"
+        width={140}
+        height={28}
         style={{ width: 'auto' }}
       />
     </Box>
