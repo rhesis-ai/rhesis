@@ -1,0 +1,73 @@
+/* Sora Font Family - For major headings and titles */
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/sora/Sora-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/sora/Sora-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/sora/Sora-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/sora/Sora-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Be Vietnam Pro Font Family - For body text and UI elements */
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/BeVietnamPro-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/BeVietnamPro-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/BeVietnamPro-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/BeVietnamPro-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/BeVietnamPro-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
