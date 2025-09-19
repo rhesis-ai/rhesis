@@ -214,25 +214,6 @@ export default function CreateTaskPage() {
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Description"
-                      value={formData.description}
-                      onChange={handleChange('description')}
-                      multiline
-                      rows={4}
-                      disabled={isSaving}
-                      placeholder={
-                        formData.task_metadata?.comment_id 
-                          ? "Describe the task related to this comment..."
-                          : formData.entity_type 
-                            ? `Describe the task for ${getEntityDisplayName(formData.entity_type as EntityType)}...`
-                            : "Describe the task..."
-                      }
-                    />
-                  </Grid>
-
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth disabled={isSaving}>
                       <InputLabel>Status</InputLabel>
@@ -285,6 +266,25 @@ export default function CreateTaskPage() {
                         ))}
                       </Select>
                     </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Description"
+                      value={formData.description}
+                      onChange={handleChange('description')}
+                      multiline
+                      rows={4}
+                      disabled={isSaving}
+                      placeholder={
+                        formData.task_metadata?.comment_id 
+                          ? "Describe the task related to this comment..."
+                          : formData.entity_type 
+                            ? `Describe the task for ${getEntityDisplayName(formData.entity_type as EntityType)}...`
+                            : "Describe the task..."
+                      }
+                    />
                   </Grid>
 
                   <Grid item xs={12}>
