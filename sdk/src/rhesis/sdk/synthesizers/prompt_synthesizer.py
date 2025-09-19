@@ -54,11 +54,15 @@ class PromptSynthesizer(TestSetSynthesizer):
         config: Optional[GenerationConfig] = None,
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-
-        config = asdict(config)
-        formatted_prompt = self.system_prompt.render(
-            generation_prompt=self.prompt, **config, num_tests=num_tests, context=context
-        )
+        if config is not None:
+            config = asdict(config)
+            formatted_prompt = self.system_prompt.render(
+                generation_prompt=self.prompt, **config, num_tests=num_tests, context=context
+            )
+        else:
+            formatted_prompt = self.system_prompt.render(
+                generation_prompt=self.prompt, num_tests=num_tests, context=context
+            )
 
         # Use utility function for retry logic
         response = retry_llm_call(self.model, formatted_prompt)
