@@ -117,7 +117,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
 
   if (isLoading) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, height: 400, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           Latest Test Runs
         </Typography>
@@ -134,7 +134,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
 
   if (error) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, height: 400, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           Latest Test Runs
         </Typography>
@@ -147,7 +147,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
   }
 
   return (
-    <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
+    <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
       <Typography variant="h6" sx={{ mb: 1 }}>
         Latest Test Runs
       </Typography>

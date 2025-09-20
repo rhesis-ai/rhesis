@@ -78,7 +78,7 @@ export default function BaseTimelineChart({
   // Loading state
   if (isLoading) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, height, display: 'flex', flexDirection: 'column' }}>
         <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
           {title}
         </Typography>
@@ -96,7 +96,7 @@ export default function BaseTimelineChart({
   // Error state
   if (error) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, height, display: 'flex', flexDirection: 'column' }}>
         <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
           {title}
         </Typography>
@@ -111,7 +111,7 @@ export default function BaseTimelineChart({
   // No data state
   if (chartData.length === 0) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, height, display: 'flex', flexDirection: 'column' }}>
         <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
           {title}
         </Typography>
@@ -135,7 +135,7 @@ export default function BaseTimelineChart({
 
   // Chart with data
   return (
-    <Paper elevation={1} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
+    <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
       <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
         {title}
       </Typography>

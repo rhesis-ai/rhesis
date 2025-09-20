@@ -500,7 +500,7 @@ export default function BaseDataGrid({
         />
       ) : (
         <Paper 
-          elevation={1}
+          elevation={(theme) => theme.elevation.subtle}
           sx={{ 
             width: '100%', 
             borderRadius: 2, 

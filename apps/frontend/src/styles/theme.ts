@@ -237,6 +237,25 @@ const getDesignTokens = (mode: PaletteMode) => ({
     line: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803'], // Rhesis primary blue, orange, CTA blue, yellow
     pie: ['#97D5EE', '#50B9E0', '#2AA1CE'], // Rhesis light blue, primary blue, CTA blue
     status: ['#2AA1CE', '#FDD803', '#FD6E12'] // success (CTA blue), warning (yellow), error (orange)
+  },
+  elevation: {
+    none: 0,        // Flat surfaces, nested components
+    subtle: 1,      // Minimal elevation for standalone components
+    standard: 2,    // Standard elevation for cards, containers, charts
+    prominent: 6,   // High elevation for modals, important dialogs
+    modal: 8,       // Maximum elevation for overlays
+  },
+  customSpacing: {
+    container: {
+      small: 2,     // 16px - for compact components
+      medium: 3,    // 24px - for standard containers
+      large: 4,     // 32px - for spacious layouts
+    },
+    section: {
+      small: 2,     // 16px - between related elements
+      medium: 3,    // 24px - between sections
+      large: 4,     // 32px - between major sections
+    }
   }
 });
 
@@ -251,14 +270,52 @@ declare module '@mui/material/styles' {
       line: string[];
       pie: string[];
       status: string[];
-    }
+    };
+    elevation: {
+      none: number;
+      subtle: number;
+      standard: number;
+      prominent: number;
+      modal: number;
+    };
+    customSpacing: {
+      container: {
+        small: number;
+        medium: number;
+        large: number;
+      };
+      section: {
+        small: number;
+        medium: number;
+        large: number;
+      };
+    };
   }
   interface ThemeOptions {
     chartPalettes?: {
       line: string[];
       pie: string[];
       status: string[];
-    }
+    };
+    elevation?: {
+      none: number;
+      subtle: number;
+      standard: number;
+      prominent: number;
+      modal: number;
+    };
+    customSpacing?: {
+      container: {
+        small: number;
+        medium: number;
+        large: number;
+      };
+      section: {
+        small: number;
+        medium: number;
+        large: number;
+      };
+    };
   }
   interface TypeBackground {
     light1?: string;
