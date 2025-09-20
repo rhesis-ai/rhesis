@@ -41,7 +41,7 @@ import {
   GenerationSample 
 } from '@/utils/api-client/interfaces/test-set';
 import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
-import StarIcon from '@mui/icons-material/Star';
+import StarIcon from '@mui/icons-material/StarOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import UploadFileIcon from '@mui/icons-material/UploadFile';

@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Typography, Paper, Button, Divider, Checkbox, FormControlLabel } from '@mui/material';
+// Brand icons - keeping filled versions as outlined variants may not exist for all brands
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
