@@ -138,7 +138,7 @@ export default function TestResultsFilters({
   );
 
   return (
-    <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.small, mb: (theme) => theme.customSpacing.section.medium }}>
+    <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FilterList />
@@ -222,6 +222,7 @@ export default function TestResultsFilters({
               key="test_set"
               label={`Test Set: ${testSets.find(ts => ts.id === filters.test_set_ids?.[0])?.name || 'Unknown'}`}
               size="small"
+              variant="outlined"
               onDelete={() => updateFilters({ test_set_ids: undefined, test_run_ids: undefined })}
             />
           )}
@@ -230,6 +231,7 @@ export default function TestResultsFilters({
               key="test_run"
               label={`Test Run: ${testRuns.find(tr => tr.id === filters.test_run_ids?.[0])?.name || 'Unknown'}`}
               size="small"
+              variant="outlined"
               onDelete={() => updateFilters({ test_run_ids: undefined })}
             />
           )}
@@ -240,6 +242,7 @@ export default function TestResultsFilters({
                 key={key}
                 label={`${key}: ${Array.isArray(value) ? value.join(', ') : value}`}
                 size="small"
+                variant="outlined"
                 onDelete={() => updateFilters({ [key]: undefined })}
               />
             );

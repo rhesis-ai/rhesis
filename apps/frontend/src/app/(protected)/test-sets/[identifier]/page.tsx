@@ -114,7 +114,7 @@ export default async function TestSetPage({ params }: { params: any }) {
         <Grid container spacing={3}>
           {/* Main Content Column */}
           <Grid item xs={12} md={9}>
-            <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, mb: (theme) => theme.customSpacing.section.large }}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestSetDetailsSection 
                 testSet={serializedTestSet} 
                 sessionToken={session.session_token}
@@ -122,7 +122,7 @@ export default async function TestSetPage({ params }: { params: any }) {
             </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, mb: (theme) => theme.customSpacing.section.large }}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestSetTestsGrid
                 testSetId={identifier}
                 sessionToken={session.session_token}
@@ -142,7 +142,7 @@ export default async function TestSetPage({ params }: { params: any }) {
 
           {/* Workflow Column */}
           <Grid item xs={12} md={3}>
-            <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium }}>
+            <Paper elevation={2} sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Workflow
               </Typography>

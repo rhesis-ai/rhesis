@@ -230,7 +230,9 @@ export default function LandingPage() {
               p: 3,
               borderRadius: 2,
               boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-              background: 'rgba(255, 255, 255, 0.9)',
+              background: (theme) => theme.palette.mode === 'dark' 
+                ? 'rgba(0, 0, 0, 0.8)' 
+                : 'rgba(255, 255, 255, 0.9)',
             }}>
               <Typography variant="h5" gutterBottom>
                 Welcome back, {session.user?.name || 'User'}!

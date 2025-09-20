@@ -26,7 +26,7 @@ export default async function TestResultsPage() {
     const errorMessage = (error as Error).message;
     return (
       <PageContainer title="Test Results">
-        <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium }}>
+        <Paper elevation={2} sx={{ p: 3 }}>
           <Typography color="error" variant="h6" gutterBottom>
             Error Loading Test Results
           </Typography>
