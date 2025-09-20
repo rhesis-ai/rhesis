@@ -31,6 +31,18 @@ const getDesignTokens = (mode: PaletteMode) => ({
       text: {
         primary: '#3D3D3D', // Dark Text
         secondary: '#1A1A1A', // Dark Black
+      },
+      success: {
+        main: '#2E7D32', // Material success green, dark enough for contrast
+        contrastText: '#FFFFFF',
+      },
+      warning: {
+        main: '#F57C00', // Amber 800, lighter than CTA orange
+        contrastText: '#FFFFFF',
+      },
+      error: {
+        main: '#C62828', // Strong error red, good contrast
+        contrastText: '#FFFFFF',
       }
     } : {
       // Dark mode colors - Professional dark theme with Rhesis AI brand accents
@@ -57,6 +69,18 @@ const getDesignTokens = (mode: PaletteMode) => ({
       text: {
         primary: '#E6EDF3', // Primary text (light gray, easy on eyes)
         secondary: '#A9B1BB', // Secondary text (subdued gray)
+      },
+      success: {
+        main: '#86EFAC', // Soft mint green, readable on dark backgrounds
+        contrastText: '#000000',
+      },
+      warning: {
+        main: '#FCD34D', // Warm amber yellow, readable on dark
+        contrastText: '#000000',
+      },
+      error: {
+        main: '#FCA5A5', // Soft red-pink, accessible on dark
+        contrastText: '#000000',
       },
     }),
   },
@@ -237,30 +261,30 @@ const getDesignTokens = (mode: PaletteMode) => ({
             backgroundColor: 'transparent',
           },
         },
-        // Success chips - use green (not CTA colors)
+        // Success chips - use notification success colors
         colorSuccess: {
           backgroundColor: mode === 'light' ? '#E8F5E8' : '#1F2937',
           color: mode === 'light' ? '#2E7D32' : '#86EFAC',
           '&.MuiChip-outlined': {
-            borderColor: mode === 'light' ? '#81C784' : '#22C55E',
+            borderColor: mode === 'light' ? '#2E7D32' : '#86EFAC',
             backgroundColor: 'transparent',
           },
         },
-        // Warning chips - use amber (not CTA orange)
+        // Warning chips - use notification warning colors
         colorWarning: {
           backgroundColor: mode === 'light' ? '#FFF8E1' : '#1F2937',
           color: mode === 'light' ? '#F57C00' : '#FCD34D',
           '&.MuiChip-outlined': {
-            borderColor: mode === 'light' ? '#FFB74D' : '#F59E0B',
+            borderColor: mode === 'light' ? '#F57C00' : '#FCD34D',
             backgroundColor: 'transparent',
           },
         },
-        // Error chips - use red (not CTA colors)
+        // Error chips - use notification error colors
         colorError: {
           backgroundColor: mode === 'light' ? '#FFEBEE' : '#1F2937',
           color: mode === 'light' ? '#C62828' : '#FCA5A5',
           '&.MuiChip-outlined': {
-            borderColor: mode === 'light' ? '#E57373' : '#EF4444',
+            borderColor: mode === 'light' ? '#C62828' : '#FCA5A5',
             backgroundColor: 'transparent',
           },
         },
@@ -281,7 +305,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
   chartPalettes: {
     line: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803'], // Rhesis primary blue, orange, CTA blue, yellow
     pie: ['#97D5EE', '#50B9E0', '#2AA1CE'], // Rhesis light blue, primary blue, CTA blue
-    status: ['#2AA1CE', '#FDD803', '#FD6E12'] // success (CTA blue), warning (yellow), error (orange)
+    status: ['#2E7D32', '#F57C00', '#C62828'] // success (green), warning (amber), error (red) - using light mode colors for consistency
   },
   elevation: {
     none: 0,        // Flat surfaces, nested components

@@ -662,12 +662,12 @@ export default function LLMProvidersPage() {
               width: '100%',
               display: 'flex', 
               flexDirection: 'column',
-              bgcolor: 'grey.50',
+              bgcolor: 'action.hover',
               cursor: 'pointer',
               transition: 'all 0.2s',
               minHeight: 'inherit', // Inherit the minimum height from parent
               '&:hover': {
-                bgcolor: 'grey.100',
+                bgcolor: 'action.selected',
                 transform: 'translateY(-2px)'
               }
             }}

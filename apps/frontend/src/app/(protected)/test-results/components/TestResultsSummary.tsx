@@ -223,16 +223,12 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
                 <Box display="flex" alignItems="center" gap={2} mb={1}>
                   <Chip 
                     label={run.name || `Run ${index + 1}`} 
-                    color={index === 0 ? "primary" : "default"}
-                    variant={index === 0 ? "filled" : "outlined"}
+                    variant="outlined"
                     size="small"
                   />
                   <Typography variant="body2" color="text.secondary">
                     {run.created_at ? new Date(run.created_at).toLocaleString() : 'N/A'}
                   </Typography>
-                  {index === 0 && (
-                    <Chip label="Most Recent" size="small" color="success" variant="outlined" />
-                  )}
                 </Box>
                 <Grid container spacing={2}>
                   <Grid item xs={6} sm={3}>
