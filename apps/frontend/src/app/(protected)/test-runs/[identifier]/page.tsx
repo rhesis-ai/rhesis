@@ -85,7 +85,7 @@ export default async function TestRunPage({ params }: { params: any }) {
         <Grid container spacing={3}>
           {/* Main Content Column */}
           <Grid item xs={12} md={9}>
-            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+            <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, mb: (theme) => theme.customSpacing.section.large }}>
               <TestRunDetailsSection 
                 testRun={testRun} 
                 sessionToken={session.session_token}
@@ -93,7 +93,7 @@ export default async function TestRunPage({ params }: { params: any }) {
             </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+            <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, mb: (theme) => theme.customSpacing.section.large }}>
               <TestRunTestsGrid
                 testRunId={identifier}
                 sessionToken={session.session_token}
@@ -113,7 +113,7 @@ export default async function TestRunPage({ params }: { params: any }) {
 
           {/* Workflow Column */}
           <Grid item xs={12} md={3}>
-            <Paper elevation={2} sx={{ p: 3 }}>
+            <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium }}>
               <TestRunWorkflowSection 
                 sessionToken={session.session_token} 
                 testRunId={identifier}

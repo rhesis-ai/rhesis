@@ -138,7 +138,7 @@ export default function TestResultsFilters({
   );
 
   return (
-    <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+    <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.small, mb: (theme) => theme.customSpacing.section.medium }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FilterList />
