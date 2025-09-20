@@ -212,7 +212,7 @@ export default function BaseWorkflowSection({
       py: 1,
       width: '100%'
     }}>
-      <Typography sx={{ fontSize: 16, letterSpacing: '0.15px' }}>
+      <Typography variant="subtitle1" sx={{ letterSpacing: '0.15px' }}>
         {label}
       </Typography>
       {children}

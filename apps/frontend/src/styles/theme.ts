@@ -136,6 +136,51 @@ const getDesignTokens = (mode: PaletteMode) => ({
       fontFamily: '"Be Vietnam Pro", sans-serif',
       fontWeight: 300, // Light
       color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    subtitle1: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 500, // Medium
+      fontSize: '1rem', // 16px
+      lineHeight: 1.75,
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    subtitle2: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 500, // Medium
+      fontSize: '0.875rem', // 14px
+      lineHeight: 1.57,
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    overline: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 600, // Semibold
+      fontSize: '0.75rem', // 12px
+      lineHeight: 2.66,
+      letterSpacing: '0.08333em',
+      textTransform: 'uppercase' as const,
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    // Custom typography variants for specific use cases
+    chartLabel: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 400, // Regular
+      fontSize: '0.75rem', // 12px - for chart labels
+      lineHeight: 1.5,
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    chartTick: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 400, // Regular
+      fontSize: '0.625rem', // 10px - for chart ticks
+      lineHeight: 1.4,
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
+    },
+    helperText: {
+      fontFamily: '"Be Vietnam Pro", sans-serif',
+      fontWeight: 400, // Regular
+      fontSize: '0.875rem', // 14px - for loading/helper text
+      lineHeight: 1.43,
+      color: mode === 'light' ? '#3D3D3D' : '#FFFFFF'
     }
   },
   components: {
@@ -325,6 +370,12 @@ const getDesignTokens = (mode: PaletteMode) => ({
       medium: 3,    // 24px - between sections
       large: 4,     // 32px - between major sections
     }
+  },
+  iconSizes: {
+    small: 16,      // Small icons (inline with text, form inputs)
+    medium: 24,     // Standard icons (buttons, navigation)
+    large: 32,      // Large icons (cards, headers)
+    xlarge: 48      // Extra large icons (empty states, hero sections)
   }
 });
 
@@ -334,6 +385,19 @@ const darkTheme = createTheme(getDesignTokens('dark'));
 
 // Add custom theme extensions
 declare module '@mui/material/styles' {
+  interface TypographyVariants {
+    chartLabel: React.CSSProperties;
+    chartTick: React.CSSProperties;
+    helperText: React.CSSProperties;
+  }
+
+  // Allow configuration using `createTheme`
+  interface TypographyVariantsOptions {
+    chartLabel?: React.CSSProperties;
+    chartTick?: React.CSSProperties;
+    helperText?: React.CSSProperties;
+  }
+
   interface Theme {
     chartPalettes: {
       line: string[];
@@ -358,6 +422,12 @@ declare module '@mui/material/styles' {
         medium: number;
         large: number;
       };
+    };
+    iconSizes: {
+      small: number;
+      medium: number;
+      large: number;
+      xlarge: number;
     };
   }
   interface ThemeOptions {
@@ -385,12 +455,27 @@ declare module '@mui/material/styles' {
         large: number;
       };
     };
+    iconSizes?: {
+      small: number;
+      medium: number;
+      large: number;
+      xlarge: number;
+    };
   }
   interface TypeBackground {
     light1?: string;
     light2?: string;
     light3?: string;
     light4?: string;
+  }
+}
+
+// Update Typography component props to include custom variants
+declare module '@mui/material/Typography' {
+  interface TypographyPropsVariantOverrides {
+    chartLabel: true;
+    chartTick: true;
+    helperText: true;
   }
 }
 

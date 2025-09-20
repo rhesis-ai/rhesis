@@ -37,71 +37,73 @@ const calculateLineCount = (text: string, maxLineLength: number = 14): number =>
 };
 
 // Custom tick component for wrapping text with dynamic positioning
-const CustomTick = ({ payload, x, y, textAnchor, cx, cy, ...rest }: any) => {
-  const maxLineLength = 14; // Max characters per line (increased for pass rate)
-  const lines = [];
-  
-  if (payload?.value) {
-    const words = payload.value.split(' ');
-    let currentLine = '';
+// Custom tick factory function that takes theme as parameter
+const createCustomTick = (chartTickFontSize: string) => 
+  ({ payload, x, y, textAnchor, cx, cy, ...rest }: any) => {
+    const maxLineLength = 14; // Max characters per line (increased for pass rate)
+    const lines = [];
     
-    for (const word of words) {
-      if ((currentLine + word).length <= maxLineLength) {
-        currentLine += (currentLine ? ' ' : '') + word;
-      } else {
-        if (currentLine) lines.push(currentLine);
-        currentLine = word;
+    if (payload?.value) {
+      const words = payload.value.split(' ');
+      let currentLine = '';
+      
+      for (const word of words) {
+        if ((currentLine + word).length <= maxLineLength) {
+          currentLine += (currentLine ? ' ' : '') + word;
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
       }
+      if (currentLine) lines.push(currentLine);
     }
-    if (currentLine) lines.push(currentLine);
-  }
-  
-  // Calculate distance from center and push labels further out based on line count
-  const centerX = cx || 0;
-  const centerY = cy || 0;
-  const distanceFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-  
-  // Additional offset based on number of lines (more lines = push further out)
-  const baseOffset = 8;
-  const additionalOffset = (lines.length - 1) * 6;
-  const totalOffset = baseOffset + additionalOffset;
-  
-  // Calculate the direction vector from center to original position
-  const directionX = (x - centerX) / distanceFromCenter;
-  const directionY = (y - centerY) / distanceFromCenter;
-  
-  // Apply offset in the same direction
-  const adjustedX = x + (directionX * totalOffset);
-  const adjustedY = y + (directionY * totalOffset);
-  
-  // Adjust text anchor based on position relative to center
-  let adjustedTextAnchor = textAnchor;
-  if (adjustedX < centerX - 10) {
-    adjustedTextAnchor = 'end';
-  } else if (adjustedX > centerX + 10) {
-    adjustedTextAnchor = 'start';
-  } else {
-    adjustedTextAnchor = 'middle';
-  }
-  
-  return (
-    <g>
-      {lines.map((line, index) => (
-        <text
-          key={index}
-          x={adjustedX}
-          y={adjustedY + (index * 12) - ((lines.length - 1) * 6)} // Center multi-line text vertically
-          textAnchor={adjustedTextAnchor}
-          fontSize="10"
-          fill="#666"
-          dominantBaseline="middle"
-        >
-          {line}
-        </text>
-      ))}
-    </g>
-  );
-};
+    
+    // Calculate distance from center and push labels further out based on line count
+    const centerX = cx || 0;
+    const centerY = cy || 0;
+    const distanceFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+    
+    // Additional offset based on number of lines (more lines = push further out)
+    const baseOffset = 8;
+    const additionalOffset = (lines.length - 1) * 6;
+    const totalOffset = baseOffset + additionalOffset;
+    
+    // Calculate the direction vector from center to original position
+    const directionX = (x - centerX) / distanceFromCenter;
+    const directionY = (y - centerY) / distanceFromCenter;
+    
+    // Apply offset in the same direction
+    const adjustedX = x + (directionX * totalOffset);
+    const adjustedY = y + (directionY * totalOffset);
+    
+    // Adjust text anchor based on position relative to center
+    let adjustedTextAnchor = textAnchor;
+    if (adjustedX < centerX - 10) {
+      adjustedTextAnchor = 'end';
+    } else if (adjustedX > centerX + 10) {
+      adjustedTextAnchor = 'start';
+    } else {
+      adjustedTextAnchor = 'middle';
+    }
+    
+    return (
+      <g>
+        {lines.map((line, index) => (
+          <text
+            key={index}
+            x={adjustedX}
+            y={adjustedY + (index * 12) - ((lines.length - 1) * 6)} // Center multi-line text vertically
+            textAnchor={adjustedTextAnchor}
+            fontSize={parseInt(chartTickFontSize)}
+            fill="#666"
+            dominantBaseline="middle"
+          >
+            {line}
+          </text>
+        ))}
+      </g>
+    );
+  };
 
 const transformDimensionDataForRadar = (
   dimensionData?: Record<string, PassFailStats>,
@@ -140,6 +142,13 @@ export default function DimensionRadarChart({
   title 
 }: DimensionRadarChartProps) {
   const theme = useTheme();
+  
+  // Create CustomTick component with theme access
+  const CustomTick = useMemo(() => 
+    createCustomTick(theme.typography.chartTick.fontSize), 
+    [theme.typography.chartTick.fontSize]
+  );
+  
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -227,7 +236,7 @@ export default function DimensionRadarChart({
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading {dimension}...</Typography>
+          <Typography variant="helperText" sx={{ ml: 2 }}>Loading {dimension}...</Typography>
         </Box>
       </Paper>
     );
@@ -271,7 +280,7 @@ export default function DimensionRadarChart({
           <PolarRadiusAxis 
             angle={90} 
             domain={[0, 100]} 
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
             tickFormatter={(value) => `${value}%`}
           />
           <Radar

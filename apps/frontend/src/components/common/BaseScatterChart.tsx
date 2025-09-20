@@ -66,12 +66,21 @@ export default function BaseScatterChart({
   normalColor
 }: BaseScatterChartProps) {
   const theme = useTheme();
+  
+  // Update legend props to use theme
+  const themedLegendProps = {
+    ...legendProps,
+    wrapperStyle: {
+      ...legendProps.wrapperStyle,
+      fontSize: theme.typography.chartTick.fontSize
+    }
+  };
   const { palettes } = useChartColors();
 
   // Default tooltip props with theme awareness
   const defaultTooltipProps = {
     contentStyle: { 
-      fontSize: '10px',
+      fontSize: theme.typography.chartTick.fontSize,
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
@@ -143,19 +152,19 @@ export default function BaseScatterChart({
               <XAxis 
                 dataKey="x"
                 type="number"
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
-                label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, style: { fontSize: '10px' } } : undefined}
+                label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}
                 {...xAxisConfig}
               />
               <YAxis 
                 dataKey="y"
                 type="number"
-                tick={{ fontSize: 10 }} 
+                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }} 
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
-                label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: '10px' } } : undefined}
+                label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}
                 {...yAxisConfig}
               />
               <Tooltip 

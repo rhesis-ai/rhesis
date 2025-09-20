@@ -80,7 +80,7 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
         <CircularProgress size={24} />
-        <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading metrics timeline...</Typography>
+        <Typography variant="helperText" sx={{ ml: 2 }}>Loading metrics timeline...</Typography>
       </Box>
     );
   }

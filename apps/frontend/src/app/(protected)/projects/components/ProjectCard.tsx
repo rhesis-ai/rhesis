@@ -255,7 +255,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
     
     return (
       <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-        <LocalOfferIcon sx={{ fontSize: 20, color: 'text.secondary', mr: 1, mt: 0.3 }} />
+        <LocalOfferIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 1, mt: 0.3 }} />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {project.tags.slice(0, 3).map((tag) => (
             <Chip
@@ -264,7 +264,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
               size="small"
               variant="outlined"
               color="secondary"
-              sx={{ fontSize: '0.7rem' }}
+              variant="caption"
             />
           ))}
           {project.tags.length > 3 && (
@@ -272,7 +272,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
               label={`+${project.tags.length - 3}`} 
               size="small" 
               variant="outlined"
-              sx={{ fontSize: '0.7rem' }} 
+              variant="caption" 
             />
           )}
         </Box>
@@ -306,7 +306,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
       <CardContent sx={{ flexGrow: 1, pt: 2, pb: 1 }}>
         {/* Description with icon */}
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-          <DescriptionIcon sx={{ fontSize: 20, color: 'text.secondary', mr: 1, mt: 0.3 }} />
+          <DescriptionIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 1, mt: 0.3 }} />
           <Typography variant="body2">
             {project.description || 'No description provided'}
           </Typography>
@@ -363,7 +363,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
         {/* Creation Date */}
         {project.createdAt && (
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <CalendarTodayIcon sx={{ fontSize: 20, color: 'text.secondary', mr: 1 }} />
+            <CalendarTodayIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 1 }} />
             <Typography variant="body2" color="text.secondary">
               Created: {new Date(project.createdAt).toLocaleDateString()}
             </Typography>

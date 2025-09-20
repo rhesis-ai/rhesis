@@ -114,7 +114,7 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
                     sx={{
                       bgcolor: 'primary.main',
                       color: 'primary.contrastText',
-                      fontSize: '0.75rem'
+                      fontSize: theme.typography.chartLabel.fontSize
                     }}
                   />
                 )}

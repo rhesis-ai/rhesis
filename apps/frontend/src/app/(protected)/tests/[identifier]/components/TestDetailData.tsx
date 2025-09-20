@@ -322,7 +322,7 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
                     maxHeight: '300px',
                     overflow: 'auto',
                     fontFamily: 'monospace',
-                    fontSize: '0.875rem',
+                    fontSize: theme.typography.helperText.fontSize,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word'
                   }}
