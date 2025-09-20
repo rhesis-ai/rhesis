@@ -312,6 +312,7 @@ export default function LatestTestRunsGrid({ sessionToken }: LatestTestRunsGridP
         linkPath="/test-runs"
         linkField="id"
         disableRowSelectionOnClick
+        disablePaperWrapper={true}
       />
     </Box>
   );

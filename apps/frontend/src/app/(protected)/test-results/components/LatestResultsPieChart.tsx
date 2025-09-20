@@ -79,7 +79,7 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
 
   if (isLoading) {
     return (
-      <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           Overall Results
         </Typography>
@@ -96,7 +96,7 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
 
   if (error) {
     return (
-      <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           Overall Results
         </Typography>

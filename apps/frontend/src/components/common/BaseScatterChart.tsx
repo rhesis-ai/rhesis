@@ -126,7 +126,7 @@ export default function BaseScatterChart({
   };
 
   return (
-    <Card className={styles.card}>
+    <Card className={styles.card} elevation={2}>
       <CardContent className={styles.cardContent}>
         {title && (
           <Typography variant="subtitle1" className={styles.title}>

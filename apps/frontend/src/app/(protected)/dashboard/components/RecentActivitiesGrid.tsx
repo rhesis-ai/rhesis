@@ -134,6 +134,7 @@ export default function RecentActivitiesGrid({ sessionToken }: RecentActivitiesG
         linkPath="/tests"
         linkField="id"
         disableRowSelectionOnClick
+        disablePaperWrapper={true}
       />
     </Box>
   );

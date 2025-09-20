@@ -281,7 +281,7 @@ export default function BasePieChart({
   }, [dataLookup]);
   
   return (
-    <Card sx={{ height: '100%' }}>
+    <Card sx={{ height: '100%' }} elevation={2}>
       <CardContent sx={{ 
         p: 0.5, 
         height: '100%', 
