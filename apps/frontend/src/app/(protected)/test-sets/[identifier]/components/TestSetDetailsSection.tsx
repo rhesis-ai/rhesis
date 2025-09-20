@@ -1,16 +1,16 @@
 'use client';
 
 import { Box, Paper, Button, TextField, Typography, Tooltip, Chip } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '../../../../../utils/api-client/client-factory';
 import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
-import CancelIcon from '@mui/icons-material/Cancel';
-import CheckIcon from '@mui/icons-material/Check';
-import EditIcon from '@mui/icons-material/Edit';
+import CancelIcon from '@mui/icons-material/CancelOutlined';
+import CheckIcon from '@mui/icons-material/CheckOutlined';
+import EditIcon from '@mui/icons-material/EditOutlined';
 import TestSetTags from './TestSetTags';
 
 interface TestSetDetailsSectionProps {

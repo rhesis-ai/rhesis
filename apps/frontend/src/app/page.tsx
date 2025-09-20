@@ -19,16 +19,16 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
 import { getClientApiBaseUrl } from '../utils/url-resolver';
-// Import Material UI icons
-import SpeedIcon from '@mui/icons-material/Speed';
-import SecurityIcon from '@mui/icons-material/Security';
-import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
-import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import GroupAddIcon from '@mui/icons-material/GroupAdd';
-import ControlCameraIcon from '@mui/icons-material/ControlCamera';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import TuneIcon from '@mui/icons-material/Tune';
+// Import Material UI icons - Using Outlined variants as default
+import SpeedIcon from '@mui/icons-material/SpeedOutlined';
+import SecurityIcon from '@mui/icons-material/SecurityOutlined';
+import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotionsOutlined';
+import LightbulbIcon from '@mui/icons-material/LightbulbOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
+import GroupAddIcon from '@mui/icons-material/GroupAddOutlined';
+import ControlCameraIcon from '@mui/icons-material/ControlCameraOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMoreOutlined';
+import TuneIcon from '@mui/icons-material/TuneOutlined';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();

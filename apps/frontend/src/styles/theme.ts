@@ -115,6 +115,13 @@ const getDesignTokens = (mode: PaletteMode) => ({
     }
   },
   components: {
+    MuiSvgIcon: {
+      styleOverrides: {
+        root: {
+          fontWeight: 200, // Extra light weight for all icons
+        },
+      },
+    },
     MuiAppBar: {
       styleOverrides: {
         root: {

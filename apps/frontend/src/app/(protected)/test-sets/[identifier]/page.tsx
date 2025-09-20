@@ -8,7 +8,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
 import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import BaseFreesoloAutocomplete from '@/components/common/BaseFreesoloAutocomplete';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
