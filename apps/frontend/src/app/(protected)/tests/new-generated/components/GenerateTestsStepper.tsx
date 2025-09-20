@@ -782,7 +782,7 @@ const ReviewSamples = ({
             }}
           >
             <Box sx={{ display: 'flex', gap: 1, mb: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <Chip label={sample.behavior} size="small" color={sample.behavior === 'Reliability' ? 'success' : 'warning'} />
+              <Chip label={sample.behavior} size="small" color={sample.behavior === 'Reliability' ? 'success' : 'warning'} variant="outlined" />
               <Chip label={sample.topic} size="small" variant="outlined" />
             </Box>
 

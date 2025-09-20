@@ -219,6 +219,51 @@ const getDesignTokens = (mode: PaletteMode) => ({
           fontFamily: '"Be Vietnam Pro", sans-serif',
           fontWeight: 500,
         },
+        // Default chip styling - use neutral colors, not CTA colors
+        colorDefault: {
+          backgroundColor: mode === 'light' ? '#F5F5F5' : '#2C2C2C',
+          color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
+          '&.MuiChip-outlined': {
+            borderColor: mode === 'light' ? '#E0E0E0' : '#404040',
+            backgroundColor: 'transparent',
+          },
+        },
+        // Info chips - use subtle blue (not CTA blue)
+        colorInfo: {
+          backgroundColor: mode === 'light' ? '#E4F2FA' : '#1F2937',
+          color: mode === 'light' ? '#1565C0' : '#93C5FD',
+          '&.MuiChip-outlined': {
+            borderColor: mode === 'light' ? '#90CAF9' : '#3B82F6',
+            backgroundColor: 'transparent',
+          },
+        },
+        // Success chips - use green (not CTA colors)
+        colorSuccess: {
+          backgroundColor: mode === 'light' ? '#E8F5E8' : '#1F2937',
+          color: mode === 'light' ? '#2E7D32' : '#86EFAC',
+          '&.MuiChip-outlined': {
+            borderColor: mode === 'light' ? '#81C784' : '#22C55E',
+            backgroundColor: 'transparent',
+          },
+        },
+        // Warning chips - use amber (not CTA orange)
+        colorWarning: {
+          backgroundColor: mode === 'light' ? '#FFF8E1' : '#1F2937',
+          color: mode === 'light' ? '#F57C00' : '#FCD34D',
+          '&.MuiChip-outlined': {
+            borderColor: mode === 'light' ? '#FFB74D' : '#F59E0B',
+            backgroundColor: 'transparent',
+          },
+        },
+        // Error chips - use red (not CTA colors)
+        colorError: {
+          backgroundColor: mode === 'light' ? '#FFEBEE' : '#1F2937',
+          color: mode === 'light' ? '#C62828' : '#FCA5A5',
+          '&.MuiChip-outlined': {
+            borderColor: mode === 'light' ? '#E57373' : '#EF4444',
+            backgroundColor: 'transparent',
+          },
+        },
       },
     },
     MuiCard: {

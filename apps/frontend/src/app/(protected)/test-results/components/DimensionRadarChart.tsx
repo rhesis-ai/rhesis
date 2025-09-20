@@ -218,7 +218,7 @@ export default function DimensionRadarChart({
 
   if (isLoading) {
     return (
-      <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, height: 400, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           {title}
         </Typography>
@@ -235,7 +235,7 @@ export default function DimensionRadarChart({
 
   if (error) {
     return (
-      <Paper elevation={2} sx={{ p: (theme) => theme.customSpacing.container.medium, height: 400, display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
           {title}
         </Typography>

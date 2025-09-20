@@ -89,13 +89,14 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
     }
   };
 
-  const renderSingleChip = (value: string | undefined | null, color: "primary" | "secondary" | "default" = "primary") => {
+  const renderSingleChip = (value: string | undefined | null, color: "info" | "default" = "default") => {
     if (!value) return 'N/A';
     return (
       <Chip
         label={value}
         size="small"
         color={color}
+        variant="outlined"
       />
     );
   };
@@ -133,7 +134,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
                       key={`${item}-${index}`}
                       label={item}
                       size="small"
-                      color="primary"
+                      variant="outlined"
                     />
                   ))}
                   {shouldTruncate && (
@@ -141,7 +142,6 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
                       key="remaining"
                       label={`+${remainingCount}`}
                       size="small"
-                      color="secondary"
                       variant="outlined"
                     />
                   )}
@@ -243,7 +243,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
               margin="normal"
               InputProps={{
                 readOnly: true,
-                startAdornment: renderSingleChip(testRun.attributes?.environment || 'development', 'secondary')
+                startAdornment: renderSingleChip(testRun.attributes?.environment || 'development')
               }}
             />
 
