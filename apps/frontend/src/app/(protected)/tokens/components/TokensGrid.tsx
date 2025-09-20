@@ -173,6 +173,7 @@ export default function TokensGrid({
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
+            disablePaperWrapper={true}
           />
         </Box>
       </Paper>

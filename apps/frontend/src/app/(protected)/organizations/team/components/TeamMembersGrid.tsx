@@ -20,7 +20,6 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import PersonIcon from '@mui/icons-material/Person';
-import EmailIcon from '@mui/icons-material/Email';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -203,12 +202,9 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
       renderCell: (params) => {
         const user = params.row as User;
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <EmailIcon fontSize="small" color="action" />
-            <Typography variant="body2">
-              {user.email}
-            </Typography>
-          </Box>
+          <Typography variant="body2">
+            {user.email}
+          </Typography>
         );
       },
     },
@@ -247,7 +243,6 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
         return (
           <IconButton
             onClick={() => handleDeleteUser(user)}
-            color="error"
             size="small"
             title="Remove user from team"
           >
@@ -290,6 +285,7 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
         pageSizeOptions={[10, 25, 50]}
         disableRowSelectionOnClick
         enableQuickFilter={true}
+        disablePaperWrapper={true}
         sx={{
           '& .MuiDataGrid-row': {
             '&:hover': {

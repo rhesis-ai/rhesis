@@ -25,7 +25,7 @@ export default function IntegrationsPage() {
             p: 3, 
             display: 'flex', 
             flexDirection: 'column',
-            bgcolor: 'grey.50',
+            bgcolor: 'action.hover',
             position: 'relative'
           }}
         >
@@ -33,7 +33,6 @@ export default function IntegrationsPage() {
             <Chip 
               label="Coming soon" 
               size="small" 
-              color="secondary"
               variant="outlined"
             />
           </Box>

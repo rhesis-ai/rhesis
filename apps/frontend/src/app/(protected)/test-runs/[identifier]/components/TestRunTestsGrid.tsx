@@ -268,6 +268,7 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
         disableMultipleRowSelection
         serverSidePagination={true}
         totalRows={totalCount}
+        disablePaperWrapper={true}
         sx={{
           '& .MuiDataGrid-row': {
             cursor: 'pointer',

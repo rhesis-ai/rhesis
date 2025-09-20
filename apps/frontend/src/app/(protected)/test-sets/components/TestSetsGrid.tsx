@@ -325,6 +325,7 @@ export default function TestSetsGrid({
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
+        disablePaperWrapper={true}
       />
 
       {(sessionToken || session?.session_token) && (

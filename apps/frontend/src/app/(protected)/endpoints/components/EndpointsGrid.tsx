@@ -91,16 +91,6 @@ interface EndpointGridProps {
   onEndpointDeleted?: () => void;
 }
 
-const getEnvironmentColor = (environment: string) => {
-  switch (environment.toLowerCase()) {
-    case 'production':
-      return 'success';
-    case 'staging':
-      return 'warning';
-    default:
-      return 'info';
-  }
-};
 
 export default function EndpointGrid({ 
   endpoints,
@@ -286,7 +276,6 @@ export default function EndpointGrid({
           label={params.value}
           size="small"
           variant="outlined"
-          color="primary"
         />
       ),
     },
@@ -299,7 +288,6 @@ export default function EndpointGrid({
           label={params.value}
           size="small"
           variant="outlined"
-          color={getEnvironmentColor(params.value as string)}
         />
       ),
     },
@@ -325,6 +313,7 @@ export default function EndpointGrid({
           disableRowSelectionOnClick
           rowSelectionModel={selectedRows}
           onRowSelectionModelChange={handleRowSelectionModelChange}
+          disablePaperWrapper={true}
         />
       </Paper>
 

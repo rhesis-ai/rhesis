@@ -1,6 +1,6 @@
 'use client';
 
-import { Paper, Typography, Grid, Box, TextField, Chip, Button } from '@mui/material';
+import { Typography, Grid, Box, TextField, Chip, Button } from '@mui/material';
 import { useState, useMemo, useEffect } from 'react';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
@@ -166,7 +166,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
   };
 
   return (
-    <Paper className={styles.detailsSection}>
+    <Box>
       <Box className={styles.header}>
         <Typography 
           variant="h6" 
@@ -261,6 +261,6 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
           </Box>
         </Grid>
       </Grid>
-    </Paper>
+    </Box>
   );
 } 
