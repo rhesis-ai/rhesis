@@ -144,40 +144,41 @@ const isInBottomArea = (angle: number): boolean => {
   return normalizedAngle >= CHART_CONSTANTS.BOTTOM_AREA_START && normalizedAngle <= CHART_CONSTANTS.BOTTOM_AREA_END;
 };
 
-// Custom label rendering function to position labels closer to the chart segments
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
-  // Only show labels for segments with significant percentage (helps prevent overlap)
-  if (percent < CHART_CONSTANTS.MIN_PERCENTAGE_THRESHOLD) return null;
-  
-  // Check if the label would be in the bottom area where legend is positioned
-  const isBottomArea = isInBottomArea(midAngle);
-  
-  // Adjust radius based on position to avoid legend overlap
-  const radius = isBottomArea 
-    ? outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.BOTTOM 
-    : outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.NORMAL;
-  
-  const x = cx + radius * Math.cos(-midAngle * CHART_CONSTANTS.RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * CHART_CONSTANTS.RADIAN);
-  
-  // Determine if the label is on the right side or left side of the chart
-  const isRightSide = x > cx;
-  
-  return (
-    <text 
-      x={x} 
-      y={y} 
-      fill="#333333"
-      textAnchor={isRightSide ? "start" : "end"}
-      dominantBaseline="central"
-      fontSize="11px"
-      fontWeight="bold"
-      aria-label={`${(percent * 100).toFixed(0)}% of ${name}`}
-    >
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
-};
+// Custom label rendering function factory - will be created inside component to access theme
+const createCustomizedLabel = (chartLabelFontSize: string) => 
+  ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
+    // Only show labels for segments with significant percentage (helps prevent overlap)
+    if (percent < CHART_CONSTANTS.MIN_PERCENTAGE_THRESHOLD) return null;
+    
+    // Check if the label would be in the bottom area where legend is positioned
+    const isBottomArea = isInBottomArea(midAngle);
+    
+    // Adjust radius based on position to avoid legend overlap
+    const radius = isBottomArea 
+      ? outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.BOTTOM 
+      : outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.NORMAL;
+    
+    const x = cx + radius * Math.cos(-midAngle * CHART_CONSTANTS.RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * CHART_CONSTANTS.RADIAN);
+    
+    // Determine if the label is on the right side or left side of the chart
+    const isRightSide = x > cx;
+    
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="#333333"
+        textAnchor={isRightSide ? "start" : "end"}
+        dominantBaseline="central"
+        fontSize={chartLabelFontSize}
+        fontWeight="bold"
+        aria-label={`${(percent * 100).toFixed(0)}% of ${name}`}
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
 
 // Custom label line rendering function
 const renderCustomizedLabelLine = ({ cx, cy, midAngle, outerRadius }: LabelLineProps) => {
@@ -224,12 +225,21 @@ export default function BasePieChart({
 
   // Get theme colors
   const theme = useTheme();
+  
+  // Update legend props to use theme
+  const themedLegendProps = {
+    ...legendProps,
+    wrapperStyle: {
+      ...legendProps.wrapperStyle,
+      fontSize: theme.typography.chartTick.fontSize
+    }
+  };
   const { palettes } = useChartColors();
 
   // Default tooltip props with theme awareness
   const defaultTooltipProps = useMemo(() => ({
     contentStyle: { 
-      fontSize: '10px',
+      fontSize: theme.typography.chartTick.fontSize,
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
@@ -269,6 +279,12 @@ export default function BasePieChart({
     }
   }), [legendProps]);
 
+  // Create customized label function with theme access
+  const renderCustomizedLabel = useMemo(() => 
+    createCustomizedLabel(theme.typography.chartLabel.fontSize), 
+    [theme.typography.chartLabel.fontSize]
+  );
+
   // Memoize data lookup for better tooltip performance
   const dataLookup = useMemo(() => {
     return new Map(data.map(item => [item.name, item]));
@@ -291,8 +307,7 @@ export default function BasePieChart({
       }}>
         {title && (
           <Typography 
-            variant="subtitle1" 
-            sx={{ mb: 1, fontSize: '0.875rem', px: 0.5, textAlign: 'center', fontWeight: 'bold' }}
+            variant="helperText" sx={{ mb: 1, px: 0.5, textAlign: 'center', fontWeight: 'bold' }}
             component="h3"
             role="heading"
             aria-level={3}
@@ -329,7 +344,7 @@ export default function BasePieChart({
                 {...finalTooltipProps} 
                 formatter={tooltipFormatter}
               />
-              <Legend {...enhancedLegendProps} />
+              <Legend {...themedLegendProps} />
             </PieChart>
           </ResponsiveContainer>
         </Box>

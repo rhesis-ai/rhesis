@@ -119,11 +119,20 @@ export default function BaseLineChart({
   yAxisConfig
 }: BaseLineChartProps) {
   const theme = useTheme();
+  
+  // Update legend props to use theme
+  const themedLegendProps = {
+    ...legendProps,
+    wrapperStyle: {
+      ...legendProps.wrapperStyle,
+      fontSize: theme.typography.chartTick.fontSize
+    }
+  };
 
   // Default tooltip props with theme awareness
   const defaultTooltipProps = {
     contentStyle: { 
-      fontSize: '10px',
+      fontSize: theme.typography.chartTick.fontSize,
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
@@ -151,18 +160,18 @@ export default function BaseLineChart({
               {showGrid && <CartesianGrid strokeDasharray="3 3" />}
               <XAxis 
                 dataKey={xAxisDataKey} 
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
               />
               <YAxis 
-                tick={{ fontSize: 10 }} 
+                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }} 
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
                 {...yAxisConfig}
               />
               <Tooltip {...finalTooltipProps} />
-              <Legend {...legendProps} height={30} />
+              <Legend {...themedLegendProps} height={30} />
               {series.map((s, index) => (
                 <Line
                   key={index}

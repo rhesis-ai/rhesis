@@ -176,7 +176,7 @@ export default function MetricCard({
             gap: 0.5,
             '& .MuiChip-root': {
               height: '24px',
-              fontSize: '0.75rem',
+              fontSize: theme.typography.chartLabel.fontSize,
               ...chipStyles
             }
           }}>

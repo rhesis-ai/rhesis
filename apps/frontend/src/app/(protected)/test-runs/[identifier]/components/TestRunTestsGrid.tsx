@@ -181,7 +181,7 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
           leaveDelay={0}
           enterNextDelay={1000}
         >
-          <InfoOutlinedIcon sx={{ fontSize: 16, color: 'action.active', opacity: 0.8 }} />
+          <InfoOutlinedIcon sx={{ fontSize: (theme) => theme.iconSizes.small, color: 'action.active', opacity: 0.8 }} />
         </Tooltip>
       </Box>
     ),

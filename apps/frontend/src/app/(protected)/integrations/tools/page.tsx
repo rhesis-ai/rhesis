@@ -38,7 +38,7 @@ export default function ToolsPage() {
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <AddIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+            <AddIcon sx={{ fontSize: (theme) => theme.iconSizes.large, color: 'grey.500' }} />
             <Box sx={{ flex: 1 }}>
               <Typography variant="h6" color="text.secondary">Add Tool</Typography>
               <Typography color="text.secondary" variant="body2">

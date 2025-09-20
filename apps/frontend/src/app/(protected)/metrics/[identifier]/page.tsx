@@ -733,7 +733,7 @@ const settingsIcon = <SettingsIcon />;
                         px: 1.5,
                         py: 0.5,
                         borderRadius: 1,
-                        fontSize: '0.875rem',
+                        fontSize: theme.typography.helperText.fontSize,
                         fontWeight: 'medium'
                       }}
                     >
@@ -801,7 +801,7 @@ const settingsIcon = <SettingsIcon />;
                             px: 2,
                             py: 0.5,
                             borderRadius: 1,
-                            fontSize: '0.875rem',
+                            fontSize: theme.typography.helperText.fontSize,
                             fontWeight: 'medium'
                           }}
                         >

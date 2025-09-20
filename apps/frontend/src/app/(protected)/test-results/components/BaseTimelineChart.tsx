@@ -87,7 +87,7 @@ export default function BaseTimelineChart({
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading timeline...</Typography>
+          <Typography variant="helperText" sx={{ ml: 2 }}>Loading timeline...</Typography>
         </Box>
       </Paper>
     );

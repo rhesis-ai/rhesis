@@ -830,7 +830,7 @@ const ReviewSamples = ({
                     px: 1,
                     py: 0.5,
                     borderRadius: 1,
-                    fontSize: '0.75rem',
+                    fontSize: theme.typography.chartLabel.fontSize,
                     whiteSpace: 'nowrap',
                     zIndex: 1,
                     boxShadow: 1,

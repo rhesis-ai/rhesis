@@ -31,19 +31,19 @@ interface ProviderInfo {
 }
 
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
-  'anthropic': <AnthropicIcon sx={{ fontSize: 32 }} />,
-  'cohere': <CohereLogo sx={{ fontSize: 32 }} />,
+  'anthropic': <AnthropicIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
+  'cohere': <CohereLogo sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'google': <SiGoogle className="h-8 w-8" />,
-  'groq': <SmartToyIcon sx={{ fontSize: 32 }} />,
+  'groq': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'huggingface': <SiHuggingface className="h-8 w-8" />,
-  'meta': <SmartToyIcon sx={{ fontSize: 32 }} />,
-  'mistral': <MistralIcon sx={{ fontSize: 32 }} />,
+  'meta': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
+  'mistral': <MistralIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'ollama': <SiOllama className="h-8 w-8" />,
   'openai': <SiOpenai className="h-8 w-8" />,
-  'perplexity': <SmartToyIcon sx={{ fontSize: 32 }} />,
+  'perplexity': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'replicate': <SiReplicate className="h-8 w-8" />,
-  'together': <SmartToyIcon sx={{ fontSize: 32 }} />,
-  'vllm': <SmartToyIcon sx={{ fontSize: 32 }} />
+  'together': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
+  'vllm': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />
 };
 
 interface ProviderSelectionDialogProps {
@@ -113,7 +113,7 @@ function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }:
               id: provider.type_value,
               name: provider.description || provider.type_value,
               description: provider.description || '',
-              icon: PROVIDER_ICONS[provider.type_value] || <SmartToyIcon sx={{ fontSize: 32 }} />
+              icon: PROVIDER_ICONS[provider.type_value] || <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />
             };
             
             return (
@@ -234,7 +234,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
     }
   };
 
-  const providerIcon = PROVIDER_ICONS[provider?.type_value || ''] || <SmartToyIcon sx={{ fontSize: 24 }} />;
+  const providerIcon = PROVIDER_ICONS[provider?.type_value || ''] || <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.medium }} />;
   const displayName = isCustomProvider ? 'Custom Provider' : (provider?.description || provider?.type_value || 'Provider');
 
   return (
@@ -607,7 +607,7 @@ export default function LLMProvidersPage() {
               
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon sx={{ fontSize: 32 }} />}
+                  {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />}
                   <CheckCircleIcon 
                     sx={{ 
                       ml: -1, 
@@ -674,7 +674,7 @@ export default function LLMProvidersPage() {
             onClick={handleAddLLM}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <AddIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+              <AddIcon sx={{ fontSize: (theme) => theme.iconSizes.large, color: 'grey.500' }} />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h6" color="text.secondary">Add LLM</Typography>
                 <Typography color="text.secondary" variant="body2">

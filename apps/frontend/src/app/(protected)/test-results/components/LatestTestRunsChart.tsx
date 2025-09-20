@@ -126,7 +126,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading test runs...</Typography>
+          <Typography variant="helperText" sx={{ ml: 2 }}>Loading test runs...</Typography>
         </Box>
       </Paper>
     );
@@ -167,7 +167,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               angle={-45}
               textAnchor="end"
               interval={0}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
               height={60}
               axisLine={{ strokeWidth: 1 }}
               tickLine={{ strokeWidth: 1 }}
@@ -178,14 +178,14 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               name="Pass Rate"
               domain={[0, 100]}
               tickCount={6}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
               axisLine={{ strokeWidth: 1 }}
               tickLine={{ strokeWidth: 1 }}
               tickFormatter={(value: number) => `${value}%`}
             />
             <Tooltip 
               contentStyle={{ 
-                fontSize: '10px',
+                fontSize: theme.typography.chartTick.fontSize,
                 backgroundColor: theme.palette.background.paper,
                 border: `1px solid ${theme.palette.divider}`,
                 borderRadius: '4px',
@@ -208,7 +208,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
                   color: passRateColor // Use consistent blue color for pass rates
                 }
               ]}
-              wrapperStyle={{ fontSize: '10px' }}
+              wrapperStyle={{ fontSize: theme.typography.chartTick.fontSize }}
               iconSize={8}
               height={30}
             />

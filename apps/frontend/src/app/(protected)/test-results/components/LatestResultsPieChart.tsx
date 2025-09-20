@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Paper, Typography, CircularProgress, Alert, Box } from '@mui/material';
+import { Paper, Typography, CircularProgress, Alert, Box, useTheme } from '@mui/material';
 import { BasePieChart } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultsStats, PassFailStats } from '@/utils/api-client/interfaces/test-results';
@@ -29,6 +29,7 @@ const transformPassFailToChartData = (stats?: PassFailStats) => {
 };
 
 export default function LatestResultsPieChart({ sessionToken, filters }: LatestResultsPieChartProps) {
+  const theme = useTheme();
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading results...</Typography>
+          <Typography variant="helperText" sx={{ ml: 2 }}>Loading results...</Typography>
         </Box>
       </Paper>
     );
@@ -126,7 +127,7 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
           showPercentage={true}
           legendProps={{
             wrapperStyle: { 
-              fontSize: '10px',
+              fontSize: theme.typography.chartTick.fontSize,
               marginTop: '15px',
               marginBottom: '10px',
               paddingBottom: '10px'

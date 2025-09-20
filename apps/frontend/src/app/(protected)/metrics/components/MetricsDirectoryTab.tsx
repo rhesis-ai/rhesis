@@ -664,7 +664,7 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: '0.875rem'
+                          fontSize: theme.typography.helperText.fontSize
                         }
                       }}
                     >
@@ -679,7 +679,7 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: '0.875rem'
+                          fontSize: theme.typography.helperText.fontSize
                         }
                       }}
                     >
@@ -695,7 +695,7 @@ export default function MetricsDirectoryTab({
                         sx={{
                           padding: '2px',
                           '& .MuiSvgIcon-root': {
-                            fontSize: '0.875rem'
+                            fontSize: theme.typography.helperText.fontSize
                           }
                         }}
                       >
@@ -712,7 +712,7 @@ export default function MetricsDirectoryTab({
                           sx={{
                             padding: '2px',
                             '& .MuiSvgIcon-root': {
-                              fontSize: '0.875rem'
+                              fontSize: theme.typography.helperText.fontSize
                             }
                           }}
                         >

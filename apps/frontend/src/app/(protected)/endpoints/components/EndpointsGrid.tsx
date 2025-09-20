@@ -249,7 +249,7 @@ export default function EndpointGrid({
                 alignItems: 'center',
                 color: 'primary.main',
                 '& svg': {
-                  fontSize: '1.5rem'
+                  fontSize: theme.typography.h5.fontSize
                 }
               }}
             >
