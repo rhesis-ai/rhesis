@@ -307,7 +307,7 @@ export default function EndpointGrid({
 
   return (
     <>
-      <Paper elevation={(theme) => theme.elevation.none} sx={{ p: (theme) => theme.customSpacing.container.small }}>
+      <Paper elevation={0} sx={{ p: (theme) => theme.customSpacing.container.small }}>
         <BaseDataGrid
           rows={endpoints}
           columns={columns}
