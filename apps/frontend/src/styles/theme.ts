@@ -162,6 +162,22 @@ const getDesignTokens = (mode: PaletteMode) => ({
       styleOverrides: {
         root: {
           backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
+          // Ensure consistent elevation shadows
+          '&.MuiPaper-elevation1': {
+            boxShadow: mode === 'light' 
+              ? '0 2px 12px rgba(61, 61, 61, 0.15), 0 1px 4px rgba(61, 61, 61, 0.1)' 
+              : '0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)',
+          },
+          '&.MuiPaper-elevation2': {
+            boxShadow: mode === 'light' 
+              ? '0 4px 16px rgba(61, 61, 61, 0.18), 0 2px 6px rgba(61, 61, 61, 0.12)' 
+              : '0 6px 20px rgba(0, 0, 0, 0.45), 0 3px 10px rgba(0, 0, 0, 0.25)',
+          },
+          '&.MuiPaper-elevation6': {
+            boxShadow: mode === 'light' 
+              ? '0 8px 24px rgba(61, 61, 61, 0.25), 0 4px 12px rgba(61, 61, 61, 0.15)' 
+              : '0 12px 32px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.3)',
+          },
         },
       },
     },
@@ -211,8 +227,8 @@ const getDesignTokens = (mode: PaletteMode) => ({
           backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
           borderRadius: 12,
           boxShadow: mode === 'light' 
-            ? '0 2px 8px rgba(80, 185, 224, 0.08)' 
-            : '0 2px 8px rgba(0, 0, 0, 0.3)',
+            ? '0 2px 12px rgba(61, 61, 61, 0.15), 0 1px 4px rgba(61, 61, 61, 0.1)' 
+            : '0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)',
         },
       },
     },

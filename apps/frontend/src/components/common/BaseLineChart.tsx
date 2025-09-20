@@ -135,7 +135,7 @@ export default function BaseLineChart({
   const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
   
   return (
-    <Card className={styles.card}>
+    <Card className={styles.card} elevation={2}>
       <CardContent className={styles.cardContent}>
         {title && (
           <Typography variant="subtitle1" className={styles.title}>
