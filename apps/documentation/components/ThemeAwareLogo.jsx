@@ -15,22 +15,44 @@ function ThemeAwareLogo() {
   // Show default logo during SSR and initial render
   if (!mounted) {
     return (
-      <img 
-        src="/rhesis-logo.png" 
-        alt="Rhesis" 
-        style={{ height: '32px', width: 'auto' }}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <img 
+          src="/Rhesis AI_Logo_RGB_Website logo.png" 
+          alt="Rhesis" 
+          style={{ height: '40px', width: 'auto' }}
+        />
+        <span style={{ 
+          fontFamily: '"Sora", sans-serif', 
+          fontWeight: 600, 
+          fontSize: '1.1rem',
+          color: '#2AA1CE',
+          whiteSpace: 'nowrap'
+        }}>
+          Documentation
+        </span>
+      </div>
     )
   }
   
   const isDark = resolvedTheme === 'dark' || theme === 'dark'
   
   return (
-    <img 
-      src={isDark ? "/rhesis-logo-white.png" : "/rhesis-logo.png"} 
-      alt="Rhesis" 
-      style={{ height: '32px', width: 'auto' }}
-    />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <img 
+        src={isDark ? "/Rhesis AI_Logo_RGB_Website logo_white.png" : "/Rhesis AI_Logo_RGB_Website logo.png"} 
+        alt="Rhesis" 
+        style={{ height: '40px', width: 'auto' }}
+      />
+      <span style={{ 
+        fontFamily: '"Sora", sans-serif', 
+        fontWeight: 600, 
+        fontSize: '1.1rem',
+        color: isDark ? '#3BC4F2' : '#2AA1CE',
+        whiteSpace: 'nowrap'
+      }}>
+        Documentation
+      </span>
+    </div>
   )
 }
 
