@@ -69,10 +69,10 @@ export default function TestResultsCharts({ sessionToken, filters }: TestResults
           mb: theme.customSpacing.section.small
         }}
       >
-        <Tab label="Summary" {...a11yProps(0)} />
-        <Tab label="At a Glance" {...a11yProps(1)} />
-        <Tab label="In Detail" {...a11yProps(2)} />
-        <Tab label="Metrics Over Time" {...a11yProps(3)} />
+        <Tab label="Overview" {...a11yProps(0)} />
+        <Tab label="Pass Rate" {...a11yProps(1)} />
+        <Tab label="Dimensions" {...a11yProps(2)} />
+        <Tab label="Metrics" {...a11yProps(3)} />
       </Tabs>
 
       <TabPanel value={value} index={0}>
@@ -90,23 +90,23 @@ export default function TestResultsCharts({ sessionToken, filters }: TestResults
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }, 
           gap: theme.customSpacing.section.medium 
         }}>
+         {/* Overall Results - Independent API call with 'summary' mode */}
+         <LatestResultsPieChart 
+            sessionToken={sessionToken} 
+            filters={filters} 
+          />
           {/* Pass Rate Timeline - Independent API call with 'timeline' mode */}
           <PassRateTimelineChart 
             sessionToken={sessionToken} 
             filters={filters} 
           />
-
           {/* Latest Test Runs - Independent API call with 'test_runs' mode */}
           <LatestTestRunsChart 
             sessionToken={sessionToken} 
             filters={filters} 
           />
 
-          {/* Overall Results - Independent API call with 'summary' mode */}
-          <LatestResultsPieChart 
-            sessionToken={sessionToken} 
-            filters={filters} 
-          />
+
         </Box>
       </TabPanel>
 
