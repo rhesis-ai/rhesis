@@ -4,10 +4,23 @@ process.env.NODE_OPTIONS = '--max-old-space-size=4096';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync } from 'fs';
+import { execSync } from 'child_process';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Function to get git information
+function getGitInfo() {
+  try {
+    const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8', timeout: 5000 }).trim();
+    const commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8', timeout: 5000 }).trim();
+    return { branch, commit };
+  } catch (error) {
+    console.warn('Could not get git information:', error.message);
+    return { branch: undefined, commit: undefined };
+  }
+}
 
 const isDev = process.env.FRONTEND_ENV === 'development';
 const isProd = process.env.FRONTEND_ENV === 'production';
@@ -45,6 +58,13 @@ const nextConfig = {
   // Environment variables available to the client
   env: {
     APP_VERSION: JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version,
+    ...(() => {
+      const gitInfo = getGitInfo();
+      return {
+        GIT_BRANCH: gitInfo.branch,
+        GIT_COMMIT: gitInfo.commit,
+      };
+    })(),
   },
 
   // API rewrites for cross-container communication
