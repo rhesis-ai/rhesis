@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 # Import backend modules
 from rhesis.backend.app import models, crud
-from rhesis.backend.app.database import get_database_url, set_tenant
+from rhesis.backend.app.database import get_database_url, get_org_aware_db
 from rhesis.backend.app.schemas import UserCreate, OrganizationCreate
 from rhesis.backend.app.schemas.token import TokenCreate
 from rhesis.backend.app.services.organization import load_initial_data
@@ -190,11 +190,8 @@ def create_test_organization_and_user(
         # Create API token for the user
         api_token = create_test_api_token(db, user)
         
-        # Set tenant context and load initial data
-        print(f"🔧 Setting up tenant context for organization {organization.id}")
-        set_tenant(db, organization_id=str(organization.id), user_id=str(user.id))
-        
-        # Load initial data
+        # Load initial data (uses get_org_aware_db internally for tenant context)
+        print(f"🔧 Loading initial data for organization {organization.id}")
         setup_initial_data(db, str(organization.id), str(user.id))
         
         return organization, user, api_token
