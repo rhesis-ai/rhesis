@@ -109,7 +109,9 @@ export default function EndpointPage({ params, searchParams }: PageProps) {
         { title: endpoint.name }
       ]}
     >
-      <EndpointDetail endpoint={endpoint} />
+      <Box sx={{ flexGrow: 1, pt: 3 }}>
+        <EndpointDetail endpoint={endpoint} />
+      </Box>
     </PageContainer>
   );
 }
