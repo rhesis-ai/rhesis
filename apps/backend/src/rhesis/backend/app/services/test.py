@@ -252,6 +252,7 @@ def create_entity_with_status(
             db=db,
             name=defaults[entity_type_str]["status"],
             entity_type=EntityType.GENERAL,
+            organization_id=organization_id, user_id=user_id,
         )
         entity_data["status_id"] = status.id
 
@@ -259,6 +260,7 @@ def create_entity_with_status(
         db=db,
         model=model,
         entity_data=entity_data,
+        organization_id=organization_id, user_id=user_id,
     )
 
 
@@ -333,11 +335,13 @@ def create_prompt(
                 db=db,
                 name=defaults["prompt"]["status"],
                 entity_type=EntityType.GENERAL,
+                organization_id=organization_id, user_id=user_id,
             ).id,
             "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
             "demographic_id": demographic.id if demographic else None,
             "expected_response": prompt_data.get("expected_response"),
         },
+        organization_id=organization_id, user_id=user_id,
     )
 
 
@@ -455,6 +459,7 @@ def bulk_create_tests(
                     db=db,
                     name=test_data_dict.pop("status"),
                     entity_type=EntityType.TEST,
+                    organization_id=organization_id, user_id=user_id,
                 ).id,
                 "user_id": user_id,
                 "organization_id": organization_id,

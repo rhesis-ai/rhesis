@@ -68,6 +68,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     name=item["name"],
                     description=item["description"],
                     status=item.get("status"),
+                    organization_id=organization_id,
+                    user_id=user_id,
                     commit=False,
                 )
 
@@ -83,7 +85,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "is_active": item.get("is_active", True),
                 }
                 get_or_create_entity(
-                    db=db_ctx, model=models.UseCase, entity_data=use_case_data, commit=False
+                    db=db_ctx, model=models.UseCase, entity_data=use_case_data, 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
             # Process risks
@@ -93,7 +96,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db=db_ctx,
                     model=models.Risk,
                     entity_data={"name": item["name"], "description": item["description"]},
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process projects
@@ -103,7 +106,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 status = None
                 if item.get("status"):
                     status = get_or_create_status(
-                        db=db_ctx, name=item["status"], entity_type="General", commit=False
+                        db=db_ctx, name=item["status"], entity_type="General", 
+                        organization_id=organization_id, user_id=user_id, commit=False
                     )
 
                 project_data = {
@@ -122,7 +126,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db=db_ctx,
                     model=models.Project,
                     entity_data=project_data,
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process categories
@@ -134,7 +138,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     description=item["description"],
                     entity_type=item.get("entity_type"),
                     status=item.get("status"),
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process dimensions
@@ -144,16 +148,14 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db=db_ctx,
                     model=models.Dimension,
                     entity_data={"name": item["name"], "description": item["description"]},
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process demographics
             print("Processing demographics...")
             for item in initial_data.get("demographic", []):
                 dimension_name = item.pop("dimension", None)
-                demographic = get_or_create_entity(
-                    db=db_ctx, model=models.Demographic, entity_data=item, commit=False
-                )
+                demographic = get_or_create_entity(db=db_ctx, model=models.Demographic, entity_data=item, organization_id=organization_id, user_id=user_id, commit=False)
                 if dimension_name:
                     dimension = (
                         db_ctx.query(models.Dimension)
@@ -173,7 +175,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     description=item["description"],
                     entity_type=item.get("entity_type"),
                     status=item.get("status"),
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process tests
@@ -202,15 +204,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
                 # Get behavior
-                behavior = get_or_create_behavior(db=db, name=item["behavior"], commit=False)
+                behavior = get_or_create_behavior(
+                    db=db_ctx, name=item["behavior"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
+                )
 
                 # Create prompt
-                prompt = get_or_create_entity(
-                    db=db_ctx,
-                    model=models.Prompt,
-                    entity_data={"content": item["prompt"]},
-                    commit=False,
-                )
+                prompt = get_or_create_entity(db=db_ctx, model=models.Prompt, entity_data={"content": item["prompt"]}, organization_id=organization_id, user_id=user_id, commit=False)
 
                 # Create test
                 test = get_or_create_entity(
@@ -326,18 +326,16 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "owner_id": user_id,
                 }
 
-                metric = get_or_create_entity(
-                    db=db_ctx,
-                    model=models.Metric,
-                    entity_data=metric_data,
-                    commit=False,
-                )
+                metric = get_or_create_entity(db=db_ctx, model=models.Metric, entity_data=metric_data, organization_id=organization_id, user_id=user_id, commit=False)
 
                 # Process behavior associations
                 behavior_names = item.get("behaviors", [])
                 for behavior_name in behavior_names:
                     # Get or create the behavior
-                    behavior = get_or_create_behavior(db=db, name=behavior_name, commit=False)
+                    behavior = get_or_create_behavior(
+                        db=db_ctx, name=behavior_name, 
+                        organization_id=organization_id, user_id=user_id, commit=False
+                    )
 
                     # Check if association already exists
                     existing_association = db.execute(
