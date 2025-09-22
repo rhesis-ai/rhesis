@@ -28,11 +28,17 @@ from rhesis.backend.app.utils.uuid_utils import (
 from rhesis.backend.logging import logger
 
 
-def get_test_set(db: Session, test_set_id: uuid.UUID):
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
+    """Get test set with organization filtering (SECURITY CRITICAL)"""
+    query = db.query(TestSet).filter(TestSet.id == test_set_id)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(TestSet.organization_id == UUID(organization_id))
+    
     return (
-        db.query(TestSet)
-        .filter(TestSet.id == test_set_id)
-        .options(
+        query.options(
             joinedload(TestSet.prompts).joinedload(Prompt.demographic),
             joinedload(TestSet.prompts).joinedload(Prompt.category),
             joinedload(TestSet.prompts).joinedload(Prompt.attack_category),
@@ -421,13 +427,14 @@ def remove_test_set_associations(
         }
 
 
-def update_test_set_attributes(db: Session, test_set_id: str) -> None:
+def update_test_set_attributes(db: Session, test_set_id: str, organization_id: str = None) -> None:
     """
     Regenerate and update the attributes for a test set based on its current associated tests.
 
     Args:
         db: Database session
         test_set_id: UUID string of the test set to update
+        organization_id: Organization ID for filtering (SECURITY CRITICAL)
 
     Raises:
         ValueError: If test set not found or invalid UUID
@@ -440,30 +447,30 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     except ValueError:
         raise ValueError(ERROR_INVALID_UUID.format(entity="test set", id=test_set_id))
 
-        # Get test set with relationships
-        test_set = (
-            db.query(models.TestSet)
-            .options(joinedload(models.TestSet.tests))
-            .filter(models.TestSet.id == test_set_uuid)
-            .first()
-        )
+    # Get test set with relationships and organization filtering (SECURITY CRITICAL)
+    query = db.query(models.TestSet).options(joinedload(models.TestSet.tests)).filter(models.TestSet.id == test_set_uuid)
+    
+    if organization_id:
+        query = query.filter(models.TestSet.organization_id == UUID(organization_id))
+    
+    test_set = query.first()
 
-        if not test_set:
-            raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(id=test_set_id))
+    if not test_set:
+        raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(id=test_set_id))
 
-        # Get defaults and license type
-        defaults = load_defaults()
-        license_type = get_or_create_type_lookup(
-            db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"],
-            organization_id=organization_id, user_id=user_id
-        )
+    # Get defaults and license type
+    defaults = load_defaults()
+    license_type = get_or_create_type_lookup(
+        db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"],
+        organization_id=organization_id, user_id=organization_id  # Use org_id as placeholder
+    )
 
-        # Regenerate attributes
-        test_set.attributes = generate_test_set_attributes(
-            db=db, test_set=test_set, defaults=defaults, license_type=license_type
-        )
+    # Regenerate attributes
+    test_set.attributes = generate_test_set_attributes(
+        db=db, test_set=test_set, defaults=defaults, license_type=license_type
+    )
 
-        db.commit()
+    db.commit()
 
 
 def execute_test_set_on_endpoint(
