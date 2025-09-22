@@ -9,7 +9,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
-from rhesis.backend.app.database import get_db, get_org_aware_db
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import UserCreate
 
@@ -76,7 +76,7 @@ async def get_current_user(request: Request) -> Optional[User]:
     
     Uses a simple session to get user and organization_id, then returns the user
     only if they have an organization_id. The actual database operations that
-    need tenant context should use get_org_aware_db separately.
+    need tenant context should pass organization_id and user_id directly to CRUD operations.
     """
     if "user_id" not in request.session:
         return None
@@ -101,7 +101,7 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
     
     Uses a simple session to get user and organization_id, then returns the user
     only if they have an organization_id. The actual database operations that
-    need tenant context should use get_org_aware_db separately.
+    need tenant context should pass organization_id and user_id directly to CRUD operations.
     """
     try:
         payload = verify_jwt_token(token, secret_key)
@@ -136,7 +136,7 @@ async def get_authenticated_user_with_context(
     """
     Get authenticated user without database session dependency.
     
-    No longer sets tenant context - use get_org_aware_db or get_tenant_context instead.
+    No longer sets tenant context - pass organization_id and user_id directly to CRUD operations.
     """
     # Try session auth first
     user = await get_current_user(request)
@@ -177,7 +177,7 @@ async def get_authenticated_user_with_context(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="User is not associated with an organization",
                     )
-                # Return user - tenant context will be handled by get_org_aware_db when needed
+                # Return user - tenant context should be passed directly to CRUD operations when needed
                 return user
 
     # Try JWT token if secret_key is provided

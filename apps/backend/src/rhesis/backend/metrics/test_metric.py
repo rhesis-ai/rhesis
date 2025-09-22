@@ -135,12 +135,12 @@ def run_metric_test(
     # Create mock user for context
     mock_user = MockUser(user_id=user_id, organization_id=organization_id)
 
-    # Use org-aware database session for better transaction management
-    from rhesis.backend.app.database import get_org_aware_db
+    # Use simple database session and pass tenant context directly
+    from rhesis.backend.app.database import get_db
 
     try:
-        with get_org_aware_db(organization_id, user_id) as db_session:
-            print(f"🔑 Set org-aware database context: org={organization_id}, user={user_id}")
+        with get_db() as db_session:
+            print(f"🔑 Using database session with direct tenant context: org={organization_id}, user={user_id}")
             
             return _execute_metric_test(
                 db_session=db_session,

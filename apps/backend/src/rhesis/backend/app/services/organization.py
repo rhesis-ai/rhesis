@@ -6,7 +6,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.database import get_org_aware_db
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.utils.crud_utils import (
@@ -24,12 +24,12 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
     """
     Load initial data from the JSON file into the database using optimized approach.
 
-    This function uses get_org_aware_db internally for automatic transaction management
+    This function uses get_db() and passes tenant context directly to CRUD operations
     and tenant context injection. The db parameter is kept for backward compatibility
     but is not used - the function creates its own database context.
 
     Performance improvements:
-    - Uses get_org_aware_db for automatic transaction management
+    - Uses get_db() with direct tenant context parameter passing
     - Eliminates manual session variable management  
     - Direct tenant context injection
 
@@ -43,19 +43,21 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         initial_data = json.load(file)
 
     try:
-        with get_org_aware_db(organization_id, user_id) as db_ctx:
+        with get_db() as db_ctx:
             # Process type lookups first as they're needed by other entities
             print("Processing type lookups...")
             for item in initial_data.get("type_lookup", []):
                 get_or_create_type_lookup(
-                    db=db_ctx, type_name=item["type_name"], type_value=item["type_value"], commit=False
+                    db=db_ctx, type_name=item["type_name"], type_value=item["type_value"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
             # Process statuses next as they're also needed by other entities
             print("Processing statuses...")
             for item in initial_data.get("status", []):
                 get_or_create_status(
-                    db=db_ctx, name=item["name"], entity_type=item["entity_type"], commit=False
+                    db=db_ctx, name=item["name"], entity_type=item["entity_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
             # Process behaviors
@@ -364,10 +366,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 org.is_onboarding_complete = True
                 db_ctx.flush()
 
-            # Transaction is handled automatically by get_org_aware_db
+            # Transaction is handled automatically by get_db()
 
     except Exception:
-        # Rollback is handled automatically by get_org_aware_db
+        # Rollback is handled automatically by get_db()
         raise
 
 
