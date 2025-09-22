@@ -158,6 +158,8 @@ def bulk_create_test_set(
                 db=db,
                 type_name="LicenseType",
                 type_value=defaults["test_set"]["license_type"],
+                organization_id=organization_id,
+                user_id=user_id,
             )
 
             # Sanitize UUID fields for test set
@@ -444,7 +446,8 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
         # Get defaults and license type
         defaults = load_defaults()
         license_type = get_or_create_type_lookup(
-            db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"]
+            db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"],
+            organization_id=organization_id, user_id=user_id
         )
 
         # Regenerate attributes

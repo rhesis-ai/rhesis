@@ -182,7 +182,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("test", []):
                 # Get test type
                 test_type = get_or_create_type_lookup(
-                    db=db_ctx, type_name="TestType", type_value=item["test_type"], commit=False
+                    db=db_ctx, type_name="TestType", type_value=item["test_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get test status
@@ -238,7 +239,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
                 # Get license type
                 license_type = get_or_create_type_lookup(
-                    db=db_ctx, type_name="LicenseType", type_value=item["license_type"], commit=False
+                    db=db_ctx, type_name="LicenseType", type_value=item["license_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Create test set
@@ -284,12 +286,14 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("metric", []):
                 # Get metric type
                 metric_type = get_or_create_type_lookup(
-                    db=db_ctx, type_name="MetricType", type_value=item["metric_type"], commit=False
+                    db=db_ctx, type_name="MetricType", type_value=item["metric_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get backend type
                 backend_type = get_or_create_type_lookup(
-                    db=db_ctx, type_name="BackendType", type_value=item["backend_type"], commit=False
+                    db=db_ctx, type_name="BackendType", type_value=item["backend_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get metric status
