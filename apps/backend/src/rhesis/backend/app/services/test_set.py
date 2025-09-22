@@ -450,7 +450,7 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     )
 
     if not test_set:
-        raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(id=test_set_id))
+        raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id))
 
     # Get defaults and license type - use test_set's organization context
     defaults = load_defaults()
