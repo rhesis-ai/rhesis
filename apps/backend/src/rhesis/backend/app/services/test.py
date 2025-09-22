@@ -11,7 +11,7 @@ from rhesis.backend.app.constants import (
     ERROR_BULK_CREATE_FAILED,
     EntityType,
 )
-from rhesis.backend.app.database import get_org_aware_db
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.utils.crud_utils import (

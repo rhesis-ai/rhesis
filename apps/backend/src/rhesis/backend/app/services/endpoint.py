@@ -119,7 +119,7 @@ def get_schema() -> Dict[str, Any]:
 if __name__ == "__main__":
     import argparse
 
-    from rhesis.backend.app.database import get_org_aware_db
+    from rhesis.backend.app.database import get_db
 
     parser = argparse.ArgumentParser(description="Test endpoint invocation")
     parser.add_argument("endpoint_id", help="ID of the endpoint to invoke")
@@ -135,9 +135,9 @@ if __name__ == "__main__":
     # Prepare input data
     input_data = {"input": args.input, "session_id": args.session or str(uuid.uuid4())}
 
-    # Use get_org_aware_db for better transaction management and tenant context
+    # Use simple get_db and pass tenant context directly to operations
     try:
-        with get_org_aware_db(args.org_id, args.user_id) as db:
+        with get_db() as db:
             # Invoke endpoint
             # print(f"\nInvoking endpoint {args.endpoint_id} with input: {input_data}")
             # print(f"Using organization ID: {args.org_id}")

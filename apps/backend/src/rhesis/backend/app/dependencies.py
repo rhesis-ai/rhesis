@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_org_aware_db
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 
 
@@ -52,6 +52,23 @@ def get_tenant_context(current_user: User = Depends(require_current_user_or_toke
         )
     
     return organization_id, user_id
+
+
+def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
+    """
+    FastAPI dependency that provides both a database session and tenant context.
+    
+    This is the recommended approach for endpoints that need database access
+    with tenant context. It eliminates the need for SET LOCAL commands by
+    providing the tenant context directly to CRUD operations.
+    
+    Returns:
+        tuple: (db_session, organization_id, user_id)
+    """
+    organization_id, user_id = tenant_context
+    
+    with get_db() as db:
+        yield db, organization_id, user_id
 
 
 # Backward compatibility alias for behavior endpoints

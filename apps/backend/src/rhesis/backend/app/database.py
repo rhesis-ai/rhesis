@@ -87,10 +87,10 @@ _current_tenant_user_id: ContextVar[Optional[str]] = ContextVar("user_id", defau
 
 
 # Removed legacy get_current_user_id and get_current_organization_id functions
-# These are no longer needed with get_org_aware_db pattern
+# These are no longer needed - use direct parameter passing to CRUD functions
 
 
-# Legacy set_tenant functions removed - use get_org_aware_db instead
+# Legacy set_tenant functions removed - use direct parameter passing instead
 
 def clear_tenant_context():
     """Clear the tenant context variables"""
@@ -128,15 +128,15 @@ def get_db() -> Generator[Session, None, None]:
     """
     Get a simple database session without tenant context.
     
-    For operations requiring tenant context, use get_org_aware_db instead.
+    For operations requiring tenant context, use get_db() and pass organization_id/user_id to CRUD functions.
     This function provides a basic session for operations like user lookup,
     token validation, and other non-tenant-specific queries.
     
-    Uses automatic transaction management consistent with get_org_aware_db.
+    Uses automatic transaction management for consistency.
     """
     db = SessionLocal()
     try:
-        # Use automatic transaction management for consistency with get_org_aware_db
+        # Use automatic transaction management for consistency
         with db.begin():
             # Start with a clean session
             db.expire_all()
@@ -151,66 +151,10 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-@contextmanager
-def get_org_aware_db(organization_id: str, user_id: str = None) -> Generator[Session, None, None]:
-    """
-    Get database session with tenant context set using SET LOCAL within transaction.
-    
-    This approach:
-    1. Uses SET LOCAL to set variables within transaction scope only
-    2. Automatically commits on successful completion via yield pattern
-    3. Automatically rolls back on exception via db.begin() context manager
-    4. Eliminates need for separate SHOW queries during entity creation
-    5. No connection pooling issues since it uses existing SessionLocal
-    """
-    db = SessionLocal()
-    try:
-        # Begin transaction explicitly - this handles commit/rollback automatically
-        with db.begin():
-            # Set session variables within the transaction using SET LOCAL
-            # SET LOCAL only affects the current transaction
-            if organization_id:
-                try:
-                    UUID(organization_id)  # Validate UUID format
-                    db.execute(
-                        text('SET LOCAL "app.current_organization" = :org_id'), 
-                        {"org_id": organization_id}
-                    )
-                    logger.debug(f"Set LOCAL app.current_organization = {organization_id}")
-                except (ValueError, TypeError) as e:
-                    logger.debug(f"Invalid organization_id UUID: {organization_id}, error: {e}")
-                    raise ValueError(f"Invalid organization_id: {organization_id}")
-            
-            if user_id:
-                try:
-                    UUID(user_id)  # Validate UUID format
-                    db.execute(
-                        text('SET LOCAL "app.current_user" = :user_id'), 
-                        {"user_id": user_id}
-                    )
-                    logger.debug(f"Set LOCAL app.current_user = {user_id}")
-                except (ValueError, TypeError) as e:
-                    logger.debug(f"Invalid user_id UUID: {user_id}, error: {e}")
-                    raise ValueError(f"Invalid user_id: {user_id}")
-            
-            # Store in context vars for any legacy code that might need it
-            _current_tenant_organization_id.set(organization_id)
-            if user_id:
-                _current_tenant_user_id.set(user_id)
-                
-            yield db
-            # ↑ Execution pauses here, returns db to caller
-            # ↓ After caller finishes, execution resumes here
-            # Transaction commits automatically if no exception occurred
-            # (handled by db.begin() context manager)
-    except Exception:
-        # Transaction rolls back automatically via db.begin() context manager
-        raise
-    finally:
-        # Clear context vars and close session
-        clear_tenant_context()
-        db.close()
+# get_org_aware_db function has been completely removed
+# Use get_db() and pass organization_id/user_id directly to CRUD functions
+# Example: crud.create_item(db, model, data, organization_id=org_id, user_id=user_id)
 
 
 # Removed legacy get_current_*_cached functions
-# These are no longer needed with get_org_aware_db pattern
+# These are no longer needed - use direct parameter passing to CRUD functions
