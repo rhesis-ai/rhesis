@@ -103,6 +103,17 @@ class OrganizationFilterChecker:
         for safe_pattern in self.safe_patterns:
             if re.search(safe_pattern, line):
                 return False
+        
+        # IMPORTANT: Queries by unique ID are SAFE - UUIDs are globally unique
+        id_based_patterns = [
+            r'\.filter\([^)]*\.id\s*==',  # .filter(Model.id == uuid)
+            r'\.filter_by\(id\s*=',       # .filter_by(id=uuid)
+            r'\.get\(',                   # .get(uuid) - primary key lookup
+        ]
+        
+        for id_pattern in id_based_patterns:
+            if re.search(id_pattern, line):
+                return False  # ID-based queries are safe
                 
         # Check if it queries an organization-aware model
         for model in self.organization_models:
@@ -110,7 +121,12 @@ class OrganizationFilterChecker:
                 # Check if the line already has organization filtering
                 if 'organization_id' in line or 'org_id' in line:
                     return False
-                return True
+                    
+                # Check if it's a safe ID-based query
+                if any(re.search(pattern, line) for pattern in id_based_patterns):
+                    return False
+                    
+                return True  # Potentially unsafe
                 
         # Check for generic query patterns that might be unsafe
         if '.query(' in query_match and '.filter(' not in line:

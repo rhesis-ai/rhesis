@@ -165,16 +165,47 @@ def get_user_tests(db: Session, user_id: str, organization_id: str):
 
 ## Security Best Practices
 
-### 1. Direct Parameter Passing (Current Approach)
+### 1. Understanding Query Safety Levels
+
+**✅ SAFE QUERIES (No organization filtering needed):**
 ```python
-# RECOMMENDED: Explicit organization filtering
+# ID-based queries are SAFE - UUIDs are globally unique
+def get_entity_by_id(db: Session, entity_id: UUID) -> Optional[Entity]:
+    return db.query(Entity).filter(Entity.id == entity_id).first()
+
+# Primary key lookups are SAFE
+entity = db.query(Entity).get(entity_id)
+
+# User queries (handled separately)
+user = db.query(User).filter(User.id == user_id).first()
+```
+
+**🚨 CRITICAL QUERIES (Organization filtering required):**
+```python
+# List queries without filters - DANGEROUS
+def get_all_entities(db: Session, organization_id: str) -> List[Entity]:
+    return db.query(Entity).filter(
+        Entity.organization_id == UUID(organization_id)  # REQUIRED!
+    ).all()
+
+# Search by non-unique fields - DANGEROUS  
+def get_entities_by_name(db: Session, name: str, organization_id: str) -> List[Entity]:
+    return db.query(Entity).filter(
+        Entity.name == name,
+        Entity.organization_id == UUID(organization_id)  # REQUIRED!
+    ).all()
+```
+
+### 2. Direct Parameter Passing (Current Approach)
+```python
+# RECOMMENDED: Explicit organization filtering for list/search queries
 def get_entities(db: Session, organization_id: str) -> List[Entity]:
     return db.query(Entity).filter(
         Entity.organization_id == UUID(organization_id)
     ).all()
 ```
 
-### 2. Always Validate Organization Context
+### 3. Always Validate Organization Context
 ```python
 # Verify organization context is provided
 if not organization_id:
