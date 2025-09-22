@@ -182,11 +182,10 @@ class TestConvenienceFunctions:
 class TestCommandLineInterface:
     """Test command-line interface functionality"""
     
-    @patch('rhesis.backend.app.services.endpoint.SessionLocal')
-    @patch('rhesis.backend.app.database.set_tenant')
+    @patch('rhesis.backend.app.database.SessionLocal')
     @patch('rhesis.backend.app.services.endpoint.invoke')
     @patch('argparse.ArgumentParser.parse_args')
-    def test_command_line_execution(self, mock_parse_args, mock_invoke, mock_set_tenant, mock_session_local):
+    def test_command_line_execution(self, mock_parse_args, mock_invoke, mock_session_local):
         """Test command-line execution with tenant context"""
         # Mock command line arguments
         mock_args = Mock()
@@ -215,19 +214,16 @@ class TestCommandLineInterface:
         expected_org_id = mock_args.org_id
         expected_user_id = mock_args.user_id
         
-        # Simulate the actual execution
-        mock_set_tenant(mock_db, organization_id=expected_org_id, user_id=expected_user_id)
+        # Simulate the actual execution (tenant context now passed directly)
         result = mock_invoke(mock_db, mock_args.endpoint_id, input_data)
         
         # Verify calls
-        mock_set_tenant.assert_called_with(mock_db, organization_id=expected_org_id, user_id=expected_user_id)
         mock_invoke.assert_called_with(mock_db, mock_args.endpoint_id, input_data)
         assert result == {"response": "I can help you with various tasks"}
     
-    @patch('rhesis.backend.app.services.endpoint.SessionLocal')
-    @patch('rhesis.backend.app.database.set_tenant')
+    @patch('rhesis.backend.app.database.SessionLocal')
     @patch('argparse.ArgumentParser.parse_args')
-    def test_command_line_with_default_session(self, mock_parse_args, mock_set_tenant, mock_session_local):
+    def test_command_line_with_default_session(self, mock_parse_args, mock_session_local):
         """Test command-line execution with default session ID generation"""
         # Mock command line arguments without session
         mock_args = Mock()

@@ -50,48 +50,47 @@ class TestLoadInitialData:
              patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type, \
              patch('rhesis.backend.app.services.organization.get_or_create_status') as mock_get_status, \
              patch('rhesis.backend.app.services.organization.get_or_create_behavior') as mock_get_behavior, \
-             patch('rhesis.backend.app.services.organization.get_or_create_entity') as mock_get_entity, \
-             patch('rhesis.backend.app.services.organization.get_db') as mock_get_db:
+             patch('rhesis.backend.app.services.organization.get_or_create_entity') as mock_get_entity:
             
-            # Setup the context manager mock
-            mock_get_db.return_value.__enter__.return_value = test_db
-            
-            # Call the function
+            # Call the function (now uses provided db parameter directly)
             organization_service.load_initial_data(
                 db=test_db,
                 organization_id=test_org_id,
                 user_id=authenticated_user_id
             )
             
-            # Verify get_db was called
-            mock_get_db.assert_called_once()
-            
-            # Verify type_lookup creation
+            # Verify type_lookup creation (now includes organization_id and user_id)
             mock_get_type.assert_called_once_with(
                 db=test_db,
                 type_name="TestType",
                 type_value="default",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
                 commit=False
             )
             
-            # Verify status creation
+            # Verify status creation (now includes organization_id and user_id)
             mock_get_status.assert_called_once_with(
                 db=test_db,
                 name="active",
                 entity_type="test",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
                 commit=False
             )
             
-            # Verify behavior creation
+            # Verify behavior creation (now includes organization_id and user_id)
             mock_get_behavior.assert_called_once_with(
                 db=test_db,
                 name="test_behavior",
                 description="Test behavior",
                 status="active",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
                 commit=False
             )
             
-            # Verify use_case creation
+            # Verify use_case creation (now includes organization_id and user_id)
             mock_get_entity.assert_any_call(
                 db=test_db,
                 model=models.UseCase,
@@ -102,6 +101,8 @@ class TestLoadInitialData:
                     "application": None,
                     "is_active": True
                 },
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
                 commit=False
             )
 
@@ -186,21 +187,14 @@ class TestLoadInitialData:
         empty_data = {}
         
         with patch('builtins.open', mock_open(read_data=json.dumps(empty_data))), \
-             patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type, \
-             patch('rhesis.backend.app.services.organization.get_db') as mock_get_db:
+             patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type:
             
-            # Setup the context manager mock
-            mock_get_db.return_value.__enter__.return_value = test_db
-            
-            # Call the function
+            # Call the function (now uses provided db parameter directly)
             organization_service.load_initial_data(
                 db=test_db,
                 organization_id=test_org_id,
                 user_id=authenticated_user_id
             )
-            
-            # Verify get_db was called
-            mock_get_db.assert_called_once()
             
             # Verify no type_lookup creation (empty data)
             mock_get_type.assert_not_called()
