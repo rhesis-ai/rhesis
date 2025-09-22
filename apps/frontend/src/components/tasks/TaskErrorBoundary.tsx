@@ -2,7 +2,7 @@
 
 import React, { Component, ReactNode } from 'react';
 import { Alert, AlertTitle, Box, Button } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import { RefreshIcon } from '@/components/icons';
 
 interface Props {
   children: ReactNode;

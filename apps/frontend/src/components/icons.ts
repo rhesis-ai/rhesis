@@ -58,6 +58,9 @@ export { default as ContentCopyIcon } from '@mui/icons-material/ContentCopy';
 export { default as ArrowBackIcon } from '@mui/icons-material/ArrowBack';
 export { default as ArrowOutwardIcon } from '@mui/icons-material/ArrowOutward';
 export { default as ClearIcon } from '@mui/icons-material/Clear';
+export { default as RefreshIcon } from '@mui/icons-material/Refresh';
+export { default as SendIcon } from '@mui/icons-material/Send';
+export { default as EmojiIcon } from '@mui/icons-material/EmojiEmotions';
 
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturing';
