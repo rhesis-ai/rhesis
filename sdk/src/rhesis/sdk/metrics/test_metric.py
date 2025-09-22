@@ -144,7 +144,7 @@ def extract_test_data(test: Test) -> tuple:
     return input_text, expected_output, context
 
 
-def test_metric(
+def run_metric_test(
     metric_id: str,
     organization_id: str,
     user_id: str,
