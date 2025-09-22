@@ -8,12 +8,16 @@ import {
   Paper,
   Button,
   Chip,
+  Avatar,
 } from '@mui/material';
-import { Add as AddIcon, Assignment as AssignmentIcon } from '@mui/icons-material';
+import { AddIcon } from '@/components/icons';
 import { Task, EntityType } from '@/types/tasks';
+import { getEntityDisplayName } from '@/utils/entity-helpers';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { GridColDef } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
+import { TaskErrorBoundary } from './TaskErrorBoundary';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 interface TasksSectionProps {
   entityType: EntityType;
@@ -50,23 +54,12 @@ export function TasksSection({
     }
   };
 
-  const getEntityDisplayName = (entityType: EntityType): string => {
-    switch (entityType) {
-      case 'Test':
-        return 'Test';
-      case 'TestSet':
-        return 'Test Set';
-      case 'TestRun':
-        return 'Test Run';
-      case 'TestResult':
-        return 'Test Result';
-      default:
-        return entityType;
-    }
-  };
-
   const handleRowClick = (params: any) => {
-    router.push(`/tasks/${params.id}`);
+    try {
+      router.push(`/tasks/${params.id}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
   };
 
   const handleCreateTask = () => {
@@ -84,12 +77,9 @@ export function TasksSection({
       headerName: 'Title',
       width: 300,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AssignmentIcon fontSize="small" color="action" />
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {params.row.title}
-          </Typography>
-        </Box>
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+          {params.row.title}
+        </Typography>
       ),
     },
     {
@@ -143,9 +133,18 @@ export function TasksSection({
       headerName: 'Assignee',
       width: 150,
       renderCell: (params) => (
-        <Typography variant="body2">
-          {params.row.assignee?.name || 'Unassigned'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar 
+            src={params.row.assignee?.picture} 
+            alt={params.row.assignee?.name || 'Unassigned'}
+            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+          >
+            {params.row.assignee?.name?.charAt(0) || 'U'}
+          </Avatar>
+          <Typography variant="body2">
+            {params.row.assignee?.name || 'Unassigned'}
+          </Typography>
+        </Box>
       ),
     },
     {
@@ -161,49 +160,51 @@ export function TasksSection({
   ];
 
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" component="h2">
-          Tasks ({tasks.length})
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateTask}
-        >
-          Create Task
-        </Button>
-      </Box>
-
-      {/* Tasks Table */}
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
+    <TaskErrorBoundary>
+      <Box>
+        {/* Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" component="h2">
+            Tasks ({tasks.length})
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateTask}
+          >
+            Create Task
+          </Button>
         </Box>
-      ) : tasks.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-          No tasks yet. Create the first task for this {getEntityDisplayName(entityType).toLowerCase()}.
-        </Typography>
-      ) : (
-        <BaseDataGrid
-          rows={tasks}
-          columns={columns}
-          loading={isLoading}
-          onRowClick={handleRowClick}
-          disableRowSelectionOnClick
-          pageSizeOptions={[5, 10, 25]}
-          paginationModel={{ page: 0, pageSize: 10 }}
-          getRowId={(row) => row.id}
-          showToolbar={true}
-          sx={{
-            '& .MuiDataGrid-row': {
-              cursor: 'pointer',
-            },
-            minHeight: Math.min(tasks.length * 52 + 120, 400), // Dynamic height
-          }}
-        />
-      )}
-    </Box>
+
+        {/* Tasks Table */}
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : tasks.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+            No tasks yet. Create the first task for this {getEntityDisplayName(entityType).toLowerCase()}.
+          </Typography>
+        ) : (
+          <BaseDataGrid
+            rows={tasks}
+            columns={columns}
+            loading={isLoading}
+            onRowClick={handleRowClick}
+            disableRowSelectionOnClick
+            pageSizeOptions={[5, 10, 25]}
+            paginationModel={{ page: 0, pageSize: 10 }}
+            getRowId={(row) => row.id}
+            showToolbar={true}
+            sx={{
+              '& .MuiDataGrid-row': {
+                cursor: 'pointer',
+              },
+              minHeight: Math.min(tasks.length * 52 + 120, 400), // Dynamic height
+            }}
+          />
+        )}
+      </Box>
+    </TaskErrorBoundary>
   );
 }

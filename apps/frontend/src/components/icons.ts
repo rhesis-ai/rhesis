@@ -44,6 +44,8 @@ export { default as ApiIcon } from '@mui/icons-material/Api';
 export { default as AddIcon } from '@mui/icons-material/Add';
 export { default as DeleteIcon } from '@mui/icons-material/Delete';
 export { default as CheckIcon } from '@mui/icons-material/Check';
+export { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle';
+export { default as AddTaskIcon } from '@mui/icons-material/AddTask';
 export { default as CloseIcon } from '@mui/icons-material/Close';
 export { default as InfoIcon } from '@mui/icons-material/Info';
 export { default as SettingsIcon } from '@mui/icons-material/Settings';
@@ -54,6 +56,7 @@ export { default as PersonIcon } from '@mui/icons-material/Person';
 export { default as DownloadIcon } from '@mui/icons-material/Download';
 export { default as ContentCopyIcon } from '@mui/icons-material/ContentCopy';
 export { default as ArrowBackIcon } from '@mui/icons-material/ArrowBack';
+export { default as ArrowForwardIcon } from '@mui/icons-material/ArrowForward';
 export { default as ClearIcon } from '@mui/icons-material/Clear';
 
 // Metric specific icons

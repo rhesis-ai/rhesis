@@ -15,26 +15,19 @@ import {
   MenuItem,
   Grid,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Avatar
 } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { ArrowBackIcon } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { TaskCreate, EntityType } from '@/types/tasks';
 import { getStatuses, getPriorities, getStatusByName, getPriorityByName } from '@/utils/task-lookup';
+import { getEntityDisplayName } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
-
-function getEntityDisplayName(entityType: EntityType): string {
-  switch (entityType) {
-    case 'Test': return 'Test';
-    case 'TestSet': return 'Test Set';
-    case 'TestRun': return 'Test Run';
-    case 'TestResult': return 'Test Result';
-    default: return entityType;
-  }
-}
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 export default function CreateTaskPage() {
   const router = useRouter();
@@ -250,18 +243,70 @@ export default function CreateTaskPage() {
 
                   <Grid item xs={12}>
                     <FormControl fullWidth disabled={isSaving}>
-                      <InputLabel>Assignee</InputLabel>
+                      <InputLabel shrink>Assignee</InputLabel>
                       <Select
                         value={formData.assignee_id || ''}
                         onChange={handleChange('assignee_id')}
                         label="Assignee"
+                        displayEmpty
+                        sx={{
+                          '& .MuiSelect-select': {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            paddingTop: '16px',
+                            paddingBottom: '16px'
+                          }
+                        }}
+                        renderValue={(value) => {
+                          const selectedUser = users.find(user => user.id === value);
+                          if (!selectedUser) {
+                            // Handle "Unassigned" case
+                            return (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Avatar sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'grey.300' }}>
+                                  U
+                                </Avatar>
+                                <Typography variant="body1">Unassigned</Typography>
+                              </Box>
+                            );
+                          }
+                          return (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Avatar 
+                                src={selectedUser.picture} 
+                                alt={selectedUser.name || 'User'}
+                                sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                              >
+                                {selectedUser.name?.charAt(0) || 'U'}
+                              </Avatar>
+                              <Typography variant="body1">
+                                {selectedUser.name}
+                              </Typography>
+                            </Box>
+                          );
+                        }}
                       >
                         <MenuItem value="">
-                          <em>Unassigned</em>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'grey.300' }}>
+                              U
+                            </Avatar>
+                            <Typography variant="body1">Unassigned</Typography>
+                          </Box>
                         </MenuItem>
-                        {users.map((user) => (
+                        {users.filter(user => user.id && user.name).map((user) => (
                           <MenuItem key={user.id} value={user.id}>
-                            {user.name}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Avatar 
+                                src={user.picture} 
+                                alt={user.name || 'User'}
+                                sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                              >
+                                {user.name?.charAt(0) || 'U'}
+                              </Avatar>
+                              <Typography variant="body1">{user.name}</Typography>
+                            </Box>
                           </MenuItem>
                         ))}
                       </Select>
