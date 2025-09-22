@@ -13,13 +13,7 @@ import {
   useTheme,
   Chip,
 } from '@mui/material';
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  EmojiEmotions as EmojiIcon,
-  Assignment as TaskIcon,
-} from '@mui/icons-material';
-import { AddTaskIcon } from '@/components/icons';
+import { EditIcon, DeleteIcon, EmojiIcon, AddTaskIcon } from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
@@ -203,7 +197,7 @@ export function CommentItem({
               {taskCount > 0 && (
                 <Tooltip title={`${taskCount} task${taskCount === 1 ? '' : 's'} created from this comment`}>
                   <Chip
-                    icon={<TaskIcon />}
+                    icon={<AddTaskIcon />}
                     label={taskCount}
                     size="small"
                     color="primary"
@@ -230,7 +224,7 @@ export function CommentItem({
                       '&:hover': { color: 'warning.main' }
                     }}
                   >
-                    <TaskIcon fontSize="small" />
+                    <AddTaskIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               )}

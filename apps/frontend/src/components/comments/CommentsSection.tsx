@@ -12,7 +12,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import { SendIcon } from '@/components/icons';
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
 import { UserAvatar } from '@/components/common/UserAvatar';
