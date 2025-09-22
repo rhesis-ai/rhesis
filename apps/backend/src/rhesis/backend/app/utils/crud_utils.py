@@ -11,12 +11,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.constants import EntityType
-from rhesis.backend.app.database import (
-    get_current_organization_id,
-    get_current_user_id,
-    get_current_organization_id_cached,
-    get_current_user_id_cached,
-)
+# Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.model_utils import QueryBuilder
 from rhesis.backend.logging import logger
