@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from typing import List, Type
 
 from sqlalchemy import inspect
@@ -233,7 +234,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
             # Process test sets
             print("Processing test sets...")
-            for item in initial_data.get("test_set", []):
+            for i, item in enumerate(initial_data.get("test_set", [])):
+                print(f"Processing test set {i}: {item['name']}")
                 # Get test set status
                 status = get_or_create_status(
                     db=db, name=item["status"], entity_type="TestSet", 
@@ -247,6 +249,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
                 # Create test set
+                print(f"Creating test set entity...")
                 test_set = get_or_create_entity(
                     db=db,
                     model=models.TestSet,
@@ -261,9 +264,12 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     },
                     organization_id=organization_id, user_id=user_id, commit=False,
                 )
+                print(f"Test set created successfully: {test_set.id}")
 
                 # Associate tests with test set
-                for test in created_tests:
+                print(f"Associating {len(created_tests)} tests with test set {item['name']}")
+                for j, test in enumerate(created_tests):
+                    print(f"Processing test association {j+1}/{len(created_tests)}")
                     # Get the actual test object from the database
                     db_test = (
                         db.query(models.Test)
@@ -275,18 +281,24 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     )
 
                     if db_test:
+                        print(f"Creating test-testset association: test={db_test.id}, testset={test_set.id}")
                         values = {
                             "test_id": db_test.id,
                             "test_set_id": test_set.id,
-                            "organization_id": organization_id,
-                            "user_id": user_id,
+                            "organization_id": uuid.UUID(organization_id),
+                            "user_id": uuid.UUID(user_id),
                         }
                         db.execute(test_test_set_association.insert().values(**values))
                         db.flush()
+                        print(f"Test-testset association created successfully")
+                    else:
+                        print(f"Test not found for association")
 
+            print("Finished processing test sets, starting metrics...")
             # Process metrics
             print("Processing metrics...")
-            for item in initial_data.get("metric", []):
+            for i, item in enumerate(initial_data.get("metric", [])):
+                print(f"Processing metric {i}: {item['name']}")
                 # Get metric type
                 metric_type = get_or_create_type_lookup(
                     db=db, type_name="MetricType", type_value=item["metric_type"], 
@@ -334,12 +346,15 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
                 # Process behavior associations
                 behavior_names = item.get("behaviors", [])
+                print(f"Metric {item['name']} has behaviors: {behavior_names}")
                 for behavior_name in behavior_names:
                     # Get or create the behavior
+                    print(f"Getting/creating behavior: {behavior_name}")
                     behavior = get_or_create_behavior(
                         db=db, name=behavior_name, 
                         organization_id=organization_id, user_id=user_id, commit=False
                     )
+                    print(f"Got behavior: {behavior.id}")
 
                     # Check if association already exists
                     existing_association = db.execute(
@@ -351,16 +366,20 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
                     # Create association if it doesn't exist
                     if not existing_association:
+                        print(f"Creating association: behavior={behavior.id}, metric={metric.id}")
                         association_values = {
                             "behavior_id": behavior.id,
                             "metric_id": metric.id,
-                            "organization_id": organization_id,
-                            "user_id": user_id,
+                            "organization_id": uuid.UUID(organization_id),
+                            "user_id": uuid.UUID(user_id),
                         }
                         db.execute(
                             behavior_metric_association.insert().values(**association_values)
                         )
                         db.flush()
+                        print(f"Association created successfully")
+                    else:
+                        print(f"Association already exists")
 
             # Flush all changes to ensure they're persisted
             db.flush()
