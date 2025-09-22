@@ -45,7 +45,59 @@ jobs:
             const fs = require('fs');
             const { execSync } = require('child_process');
             
-            // Re-run the checker to capture output
+            // Create a custom script to parse violations into structured data
+            const parseScript = `
+            const StyleChecker = require('./scripts/check-hardcoded-styles.js');
+            const checker = new StyleChecker();
+            
+            // Override generateReport to return structured data instead of console output
+            checker.generateReport = function() {
+              if (this.violations.length === 0) {
+                return { hasViolations: false, summary: 'No violations found' };
+              }
+              
+              const violationsByFile = {};
+              this.violations.forEach(violation => {
+                if (!violationsByFile[violation.file]) {
+                  violationsByFile[violation.file] = [];
+                }
+                violationsByFile[violation.file].push(violation);
+              });
+              
+              const violationsByType = {};
+              this.violations.forEach(violation => {
+                violationsByType[violation.type] = (violationsByType[violation.type] || 0) + 1;
+              });
+              
+              return {
+                hasViolations: true,
+                totalViolations: this.violations.length,
+                checkedFiles: this.checkedFiles,
+                violationsByFile,
+                violationsByType
+              };
+            };
+            
+            // Get command line arguments (files to check)
+            const targetFiles = process.argv.slice(2);
+            checker.run(targetFiles);
+            `;
+            
+            // Write and execute the parsing script
+            fs.writeFileSync('parse-violations.js', parseScript);
+            
+            let violations = null;
+            try {
+              const result = execSync('node parse-violations.js', { 
+                encoding: 'utf8',
+                stdio: 'pipe'
+              });
+            } catch (error) {
+              // The script will exit with code 1 if violations found
+              // We need to capture the violations data differently
+            }
+            
+            // Alternative approach: run the original script and parse its output
             let output = '';
             try {
               execSync('node scripts/check-hardcoded-styles.js', { 
@@ -56,66 +108,101 @@ jobs:
               output = error.stdout || error.message;
             }
             
+            // Parse the output to extract key information
+            const lines = output.split('\n');
+            const violationLines = lines.filter(line => line.includes('Found') && line.includes('violations'));
+            const fileLines = lines.filter(line => line.startsWith('📄'));
+            const summaryLines = lines.filter(line => line.includes('violations') && line.includes(':'));
+            
+            let totalViolations = 0;
+            let checkedFiles = 0;
+            
+            // Extract numbers from output
+            const violationMatch = output.match(/Found (\d+) hardcoded style violations/);
+            const filesMatch = output.match(/Checked (\d+) files/);
+            
+            if (violationMatch) totalViolations = parseInt(violationMatch[1]);
+            if (filesMatch) checkedFiles = parseInt(filesMatch[1]);
+            
+            // Create a more readable comment
+            let filesList = '';
+            if (fileLines.length > 0) {
+              filesList = fileLines.slice(0, 10).map(line => {
+                const fileName = line.replace('📄 ', '').replace(':', '');
+                return `- \`${fileName}\``;
+              }).join('\n');
+              
+              if (fileLines.length > 10) {
+                filesList += `\n- ... and ${fileLines.length - 10} more files`;
+              }
+            }
+            
             const comment = `## 🎨 Hardcoded Styles Check Failed
             
-            This PR contains hardcoded styles that should use theme values instead.
+            This PR contains **${totalViolations} hardcoded style violations** across **${fileLines.length} files**.
+            
+            ### 📁 Files with violations:
+            ${filesList}
             
             <details>
-            <summary>📋 Click to see violations</summary>
+            <summary>📋 Click to see detailed violations</summary>
             
             \`\`\`
-            ${output}
+            ${output.length > 4000 ? output.substring(0, 4000) + '\n\n... (output truncated, run locally for full details)' : output}
             \`\`\`
             
             </details>
             
-            ### 🔧 How to fix:
+            ### 🔧 How to fix these violations:
             
-            1. **Colors**: Use \`theme.palette.*\` instead of hex codes
-               \`\`\`tsx
-               // ❌ Bad
-               sx={{ color: '#50B9E0' }}
-               
-               // ✅ Good  
-               sx={{ color: 'primary.main' }}
-               // or
-               sx={{ color: theme.palette.primary.main }}
-               \`\`\`
+            #### 1. **Colors** → Use theme palette
+            \`\`\`tsx
+            // ❌ Hardcoded
+            sx={{ color: '#50B9E0', backgroundColor: '#f5f5f5' }}
             
-            2. **Font sizes**: Use Typography variants or \`theme.typography.*\`
-               \`\`\`tsx
-               // ❌ Bad
-               sx={{ fontSize: '14px' }}
-               
-               // ✅ Good
-               <Typography variant="body2">Text</Typography>
-               // or
-               sx={{ fontSize: theme.typography.body2.fontSize }}
-               \`\`\`
+            // ✅ Theme-based  
+            sx={{ color: 'primary.main', backgroundColor: 'grey.100' }}
+            \`\`\`
             
-            3. **Spacing**: Use \`theme.spacing()\` or \`theme.customSpacing.*\`
-               \`\`\`tsx
-               // ❌ Bad
-               sx={{ margin: '16px', padding: '24px' }}
-               
-               // ✅ Good
-               sx={{ m: 2, p: 3 }} // Uses theme.spacing()
-               // or
-               sx={{ margin: theme.spacing(2), padding: theme.spacing(3) }}
-               \`\`\`
+            #### 2. **Spacing** → Use theme spacing
+            \`\`\`tsx
+            // ❌ Hardcoded
+            sx={{ margin: '16px', padding: '24px' }}
             
-            4. **Elevations**: Use \`theme.elevation.*\`
-               \`\`\`tsx
-               // ❌ Bad
-               sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-               
-               // ✅ Good
-               elevation={2} // For Paper/Card components
-               // or custom usage in sx
-               \`\`\`
+            // ✅ Theme-based
+            sx={{ m: 2, p: 3 }} // 2 * 8px = 16px, 3 * 8px = 24px
+            \`\`\`
             
-            📖 **See the [Theme Usage Guide](apps/frontend/src/styles/rhesis-theme-usage.md) for more examples.**
-            `;
+            #### 3. **Border Radius** → Use consistent values
+            \`\`\`tsx
+            // ❌ Hardcoded
+            sx={{ borderRadius: '8px' }}
+            
+            // ✅ Consistent
+            sx={{ borderRadius: 1 }} // 1 * 4px = 4px (MUI default)
+            \`\`\`
+            
+            #### 4. **Font Sizes** → Use Typography variants
+            \`\`\`tsx
+            // ❌ Hardcoded
+            sx={{ fontSize: '14px' }}
+            
+            // ✅ Typography variant
+            <Typography variant="body2">Text</Typography>
+            \`\`\`
+            
+            ### 📖 Resources:
+            - [Theme Usage Guide](apps/frontend/src/styles/rhesis-theme-usage.md)
+            - [MUI System Props](https://mui.com/system/properties/)
+            - Run \`node scripts/check-hardcoded-styles.js\` locally for full details
+            
+            ---
+            *This check helps maintain consistent design across the application. Fix the violations above to pass the check.* ✨`;
+            
+            // Clean up temporary file
+            try {
+              fs.unlinkSync('parse-violations.js');
+            } catch (e) {}
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
