@@ -358,14 +358,17 @@ def get_test_sets(
     sort_order: str = "desc",
     filter: str | None = None,
     has_runs: bool | None = None,
+    organization_id: str = None,
 ) -> List[models.TestSet]:
     """
     Get test sets with detail loading and proper filtering.
     Public test sets are visible regardless of organization.
+    Organization filtering is applied when organization_id is provided.
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
         .with_joinedloads()
+        .with_organization_filter(organization_id)  # Apply organization filtering
         .with_visibility_filter()  # This already handles public visibility correctly
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
@@ -389,11 +392,13 @@ def get_test_sets(
                 return filtered_query
             else:
                 # Only test sets that don't have test runs
+                subquery_builder = QueryBuilder(db, models.TestSet).with_organization_filter(organization_id)
                 subquery = (
-                    db.query(models.TestSet.id)
+                    subquery_builder.query
                     .join(models.TestConfiguration)
                     .join(models.TestRun)
                     .distinct()
+                    .with_entities(models.TestSet.id)
                     .subquery()
                 )
                 filtered_query = query.filter(~models.TestSet.id.in_(subquery))
@@ -930,16 +935,23 @@ def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str = None, user
 
 
 def assign_tag(
-    db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType
+    db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType, organization_id: str = None
 ) -> models.Tag:
-    """Create a tag if it doesn't exist and link it to an entity"""
+    """Create a tag if it doesn't exist and link it to an entity with organization filtering"""
     # Get the actual model class based on entity_type
     model_class = getattr(models, entity_type.value)
 
-    # Verify the entity exists
-    entity = db.query(model_class).filter(model_class.id == entity_id).first()
+    # Verify the entity exists with organization filtering (SECURITY CRITICAL)
+    entity_query = db.query(model_class).filter(model_class.id == entity_id)
+    
+    # Apply organization filtering if the model supports it
+    if organization_id and hasattr(model_class, 'organization_id'):
+        from uuid import UUID
+        entity_query = entity_query.filter(model_class.organization_id == UUID(organization_id))
+    
+    entity = entity_query.first()
     if not entity:
-        raise ValueError(f"{entity_type.value} with id {entity_id} not found")
+        raise ValueError(f"{entity_type.value} with id {entity_id} not found or not accessible")
 
     # Check if tag already exists (keep organization filter for double security)
     db_tag = (
@@ -1111,16 +1123,30 @@ def revoke_token(db: Session, token_id: uuid.UUID, organization_id: str = None, 
     return delete_item(db, models.Token, token_id, organization_id, user_id)
 
 
-def revoke_user_tokens(db: Session, user_id: uuid.UUID) -> List[models.Token]:
-    result = db.query(models.Token).filter(models.Token.user_id == user_id).delete()
+def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = None) -> int:
+    """Revoke all tokens for a user with organization filtering (SECURITY CRITICAL)"""
+    query = db.query(models.Token).filter(models.Token.user_id == user_id)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(models.Token.organization_id == UUID(organization_id))
+    
+    result = query.delete()
     db.commit()
     return result
 
 
-def get_token_by_value(db: Session, token_value: str):
-    """Retrieve a token by its value"""
-    token = db.query(models.Token).filter(models.Token.token == token_value).first()
-    return token
+def get_token_by_value(db: Session, token_value: str, organization_id: str = None):
+    """Retrieve a token by its value with organization filtering (SECURITY CRITICAL)"""
+    query = db.query(models.Token).filter(models.Token.token == token_value)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(models.Token.organization_id == UUID(organization_id))
+    
+    return query.first()
 
 
 # Organization CRUD
