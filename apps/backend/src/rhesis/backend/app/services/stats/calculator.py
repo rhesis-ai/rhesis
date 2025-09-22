@@ -17,13 +17,21 @@ from .utils import timer
 class StatsCalculator:
     """Main class for stats calculations with improved maintainability"""
 
-    def __init__(self, db: Session, config: StatsConfig = None):
+    def __init__(self, db: Session, config: StatsConfig = None, organization_id: str = None):
         self.db = db
         self.config = config or StatsConfig()
+        self.organization_id = organization_id  # SECURITY CRITICAL: Store organization context
 
     # ============================================================================
     # Core Stats Processing Methods
     # ============================================================================
+    
+    def _apply_organization_filter(self, query, model):
+        """Apply organization filtering to a query if organization_id is set and model supports it"""
+        if self.organization_id and hasattr(model, 'organization_id'):
+            from uuid import UUID
+            query = query.filter(model.organization_id == UUID(self.organization_id))
+        return query
 
     def _process_dimension_breakdown(self, stats: List[Tuple], top: Optional[int] = None) -> Dict:
         """Process dimension statistics with optional top N filtering"""

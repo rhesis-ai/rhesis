@@ -983,18 +983,29 @@ def assign_tag(
     return db_tag
 
 
-def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityType) -> bool:
+def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityType, organization_id: str = None) -> bool:
     """Remove a tag from an entity by deleting the tagged_item relationship"""
-    # Get the tag to check organization
-    db_tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
+    # Get the tag with organization filtering (SECURITY CRITICAL)
+    tag_query = db.query(models.Tag).filter(models.Tag.id == tag_id)
+    if organization_id:
+        from uuid import UUID as UUIDType
+        tag_query = tag_query.filter(models.Tag.organization_id == UUIDType(organization_id))
+    
+    db_tag = tag_query.first()
     if not db_tag:
-        raise ValueError("Tag not found")
+        raise ValueError("Tag not found or not accessible")
 
-    # Verify the entity exists
+    # Verify the entity exists with organization filtering (SECURITY CRITICAL)
     model_class = getattr(models, entity_type.value)
-    entity = db.query(model_class).filter(model_class.id == entity_id).first()
+    entity_query = db.query(model_class).filter(model_class.id == entity_id)
+    
+    # Apply organization filtering if the model supports it
+    if organization_id and hasattr(model_class, 'organization_id'):
+        entity_query = entity_query.filter(model_class.organization_id == UUIDType(organization_id))
+    
+    entity = entity_query.first()
     if not entity:
-        raise ValueError(f"{entity_type.value} with id {entity_id} not found")
+        raise ValueError(f"{entity_type.value} with id {entity_id} not found or not accessible")
 
     result = (
         db.query(models.TaggedItem)
@@ -2026,17 +2037,29 @@ def remove_emoji_reaction(
 
 
 # Task CRUD
-def get_task(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
-    """Get a single task by ID"""
-    return get_item_detail(db, models.Task, task_id)
+def get_task(db: Session, task_id: uuid.UUID, organization_id: str = None) -> Optional[models.Task]:
+    """Get a single task by ID with organization filtering"""
+    query = db.query(models.Task).filter(models.Task.id == task_id)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID as UUIDType
+        query = query.filter(models.Task.organization_id == UUIDType(organization_id))
+    
+    return query.first()
 
 
-def get_task_with_comment_count(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
-    """Get a single task by ID with comment count"""
+def get_task_with_comment_count(db: Session, task_id: uuid.UUID, organization_id: str = None) -> Optional[models.Task]:
+    """Get a single task by ID with comment count and organization filtering"""
     from sqlalchemy import func
 
-    # Get the task
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    # Get the task with organization filtering (SECURITY CRITICAL)
+    query = db.query(models.Task).filter(models.Task.id == task_id)
+    if organization_id:
+        from uuid import UUID as UUIDType
+        query = query.filter(models.Task.organization_id == UUIDType(organization_id))
+    
+    task = query.first()
     if not task:
         return None
 
@@ -2080,15 +2103,24 @@ def create_task(
     return create_item(db, models.Task, task, organization_id=organization_id, user_id=user_id)
 
 
-def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate) -> Optional[models.Task]:
-    """Update a task"""
+def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate, organization_id: str = None) -> Optional[models.Task]:
+    """Update a task with organization filtering"""
     # Check if status is being changed to "Completed"
     if task.status_id is not None:
-        # Get current task to compare status
-        current_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        # Get current task to compare status (SECURITY CRITICAL)
+        task_query = db.query(models.Task).filter(models.Task.id == task_id)
+        if organization_id:
+            from uuid import UUID as UUIDType
+            task_query = task_query.filter(models.Task.organization_id == UUIDType(organization_id))
+        
+        current_task = task_query.first()
         if current_task and task.status_id != current_task.status_id:
-            # Get the new status to check if it's "Completed"
-            new_status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
+            # Get the new status with organization filtering (SECURITY CRITICAL)
+            status_query = db.query(models.Status).filter(models.Status.id == task.status_id)
+            if organization_id:
+                status_query = status_query.filter(models.Status.organization_id == UUIDType(organization_id))
+            
+            new_status = status_query.first()
             if new_status and new_status.name == "Completed":
                 # Set completed_at to current timestamp
                 task.completed_at = datetime.utcnow()

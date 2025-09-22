@@ -171,10 +171,16 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
-    # Get user directly without RLS
-    db_user = db.query(User).filter(User.id == user_id).first()
+    # Get user with organization filtering (SECURITY CRITICAL)
+    user_query = db.query(User).filter(User.id == user_id)
+    
+    # Apply organization filtering unless current user is superuser
+    if not current_user.is_superuser and current_user.organization_id:
+        user_query = user_query.filter(User.organization_id == current_user.organization_id)
+    
+    db_user = user_query.first()
     if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found or not accessible")
 
     # Only allow users to update their own profile or superusers to update any profile
     if str(db_user.id) != str(current_user.id) and not current_user.is_superuser:
