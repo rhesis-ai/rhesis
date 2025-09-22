@@ -3,6 +3,7 @@ import random
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List
+from uuid import UUID
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -290,8 +291,11 @@ def create_test_set_associations(
         return error_response
 
     try:
-            # Validate test set exists
-            test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+            # Validate test set exists AND belongs to the organization (SECURITY CRITICAL)
+            test_set = db.query(models.TestSet).filter(
+                models.TestSet.id == test_set_id,
+                models.TestSet.organization_id == UUID(organization_id)
+            ).first()
             if not test_set:
                 error_response = {
                     "success": False,
@@ -363,8 +367,11 @@ def remove_test_set_associations(
         }
 
     try:
-            # Get test set and verify it exists
-            test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+            # Get test set and verify it exists AND belongs to the organization (SECURITY CRITICAL)
+            test_set = db.query(models.TestSet).filter(
+                models.TestSet.id == test_set_id,
+                models.TestSet.organization_id == UUID(organization_id)
+            ).first()
             if not test_set:
                 return {
                     "success": False,
