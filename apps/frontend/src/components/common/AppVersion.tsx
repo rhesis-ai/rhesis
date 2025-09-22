@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Typography, TypographyProps } from '@mui/material';
+import { getVersionInfo, formatVersionDisplay } from '@/utils/git-utils';
 
 interface AppVersionProps extends Omit<TypographyProps, 'children'> {
   prefix?: string;
@@ -11,6 +12,7 @@ interface AppVersionProps extends Omit<TypographyProps, 'children'> {
 /**
  * Component to display the application version.
  * Uses the APP_VERSION environment variable set in next.config.mjs
+ * and optionally includes git branch/commit information in non-production environments.
  */
 export const AppVersion: React.FC<AppVersionProps> = ({ 
   prefix = 'v',
@@ -19,8 +21,10 @@ export const AppVersion: React.FC<AppVersionProps> = ({
   color = 'text.secondary',
   ...typographyProps 
 }) => {
-  const version = process.env.APP_VERSION || '0.0.0';
-  const displayVersion = showPrefix ? `${prefix}${version}` : version;
+  const versionInfo = getVersionInfo();
+  const displayVersion = showPrefix 
+    ? formatVersionDisplay(versionInfo, prefix)
+    : formatVersionDisplay(versionInfo, '');
 
   return (
     <Typography 
