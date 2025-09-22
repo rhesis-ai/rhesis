@@ -19,9 +19,16 @@ def with_count_header(model: Type):
             response: Response = kwargs["response"]
             db: Session = kwargs["db"]
             filter_expr = kwargs.get("filter")
+            
+            # Extract tenant context if available
+            tenant_context = kwargs.get("tenant_context")
+            organization_id = None
+            user_id = None
+            if tenant_context:
+                organization_id, user_id = tenant_context
 
-            # Perform count
-            count = count_items(db, model, filter_expr)
+            # Perform count with tenant context
+            count = count_items(db, model, filter_expr, organization_id, user_id)
             response.headers["X-Total-Count"] = str(count)
 
             # Call original route function (await if async)
