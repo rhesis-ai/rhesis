@@ -152,6 +152,7 @@ def bulk_create_test_set(
                 db=db,
                 name=defaults["test_set"]["status"],
                 entity_type=EntityType.GENERAL,
+                organization_id=organization_id, user_id=user_id,
             )
 
             license_type = get_or_create_type_lookup(

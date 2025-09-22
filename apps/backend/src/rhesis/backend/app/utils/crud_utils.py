@@ -632,7 +632,8 @@ def get_or_create_topic(
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, commit=commit
+            db=db, name=status, entity_type=EntityType.GENERAL, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         topic_data["status_id"] = status_obj.id
 
@@ -669,7 +670,8 @@ def get_or_create_category(
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, commit=commit
+            db=db, name=status, entity_type=EntityType.GENERAL, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         category_data["status_id"] = status_obj.id
 
@@ -697,7 +699,8 @@ def get_or_create_behavior(
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, commit=commit
+            db=db, name=status, entity_type=EntityType.GENERAL, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         behavior_data["status_id"] = status_obj.id
 
