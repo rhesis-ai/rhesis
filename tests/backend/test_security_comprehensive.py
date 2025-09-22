@@ -26,11 +26,13 @@ class TestTaskManagementSecurity:
         # Create two separate organizations and users
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
         
+        # Generate unique email addresses to avoid conflicts with preserved data
+        unique_id = str(uuid.uuid4())[:8]
         org1, user1, _ = create_test_organization_and_user(
-            test_db, "Security Test Org 1", "user1@security-test.com", "Security User 1"
+            test_db, "Security Test Org 1", f"user1-{unique_id}@security-test.com", "Security User 1"
         )
         org2, user2, _ = create_test_organization_and_user(
-            test_db, "Security Test Org 2", "user2@security-test.com", "Security User 2"
+            test_db, "Security Test Org 2", f"user2-{unique_id}@security-test.com", "Security User 2"
         )
         
         # Create status in org1
@@ -63,11 +65,13 @@ class TestCrudTaskSecurity:
         # Create two separate organizations and users
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
         
+        # Generate unique email addresses to avoid conflicts with preserved data
+        unique_id = str(uuid.uuid4())[:8]
         org1, user1, _ = create_test_organization_and_user(
-            test_db, "Task Security Org 1", "task1@security-test.com", "Task User 1"
+            test_db, "Task Security Org 1", f"task1-{unique_id}@security-test.com", "Task User 1"
         )
         org2, user2, _ = create_test_organization_and_user(
-            test_db, "Task Security Org 2", "task2@security-test.com", "Task User 2"
+            test_db, "Task Security Org 2", f"task2-{unique_id}@security-test.com", "Task User 2"
         )
         
         # Create task in org1
@@ -112,11 +116,13 @@ class TestStatusUtilitySecurity:
         # Create two separate organizations and users
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
         
+        # Generate unique email addresses to avoid conflicts with preserved data
+        unique_id = str(uuid.uuid4())[:8]
         org1, user1, _ = create_test_organization_and_user(
-            test_db, "Status Security Org 1", "status1@security-test.com", "Status User 1"
+            test_db, "Status Security Org 1", f"status1-{unique_id}@security-test.com", "Status User 1"
         )
         org2, user2, _ = create_test_organization_and_user(
-            test_db, "Status Security Org 2", "status2@security-test.com", "Status User 2"
+            test_db, "Status Security Org 2", f"status2-{unique_id}@security-test.com", "Status User 2"
         )
         
         # Create status in org1

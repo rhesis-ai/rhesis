@@ -838,7 +838,7 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """Create a new user without RLS checks, because we're creating a new user that has no
     organization_id"""
     # Exclude send_invite field since it's not part of the User model
-    user_data = user.dict(exclude={"send_invite"})
+    user_data = user.model_dump(exclude={"send_invite"})
     db_user = models.User(**user_data)
     db.add(db_user)
     db.commit()
