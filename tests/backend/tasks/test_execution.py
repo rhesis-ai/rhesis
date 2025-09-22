@@ -17,69 +17,13 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional, Dict, Any, List, Tuple
 
-from rhesis.backend.tasks.execution.test_execution import (
-    setup_tenant_context,
-    # Other functions would be imported as they exist in the actual module
-)
+# setup_tenant_context was removed - tenant context now handled by get_org_aware_db
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.tasks.enums import ResultStatus
 
 
-class TestSetupTenantContext:
-    """Test setup_tenant_context function"""
-    
-    def test_setup_tenant_context_with_organization(self):
-        """Test tenant context setup with organization ID"""
-        mock_db = Mock(spec=Session)
-        mock_db.execute.return_value = Mock()  # Mock successful SHOW command
-        
-        organization_id = "org-123"
-        user_id = "user-456"
-        
-        with patch('rhesis.backend.tasks.execution.test_execution.set_tenant') as mock_set_tenant:
-            with patch('rhesis.backend.tasks.execution.test_execution.logger') as mock_logger:
-                setup_tenant_context(mock_db, organization_id, user_id)
-                
-                # Verify SHOW command was executed
-                mock_db.execute.assert_called_once_with(text('SHOW "app.current_organization"'))
-                
-                # Verify set_tenant was called
-                mock_set_tenant.assert_called_once_with(mock_db, organization_id, user_id)
-                
-                # Verify debug log
-                mock_logger.debug.assert_called_once_with(
-                    f"Set tenant context: organization_id={organization_id}, user_id={user_id}"
-                )
-    
-    def test_setup_tenant_context_no_organization(self):
-        """Test tenant context setup without organization ID"""
-        mock_db = Mock(spec=Session)
-        
-        organization_id = None
-        user_id = "user-456"
-        
-        with patch('rhesis.backend.tasks.execution.test_execution.set_tenant') as mock_set_tenant:
-            setup_tenant_context(mock_db, organization_id, user_id)
-            
-            # Should return early without setting context
-            mock_db.execute.assert_not_called()
-            mock_set_tenant.assert_not_called()
-    
-    def test_setup_tenant_context_exception_handling(self):
-        """Test tenant context setup with database exception"""
-        mock_db = Mock(spec=Session)
-        mock_db.execute.side_effect = Exception("Database error")
-        
-        organization_id = "org-123"
-        user_id = "user-456"
-        
-        with patch('rhesis.backend.tasks.execution.test_execution.set_tenant') as mock_set_tenant:
-            with patch('rhesis.backend.tasks.execution.test_execution.logger') as mock_logger:
-                # Should not raise exception, just log warning
-                setup_tenant_context(mock_db, organization_id, user_id)
-                
-                mock_logger.warning.assert_called_once_with("Failed to set tenant context: Database error")
-                mock_set_tenant.assert_not_called()
+# TestSetupTenantContext class removed - setup_tenant_context function no longer exists
+# Tenant context is now handled automatically by get_org_aware_db
 
 
 class TestDataRetrievalFunctions:
@@ -189,45 +133,15 @@ class TestExecutionWorkflow:
     
     def test_full_execution_workflow(self):
         """Test complete test execution workflow"""
-        # This would test the full workflow from start to finish
-        
-        mock_db = Mock(spec=Session)
-        organization_id = "org-123"
-        user_id = "user-456"
-        test_id = "test-789"
-        
-        # Mock all the components
-        with patch('rhesis.backend.tasks.execution.test_execution.setup_tenant_context') as mock_setup_context:
-            with patch('rhesis.backend.tasks.execution.test_execution.logger') as mock_logger:
-                
-                # Test the workflow components
-                mock_setup_context(mock_db, organization_id, user_id)
-                
-                # Verify context setup was called
-                mock_setup_context.assert_called_once_with(mock_db, organization_id, user_id)
+        # Note: setup_tenant_context was removed - tenant context now handled by get_org_aware_db
+        # This test would need to be updated to test actual execution workflow components
+        pass
     
     def test_execution_with_error_handling(self):
         """Test execution workflow with proper error handling"""
-        # This would test error handling throughout the execution workflow
-        
-        mock_db = Mock(spec=Session)
-        organization_id = "org-123"
-        user_id = "user-456"
-        
-        # Test exception handling
-        with patch('rhesis.backend.tasks.execution.test_execution.setup_tenant_context', 
-                   side_effect=Exception("Context setup failed")):
-            with patch('rhesis.backend.tasks.execution.test_execution.logger') as mock_logger:
-                
-                # The workflow should handle exceptions gracefully
-                try:
-                    setup_tenant_context(mock_db, organization_id, user_id)
-                except Exception:
-                    # Should be caught and logged, not propagated
-                    pass
-                
-                # Verify error was logged
-                mock_logger.warning.assert_called()
+        # Note: setup_tenant_context was removed - tenant context now handled by get_org_aware_db
+        # This test would need to be updated to test actual error handling in execution workflow
+        pass
 
 
 class TestMetricConfiguration:
@@ -320,19 +234,9 @@ class TestExecutionContextFixtures:
     
     def test_with_execution_context(self, mock_test_execution_db, sample_execution_context):
         """Test execution with proper context using fixtures"""
-        
-        with patch('rhesis.backend.tasks.execution.test_execution.set_tenant') as mock_set_tenant:
-            setup_tenant_context(
-                mock_test_execution_db,
-                sample_execution_context["organization_id"],
-                sample_execution_context["user_id"]
-            )
-            
-            mock_set_tenant.assert_called_once_with(
-                mock_test_execution_db,
-                sample_execution_context["organization_id"],
-                sample_execution_context["user_id"]
-            )
+        # Note: setup_tenant_context was removed - tenant context now handled by get_org_aware_db
+        # This test would need to be updated to test actual execution context management
+        pass
     
     def test_with_sample_data(self, sample_test_data):
         """Test execution workflow with sample test data"""
