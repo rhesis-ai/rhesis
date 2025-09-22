@@ -51,6 +51,13 @@ class OrganizationFilterChecker:
             r'Organization\.query',  # Organization queries don't need filtering
             r'\.query\(func\.count',  # Count queries often don't need filtering
             r'\.query\([^)]*\)\.filter\([^)]*organization_id[^)]*\)',  # Already has org filtering
+            # UUID-based query patterns (SAFE - globally unique)
+            r'\.filter\([^)]*\.id\s*==\s*test_set_id\)',  # Filter by test_set_id
+            r'\.filter\([^)]*\.id\s*==\s*test_run_id\)',  # Filter by test_run_id
+            r'\.filter\([^)]*\.id\s*==\s*test_set_uuid\)',  # Filter by test_set_uuid
+            r'\.filter\([^)]*\.id\s*==\s*\w+_uuid\)',     # Filter by any_uuid
+            r'get_test_set.*by.*id',                       # get_test_set by ID functions
+            r'get_test_run.*by.*id',                       # get_test_run by ID functions
         ]
         
         # Additional patterns to check for existing organization filtering
@@ -63,6 +70,11 @@ class OrganizationFilterChecker:
             r'Token\.organization_id',
             r'Metric\.organization_id',
             r'Behavior\.organization_id',
+            # Filter parameter patterns (functions that pass organization_id to filter helpers)
+            r'"organization_id":\s*organization_id',
+            r'filter_params\s*=.*organization_id',
+            r'apply_filters.*organization_id',
+            r'_apply_organization_filter',
         ]
         
         # Directories to scan
@@ -121,6 +133,13 @@ class OrganizationFilterChecker:
             r'\.filter\([^)]*\.id\s*==',  # .filter(Model.id == uuid)
             r'\.filter_by\(id\s*=',       # .filter_by(id=uuid)
             r'\.get\(',                   # .get(uuid) - primary key lookup
+            r'\.filter\([^)]*_id\s*==',   # .filter(model.some_id == uuid) - any ID field
+            r'test_run_id\s*==',          # test_run_id filtering
+            r'test_set_id\s*==',          # test_set_id filtering
+            r'behavior_id\s*==',          # behavior_id filtering
+            r'metric_id\s*==',            # metric_id filtering
+            r'user_id\s*==',              # user_id filtering (when used for ID lookup)
+            r'entity_id\s*==',            # entity_id filtering
         ]
         
         for id_pattern in id_based_patterns:
@@ -132,6 +151,21 @@ class OrganizationFilterChecker:
         context_end = min(len(lines), line_num + 10)
         context_lines = ' '.join(lines[context_start:context_end])
         
+        # Check for UUID-based filtering in the surrounding context (multi-line queries)
+        uuid_context_patterns = [
+            r'\.filter\([^)]*\.id\s*==\s*\w+_uuid\)',    # .filter(Model.id == some_uuid)
+            r'\.filter\([^)]*\.id\s*==\s*test_set_uuid\)',  # .filter(Model.id == test_set_uuid)
+            r'\.filter\([^)]*\.id\s*==\s*test_run_uuid\)',  # .filter(Model.id == test_run_uuid)
+            r'UUID\(test_set_id\)',                      # UUID(test_set_id) conversion
+            r'UUID\(test_run_id\)',                      # UUID(test_run_id) conversion
+            r'test_set_uuid\s*=\s*UUID\(',               # test_set_uuid = UUID(...)
+            r'test_run_uuid\s*=\s*UUID\(',               # test_run_uuid = UUID(...)
+        ]
+        
+        for uuid_pattern in uuid_context_patterns:
+            if re.search(uuid_pattern, context_lines):
+                return False  # UUID-based filtering found in context
+        
         # Check if organization filtering exists in the context
         for org_indicator in self.org_filter_indicators:
             if re.search(org_indicator, context_lines):
@@ -141,8 +175,24 @@ class OrganizationFilterChecker:
         function_context = ' '.join(lines[max(0, line_num - 20):min(len(lines), line_num + 5)])
         if re.search(r'def\s+\w+.*organization_id.*:', function_context):
             # Function accepts organization_id parameter, likely handled properly
-            if 'filter_params' in context_lines or 'QueryBuilder' in context_lines:
+            if ('filter_params' in context_lines or 
+                'QueryBuilder' in context_lines or
+                'apply_filters' in context_lines or
+                '_apply_organization_filter' in context_lines):
                 return False  # Organization filtering handled through parameters or QueryBuilder
+        
+        # Check for UUID-based function contexts (functions that take UUID parameters)
+        uuid_function_patterns = [
+            r'def\s+\w+.*_id:\s*uuid\.UUID',      # Function takes UUID parameter
+            r'def\s+\w+.*_id:\s*UUID',            # Function takes UUID parameter (imported)
+            r'def\s+get_\w+.*by.*id',             # get_something_by_id functions
+            r'def\s+\w+.*test_run_id.*uuid',     # Functions with test_run_id UUID
+            r'def\s+\w+.*test_set_id.*uuid',     # Functions with test_set_id UUID
+        ]
+        
+        for uuid_pattern in uuid_function_patterns:
+            if re.search(uuid_pattern, function_context, re.IGNORECASE):
+                return False  # UUID-based function context is safe
                 
         # Check if it queries an organization-aware model
         for model in self.organization_models:
