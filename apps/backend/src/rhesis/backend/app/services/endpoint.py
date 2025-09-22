@@ -140,7 +140,7 @@ if __name__ == "__main__":
         with get_db() as db:
             # Invoke endpoint
             # print(f"\nInvoking endpoint {args.endpoint_id} with input: {input_data}")
-            # print(f"Using organization ID: {args.org_id}")
+            # print(f"Using organization ID: {args.organization_id}")
             # print(f"Using user ID: {args.user_id}")
             result = invoke(db, args.endpoint_id, input_data)
             # print("\nResponse:")

@@ -102,12 +102,12 @@ class BaseTask(Task):
             message: The message to log
             **kwargs: Additional context to include in the log
         """
-        org_id, user_id = self.get_tenant_context()
+        organization_id, user_id = self.get_tenant_context()
         task_id = getattr(self.request, "id", "unknown") if hasattr(self, "request") else "unknown"
 
         context_info = {
             "task_id": task_id,
-            "organization_id": org_id or "unknown",
+            "organization_id": organization_id or "unknown",
             "user_id": user_id or "unknown",
             **kwargs,
         }
@@ -294,13 +294,13 @@ class BaseTask(Task):
             from rhesis.backend.notifications import EmailTemplate, email_service
 
             # Get user context
-            org_id, user_id = self.get_tenant_context()
+            organization_id, user_id = self.get_tenant_context()
 
             self.log_with_context(
                 "debug",
                 "Email notification process started",
                 status=status,
-                org_id=org_id,
+                organization_id=organization_id,
                 user_id=user_id,
             )
 
