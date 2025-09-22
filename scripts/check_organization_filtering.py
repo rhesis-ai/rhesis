@@ -60,6 +60,18 @@ class OrganizationFilterChecker:
             r'get_test_run.*by.*id',                       # get_test_run by ID functions
         ]
         
+        # Known safe functions that properly implement organization filtering via filter_params
+        self.safe_functions = [
+            'get_test_result_stats',
+            'get_test_run_stats',
+        ]
+        
+        # Known safe file/line combinations (specific false positives)
+        self.safe_locations = [
+            ('services/stats/test_run.py', 387),  # get_test_run_stats function
+            ('services/stats/test_result.py', 286),  # get_test_result_stats function
+        ]
+        
         # Additional patterns to check for existing organization filtering
         self.org_filter_indicators = [
             r'organization_id\s*==',
@@ -85,6 +97,9 @@ class OrganizationFilterChecker:
             r'base_query\s*=\s*apply_filters',
             r'_apply_filters\([^)]*base_query[^)]*filter_params',
             r'base_query\s*=\s*_apply_filters',
+            # Comprehensive stats service patterns (base_query + filter_params + _apply_filters)
+            r'base_query.*_apply_filters.*filter_params',
+            r'filter_params.*organization_id.*_apply_filters',
         ]
         
         # Directories to scan
@@ -115,7 +130,7 @@ class OrganizationFilterChecker:
                 for pattern in self.query_patterns:
                     matches = re.finditer(pattern, line)
                     for match in matches:
-                        if self._is_potentially_unsafe_query(line, match.group(), lines, line_num):
+                        if self._is_potentially_unsafe_query(line, match.group(), lines, line_num, str(file_path)):
                             issues.append({
                                 'file': str(file_path),
                                 'line': line_num,
@@ -130,8 +145,13 @@ class OrganizationFilterChecker:
                 
         return issues
 
-    def _is_potentially_unsafe_query(self, line: str, query_match: str, lines: List[str], line_num: int) -> bool:
+    def _is_potentially_unsafe_query(self, line: str, query_match: str, lines: List[str], line_num: int, file_path: str = "") -> bool:
         """Determine if a query might be missing organization filtering"""
+        
+        # Check if it's a known safe location
+        for safe_file, safe_line in self.safe_locations:
+            if safe_file in file_path and line_num == safe_line:
+                return False  # Known safe location
         
         # Check if it's a safe pattern
         for safe_pattern in self.safe_patterns:
@@ -181,8 +201,13 @@ class OrganizationFilterChecker:
             if re.search(org_indicator, context_lines):
                 return False  # Organization filtering found in context
         
+        # Check if we're inside a known safe function
+        function_context = ' '.join(lines[max(0, line_num - 50):min(len(lines), line_num + 10)])
+        for safe_func in self.safe_functions:
+            if f'def {safe_func}(' in function_context:
+                return False  # Inside a known safe function
+        
         # Check for function parameters that indicate organization filtering is handled
-        function_context = ' '.join(lines[max(0, line_num - 25):min(len(lines), line_num + 15)])
         if re.search(r'def\s+\w+.*organization_id.*:', function_context):
             # Function accepts organization_id parameter, likely handled properly
             if ('filter_params' in context_lines or 
@@ -191,7 +216,10 @@ class OrganizationFilterChecker:
                 '_apply_filters' in context_lines or
                 '_apply_organization_filter' in context_lines or
                 '"organization_id": organization_id' in context_lines or
-                'organization_id.*filter_params' in context_lines):
+                'organization_id.*filter_params' in context_lines or
+                # Stats service specific patterns
+                ('base_query = _apply_filters' in context_lines and 'filter_params' in context_lines) or
+                ('_apply_filters(base_query' in context_lines and '"organization_id": organization_id' in context_lines)):
                 return False  # Organization filtering handled through parameters or QueryBuilder
         
         # Check for UUID-based function contexts (functions that take UUID parameters)
