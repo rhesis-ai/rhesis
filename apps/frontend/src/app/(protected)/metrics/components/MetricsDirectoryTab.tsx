@@ -689,12 +689,13 @@ export default function MetricsDirectoryTab({
                     >
                       <AddIcon fontSize="inherit" />
                     </IconButton>
-                    {assignedBehaviors.length > 0 ? (
+                    {/* Only show delete button for unassigned custom metrics */}
+                    {assignedBehaviors.length === 0 && metric.backend_type?.type_value?.toLowerCase() === 'custom' && (
                       <IconButton
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleRemoveMetricFromBehavior(assignedBehaviors[0].id, metric.id);
+                          handleDeleteMetric(metric.id, metric.name);
                         }}
                         sx={{
                           padding: '2px',
@@ -703,26 +704,8 @@ export default function MetricsDirectoryTab({
                           }
                         }}
                       >
-                        <CloseIcon fontSize="inherit" />
+                        <DeleteIcon fontSize="inherit" />
                       </IconButton>
-                    ) : (
-                      metric.backend_type?.type_value?.toLowerCase() === 'custom' && (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteMetric(metric.id, metric.name);
-                          }}
-                          sx={{
-                            padding: '2px',
-                            '& .MuiSvgIcon-root': {
-                              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="inherit" />
-                        </IconButton>
-                      )
                     )}
                   </Box>
                   <MetricCard 
