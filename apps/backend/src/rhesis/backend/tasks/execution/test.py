@@ -1,6 +1,6 @@
 
 from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.tasks.base import SilentTask, with_tenant_context
+from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.test_execution import execute_test
 from rhesis.backend.tasks.utils import increment_test_run_progress
 from rhesis.backend.worker import app
@@ -12,7 +12,7 @@ from rhesis.backend.worker import app
     bind=True,
     display_name="Individual Test Execution",
 )
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def execute_single_test(
     self,
     test_config_id: str,
@@ -26,7 +26,7 @@ def execute_single_test(
     """
     Execute a single test and return its results.
 
-    This task uses the with_tenant_context decorator to automatically
+    This task gets tenant context passed directly and should use
     handle database sessions with the proper tenant context.
     """
     # Access context from task request - task headers take precedence over kwargs

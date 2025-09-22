@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from celery import Task
 from typing import Optional, Tuple
 
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
+from rhesis.backend.tasks.base import BaseTask, email_notification
 
 
 class MockTask:

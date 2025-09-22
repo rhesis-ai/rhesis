@@ -5,7 +5,7 @@ with detailed implementation in the execution/ directory modules.
 
 
 
-from rhesis.backend.tasks.base import SilentTask, with_tenant_context
+from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.config import get_test_configuration
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
 from rhesis.backend.tasks.execution.run import (
@@ -27,12 +27,12 @@ from rhesis.backend.worker import app
     bind=True,
     display_name="Test Configuration Execution",
 )
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def execute_test_configuration(self, test_configuration_id: str, db=None):
     """
     Execute a test configuration by running all associated test cases.
 
-    This task uses the with_tenant_context decorator to automatically
+    This task gets tenant context passed directly and should
     handle database sessions with the proper tenant context.
     """
     # Validate parameters
