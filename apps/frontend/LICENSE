@@ -12,6 +12,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Note:
 The MIT License applies only to the source code in this repository.
-Logos, trademarks, and other brand assets (e.g. files under /apps/*/public/logos/, /apps/*/public/elements/, /apps/*/public/Typography/)
+Logos, trademarks, and other brand assets (e.g. files under /public/logos/, /public/elements/)
 are proprietary to Rhesis AI GmbH and are not licensed under MIT.
 They may not be used without prior written permission.
