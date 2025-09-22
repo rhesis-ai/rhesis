@@ -1,5 +1,5 @@
 """
-Tests for organization service functions that use maintain_tenant_context.
+Tests for organization service functions.
 
 These tests verify the current behavior of functions before they are refactored
 to use the new get_org_aware_db approach.
@@ -22,7 +22,7 @@ from tests.backend.routes.fixtures.data_factories import OrganizationDataFactory
 @pytest.mark.unit
 @pytest.mark.service
 class TestLoadInitialData:
-    """Test load_initial_data function that uses maintain_tenant_context."""
+    """Test load_initial_data function."""
 
     def test_load_initial_data_success(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test successful loading of initial data."""
@@ -310,7 +310,7 @@ class TestLoadInitialData:
 @pytest.mark.unit
 @pytest.mark.service
 class TestRollbackInitialData:
-    """Test rollback_initial_data function that uses maintain_tenant_context."""
+    """Test rollback_initial_data function."""
 
     @pytest.mark.skip(reason="Test hangs - needs rollback implementation review")
     def test_rollback_initial_data_success(self, test_db: Session, authenticated_user_id, test_org_id):

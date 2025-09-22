@@ -1,5 +1,5 @@
 """
-Tests for crud_utils functions that use maintain_tenant_context.
+Tests for crud_utils functions.
 
 These tests verify the current behavior of functions before they are refactored
 to use the new get_org_aware_db approach.
@@ -68,7 +68,7 @@ def create_behavior_data(**overrides):
 @pytest.mark.unit
 @pytest.mark.utils
 class TestGetOrCreateEntity:
-    """Test get_or_create_entity function that uses maintain_tenant_context."""
+    """Test get_or_create_entity function."""
 
     def test_get_or_create_entity_create_new(self, test_db: Session, authenticated_user_id, test_org_id, test_entity_type):
         """Test get_or_create_entity creates new entity when none exists."""
@@ -197,7 +197,7 @@ class TestGetOrCreateEntity:
 @pytest.mark.unit
 @pytest.mark.utils
 class TestGetOrCreateSpecializedFunctions:
-    """Test specialized get_or_create functions that use maintain_tenant_context indirectly."""
+    """Test specialized get_or_create functions."""
 
     def test_get_or_create_status_success(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test successful get_or_create_status operation."""

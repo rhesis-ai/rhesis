@@ -1,5 +1,5 @@
 """
-Tests for model_utils functions that use maintain_tenant_context.
+Tests for model_utils functions.
 
 These tests verify the current behavior of functions before they are refactored
 to use the new get_org_aware_db approach.
@@ -16,7 +16,7 @@ from rhesis.backend.app.utils.model_utils import QueryBuilder
 @pytest.mark.unit
 @pytest.mark.utils
 class TestQueryBuilder:
-    """Test QueryBuilder class that uses maintain_tenant_context."""
+    """Test QueryBuilder class."""
 
     def test_query_builder_init_success(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test successful QueryBuilder initialization."""
