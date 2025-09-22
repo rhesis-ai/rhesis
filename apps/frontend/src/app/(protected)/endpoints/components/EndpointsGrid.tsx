@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Chip, Paper, Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
+import { Chip, Paper, Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, useTheme } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -99,6 +99,7 @@ export default function EndpointGrid({
   },
   onEndpointDeleted
 }: EndpointGridProps) {
+  const theme = useTheme();
   const router = useRouter();
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
@@ -291,7 +292,7 @@ export default function EndpointGrid({
 
   return (
     <>
-      <Paper elevation={0} sx={{ p: 2 }}>
+      <Paper elevation={2} sx={{ p: 2 }}>
         <BaseDataGrid
           rows={endpoints}
           columns={columns}
