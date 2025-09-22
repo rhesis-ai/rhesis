@@ -308,7 +308,12 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
           <DescriptionIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 1, mt: 0.3 }} />
           <Typography variant="body2">
-            {project.description || 'No description provided'}
+            {project.description 
+              ? project.description.length > 250 
+                ? `${project.description.substring(0, 250)}...`
+                : project.description
+              : 'No description provided'
+            }
           </Typography>
         </Box>
 
