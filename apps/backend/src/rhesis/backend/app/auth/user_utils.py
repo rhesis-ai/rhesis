@@ -9,7 +9,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
-from rhesis.backend.app.database import get_db, set_tenant
+from rhesis.backend.app.database import get_db, get_org_aware_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import UserCreate
 
@@ -70,33 +70,55 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
     return user
 
 
-async def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
-    """Get current user from session"""
+async def get_current_user(request: Request) -> Optional[User]:
+    """
+    Get current user from session using org-aware database session.
+    
+    Uses a simple session to get user and organization_id, then returns the user
+    only if they have an organization_id. The actual database operations that
+    need tenant context should use get_org_aware_db separately.
+    """
     if "user_id" not in request.session:
         return None
 
     user_id = request.session.get("user_id")
-    user = crud.get_user_by_id(db, user_id)
-
-    # Set the tenant context (organization_id) for the session, if available
-    if user:
-        if user.organization_id:
-            set_tenant(db, str(user.organization_id), str(user.id))
-        else:
-            set_tenant(db, user_id=str(user.id))
-
+    
+    # Get the user with a basic session - no organization context needed for user lookup
+    from rhesis.backend.app.database import get_db
+    with get_db() as db:
+        user = crud.get_user_by_id(db, user_id)
+        
+    # User must have an organization_id to proceed
+    if not user or not user.organization_id:
+        return None
+        
     return user
 
 
-async def get_user_from_jwt(token: str, db: Session, secret_key: str) -> Optional[User]:
-    """Get user from JWT token"""
+async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
+    """
+    Get user from JWT token using simple database session.
+    
+    Uses a simple session to get user and organization_id, then returns the user
+    only if they have an organization_id. The actual database operations that
+    need tenant context should use get_org_aware_db separately.
+    """
     try:
         payload = verify_jwt_token(token, secret_key)
         user_info = payload.get("user", {})
         user_id = user_info.get("id")
 
         if user_id:
-            return crud.get_user_by_id(db, user_id)
+            # Get the user with a basic session - no organization context needed for user lookup
+            from rhesis.backend.app.database import get_db
+            with get_db() as db:
+                user = crud.get_user_by_id(db, user_id)
+                
+            # User must have an organization_id to proceed
+            if not user or not user.organization_id:
+                return None
+                
+            return user
 
     except Exception:
         return None
@@ -106,25 +128,24 @@ async def get_user_from_jwt(token: str, db: Session, secret_key: str) -> Optiona
 
 async def get_authenticated_user_with_context(
     request: Request,
-    db: Session,
     credentials: Optional[HTTPAuthorizationCredentials] = None,
     secret_key: Optional[str] = None,
     session_only: bool = False,
     without_context: bool = False,
 ) -> Optional[User]:
-    """Get authenticated user and set tenant context"""
+    """
+    Get authenticated user without database session dependency.
+    
+    No longer sets tenant context - use get_org_aware_db or get_tenant_context instead.
+    """
     # Try session auth first
-    user = await get_current_user(request, db)
+    user = await get_current_user(request)
     if user:
         if not user.organization_id and not without_context:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not associated with an organization",
             )
-        if user.organization_id:
-            set_tenant(db, str(user.organization_id), str(user.id))
-        else:
-            set_tenant(db, user_id=str(user.id))
         return user
 
     # If session_only or no credentials, return None
@@ -134,36 +155,40 @@ async def get_authenticated_user_with_context(
     # Try bearer token
     if credentials.credentials.startswith("rh-"):
         token_value = credentials.credentials
-        is_valid, _ = validate_token(token_value, db=db)
-
-        if is_valid:
-            token = crud.get_token_by_value(db, token_value)
-            user = crud.get_user_by_id(db, token.user_id)
-            if user:
-                if not user.organization_id and not without_context:
+        
+        # Use basic session for token validation and user lookup - no organization context needed
+        from rhesis.backend.app.database import get_db
+        with get_db() as db:
+            is_valid, _ = validate_token(token_value, db=db)
+            
+            if is_valid:
+                token = crud.get_token_by_value(db, token_value)
+                user = crud.get_user_by_id(db, token.user_id)
+                
+        # Handle user based on organization requirement
+        if user:
+            if without_context:
+                # without_context allows users without organization
+                return user
+            else:
+                # Require organization_id when not without_context
+                if not user.organization_id:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="User is not associated with an organization",
                     )
-                if user.organization_id:
-                    set_tenant(db, str(user.organization_id), str(user.id))
-                else:
-                    set_tenant(db, user_id=str(user.id))
+                # Return user - tenant context will be handled by get_org_aware_db when needed
                 return user
 
     # Try JWT token if secret_key is provided
     if secret_key and not credentials.credentials.startswith("rh-"):
-        jwt_user = await get_user_from_jwt(credentials.credentials, db, secret_key)
+        jwt_user = await get_user_from_jwt(credentials.credentials, secret_key)
         if jwt_user:
             if not jwt_user.organization_id and not without_context:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User is not associated with an organization",
                 )
-            if jwt_user.organization_id:
-                set_tenant(db, str(jwt_user.organization_id), str(jwt_user.id))
-            else:
-                set_tenant(db, user_id=str(jwt_user.id))
             return jwt_user
 
     return None
@@ -171,12 +196,11 @@ async def get_authenticated_user_with_context(
 
 async def get_authenticated_user(
     request: Request,
-    db: Session = Depends(get_db),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     secret_key: str = Depends(get_secret_key),
 ) -> Tuple[Optional[User], Optional[str]]:
-    """Get authenticated user and authentication method"""
-    user = await get_authenticated_user_with_context(request, db, credentials, secret_key)
+    """Get authenticated user and authentication method without database session dependency"""
+    user = await get_authenticated_user_with_context(request, credentials, secret_key)
     if not user:
         return None, None
 
@@ -194,11 +218,10 @@ async def get_authenticated_user(
 
 async def require_current_user(
     request: Request,
-    db: Session = Depends(get_db),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> User:
-    """Require authenticated user via session only"""
-    user = await get_authenticated_user_with_context(request, db, credentials, session_only=True)
+    """Require authenticated user via session only without database session dependency"""
+    user = await get_authenticated_user_with_context(request, credentials, session_only=True)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=UNAUTHORIZED_MESSAGE)
     return user
@@ -206,12 +229,11 @@ async def require_current_user(
 
 async def require_current_user_or_token(
     request: Request,
-    db: Session = Depends(get_db),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     secret_key: str = Depends(get_secret_key),
 ) -> User:
-    """Require authenticated user via session or token"""
-    user = await get_authenticated_user_with_context(request, db, credentials, secret_key)
+    """Require authenticated user via session or token without database session dependency"""
+    user = await get_authenticated_user_with_context(request, credentials, secret_key)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
@@ -219,13 +241,12 @@ async def require_current_user_or_token(
 
 async def require_current_user_or_token_without_context(
     request: Request,
-    db: Session = Depends(get_db),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     secret_key: str = Depends(get_secret_key),
 ) -> User:
-    """Require authenticated user via session or token, without requiring organization context"""
+    """Require authenticated user via session or token, without requiring organization context and without database session dependency"""
     user = await get_authenticated_user_with_context(
-        request, db, credentials, secret_key, without_context=True
+        request, credentials, secret_key, without_context=True
     )
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
