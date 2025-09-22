@@ -1,0 +1,46 @@
+---
+alwaysApply: true
+---
+# Conventional Commits Rule
+
+Always follow the Conventional Commits specification for all commit messages.
+
+## Commit Message Format
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+## Commit Types
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation only changes
+- **style**: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- **refactor**: A code change that neither fixes a bug nor adds a feature
+- **perf**: A code change that improves performance
+- **test**: Adding missing tests or correcting existing tests
+- **build**: Changes that affect the build system or external dependencies
+- **ci**: Changes to CI configuration files and scripts
+- **chore**: Other changes that don't modify src or test files
+- **revert**: Reverts a previous commit
+
+## Rules
+1. Use lowercase for type and description
+2. No period at the end of the description
+3. Use imperative mood in the description (e.g., "add" not "adds" or "added")
+4. Limit the description to 50 characters or less
+5. Use optional scope to specify the component/module affected (e.g., `feat(auth): add login validation`)
+6. Add body and footer if needed for breaking changes or additional context
+7. Use `BREAKING CHANGE:` in footer for breaking changes
+
+## Examples
+- `feat: add user authentication`
+- `fix(api): resolve timeout issue in user endpoint`
+- `docs: update installation guide`
+- `refactor(utils): simplify date formatting function`
+- `feat!: remove deprecated API endpoints` (! indicates breaking change)
+
+When creating commits, always format them according to this specification.
