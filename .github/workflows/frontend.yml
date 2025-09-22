@@ -30,7 +30,7 @@ on:
         default: false
         type: boolean
       deploy_preview:
-        description: '⚠️  DEPRECATED: Use "Preview Deployment (Full Stack)" workflow instead for coordinated frontend+backend previews'
+        description: '⚠️  DEPRECATED: Use "Preview Deployment (Multi-Service)" workflow instead for coordinated frontend+backend previews'
         required: false
         default: false
         type: boolean
@@ -135,9 +135,14 @@ jobs:
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           
           # Check if this is a preview deployment
-          IS_PREVIEW="${{ inputs.deploy_preview == 'true' || github.event.inputs.deploy_preview == 'true' }}"
+          if [ "${{ inputs.deploy_preview }}" = "true" ] || [ "${{ github.event.inputs.deploy_preview }}" = "true" ]; then
+            IS_PREVIEW="true"
+          else
+            IS_PREVIEW="false"
+          fi
           echo "IS_PREVIEW=$IS_PREVIEW" >> $GITHUB_ENV
           echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
+          echo "🔍 Preview deployment mode: $IS_PREVIEW"
           
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             echo "SERVICE_NAME=rhesis-frontend" >> $GITHUB_ENV
@@ -436,26 +441,33 @@ jobs:
           echo "✅ Frontend service updated with correct preview URL in environment variables"
           
           # Add to job summary for easy access
-          echo "## 🚀 Frontend Preview Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 ⚠️ PREVIEW DEPLOYMENT - Frontend Service" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit SHA:** \`${{ env.COMMIT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Preview URL:** [$PREVIEW_URL]($PREVIEW_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏷️ Preview Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type:** Preview Deployment (NOT Production)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit SHA:** \`${{ env.COMMIT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Preview URL:** [$PREVIEW_URL]($PREVIEW_URL)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This preview revision receives no production traffic and is accessible only via the tagged URL above." >> $GITHUB_STEP_SUMMARY
+          echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 **This is NOT the production service**" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 **Receives 0% production traffic**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 **Only accessible via the tagged URL above**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🧪 **For testing and review purposes only**" >> $GITHUB_STEP_SUMMARY
 
       - name: Output deployed service URL
         run: |
+          echo "🔍 Determining service URL (IS_PREVIEW=${{ env.IS_PREVIEW }})"
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, use the URL that was fetched from Cloud Run
             DEPLOYED_URL="${{ env.PREVIEW_URL }}"
-            echo "🌐 Frontend Preview Service URL: $DEPLOYED_URL"
+            echo "📍 Using preview URL: $DEPLOYED_URL"
           else
             # For regular deployments, get the standard service URL from Cloud Run
             DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.REGION }} \
               --format="value(status.url)")
-            echo "🌐 Frontend Production Service URL: $DEPLOYED_URL"
+            echo "📍 Using standard service URL: $DEPLOYED_URL"
           fi
           
           # Set as output for potential use in other workflows
@@ -463,8 +475,27 @@ jobs:
           
           # Add to job summary
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 🌐 Deployed Frontend Service" >> $GITHUB_STEP_SUMMARY
-          echo "**Service URL:** [$DEPLOYED_URL]($DEPLOYED_URL)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            echo "## 🌐 ⚠️ PREVIEW - Frontend Service Deployed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
+            echo "**🧪 Preview URL:** [$DEPLOYED_URL]($DEPLOYED_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### ⚠️ Preview Warning" >> $GITHUB_STEP_SUMMARY
+            echo "- 🚫 **This is a PREVIEW deployment, NOT production**" >> $GITHUB_STEP_SUMMARY
+            echo "- 📊 **Receives 0% production traffic**" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔒 **Isolated from production environment**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 🌐 ✅ PRODUCTION - Frontend Service Deployed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
+            echo "**🌍 Production URL:** [$DEPLOYED_URL]($DEPLOYED_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### ✅ Production Status" >> $GITHUB_STEP_SUMMARY
+            echo "- 🚀 **This is the LIVE production service**" >> $GITHUB_STEP_SUMMARY
+            echo "- 📈 **Serving real user traffic**" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔴 **Handle with care - affects users**" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Set Workflow Outputs
         id: output_url
