@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { BaseChartsGrid } from '@/components/common/BaseCharts';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
-import { Box, Tabs, Tab, Paper } from '@mui/material';
+import { Box, Tabs, Tab, Paper, useTheme } from '@mui/material';
 import PassRateTimelineChart from './PassRateTimelineChart';
 import LatestResultsPieChart from './LatestResultsPieChart';
 import LatestTestRunsChart from './LatestTestRunsChart';
@@ -50,6 +50,7 @@ function a11yProps(index: number) {
 }
 
 export default function TestResultsCharts({ sessionToken, filters }: TestResultsChartsProps) {
+  const theme = useTheme();
   const [value, setValue] = useState(0);
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -65,7 +66,7 @@ export default function TestResultsCharts({ sessionToken, filters }: TestResults
         sx={{ 
           borderBottom: 1, 
           borderColor: 'divider',
-          mb: 2
+          mb: theme.customSpacing.section.small
         }}
       >
         <Tab label="Summary" {...a11yProps(0)} />
@@ -87,7 +88,7 @@ export default function TestResultsCharts({ sessionToken, filters }: TestResults
         <Box sx={{ 
           display: 'grid', 
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }, 
-          gap: 3 
+          gap: theme.customSpacing.section.medium 
         }}>
           {/* Pass Rate Timeline - Independent API call with 'timeline' mode */}
           <PassRateTimelineChart 
@@ -111,7 +112,11 @@ export default function TestResultsCharts({ sessionToken, filters }: TestResults
 
       <TabPanel value={value} index={2}>
         {/* In Detail Tab - Radar Charts */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr 1fr' }, gap: 3 }}>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr 1fr' }, 
+          gap: theme.customSpacing.section.medium 
+        }}>
           <DimensionRadarChart 
             sessionToken={sessionToken} 
             filters={filters} 
