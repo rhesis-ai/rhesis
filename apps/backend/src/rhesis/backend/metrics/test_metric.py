@@ -119,7 +119,7 @@ def extract_test_data(test: Test) -> tuple:
     return input_text, expected_output, context
 
 
-def test_metric(
+def run_metric_test(
     metric_id: str,
     organization_id: str,
     user_id: str,
@@ -507,7 +507,7 @@ def main():
         print()
 
     # Run the test
-    results = test_metric(
+    results = run_metric_test(
         metric_id=args.metric_id,
         organization_id=args.organization_id,
         user_id=args.user_id,
