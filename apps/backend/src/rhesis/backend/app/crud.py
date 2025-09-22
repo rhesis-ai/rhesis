@@ -22,7 +22,6 @@ from rhesis.backend.app.utils.crud_utils import (
     get_item_detail,
     get_items,
     get_items_detail,
-    maintain_tenant_context,
     update_item,
 )
 from rhesis.backend.app.utils.model_utils import QueryBuilder
@@ -978,9 +977,8 @@ def assign_tag(
         user_id=tag.user_id,
     )
     db.add(tagged_item)
-    with maintain_tenant_context(db):
-        db.commit()
-        db.refresh(db_tag)
+    db.commit()
+    db.refresh(db_tag)
 
     return db_tag
 
@@ -1009,8 +1007,7 @@ def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityTy
         .delete()
     )
 
-    with maintain_tenant_context(db):
-        db.commit()
+    db.commit()
     return result > 0
 
 
@@ -1105,8 +1102,7 @@ def revoke_token(db: Session, token_id: uuid.UUID, organization_id: str = None, 
 
 def revoke_user_tokens(db: Session, user_id: uuid.UUID) -> List[models.Token]:
     result = db.query(models.Token).filter(models.Token.user_id == user_id).delete()
-    with maintain_tenant_context(db):
-        db.commit()
+    db.commit()
     return result
 
 
@@ -1257,32 +1253,31 @@ def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
     """Delete a test and update any associated test sets' attributes"""
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
-    with maintain_tenant_context(db):
-        # Get the test to be deleted
-        db_test = get_item(db, models.Test, test_id)
-        if db_test is None:
-            return None
+    # Get the test to be deleted
+    db_test = get_item(db, models.Test, test_id)
+    if db_test is None:
+        return None
 
-        # Get all test sets that contain this test before deletion
-        test_set_ids = db.execute(
-            test_test_set_association.select().where(test_test_set_association.c.test_id == test_id)
-        ).fetchall()
+    # Get all test sets that contain this test before deletion
+    test_set_ids = db.execute(
+        test_test_set_association.select().where(test_test_set_association.c.test_id == test_id)
+    ).fetchall()
 
-        affected_test_set_ids = [row.test_set_id for row in test_set_ids]
+    affected_test_set_ids = [row.test_set_id for row in test_set_ids]
 
-        # Store a copy of the test before deletion
-        deleted_test = db_test
+    # Store a copy of the test before deletion
+    deleted_test = db_test
 
-        # Delete the test (this will also cascade delete the associations)
-        db.delete(db_test)
-        db.flush()
+    # Delete the test (this will also cascade delete the associations)
+    db.delete(db_test)
+    db.flush()
 
-        # Update attributes for all affected test sets
-        for test_set_id in affected_test_set_ids:
-            update_test_set_attributes(db=db, test_set_id=str(test_set_id))
+    # Update attributes for all affected test sets
+    for test_set_id in affected_test_set_ids:
+        update_test_set_attributes(db=db, test_set_id=str(test_set_id))
 
-        db.commit()
-        return deleted_test
+    db.commit()
+    return deleted_test
 
 
 # TestContext CRUD
@@ -1560,12 +1555,11 @@ def get_type_lookup_by_name_and_value(
 # Metric CRUD
 def get_metric(db: Session, metric_id: uuid.UUID) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
-    with maintain_tenant_context(db):
-        return (
-            QueryBuilder(db, models.Metric)
-            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
-            .with_organization_filter()
-            .with_visibility_filter()
+    return (
+        QueryBuilder(db, models.Metric)
+        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_organization_filter()
+        .with_visibility_filter()
             .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
             .first()
         )
@@ -1580,12 +1574,11 @@ def get_metrics(
     filter: str | None = None,
 ) -> List[models.Metric]:
     """Get all metrics with their related objects, including many-to-many relationships"""
-    with maintain_tenant_context(db):
-        return (
-            QueryBuilder(db, models.Metric)
-            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
-            .with_organization_filter()
-            .with_visibility_filter()
+    return (
+        QueryBuilder(db, models.Metric)
+        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_organization_filter()
+        .with_visibility_filter()
             .with_odata_filter(filter)
             .with_pagination(skip, limit)
             .with_sorting(sort_by, sort_order)
@@ -1665,8 +1658,7 @@ def add_behavior_to_metric(
         )
     )
 
-    with maintain_tenant_context(db):
-        db.commit()
+    db.commit()
     return True
 
 
@@ -1704,8 +1696,7 @@ def remove_behavior_from_metric(
         .delete()
     )
 
-    with maintain_tenant_context(db):
-        db.commit()
+    db.commit()
     return result > 0
 
 

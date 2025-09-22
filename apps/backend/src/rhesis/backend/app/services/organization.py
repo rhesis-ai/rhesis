@@ -6,7 +6,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.database import maintain_tenant_context, set_tenant
+from rhesis.backend.app.database import get_org_aware_db, set_tenant
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.utils.crud_utils import (
@@ -22,22 +22,24 @@ from rhesis.backend.app.utils.model_utils import QueryBuilder
 
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
     """
-    Load initial data from the JSON file into the database.
+    Load initial data from the JSON file into the database using optimized approach - no session variables needed.
+
+    Performance improvements:
+    - Uses get_org_aware_db for automatic transaction management
+    - Eliminates manual session variable management
+    - Direct tenant context injection
 
     Args:
-        db: Database session
+        db: Database session (will be replaced with get_org_aware_db internally)
         organization_id: Organization ID to associate with all entities
         user_id: User ID to associate with all entities
     """
-    # First set the tenant context
-    set_tenant(db, organization_id=str(organization_id), user_id=str(user_id))
-
     script_directory = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(script_directory, "initial_data.json"), "r") as file:
         initial_data = json.load(file)
 
     try:
-        with maintain_tenant_context(db):
+        with get_org_aware_db(organization_id, user_id) as db_ctx:
             # Process type lookups first as they're needed by other entities
             print("Processing type lookups...")
             for item in initial_data.get("type_lookup", []):
@@ -641,120 +643,118 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
         sorted_models = list(reversed(_sort_models_by_dependencies(models_to_delete)))
         entities_to_delete = set()
 
-        # Set tenant context for the entire operation
-        with maintain_tenant_context(db):
-            # First verify organization state
-            print("\nLooking up organization...")
-            query = db.query(models.Organization).filter(models.Organization.id == organization_id)
-            print(f"SQL Query: {query.statement}")
+        # First verify organization state
+        print("\nLooking up organization...")
+        query = db.query(models.Organization).filter(models.Organization.id == organization_id)
+        print(f"SQL Query: {query.statement}")
 
-            org = query.first()
-            print(f"Organization lookup result: {org}")
-            if org:
-                print(
-                    f"Found organization: ID={org.id}, Name={org.name}, "
-                    f"Onboarding Complete={org.is_onboarding_complete}"
-                )
-
-            if not org:
-                print("Organization not found in database!")
-                print("Checking all organizations in database:")
-                all_orgs = db.query(models.Organization).all()
-                for o in all_orgs:
-                    print(f"Available org: ID={o.id} ({type(o.id)}), Name={o.name}")
-                raise ValueError(f"Organization not found with ID: {organization_id}")
-
-            if not org.is_onboarding_complete:
-                raise ValueError("Organization not initialized yet")
-
-            # Collect entities to delete
-            for model in sorted_models:
-                if model.__name__ in ["User", "Organization"]:
-                    continue
-
-                identifiers = model_data_map.get(model.__name__, set())
-                if not identifiers:
-                    continue
-
-                # Get matching records with eager loading of relationships
-                query = (
-                    QueryBuilder(db, model)
-                    .with_organization_filter()
-                    .with_joinedloads()
-                    .with_custom_filter(
-                        lambda q: q.filter(model.organization_id == organization_id)
-                    )
-                    .build()
-                )
-
-                if model.__name__ == "Test":
-                    records = (
-                        query.join(models.Prompt)
-                        .filter(models.Prompt.content.in_(identifiers))
-                        .all()
-                    )
-                elif model.__name__ == "TypeLookup":
-                    records = query.filter(model.type_value.in_(identifiers)).all()
-                elif hasattr(model, "content"):
-                    records = query.filter(model.content.in_(identifiers)).all()
-                else:
-                    records = query.filter(model.name.in_(identifiers)).all()
-
-                for record in records:
-                    # Add the record itself if it matches
-                    if (
-                        _get_entity_identifier_from_instance(record)
-                        in model_data_map[model.__name__]
-                    ):
-                        entities_to_delete.add(record)
-
-                    # Add nested entities that match initial data
-                    for entity in _get_nested_entities(db, record, organization_id):
-                        if (
-                            entity.__class__.__name__ in model_data_map
-                            and _get_entity_identifier_from_instance(entity)
-                            in model_data_map[entity.__class__.__name__]
-                        ):
-                            entities_to_delete.add(entity)
-
-            # Sort entities for deletion
-            deletion_order = {
-                "Prompt": 0,
-                "Test": 1,
-                "Topic": 2,
-                "Behavior": 2,
-                "Category": 2,
-                "Metric": 2,
-                "TestSet": 3,
-                "Project": 4,
-            }
-            sorted_entities = sorted(
-                entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
+        org = query.first()
+        print(f"Organization lookup result: {org}")
+        if org:
+            print(
+                f"Found organization: ID={org.id}, Name={org.name}, "
+                f"Onboarding Complete={org.is_onboarding_complete}"
             )
 
-            # Delete entities
-            deleted_ids = set()
-            for entity in sorted_entities:
-                if entity.id in deleted_ids:
-                    continue
+        if not org:
+            print("Organization not found in database!")
+            print("Checking all organizations in database:")
+            all_orgs = db.query(models.Organization).all()
+            for o in all_orgs:
+                print(f"Available org: ID={o.id} ({type(o.id)}), Name={o.name}")
+            raise ValueError(f"Organization not found with ID: {organization_id}")
 
-                try:
-                    _delete_entity_associations(db, entity)
-                    db.delete(entity)
-                    deleted_ids.add(entity.id)
-                    db.flush()  # Use flush instead of commit to keep transaction atomic
-                except Exception as e:
-                    print(f"Error deleting {entity.__class__.__name__}: {e}")
-                    continue
+        if not org.is_onboarding_complete:
+            raise ValueError("Organization not initialized yet")
 
-            # Update organization status
-            org = db.query(models.Organization).filter_by(id=organization_id).first()
-            if org:
-                org.is_onboarding_complete = False
-                db.flush()
+        # Collect entities to delete
+        for model in sorted_models:
+            if model.__name__ in ["User", "Organization"]:
+                continue
 
-            # Final commit
-            db.commit()
+            identifiers = model_data_map.get(model.__name__, set())
+            if not identifiers:
+                continue
+
+            # Get matching records with eager loading of relationships
+            query = (
+                QueryBuilder(db, model)
+                .with_organization_filter()
+                .with_joinedloads()
+                .with_custom_filter(
+                    lambda q: q.filter(model.organization_id == organization_id)
+                )
+                .build()
+            )
+
+            if model.__name__ == "Test":
+                records = (
+                    query.join(models.Prompt)
+                    .filter(models.Prompt.content.in_(identifiers))
+                    .all()
+                )
+            elif model.__name__ == "TypeLookup":
+                records = query.filter(model.type_value.in_(identifiers)).all()
+            elif hasattr(model, "content"):
+                records = query.filter(model.content.in_(identifiers)).all()
+            else:
+                records = query.filter(model.name.in_(identifiers)).all()
+
+            for record in records:
+                # Add the record itself if it matches
+                if (
+                    _get_entity_identifier_from_instance(record)
+                    in model_data_map[model.__name__]
+                ):
+                    entities_to_delete.add(record)
+
+                # Add nested entities that match initial data
+                for entity in _get_nested_entities(db, record, organization_id):
+                    if (
+                        entity.__class__.__name__ in model_data_map
+                        and _get_entity_identifier_from_instance(entity)
+                        in model_data_map[entity.__class__.__name__]
+                    ):
+                        entities_to_delete.add(entity)
+
+        # Sort entities for deletion
+        deletion_order = {
+            "Prompt": 0,
+            "Test": 1,
+            "Topic": 2,
+            "Behavior": 2,
+            "Category": 2,
+            "Metric": 2,
+            "TestSet": 3,
+            "Project": 4,
+        }
+        sorted_entities = sorted(
+            entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
+        )
+
+        # Delete entities
+        deleted_ids = set()
+        for entity in sorted_entities:
+            if entity.id in deleted_ids:
+                continue
+
+            try:
+                _delete_entity_associations(db, entity)
+                db.delete(entity)
+                deleted_ids.add(entity.id)
+                db.flush()  # Use flush instead of commit to keep transaction atomic
+            except Exception as e:
+                print(f"Error deleting {entity.__class__.__name__}: {e}")
+                continue
+
+        # Update organization status
+        org = db.query(models.Organization).filter_by(id=organization_id).first()
+        if org:
+            org.is_onboarding_complete = False
+            db.flush()
+
+        # Final commit
+        db.commit()
 
     except Exception as e:
         db.rollback()
