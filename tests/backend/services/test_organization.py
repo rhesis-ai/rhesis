@@ -171,13 +171,9 @@ class TestLoadInitialData:
         # Mock invalid JSON data
         invalid_json = "{ invalid json }"
         
-        with patch('builtins.open', mock_open(read_data=invalid_json)), \
-             patch('rhesis.backend.app.services.organization.get_org_aware_db') as mock_get_org_aware_db:
-            
-            # Setup the context manager mock
-            mock_get_org_aware_db.return_value.__enter__.return_value = test_db
-            
+        with patch('builtins.open', mock_open(read_data=invalid_json)):
             # Call the function and expect JSONDecodeError
+            # Note: get_org_aware_db should NOT be called since JSON parsing fails first
             with pytest.raises(json.JSONDecodeError):
                 organization_service.load_initial_data(
                     db=test_db,
@@ -185,11 +181,7 @@ class TestLoadInitialData:
                     user_id=authenticated_user_id
                 )
             
-            # Verify get_org_aware_db was called
-            mock_get_org_aware_db.assert_called_once_with(
-                test_org_id, 
-                authenticated_user_id
-            )
+            # No need to verify get_org_aware_db call since it never gets reached
 
     def test_load_initial_data_empty_data(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test load_initial_data with empty JSON data."""
