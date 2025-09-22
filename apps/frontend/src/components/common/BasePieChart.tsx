@@ -66,6 +66,7 @@ export interface BasePieChartProps {
   showPercentage?: boolean;
   legendProps?: Record<string, any>;
   tooltipProps?: Record<string, any>;
+  elevation?: number;
 }
 
 // Utility functions for pie chart data handling
@@ -216,7 +217,8 @@ export default function BasePieChart({
     verticalAlign: 'bottom',
     align: 'center'
   },
-  tooltipProps
+  tooltipProps,
+  elevation = 2
 }: BasePieChartProps) {
   // Validate props in development
   if (process.env.FRONTEND_ENV === 'development') {
@@ -296,8 +298,73 @@ export default function BasePieChart({
     return [value, item?.fullName || name];
   }, [dataLookup]);
   
+  const chartContent = (
+    <>
+      {title && (
+        <Typography 
+          variant="subtitle2" 
+          sx={{ mb: 1, px: 0.5, textAlign: 'center' }}
+          component="h3"
+          role="heading"
+          aria-level={3}
+        >
+          {title}
+        </Typography>
+      )}
+      <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ResponsiveContainer width="100%" height={chartDimensions.adjustedHeight}>
+          <PieChart 
+            margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
+            height={chartDimensions.adjustedHeight}
+          >
+            <Pie
+              data={data}
+              cx="50%"
+              cy={`${chartDimensions.cyPercentage}%`}
+              innerRadius={innerRadius}
+              outerRadius={outerRadius}
+              paddingAngle={2}
+              fill="#8884d8"
+              dataKey="value"
+              label={showPercentage ? renderCustomizedLabel : undefined}
+              labelLine={showPercentage ? renderCustomizedLabelLine : false}
+            >
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={chartColors[index % chartColors.length]} 
+                />
+              ))}
+            </Pie>
+            <Tooltip 
+              {...finalTooltipProps} 
+              formatter={tooltipFormatter}
+            />
+            <Legend {...themedLegendProps} />
+          </PieChart>
+        </ResponsiveContainer>
+      </Box>
+    </>
+  );
+
+  // If elevation is 0, render content without Card wrapper
+  if (elevation === 0) {
+    return (
+      <Box sx={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        p: 0.5,
+        '&:last-child': { pb: 0.25 }
+      }}>
+        {chartContent}
+      </Box>
+    );
+  }
+
+  // Otherwise, render with Card wrapper
   return (
-    <Card sx={{ height: '100%' }} elevation={2}>
+    <Card sx={{ height: '100%' }} elevation={elevation}>
       <CardContent sx={{ 
         p: 0.5, 
         height: '100%', 
@@ -305,50 +372,7 @@ export default function BasePieChart({
         flexDirection: 'column', 
         '&:last-child': { pb: 0.25 }
       }}>
-        {title && (
-          <Typography 
-            variant="subtitle2" 
-            sx={{ mb: 1, px: 0.5, textAlign: 'center' }}
-            component="h3"
-            role="heading"
-            aria-level={3}
-          >
-            {title}
-          </Typography>
-        )}
-        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ResponsiveContainer width="100%" height={chartDimensions.adjustedHeight}>
-            <PieChart 
-              margin={{ top: 20, right: 30, bottom: 15, left: 30 }}
-              height={chartDimensions.adjustedHeight}
-            >
-              <Pie
-                data={data}
-                cx="50%"
-                cy={`${chartDimensions.cyPercentage}%`}
-                innerRadius={innerRadius}
-                outerRadius={outerRadius}
-                paddingAngle={2}
-                fill="#8884d8"
-                dataKey="value"
-                label={showPercentage ? renderCustomizedLabel : undefined}
-                labelLine={showPercentage ? renderCustomizedLabelLine : false}
-              >
-                {data.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={chartColors[index % chartColors.length]} 
-                  />
-                ))}
-              </Pie>
-              <Tooltip 
-                {...finalTooltipProps} 
-                formatter={tooltipFormatter}
-              />
-              <Legend {...themedLegendProps} />
-            </PieChart>
-          </ResponsiveContainer>
-        </Box>
+        {chartContent}
       </CardContent>
     </Card>
   );

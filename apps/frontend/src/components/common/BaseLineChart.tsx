@@ -42,6 +42,7 @@ export interface BaseLineChartProps {
   showGrid?: boolean;
   legendProps?: Record<string, any>;
   tooltipProps?: Record<string, any>;
+  elevation?: number;
   yAxisConfig?: {
     domain?: [number, number];
     allowDataOverflow?: boolean;
@@ -116,9 +117,16 @@ export default function BaseLineChart({
   showGrid = true,
   legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
   tooltipProps,
+  elevation = 2,
   yAxisConfig
 }: BaseLineChartProps) {
   const theme = useTheme();
+  
+  // Convert rem to pixels for Recharts (assuming 1rem = 16px)
+  const getPixelFontSize = (remSize: string): number => {
+    const remValue = parseFloat(remSize);
+    return remValue * 16;
+  };
   
   // Update legend props to use theme
   const themedLegendProps = {
@@ -143,50 +151,72 @@ export default function BaseLineChart({
   const finalTooltipProps = tooltipProps || defaultTooltipProps;
   const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
   
+  const chartContent = (
+    <>
+      {title && (
+        <Typography variant="subtitle2" sx={{ mb: 1, px: 0.5, textAlign: 'center' }}>
+          {title}
+        </Typography>
+      )}
+      <Box className={styles.chartContainer}>
+        <ResponsiveContainer width="100%" height={height}>
+          <LineChart 
+            data={data} 
+            margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
+          >
+            {showGrid && <CartesianGrid strokeDasharray="3 3" />}
+            <XAxis 
+              dataKey={xAxisDataKey} 
+              tick={{ 
+                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fill: theme.palette.text.primary
+              }}
+              axisLine={{ strokeWidth: 1 }}
+              tickLine={{ strokeWidth: 1 }}
+            />
+            <YAxis 
+              tick={{ 
+                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fill: theme.palette.text.primary
+              }} 
+              axisLine={{ strokeWidth: 1 }}
+              tickLine={{ strokeWidth: 1 }}
+              {...yAxisConfig}
+            />
+            <Tooltip {...finalTooltipProps} />
+            <Legend {...themedLegendProps} height={30} />
+            {series.map((s, index) => (
+              <Line
+                key={index}
+                type="monotone"
+                dataKey={s.dataKey}
+                name={s.name || s.dataKey}
+                stroke={s.color || (useThemeColors ? theme.chartPalettes[colorPalette][index % theme.chartPalettes[colorPalette].length] : defaultColors[index % defaultColors.length])}
+                strokeWidth={s.strokeWidth || 1.5}
+                dot={{ strokeWidth: 1, r: 3 }}
+                activeDot={{ r: 5, strokeWidth: 1 }}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </Box>
+    </>
+  );
+
+  // If elevation is 0, render content without Card wrapper
+  if (elevation === 0) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 0.5 }}>
+        {chartContent}
+      </Box>
+    );
+  }
+
+  // Otherwise, render with Card wrapper
   return (
-    <Card className={styles.card} elevation={2}>
+    <Card className={styles.card} elevation={elevation}>
       <CardContent className={styles.cardContent}>
-        {title && (
-          <Typography variant="subtitle2" sx={{ mb: 1, px: 0.5, textAlign: 'center' }}>
-            {title}
-          </Typography>
-        )}
-        <Box className={styles.chartContainer}>
-          <ResponsiveContainer width="100%" height={height}>
-            <LineChart 
-              data={data} 
-              margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
-            >
-              {showGrid && <CartesianGrid strokeDasharray="3 3" />}
-              <XAxis 
-                dataKey={xAxisDataKey} 
-                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
-                axisLine={{ strokeWidth: 1 }}
-                tickLine={{ strokeWidth: 1 }}
-              />
-              <YAxis 
-                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }} 
-                axisLine={{ strokeWidth: 1 }}
-                tickLine={{ strokeWidth: 1 }}
-                {...yAxisConfig}
-              />
-              <Tooltip {...finalTooltipProps} />
-              <Legend {...themedLegendProps} height={30} />
-              {series.map((s, index) => (
-                <Line
-                  key={index}
-                  type="monotone"
-                  dataKey={s.dataKey}
-                  name={s.name || s.dataKey}
-                  stroke={s.color || (useThemeColors ? theme.chartPalettes[colorPalette][index % theme.chartPalettes[colorPalette].length] : defaultColors[index % defaultColors.length])}
-                  strokeWidth={s.strokeWidth || 1.5}
-                  dot={{ strokeWidth: 1, r: 3 }}
-                  activeDot={{ r: 5, strokeWidth: 1 }}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </Box>
+        {chartContent}
       </CardContent>
     </Card>
   );

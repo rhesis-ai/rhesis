@@ -34,6 +34,12 @@ interface TestRunDetailChartsProps {
 }
 
 export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRunDetailChartsProps) {
+  // Convert rem to pixels for Recharts (assuming 1rem = 16px)
+  const getPixelFontSize = (remSize: string): number => {
+    const remValue = parseFloat(remSize);
+    return remValue * 16;
+  };
+  
   const [testRunStats, setTestRunStats] = useState<TestResultsStats | null>(null);
   const [testRunDetail, setTestRunDetail] = useState<TestRunDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -314,7 +320,10 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                   <YAxis
                     domain={[0, 100]}
                     tickCount={6}
-                    tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
+                    tick={{ 
+                      fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                      fill: theme.palette.text.primary
+                    }}
                     axisLine={{ strokeWidth: 1 }}
                     tickLine={{ strokeWidth: 1 }}
                     tickFormatter={(value: number) => `${value}%`}

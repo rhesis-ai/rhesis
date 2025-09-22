@@ -78,16 +78,21 @@ export default function BaseTimelineChart({
   // Loading state
   if (isLoading) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant={titleVariant} sx={{ mb: theme.customSpacing.section.small, fontSize: titleFontSize }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: subtitleFontSize }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small, fontSize: subtitleFontSize }}>
           {typeof contextInfo === 'string' ? contextInfo : 'Loading timeline data...'}
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="helperText" sx={{ ml: 2 }}>Loading timeline...</Typography>
+          <Typography variant="helperText" sx={{ ml: theme.customSpacing.container.small }}>Loading timeline...</Typography>
         </Box>
       </Paper>
     );
@@ -96,11 +101,16 @@ export default function BaseTimelineChart({
   // Error state
   if (error) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant={titleVariant} sx={{ mb: theme.customSpacing.section.small, fontSize: titleFontSize }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: subtitleFontSize }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small, fontSize: subtitleFontSize }}>
           Error occurred
         </Typography>
         <Alert severity="error">{error}</Alert>
@@ -111,11 +121,16 @@ export default function BaseTimelineChart({
   // No data state
   if (chartData.length === 0) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant={titleVariant} sx={{ mb: theme.customSpacing.section.small, fontSize: titleFontSize }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: subtitleFontSize }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small, fontSize: subtitleFontSize }}>
           {getContextInfo()}
         </Typography>
         <Box sx={{ 
@@ -135,11 +150,26 @@ export default function BaseTimelineChart({
 
   // Chart with data
   return (
-    <Paper elevation={2} sx={{ p: 3, height, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant={titleVariant} sx={{ mb: 1, fontSize: titleFontSize }}>
+    <Paper elevation={theme.elevation.standard} sx={{ 
+      p: theme.customSpacing.container.medium, 
+      height, 
+      display: 'flex', 
+      flexDirection: 'column' 
+    }}>
+      <Typography variant={titleVariant} sx={{ mb: theme.customSpacing.section.small, fontSize: titleFontSize }}>
         {title}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: subtitleFontSize }}>
+      <Typography 
+        variant="body2" 
+        color="text.secondary" 
+        sx={{ 
+          mb: theme.customSpacing.section.small, 
+          fontSize: subtitleFontSize,
+          minHeight: '2.5rem', // Ensure consistent height for 2 lines
+          display: 'flex',
+          alignItems: 'flex-start'
+        }}
+      >
         {getContextInfo()}
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -156,6 +186,7 @@ export default function BaseTimelineChart({
           useThemeColors={false} // Disable automatic theme colors since we're specifying manually
           colorPalette="line"
           height={height - 100} // Account for title/subtitle space
+          elevation={0}
           yAxisConfig={{
             domain: [0, 100],
             allowDataOverflow: false,
