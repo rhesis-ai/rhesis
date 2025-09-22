@@ -89,8 +89,12 @@ def _categorize_test_ids(
     # Convert input test_ids to a set of strings
     test_id_set = {str(id_).lower() for id_ in test_ids}
 
-    # Find existing tests
-    existing_tests = db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+    # Find existing tests AND ensure they belong to the organization (SECURITY CRITICAL)
+    from uuid import UUID
+    existing_tests = db.query(models.Test).filter(
+        models.Test.id.in_(test_ids),
+        models.Test.organization_id == UUID(organization_id)
+    ).all()
     existing_test_ids = {str(test.id).lower() for test in existing_tests}
     missing_test_ids = test_id_set - existing_test_ids
 
