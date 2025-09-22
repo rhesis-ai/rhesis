@@ -1,11 +1,96 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
-# Conventional Commits Rule
+## Pre-Commit Workflow
+
+### 1. Check Current Status
+Before creating commits, always review your current changes:
+
+```bash
+# Check which files have been modified
+git status
+
+# See detailed changes in all modified files
+git diff
+
+# See changes in specific files
+git diff <filename>
+
+# See staged vs unstaged changes
+git diff --cached  # Shows staged changes
+git diff HEAD      # Shows all changes (staged + unstaged)
+```
+
+### 2. Review and Analyze Changes
+- Identify what functionality was added, modified, or removed
+- Group related changes by:
+  - Feature additions
+  - Bug fixes
+  - Refactoring
+  - Documentation updates
+  - Configuration changes
+  - Test modifications
+
+### 3. Stage Changes Strategically
+Instead of `git add .`, stage files selectively:
+
+```bash
+# Stage specific files
+git add <file1> <file2>
+
+# Stage parts of files interactively
+git add -p <filename>
+
+# Stage all files of a certain type
+git add *.py
+git add *.md
+
+# Review what's staged
+git diff --cached
+```
+
+## Logical Commit Grouping
+
+### Group Changes By:
+
+1. **Feature Scope**: Each new feature should be its own commit
+2. **Bug Fixes**: Each bug fix should be separate
+3. **Refactoring**: Code improvements without functional changes
+4. **Documentation**: README, comments, or doc updates
+5. **Configuration**: Settings, dependencies, or build changes
+6. **Tests**: New tests or test modifications
+
+### Example Workflow:
+
+```bash
+# 1. Check what changed
+git status
+git diff
+
+# 2. If you have mixed changes, create separate commits:
+
+# Commit 1: Fix a specific bug
+git add src/bug-file.py tests/test-bug-fix.py
+git commit -m "fix(api): resolve timeout issue in user endpoint"
+
+# Commit 2: Add new feature
+git add src/feature-file.py src/feature-helper.py
+git commit -m "feat(auth): add two-factor authentication"
+
+# Commit 3: Update documentation
+git add README.md docs/api.md
+git commit -m "docs: update authentication setup guide"
+
+# Commit 4: Refactor existing code
+git add src/utils.py
+git commit -m "refactor(utils): simplify date formatting functions"
+```
+
+## Conventional Commits Rule
 
 Always follow the Conventional Commits specification for all commit messages.
 
-## Commit Message Format
+### Commit Message Format
 ```
 <type>[optional scope]: <description>
 
@@ -14,7 +99,7 @@ Always follow the Conventional Commits specification for all commit messages.
 [optional footer(s)]
 ```
 
-## Commit Types
+### Commit Types
 - **feat**: A new feature
 - **fix**: A bug fix
 - **docs**: Documentation only changes
@@ -27,7 +112,7 @@ Always follow the Conventional Commits specification for all commit messages.
 - **chore**: Other changes that don't modify src or test files
 - **revert**: Reverts a previous commit
 
-## Rules
+### Rules
 1. Use lowercase for type and description
 2. No period at the end of the description
 3. Use imperative mood in the description (e.g., "add" not "adds" or "added")
@@ -36,11 +121,73 @@ Always follow the Conventional Commits specification for all commit messages.
 6. Add body and footer if needed for breaking changes or additional context
 7. Use `BREAKING CHANGE:` in footer for breaking changes
 
-## Examples
+### Examples
 - `feat: add user authentication`
 - `fix(api): resolve timeout issue in user endpoint`
 - `docs: update installation guide`
 - `refactor(utils): simplify date formatting function`
 - `feat!: remove deprecated API endpoints` (! indicates breaking change)
 
-When creating commits, always format them according to this specification.
+## Advanced Git Commands for Commit Management
+
+### Splitting Large Changes
+
+```bash
+# If you have too many changes in one file, split them:
+git add -p <filename>  # Interactively stage hunks
+
+# Reset specific files from staging
+git reset <filename>
+
+# Reset specific hunks
+git reset -p <filename>
+```
+
+### Amending and Fixing Commits
+
+```bash
+# Add more changes to the last commit
+git add <forgotten-file>
+git commit --amend
+
+# Change the last commit message
+git commit --amend -m "new commit message"
+
+# Interactive rebase to reorganize recent commits
+git rebase -i HEAD~3  # Edit last 3 commits
+```
+
+### Commit Message Templates
+
+For complex commits, use the full format:
+
+```
+feat(auth): add two-factor authentication support
+
+- Implement TOTP-based 2FA using Google Authenticator
+- Add backup codes for account recovery
+- Update user settings page with 2FA controls
+- Add email notifications for 2FA events
+
+Closes #123
+BREAKING CHANGE: Users must now verify email before enabling 2FA
+```
+
+## Best Practices
+
+1. **Atomic Commits**: Each commit should represent one logical change
+2. **Frequent Commits**: Commit early and often, but keep commits meaningful
+3. **Clear History**: Your commit history should tell a story of your project's evolution
+4. **Review Before Push**: Always review your commits before pushing
+5. **Test Each Commit**: Ideally, each commit should leave the codebase in a working state
+
+## Quick Checklist Before Committing
+
+- [ ] Run `git status` to see what's changed
+- [ ] Run `git diff` to review the actual changes
+- [ ] Group related changes together
+- [ ] Write descriptive commit messages following conventional commits
+- [ ] Test that each commit doesn't break functionality
+- [ ] Consider if any commit needs a longer description or breaking change notice
+
+When creating commits, always format them according to this specification and follow the logical grouping workflow.
