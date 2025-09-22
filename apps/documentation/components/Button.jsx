@@ -15,35 +15,37 @@ const Button = ({
     const variants = {
       primary: {
         color: '#ffffff',
-        background: '#1D2939', // Using primary main from theme
-        border: '1px solid #1D2939',
-        hoverBackground: '#344054', // Using paper background from dark theme
+        background: '#2AA1CE', // Primary CTA Blue
+        border: '1px solid #2AA1CE',
+        hoverBackground: '#50B9E0', // Primary Blue on hover
         disabledBackground: '#9ca3af',
         disabledBorder: '#9ca3af',
       },
       secondary: {
-        color: '#1D2939',
-        background: '#F38755', // Using secondary main from theme
-        border: '1px solid #F38755',
-        hoverBackground: '#E5762F', // Slightly darker orange for hover
+        color: '#ffffff',
+        background: '#FD6E12', // Secondary CTA Orange
+        border: '1px solid #FD6E12',
+        hoverBackground: '#FDD803', // Accent Yellow on hover
+        hoverColor: '#1A1A1A', // Dark text on yellow hover
         disabledBackground: '#f3f4f6',
         disabledBorder: '#e5e7eb',
         disabledColor: '#9ca3af',
       },
       outline: {
-        color: '#1D2939', // Using primary main from theme
+        color: '#2AA1CE', // Primary CTA Blue
         background: 'transparent',
-        border: '1px solid #1D2939',
-        hoverBackground: 'rgba(29, 41, 57, 0.04)', // Light hover with primary color
+        border: '1px solid #2AA1CE',
+        hoverBackground: '#2AA1CE', // Fill with primary on hover
+        hoverColor: '#ffffff',
         disabledBackground: 'transparent',
         disabledBorder: '#e5e7eb',
         disabledColor: '#9ca3af',
       },
       ghost: {
-        color: '#1D2939', // Using primary main from theme
+        color: '#2AA1CE', // Primary CTA Blue
         background: 'transparent',
         border: '1px solid transparent',
-        hoverBackground: 'rgba(29, 41, 57, 0.04)', // Light hover with primary color
+        hoverBackground: 'rgba(42, 161, 206, 0.1)', // Light blue hover
         disabledBackground: 'transparent',
         disabledBorder: 'transparent',
         disabledColor: '#9ca3af',
@@ -83,12 +85,14 @@ const Button = ({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    fontFamily: '"Be Vietnam Pro", sans-serif',
     fontWeight: '600',
     boxShadow: disabled ? 'none' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     cursor: disabled ? 'not-allowed' : 'pointer',
     transition: 'all 0.2s ease-in-out',
     outline: 'none',
     opacity: disabled ? 0.6 : 1,
+    textTransform: 'none',
     ...sizeStyles,
     color: disabled && variantStyles.disabledColor ? variantStyles.disabledColor : variantStyles.color,
     background: disabled && variantStyles.disabledBackground ? variantStyles.disabledBackground : variantStyles.background,
@@ -102,12 +106,16 @@ const Button = ({
       onMouseEnter={(e) => {
         if (!disabled && variantStyles.hoverBackground) {
           e.target.style.background = variantStyles.hoverBackground
+          if (variantStyles.hoverColor) {
+            e.target.style.color = variantStyles.hoverColor
+          }
           e.target.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         }
       }}
       onMouseLeave={(e) => {
         if (!disabled) {
           e.target.style.background = variantStyles.background
+          e.target.style.color = variantStyles.color
           e.target.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
         }
       }}

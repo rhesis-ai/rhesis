@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Stack
 } from '@mui/material';
+import StepHeader from './StepHeader';
 
 interface FormData {
   firstName: string;
@@ -55,15 +56,10 @@ export default function FinishStep({
 
   return (
     <Box>
-      {/* Header Section */}
-      <Box textAlign="center" mb={4}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          You&apos;re almost done!
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Please review your information below before completing setup
-        </Typography>
-      </Box>
+      <StepHeader
+        title="You're almost done!"
+        description="Please review your information below before completing setup"
+      />
       
       {/* Review Section */}
       <Stack spacing={3} mb={4}>

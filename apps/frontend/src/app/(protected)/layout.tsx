@@ -41,6 +41,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     <AuthErrorBoundary>
       <DashboardLayout 
         sx={layoutStyles}
+        sidebarExpandedWidth={240}
         slots={{ 
           sidebarFooter: SidebarFooter,
           toolbarActions: ToolbarActions

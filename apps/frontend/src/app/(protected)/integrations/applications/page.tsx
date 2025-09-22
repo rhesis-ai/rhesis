@@ -25,7 +25,7 @@ export default function IntegrationsPage() {
             p: 3, 
             display: 'flex', 
             flexDirection: 'column',
-            bgcolor: 'grey.50',
+            bgcolor: 'action.hover',
             position: 'relative'
           }}
         >
@@ -33,13 +33,12 @@ export default function IntegrationsPage() {
             <Chip 
               label="Coming soon" 
               size="small" 
-              color="secondary"
               variant="outlined"
             />
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <AddIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+            <AddIcon sx={{ fontSize: (theme) => theme.iconSizes.large, color: 'grey.500' }} />
             <Box sx={{ flex: 1 }}>
               <Typography variant="h6" color="text.secondary">Add Application</Typography>
               <Typography color="text.secondary" variant="body2">

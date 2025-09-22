@@ -5,7 +5,7 @@ import { BasePieChart, BaseLineChart, BaseChartsGrid } from '@/components/common
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetStatsResponse } from '@/utils/api-client/interfaces/test-set';
 import { useSession } from 'next-auth/react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
 import { useChartColors } from '@/components/layout/BaseChartColors';
 
 // Fallback data for charts when no data is available
@@ -50,6 +50,7 @@ const calculateYAxisDomain = (data: { count: number }[]): [number, number] => {
 
 export default function TestSetsCharts() {
   const { data: session } = useSession();
+  const theme = useTheme();
   const [testSetStats, setTestSetStats] = useState<TestSetStatsResponse | null>(null);
   const [topicsStats, setTopicsStats] = useState<TestSetStatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -219,7 +220,7 @@ export default function TestSetsCharts() {
         useThemeColors={true}
         colorPalette="line"
         height={180}
-        legendProps={{ wrapperStyle: { fontSize: '10px' }, iconSize: 8, layout: 'horizontal' }}
+        legendProps={{ wrapperStyle: { fontSize: theme.typography.chartTick.fontSize }, iconSize: 8, layout: 'horizontal' }}
         yAxisConfig={{
           domain: yAxisDomain,
           allowDataOverflow: true

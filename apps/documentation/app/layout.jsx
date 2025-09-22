@@ -3,6 +3,7 @@ import { Banner, Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
 import ThemeAwareLogo from '../components/ThemeAwareLogo'
 import 'nextra-theme-docs/style.css'
+import '../styles/globals.css'
 
 export const metadata = {
   title: {
@@ -10,13 +11,21 @@ export const metadata = {
     default: 'Rhesis Documentation'
   },
   description: 'AI-powered testing and evaluation platform',
+  icons: {
+    icon: [
+      {
+        url: '/Rhesis AI_Logo_RGB_Favicon.svg',
+        type: 'image/svg+xml',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/Rhesis AI_Logo_RGB_Favicon_white.svg',
+        type: 'image/svg+xml',
+        media: '(prefers-color-scheme: dark)',
+      },
+    ],
+  },
 }
-
-const banner = (
-  <Banner storageKey="rhesis-docs">
-    Welcome to Rhesis Documentation 🚀
-  </Banner>
-)
 
 const navbar = (
   <Navbar
@@ -35,19 +44,12 @@ const footer = (
 export default async function RootLayout({ children }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta property="og:title" content="Rhesis Documentation" />
-        <meta property="og:description" content="AI-powered testing and evaluation platform" />
-        <link rel="icon" type="image/svg+xml" href="/Rhesis AI_Logo_RGB_Favicon_white.svg" />
-      </Head>
+      <Head />
       <body>
-        <Layout
-          banner={banner}
+        <Layout 
           navbar={navbar}
-          pageMap={await getPageMap()}
-          docsRepositoryBase="https://github.com/rhesis-ai/rhesis"
           footer={footer}
+          pageMap={await getPageMap()}
           sidebar={{
             defaultMenuCollapseLevel: 1,
             autoCollapse: true,

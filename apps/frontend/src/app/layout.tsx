@@ -2,6 +2,8 @@ import * as React from 'react';
 import { Metadata } from 'next';
 import Image from 'next/image';
 import { Box } from '@mui/material';
+import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
+import '../styles/fonts.css';
 import { 
   DashboardIcon, 
   ScienceIcon, 
@@ -124,13 +126,6 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
       requireSuperuser: true,
     },
     {
-      kind: 'page',
-      segment: 'reports',
-      title: 'Reports',
-      icon: <DescriptionIcon />,
-      requireSuperuser: true,
-    },
-    {
       kind: 'header',
       title: 'Settings',
     },
@@ -183,23 +178,13 @@ export const metadata: Metadata = {
   },
   description: 'Rhesis AI | OSS Gen AI Testing Platform',
   icons: {
-    icon: '/rhesis-favicon.png',
+    icon: '/logos/Rhesis AI_Logo_RGB_Favicon.svg',
   },
 };
 
 const BRANDING: BrandingProps = {
   title: "",
-  logo: (
-    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-      <Image
-        src="/rhesis-logo-white.png"
-        alt="Rhesis Icon"
-        width={120}
-        height={24}
-        style={{ width: 'auto' }}
-      />
-    </Box>
-  ),
+  logo: <ThemeAwareLogo />,
 };
 
 const AUTHENTICATION: AuthenticationProps = {

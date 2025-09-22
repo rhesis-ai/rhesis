@@ -374,6 +374,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         checkboxSelection
         disableRowSelectionOnClick
         actionButtons={actionButtons}
+        disablePaperWrapper={true}
       />
 
       <TestRunDrawer
