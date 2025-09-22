@@ -263,6 +263,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "license_type_id": license_type.id,
                         "visibility": item["visibility"],
                         "attributes": item["metadata"],
+                        "user_id": uuid.UUID(user_id),
+                        "organization_id": uuid.UUID(organization_id),
                     },
                     organization_id=organization_id, user_id=user_id, commit=False,
                 )
@@ -274,7 +276,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         db.query(models.Test)
                         .filter(
                             models.Test.id == test.id,
-                            models.Test.organization_id == organization_id,
+                            models.Test.organization_id == uuid.UUID(organization_id),
                         )
                         .first()
                     )
