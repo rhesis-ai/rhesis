@@ -32,30 +32,16 @@ class TestQueryBuilder:
         assert query_builder._sort_by is None
         assert query_builder._sort_order == "asc"
 
-    def test_query_builder_init_with_fallback(self, test_db: Session, authenticated_user_id, test_org_id):
-        """Test QueryBuilder initialization with fallback when initial query fails."""
-        # Mock the first db.query to fail, then succeed on the second call (in maintain_tenant_context)
-        original_query = test_db.query
-        
+    def test_query_builder_init_with_error(self, test_db: Session, authenticated_user_id, test_org_id):
+        """Test QueryBuilder initialization raises exception when query creation fails."""
+        # Mock db.query to fail
         def mock_query_side_effect(model):
-            if hasattr(mock_query_side_effect, 'call_count'):
-                mock_query_side_effect.call_count += 1
-            else:
-                mock_query_side_effect.call_count = 1
-            
-            if mock_query_side_effect.call_count == 1:
-                raise Exception("Initial query failed")
-            else:
-                return original_query(model)
+            raise Exception("Query creation failed")
         
         with patch.object(test_db, 'query', side_effect=mock_query_side_effect):
-            # Call the QueryBuilder constructor
-            query_builder = QueryBuilder(test_db, models.Test)
-            
-            # Verify the query builder was created successfully with fallback
-            assert query_builder.db == test_db
-            assert query_builder.model == models.Test
-            assert query_builder.query is not None
+            # Call the QueryBuilder constructor - should raise exception
+            with pytest.raises(Exception, match="Query creation failed"):
+                QueryBuilder(test_db, models.Test)
 
     def test_query_builder_with_joinedloads(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test QueryBuilder with_joinedloads method."""

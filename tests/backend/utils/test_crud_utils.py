@@ -106,8 +106,8 @@ class TestGetOrCreateEntity:
             mock_query_builder.with_organization_filter.assert_called_once()
             mock_query_builder.with_visibility_filter.assert_called_once()
             
-            # Verify create_item was called
-            mock_create_item.assert_called_once_with(test_db, models.Status, entity_data, commit=True)
+            # Verify create_item was called with new signature (includes organization_id, user_id)
+            mock_create_item.assert_called_once_with(test_db, models.Status, entity_data, None, None, commit=True)
 
     def test_get_or_create_entity_find_existing_by_id(self, test_db: Session, authenticated_user_id, test_org_id, test_entity_type):
         """Test get_or_create_entity finds existing entity by ID."""
@@ -242,6 +242,8 @@ class TestGetOrCreateSpecializedFunctions:
                 db=test_db,
                 type_name="EntityType",
                 type_value=entity_type.value,
+                organization_id=None,
+                user_id=None,
                 commit=True
             )
             
@@ -250,6 +252,8 @@ class TestGetOrCreateSpecializedFunctions:
                 db=test_db,
                 model=models.Status,
                 item_data={"name": status_name, "entity_type_id": mock_type_lookup.id},
+                organization_id=None,
+                user_id=None,
                 commit=True
             )
 
@@ -294,6 +298,8 @@ class TestGetOrCreateSpecializedFunctions:
                 db=test_db,
                 type_name="EntityType",
                 type_value=entity_type.value,
+                organization_id=None,
+                user_id=None,
                 commit=True
             )
 
@@ -334,6 +340,8 @@ class TestGetOrCreateSpecializedFunctions:
                 db=test_db,
                 model=models.TypeLookup,
                 item_data={"type_name": type_name, "type_value": type_value},
+                organization_id=None,
+                user_id=None,
                 commit=True
             )
 
@@ -400,7 +408,7 @@ class TestGetOrCreateSpecializedFunctions:
                 "status_id": mock_status_obj.id
             }
             mock_get_entity.assert_called_once_with(
-                test_db, models.Topic, expected_topic_data, commit=True
+                test_db, models.Topic, expected_topic_data, None, None, commit=True
             )
 
     def test_get_or_create_category_minimal_params(self, test_db: Session, authenticated_user_id, test_org_id):
@@ -427,7 +435,7 @@ class TestGetOrCreateSpecializedFunctions:
             # Verify get_or_create_entity was called with minimal data
             expected_category_data = {"name": category_name}
             mock_get_entity.assert_called_once_with(
-                test_db, models.Category, expected_category_data, commit=True
+                test_db, models.Category, expected_category_data, None, None, commit=True
             )
 
     def test_get_or_create_behavior_with_description_and_status(self, test_db: Session, authenticated_user_id, test_org_id):
@@ -476,5 +484,5 @@ class TestGetOrCreateSpecializedFunctions:
                 "status_id": mock_status_obj.id
             }
             mock_get_entity.assert_called_once_with(
-                test_db, models.Behavior, expected_behavior_data, commit=True
+                test_db, models.Behavior, expected_behavior_data, None, None, commit=True
             )
