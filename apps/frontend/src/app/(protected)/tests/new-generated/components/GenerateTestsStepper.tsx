@@ -829,7 +829,7 @@ const ReviewSamples = ({
                     borderColor: 'divider',
                     px: 1,
                     py: 0.5,
-                    borderRadius: 1,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                     fontSize: theme.typography.chartLabel.fontSize,
                     whiteSpace: 'nowrap',
                     zIndex: 1,

@@ -342,7 +342,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                         const data = payload[0].payload;
                         return (
                           <div style={{ 
-                            padding: '8px', 
+                            padding: theme.spacing(1), 
                             backgroundColor: theme.palette.background.paper, 
                             border: `1px solid ${theme.palette.divider}`, 
                             borderRadius: '4px',

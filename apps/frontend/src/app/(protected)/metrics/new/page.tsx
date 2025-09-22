@@ -477,7 +477,7 @@ export default function NewMetricPage() {
                     color: 'primary.contrastText',
                     px: 1.5,
                     py: 0.5,
-                    borderRadius: 1,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                     fontSize: theme.typography.helperText.fontSize
                   }}>
                     {tag}
@@ -583,7 +583,7 @@ export default function NewMetricPage() {
                 color: 'primary.contrastText',
                 px: 1.5,
                 py: 0.5,
-                borderRadius: 1,
+                borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                 fontSize: theme.typography.helperText.fontSize,
                 display: 'inline-block',
                 mt: 0.5

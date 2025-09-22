@@ -127,7 +127,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         justifyContent: 'center',
         border: '1px solid rgba(0, 0, 0, 0.23)',
         borderRadius: '4px',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'action.hover'
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

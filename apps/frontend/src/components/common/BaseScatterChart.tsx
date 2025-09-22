@@ -99,7 +99,7 @@ export default function BaseScatterChart({
   xAxisLabel,
   yAxisLabel,
   showGrid = true,
-  legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
+  legendProps,
   tooltipProps,
   yAxisConfig,
   xAxisConfig,
@@ -115,10 +115,13 @@ export default function BaseScatterChart({
   };
   
   // Update legend props to use theme
+  const defaultLegendProps = { wrapperStyle: { fontSize: theme.typography.chartTick.fontSize }, iconSize: 8 };
   const themedLegendProps = {
+    ...defaultLegendProps,
     ...legendProps,
     wrapperStyle: {
-      ...legendProps.wrapperStyle,
+      ...defaultLegendProps.wrapperStyle,
+      ...legendProps?.wrapperStyle,
       fontSize: theme.typography.chartTick.fontSize
     }
   };
@@ -142,12 +145,12 @@ export default function BaseScatterChart({
   
   // Get colors from theme or use defaults
   const chartColors = useMemo(() => {
-    const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
+    const defaultColors = theme.chartPalettes.line;
     return useThemeColors ? (palettes[colorPalette] || defaultColors) : defaultColors;
   }, [useThemeColors, palettes, colorPalette]);
 
   const finalHighlightedColor = highlightedColor || chartColors[0];
-  const finalNormalColor = normalColor || chartColors[1] || '#cccccc';
+  const finalNormalColor = normalColor || chartColors[1] || theme.palette.action.disabled;
 
   // Custom dot component to handle highlighting
   const CustomDot = (props: any) => {

@@ -147,8 +147,8 @@ const isInBottomArea = (angle: number): boolean => {
   return normalizedAngle >= CHART_CONSTANTS.BOTTOM_AREA_START && normalizedAngle <= CHART_CONSTANTS.BOTTOM_AREA_END;
 };
 
-// Custom label rendering function factory - will be created inside component to access theme
-const createCustomizedLabel = (chartLabelFontSize: string) => 
+// Custom label rendering function factory - accepts theme color and font size
+const createCustomizedLabel = (chartLabelFontSize: string, textColor: string) => 
   ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
     // Only show labels for segments with significant percentage (helps prevent overlap)
     if (percent < CHART_CONSTANTS.MIN_PERCENTAGE_THRESHOLD) return null;
@@ -171,7 +171,7 @@ const createCustomizedLabel = (chartLabelFontSize: string) =>
       <text 
         x={x} 
         y={y} 
-        fill="#333333"
+        fill={textColor}
         textAnchor={isRightSide ? "start" : "end"}
         dominantBaseline="central"
         fontSize={chartLabelFontSize}
@@ -212,13 +212,7 @@ export default function BasePieChart({
   innerRadius = 30,
   outerRadius = 55,
   showPercentage = true,
-  legendProps = { 
-    wrapperStyle: { fontSize: '10px' }, 
-    iconSize: 8,
-    layout: 'horizontal',
-    verticalAlign: 'bottom',
-    align: 'center'
-  },
+  legendProps,
   tooltipProps,
   elevation = 2,
   preventLegendOverflow = false,
@@ -232,14 +226,6 @@ export default function BasePieChart({
   // Get theme colors
   const theme = useTheme();
   
-  // Update legend props to use theme
-  const themedLegendProps = {
-    ...legendProps,
-    wrapperStyle: {
-      ...legendProps.wrapperStyle,
-      fontSize: theme.typography.chartTick.fontSize
-    }
-  };
   const { palettes } = useChartColors();
 
   // Default tooltip props with theme awareness
@@ -257,7 +243,7 @@ export default function BasePieChart({
   
   // Memoize chart colors calculation
   const chartColors = useMemo(() => {
-    const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE'];
+    const defaultColors = theme.chartPalettes.pie;
     return colors || (useThemeColors ? (palettes[colorPalette] || defaultColors) : defaultColors);
   }, [colors, useThemeColors, palettes, colorPalette]);
 
@@ -275,20 +261,32 @@ export default function BasePieChart({
   }, [height, showPercentage]);
 
   // Memoize enhanced legend props
+  const defaultLegendProps = { 
+    wrapperStyle: { 
+      fontSize: theme.typography.chartTick.fontSize,
+      marginTop: theme.spacing(0.625),
+      marginBottom: theme.spacing(0),
+      paddingBottom: '2px'
+    },
+    verticalAlign: 'bottom',
+    align: 'center'
+  };
   const enhancedLegendProps = useMemo(() => ({
+    ...defaultLegendProps,
     ...legendProps,
     wrapperStyle: { 
-      ...legendProps.wrapperStyle,
-      marginTop: '5px',
-      marginBottom: '0px',
+      ...defaultLegendProps.wrapperStyle,
+      ...legendProps?.wrapperStyle,
+      marginTop: theme.spacing(0.625),
+      marginBottom: theme.spacing(0),
       paddingBottom: '2px'
     }
-  }), [legendProps]);
+  }), [legendProps, theme]);
 
   // Create customized label function with theme access
   const renderCustomizedLabel = useMemo(() => 
-    createCustomizedLabel(theme.typography.chartLabel.fontSize), 
-    [theme.typography.chartLabel.fontSize]
+    createCustomizedLabel(theme.typography.chartLabel.fontSize, theme.palette.text.primary), 
+    [theme.typography.chartLabel.fontSize, theme.palette.text.primary]
   );
 
   // Memoize data lookup for better tooltip performance
@@ -333,7 +331,7 @@ export default function BasePieChart({
               innerRadius={innerRadius}
               outerRadius={outerRadius}
               paddingAngle={2}
-              fill="#8884d8"
+              fill={chartColors[0]}
               dataKey="value"
               label={showPercentage ? renderCustomizedLabel : undefined}
               labelLine={showPercentage ? renderCustomizedLabelLine : false}
@@ -349,7 +347,7 @@ export default function BasePieChart({
               {...finalTooltipProps} 
               formatter={tooltipFormatter}
             />
-            <Legend {...themedLegendProps} />
+            <Legend {...enhancedLegendProps} />
           </PieChart>
         </ResponsiveContainer>
       </Box>

@@ -38,7 +38,7 @@ const calculateLineCount = (text: string, maxLineLength: number = 14): number =>
 
 // Custom tick component for wrapping text with dynamic positioning
 // Custom tick factory function that takes theme as parameter
-const createCustomTick = (chartTickFontSize: string, textColor: string = "#666") => {
+const createCustomTick = (chartTickFontSize: string, textColor: string = "text.secondary") => {
   // Convert rem to pixels for the CustomTick component
   const getPixelFontSize = (remSize: string): number => {
     const remValue = parseFloat(remSize);

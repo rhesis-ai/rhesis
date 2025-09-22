@@ -65,8 +65,8 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
   };
   
   // Use a consistent blue color for pass rates that works in both light and dark themes
-  // This matches the first color in the default pie chart palette
-  const passRateColor = '#8884d8'; // Blue color that works in both light and dark themes
+  // This matches the first color in the theme's line chart palette
+  const passRateColor = theme.chartPalettes.line[0]; // Primary blue from theme
   
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
