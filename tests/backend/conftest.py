@@ -130,7 +130,7 @@ def clean_test_database():
                 pass
             
             # List of tables to clean (in correct dependency order - most dependent first)
-            # Clean test data but preserve session-scoped authentication data
+            # Clean ALL test data but preserve ONLY core authentication data (tokens, users, organization)
             tables_to_clean = [
                 # Level 1: Association tables (no dependencies, just references)
                 'test_test_set',  # test.id + test_set.id
@@ -162,7 +162,7 @@ def clean_test_database():
                 'endpoint',  # -> user, organization
                 'project',  # -> user(2x), status, organization
                 
-                # Level 6: Reference/lookup entities (referenced by others)
+                # Level 6: Reference/lookup entities (clean everything - no preservation)
                 'response_pattern',  # -> organization
                 'risk',  # -> organization, user
                 'use_case',  # -> organization, user
@@ -176,13 +176,13 @@ def clean_test_database():
                 'type_lookup',  # -> organization, user
                 'status',  # -> organization, user
                 
-                # Level 7: User-related tables (preserve auth data)
-                'subscription',  # -> user, organization
-                'token',  # -> user, organization
+                # Level 7: User-related tables (clean everything except auth tokens)
+                'subscription',  # -> user, organization (CLEAN ALL)
                 
-                # Level 8: Core foundation tables (preserve auth data) 
-                'organization',  # -> user(2x) [owner_id, user_id]
-                '"user"',  # -> organization [organization_id]
+                # Level 8: Core authentication tables (preserve ONLY auth user/org/tokens)
+                'token',  # -> user, organization (PRESERVE AUTH TOKENS ONLY)
+                'organization',  # -> user(2x) [owner_id, user_id] (PRESERVE AUTH ORG ONLY)
+                '"user"',  # -> organization [organization_id] (PRESERVE AUTH USER ONLY)
             ]
                 
             # Clean each table in its own transaction to prevent cascading failures
@@ -203,12 +203,11 @@ def clean_test_database():
                             token_params = {f'token_{i}': token_id for i, token_id in enumerate(auth_token_ids)}
                             connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
                                              token_params)
-                        elif table_name == 'subscription' and auth_user_id:
-                            # Preserve the authenticated user's subscriptions
-                            connection.execute(text(f'DELETE FROM {table_name} WHERE user_id != :auth_user_id'), 
-                                             {"auth_user_id": auth_user_id})
+                        elif table_name == 'subscription':
+                            # Clean ALL subscriptions (no preservation)
+                            connection.execute(text(f'DELETE FROM {table_name}'))
                         else:
-                            # For other tables, clean everything
+                            # For all other tables (reference/lookup tables), clean everything
                             connection.execute(text(f'DELETE FROM {table_name}'))
                             
                 except Exception as e:
