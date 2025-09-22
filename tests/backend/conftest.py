@@ -101,56 +101,94 @@ def clean_test_database():
     # Clean up BEFORE each test to ensure isolation
     try:
         with test_engine.connect() as connection:
-            with connection.begin():
-                # Get session-scoped authentication data to preserve it
-                auth_user_id = None
-                auth_org_id = None
-                auth_token_ids = []
+            # Get session-scoped authentication data to preserve it (outside transaction)
+            auth_user_id = None
+            auth_org_id = None
+            auth_token_ids = []
+            
+            try:
+                # Try to get the authenticated user info from environment
+                import os
+                api_key = os.getenv("RHESIS_API_KEY")
+                if api_key:
+                    # Get the user and org that should be preserved
+                    result = connection.execute(text("""
+                        SELECT u.id as user_id, u.organization_id, array_agg(t.id) as token_ids
+                        FROM "user" u 
+                        LEFT JOIN token t ON t.user_id = u.id AND t.token = :api_key
+                        WHERE u.id IN (SELECT user_id FROM token WHERE token = :api_key)
+                        GROUP BY u.id, u.organization_id
+                    """), {"api_key": api_key})
+                    
+                    row = result.fetchone()
+                    if row:
+                        auth_user_id = str(row.user_id)
+                        auth_org_id = str(row.organization_id) if row.organization_id else None
+                        auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
+            except Exception as e:
+                # If we can't get auth data, continue with normal cleanup
+                pass
+            
+            # List of tables to clean (in correct dependency order - most dependent first)
+            # Clean test data but preserve session-scoped authentication data
+            tables_to_clean = [
+                # Level 1: Association tables (no dependencies, just references)
+                'test_test_set',  # test.id + test_set.id
+                'prompt_test_set',  # prompt.id + test_set.id  
+                'behavior_metric',  # behavior.id + metric.id
+                'risk_use_case',  # risk.id + use_case.id
+                'prompt_use_case',  # prompt.id + use_case.id
+                'tagged_item',  # tag.id + entity polymorphic
                 
+                # Level 2: Highly dependent entities (reference many other tables)
+                'comment',  # -> user, organization (polymorphic entity refs)
+                'test_result',  # -> test_configuration, test_run, prompt, test, status, user, organization
+                
+                # Level 3: Execution/runtime entities
+                'test_run',  # -> user, status, test_configuration, organization
+                'test_configuration',  # -> endpoint, category, topic, prompt, use_case, test_set, user, status, organization
+                
+                # Level 4: Test entities
+                'test_context',  # -> test, organization, user
+                'test',  # -> prompt, type_lookup, user(3x), topic, behavior, category, status, organization
+                
+                # Level 5: Content entities  
+                'prompt',  # -> demographic, category(2x), topic, behavior, prompt, prompt_template, source, user, status
+                'test_set',  # -> status, type_lookup, user(3x), organization
+                'prompt_template',  # -> user, organization
+                'model',  # -> user(2x), organization
+                'task',  # -> user(2x), status, type_lookup, organization
+                'metric',  # -> user(2x), organization
+                'endpoint',  # -> user, organization
+                'project',  # -> user(2x), status, organization
+                
+                # Level 6: Reference/lookup entities (referenced by others)
+                'response_pattern',  # -> organization
+                'risk',  # -> organization, user
+                'use_case',  # -> organization, user
+                'source',  # -> organization
+                'behavior',  # -> organization, user  
+                'category',  # -> organization, user
+                'topic',  # -> organization, user
+                'demographic',  # -> dimension, organization, user
+                'dimension',  # -> organization, user
+                'tag',  # -> (referenced by tagged_item)
+                'type_lookup',  # -> organization, user
+                'status',  # -> organization, user
+                
+                # Level 7: User-related tables (preserve auth data)
+                'subscription',  # -> user, organization
+                'token',  # -> user, organization
+                
+                # Level 8: Core foundation tables (preserve auth data) 
+                'organization',  # -> user(2x) [owner_id, user_id]
+                '"user"',  # -> organization [organization_id]
+            ]
+                
+            # Clean each table in its own transaction to prevent cascading failures
+            for table_name in tables_to_clean:
                 try:
-                    # Try to get the authenticated user info from environment
-                    import os
-                    api_key = os.getenv("RHESIS_API_KEY")
-                    if api_key:
-                        # Get the user and org that should be preserved
-                        result = connection.execute(text("""
-                            SELECT u.id as user_id, u.organization_id, array_agg(t.id) as token_ids
-                            FROM "user" u 
-                            LEFT JOIN token t ON t.user_id = u.id AND t.token = :api_key
-                            WHERE u.id IN (SELECT user_id FROM token WHERE token = :api_key)
-                            GROUP BY u.id, u.organization_id
-                        """), {"api_key": api_key})
-                        
-                        row = result.fetchone()
-                        if row:
-                            auth_user_id = str(row.user_id)
-                            auth_org_id = str(row.organization_id) if row.organization_id else None
-                            auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
-                except Exception as e:
-                    # If we can't get auth data, continue with normal cleanup
-                    pass
-                
-                # List of tables to clean (in dependency order)
-                # Clean test data but preserve session-scoped authentication data
-                tables_to_clean = [
-                    # Main entity tables (reverse dependency order)
-                    'test_test_set',  # Association table for tests and test sets
-                    'prompt_test_set',  # Association table for prompts and test sets
-                    'test_result',  # Test execution results
-                    'test_run',  # Test runs
-                    'test_configuration',  # Test configurations (must be before test_set due to FK)
-                    'test_context',  # Test contexts
-                    'test',  # Tests table
-                    'test_set',  # Test sets table
-                    'endpoint',  # Endpoints table
-                    'token',  # Clean tokens but preserve auth tokens
-                    'subscription',  # Clean subscriptions but preserve auth user's
-                    'organization',  # Clean orgs but preserve auth org (note: singular, not plural)
-                    '"user"',  # Clean users but preserve auth user
-                ]
-                
-                for table_name in tables_to_clean:
-                    try:
+                    with connection.begin():
                         if table_name == '"user"' and auth_user_id:
                             # Preserve the authenticated user
                             connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
@@ -173,10 +211,10 @@ def clean_test_database():
                             # For other tables, clean everything
                             connection.execute(text(f'DELETE FROM {table_name}'))
                             
-                    except Exception as e:
-                        # If cleanup fails for a table, continue with others
-                        print(f"Failed to clean table {table_name}: {e}")
-                        pass
+                except Exception as e:
+                    # If cleanup fails for a table, continue with others
+                    # This is expected for tables that don't exist or have complex constraints
+                    pass
                             
     except Exception as e:
         # If cleanup fails completely, continue - tests might still work
