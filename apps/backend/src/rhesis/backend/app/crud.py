@@ -1151,9 +1151,7 @@ def create_organization(
         db.expire_all()
 
         # Convert Pydantic model to dict
-        org_data = (
-            organization.dict() if hasattr(organization, "dict") else organization.model_dump()
-        )
+        org_data = organization.model_dump()
         db_org = models.Organization(**org_data)
 
         # Add and commit in a simple transaction
