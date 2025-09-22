@@ -126,25 +126,26 @@ def init_db():
 @contextmanager
 def get_db() -> Generator[Session, None, None]:
     """
-    Get a simple database session without tenant context.
+    Get a simple database session with transparent transaction management.
     
     For operations requiring tenant context, use get_db() and pass organization_id/user_id to CRUD functions.
     This function provides a basic session for operations like user lookup,
     token validation, and other non-tenant-specific queries.
     
-    Uses automatic transaction management for consistency.
+    Uses transparent transaction management - transactions are handled automatically
+    by SQLAlchemy based on the session configuration (autocommit=False, autoflush=False).
+    Clients don't need to explicitly manage transactions.
     """
     db = SessionLocal()
     try:
-        # Use automatic transaction management for consistency
-        with db.begin():
-            # Start with a clean session
-            db.expire_all()
-
-            yield db
-            # Transaction commits automatically if no exception occurred
+        yield db
+        # Commit any pending transactions automatically
+        if db.in_transaction():
+            db.commit()
     except Exception:
-        # Transaction rolls back automatically via db.begin() context manager
+        # Rollback on exception
+        if db.in_transaction():
+            db.rollback()
         raise
     finally:
         # Close the session

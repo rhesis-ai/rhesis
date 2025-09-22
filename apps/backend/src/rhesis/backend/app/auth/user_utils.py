@@ -163,22 +163,27 @@ async def get_authenticated_user_with_context(
             
             if is_valid:
                 token = crud.get_token_by_value(db, token_value)
-                user = crud.get_user_by_id(db, token.user_id)
-                
-                # Handle user based on organization requirement - must be inside the context manager
-                if user:
-                    if without_context:
-                        # without_context allows users without organization
-                        return user
-                    else:
-                        # Require organization_id when not without_context
-                        if not user.organization_id:
-                            raise HTTPException(
-                                status_code=status.HTTP_403_FORBIDDEN,
-                                detail="User is not associated with an organization",
-                            )
-                        # Return user - tenant context should be passed directly to CRUD operations when needed
-                        return user
+                if token:
+                    user = crud.get_user_by_id(db, token.user_id)
+                    
+                    # Handle user based on organization requirement - must be inside the context manager
+                    if user:
+                        # Access all attributes we need within the transaction context
+                        user_id = user.id
+                        organization_id = user.organization_id
+                        
+                        if without_context:
+                            # without_context allows users without organization
+                            return user
+                        else:
+                            # Require organization_id when not without_context
+                            if not organization_id:
+                                raise HTTPException(
+                                    status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="User is not associated with an organization",
+                                )
+                            # Return user - tenant context should be passed directly to CRUD operations when needed
+                            return user
 
     # Try JWT token if secret_key is provided
     if secret_key and not credentials.credentials.startswith("rh-"):
