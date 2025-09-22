@@ -134,7 +134,7 @@ export default function LandingPage() {
             <Toolbar>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Image
-                  src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                  src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
                   alt="Rhesis AI Logo"
                   width={200}
                   height={0}
@@ -213,7 +213,7 @@ export default function LandingPage() {
             {isMobile && (
               <Box sx={{ mb: 4 }}>
                 <Image
-                  src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                  src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
                   alt="Rhesis AI Logo"
                   width={160}
                   height={0}
@@ -275,7 +275,7 @@ export default function LandingPage() {
           <Toolbar>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Image
-                src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
                 alt="Rhesis AI Logo"
                 width={200}
                 height={0}
@@ -355,7 +355,7 @@ export default function LandingPage() {
           {isMobile && (
             <Box sx={{ mb: 4 }}>
               <Image
-                src="/logos/Rhesis AI_Logo_RGB_Website logo.png"
+                src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
                 alt="Rhesis AI Logo"
                 width={160}
                 height={0}
