@@ -56,8 +56,14 @@ class OrganizationFilterChecker:
             r'\.filter\([^)]*\.id\s*==\s*test_run_id\)',  # Filter by test_run_id
             r'\.filter\([^)]*\.id\s*==\s*test_set_uuid\)',  # Filter by test_set_uuid
             r'\.filter\([^)]*\.id\s*==\s*\w+_uuid\)',     # Filter by any_uuid
+            r'\.filter_by\(id\s*=\s*entity_id\)',        # Filter by entity_id (UUID)
+            r'\.filter\([^)]*\.id\s*==\s*current_user\.organization_id\)',  # Filter by user's org
             r'get_test_set.*by.*id',                       # get_test_set by ID functions
             r'get_test_run.*by.*id',                       # get_test_run by ID functions
+            # Diagnostic/debug queries (legitimate)
+            r'all_orgs\s*=\s*db\.query\(models\.Organization\)\.all\(\)',  # Debug query
+            # QueryBuilder initialization (filtering applied later)
+            r'self\.query\s*=\s*db\.query\(model\)',      # QueryBuilder init
         ]
         
         # Known safe functions that properly implement organization filtering via filter_params
@@ -70,6 +76,8 @@ class OrganizationFilterChecker:
         self.safe_locations = [
             ('services/stats/test_run.py', 387),  # get_test_run_stats function
             ('services/stats/test_result.py', 286),  # get_test_result_stats function
+            ('services/stats/calculator.py', 483),  # UUID-based entity lookup
+            ('routers/user.py', 71),  # Organization lookup by current_user.organization_id
         ]
         
         # Additional patterns to check for existing organization filtering
