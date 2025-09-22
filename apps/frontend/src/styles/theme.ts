@@ -272,6 +272,27 @@ const getDesignTokens = (mode: PaletteMode) => ({
               color: '#1A1A1A',
             },
           },
+          // Outlined button styling
+          '&.MuiButton-outlinedPrimary': {
+            color: '#2AA1CE', // Primary CTA Blue
+            borderColor: '#2AA1CE',
+            backgroundColor: 'transparent',
+            '&:hover': {
+              backgroundColor: '#2AA1CE', // Fill with CTA blue on hover
+              color: '#FFFFFF',
+              borderColor: '#2AA1CE',
+            },
+          },
+          '&.MuiButton-outlinedSecondary': {
+            color: '#FD6E12', // Secondary CTA Orange
+            borderColor: '#FD6E12',
+            backgroundColor: 'transparent',
+            '&:hover': {
+              backgroundColor: '#FD6E12', // Fill with orange on hover
+              color: '#FFFFFF',
+              borderColor: '#FD6E12',
+            },
+          },
           // Text button styling
           '&.MuiButton-textPrimary': {
             color: mode === 'light' ? '#50B9E0' : '#3BC4F2',
