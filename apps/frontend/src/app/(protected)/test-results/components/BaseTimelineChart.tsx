@@ -185,8 +185,10 @@ export default function BaseTimelineChart({
           ]}
           useThemeColors={false} // Disable automatic theme colors since we're specifying manually
           colorPalette="line"
-          height={height - 100} // Account for title/subtitle space
+          height={height - 130} // Account for title/subtitle space and legend overflow
           elevation={0}
+          preventLegendOverflow={true}
+          variant="test-results"
           yAxisConfig={{
             domain: [0, 100],
             allowDataOverflow: false,

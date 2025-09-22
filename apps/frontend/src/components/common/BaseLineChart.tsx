@@ -43,6 +43,8 @@ export interface BaseLineChartProps {
   legendProps?: Record<string, any>;
   tooltipProps?: Record<string, any>;
   elevation?: number;
+  preventLegendOverflow?: boolean;
+  variant?: 'dashboard' | 'test-results';
   yAxisConfig?: {
     domain?: [number, number];
     allowDataOverflow?: boolean;
@@ -164,13 +166,16 @@ export default function BaseLineChart({
   legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
   tooltipProps,
   elevation = 2,
+  preventLegendOverflow = false,
+  variant = 'dashboard',
   yAxisConfig
 }: BaseLineChartProps) {
   const theme = useTheme();
   
   // Convert rem to pixels for Recharts (assuming 1rem = 16px)
-  const getPixelFontSize = (remSize: string): number => {
-    const remValue = parseFloat(remSize);
+  const getPixelFontSize = (remSize: string | number | undefined): number => {
+    if (!remSize) return 10; // fallback size
+    const remValue = parseFloat(String(remSize));
     return remValue * 16;
   };
   
@@ -197,8 +202,10 @@ export default function BaseLineChart({
   const finalTooltipProps = tooltipProps || defaultTooltipProps;
   const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
   
-  // Calculate optimal Y-axis width based on data
-  const yAxisWidth = chartUtils.calculateYAxisWidth(data, series, yAxisConfig);
+  // Calculate optimal Y-axis width based on data (dashboard optimization)
+  const yAxisWidth = variant === 'dashboard' 
+    ? chartUtils.calculateYAxisWidth(data, series, yAxisConfig)
+    : 50; // Fixed width for test-results variant
   
   const chartContent = (
     <>
@@ -208,10 +215,15 @@ export default function BaseLineChart({
         </Typography>
       )}
       <Box className={styles.chartContainer}>
-        <ResponsiveContainer width="100%" height={height}>
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart 
-            data={data} 
-            margin={{ top: 5, right: 5, bottom: 2, left: 0 }}
+            data={data}
+            margin={{ 
+              top: variant === 'dashboard' ? 2 : 5, // Dashboard: minimal top margin for max grid space
+              right: preventLegendOverflow ? 15 : (variant === 'dashboard' ? 2 : 5), // Dashboard: minimal right margin
+              bottom: preventLegendOverflow ? 25 : (variant === 'dashboard' ? 18 : 2), // Dashboard: tight bottom for legend
+              left: variant === 'dashboard' ? -5 : 0 // Dashboard: negative left to maximize grid width
+            }}
           >
             {showGrid && <CartesianGrid strokeDasharray="3 3" />}
             <XAxis 
@@ -234,7 +246,7 @@ export default function BaseLineChart({
               {...yAxisConfig}
             />
             <Tooltip {...finalTooltipProps} />
-            <Legend {...themedLegendProps} height={20} />
+            <Legend {...themedLegendProps} height={variant === 'dashboard' ? 16 : 20} />
             {series.map((s, index) => (
               <Line
                 key={index}
@@ -256,7 +268,7 @@ export default function BaseLineChart({
   // If elevation is 0, render content without Card wrapper
   if (elevation === 0) {
     return (
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 0.5 }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', p: 0.5 }}>
         {chartContent}
       </Box>
     );

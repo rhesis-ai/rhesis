@@ -67,6 +67,8 @@ export interface BasePieChartProps {
   legendProps?: Record<string, any>;
   tooltipProps?: Record<string, any>;
   elevation?: number;
+  preventLegendOverflow?: boolean;
+  variant?: 'dashboard' | 'test-results';
 }
 
 // Utility functions for pie chart data handling
@@ -218,7 +220,9 @@ export default function BasePieChart({
     align: 'center'
   },
   tooltipProps,
-  elevation = 2
+  elevation = 2,
+  preventLegendOverflow = false,
+  variant = 'dashboard'
 }: BasePieChartProps) {
   // Validate props in development
   if (process.env.FRONTEND_ENV === 'development') {
@@ -311,10 +315,15 @@ export default function BasePieChart({
           {title}
         </Typography>
       )}
-      <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'center' }}>
         <ResponsiveContainer width="100%" height={chartDimensions.adjustedHeight}>
             <PieChart 
-              margin={{ top: 5, right: 5, bottom: 5, left: 0 }}
+              margin={{ 
+                top: 5, 
+                right: 5, 
+                bottom: preventLegendOverflow ? 40 : 5, 
+                left: 0 
+              }}
               height={chartDimensions.adjustedHeight}
             >
             <Pie

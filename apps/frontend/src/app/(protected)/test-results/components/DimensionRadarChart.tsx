@@ -70,8 +70,9 @@ const createCustomTick = (chartTickFontSize: string, textColor: string = "#666")
     const distanceFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
     
     // Additional offset based on number of lines (more lines = push further out)
-    const baseOffset = 8;
-    const additionalOffset = (lines.length - 1) * 6;
+    // Reduced offsets for better space efficiency
+    const baseOffset = 5;
+    const additionalOffset = (lines.length - 1) * 4;
     const totalOffset = baseOffset + additionalOffset;
     
     // Calculate the direction vector from center to original position
@@ -223,17 +224,17 @@ export default function DimensionRadarChart({
       1 // Ensure at least 1 line
     );
     
-    // Base margin for single-line labels
-    const baseMargin = 30;
+    // Base margin for single-line labels - reduced for better space usage
+    const baseMargin = 20;
     
     // Additional spacing per extra line - labels are pushed further out
-    const extraSpacingPerLine = 8;
+    const extraSpacingPerLine = 6;
     
     // Calculate margin based on maximum line count across all labels
     const marginSize = baseMargin + (maxLines - 1) * extraSpacingPerLine;
     
     return {
-      margin: Math.min(marginSize, 80), // Cap at reasonable maximum
+      margin: Math.min(marginSize, 50), // Reduced cap for more chart space
       maxLines
     };
   }, [chartData]);
@@ -309,10 +310,11 @@ export default function DimensionRadarChart({
             angle={90} 
             domain={[0, 100]} 
             tick={{ 
-              fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+              fontSize: Math.max(8, getPixelFontSize(theme.typography.chartTick.fontSize) - 2),
               fill: theme.palette.text.primary
             }}
             tickFormatter={(value) => `${value}%`}
+            tickCount={4}
           />
           <Radar
             name="Pass Rate"

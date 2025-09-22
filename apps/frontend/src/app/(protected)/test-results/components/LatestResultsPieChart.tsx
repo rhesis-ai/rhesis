@@ -148,8 +148,12 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
           useThemeColors={true}
           colorPalette="pie"
           height={300}
+          innerRadius={40}
+          outerRadius={90}
           showPercentage={true}
           elevation={0}
+          preventLegendOverflow={true}
+          variant="test-results"
           legendProps={{
             wrapperStyle: { 
               fontSize: theme.typography.chartTick.fontSize,
