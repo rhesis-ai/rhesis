@@ -190,17 +190,20 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
                 # Get test status
                 status = get_or_create_status(
-                    db=db_ctx, name=item["status"], entity_type="Test", commit=False
+                    db=db_ctx, name=item["status"], entity_type="Test", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get topic
                 topic = get_or_create_topic(
-                    db=db_ctx, name=item["topic"], entity_type="Test", commit=False
+                    db=db_ctx, name=item["topic"], entity_type="Test", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get category
                 category = get_or_create_category(
-                    db=db_ctx, name=item["category"], entity_type="Test", commit=False
+                    db=db_ctx, name=item["category"], entity_type="Test", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get behavior
@@ -225,7 +228,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "behavior_id": behavior.id,
                         "priority": item.get("priority", 1),
                     },
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
                 created_tests.append(test)
 
@@ -234,7 +237,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("test_set", []):
                 # Get test set status
                 status = get_or_create_status(
-                    db=db_ctx, name=item["status"], entity_type="TestSet", commit=False
+                    db=db_ctx, name=item["status"], entity_type="TestSet", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get license type
@@ -256,7 +260,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "visibility": item["visibility"],
                         "attributes": item["metadata"],
                     },
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
                 # Associate tests with test set
@@ -298,7 +302,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
                 # Get metric status
                 status = get_or_create_status(
-                    db=db_ctx, name=item["status"], entity_type="Metric", commit=False
+                    db=db_ctx, name=item["status"], entity_type="Metric", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Create metric
