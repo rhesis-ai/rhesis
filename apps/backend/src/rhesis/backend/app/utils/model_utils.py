@@ -7,7 +7,6 @@ from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload, sel
 from rhesis.backend.app.database import (
     get_current_organization_id,
     get_current_user_id,
-    maintain_tenant_context,
 )
 from rhesis.backend.app.utils.odata import apply_odata_filter
 from rhesis.backend.app.utils.query_validation import (
@@ -35,9 +34,10 @@ class QueryBuilder:
             self.query = db.query(model)
         except Exception as e:
             logger.debug(f"Error creating query in QueryBuilder: {e}")
-            # Fall back to a clean session if we can't create a query
-            with maintain_tenant_context(db):
-                self.query = db.query(model)
+            # If query creation fails, the session may be in a bad state
+            # Log the error and raise it - caller should handle session issues
+            logger.error(f"Failed to create query for model {model.__name__}: {e}")
+            raise
         self._skip = 0
         self._limit = None
         self._sort_by = None

@@ -246,43 +246,6 @@ def _set_tenant_for_connection(dbapi_connection, connection_record):
 event.listen(engine, "connect", _set_tenant_for_connection)
 
 
-@contextmanager
-def maintain_tenant_context(session: Session):
-    """Maintain the tenant context across a transaction."""
-    # Store current context
-    try:
-        prev_org_id = _current_tenant_organization_id.get()
-        prev_user_id = _current_tenant_user_id.get()
-    except Exception:
-        prev_org_id = None
-        prev_user_id = None
-
-    # If transaction is active and dirty, commit it before starting a new one
-    try:
-        if session.in_transaction():
-            if session.dirty or session.new or session.deleted:
-                # Transaction has changes that might need handling
-                pass
-
-        # Set context before the operation
-        set_tenant(session, prev_org_id, prev_user_id)
-        yield
-    except Exception:
-        # Only rollback if there's an active transaction
-        if session.in_transaction():
-            session.rollback()
-        raise
-    finally:
-        try:
-            # Only commit if there are actual changes
-            if session.in_transaction() and (session.dirty or session.new or session.deleted):
-                session.commit()
-            # Clean up tenant context
-            _execute_set_tenant(session, None, None)
-        except Exception as e:
-            logger.debug(f"Error in maintain_tenant_context cleanup: {e}")
-            if session.in_transaction():
-                session.rollback()
 
 
 def init_db():

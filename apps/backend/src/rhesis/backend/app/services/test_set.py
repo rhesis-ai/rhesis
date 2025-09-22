@@ -13,7 +13,6 @@ from rhesis.backend.app.constants import (
     ERROR_TEST_SET_NOT_FOUND,
     EntityType,
 )
-from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.stats import StatsCalculator
@@ -144,7 +143,6 @@ def bulk_create_test_set(
         raise Exception(ERROR_BULK_CREATE_FAILED.format(entity="test set", error=validation_error))
 
     try:
-        with maintain_tenant_context(db):
             # Convert dictionary to schema if needed
             if isinstance(test_set_data, dict):
                 test_set_data = schemas.TestSetBulkCreate(**test_set_data)
@@ -289,7 +287,6 @@ def create_test_set_associations(
         return error_response
 
     try:
-        with maintain_tenant_context(db):
             # Validate test set exists
             test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
             if not test_set:
@@ -363,7 +360,6 @@ def remove_test_set_associations(
         }
 
     try:
-        with maintain_tenant_context(db):
             # Get test set and verify it exists
             test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
             if not test_set:
@@ -434,7 +430,6 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     except ValueError:
         raise ValueError(ERROR_INVALID_UUID.format(entity="test set", id=test_set_id))
 
-    with maintain_tenant_context(db):
         # Get test set with relationships
         test_set = (
             db.query(models.TestSet)
@@ -498,7 +493,6 @@ def execute_test_set_on_endpoint(
     if not endpoint_id:
         raise ValueError("endpoint_id is required")
 
-    with maintain_tenant_context(db):
         # Resolve test set
         logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
         db_test_set = crud.resolve_test_set(test_set_identifier, db)
