@@ -8,7 +8,6 @@ from celery import Task
 
 from rhesis.backend.app.database import (
     SessionLocal,
-    set_tenant,
     get_org_aware_db,
 )
 from rhesis.backend.logging.rhesis_logger import logger
@@ -155,28 +154,19 @@ class BaseTask(Task):
         
         Uses get_org_aware_db for better transaction management and automatic 
         tenant context setup with SET LOCAL variables.
+        
+        All tasks must have organization context as per application design.
         """
         # Get task context
         org_id, user_id = self.get_tenant_context()
 
-        # Use get_org_aware_db if we have organization context
-        if org_id:
-            with get_org_aware_db(org_id, user_id) as db:
-                yield db
-        else:
-            # Fallback to legacy approach for tasks without organization context
-            db = SessionLocal()
-            try:
-                # Start with a clean session
-                db.expire_all()
+        # All tasks should have organization context
+        if not org_id:
+            raise ValueError(f"Task {self.__class__.__name__} missing required organization context")
 
-                # Set tenant context if available (user-only context)
-                if user_id:
-                    set_tenant(db, user_id=user_id)
-
-                yield db
-            finally:
-                db.close()
+        # Use get_org_aware_db for all tasks
+        with get_org_aware_db(org_id, user_id) as db:
+            yield db
 
     def validate_params(self, args, kwargs):
         """Check for organization_id and user_id in headers if not in kwargs."""
