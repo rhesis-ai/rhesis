@@ -9,8 +9,8 @@ export default function ThemeAwareLogo() {
   const { mode } = React.useContext(ColorModeContext);
   
   const logoSrc = mode === 'dark' 
-    ? '/logos/Rhesis AI_Logo_RGB_Website logo_white.png'
-    : '/logos/Rhesis AI_Logo_RGB_Website logo.png';
+    ? '/logos/Rhesis AI_Logo_Increased_Platypus_Darkmode_White.png'
+    : '/logos/Rhesis AI_Logo_Increased_Platypus.png';
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
