@@ -1,25 +1,21 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Chip, Paper, Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
+import { Chip, Paper, Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, useTheme } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import AddIcon from '@mui/icons-material/Add';
-import UploadIcon from '@mui/icons-material/Upload';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { AddIcon } from '@/components/icons';
+import UploadIcon from '@mui/icons-material/UploadOutlined';
+import { DeleteIcon } from '@/components/icons';
 import { GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 // Import icons for dynamic project icon rendering
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import DevicesIcon from '@mui/icons-material/Devices';
-import WebIcon from '@mui/icons-material/Web';
-import StorageIcon from '@mui/icons-material/Storage';
-import CodeIcon from '@mui/icons-material/Code';
+import { SmartToyIcon, DevicesIcon, WebIcon, StorageIcon, CodeIcon } from '@/components/icons';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import CloudIcon from '@mui/icons-material/Cloud';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -91,16 +87,6 @@ interface EndpointGridProps {
   onEndpointDeleted?: () => void;
 }
 
-const getEnvironmentColor = (environment: string) => {
-  switch (environment.toLowerCase()) {
-    case 'production':
-      return 'success';
-    case 'staging':
-      return 'warning';
-    default:
-      return 'info';
-  }
-};
 
 export default function EndpointGrid({ 
   endpoints,
@@ -113,6 +99,7 @@ export default function EndpointGrid({
   },
   onEndpointDeleted
 }: EndpointGridProps) {
+  const theme = useTheme();
   const router = useRouter();
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
@@ -259,7 +246,7 @@ export default function EndpointGrid({
                 alignItems: 'center',
                 color: 'primary.main',
                 '& svg': {
-                  fontSize: '1.5rem'
+                  fontSize: theme.typography.h5.fontSize
                 }
               }}
             >
@@ -286,7 +273,6 @@ export default function EndpointGrid({
           label={params.value}
           size="small"
           variant="outlined"
-          color="primary"
         />
       ),
     },
@@ -299,7 +285,6 @@ export default function EndpointGrid({
           label={params.value}
           size="small"
           variant="outlined"
-          color={getEnvironmentColor(params.value as string)}
         />
       ),
     },
@@ -325,6 +310,7 @@ export default function EndpointGrid({
           disableRowSelectionOnClick
           rowSelectionModel={selectedRows}
           onRowSelectionModelChange={handleRowSelectionModelChange}
+          disablePaperWrapper={true}
         />
       </Paper>
 

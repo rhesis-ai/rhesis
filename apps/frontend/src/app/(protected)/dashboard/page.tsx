@@ -57,7 +57,7 @@ export default function DashboardPage() {
         {/* First row of DataGrids */}
 
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: '100%' }}>
+          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               <ScienceIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
               Newest Tests
@@ -67,7 +67,7 @@ export default function DashboardPage() {
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: '100%' }}>
+          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               <ScienceIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
               Updated Tests
@@ -78,7 +78,7 @@ export default function DashboardPage() {
 
         {/* Second row of DataGrids */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: '100%' }}>
+          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               <HorizontalSplitIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
               Newest Test Sets
@@ -88,7 +88,7 @@ export default function DashboardPage() {
         </Grid>
         
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: '100%' }}>
+          <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               <PlayArrowIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
               Recent Test Runs

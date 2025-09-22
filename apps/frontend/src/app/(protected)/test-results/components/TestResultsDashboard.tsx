@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import TestResultsFilters from './TestResultsFilters';
 import TestResultsCharts from './TestResultsCharts';
@@ -11,6 +11,7 @@ interface TestResultsDashboardProps {
 }
 
 export default function TestResultsDashboard({ sessionToken }: TestResultsDashboardProps) {
+  const theme = useTheme();
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>({
     months: 6
   });
@@ -20,7 +21,7 @@ export default function TestResultsDashboard({ sessionToken }: TestResultsDashbo
   }, []);
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: theme.customSpacing.section.medium }}>
       {/* Filters */}
       <TestResultsFilters 
         onFiltersChange={handleFiltersChange}
