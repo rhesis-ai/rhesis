@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -149,6 +150,7 @@ export default function MetricsDirectoryTab({
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const theme = useTheme();
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -664,7 +666,7 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: theme.typography.helperText.fontSize
+                          fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
                         }
                       }}
                     >
@@ -679,7 +681,7 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: theme.typography.helperText.fontSize
+                          fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
                         }
                       }}
                     >
@@ -695,7 +697,7 @@ export default function MetricsDirectoryTab({
                         sx={{
                           padding: '2px',
                           '& .MuiSvgIcon-root': {
-                            fontSize: theme.typography.helperText.fontSize
+                            fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
                           }
                         }}
                       >
@@ -712,7 +714,7 @@ export default function MetricsDirectoryTab({
                           sx={{
                             padding: '2px',
                             '& .MuiSvgIcon-root': {
-                              fontSize: theme.typography.helperText.fontSize
+                              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
                             }
                           }}
                         >

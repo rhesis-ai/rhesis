@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@mui/material/styles';
 import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
 import {
   AssessmentIcon,
@@ -102,6 +103,7 @@ export default function MetricCard({
   usedIn,
   showUsage = false
 }: MetricCardProps) {
+  const theme = useTheme();
   const capitalizedScoreType = (scoreType ?? '').charAt(0).toUpperCase() + (scoreType ?? '').slice(1).toLowerCase();
   const capitalizedBackend = (backend ?? '').charAt(0).toUpperCase() + (backend ?? '').slice(1).toLowerCase();
 
@@ -176,7 +178,7 @@ export default function MetricCard({
             gap: 0.5,
             '& .MuiChip-root': {
               height: '24px',
-              fontSize: theme.typography.chartLabel.fontSize,
+              fontSize: theme?.typography?.chartLabel?.fontSize || '0.75rem',
               ...chipStyles
             }
           }}>
