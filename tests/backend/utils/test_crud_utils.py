@@ -384,19 +384,23 @@ class TestGetOrCreateSpecializedFunctions:
             # Verify result
             assert result == mock_topic
             
-            # Verify get_or_create_type_lookup was called
+            # Verify get_or_create_type_lookup was called (now includes organization_id and user_id)
             mock_get_type.assert_called_once_with(
                 db=test_db,
                 type_name="EntityType",
                 type_value=entity_type,
+                organization_id=None,
+                user_id=None,
                 commit=True
             )
             
-            # Verify get_or_create_status was called
+            # Verify get_or_create_status was called (now includes organization_id and user_id)
             mock_get_status.assert_called_once_with(
                 db=test_db,
                 name=status,
                 entity_type=EntityType.GENERAL,
+                organization_id=None,
+                user_id=None,
                 commit=True
             )
             
@@ -469,11 +473,13 @@ class TestGetOrCreateSpecializedFunctions:
             # Verify result
             assert result == mock_behavior
             
-            # Verify get_or_create_status was called
+            # Verify get_or_create_status was called (now includes organization_id and user_id)
             mock_get_status.assert_called_once_with(
                 db=test_db,
                 name=status,
                 entity_type=EntityType.GENERAL,
+                organization_id=None,
+                user_id=None,
                 commit=True
             )
             
