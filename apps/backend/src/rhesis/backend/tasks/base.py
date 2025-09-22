@@ -8,42 +8,15 @@ from celery import Task
 
 from rhesis.backend.app.database import (
     SessionLocal,
-    get_org_aware_db,
+    get_db,
 )
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 
 
-def with_tenant_context(func):
-    """
-    Decorator to automatically maintain tenant context in task functions.
-    This ensures all database operations use the proper tenant context.
-    
-    Now uses get_org_aware_db for better transaction management when 
-    organization context is available.
-    """
-
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        # Get task request for context
-        request = getattr(self, "request", None)
-        organization_id = getattr(request, "organization_id", None)
-        user_id = getattr(request, "user_id", None)
-
-        # Use get_org_aware_db if we have organization context
-        if organization_id:
-            with get_org_aware_db(organization_id, user_id) as db:
-                # Add db to kwargs and execute the task function
-                kwargs["db"] = db
-                return func(self, *args, **kwargs)
-        else:
-            # Fallback to legacy approach for tasks without organization context
-            with self.get_db_session() as db:
-                # Add db to kwargs and execute the task function
-                kwargs["db"] = db
-                return func(self, *args, **kwargs)
-
-    return wrapper
+# Removed with_tenant_context decorator - no longer needed
+# Tenant context (organization_id, user_id) is now passed directly to CRUD functions
+# Tasks should get database session via self.get_db_session() and pass tenant context explicitly
 
 
 def email_notification(template=None, subject_template=None):
@@ -150,22 +123,12 @@ class BaseTask(Task):
     @contextmanager
     def get_db_session(self):
         """
-        Get a database session with the proper tenant context.
+        Get a simple database session.
         
-        Uses get_org_aware_db for better transaction management and automatic 
-        tenant context setup with SET LOCAL variables.
-        
-        All tasks must have organization context as per application design.
+        Tenant context should be retrieved via get_tenant_context() and passed
+        directly to CRUD operations for optimal performance.
         """
-        # Get task context
-        org_id, user_id = self.get_tenant_context()
-
-        # All tasks should have organization context
-        if not org_id:
-            raise ValueError(f"Task {self.__class__.__name__} missing required organization context")
-
-        # Use get_org_aware_db for all tasks
-        with get_org_aware_db(org_id, user_id) as db:
+        with get_db() as db:
             yield db
 
     def validate_params(self, args, kwargs):

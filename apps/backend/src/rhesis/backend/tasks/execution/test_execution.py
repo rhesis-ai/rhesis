@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.database import get_org_aware_db
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -36,7 +36,7 @@ from rhesis.backend.tasks.execution.response_extractor import extract_response_w
 # ============================================================================
 
 
-# Tenant context is now handled automatically by get_org_aware_db context manager
+# Tenant context is now passed directly to CRUD operations
 
 
 # ============================================================================
@@ -288,7 +288,7 @@ def execute_test(
     start_time = datetime.utcnow()
 
     try:
-        # Tenant context is already set by the calling task using get_org_aware_db
+        # Tenant context should be passed directly to CRUD operations by the calling task
 
         # Check for existing result to avoid duplicates
         existing_result = check_existing_result(db, test_config_id, test_run_id, test_id)
