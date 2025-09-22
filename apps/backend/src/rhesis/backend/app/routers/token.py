@@ -76,6 +76,7 @@ def create_token(
 
     # Return the special response that includes the actual token value
     return TokenCreateResponse(
+        id=created_token.id,
         access_token=created_token.token,
         token_obfuscated=created_token.token_obfuscated,
         token_type=created_token.token_type,
@@ -225,9 +226,11 @@ def refresh_token(
 
     # Return the special response that includes the actual token value
     return TokenCreateResponse(
+        id=updated_token.id,
         access_token=updated_token.token,
         token_obfuscated=updated_token.token_obfuscated,
         token_type=updated_token.token_type,
         expires_at=updated_token.expires_at,
         name=updated_token.name,
+        last_refreshed_at=updated_token.last_refreshed_at,
     )
