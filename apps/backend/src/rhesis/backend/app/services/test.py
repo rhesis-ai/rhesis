@@ -42,7 +42,7 @@ def get_test_stats(
         top: Optional number of top items to show per dimension
         months: Number of months to include in historical stats (default: 6)
     """
-    calculator = StatsCalculator(db)
+    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
     return calculator.get_entity_stats(
         entity_model=models.Test,
         organization_id=current_user_organization_id,

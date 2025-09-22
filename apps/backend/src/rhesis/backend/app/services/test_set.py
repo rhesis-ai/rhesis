@@ -220,7 +220,7 @@ def get_test_set_stats(
     """
     Get comprehensive statistics about test sets.
     """
-    calculator = StatsCalculator(db)
+    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
     return calculator.get_entity_stats(
         entity_model=models.TestSet,
         organization_id=current_user_organization_id,
@@ -247,7 +247,7 @@ def get_test_set_test_stats(
         months: Number of months to include in historical stats (default: 6)
     """
 
-    calculator = StatsCalculator(db)
+    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
     return calculator.get_related_stats(
         entity_model=models.TestSet,
         related_model=models.Test,

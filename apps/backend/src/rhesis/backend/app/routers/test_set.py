@@ -544,14 +544,16 @@ async def update_test_set(
 def download_test_set_prompts(
     test_set_identifier: str,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
     try:
         # Resolve test set
         db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
 
-        # Get prompts
-        prompts = get_prompts_for_test_set(db, db_test_set.id)
+        # Get prompts with organization filtering (SECURITY CRITICAL)
+        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
         # Check if prompts list is empty before trying to create CSV
         if not prompts:
@@ -580,10 +582,12 @@ def download_test_set_prompts(
 def get_test_set_prompts(
     test_set_identifier: str,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
     db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
-    return get_prompts_for_test_set(db, db_test_set.id)
+    organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+    return get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
 
 @router.get("/{test_set_identifier}/tests", response_model=list[TestDetailSchema])
@@ -688,14 +692,16 @@ def generate_test_set_test_stats(
 def download_test_set_prompts_csv(
     test_set_identifier: str,
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
     try:
         # Resolve test set
         db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
 
-        # Get prompts
-        prompts = get_prompts_for_test_set(db, db_test_set.id)
+        # Get prompts with organization filtering (SECURITY CRITICAL)
+        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
         try:
             csv_data = prompts_to_csv(prompts)
