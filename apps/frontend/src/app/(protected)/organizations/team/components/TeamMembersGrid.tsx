@@ -20,7 +20,7 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import PersonIcon from '@mui/icons-material/Person';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { DeleteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TeamMembersGridProps {

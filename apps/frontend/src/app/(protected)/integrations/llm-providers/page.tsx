@@ -13,11 +13,10 @@ import {
 import AnthropicIcon from '@mui/icons-material/Psychology';
 import CohereLogo from '@mui/icons-material/AutoFixHigh';
 import MistralIcon from '@mui/icons-material/AcUnit';
-import CloudIcon from '@mui/icons-material/Cloud';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
+import { DeleteIcon } from '@/components/icons';
+import { AddIcon, CloudIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
