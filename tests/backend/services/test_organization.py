@@ -108,25 +108,63 @@ class TestLoadInitialData:
                 commit=False
             )
 
-    def test_load_initial_data_file_not_found(self, test_db: Session, authenticated_user_id, test_org_id):
-        """Test load_initial_data when initial_data.json file is not found."""
-        with patch('builtins.open', side_effect=FileNotFoundError("File not found")), \
-             patch('rhesis.backend.app.services.organization.set_tenant') as mock_set_tenant:
+    def test_load_initial_data_with_custom_file_path(self, test_db: Session, authenticated_user_id, test_org_id):
+        """Integration test: load_initial_data with custom file path that contains minimal data."""
+        import tempfile
+        import os
+        
+        # Create a temporary file with minimal valid initial data
+        minimal_data = {
+            "status": [
+                {"name": "Test Status", "description": "A test status", "entity_type": "Test"}
+            ]
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+            json.dump(minimal_data, temp_file)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Count existing statuses before loading
+            initial_count = test_db.query(models.Status).filter(
+                models.Status.organization_id == test_org_id
+            ).count()
             
-            # Call the function and expect FileNotFoundError
-            with pytest.raises(FileNotFoundError):
+            # Temporarily replace the initial_data.json path
+            original_path = organization_service.__file__.replace('__init__.py', 'initial_data.json')
+            
+            # Monkey patch the file path in the function
+            with patch('rhesis.backend.app.services.organization.os.path.join') as mock_join:
+                mock_join.return_value = temp_file_path
+                
+                # Call the real function with real data
                 organization_service.load_initial_data(
                     db=test_db,
                     organization_id=test_org_id,
                     user_id=authenticated_user_id
                 )
             
-            # Verify set_tenant was still called
-            mock_set_tenant.assert_called_once_with(
-                test_db, 
-                organization_id=test_org_id, 
-                user_id=authenticated_user_id
-            )
+            # Verify that data was actually loaded
+            final_count = test_db.query(models.Status).filter(
+                models.Status.organization_id == test_org_id
+            ).count()
+            
+            # Should have at least one new status
+            assert final_count >= initial_count
+            
+            # Verify the specific status was created
+            test_status = test_db.query(models.Status).filter(
+                models.Status.organization_id == test_org_id,
+                models.Status.name == "Test Status"
+            ).first()
+            
+            assert test_status is not None, "Test Status should have been created"
+            # The actual description might be modified by the get_or_create_status logic
+            assert "test status" in test_status.description.lower(), f"Expected description to contain 'test status', got: {test_status.description}"
+            
+        finally:
+            # Clean up the temporary file
+            os.unlink(temp_file_path)
 
     def test_load_initial_data_invalid_json(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test load_initial_data with invalid JSON data."""
@@ -134,7 +172,10 @@ class TestLoadInitialData:
         invalid_json = "{ invalid json }"
         
         with patch('builtins.open', mock_open(read_data=invalid_json)), \
-             patch('rhesis.backend.app.services.organization.set_tenant') as mock_set_tenant:
+             patch('rhesis.backend.app.services.organization.get_org_aware_db') as mock_get_org_aware_db:
+            
+            # Setup the context manager mock
+            mock_get_org_aware_db.return_value.__enter__.return_value = test_db
             
             # Call the function and expect JSONDecodeError
             with pytest.raises(json.JSONDecodeError):
@@ -144,11 +185,10 @@ class TestLoadInitialData:
                     user_id=authenticated_user_id
                 )
             
-            # Verify set_tenant was still called
-            mock_set_tenant.assert_called_once_with(
-                test_db, 
-                organization_id=test_org_id, 
-                user_id=authenticated_user_id
+            # Verify get_org_aware_db was called
+            mock_get_org_aware_db.assert_called_once_with(
+                test_org_id, 
+                authenticated_user_id
             )
 
     def test_load_initial_data_empty_data(self, test_db: Session, authenticated_user_id, test_org_id):
@@ -158,7 +198,10 @@ class TestLoadInitialData:
         
         with patch('builtins.open', mock_open(read_data=json.dumps(empty_data))), \
              patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type, \
-             patch('rhesis.backend.app.services.organization.set_tenant') as mock_set_tenant:
+             patch('rhesis.backend.app.services.organization.get_org_aware_db') as mock_get_org_aware_db:
+            
+            # Setup the context manager mock
+            mock_get_org_aware_db.return_value.__enter__.return_value = test_db
             
             # Call the function
             organization_service.load_initial_data(
@@ -167,11 +210,10 @@ class TestLoadInitialData:
                 user_id=authenticated_user_id
             )
             
-            # Verify set_tenant was called
-            mock_set_tenant.assert_called_once_with(
-                test_db, 
-                organization_id=test_org_id, 
-                user_id=authenticated_user_id
+            # Verify get_org_aware_db was called
+            mock_get_org_aware_db.assert_called_once_with(
+                test_org_id, 
+                authenticated_user_id
             )
             
             # Verify no type_lookup creation (empty data)

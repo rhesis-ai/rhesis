@@ -1,7 +1,7 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from typing import Tuple
@@ -95,16 +95,42 @@ def setup_test_database():
 
 @pytest.fixture(autouse=True)
 def clean_test_database():
-    """Clean test database between tests for isolation while maintaining production behavior."""
+    """Clean test database between tests for isolation while preserving session-scoped auth data."""
     # Clean up BEFORE each test to ensure isolation
     try:
         with test_engine.connect() as connection:
             with connection.begin():
-                # Simple approach: truncate all tables except reference data
-                # This is faster and more reliable than DELETE
+                # Get session-scoped authentication data to preserve it
+                auth_user_id = None
+                auth_org_id = None
+                auth_token_ids = []
                 
-                # List of tables to truncate (in dependency order)
-                tables_to_truncate = [
+                try:
+                    # Try to get the authenticated user info from environment
+                    import os
+                    api_key = os.getenv("RHESIS_API_KEY")
+                    if api_key:
+                        # Get the user and org that should be preserved
+                        result = connection.execute(text("""
+                            SELECT u.id as user_id, u.organization_id, array_agg(t.id) as token_ids
+                            FROM "user" u 
+                            LEFT JOIN token t ON t.user_id = u.id AND t.token = :api_key
+                            WHERE u.id IN (SELECT user_id FROM token WHERE token = :api_key)
+                            GROUP BY u.id, u.organization_id
+                        """), {"api_key": api_key})
+                        
+                        row = result.fetchone()
+                        if row:
+                            auth_user_id = str(row.user_id)
+                            auth_org_id = str(row.organization_id) if row.organization_id else None
+                            auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
+                except Exception:
+                    # If we can't get auth data, continue with normal cleanup
+                    pass
+                
+                # List of tables to clean (in dependency order)
+                # Clean test data but preserve session-scoped authentication data
+                tables_to_clean = [
                     # Main entity tables (reverse dependency order)
                     'test_test_set_associations',
                     'test_set_execution_results',
@@ -112,22 +138,40 @@ def clean_test_database():
                     'tests',
                     'test_sets',
                     'endpoints',
-                    'organizations',
-                    '"user"',  # user is a reserved word, needs quotes
-                    # Add other tables as needed
+                    'token',  # Clean tokens but preserve auth tokens
+                    'subscription',  # Clean subscriptions but preserve auth user's
+                    'organizations',  # Clean orgs but preserve auth org
+                    '"user"',  # Clean users but preserve auth user
                 ]
                 
-                for table_name in tables_to_truncate:
+                for table_name in tables_to_clean:
                     try:
-                        # TRUNCATE is faster than DELETE and resets sequences
-                        connection.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE'))
-                    except Exception as e:
-                        # Table might not exist or have other issues - try DELETE as fallback
-                        try:
+                        if table_name == '"user"' and auth_user_id:
+                            # Preserve the authenticated user
+                            connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
+                                             {"auth_user_id": auth_user_id})
+                        elif table_name == 'organizations' and auth_org_id:
+                            # Preserve the authenticated user's organization
+                            connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_org_id'), 
+                                             {"auth_org_id": auth_org_id})
+                        elif table_name == 'token' and auth_token_ids:
+                            # Preserve the authentication tokens
+                            placeholders = ','.join([f':token_{i}' for i in range(len(auth_token_ids))])
+                            token_params = {f'token_{i}': token_id for i, token_id in enumerate(auth_token_ids)}
+                            connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
+                                             token_params)
+                        elif table_name == 'subscription' and auth_user_id:
+                            # Preserve the authenticated user's subscriptions
+                            connection.execute(text(f'DELETE FROM {table_name} WHERE user_id != :auth_user_id'), 
+                                             {"auth_user_id": auth_user_id})
+                        else:
+                            # For other tables, clean everything
                             connection.execute(text(f'DELETE FROM {table_name}'))
-                        except Exception:
-                            # If both fail, continue - some tables might not exist yet
-                            pass
+                            
+                    except Exception as e:
+                        # If cleanup fails for a table, continue with others
+                        print(f"Failed to clean table {table_name}: {e}")
+                        pass
                             
     except Exception as e:
         # If cleanup fails completely, continue - tests might still work
