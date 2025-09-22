@@ -93,35 +93,74 @@ def _set_tenant_for_connection(dbapi_connection, connection_record):
 
 ### Context Maintenance
 
-A context manager ensures tenant context is maintained across transactions:
+A context manager ensures tenant context is maintained across transactions using `SET LOCAL` for transaction-scoped variables:
 
 ```python
 @contextmanager
-def maintain_tenant_context(session: Session):
-    """Maintain the tenant context across a transaction."""
-    # Store current context
+def get_org_aware_db(organization_id: str, user_id: str):
+    """
+    Context manager for organization-aware database operations.
+    
+    Uses SET LOCAL for transaction-scoped variables and automatic transaction management.
+    This approach eliminates connection pooling issues and provides cleaner error handling.
+    """
+    # Get database session
+    db = next(get_db())
+    
     try:
-        prev_org_id = _current_tenant_organization_id.get()
-        prev_user_id = _current_tenant_user_id.get()
+        # Begin transaction
+        with db.begin():
+            # Set tenant context using SET LOCAL (transaction-scoped)
+            db.execute(text("SET LOCAL app.current_organization = :org_id"), {"org_id": organization_id})
+            db.execute(text("SET LOCAL app.current_user = :user_id"), {"user_id": user_id})
+            
+            yield db
+            
+            # Transaction is automatically committed by db.begin() on success
     except Exception:
-        prev_org_id = None
-        prev_user_id = None
-
-    try:
-        # Set context before the operation
-        set_tenant(session, prev_org_id, prev_user_id)
-        yield
-    except Exception:
-        if session.in_transaction():
-            session.rollback()
+        # Transaction is automatically rolled back by db.begin() on exception
         raise
     finally:
-        try:
-            # Clean up tenant context
-            _execute_set_tenant(session, None, None)
-        except Exception as e:
-            logger.debug(f"Error in maintain_tenant_context cleanup: {e}")
+        # Session cleanup
+        db.close()
 ```
+
+**Key improvements over the previous approach:**
+
+- **`SET LOCAL`**: Variables are automatically scoped to the transaction and cleared when it ends
+- **Automatic transaction management**: `db.begin()` handles commit/rollback automatically  
+- **No connection pooling issues**: Each context gets a fresh session
+- **Cleaner error handling**: No need for manual cleanup in finally blocks
+- **Better isolation**: Transaction-scoped variables prevent context leakage
+
+### Usage Patterns
+
+**For multi-entity operations (recommended):**
+```python
+# Use get_org_aware_db for operations that need explicit tenant context
+def load_initial_data(organization_id: str, user_id: str):
+    with get_org_aware_db(organization_id, user_id) as db:
+        # All database operations within this block are tenant-aware
+        create_statuses(db, initial_data["status"])
+        create_behaviors(db, initial_data["behavior"])
+        # Automatic commit on success, rollback on exception
+```
+
+**For API request handling:**
+```python
+# Standard dependency injection for regular API endpoints
+async def get_tests(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_current_user)
+):
+    # Tenant context is set by require_current_user dependency
+    return crud.get_tests(db)
+```
+
+**When to use each approach:**
+
+- **`get_org_aware_db`**: Multi-entity operations, background tasks, data migrations, initial data loading
+- **Standard dependencies**: Regular API endpoints where tenant context is set by authentication middleware
 
 ## Authentication Integration
 
