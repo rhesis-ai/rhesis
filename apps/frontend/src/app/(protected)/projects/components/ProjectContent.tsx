@@ -11,6 +11,7 @@ import {
   Avatar
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import DevicesIcon from '@mui/icons-material/Devices';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
@@ -154,7 +155,7 @@ export default function ProjectContent({ project }: { project: Project }) {
                     <Avatar 
                       src={project.owner.picture} 
                       alt={project.owner.name || project.owner.email}
-                      sx={{ width: 32, height: 32 }}
+                      sx={{ width: AVATAR_SIZES.MEDIUM, height: AVATAR_SIZES.MEDIUM }}
                     >
                       <PersonIcon />
                     </Avatar>

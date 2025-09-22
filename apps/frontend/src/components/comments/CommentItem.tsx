@@ -19,6 +19,7 @@ import {
   EmojiEmotions as EmojiIcon,
   Assignment as TaskIcon,
 } from '@mui/icons-material';
+import { AddTaskIcon } from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
@@ -404,7 +405,7 @@ export function CommentItem({
                         }
                       }}
                     >
-                      <Typography variant="body2" sx={{ fontSize: '1rem' }}>📋</Typography>
+                      <AddTaskIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
                       <Typography variant="body2" fontWeight={600} sx={{ 
                         color: 'text.primary',
                         fontSize: '0.75rem'

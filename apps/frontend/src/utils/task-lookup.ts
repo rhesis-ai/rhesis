@@ -3,13 +3,44 @@ import { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { Status as ApiStatus } from '@/utils/api-client/interfaces/status';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 
-// Cache for statuses and priorities to avoid repeated API calls
-let statusCache: Status[] | null = null;
-let priorityCache: Priority[] | null = null;
+/**
+ * Proper cache class with TTL (Time To Live) support
+ */
+class TaskDataCache {
+  private cache = new Map<string, { data: any; timestamp: number }>();
+  private readonly TTL = 5 * 60 * 1000; // 5 minutes
+
+  get<T>(key: string): T | null {
+    const item = this.cache.get(key);
+    if (!item || Date.now() - item.timestamp > this.TTL) {
+      this.cache.delete(key);
+      return null;
+    }
+    return item.data;
+  }
+
+  set<T>(key: string, data: T): void {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  has(key: string): boolean {
+    const item = this.cache.get(key);
+    return item ? Date.now() - item.timestamp <= this.TTL : false;
+  }
+}
+
+// Create a singleton cache instance
+const taskDataCache = new TaskDataCache();
 
 export async function getStatuses(sessionToken?: string): Promise<Status[]> {
-  if (statusCache) {
-    return statusCache;
+  const cacheKey = 'statuses';
+  const cachedStatuses = taskDataCache.get<Status[]>(cacheKey);
+  if (cachedStatuses) {
+    return cachedStatuses;
   }
 
   try {
@@ -32,28 +63,30 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
         id: status.id,
         name: status.name,
         description: status.description,
-        entity_type_id: status.entity_type,
-        created_at: new Date().toISOString(), // Default values since API doesn't have these
-        updated_at: new Date().toISOString()
+        entity_type_id: status.entity_type
       }));
     
-    statusCache = statuses;
+    taskDataCache.set(cacheKey, statuses);
     return statuses;
   } catch (error) {
     console.error('Failed to fetch statuses:', error);
     // Return default statuses if API fails - using proper UUIDs
-    return [
+    const defaultStatuses = [
       { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Open', description: 'Task is open', entity_type_id: 'Task' },
       { id: '550e8400-e29b-41d4-a716-446655440002', name: 'In Progress', description: 'Task is in progress', entity_type_id: 'Task' },
       { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Completed', description: 'Task is completed', entity_type_id: 'Task' },
       { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Cancelled', description: 'Task is cancelled', entity_type_id: 'Task' },
     ];
+    taskDataCache.set(cacheKey, defaultStatuses);
+    return defaultStatuses;
   }
 }
 
 export async function getPriorities(sessionToken?: string): Promise<Priority[]> {
-  if (priorityCache) {
-    return priorityCache;
+  const cacheKey = 'priorities';
+  const cachedPriorities = taskDataCache.get<Priority[]>(cacheKey);
+  if (cachedPriorities) {
+    return cachedPriorities;
   }
 
   try {
@@ -78,21 +111,21 @@ export async function getPriorities(sessionToken?: string): Promise<Priority[]> 
         id: priority.id,
         type_name: priority.type_name,
         type_value: priority.type_value,
-        description: priority.description,
-        created_at: new Date().toISOString(), // Default values since API doesn't have these
-        updated_at: new Date().toISOString()
+        description: priority.description
       }));
     
-    priorityCache = priorities;
+    taskDataCache.set(cacheKey, priorities);
     return priorities;
   } catch (error) {
     console.error('Failed to fetch priorities:', error);
     // Return default priorities if API fails - using proper UUIDs
-    return [
+    const defaultPriorities = [
       { id: '550e8400-e29b-41d4-a716-446655440011', type_name: 'TaskPriority', type_value: 'Low', description: 'Low priority' },
       { id: '550e8400-e29b-41d4-a716-446655440012', type_name: 'TaskPriority', type_value: 'Medium', description: 'Medium priority' },
       { id: '550e8400-e29b-41d4-a716-446655440013', type_name: 'TaskPriority', type_value: 'High', description: 'High priority' },
     ];
+    taskDataCache.set(cacheKey, defaultPriorities);
+    return defaultPriorities;
   }
 }
 
@@ -167,8 +200,7 @@ export async function getPrioritiesForTask(sessionToken?: string, existingTaskPr
 }
 
 export function clearCache(): void {
-  statusCache = null;
-  priorityCache = null;
+  taskDataCache.clear();
 }
 
 // Helper function to get session token from NextAuth

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,6 +17,11 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { TaskPriority, EntityType } from '@/types/tasks';
+import { getPriorities } from '@/utils/task-lookup';
+import { getEntityDisplayName } from '@/utils/entity-helpers';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { User } from '@/utils/api-client/interfaces/user';
+import { useSession } from 'next-auth/react';
 
 interface TaskCreationModalProps {
   open: boolean;
@@ -41,10 +46,43 @@ export function TaskCreationModal({
   isLoading = false,
   commentId,
 }: TaskCreationModalProps) {
+  const { data: session } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('Medium');
   const [assigneeId, setAssigneeId] = useState('');
+  const [priorities, setPriorities] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Load data when modal opens
+  useEffect(() => {
+    const loadData = async () => {
+      if (!open || !session?.session_token) return;
+      
+      setIsLoadingData(true);
+      try {
+        const [fetchedPriorities, fetchedUsers] = await Promise.all([
+          getPriorities(session.session_token),
+          (async () => {
+            const clientFactory = new ApiClientFactory(session.session_token!);
+            const usersClient = clientFactory.getUsersClient();
+            const response = await usersClient.getUsers();
+            return response.data;
+          })()
+        ]);
+
+        setPriorities(fetchedPriorities);
+        setUsers(fetchedUsers);
+      } catch (error) {
+        console.error('Error loading task creation data:', error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    
+    loadData();
+  }, [open, session?.session_token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,21 +112,6 @@ export function TaskCreationModal({
       setPriority('Medium');
       setAssigneeId('');
       onClose();
-    }
-  };
-
-  const getEntityDisplayName = (entityType: EntityType): string => {
-    switch (entityType) {
-      case 'Test':
-        return 'Test';
-      case 'TestSet':
-        return 'Test Set';
-      case 'TestRun':
-        return 'Test Run';
-      case 'TestResult':
-        return 'Test Result';
-      default:
-        return entityType;
     }
   };
 
@@ -143,10 +166,13 @@ export function TaskCreationModal({
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as TaskPriority)}
                   label="Priority"
+                  disabled={isLoadingData}
                 >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
+                  {priorities.map((priorityOption) => (
+                    <MenuItem key={priorityOption.type_value} value={priorityOption.type_value}>
+                      {priorityOption.type_value}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
 
@@ -157,16 +183,16 @@ export function TaskCreationModal({
                   value={assigneeId}
                   onChange={(e) => setAssigneeId(e.target.value)}
                   label="Assignee"
+                  disabled={isLoadingData}
                 >
                   <MenuItem value="">
                     <em>Unassigned</em>
                   </MenuItem>
-                  {/* TODO: Load users from API */}
-                  {/* {mockUsers.map((user) => (
+                  {users.map((user) => (
                     <MenuItem key={user.id} value={user.id}>
                       {user.name}
                     </MenuItem>
-                  ))} */}
+                  ))}
                 </Select>
               </FormControl>
             </Box>
@@ -195,7 +221,7 @@ export function TaskCreationModal({
           <Button 
             type="submit" 
             variant="contained"
-            disabled={isLoading || !title.trim()}
+            disabled={isLoading || !title.trim() || isLoadingData}
             startIcon={isLoading ? <CircularProgress size={16} /> : undefined}
           >
             {isLoading ? 'Creating...' : 'Create Task'}

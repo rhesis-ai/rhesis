@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import AssignmentIcon from '@mui/icons-material/Assignment';
 import { 
   GridColDef, 
   GridRowSelectionModel, 
@@ -13,10 +12,11 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/utils/api-client/interfaces/task';
-import { Typography, Box, Alert, Chip, Button } from '@mui/material';
+import { Typography, Box, Alert, Chip, Button, Avatar } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { combineTaskFiltersToOData } from '@/utils/odata-filter';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 interface TasksGridProps {
   sessionToken: string;
@@ -159,12 +159,9 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       headerName: 'Title',
       width: 300,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AssignmentIcon fontSize="small" color="action" />
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {params.row.title}
-          </Typography>
-        </Box>
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+          {params.row.title}
+        </Typography>
       ),
     },
     {
@@ -210,9 +207,18 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       headerName: 'Assignee',
       width: 150,
       renderCell: (params) => (
-        <Typography variant="body2">
-          {params.row.assignee?.name || 'Unassigned'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar 
+            src={params.row.assignee?.picture} 
+            alt={params.row.assignee?.name || 'Unassigned'}
+            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+          >
+            {params.row.assignee?.name?.charAt(0) || 'U'}
+          </Avatar>
+          <Typography variant="body2">
+            {params.row.assignee?.name || 'Unassigned'}
+          </Typography>
+        </Box>
       ),
     },
   ];

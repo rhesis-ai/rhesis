@@ -11,13 +11,14 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Assignment as TaskIcon,
-} from '@mui/icons-material';
+  EditIcon,
+  DeleteIcon,
+  AssignmentIcon,
+} from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { Task, TaskStatus, TaskPriority } from '@/types/tasks';
+import { Task, TaskStatus, TaskPriority, EntityType } from '@/types/tasks';
+import { getEntityDisplayName } from '@/utils/entity-helpers';
 import { UserAvatar } from '@/components/common/UserAvatar';
 
 interface TaskItemProps {
@@ -71,42 +72,18 @@ export function TaskItem({
     }
   };
 
-  const getEntityDisplayName = (entityType: string): string => {
-    switch (entityType) {
-      case 'Test':
-        return 'Test';
-      case 'TestSet':
-        return 'Test Set';
-      case 'TestRun':
-        return 'Test Run';
-      case 'TestResult':
-        return 'Test Result';
-      default:
-        return entityType;
-    }
-  };
-
-  const getEntityPath = (entityType: string): string => {
-    switch (entityType) {
-      case 'Test':
-        return 'tests';
-      case 'TestSet':
-        return 'test-sets';
-      case 'TestRun':
-        return 'test-runs';
-      case 'TestResult':
-        return 'test-results';
-      default:
-        return entityType.toLowerCase();
-    }
-  };
-
   const handleTaskClick = (e: React.MouseEvent) => {
     // Prevent navigation if clicking on action buttons
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
-    router.push(`/tasks/${task.id}`);
+    
+    try {
+      router.push(`/tasks/${task.id}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Could show notification or handle gracefully
+    }
   };
 
   return (
@@ -132,7 +109,7 @@ export function TaskItem({
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-          <TaskIcon fontSize="small" color="action" />
+          <AssignmentIcon fontSize="small" color="action" />
           <Typography 
             variant="subtitle2" 
             fontWeight={600}
@@ -233,7 +210,7 @@ export function TaskItem({
       {showEntityLink && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="caption" color="text.secondary">
-            Related to: {getEntityDisplayName(task.entity_type || '')}
+            Related to: {getEntityDisplayName(task.entity_type as EntityType || 'Task')}
           </Typography>
         </Box>
       )}

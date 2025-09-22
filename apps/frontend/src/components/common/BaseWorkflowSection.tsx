@@ -8,6 +8,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { PriorityLevel } from '@/utils/api-client/interfaces/tests';
 
 interface BaseWorkflowSectionProps {
@@ -362,7 +363,7 @@ export default function BaseWorkflowSection({
                 <Box sx={{ display: 'flex', alignItems: 'center', pl: 1 }}>
                   <Avatar
                     src={currentAssignee.picture}
-                    sx={{ width: 24, height: 24 }}
+                    sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL }}
                   >
                     <PersonIcon />
                   </Avatar>
@@ -378,7 +379,7 @@ export default function BaseWorkflowSection({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Avatar
                   src={option.picture}
-                  sx={{ width: 32, height: 32 }}
+                  sx={{ width: AVATAR_SIZES.MEDIUM, height: AVATAR_SIZES.MEDIUM }}
                 >
                   {!option.picture && option.displayName.charAt(0)}
                 </Avatar>
@@ -408,7 +409,7 @@ export default function BaseWorkflowSection({
                 <Box sx={{ display: 'flex', alignItems: 'center', pl: 1 }}>
                   <Avatar
                     src={currentOwner.picture}
-                    sx={{ width: 24, height: 24 }}
+                    sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL }}
                   >
                     <PersonIcon />
                   </Avatar>
@@ -424,7 +425,7 @@ export default function BaseWorkflowSection({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Avatar
                   src={option.picture}
-                  sx={{ width: 32, height: 32 }}
+                  sx={{ width: AVATAR_SIZES.MEDIUM, height: AVATAR_SIZES.MEDIUM }}
                 >
                   {!option.picture && option.displayName.charAt(0)}
                 </Avatar>

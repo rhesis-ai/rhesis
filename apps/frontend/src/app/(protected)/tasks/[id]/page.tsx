@@ -18,17 +18,29 @@ import {
   CircularProgress,
   Chip,
   Avatar,
-  IconButton
+  IconButton,
+  Divider
 } from '@mui/material';
-import { Save, ArrowForward, Edit, Cancel, Science, Category, PlayArrow, Chat } from '@mui/icons-material';
+import { 
+  SaveIcon, 
+  ArrowForwardIcon, 
+  EditIcon, 
+  CancelIcon, 
+  ScienceIcon, 
+  CategoryIcon, 
+  PlayArrowIcon, 
+  ChatIcon 
+} from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
 import { getStatusesForTask, getPrioritiesForTask, getStatusByName, getPriorityByName } from '@/utils/task-lookup';
+import { getEntityUrlMap } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -181,28 +193,25 @@ export default function TaskDetailPage({ params }: PageProps) {
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Paper sx={{ p: 4 }}>
-              {/* Header with title and action button */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-                <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                  {task.title}
-                </Typography>
+              {/* Task Details Section */}
+              {/* Header with action button */}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 4 }}>
                 {(task.entity_type && task.entity_id) && (
                   <IconButton
                     size="small"
                     onClick={() => {
                       // Always navigate to the entity, optionally with comment hash
                       if (task.entity_type && task.entity_id) {
-                        // Map entity types to correct URL paths (plural)
-                        const entityUrlMap: Record<string, string> = {
-                          'Test': 'tests',
-                          'TestSet': 'test-sets',
-                          'TestRun': 'test-runs',
-                          'TestResult': 'test-results'
-                        };
-                        const entityPath = entityUrlMap[task.entity_type] || task.entity_type.toLowerCase();
-                        const baseUrl = `/${entityPath}/${task.entity_id}`;
-                        const commentHash = task.task_metadata?.comment_id ? `#comment-${task.task_metadata.comment_id}` : '';
-                        router.push(`${baseUrl}${commentHash}`);
+                        try {
+                          // Map entity types to correct URL paths (plural)
+                          const entityUrlMap = getEntityUrlMap();
+                          const entityPath = entityUrlMap[task.entity_type] || task.entity_type.toLowerCase();
+                          const baseUrl = `/${entityPath}/${task.entity_id}`;
+                          const commentHash = task.task_metadata?.comment_id ? `#comment-${task.task_metadata.comment_id}` : '';
+                          router.push(`${baseUrl}${commentHash}`);
+                        } catch (error) {
+                          console.error('Navigation error:', error);
+                        }
                       }
                     }}
                     sx={{ 
@@ -212,15 +221,15 @@ export default function TaskDetailPage({ params }: PageProps) {
                     title={task.task_metadata?.comment_id ? `Go to ${task.entity_type} (highlight comment)` : `Go to ${task.entity_type}`}
                   >
                     {task.task_metadata?.comment_id ? (
-                      <Chat fontSize="small" />
+                      <ChatIcon fontSize="small" />
                     ) : task.entity_type === 'Test' ? (
-                      <Science fontSize="small" />
+                      <ScienceIcon fontSize="small" />
                     ) : task.entity_type === 'TestSet' ? (
-                      <Category fontSize="small" />
+                      <CategoryIcon fontSize="small" />
                     ) : task.entity_type === 'TestRun' ? (
-                      <PlayArrow fontSize="small" />
+                      <PlayArrowIcon fontSize="small" />
                     ) : (
-                      <ArrowForward fontSize="small" />
+                      <ArrowForwardIcon fontSize="small" />
                     )}
                   </IconButton>
                 )}
@@ -265,72 +274,123 @@ export default function TaskDetailPage({ params }: PageProps) {
               {/* Creator and Assignee Row */}
               <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid item xs={6}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Creator
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                        {task.user?.name?.charAt(0) || 'U'}
-                      </Avatar>
-                      <Typography variant="body1">
-                        {task.user?.name || 'Unknown'}
-                      </Typography>
-                    </Box>
-                  </Box>
+                  <FormControl fullWidth disabled>
+                    <InputLabel>Creator</InputLabel>
+                    <Select
+                      value={task.user?.id || ''}
+                      label="Creator"
+                      displayEmpty
+                      sx={{
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1
+                        }
+                      }}
+                      renderValue={(value) => {
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar 
+                              src={task.user?.picture} 
+                              alt={task.user?.name || 'Unknown'}
+                              sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                            >
+                              {task.user?.name?.charAt(0) || 'U'}
+                            </Avatar>
+                            <Typography variant="body1">
+                              {task.user?.name || 'Unknown'}
+                            </Typography>
+                          </Box>
+                        );
+                      }}
+                    >
+                      <MenuItem value={task.user?.id || ''}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Avatar 
+                            src={task.user?.picture} 
+                            alt={task.user?.name || 'Unknown'}
+                            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                          >
+                            {task.user?.name?.charAt(0) || 'U'}
+                          </Avatar>
+                          <Typography variant="body1">
+                            {task.user?.name || 'Unknown'}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
                 <Grid item xs={6}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Assignee
-                    </Typography>
-                    <FormControl fullWidth disabled={isSaving}>
-                      <Select
-                        value={task.assignee_id || ''}
-                        onChange={handleChange('assignee_id')}
-                        displayEmpty
-                        sx={{
-                          '& .MuiSelect-select': {
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1
-                          }
-                        }}
-                        renderValue={(value) => {
-                          const selectedUser = users.find(user => user.id === value);
+                  <FormControl fullWidth disabled={isSaving}>
+                    <InputLabel shrink>Assignee</InputLabel>
+                    <Select
+                      value={task.assignee_id || ''}
+                      onChange={handleChange('assignee_id')}
+                      label="Assignee"
+                      displayEmpty
+                      sx={{
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          paddingTop: '16px',
+                          paddingBottom: '16px'
+                        }
+                      }}
+                      renderValue={(value) => {
+                        const selectedUser = users.find(user => user.id === value);
+                        if (!selectedUser) {
+                          // Handle "Unassigned" case
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Avatar sx={{ width: 24, height: 24, bgcolor: 'secondary.main' }}>
-                                {selectedUser?.name?.charAt(0) || 'U'}
+                              <Avatar sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'grey.300' }}>
+                                U
                               </Avatar>
-                              <Typography variant="body1">
-                                {selectedUser?.name || 'Unassigned'}
-                              </Typography>
+                              <Typography variant="body1">Unassigned</Typography>
                             </Box>
                           );
-                        }}
-                      >
-                        <MenuItem value="">
+                        }
+                        return (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 24, height: 24, bgcolor: 'grey.300' }}>
-                              U
+                            <Avatar 
+                              src={selectedUser.picture} 
+                              alt={selectedUser.name || 'User'}
+                              sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                            >
+                              {selectedUser.name?.charAt(0) || 'U'}
                             </Avatar>
-                            <Typography variant="body1">Unassigned</Typography>
+                            <Typography variant="body1">
+                              {selectedUser.name}
+                            </Typography>
+                          </Box>
+                        );
+                      }}
+                    >
+                      <MenuItem value="">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Avatar sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'grey.300' }}>
+                            U
+                          </Avatar>
+                          <Typography variant="body1">Unassigned</Typography>
+                        </Box>
+                      </MenuItem>
+                      {users.filter(user => user.id && user.name).map((user) => (
+                        <MenuItem key={user.id} value={user.id}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar 
+                              src={user.picture} 
+                              alt={user.name || 'User'}
+                              sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                            >
+                              {user.name?.charAt(0) || 'U'}
+                            </Avatar>
+                            <Typography variant="body1">{user.name}</Typography>
                           </Box>
                         </MenuItem>
-                        {users.map((user) => (
-                          <MenuItem key={user.id} value={user.id}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Avatar sx={{ width: 24, height: 24, bgcolor: 'secondary.main' }}>
-                                {user.name?.charAt(0) || 'U'}
-                              </Avatar>
-                              <Typography variant="body1">{user.name}</Typography>
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Grid>
               </Grid>
 
@@ -361,7 +421,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                         }
                       }}
                     >
-                      <Edit fontSize="small" />
+                      <EditIcon fontSize="small" />
                     </IconButton>
                   ) : (
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -375,7 +435,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                           }
                         }}
                       >
-                        <Cancel fontSize="small" />
+                        <CancelIcon fontSize="small" />
                       </IconButton>
                       <IconButton
                         onClick={() => {
@@ -390,7 +450,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                           }
                         }}
                       >
-                        <Save fontSize="small" />
+                        <SaveIcon fontSize="small" />
                       </IconButton>
                     </Box>
                   )}
@@ -430,21 +490,21 @@ export default function TaskDetailPage({ params }: PageProps) {
                 )}
               </Box>
 
-            </Paper>
-          </Grid>
-          
-          {/* Comments Section */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <CommentsWrapper
-                entityType="Task"
-                entityId={taskId}
-                sessionToken={session?.session_token || ''}
-                currentUserId={session?.user?.id || ''}
-                currentUserName={session?.user?.name || 'Unknown User'}
-                currentUserPicture={session?.user?.picture || undefined}
-                onCreateTask={undefined} // No task creation from task comments
-              />
+              {/* Divider between task details and comments */}
+              <Divider sx={{ my: 4 }} />
+
+              {/* Comments Section */}
+              <Box>
+                <CommentsWrapper
+                  entityType="Task"
+                  entityId={taskId}
+                  sessionToken={session?.session_token || ''}
+                  currentUserId={session?.user?.id || ''}
+                  currentUserName={session?.user?.name || 'Unknown User'}
+                  currentUserPicture={session?.user?.picture || undefined}
+                  onCreateTask={undefined} // No task creation from task comments
+                />
+              </Box>
             </Paper>
           </Grid>
         </Grid>
