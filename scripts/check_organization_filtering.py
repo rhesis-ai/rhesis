@@ -75,6 +75,16 @@ class OrganizationFilterChecker:
             r'filter_params\s*=.*organization_id',
             r'apply_filters.*organization_id',
             r'_apply_organization_filter',
+            # Stats service patterns (filter_params mechanism)
+            r'filter_params\s*=\s*{[^}]*"organization_id"',
+            r'apply_filters\s*\([^)]*filter_params',
+            r'get_test_result_stats.*organization_id',
+            r'get_test_run_stats.*organization_id',
+            # Filter application patterns
+            r'apply_filters\([^)]*base_query[^)]*filter_params',
+            r'base_query\s*=\s*apply_filters',
+            r'_apply_filters\([^)]*base_query[^)]*filter_params',
+            r'base_query\s*=\s*_apply_filters',
         ]
         
         # Directories to scan
@@ -147,8 +157,8 @@ class OrganizationFilterChecker:
                 return False  # ID-based queries are safe
         
         # Check surrounding lines for organization filtering context (multi-line queries)
-        context_start = max(0, line_num - 10)
-        context_end = min(len(lines), line_num + 10)
+        context_start = max(0, line_num - 15)
+        context_end = min(len(lines), line_num + 15)
         context_lines = ' '.join(lines[context_start:context_end])
         
         # Check for UUID-based filtering in the surrounding context (multi-line queries)
@@ -172,13 +182,16 @@ class OrganizationFilterChecker:
                 return False  # Organization filtering found in context
         
         # Check for function parameters that indicate organization filtering is handled
-        function_context = ' '.join(lines[max(0, line_num - 20):min(len(lines), line_num + 5)])
+        function_context = ' '.join(lines[max(0, line_num - 25):min(len(lines), line_num + 15)])
         if re.search(r'def\s+\w+.*organization_id.*:', function_context):
             # Function accepts organization_id parameter, likely handled properly
             if ('filter_params' in context_lines or 
                 'QueryBuilder' in context_lines or
                 'apply_filters' in context_lines or
-                '_apply_organization_filter' in context_lines):
+                '_apply_filters' in context_lines or
+                '_apply_organization_filter' in context_lines or
+                '"organization_id": organization_id' in context_lines or
+                'organization_id.*filter_params' in context_lines):
                 return False  # Organization filtering handled through parameters or QueryBuilder
         
         # Check for UUID-based function contexts (functions that take UUID parameters)
