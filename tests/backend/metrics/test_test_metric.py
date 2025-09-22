@@ -23,7 +23,7 @@ class TestRunMetricTestSimple:
             # Return None to trigger the "metric not found" path
             mock_load_metric.return_value = None
             
-            # Call the function - this will use real get_org_aware_db but hit the error path
+            # Call the function - this will use real get_db but hit the error path
             result = run_metric_test(
                 metric_id="nonexistent-metric",
                 organization_id="test-org-456", 

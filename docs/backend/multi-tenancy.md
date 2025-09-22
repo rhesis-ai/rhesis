@@ -97,7 +97,7 @@ A context manager ensures tenant context is maintained across transactions using
 
 ```python
 @contextmanager
-def get_org_aware_db(organization_id: str, user_id: str):
+def get_db_with_tenant_context(organization_id: str, user_id: str):
     """
     Context manager for organization-aware database operations.
     
@@ -137,12 +137,12 @@ def get_org_aware_db(organization_id: str, user_id: str):
 
 **For multi-entity operations (recommended):**
 ```python
-# Use get_org_aware_db for operations that need explicit tenant context
+# Use get_db and pass tenant context directly to CRUD operations
 def load_initial_data(organization_id: str, user_id: str):
-    with get_org_aware_db(organization_id, user_id) as db:
-        # All database operations within this block are tenant-aware
-        create_statuses(db, initial_data["status"])
-        create_behaviors(db, initial_data["behavior"])
+    with get_db() as db:
+        # Pass tenant context directly to CRUD operations
+        create_statuses(db, initial_data["status"], organization_id=organization_id, user_id=user_id)
+        create_behaviors(db, initial_data["behavior"], organization_id=organization_id, user_id=user_id)
         # Automatic commit on success, rollback on exception
 ```
 
@@ -159,7 +159,7 @@ async def get_tests(
 
 **When to use each approach:**
 
-- **`get_org_aware_db`**: Multi-entity operations, background tasks, data migrations, initial data loading
+- **`get_db` with direct parameters**: Multi-entity operations, background tasks, data migrations, initial data loading
 - **Standard dependencies**: Regular API endpoints where tenant context is set by authentication middleware
 
 ## Authentication Integration

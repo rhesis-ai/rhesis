@@ -2,7 +2,7 @@
 Tests for organization service functions.
 
 These tests verify the current behavior of functions before they are refactored
-to use the new get_org_aware_db approach.
+to use the new direct parameter passing approach.
 """
 
 import pytest
@@ -51,10 +51,10 @@ class TestLoadInitialData:
              patch('rhesis.backend.app.services.organization.get_or_create_status') as mock_get_status, \
              patch('rhesis.backend.app.services.organization.get_or_create_behavior') as mock_get_behavior, \
              patch('rhesis.backend.app.services.organization.get_or_create_entity') as mock_get_entity, \
-             patch('rhesis.backend.app.services.organization.get_org_aware_db') as mock_get_org_aware_db:
+             patch('rhesis.backend.app.services.organization.get_db') as mock_get_db:
             
             # Setup the context manager mock
-            mock_get_org_aware_db.return_value.__enter__.return_value = test_db
+            mock_get_db.return_value.__enter__.return_value = test_db
             
             # Call the function
             organization_service.load_initial_data(
@@ -63,11 +63,8 @@ class TestLoadInitialData:
                 user_id=authenticated_user_id
             )
             
-            # Verify get_org_aware_db was called
-            mock_get_org_aware_db.assert_called_once_with(
-                test_org_id, 
-                authenticated_user_id
-            )
+            # Verify get_db was called
+            mock_get_db.assert_called_once()
             
             # Verify type_lookup creation
             mock_get_type.assert_called_once_with(
@@ -173,7 +170,7 @@ class TestLoadInitialData:
         
         with patch('builtins.open', mock_open(read_data=invalid_json)):
             # Call the function and expect JSONDecodeError
-            # Note: get_org_aware_db should NOT be called since JSON parsing fails first
+            # Note: get_db should NOT be called since JSON parsing fails first
             with pytest.raises(json.JSONDecodeError):
                 organization_service.load_initial_data(
                     db=test_db,
@@ -181,7 +178,7 @@ class TestLoadInitialData:
                     user_id=authenticated_user_id
                 )
             
-            # No need to verify get_org_aware_db call since it never gets reached
+            # No need to verify get_db call since it never gets reached
 
     def test_load_initial_data_empty_data(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test load_initial_data with empty JSON data."""
@@ -190,10 +187,10 @@ class TestLoadInitialData:
         
         with patch('builtins.open', mock_open(read_data=json.dumps(empty_data))), \
              patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type, \
-             patch('rhesis.backend.app.services.organization.get_org_aware_db') as mock_get_org_aware_db:
+             patch('rhesis.backend.app.services.organization.get_db') as mock_get_db:
             
             # Setup the context manager mock
-            mock_get_org_aware_db.return_value.__enter__.return_value = test_db
+            mock_get_db.return_value.__enter__.return_value = test_db
             
             # Call the function
             organization_service.load_initial_data(
@@ -202,11 +199,8 @@ class TestLoadInitialData:
                 user_id=authenticated_user_id
             )
             
-            # Verify get_org_aware_db was called
-            mock_get_org_aware_db.assert_called_once_with(
-                test_org_id, 
-                authenticated_user_id
-            )
+            # Verify get_db was called
+            mock_get_db.assert_called_once()
             
             # Verify no type_lookup creation (empty data)
             mock_get_type.assert_not_called()
@@ -232,7 +226,7 @@ class TestLoadInitialData:
         initial_category_count = test_db.query(models.Category).count()
         
         # Call the real function without mocking the core functionality
-        # This tests the actual refactored code with get_org_aware_db
+        # This tests the actual refactored code with get_db and direct parameter passing
         organization_service.load_initial_data(
             db=test_db,
             organization_id=test_org_id,
@@ -254,7 +248,7 @@ class TestLoadInitialData:
         assert final_category_count >= initial_category_count, "Category records should exist"
         
         # Most importantly: verify specific records exist with correct organization context
-        # This proves the tenant context is working correctly with get_org_aware_db
+        # This proves the tenant context is working correctly with direct parameter passing
         # Use actual data from initial_data.json as reference
         
         # Test status records from actual initial data
@@ -293,14 +287,14 @@ class TestLoadInitialData:
         ).first()
         assert entity_type_lookup is not None, "EntityType lookup should exist for this organization"
         
-        # This is the key test: verify that get_org_aware_db worked correctly
+        # This is the key test: verify that direct parameter passing worked correctly
         # by ensuring we can find organization-specific data
         org_specific_statuses = test_db.query(models.Status).filter(
             models.Status.organization_id == test_org_id
         ).count()
         assert org_specific_statuses > 0, "Should have organization-specific statuses"
         
-        print(f"✅ Integration test passed! Function works correctly with get_org_aware_db")
+        print(f"✅ Integration test passed! Function works correctly with direct parameter passing")
         print(f"📊 Total records: {final_status_count} statuses, {final_behavior_count} behaviors")
         print(f"🏢 Organization-specific statuses: {org_specific_statuses}")
         print(f"📋 Expected data types: {list(expected_initial_data.keys())}")
