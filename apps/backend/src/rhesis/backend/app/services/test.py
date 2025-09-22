@@ -59,15 +59,22 @@ def load_defaults():
 
 
 def _validate_test_set(
-    db: Session, test_set_id: str
+    db: Session, test_set_id: str, organization_id: str = None
 ) -> tuple[models.TestSet | None, Dict[str, Any] | None]:
     """Validate test set exists and return it or error response."""
-    test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+    query = db.query(models.TestSet).filter(models.TestSet.id == test_set_id)
+    
+    # Apply organization filter if provided (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(models.TestSet.organization_id == UUID(organization_id))
+    
+    test_set = query.first()
     if not test_set:
         return None, {
             "success": False,
             "total_tests": 0,
-            "message": f"Test set with ID {test_set_id} not found",
+            "message": f"Test set with ID {test_set_id} not found or not accessible",
         }
     return test_set, None
 
@@ -170,8 +177,8 @@ def bulk_create_test_set_associations(
     Bulk create associations between tests and a test set in batches.
     Handles validation of test IDs and existing associations.
     """
-    # First validate the test set exists
-    test_set, error_response = _validate_test_set(db, test_set_id)
+    # First validate the test set exists AND belongs to organization (SECURITY CRITICAL)
+    test_set, error_response = _validate_test_set(db, test_set_id, organization_id)
     if error_response:
         return error_response
 
@@ -574,13 +581,17 @@ def create_test_set_associations(
         db.rollback()
 
     try:
-        # Verify test set exists
-        test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+        # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
+        from uuid import UUID
+        test_set = db.query(TestSet).filter(
+            TestSet.id == test_set_id,
+            TestSet.organization_id == UUID(organization_id)
+        ).first()
         if not test_set:
             return {
                 "success": False,
                 "total_tests": 0,
-                "message": f"Test set with ID {test_set_id} not found",
+                "message": f"Test set with ID {test_set_id} not found or not accessible",
                 "metadata": {
                     "new_associations": 0,
                     "existing_associations": 0,
@@ -667,14 +678,18 @@ def remove_test_set_associations(
         db.rollback()
 
     try:
-        # Verify test set exists
-        test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+        # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
+        from uuid import UUID
+        test_set = db.query(TestSet).filter(
+            TestSet.id == test_set_id,
+            TestSet.organization_id == UUID(organization_id)
+        ).first()
         if not test_set:
             return {
                 "success": False,
                 "total_tests": 0,
                 "removed_associations": 0,
-                "message": f"Test set with ID {test_set_id} not found",
+                "message": f"Test set with ID {test_set_id} not found or not accessible",
             }
 
         # Check if any of the provided test IDs are actually associated with the test set
