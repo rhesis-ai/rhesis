@@ -90,7 +90,9 @@ function AssignMetricDialog({ open, onClose, onAssign, behaviors, isLoading, err
           </Box>
         ) : (
           <Stack spacing={2} sx={{ mt: 2 }}>
-            {behaviors.map((behavior) => (
+            {[...behaviors]
+              .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              .map((behavior) => (
               <Button
                 key={behavior.id}
                 variant="outlined"
