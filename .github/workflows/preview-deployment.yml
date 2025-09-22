@@ -60,8 +60,17 @@ jobs:
           echo "- **⚠️ Type:** PREVIEW (NOT Production)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔗 Preview URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- **🧪 Backend Preview:** [${{ needs.deploy-backend-preview.outputs.backend_preview_url }}](${{ needs.deploy-backend-preview.outputs.backend_preview_url }})" >> $GITHUB_STEP_SUMMARY
-          echo "- **🧪 Frontend Preview:** [${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }}](${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }})" >> $GITHUB_STEP_SUMMARY
+          # Debug URL information for troubleshooting
+          BACKEND_URL="${{ needs.deploy-backend-preview.outputs.backend_preview_url }}"
+          FRONTEND_URL="${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }}"
+          
+          echo "🔍 Multi-Service URL Debug:"
+          echo "  - Backend URL: ${BACKEND_URL:0:30}...${BACKEND_URL: -20}"
+          echo "  - Frontend URL: ${FRONTEND_URL:0:30}...${FRONTEND_URL: -20}"
+          
+          # Use printf to avoid URL masking issues
+          printf "- **🧪 Backend Preview:** [%s](%s)\n" "$BACKEND_URL" "$BACKEND_URL" >> $GITHUB_STEP_SUMMARY
+          printf "- **🧪 Frontend Preview:** [%s](%s)\n" "$FRONTEND_URL" "$FRONTEND_URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## ⚠️ IMPORTANT PREVIEW WARNINGS" >> $GITHUB_STEP_SUMMARY
           echo "- 🚫 **These are NOT production services**" >> $GITHUB_STEP_SUMMARY

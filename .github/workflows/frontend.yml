@@ -455,6 +455,7 @@ jobs:
           echo "- 🧪 **For testing and review purposes only**" >> $GITHUB_STEP_SUMMARY
 
       - name: Output deployed service URL
+        id: output_service_url
         run: |
           echo "🔍 Determining service URL (IS_PREVIEW=${{ env.IS_PREVIEW }})"
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
@@ -470,16 +471,24 @@ jobs:
             echo "📍 Using standard service URL: $DEPLOYED_URL"
           fi
           
-          # Set as output for potential use in other workflows
-          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
+          # Debug: Show URL structure to identify masking issues
+          echo "🔍 URL Debug Info:"
+          echo "  - URL length: ${#DEPLOYED_URL}"
+          echo "  - URL starts with: ${DEPLOYED_URL:0:20}..."
+          echo "  - URL ends with: ...${DEPLOYED_URL: -20}"
           
-          # Add to job summary
+          # Set as output for potential use in other workflows and steps
+          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
+          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
+          
+          # Add to job summary with URL masking workaround
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             echo "## 🌐 ⚠️ PREVIEW - Frontend Service Deployed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-            echo "**🧪 Preview URL:** [$DEPLOYED_URL]($DEPLOYED_URL)" >> $GITHUB_STEP_SUMMARY
+            # Use printf to avoid URL masking issues
+            printf "**🧪 Preview URL:** [%s](%s)\n" "$DEPLOYED_URL" "$DEPLOYED_URL" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### ⚠️ Preview Warning" >> $GITHUB_STEP_SUMMARY
             echo "- 🚫 **This is a PREVIEW deployment, NOT production**" >> $GITHUB_STEP_SUMMARY
@@ -489,7 +498,7 @@ jobs:
             echo "## 🌐 ✅ PRODUCTION - Frontend Service Deployed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-            echo "**🌍 Production URL:** [$DEPLOYED_URL]($DEPLOYED_URL)" >> $GITHUB_STEP_SUMMARY
+            printf "**🌍 Production URL:** [%s](%s)\n" "$DEPLOYED_URL" "$DEPLOYED_URL" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### ✅ Production Status" >> $GITHUB_STEP_SUMMARY
             echo "- 🚀 **This is the LIVE production service**" >> $GITHUB_STEP_SUMMARY
