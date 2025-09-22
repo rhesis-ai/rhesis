@@ -84,8 +84,9 @@ class QueryBuilder:
 
     def with_visibility_filter(self) -> "QueryBuilder":
         """Apply visibility filter if the model supports it"""
-        if has_visibility(self.model):
-            self.query = apply_visibility_filter(self.db, self.query, self.model)
+        # Note: Visibility filtering is now handled through direct parameter passing
+        # rather than session variables. This method is kept for compatibility
+        # but no longer applies automatic filters.
         return self
 
     def with_odata_filter(self, filter_str: Optional[str]) -> "QueryBuilder":
