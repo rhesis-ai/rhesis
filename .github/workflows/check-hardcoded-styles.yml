@@ -1,0 +1,125 @@
+name: Check Hardcoded Styles
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/frontend/src/**/*.ts'
+      - 'apps/frontend/src/**/*.tsx'
+      - 'apps/frontend/src/**/*.js'
+      - 'apps/frontend/src/**/*.jsx'
+
+jobs:
+  check-styles:
+    runs-on: ubuntu-latest
+    name: Check for hardcoded styles
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch more commits for git diff to work properly
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Make script executable
+        run: chmod +x scripts/check-hardcoded-styles.js
+
+      - name: Run hardcoded styles check
+        run: node scripts/check-hardcoded-styles.js
+        env:
+          # Set environment to indicate we're in a CI context
+          CI: true
+
+      - name: Comment on PR (if violations found)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Re-run the checker to capture output
+            let output = '';
+            try {
+              execSync('node scripts/check-hardcoded-styles.js', { 
+                encoding: 'utf8',
+                stdio: 'pipe'
+              });
+            } catch (error) {
+              output = error.stdout || error.message;
+            }
+            
+            const comment = `## 🎨 Hardcoded Styles Check Failed
+            
+            This PR contains hardcoded styles that should use theme values instead.
+            
+            <details>
+            <summary>📋 Click to see violations</summary>
+            
+            \`\`\`
+            ${output}
+            \`\`\`
+            
+            </details>
+            
+            ### 🔧 How to fix:
+            
+            1. **Colors**: Use \`theme.palette.*\` instead of hex codes
+               \`\`\`tsx
+               // ❌ Bad
+               sx={{ color: '#50B9E0' }}
+               
+               // ✅ Good  
+               sx={{ color: 'primary.main' }}
+               // or
+               sx={{ color: theme.palette.primary.main }}
+               \`\`\`
+            
+            2. **Font sizes**: Use Typography variants or \`theme.typography.*\`
+               \`\`\`tsx
+               // ❌ Bad
+               sx={{ fontSize: '14px' }}
+               
+               // ✅ Good
+               <Typography variant="body2">Text</Typography>
+               // or
+               sx={{ fontSize: theme.typography.body2.fontSize }}
+               \`\`\`
+            
+            3. **Spacing**: Use \`theme.spacing()\` or \`theme.customSpacing.*\`
+               \`\`\`tsx
+               // ❌ Bad
+               sx={{ margin: '16px', padding: '24px' }}
+               
+               // ✅ Good
+               sx={{ m: 2, p: 3 }} // Uses theme.spacing()
+               // or
+               sx={{ margin: theme.spacing(2), padding: theme.spacing(3) }}
+               \`\`\`
+            
+            4. **Elevations**: Use \`theme.elevation.*\`
+               \`\`\`tsx
+               // ❌ Bad
+               sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+               
+               // ✅ Good
+               elevation={2} // For Paper/Card components
+               // or custom usage in sx
+               \`\`\`
+            
+            📖 **See the [Theme Usage Guide](apps/frontend/src/styles/rhesis-theme-usage.md) for more examples.**
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
