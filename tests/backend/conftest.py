@@ -113,10 +113,10 @@ def clean_test_database():
                 if api_key:
                     # Get the user and org that should be preserved
                     result = connection.execute(text("""
-                        SELECT u.id as user_id, u.organization_id, array_agg(t.id) as token_ids
+                        SELECT u.id as user_id, u.organization_id, array_agg(DISTINCT t.id) as token_ids
                         FROM "user" u 
-                        LEFT JOIN token t ON t.user_id = u.id AND t.token = :api_key
-                        WHERE u.id IN (SELECT user_id FROM token WHERE token = :api_key)
+                        JOIN token t ON t.user_id = u.id 
+                        WHERE t.token = :api_key
                         GROUP BY u.id, u.organization_id
                     """), {"api_key": api_key})
                     
@@ -125,8 +125,29 @@ def clean_test_database():
                         auth_user_id = str(row.user_id)
                         auth_org_id = str(row.organization_id) if row.organization_id else None
                         auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
+                        print(f"🔐 Preserving auth data: user={auth_user_id}, org={auth_org_id}, tokens={len(auth_token_ids)}")
+                
+                # If no API key or auth data found, try to preserve ANY existing auth tokens
+                # This prevents complete data wipeout when running tests without RHESIS_API_KEY
+                if not auth_user_id:
+                    result = connection.execute(text("""
+                        SELECT u.id as user_id, u.organization_id, array_agg(DISTINCT t.id) as token_ids
+                        FROM "user" u 
+                        JOIN token t ON t.user_id = u.id 
+                        GROUP BY u.id, u.organization_id
+                        LIMIT 1
+                    """))
+                    
+                    row = result.fetchone()
+                    if row:
+                        auth_user_id = str(row.user_id)
+                        auth_org_id = str(row.organization_id) if row.organization_id else None
+                        auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
+                        print(f"🔐 Preserving fallback auth data: user={auth_user_id}, org={auth_org_id}, tokens={len(auth_token_ids)}")
+                        
             except Exception as e:
                 # If we can't get auth data, continue with normal cleanup
+                print(f"⚠️ Could not retrieve auth data for preservation: {e}")
                 pass
             
             # List of tables to clean (in correct dependency order - most dependent first)
@@ -185,35 +206,55 @@ def clean_test_database():
                 '"user"',  # -> organization [organization_id] (PRESERVE AUTH USER ONLY)
             ]
                 
-            # Clean each table in its own transaction to prevent cascading failures
-            for table_name in tables_to_clean:
-                try:
-                    with connection.begin():
-                        if table_name == '"user"' and auth_user_id:
-                            # Preserve the authenticated user
-                            connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
-                                             {"auth_user_id": auth_user_id})
-                        elif table_name == 'organization' and auth_org_id:
-                            # Preserve the authenticated user's organization
-                            connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_org_id'), 
-                                             {"auth_org_id": auth_org_id})
-                        elif table_name == 'token' and auth_token_ids:
-                            # Preserve the authentication tokens
-                            placeholders = ','.join([f':token_{i}' for i in range(len(auth_token_ids))])
-                            token_params = {f'token_{i}': token_id for i, token_id in enumerate(auth_token_ids)}
-                            connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
-                                             token_params)
-                        elif table_name == 'subscription':
-                            # Clean ALL subscriptions (no preservation)
-                            connection.execute(text(f'DELETE FROM {table_name}'))
-                        else:
-                            # For all other tables (reference/lookup tables), clean everything
-                            connection.execute(text(f'DELETE FROM {table_name}'))
-                            
-                except Exception as e:
-                    # If cleanup fails for a table, continue with others
-                    # This is expected for tables that don't exist or have complex constraints
-                    pass
+            # Only clean if we have authentication data to preserve, or if explicitly requested
+            # This prevents accidental complete data wipeout
+            if auth_user_id and auth_org_id and auth_token_ids:
+                print(f"🧹 Starting selective cleanup while preserving auth data...")
+                
+                # Clean each table in its own transaction to prevent cascading failures
+                for table_name in tables_to_clean:
+                    try:
+                        with connection.begin():
+                            if table_name == '"user"' and auth_user_id:
+                                # Preserve the authenticated user
+                                result = connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
+                                                 {"auth_user_id": auth_user_id})
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} users (preserved auth user)")
+                            elif table_name == 'organization' and auth_org_id:
+                                # Preserve the authenticated user's organization
+                                result = connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_org_id'), 
+                                                 {"auth_org_id": auth_org_id})
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} organizations (preserved auth org)")
+                            elif table_name == 'token' and auth_token_ids:
+                                # Preserve the authentication tokens
+                                placeholders = ','.join([f':token_{i}' for i in range(len(auth_token_ids))])
+                                token_params = {f'token_{i}': token_id for i, token_id in enumerate(auth_token_ids)}
+                                result = connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
+                                                 token_params)
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} tokens (preserved {len(auth_token_ids)} auth tokens)")
+                            elif table_name == 'subscription':
+                                # Clean ALL subscriptions (no preservation)
+                                result = connection.execute(text(f'DELETE FROM {table_name}'))
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} subscriptions")
+                            else:
+                                # For all other tables (reference/lookup tables), clean everything
+                                result = connection.execute(text(f'DELETE FROM {table_name}'))
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} rows from {table_name}")
+                                
+                    except Exception as e:
+                        # If cleanup fails for a table, continue with others
+                        # This is expected for tables that don't exist or have complex constraints
+                        pass
+                        
+                print(f"✅ Selective cleanup completed")
+            else:
+                print(f"⚠️ Skipping cleanup - no auth data found to preserve. This prevents accidental data loss.")
+                print(f"   To force cleanup, set RHESIS_API_KEY or ensure auth tokens exist in database.")
                             
     except Exception as e:
         # If cleanup fails completely, continue - tests might still work
