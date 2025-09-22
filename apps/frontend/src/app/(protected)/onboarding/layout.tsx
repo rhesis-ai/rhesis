@@ -14,7 +14,6 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: 3,
       }}
     >
       {children}

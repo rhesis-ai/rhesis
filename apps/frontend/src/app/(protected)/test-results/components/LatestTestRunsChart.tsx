@@ -58,6 +58,12 @@ const transformTestRunsData = (testRunSummary?: Array<TestRunSummaryItem>) => {
 export default function LatestTestRunsChart({ sessionToken, filters }: LatestTestRunsChartProps) {
   const theme = useTheme();
   
+  // Convert rem to pixels for Recharts (assuming 1rem = 16px)
+  const getPixelFontSize = (remSize: string): number => {
+    const remValue = parseFloat(remSize);
+    return remValue * 16;
+  };
+  
   // Use a consistent blue color for pass rates that works in both light and dark themes
   // This matches the first color in the default pie chart palette
   const passRateColor = '#8884d8'; // Blue color that works in both light and dark themes
@@ -117,16 +123,21 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
 
   if (isLoading) {
     return (
-      <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height: 400, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Latest Test Runs
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
           Pass rates from the 5 most recent test executions
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading test runs...</Typography>
+          <Typography variant="helperText" sx={{ ml: theme.customSpacing.container.small }}>Loading test runs...</Typography>
         </Box>
       </Paper>
     );
@@ -134,11 +145,16 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
 
   if (error) {
     return (
-      <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height: 400, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Latest Test Runs
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
           Error occurred
         </Typography>
         <Alert severity="error">{error}</Alert>
@@ -147,17 +163,31 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
   }
 
   return (
-    <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h6" sx={{ mb: 1 }}>
+    <Paper elevation={theme.elevation.standard} sx={{ 
+      p: theme.customSpacing.container.medium, 
+      height: 400, 
+      display: 'flex', 
+      flexDirection: 'column' 
+    }}>
+      <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
         Latest Test Runs
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography 
+        variant="body2" 
+        color="text.secondary" 
+        sx={{ 
+          mb: theme.customSpacing.section.small,
+          minHeight: '2.5rem', // Ensure consistent height for 2 lines
+          display: 'flex',
+          alignItems: 'flex-start'
+        }}
+      >
         Pass rates from the 5 most recent test executions
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height={300}>
           <ScatterChart
-            margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
+            margin={{ top: 5, right: 15, bottom: 35, left: -15 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
@@ -167,7 +197,10 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               angle={-45}
               textAnchor="end"
               interval={0}
-              tick={{ fontSize: 10 }}
+              tick={{ 
+                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fill: theme.palette.text.primary
+              }}
               height={60}
               axisLine={{ strokeWidth: 1 }}
               tickLine={{ strokeWidth: 1 }}
@@ -178,14 +211,17 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               name="Pass Rate"
               domain={[0, 100]}
               tickCount={6}
-              tick={{ fontSize: 10 }}
+              tick={{ 
+                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fill: theme.palette.text.primary
+              }}
               axisLine={{ strokeWidth: 1 }}
               tickLine={{ strokeWidth: 1 }}
               tickFormatter={(value: number) => `${value}%`}
             />
             <Tooltip 
               contentStyle={{ 
-                fontSize: '10px',
+                fontSize: theme.typography.chartTick.fontSize,
                 backgroundColor: theme.palette.background.paper,
                 border: `1px solid ${theme.palette.divider}`,
                 borderRadius: '4px',
@@ -208,7 +244,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
                   color: passRateColor // Use consistent blue color for pass rates
                 }
               ]}
-              wrapperStyle={{ fontSize: '10px' }}
+              wrapperStyle={{ fontSize: theme.typography.chartTick.fontSize }}
               iconSize={8}
               height={30}
             />

@@ -24,6 +24,7 @@ import StepLabel from '@mui/material/StepLabel';
 import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { useSession } from 'next-auth/react';
+import { useTheme } from '@mui/material/styles';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MetricCreate } from '@/utils/api-client/interfaces/metric';
 import { TypeLookupClient } from '@/utils/api-client/type-lookup-client';
@@ -77,6 +78,7 @@ export default function NewMetricPage() {
   const searchParams = useSearchParams();
   const notifications = useNotifications();
   const { data: session } = useSession();
+  const theme = useTheme();
   const type = searchParams.get('type');
   const [activeStep, setActiveStep] = React.useState(0);
   const [formData, setFormData] = React.useState<MetricFormData>(initialFormData);
@@ -478,7 +480,7 @@ export default function NewMetricPage() {
                     px: 1.5,
                     py: 0.5,
                     borderRadius: 1,
-                    fontSize: '0.875rem'
+                    fontSize: theme.typography.helperText.fontSize
                   }}>
                     {tag}
                   </Box>
@@ -509,7 +511,7 @@ export default function NewMetricPage() {
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', mt: 1 }}>
                 <Typography sx={{ 
                   fontFamily: 'monospace', 
-                  fontSize: '0.875rem',
+                  fontSize: theme.typography.helperText.fontSize,
                   whiteSpace: 'pre-wrap',
                   color: 'text.primary'
                 }}>
@@ -523,7 +525,7 @@ export default function NewMetricPage() {
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
                 <Typography sx={{ 
                   fontFamily: 'monospace', 
-                  fontSize: '0.875rem',
+                  fontSize: theme.typography.helperText.fontSize,
                   whiteSpace: 'pre-wrap',
                   color: 'text.primary'
                 }}>
@@ -556,7 +558,7 @@ export default function NewMetricPage() {
                     top: 12,
                     color: 'primary.main',
                     fontWeight: 'bold',
-                    fontSize: '0.875rem'
+                    fontSize: theme.typography.helperText.fontSize
                   }}>
                     {index + 1}
                   </Typography>
@@ -584,7 +586,7 @@ export default function NewMetricPage() {
                 px: 1.5,
                 py: 0.5,
                 borderRadius: 1,
-                fontSize: '0.875rem',
+                fontSize: theme.typography.helperText.fontSize,
                 display: 'inline-block',
                 mt: 0.5
               }}>
@@ -597,19 +599,19 @@ export default function NewMetricPage() {
                 <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
                   <Box>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Min Score</Typography>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'text.primary' }}>
+                    <Typography sx={{ fontSize: theme.typography.subtitle1.fontSize, fontWeight: 500, color: 'text.primary' }}>
                       {formData.min_score}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Max Score</Typography>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'text.primary' }}>
+                    <Typography sx={{ fontSize: theme.typography.subtitle1.fontSize, fontWeight: 500, color: 'text.primary' }}>
                       {formData.max_score}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Threshold</Typography>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'success.main' }}>
+                    <Typography sx={{ fontSize: theme.typography.subtitle1.fontSize, fontWeight: 500, color: 'success.main' }}>
                       ≥ {formData.threshold}
                     </Typography>
                   </Box>
@@ -622,7 +624,7 @@ export default function NewMetricPage() {
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
                 <Typography sx={{ 
                   fontFamily: 'monospace', 
-                  fontSize: '0.875rem',
+                  fontSize: theme.typography.helperText.fontSize,
                   whiteSpace: 'pre-wrap',
                   color: 'text.primary'
                 }}>

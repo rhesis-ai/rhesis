@@ -1,6 +1,7 @@
 import TestSetDetailCharts from './components/TestSetDetailCharts';
 import TestSetTestsGrid from './components/TestSetTestsGrid';
 import TestSetDetailsSection from './components/TestSetDetailsSection';
+import TestSetWorkflowSection from './components/TestSetWorkflowSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Added import
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { auth } from '@/auth';
@@ -8,7 +9,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
 import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import BaseFreesoloAutocomplete from '@/components/common/BaseFreesoloAutocomplete';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
@@ -113,8 +114,8 @@ export default async function TestSetPage({ params }: { params: any }) {
 
         <Grid container spacing={3}>
           {/* Main Content Column */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3, mb: 4 }}>
+          <Grid item xs={12} md={9}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestSetDetailsSection 
                 testSet={serializedTestSet} 
                 sessionToken={session.session_token}
@@ -122,7 +123,7 @@ export default async function TestSetPage({ params }: { params: any }) {
             </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper sx={{ p: 3, mb: 4 }}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestSetTestsGrid
                 testSetId={identifier}
                 sessionToken={session.session_token}
@@ -138,6 +139,23 @@ export default async function TestSetPage({ params }: { params: any }) {
               currentUserName={session.user?.name || ''}
               currentUserPicture={session.user?.picture || undefined}
             />
+          </Grid>
+
+          {/* Workflow Column */}
+          <Grid item xs={12} md={3}>
+            <Paper elevation={2} sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Workflow
+              </Typography>
+              <TestSetWorkflowSection 
+                sessionToken={session.session_token} 
+                testSetId={identifier}
+                status={typeof testSet.status === 'string' ? testSet.status : testSet.status.name}
+                priority={testSet.priority}
+                assignee={testSet.assignee}
+                owner={testSet.owner}
+              />
+            </Paper>
           </Grid>
         </Grid>
       </Box>
