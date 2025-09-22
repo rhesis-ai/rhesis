@@ -307,7 +307,8 @@ export default function BasePieChart({
       }}>
         {title && (
           <Typography 
-            variant="helperText" sx={{ mb: 1, px: 0.5, textAlign: 'center', fontWeight: 'bold' }}
+            variant="subtitle2" 
+            sx={{ mb: 1, px: 0.5, textAlign: 'center' }}
             component="h3"
             role="heading"
             aria-level={3}
