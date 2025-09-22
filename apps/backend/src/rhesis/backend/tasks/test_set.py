@@ -4,7 +4,7 @@ import os
 from rhesis.backend.app import crud
 from rhesis.backend.app.crud import get_user_tokens
 from rhesis.backend.app.models.test_set import TestSet
-from rhesis.backend.tasks.base import BaseTask, with_tenant_context
+from rhesis.backend.tasks.base import BaseTask
 from rhesis.backend.worker import app
 
 # Import SDK components for test generation
@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
     bind=True,
     display_name="Test Set Count",
 )
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def count_test_sets(self, db=None):
     """
     Task that counts the total number of test sets in the database.
 
-    Using the with_tenant_context decorator, this task automatically:
+    This task gets tenant context passed directly and:
     1. Creates a database session
     2. Sets the tenant context from the task headers
     3. Passes the session to the task function
@@ -98,7 +98,7 @@ def count_test_sets(self, db=None):
     bind=True,
     display_name="Generate and Upload Test Set",
 )
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def generate_and_upload_test_set(
     self,
     synthesizer_type: str,

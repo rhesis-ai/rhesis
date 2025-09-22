@@ -20,7 +20,6 @@ from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import (
     BaseTask,
     email_notification,
-    with_tenant_context,
 )
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.modes import (
@@ -74,13 +73,13 @@ def echo(self, message: str):
     bind=True,
     display_name="Test Set Count",
 )
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def get_test_set_count(self, db=None):
     """
     Count test sets for the current organization.
 
     This task demonstrates using the tenant context system for database operations.
-    The @with_tenant_context decorator automatically:
+    The # with_tenant_context decorator removed - tenant context now passed directly decorator automatically:
     1. Creates a database session
     2. Sets the tenant context from the task
     3. Passes the session to the task function
@@ -88,7 +87,7 @@ def get_test_set_count(self, db=None):
 
     All database operations will have the correct tenant context automatically.
     """
-    # The db session is automatically injected by the with_tenant_context decorator
+    # The db session is obtained via get_db_session() method
     # and already has the correct tenant context set
 
     # Use the crud utility which will respect the tenant context
@@ -109,7 +108,7 @@ def get_test_set_count(self, db=None):
     bind=True,
     display_name="Test Configuration Retrieval",
 )
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def get_test_configuration(self, test_configuration_id: str, db=None):
     """
     Get details of a specific test configuration.
@@ -183,7 +182,7 @@ def manual_db_example(self):
     bind=True,
     display_name="Email Notification Test",
 )
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def email_notification_test(self, test_message: str = "Test message", message: str = None, db=None):
     """
     Test task to verify email notifications are working.
@@ -208,7 +207,7 @@ def email_notification_test(self, test_message: str = "Test message", message: s
 
 
 @app.task(base=BaseTask, bind=True, display_name="Example Task")
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def example_task(self, name: str, delay_seconds: int = 5, db=None):
     """
     Example task that demonstrates basic functionality.
@@ -236,7 +235,7 @@ def example_task(self, name: str, delay_seconds: int = 5, db=None):
 
 
 @app.task(base=BaseTask, bind=True, display_name="Test Configuration Mode Example")
-@with_tenant_context
+# with_tenant_context decorator removed - tenant context now passed directly
 def example_execution_mode_task(self, test_config_id: str, db=None) -> Dict[str, Any]:
     """
     Example task that demonstrates execution mode handling.
