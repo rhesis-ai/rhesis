@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.database import set_tenant
+from rhesis.backend.app.database import set_tenant, get_org_aware_db
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
