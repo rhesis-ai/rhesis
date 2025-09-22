@@ -101,7 +101,7 @@ ${output.length > 4000 ? output.substring(0, 4000) + '\n\n... (output truncated,
 sx={{ color: '#50B9E0', backgroundColor: '#f5f5f5' }}
 
 // ✅ Theme-based  
-sx={{ color: 'primary.main', backgroundColor: 'grey.100' }}
+sx={{ color: 'primary.main', backgroundColor: 'action.hover' }}
 \`\`\`
 
 #### 2. **Spacing** → Use theme spacing
@@ -119,7 +119,7 @@ sx={{ m: 2, p: 3 }} // 2 * 8px = 16px, 3 * 8px = 24px
 sx={{ borderRadius: '8px' }}
 
 // ✅ Consistent
-sx={{ borderRadius: 1 }} // 1 * 4px = 4px (MUI default)
+sx={{ borderRadius: 2 }} // 2 * 4px = 8px
 \`\`\`
 
 #### 4. **Font Sizes** → Use Typography variants
@@ -129,6 +129,7 @@ sx={{ fontSize: '14px' }}
 
 // ✅ Typography variant
 <Typography variant="body2">Text</Typography>
+// or: sx={{ fontSize: 'body2.fontSize' }}
 \`\`\`
 
 ### 📖 Resources:
