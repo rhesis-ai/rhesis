@@ -6,9 +6,10 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from typing import Tuple
 
-# Load environment variables from the backend directory
+# Load environment variables from test directory first, then backend
 load_dotenv()  # Try current directory first
-load_dotenv("apps/backend/.env")  # Then try backend directory
+load_dotenv("tests/.env")  # Load from test directory where RHESIS_API_KEY should be
+load_dotenv("apps/backend/.env")  # Then backend directory for other vars
 
 # Set test mode environment variable BEFORE importing any backend modules
 os.environ["SQLALCHEMY_DB_MODE"] = "test"
