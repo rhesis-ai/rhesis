@@ -235,7 +235,7 @@ def generate_and_upload_test_set(
 
         # Create the synthesizer using the factory
         synthesizer = SynthesizerFactory.create_synthesizer(
-            synthesizer_type=synth_type, batch_size=batch_size, **processed_kwargs
+            synthesizer_type=synth_type, batch_size=batch_size, model="gemini", **processed_kwargs
         )
 
         self.log_with_context(

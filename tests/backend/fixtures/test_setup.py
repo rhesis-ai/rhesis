@@ -134,11 +134,12 @@ def create_test_api_token(
     )
     
     token = crud.create_token(db=db, token=token_data)
-    print(f"✅ Created test API token: {token.name} (Token: {token_value})")
+    masked_token = f"{token_value[:3]}...{token_value[-4:]}"
+    print(f"✅ Created test API token: {token.name} (Token: {masked_token})")
     
     # Set the token value in environment for tests to use
     os.environ["RHESIS_API_KEY"] = token_value
-    print(f"🔑 Set RHESIS_API_KEY environment variable: {token_value}")
+    print(f"🔑 Set RHESIS_API_KEY environment variable: {masked_token}")
     
     return token
 

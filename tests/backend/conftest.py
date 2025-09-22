@@ -41,13 +41,15 @@ def mock_test_data():
 def rhesis_api_key():
     """🔑 API key from environment for testing"""
     api_key = os.getenv("RHESIS_API_KEY")
-    print(f"🔍 DEBUG: RHESIS_API_KEY from environment: {repr(api_key)}")
+    masked_key = f"{api_key[:3]}...{api_key[-4:]}" if api_key else None
+    print(f"🔍 DEBUG: RHESIS_API_KEY from environment: {masked_key}")
     if not api_key:
         # Fallback to mock key if no real key is available
         fallback_key = "rh-test1234567890abcdef"
-        print(f"🔍 DEBUG: Using fallback key: {repr(fallback_key)}")
+        fallback_masked = f"{fallback_key[:3]}...{fallback_key[-4:]}"
+        print(f"🔍 DEBUG: Using fallback key: {fallback_masked}")
         return fallback_key
-    print(f"🔍 DEBUG: Using environment API key: {repr(api_key)}")
+    print(f"🔍 DEBUG: Using environment API key: {masked_key}")
     return api_key
 
 # Test database configuration - use the same logic as main database file
@@ -205,9 +207,14 @@ def client(test_db):
 @pytest.fixture
 def authenticated_client(client, rhesis_api_key):
     """🔑 FastAPI test client with authentication headers."""
-    print(f"🔍 DEBUG: Setting Authorization header with API key: {repr(rhesis_api_key)}")
+    masked_key = f"{rhesis_api_key[:3]}...{rhesis_api_key[-4:]}" if rhesis_api_key else None
+    print(f"🔍 DEBUG: Setting Authorization header with API key: {masked_key}")
     client.headers.update({"Authorization": f"Bearer {rhesis_api_key}"})
-    print(f"🔍 DEBUG: Client headers now include: {dict(client.headers)}")
+    # Mask the authorization header in debug output
+    headers_debug = dict(client.headers)
+    if 'authorization' in headers_debug:
+        headers_debug['authorization'] = '***'
+    print(f"🔍 DEBUG: Client headers now include: {headers_debug}")
     return client
 
 

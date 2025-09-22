@@ -242,12 +242,29 @@ class TestTokenRoutes(TokenTestMixin, BaseEntityTests):
         
         # Extract token ID from response (now available with consistent API)
         assert create_response.status_code == status.HTTP_200_OK
-        token_id = create_response.json()["id"]
+        create_result = create_response.json()
+        print(f"Create response: {create_result}")
+        
+        # The create response might not have 'id' field - check the actual structure
+        if "id" in create_result:
+            token_id = create_result["id"]
+        else:
+            # If no ID in create response, we need to get it from the token list
+            list_response = authenticated_client.get(self.endpoints.list)
+            assert list_response.status_code == status.HTTP_200_OK
+            tokens = list_response.json()
+            # Find the token we just created
+            created_token = next((t for t in tokens if t["name"] == token_data["name"]), None)
+            assert created_token is not None, "Could not find created token in list"
+            token_id = created_token["id"]
         
         # Get token by ID
         response = authenticated_client.get(
             self.endpoints.format_path(self.endpoints.get_by_id, token_id=token_id),
         )
+        
+        print(f"Get response status: {response.status_code}")
+        print(f"Get response body: {response.text}")
         
         assert response.status_code == status.HTTP_200_OK
         token = response.json()
