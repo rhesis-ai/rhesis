@@ -50,7 +50,8 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID) -> List[D
     behavior_map = {}
     for behavior in behaviors:
         # Get metrics for this behavior (use default limit to stay within bounds)
-        metrics = crud.get_behavior_metrics(db, behavior.id)
+        # SECURITY: Pass organization_id from test_run to prevent cross-tenant access
+        metrics = crud.get_behavior_metrics(db, behavior.id, organization_id=str(test_run.organization_id))
         behavior_map[behavior.id] = {"behavior": behavior, "metrics": metrics}
 
     # Process test results into CSV format

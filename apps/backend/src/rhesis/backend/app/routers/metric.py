@@ -199,13 +199,18 @@ def read_metric_behaviors(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_db),
+    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
+    organization_id: str = None,  # For with_count_header decorator
+    user_id: str = None,  # For with_count_header decorator
 ):
     """Get all behaviors associated with a metric"""
     try:
+        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
         behaviors = crud.get_metric_behaviors(
             db,
             metric_id=metric_id,
+            organization_id=organization_id,  # SECURITY: Pass organization_id for filtering
             skip=skip,
             limit=limit,
             sort_by=sort_by,
