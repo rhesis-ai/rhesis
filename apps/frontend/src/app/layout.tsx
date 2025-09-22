@@ -126,13 +126,6 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
       requireSuperuser: true,
     },
     {
-      kind: 'page',
-      segment: 'reports',
-      title: 'Reports',
-      icon: <DescriptionIcon />,
-      requireSuperuser: true,
-    },
-    {
       kind: 'header',
       title: 'Settings',
     },
