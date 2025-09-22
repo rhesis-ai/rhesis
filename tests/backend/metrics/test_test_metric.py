@@ -17,11 +17,11 @@ sdk_test_metric = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sdk_test_metric)
 
 # Get the function we want to test
-test_metric = sdk_test_metric.test_metric
+run_metric_test = sdk_test_metric.run_metric_test
 
 
 class TestMetricTestSimple:
-    """Simple tests for test_metric function with updated session management"""
+    """Simple tests for run_metric_test function with updated session management"""
     
     def test_run_metric_test_basic(self):
         """Test that run_metric_test can be called without errors (new session management)"""
@@ -32,7 +32,7 @@ class TestMetricTestSimple:
             mock_load_metric.return_value = None
             
             # Call the function - now uses direct parameter passing instead of set_tenant
-            result = test_metric(
+            result = run_metric_test(
                 metric_id="nonexistent-metric",
                 organization_id="test-org-456", 
                 user_id="test-user-789",
@@ -53,7 +53,7 @@ class TestMetricTestSimple:
         """Test that run_metric_test handles errors gracefully (new session management)"""
         # Test with invalid metric_id to trigger error handling
         # This test now benefits from organization filtering preventing data leakage
-        result = test_metric(
+        result = run_metric_test(
             metric_id="nonexistent-metric",
             organization_id="test-org-456", 
             user_id="test-user-789",
@@ -70,7 +70,7 @@ class TestMetricTestSimple:
             # Return None to simulate metric not found in organization
             mock_load_metric.return_value = None
             
-            result = test_metric(
+            result = run_metric_test(
                 metric_id="some-metric",
                 organization_id="org-123",
                 user_id="user-456", 
