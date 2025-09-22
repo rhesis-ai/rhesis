@@ -84,9 +84,9 @@ The application registers event listeners to set tenant context on new database 
 def _set_tenant_for_connection(dbapi_connection, connection_record):
     """Set tenant context for new connections"""
     try:
-        org_id = _current_tenant_organization_id.get()
+        organization_id = _current_tenant_organization_id.get()
         user_id = _current_tenant_user_id.get()
-        _execute_set_tenant(dbapi_connection, org_id, user_id)
+        _execute_set_tenant(dbapi_connection, organization_id, user_id)
     except Exception as e:
         logger.debug(f"Error in _set_tenant_for_connection: {e}")
 ```
@@ -111,7 +111,7 @@ def get_db_with_tenant_context(organization_id: str, user_id: str):
         # Begin transaction
         with db.begin():
             # Set tenant context using SET LOCAL (transaction-scoped)
-            db.execute(text("SET LOCAL app.current_organization = :org_id"), {"org_id": organization_id})
+            db.execute(text("SET LOCAL app.current_organization = :organization_id"), {"organization_id": organization_id})
             db.execute(text("SET LOCAL app.current_user = :user_id"), {"user_id": user_id})
             
             yield db

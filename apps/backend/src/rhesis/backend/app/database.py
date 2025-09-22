@@ -153,7 +153,7 @@ def get_db() -> Generator[Session, None, None]:
 
 # get_org_aware_db function has been completely removed
 # Use get_db() and pass organization_id/user_id directly to CRUD functions
-# Example: crud.create_item(db, model, data, organization_id=org_id, user_id=user_id)
+# Example: crud.create_item(db, model, data, organization_id=organization_id, user_id=user_id)
 
 
 # Removed legacy get_current_*_cached functions
