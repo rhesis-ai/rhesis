@@ -1622,15 +1622,21 @@ def add_behavior_to_metric(
     Returns:
         bool: True if the behavior was added, False if it was already associated
     """
-    # Verify the metric exists
-    metric = db.query(models.Metric).filter(models.Metric.id == metric_id).first()
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = db.query(models.Metric).filter(
+        models.Metric.id == metric_id,
+        models.Metric.organization_id == organization_id
+    ).first()
     if not metric:
-        raise ValueError(f"Metric with id {metric_id} not found")
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
-    # Verify the behavior exists
-    behavior = db.query(models.Behavior).filter(models.Behavior.id == behavior_id).first()
+    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
+    behavior = db.query(models.Behavior).filter(
+        models.Behavior.id == behavior_id,
+        models.Behavior.organization_id == organization_id
+    ).first()
     if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found")
+        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
 
     # Check if the association already exists
     existing = (
@@ -1674,15 +1680,21 @@ def remove_behavior_from_metric(
     Returns:
         bool: True if the behavior was removed, False if it wasn't associated
     """
-    # Verify the metric exists
-    metric = db.query(models.Metric).filter(models.Metric.id == metric_id).first()
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = db.query(models.Metric).filter(
+        models.Metric.id == metric_id,
+        models.Metric.organization_id == organization_id
+    ).first()
     if not metric:
-        raise ValueError(f"Metric with id {metric_id} not found")
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
-    # Verify the behavior exists
-    behavior = db.query(models.Behavior).filter(models.Behavior.id == behavior_id).first()
+    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
+    behavior = db.query(models.Behavior).filter(
+        models.Behavior.id == behavior_id,
+        models.Behavior.organization_id == organization_id
+    ).first()
     if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found")
+        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
 
     result = (
         db.query(models.behavior_metric_association)
@@ -1701,6 +1713,7 @@ def remove_behavior_from_metric(
 def get_metric_behaviors(
     db: Session,
     metric_id: UUID,
+    organization_id: str,
     skip: int = 0,
     limit: int = 20,
     sort_by: str = "created_at",
@@ -1712,6 +1725,7 @@ def get_metric_behaviors(
     Args:
         db: Database session
         metric_id: ID of the metric
+        organization_id: ID of the organization (SECURITY CRITICAL)
         skip: Number of records to skip
         limit: Maximum number of records to return
         sort_by: Field to sort by
@@ -1721,14 +1735,17 @@ def get_metric_behaviors(
     Returns:
         List of behaviors associated with the metric
     """
-    # Verify the metric exists
-    metric = db.query(models.Metric).filter(models.Metric.id == metric_id).first()
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = db.query(models.Metric).filter(
+        models.Metric.id == metric_id,
+        models.Metric.organization_id == UUID(organization_id)
+    ).first()
     if not metric:
-        raise ValueError(f"Metric with id {metric_id} not found")
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
     return (
         QueryBuilder(db, models.Behavior)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.behavior_metric_association).filter(
                 models.behavior_metric_association.c.metric_id == metric_id
@@ -1744,6 +1761,7 @@ def get_metric_behaviors(
 def get_behavior_metrics(
     db: Session,
     behavior_id: UUID,
+    organization_id: str,
     skip: int = 0,
     limit: int = 20,
     sort_by: str = "created_at",
@@ -1755,6 +1773,7 @@ def get_behavior_metrics(
     Args:
         db: Database session
         behavior_id: ID of the behavior
+        organization_id: ID of the organization (SECURITY CRITICAL)
         skip: Number of records to skip
         limit: Maximum number of records to return
         sort_by: Field to sort by
@@ -1764,14 +1783,17 @@ def get_behavior_metrics(
     Returns:
         List of metrics associated with the behavior
     """
-    # Verify the behavior exists
-    behavior = db.query(models.Behavior).filter(models.Behavior.id == behavior_id).first()
+    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
+    behavior = db.query(models.Behavior).filter(
+        models.Behavior.id == behavior_id,
+        models.Behavior.organization_id == UUID(organization_id)
+    ).first()
     if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found")
+        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
 
     return (
         QueryBuilder(db, models.Metric)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.behavior_metric_association).filter(
                 models.behavior_metric_association.c.behavior_id == behavior_id
