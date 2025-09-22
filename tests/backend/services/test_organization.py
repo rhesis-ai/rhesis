@@ -51,7 +51,10 @@ class TestLoadInitialData:
              patch('rhesis.backend.app.services.organization.get_or_create_status') as mock_get_status, \
              patch('rhesis.backend.app.services.organization.get_or_create_behavior') as mock_get_behavior, \
              patch('rhesis.backend.app.services.organization.get_or_create_entity') as mock_get_entity, \
-             patch('rhesis.backend.app.services.organization.set_tenant') as mock_set_tenant:
+             patch('rhesis.backend.app.services.organization.get_org_aware_db') as mock_get_org_aware_db:
+            
+            # Setup the context manager mock
+            mock_get_org_aware_db.return_value.__enter__.return_value = test_db
             
             # Call the function
             organization_service.load_initial_data(
@@ -60,11 +63,10 @@ class TestLoadInitialData:
                 user_id=authenticated_user_id
             )
             
-            # Verify set_tenant was called
-            mock_set_tenant.assert_called_once_with(
-                test_db, 
-                organization_id=test_org_id, 
-                user_id=authenticated_user_id
+            # Verify get_org_aware_db was called
+            mock_get_org_aware_db.assert_called_once_with(
+                test_org_id, 
+                authenticated_user_id
             )
             
             # Verify type_lookup creation
@@ -174,6 +176,101 @@ class TestLoadInitialData:
             
             # Verify no type_lookup creation (empty data)
             mock_get_type.assert_not_called()
+
+    def test_load_initial_data_integration(self, test_db: Session, authenticated_user_id, test_org_id):
+        """Integration test that actually loads real initial data into the database."""
+        import os
+        import json
+        
+        # Load the actual initial data to use as reference
+        # Navigate from tests/backend/services/ to project root, then to the initial_data.json file
+        test_file_dir = os.path.dirname(__file__)  # tests/backend/services/
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(test_file_dir)))  # Go up to project root
+        initial_data_path = os.path.join(project_root, "apps/backend/src/rhesis/backend/app/services/initial_data.json")
+        with open(initial_data_path, "r") as file:
+            expected_initial_data = json.load(file)
+        
+        # Count existing records before loading
+        initial_status_count = test_db.query(models.Status).count()
+        initial_behavior_count = test_db.query(models.Behavior).count()
+        initial_type_lookup_count = test_db.query(models.TypeLookup).count()
+        initial_topic_count = test_db.query(models.Topic).count()
+        initial_category_count = test_db.query(models.Category).count()
+        
+        # Call the real function without mocking the core functionality
+        # This tests the actual refactored code with get_org_aware_db
+        organization_service.load_initial_data(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        
+        # Verify that data was actually created OR already exists (both are valid)
+        final_status_count = test_db.query(models.Status).count()
+        final_behavior_count = test_db.query(models.Behavior).count()
+        final_type_lookup_count = test_db.query(models.TypeLookup).count()
+        final_topic_count = test_db.query(models.Topic).count()
+        final_category_count = test_db.query(models.Category).count()
+        
+        # Assert that records exist (either created or already existed)
+        assert final_status_count >= initial_status_count, "Status records should exist"
+        assert final_behavior_count >= initial_behavior_count, "Behavior records should exist"
+        assert final_type_lookup_count >= initial_type_lookup_count, "TypeLookup records should exist"
+        assert final_topic_count >= initial_topic_count, "Topic records should exist"
+        assert final_category_count >= initial_category_count, "Category records should exist"
+        
+        # Most importantly: verify specific records exist with correct organization context
+        # This proves the tenant context is working correctly with get_org_aware_db
+        # Use actual data from initial_data.json as reference
+        
+        # Test status records from actual initial data
+        if expected_initial_data.get("status"):
+            first_status = expected_initial_data["status"][0]
+            created_status = test_db.query(models.Status).filter(
+                models.Status.organization_id == test_org_id,
+                models.Status.name == first_status["name"]
+            ).first()
+            assert created_status is not None, f"Status '{first_status['name']}' should exist for this organization"
+            # Note: user_id might be None for initial data, which is fine - the key is organization isolation
+        
+        # Test behavior records from actual initial data
+        if expected_initial_data.get("behavior"):
+            first_behavior = expected_initial_data["behavior"][0]
+            created_behavior = test_db.query(models.Behavior).filter(
+                models.Behavior.organization_id == test_org_id,
+                models.Behavior.name == first_behavior["name"]
+            ).first()
+            assert created_behavior is not None, f"Behavior '{first_behavior['name']}' should exist for this organization"
+        
+        # Test topic records from actual initial data
+        if expected_initial_data.get("topic"):
+            first_topic = expected_initial_data["topic"][0]
+            created_topic = test_db.query(models.Topic).filter(
+                models.Topic.organization_id == test_org_id,
+                models.Topic.name == first_topic["name"]
+            ).first()
+            assert created_topic is not None, f"Topic '{first_topic['name']}' should exist for this organization"
+        
+        # Verify type lookups were created with correct organization context
+        # Test a known type lookup that should exist
+        entity_type_lookup = test_db.query(models.TypeLookup).filter(
+            models.TypeLookup.organization_id == test_org_id,
+            models.TypeLookup.type_name == "EntityType"
+        ).first()
+        assert entity_type_lookup is not None, "EntityType lookup should exist for this organization"
+        
+        # This is the key test: verify that get_org_aware_db worked correctly
+        # by ensuring we can find organization-specific data
+        org_specific_statuses = test_db.query(models.Status).filter(
+            models.Status.organization_id == test_org_id
+        ).count()
+        assert org_specific_statuses > 0, "Should have organization-specific statuses"
+        
+        print(f"✅ Integration test passed! Function works correctly with get_org_aware_db")
+        print(f"📊 Total records: {final_status_count} statuses, {final_behavior_count} behaviors")
+        print(f"🏢 Organization-specific statuses: {org_specific_statuses}")
+        print(f"📋 Expected data types: {list(expected_initial_data.keys())}")
+        print(f"🔄 Records delta: +{final_status_count - initial_status_count} statuses, +{final_behavior_count - initial_behavior_count} behaviors")
 
 
 @pytest.mark.unit
