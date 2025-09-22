@@ -133,6 +133,7 @@ export default function RecentTestsGrid({ sessionToken }: RecentTestsGridProps) 
         linkPath="/tests"
         linkField="id"
         disableRowSelectionOnClick
+        disablePaperWrapper={true}
       />
     </Box>
   );

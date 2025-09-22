@@ -46,12 +46,14 @@ export default function DashboardCharts() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Use memoized session token to prevent unnecessary re-renders from session object recreation
+  const sessionToken = React.useMemo(() => session?.session_token, [session?.session_token]);
+
   useEffect(() => {
     const fetchTestStats = async () => {
       try {
         setIsLoading(true);
-        const sessionToken = session?.session_token || '';
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory(sessionToken || '');
         const testsClient = clientFactory.getTestsClient();
         const stats = await testsClient.getTestStats({ top: 5, months: 6 });
         setTestStats(stats);
@@ -64,10 +66,10 @@ export default function DashboardCharts() {
       }
     };
 
-    if (session?.session_token) {
+    if (sessionToken) {
       fetchTestStats();
     }
-  }, [session]);
+  }, [sessionToken]);
 
   // Create useCallback versions of the generator functions
   const generateCategoryDataCallback = useCallback(() => {

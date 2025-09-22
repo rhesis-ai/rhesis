@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Typography, Paper, Button, Divider, Checkbox, FormControlLabel } from '@mui/material';
+// Brand icons - keeping filled versions as outlined variants may not exist for all brands
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
@@ -78,7 +79,7 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
         }}
       >
         <Typography variant="h6" align="center">
-          Sign In
+          All paws on deck for testing!
         </Typography>
 
         <Button
@@ -103,6 +104,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<GoogleIcon />}
             onClick={() => handleLogin('google-oauth2')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with Google
           </Button>
@@ -113,6 +117,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<GitHubIcon />}
             onClick={() => handleLogin('github')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with GitHub
           </Button>
@@ -123,6 +130,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<AppleIcon />}
             onClick={() => handleLogin('apple')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with Apple
           </Button>
@@ -133,6 +143,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<MicrosoftIcon />}
             onClick={() => handleLogin('windowslive')}
+            sx={{ 
+              color: (theme) => theme.palette.text.primary
+            }}
           >
             Continue with Microsoft
           </Button>

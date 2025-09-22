@@ -8,6 +8,7 @@ import {
   Grid, 
   Chip,
   Divider,
+  useTheme,
   Button,
   Avatar,
   IconButton
@@ -139,6 +140,7 @@ export function EditDrawerWrapper({ project, sessionToken }: { project: Project;
 }
 
 export function ProjectContent({ project }: { project: Project }) {
+  const theme = useTheme();
   return (
     <Paper sx={{ p: 3, mb: 4 }}>
       <Grid container spacing={3}>
@@ -230,7 +232,7 @@ export function ProjectContent({ project }: { project: Project }) {
               {/* Created Date */}
               {project.createdAt && (
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3 }}>
-                  <CalendarTodayIcon sx={{ fontSize: 24, color: 'text.secondary', mr: 2, mt: 0.5 }} />
+                  <CalendarTodayIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 2, mt: 0.5 }} />
                   <Box>
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
                       Created At
@@ -249,7 +251,7 @@ export function ProjectContent({ project }: { project: Project }) {
             <Box sx={{ mt: 3 }}>
               <Divider sx={{ mb: 3 }} />
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <LocalOfferIcon sx={{ fontSize: 24, color: 'text.secondary', mr: 2, mt: 0.5 }} />
+                <LocalOfferIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 2, mt: 0.5 }} />
                 <Box>
                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
                     Tags

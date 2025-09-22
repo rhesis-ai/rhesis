@@ -1,6 +1,6 @@
 'use client';
 
-import { Paper, Typography, Grid, Box, TextField, Chip, Button } from '@mui/material';
+import { Typography, Grid, Box, TextField, Chip, Button } from '@mui/material';
 import { useState, useMemo, useEffect } from 'react';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
@@ -89,13 +89,14 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
     }
   };
 
-  const renderSingleChip = (value: string | undefined | null, color: "primary" | "secondary" | "default" = "primary") => {
+  const renderSingleChip = (value: string | undefined | null, color: "info" | "default" = "default") => {
     if (!value) return 'N/A';
     return (
       <Chip
         label={value}
         size="small"
         color={color}
+        variant="outlined"
       />
     );
   };
@@ -133,7 +134,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
                       key={`${item}-${index}`}
                       label={item}
                       size="small"
-                      color="primary"
+                      variant="outlined"
                     />
                   ))}
                   {shouldTruncate && (
@@ -141,7 +142,6 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
                       key="remaining"
                       label={`+${remainingCount}`}
                       size="small"
-                      color="secondary"
                       variant="outlined"
                     />
                   )}
@@ -166,7 +166,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
   };
 
   return (
-    <Paper className={styles.detailsSection}>
+    <Box>
       <Box className={styles.header}>
         <Typography 
           variant="h6" 
@@ -243,7 +243,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
               margin="normal"
               InputProps={{
                 readOnly: true,
-                startAdornment: renderSingleChip(testRun.attributes?.environment || 'development', 'secondary')
+                startAdornment: renderSingleChip(testRun.attributes?.environment || 'development')
               }}
             />
 
@@ -261,6 +261,6 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
           </Box>
         </Grid>
       </Grid>
-    </Paper>
+    </Box>
   );
 } 

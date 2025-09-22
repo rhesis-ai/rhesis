@@ -12,7 +12,8 @@ import {
   Grid,
   Button,
   IconButton,
-  Chip
+  Chip,
+  useTheme
 } from '@mui/material';
 import { FilterList, Clear } from '@mui/icons-material';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
@@ -38,6 +39,7 @@ export default function TestResultsFilters({
   initialFilters = {},
   sessionToken
 }: TestResultsFiltersProps) {
+  const theme = useTheme();
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>(initialFilters);
   const [testSets, setTestSets] = useState<TestSet[]>([]);
   const [testRuns, setTestRuns] = useState<TestRunDetail[]>([]);
@@ -138,9 +140,14 @@ export default function TestResultsFilters({
   );
 
   return (
-    <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Paper elevation={theme.elevation.standard} sx={{ p: theme.customSpacing.container.medium }}>
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        mb: theme.customSpacing.section.small 
+      }}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}>
           <FilterList />
           Filters
         </Typography>
@@ -151,7 +158,7 @@ export default function TestResultsFilters({
         )}
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={theme.customSpacing.container.medium}>
         {/* Time Range */}
         <Grid item xs={12} sm={6} md={3}>
           <FormControl fullWidth>
@@ -213,7 +220,12 @@ export default function TestResultsFilters({
 
       {/* Active Filters Display */}
       {hasActiveFilters && (
-        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ 
+          mt: theme.customSpacing.section.small, 
+          display: 'flex', 
+          gap: theme.spacing(1), 
+          flexWrap: 'wrap' 
+        }}>
           <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
             Active filters:
           </Typography>
@@ -222,6 +234,7 @@ export default function TestResultsFilters({
               key="test_set"
               label={`Test Set: ${testSets.find(ts => ts.id === filters.test_set_ids?.[0])?.name || 'Unknown'}`}
               size="small"
+              variant="outlined"
               onDelete={() => updateFilters({ test_set_ids: undefined, test_run_ids: undefined })}
             />
           )}
@@ -230,6 +243,7 @@ export default function TestResultsFilters({
               key="test_run"
               label={`Test Run: ${testRuns.find(tr => tr.id === filters.test_run_ids?.[0])?.name || 'Unknown'}`}
               size="small"
+              variant="outlined"
               onDelete={() => updateFilters({ test_run_ids: undefined })}
             />
           )}
@@ -240,6 +254,7 @@ export default function TestResultsFilters({
                 key={key}
                 label={`${key}: ${Array.isArray(value) ? value.join(', ') : value}`}
                 size="small"
+                variant="outlined"
                 onDelete={() => updateFilters({ [key]: undefined })}
               />
             );

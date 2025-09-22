@@ -42,6 +42,9 @@ export interface BaseLineChartProps {
   showGrid?: boolean;
   legendProps?: Record<string, any>;
   tooltipProps?: Record<string, any>;
+  elevation?: number;
+  preventLegendOverflow?: boolean;
+  variant?: 'dashboard' | 'test-results';
   yAxisConfig?: {
     domain?: [number, number];
     allowDataOverflow?: boolean;
@@ -102,6 +105,52 @@ export const chartUtils = {
     const upperBound = Math.ceil(maxValue * multiplier / 10) * 10;
     
     return [0, upperBound];
+  },
+
+  /**
+   * Calculates optimal Y-axis width based on data values and series configuration
+   */
+  calculateYAxisWidth: (
+    data: Record<string, any>[], 
+    series: LineDataSeries[], 
+    yAxisConfig?: { tickFormatter?: (value: number) => string }
+  ): number => {
+    if (!data.length || !series.length) return 25; // Minimum width for empty data
+    
+    // Find all numeric values across all series
+    const allValues: number[] = [];
+    
+    data.forEach(item => {
+      series.forEach(s => {
+        const value = item[s.dataKey];
+        if (typeof value === 'number' && !isNaN(value)) {
+          allValues.push(value);
+        }
+      });
+    });
+    
+    if (allValues.length === 0) return 25;
+    
+    // Find the maximum value to determine required width
+    const maxValue = Math.max(...allValues);
+    const minValue = Math.min(...allValues);
+    
+    // Use custom formatter if provided, otherwise use default formatting
+    const formatValue = yAxisConfig?.tickFormatter || ((value: number) => value.toString());
+    
+    // Format the extreme values to see their string length
+    const maxValueStr = formatValue(maxValue);
+    const minValueStr = formatValue(minValue);
+    
+    // Find the longest formatted string
+    const maxLength = Math.max(maxValueStr.length, minValueStr.length);
+    
+    // Calculate width based on character count
+    // Approximate: 8px per character + 10px padding
+    const calculatedWidth = (maxLength * 8) + 10;
+    
+    // Ensure minimum and maximum bounds
+    return Math.max(20, Math.min(calculatedWidth, 60));
   }
 };
 
@@ -111,19 +160,38 @@ export default function BaseLineChart({
   series,
   colorPalette = 'line',
   useThemeColors = true,
-  height = 150,
+  height = 180,
   xAxisDataKey = 'name',
   showGrid = true,
   legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
   tooltipProps,
+  elevation = 2,
+  preventLegendOverflow = false,
+  variant = 'dashboard',
   yAxisConfig
 }: BaseLineChartProps) {
   const theme = useTheme();
+  
+  // Convert rem to pixels for Recharts (assuming 1rem = 16px)
+  const getPixelFontSize = (remSize: string | number | undefined): number => {
+    if (!remSize) return 10; // fallback size
+    const remValue = parseFloat(String(remSize));
+    return remValue * 16;
+  };
+  
+  // Update legend props to use theme
+  const themedLegendProps = {
+    ...legendProps,
+    wrapperStyle: {
+      ...legendProps.wrapperStyle,
+      fontSize: theme.typography.chartTick.fontSize
+    }
+  };
 
   // Default tooltip props with theme awareness
   const defaultTooltipProps = {
     contentStyle: { 
-      fontSize: '10px',
+      fontSize: theme.typography.chartTick.fontSize,
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
@@ -134,50 +202,83 @@ export default function BaseLineChart({
   const finalTooltipProps = tooltipProps || defaultTooltipProps;
   const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
   
+  // Calculate optimal Y-axis width based on data (dashboard optimization)
+  const yAxisWidth = variant === 'dashboard' 
+    ? chartUtils.calculateYAxisWidth(data, series, yAxisConfig)
+    : 50; // Fixed width for test-results variant
+  
+  const chartContent = (
+    <>
+      {title && (
+        <Typography variant="subtitle2" sx={{ mb: 1, px: 0.5, textAlign: 'center' }}>
+          {title}
+        </Typography>
+      )}
+      <Box className={styles.chartContainer}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart 
+            data={data}
+            margin={{ 
+              top: variant === 'dashboard' ? 2 : 5, // Dashboard: minimal top margin for max grid space
+              right: preventLegendOverflow ? 15 : (variant === 'dashboard' ? 2 : 5), // Dashboard: minimal right margin
+              bottom: preventLegendOverflow ? 25 : (variant === 'dashboard' ? 18 : 2), // Dashboard: tight bottom for legend
+              left: variant === 'dashboard' ? -5 : 0 // Dashboard: negative left to maximize grid width
+            }}
+          >
+            {showGrid && <CartesianGrid strokeDasharray="3 3" />}
+            <XAxis 
+              dataKey={xAxisDataKey} 
+              tick={{ 
+                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fill: theme.palette.text.primary
+              }}
+              axisLine={{ strokeWidth: 1 }}
+              tickLine={{ strokeWidth: 1 }}
+            />
+            <YAxis 
+              tick={{ 
+                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fill: theme.palette.text.primary
+              }} 
+              axisLine={{ strokeWidth: 1 }}
+              tickLine={{ strokeWidth: 1 }}
+              width={yAxisWidth}
+              {...yAxisConfig}
+            />
+            <Tooltip {...finalTooltipProps} />
+            <Legend {...themedLegendProps} height={variant === 'dashboard' ? 16 : 20} />
+            {series.map((s, index) => (
+              <Line
+                key={index}
+                type="monotone"
+                dataKey={s.dataKey}
+                name={s.name || s.dataKey}
+                stroke={s.color || (useThemeColors ? theme.chartPalettes[colorPalette][index % theme.chartPalettes[colorPalette].length] : defaultColors[index % defaultColors.length])}
+                strokeWidth={s.strokeWidth || 1.5}
+                dot={{ strokeWidth: 1, r: 3 }}
+                activeDot={{ r: 5, strokeWidth: 1 }}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </Box>
+    </>
+  );
+
+  // If elevation is 0, render content without Card wrapper
+  if (elevation === 0) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', p: 0.5 }}>
+        {chartContent}
+      </Box>
+    );
+  }
+
+  // Otherwise, render with Card wrapper
   return (
-    <Card className={styles.card}>
+    <Card className={styles.card} elevation={elevation}>
       <CardContent className={styles.cardContent}>
-        {title && (
-          <Typography variant="subtitle1" className={styles.title}>
-            {title}
-          </Typography>
-        )}
-        <Box className={styles.chartContainer}>
-          <ResponsiveContainer width="100%" height={height}>
-            <LineChart 
-              data={data} 
-              margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
-            >
-              {showGrid && <CartesianGrid strokeDasharray="3 3" />}
-              <XAxis 
-                dataKey={xAxisDataKey} 
-                tick={{ fontSize: 10 }}
-                axisLine={{ strokeWidth: 1 }}
-                tickLine={{ strokeWidth: 1 }}
-              />
-              <YAxis 
-                tick={{ fontSize: 10 }} 
-                axisLine={{ strokeWidth: 1 }}
-                tickLine={{ strokeWidth: 1 }}
-                {...yAxisConfig}
-              />
-              <Tooltip {...finalTooltipProps} />
-              <Legend {...legendProps} height={30} />
-              {series.map((s, index) => (
-                <Line
-                  key={index}
-                  type="monotone"
-                  dataKey={s.dataKey}
-                  name={s.name || s.dataKey}
-                  stroke={s.color || (useThemeColors ? theme.chartPalettes[colorPalette][index % theme.chartPalettes[colorPalette].length] : defaultColors[index % defaultColors.length])}
-                  strokeWidth={s.strokeWidth || 1.5}
-                  dot={{ strokeWidth: 1, r: 3 }}
-                  activeDot={{ r: 5, strokeWidth: 1 }}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </Box>
+        {chartContent}
       </CardContent>
     </Card>
   );

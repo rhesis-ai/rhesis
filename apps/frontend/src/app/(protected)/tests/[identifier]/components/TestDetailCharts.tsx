@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { BasePieChart, BaseLineChart, BaseChartsGrid } from '@/components/common/BaseCharts';
-import { Box, CircularProgress, Typography, Alert } from '@mui/material';
+import { Box, CircularProgress, Typography, Alert, useTheme } from '@mui/material';
 
 // Fallback mock data in case the API fails
 const fallbackData = [
@@ -20,6 +20,7 @@ interface TestDetailChartsProps {
 }
 
 export default function TestDetailCharts({ testId, sessionToken }: TestDetailChartsProps) {
+  const theme = useTheme();
   // This is a placeholder component with empty charts
   // The actual implementation will be added later
   
@@ -39,7 +40,7 @@ export default function TestDetailCharts({ testId, sessionToken }: TestDetailCha
         useThemeColors={true}
         colorPalette="line"
         height={180}
-        legendProps={{ wrapperStyle: { fontSize: '10px' }, iconSize: 8, layout: 'horizontal' }}
+        legendProps={{ wrapperStyle: { fontSize: theme.typography.chartTick.fontSize }, iconSize: 8, layout: 'horizontal' }}
         yAxisConfig={{
           domain: [0, 100],
           allowDataOverflow: true

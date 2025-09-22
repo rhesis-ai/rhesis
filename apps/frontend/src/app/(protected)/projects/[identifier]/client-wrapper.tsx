@@ -3,9 +3,8 @@
 import { useState, useCallback } from 'react';
 import { Box, Button, Breadcrumbs, Typography, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import Link from 'next/link';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { ArrowBackIcon, EditIcon } from '@/components/icons';
+import { DeleteIcon } from '@/components/icons';
 import ProjectContent from '../components/ProjectContent';
 import ProjectEditDrawer from './edit-drawer';
 import { Project } from '@/utils/api-client/interfaces/project';
