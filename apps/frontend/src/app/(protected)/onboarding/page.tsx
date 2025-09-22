@@ -14,11 +14,9 @@ export default async function OnboardingPage() {
   }
   
   return (
-    <Box sx={{ p: 3 }}>
-      <OnboardingPageClient 
-        sessionToken={session.session_token} 
-        userId={session.user.id as UUID}
-      />
-    </Box>
+    <OnboardingPageClient 
+      sessionToken={session.session_token} 
+      userId={session.user.id as UUID}
+    />
   );
 } 

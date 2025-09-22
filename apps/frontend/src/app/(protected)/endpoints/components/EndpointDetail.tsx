@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, Tabs, Tab, Grid, Button, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, ListItemIcon, ListItemText, Chip } from '@mui/material';
+import { Box, Typography, Paper, Tabs, Tab, Grid, Button, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, ListItemIcon, ListItemText, Chip } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -79,16 +79,10 @@ const getProjectIcon = (project: Project) => {
   return <SmartToyIcon />;
 };
 
-// Move the getEnvironmentColor helper function from EndpointsTable.tsx to this component
+// Environment chips should use neutral colors for better UX
 const getEnvironmentColor = (environment: string) => {
-  switch (environment.toLowerCase()) {
-    case 'production':
-      return 'success';
-    case 'staging':
-      return 'warning';
-    default:
-      return 'info';
-  }
+  // Use 'default' for all environments to get neutral grey styling
+  return 'default';
 };
 
 interface TabPanelProps {
@@ -263,7 +257,7 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
 
   return (
     <>
-      <Card>
+      <Paper elevation={2} sx={{ mb: 4 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
           <Tabs value={currentTab} onChange={handleTabChange} aria-label="endpoint configuration tabs">
             <Tab label="Basic Information" />
@@ -300,7 +294,7 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
         <TabPanel value={currentTab} index={0}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>General Information</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>Basic Details</Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   {isEditing ? (
@@ -632,7 +626,7 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
             )}
           </Grid>
         </TabPanel>
-      </Card>
+      </Paper>
     </>
   );
 } 

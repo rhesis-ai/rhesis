@@ -270,7 +270,7 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
       <Box py={4}>
         {/* Header */}
         <Box textAlign="center" mb={4}>
-          <Typography variant="h4" component="h1" gutterBottom>
+          <Typography variant="h4" component="h1" gutterBottom color="primary">
             Welcome to Rhesis
           </Typography>
           <Typography variant="body1" color="text.secondary">
@@ -280,7 +280,7 @@ export default function OnboardingPageClient({ sessionToken, userId }: Onboardin
 
         {/* Stepper */}
         <Box mb={4}>
-          <Paper elevation={0}>
+          <Paper variant="outlined" elevation={0}>
             <Box p={3}>
               <Stepper activeStep={activeStep} alternativeLabel>
                 {steps.map((label) => (

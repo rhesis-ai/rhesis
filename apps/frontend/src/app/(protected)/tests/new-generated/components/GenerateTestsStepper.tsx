@@ -41,7 +41,7 @@ import {
   GenerationSample 
 } from '@/utils/api-client/interfaces/test-set';
 import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
-import StarIcon from '@mui/icons-material/Star';
+import StarIcon from '@mui/icons-material/StarOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -782,7 +782,7 @@ const ReviewSamples = ({
             }}
           >
             <Box sx={{ display: 'flex', gap: 1, mb: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <Chip label={sample.behavior} size="small" color={sample.behavior === 'Reliability' ? 'success' : 'warning'} />
+              <Chip label={sample.behavior} size="small" color={sample.behavior === 'Reliability' ? 'success' : 'warning'} variant="outlined" />
               <Chip label={sample.topic} size="small" variant="outlined" />
             </Box>
 
@@ -830,7 +830,7 @@ const ReviewSamples = ({
                     px: 1,
                     py: 0.5,
                     borderRadius: 1,
-                    fontSize: '0.75rem',
+                    fontSize: theme.typography.chartLabel.fontSize,
                     whiteSpace: 'nowrap',
                     zIndex: 1,
                     boxShadow: 1,

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { Card, CardContent, Typography, Box, Chip, SvgIcon } from '@mui/material';
 import {
   AssessmentIcon,
   PrecisionManufacturingIcon,
@@ -14,6 +15,19 @@ import {
   CategoryIcon,
   ToggleOnIcon
 } from '@/components/icons';
+
+// Custom Rhesis AI icon component using inline SVG
+const RhesisAIIcon = ({ fontSize = 'small' }: { fontSize?: 'small' | 'medium' | 'large' }) => (
+  <SvgIcon 
+    fontSize={fontSize} 
+    viewBox="0 0 390 371"
+    sx={{
+      margin: '0 -4px 0 4px'
+    }}
+  >
+    <path d="M17.6419 272.939C72.0706 284.122 119.805 321.963 182.044 358.896C203.958 371.859 229.133 373.691 251.291 366.398C273.398 359.106 292.557 342.671 302.495 319.206C330.616 252.492 346.55 193.663 383.685 152.315C394.79 140.121 388.322 120.476 372.178 117.318C330.598 109.153 300.054 73.5806 298.171 31.2211C297.404 14.7518 278.976 5.48786 265.291 14.6646C258.213 19.4623 250.611 23.0911 242.819 25.6732C211.873 35.8618 177.127 29.0054 152.11 6.18571C146.06 0.655251 138.075 -0.513647 131.294 1.71947C124.512 3.95259 118.776 9.64007 117.172 17.7002C110.652 50.9004 86.7151 77.1221 55.7699 87.3108C47.9595 89.8928 39.6958 91.4804 31.1532 91.8293C14.6956 92.597 5.36845 110.985 14.591 124.681C38.1617 159.887 34.7097 206.678 6.11811 237.959C-5.00474 250.084 1.46325 269.746 17.6245 272.956L17.6419 272.939Z" fill="#97D5EE"/>
+  </SvgIcon>
+);
 
 interface MetricCardProps {
   type?: 'custom-prompt' | 'api-call' | 'custom-code' | 'grading';
@@ -49,19 +63,27 @@ const getBackendIcon = (backend: string) => {
       return <StorageIcon fontSize="small" />;
     case 'deepeval':
       return <ApiIcon fontSize="small" />;
+    case 'rhesis ai':
+    case 'rhesis':
+      return <RhesisAIIcon fontSize="small" />;
     default:
       return <StorageIcon fontSize="small" />;
   }
 };
 
 const getMetricTypeDisplay = (metricType: string): string => {
+  if (!metricType) return 'Unknown';
+  
   const mapping: Record<string, string> = {
     'custom-prompt': 'LLM Judge',
     'api-call': 'External API',
     'custom-code': 'Script',
-    'grading': 'Grades'
+    'grading': 'Grades',
+    'framework': 'Framework'
   };
-  return mapping[metricType] || metricType;
+  
+  // If we have a specific mapping, use it; otherwise capitalize the first letter
+  return mapping[metricType] || metricType.charAt(0).toUpperCase() + metricType.slice(1).toLowerCase();
 };
 
 const getMetricTypeIcon = (metricType: string) => {
@@ -74,6 +96,9 @@ const getMetricTypeIcon = (metricType: string) => {
       return <CodeIcon fontSize="small" />;
     case 'grading':
       return <AssessmentIcon fontSize="small" />;
+    case 'rhesis ai':
+    case 'rhesis':
+      return <RhesisAIIcon fontSize="small" />;
     default:
       return <AssessmentIcon fontSize="small" />;
   }
@@ -87,6 +112,9 @@ const getScoreTypeIcon = (scoreType: string) => {
       return <CategoryIcon fontSize="small" />;
     case 'binary':
       return <ToggleOnIcon fontSize="small" />;
+    case 'rhesis ai':
+    case 'rhesis':
+      return <RhesisAIIcon fontSize="small" />;
     default:
       return <NumbersIcon fontSize="small" />;
   }
@@ -102,8 +130,15 @@ export default function MetricCard({
   usedIn,
   showUsage = false
 }: MetricCardProps) {
-  const capitalizedScoreType = (scoreType ?? '').charAt(0).toUpperCase() + (scoreType ?? '').slice(1).toLowerCase();
-  const capitalizedBackend = (backend ?? '').charAt(0).toUpperCase() + (backend ?? '').slice(1).toLowerCase();
+  const theme = useTheme();
+  
+  // Safely handle capitalization with fallbacks for empty/undefined values
+  const capitalizedScoreType = scoreType ? 
+    scoreType.charAt(0).toUpperCase() + scoreType.slice(1).toLowerCase() : 
+    'Unknown';
+  const capitalizedBackend = backend ? 
+    backend.charAt(0).toUpperCase() + backend.slice(1).toLowerCase() : 
+    'Unknown';
 
   const chipStyles = {
     '& .MuiChip-icon': {
@@ -176,31 +211,34 @@ export default function MetricCard({
             gap: 0.5,
             '& .MuiChip-root': {
               height: '24px',
-              fontSize: '0.75rem',
+              fontSize: theme?.typography?.chartLabel?.fontSize || '0.75rem',
               ...chipStyles
             }
           }}>
-            <Chip 
-              icon={getBackendIcon(backend || '')}
-              label={capitalizedBackend}
-              size="small"
-              color="secondary"
-              variant="outlined"
-            />
-            <Chip 
-              icon={getMetricTypeIcon(metricType || '')}
-              label={getMetricTypeDisplay(metricType || '')}
-              size="small"
-              color="secondary"
-              variant="outlined"
-            />
-            <Chip 
-              icon={getScoreTypeIcon(scoreType || '')}
-              label={capitalizedScoreType}
-              size="small"
-              color="secondary"
-              variant="outlined"
-            />
+            {(backend || capitalizedBackend !== 'Unknown') && (
+              <Chip 
+                icon={getBackendIcon(backend || '')}
+                label={capitalizedBackend}
+                size="small"
+                variant="outlined"
+              />
+            )}
+            {(metricType || getMetricTypeDisplay(metricType || '') !== 'Unknown') && (
+              <Chip 
+                icon={getMetricTypeIcon(metricType || '')}
+                label={getMetricTypeDisplay(metricType || '')}
+                size="small"
+                variant="outlined"
+              />
+            )}
+            {(scoreType || capitalizedScoreType !== 'Unknown') && (
+              <Chip 
+                icon={getScoreTypeIcon(scoreType || '')}
+                label={capitalizedScoreType}
+                size="small"
+                variant="outlined"
+              />
+            )}
           </Box>
         </Box>
       </CardContent>

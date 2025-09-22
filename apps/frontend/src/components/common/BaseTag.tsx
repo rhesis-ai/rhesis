@@ -318,7 +318,7 @@ export default function BaseTag({
               key={option}
               label={option}
               color={chipColor}
-              variant="filled"
+              variant="outlined"
               disabled={disabled}
               className={styles.baseTag}
               onDelete={!disabled && !disableEdition ? () => handleDeleteTag(option) : undefined}

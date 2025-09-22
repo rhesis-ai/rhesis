@@ -33,13 +33,13 @@ export function isPublicPath(path: string): boolean {
   }
   
   // Check static asset paths
-  const staticPaths = ['/_next/', '/images/', '/assets/'];
+  const staticPaths = ['/_next/', '/images/', '/assets/', '/fonts/'];
   if (staticPaths.some(prefix => path.startsWith(prefix))) {
     return true;
   }
   
   // Check file extensions for common static files
-  const staticExtensions = ['.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.css', '.js'];
+  const staticExtensions = ['.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.css', '.js', '.ttf', '.woff', '.woff2', '.eot', '.otf'];
   if (staticExtensions.some(ext => path.endsWith(ext))) {
     return true;
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import { Box, Typography, Alert, CircularProgress, useTheme, Paper } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
@@ -34,6 +34,7 @@ const extractUniqueMetrics = (timeline?: Array<{
 };
 
 export default function MetricTimelineChartsGrid({ sessionToken, filters }: MetricTimelineChartsGridProps) {
+  const theme = useTheme();
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +81,7 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
         <CircularProgress size={24} />
-        <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading metrics timeline...</Typography>
+        <Typography variant="helperText" sx={{ ml: 2 }}>Loading metrics timeline...</Typography>
       </Box>
     );
   }
@@ -125,7 +126,7 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
           lg: '1fr 1fr 1fr',   // 3 columns on large screens
           xl: '1fr 1fr 1fr 1fr' // 4 columns on extra large screens
         }, 
-        gap: 3 
+        gap: theme.customSpacing.section.medium 
       }}>
         {uniqueMetrics.map((metricName) => (
           <MetricTimelineChart 

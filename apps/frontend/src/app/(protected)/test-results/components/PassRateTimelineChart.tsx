@@ -53,7 +53,7 @@ export default function PassRateTimelineChart({ sessionToken, filters }: PassRat
 
   return (
     <BaseTimelineChart
-      title="Pass Rate Over Time"
+      title="Pass Rate by Month"
       data={stats?.timeline || []}
       dataExtractor={extractOverallData}
       height={400}
