@@ -91,6 +91,17 @@ export default function CreateTaskPage() {
             status_id: defaultStatus.id
           }));
         }
+
+        // Set default priority if none is selected
+        if (!formData.priority_id && fetchedPriorities.length > 0) {
+          const defaultPriority = fetchedPriorities.find(priority => 
+            priority.type_value?.toLowerCase() === 'medium'
+          ) || fetchedPriorities[0];
+          setFormData(prev => ({
+            ...prev,
+            priority_id: defaultPriority.id
+          }));
+        }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load initial data';
         setError(errorMessage);
@@ -135,11 +146,16 @@ export default function CreateTaskPage() {
         return;
       }
 
+      if (!formData.priority_id) {
+        show('Please select a priority', { severity: 'error' });
+        return;
+      }
+
       const taskData: TaskCreate = {
         title: formData.title,
         description: formData.description,
         status_id: formData.status_id,
-        priority_id: formData.priority_id || undefined,
+        priority_id: formData.priority_id,
         assignee_id: formData.assignee_id || undefined,
         entity_type: formData.entity_type,
         entity_id: formData.entity_id,

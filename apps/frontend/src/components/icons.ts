@@ -56,7 +56,7 @@ export { default as PersonIcon } from '@mui/icons-material/Person';
 export { default as DownloadIcon } from '@mui/icons-material/Download';
 export { default as ContentCopyIcon } from '@mui/icons-material/ContentCopy';
 export { default as ArrowBackIcon } from '@mui/icons-material/ArrowBack';
-export { default as ArrowForwardIcon } from '@mui/icons-material/ArrowForward';
+export { default as ArrowOutwardIcon } from '@mui/icons-material/ArrowOutward';
 export { default as ClearIcon } from '@mui/icons-material/Clear';
 
 // Metric specific icons

@@ -19,22 +19,17 @@ import {
   Chip,
   Avatar,
   IconButton,
-  Divider
+  Divider,
+  Tooltip
 } from '@mui/material';
 import { 
-  SaveIcon, 
-  ArrowForwardIcon, 
-  EditIcon, 
-  CancelIcon, 
-  ScienceIcon, 
-  CategoryIcon, 
-  PlayArrowIcon, 
-  ChatIcon 
+  ArrowOutwardIcon, 
+  EditIcon
 } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
-import { getStatusesForTask, getPrioritiesForTask, getStatusByName, getPriorityByName } from '@/utils/task-lookup';
+import { getStatusesForTask, getPrioritiesForTask } from '@/utils/task-lookup';
 import { getEntityUrlMap } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -61,9 +56,17 @@ export default function TaskDetailPage({ params }: PageProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
 
   const resolvedParams = use(params);
   const taskId = resolvedParams.id;
+
+  // Initialize edit description when task loads
+  useEffect(() => {
+    if (editedTask) {
+      setEditDescription(editedTask.description || '');
+    }
+  }, [editedTask]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -147,6 +150,31 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   const task = editedTask;
 
+  const handleSaveDescription = async () => {
+    if (!taskId) return;
+    
+    setIsSaving(true);
+    
+    try {
+      const updateData: TaskUpdate = {
+        title: task.title,
+        description: editDescription,
+        status_id: task.status_id,
+        priority_id: task.priority_id,
+        assignee_id: task.assignee_id || undefined
+      };
+
+      await updateTask(taskId, updateData);
+      show('Description updated successfully', { severity: 'success' });
+      setIsEditingDescription(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update description';
+      show(errorMessage, { severity: 'error' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = async (taskToSave?: Task) => {
     if (!taskId) return;
     
@@ -188,52 +216,73 @@ export default function TaskDetailPage({ params }: PageProps) {
   };
 
   return (
-    <PageContainer title={task.title} breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: task.title, path: `/tasks/${taskId}` }]}>
+    <PageContainer 
+      breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: task.title, path: `/tasks/${taskId}` }]}
+    >
+      {/* Title and Navigation Button in same row */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 500 }}>
+          {task.title}
+        </Typography>
+        {(task.entity_type && task.entity_id) && (
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              // Always navigate to the entity, optionally with comment hash
+              if (task.entity_type && task.entity_id) {
+                try {
+                  // Map entity types to correct URL paths (plural)
+                  const entityUrlMap = getEntityUrlMap();
+                  const entityPath = entityUrlMap[task.entity_type] || task.entity_type.toLowerCase();
+                  const baseUrl = `/${entityPath}/${task.entity_id}`;
+                  const commentHash = task.task_metadata?.comment_id ? `#comment-${task.task_metadata.comment_id}` : '';
+                  router.push(`${baseUrl}${commentHash}`);
+                } catch (error) {
+                  console.error('Navigation error:', error);
+                }
+              }
+            }}
+            sx={{
+              borderRadius: '20px',
+              backgroundColor: 'background.paper',
+              color: 'text.secondary',
+              border: '1px solid',
+              borderColor: 'divider',
+              px: 2,
+              py: 1,
+              '&:hover': {
+                backgroundColor: 'action.hover',
+                color: 'text.primary',
+                borderColor: 'primary.main'
+              }
+            }}
+            endIcon={
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  backgroundColor: 'text.secondary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <ArrowOutwardIcon sx={{ fontSize: '12px', color: 'background.paper' }} />
+              </Box>
+            }
+          >
+            {task.task_metadata?.comment_id ? 'Go to associated comment' : `Go to ${task.entity_type}`}
+          </Button>
+        )}
+      </Box>
+
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Paper sx={{ p: 4 }}>
               {/* Task Details Section */}
-              {/* Header with action button */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 4 }}>
-                {(task.entity_type && task.entity_id) && (
-                  <IconButton
-                    size="small"
-                    onClick={() => {
-                      // Always navigate to the entity, optionally with comment hash
-                      if (task.entity_type && task.entity_id) {
-                        try {
-                          // Map entity types to correct URL paths (plural)
-                          const entityUrlMap = getEntityUrlMap();
-                          const entityPath = entityUrlMap[task.entity_type] || task.entity_type.toLowerCase();
-                          const baseUrl = `/${entityPath}/${task.entity_id}`;
-                          const commentHash = task.task_metadata?.comment_id ? `#comment-${task.task_metadata.comment_id}` : '';
-                          router.push(`${baseUrl}${commentHash}`);
-                        } catch (error) {
-                          console.error('Navigation error:', error);
-                        }
-                      }
-                    }}
-                    sx={{ 
-                      color: 'text.secondary',
-                      '&:hover': { color: 'primary.main' }
-                    }}
-                    title={task.task_metadata?.comment_id ? `Go to ${task.entity_type} (highlight comment)` : `Go to ${task.entity_type}`}
-                  >
-                    {task.task_metadata?.comment_id ? (
-                      <ChatIcon fontSize="small" />
-                    ) : task.entity_type === 'Test' ? (
-                      <ScienceIcon fontSize="small" />
-                    ) : task.entity_type === 'TestSet' ? (
-                      <CategoryIcon fontSize="small" />
-                    ) : task.entity_type === 'TestRun' ? (
-                      <PlayArrowIcon fontSize="small" />
-                    ) : (
-                      <ArrowForwardIcon fontSize="small" />
-                    )}
-                  </IconButton>
-                )}
-              </Box>
 
               {/* Status and Priority Row */}
               <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -411,22 +460,9 @@ export default function TaskDetailPage({ params }: PageProps) {
                     Description
                   </Typography>
                   {!isEditingDescription ? (
-                    <IconButton
-                      onClick={() => setIsEditingDescription(true)}
-                      size="small"
-                      sx={{ 
-                        color: 'text.secondary',
-                        '&:hover': {
-                          color: 'primary.main',
-                        }
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Tooltip title="Edit description">
                       <IconButton
-                        onClick={() => setIsEditingDescription(false)}
+                        onClick={() => setIsEditingDescription(true)}
                         size="small"
                         sx={{ 
                           color: 'text.secondary',
@@ -435,58 +471,57 @@ export default function TaskDetailPage({ params }: PageProps) {
                           }
                         }}
                       >
-                        <CancelIcon fontSize="small" />
+                        <EditIcon fontSize="small" />
                       </IconButton>
-                      <IconButton
-                        onClick={() => {
-                          setIsEditingDescription(false);
-                          handleSave();
-                        }}
-                        size="small"
-                        sx={{ 
-                          color: 'primary.main',
-                          '&:hover': {
-                            color: 'primary.dark',
-                          }
-                        }}
-                      >
-                        <SaveIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  )}
+                    </Tooltip>
+                  ) : null}
                 </Box>
                 {isEditingDescription ? (
-                  <TextField
-                    fullWidth
-                    value={task.description || ''}
-                    onChange={handleChange('description')}
-                    multiline
-                    rows={6}
-                    disabled={isSaving}
-                    variant="outlined"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: 'background.paper',
-                      }
-                    }}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      p: 2,
-                      border: '1px solid',
-                      borderColor: 'grey.300',
-                      borderRadius: 1,
-                      backgroundColor: 'background.paper',
-                      minHeight: 120,
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => setIsEditingDescription(true)}
-                  >
-                    <Typography variant="body1" color="text.primary">
-                      {task.description || 'No description provided. Click to add one.'}
-                    </Typography>
+                  <Box sx={{ mb: 2 }}>
+                    <TextField
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      multiline
+                      rows={3}
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                      sx={{ mb: 1 }}
+                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                      <Button 
+                        size="small" 
+                        onClick={() => {
+                          setIsEditingDescription(false);
+                          setEditDescription(task.description || '');
+                        }}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        size="small" 
+                        variant="contained" 
+                        onClick={handleSaveDescription} 
+                        disabled={isSaving || !editDescription.trim()}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        {isSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                    </Box>
                   </Box>
+                ) : (
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      mb: 2, 
+                      lineHeight: 1.6,
+                      whiteSpace: 'pre-wrap',
+                      color: 'text.primary'
+                    }}
+                  >
+                    {task.description || 'No description provided'}
+                  </Typography>
                 )}
               </Box>
 
@@ -505,10 +540,10 @@ export default function TaskDetailPage({ params }: PageProps) {
                   onCreateTask={undefined} // No task creation from task comments
                 />
               </Box>
-            </Paper>
-          </Grid>
-        </Grid>
-      </Box>
-    </PageContainer>
+        </Paper>
+      </Grid>
+    </Grid>
+  </Box>
+</PageContainer>
   );
 }
