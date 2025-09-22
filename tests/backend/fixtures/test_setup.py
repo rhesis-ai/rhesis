@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 # Import backend modules
 from rhesis.backend.app import models, crud
-from rhesis.backend.app.database import get_database_url, set_tenant, maintain_tenant_context
+from rhesis.backend.app.database import get_database_url, set_tenant
 from rhesis.backend.app.schemas import UserCreate, OrganizationCreate
 from rhesis.backend.app.schemas.token import TokenCreate
 from rhesis.backend.app.services.organization import load_initial_data
