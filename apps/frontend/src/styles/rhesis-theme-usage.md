@@ -61,22 +61,55 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 
 ## Button Usage
 
-### Primary Buttons
+### Primary Buttons (Main Actions)
 ```tsx
 <Button variant="contained" color="primary">
-  Primary Action (CTA Blue #2AA1CE)
+  Primary Action (CTA Blue #2AA1CE background, white text)
 </Button>
 ```
 
-### Secondary Buttons
+### Secondary Buttons (Alternative Actions)
 ```tsx
 <Button variant="contained" color="secondary">
-  Secondary Action (Orange #FD6E12)
+  Secondary Action (Orange #FD6E12 background, white text)
 </Button>
 ```
 
-### Text Buttons
+### Outlined Buttons (Tertiary Actions)
 ```tsx
+<Button variant="outlined" color="primary">
+  Tertiary Action (CTA Blue #2AA1CE border/text, transparent background)
+</Button>
+
+<Button variant="outlined" color="secondary">
+  Alternative Tertiary Action (Orange #FD6E12 border/text, transparent background)
+</Button>
+```
+
+### Text Buttons (Subtle Actions)
+```tsx
+<Button variant="text" color="primary">
+  Subtle Action (Blue text, no background/border)
+</Button>
+```
+
+### Button Hierarchy Guidelines
+- **Contained Primary**: Most important actions (Submit, Save, Execute)
+- **Contained Secondary**: Important alternative actions (Alternative CTAs)
+- **Outlined Primary**: Secondary actions (Cancel, Download, Edit)
+- **Outlined Secondary**: Less common secondary actions
+- **Text**: Subtle actions (Links, minor actions)
+
+### Example Usage Patterns
+```tsx
+// Form actions
+<Button variant="contained" color="primary">Save Changes</Button>
+<Button variant="outlined" color="primary">Cancel</Button>
+
+// Data actions  
+<Button variant="contained" color="primary">Execute Test</Button>
+<Button variant="outlined" color="primary">Download Results</Button>
+<Button variant="text" color="primary">View Details</Button>
 <Button variant="text" color="primary">
   Text Action (Primary Blue #50B9E0)
 </Button>
