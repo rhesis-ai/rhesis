@@ -156,7 +156,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("demographic", []):
                 item_copy = item.copy()  # Don't modify original data
                 dimension_name = item_copy.pop("dimension", None)
-                demographic = get_or_create_entity(db=db, model=models.Demographic, entity_data=item_copy, organization_id=uuid.UUID(organization_id), user_id=uuid.UUID(user_id), commit=False)
+                demographic = get_or_create_entity(db=db, model=models.Demographic, entity_data=item_copy, organization_id=organization_id, user_id=user_id, commit=False)
                 if dimension_name:
                     dimension = (
                         db.query(models.Dimension)
@@ -217,7 +217,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 )
 
                 # Create prompt
-                prompt = get_or_create_entity(db=db, model=models.Prompt, entity_data={"content": item["prompt"]}, organization_id=uuid.UUID(organization_id), user_id=uuid.UUID(user_id), commit=False)
+                prompt = get_or_create_entity(db=db, model=models.Prompt, entity_data={"content": item["prompt"]}, organization_id=organization_id, user_id=user_id, commit=False)
 
                 # Create test
                 test = get_or_create_entity(
@@ -232,7 +232,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "behavior_id": behavior.id,
                         "priority": item.get("priority", 1),
                     },
-                    organization_id=uuid.UUID(organization_id), user_id=uuid.UUID(user_id), commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
                 created_tests.append(test)
 
@@ -264,7 +264,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "visibility": item["visibility"],
                         "attributes": item["metadata"],
                     },
-                    organization_id=uuid.UUID(organization_id), user_id=uuid.UUID(user_id), commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
                 # Associate tests with test set
@@ -335,7 +335,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "owner_id": uuid.UUID(user_id),
                 }
 
-                metric = get_or_create_entity(db=db, model=models.Metric, entity_data=metric_data, organization_id=uuid.UUID(organization_id), user_id=uuid.UUID(user_id), commit=False)
+                metric = get_or_create_entity(db=db, model=models.Metric, entity_data=metric_data, organization_id=organization_id, user_id=user_id, commit=False)
 
                 # Process behavior associations
                 behavior_names = item.get("behaviors", [])
