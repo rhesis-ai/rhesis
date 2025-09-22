@@ -1389,14 +1389,14 @@ def get_test_runs(
     return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
 
 
-def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID) -> List[models.Behavior]:
-    """Get behaviors that have test results for a specific test run"""
-    # Verify the test run exists
+def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID, organization_id: str = None) -> List[models.Behavior]:
+    """Get behaviors that have test results for a specific test run with organization filtering"""
+    # Verify the test run exists (UUID lookup is safe)
     test_run = get_test_run(db, test_run_id)
     if not test_run:
         raise ValueError(f"Test run with id {test_run_id} not found")
 
-    # Get unique behavior IDs from tests that have results in this test run
+    # Get unique behavior IDs from tests that have results in this test run (SECURITY: Add organization filtering)
     behavior_ids_query = (
         db.query(models.Test.behavior_id)
         .join(models.TestResult, models.Test.id == models.TestResult.test_id)
@@ -1404,8 +1404,14 @@ def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID) -> List[models.B
             models.TestResult.test_run_id == test_run_id,
             models.Test.behavior_id.isnot(None),  # Only tests that have a behavior
         )
-        .distinct()
     )
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        behavior_ids_query = behavior_ids_query.filter(models.Test.organization_id == UUID(organization_id))
+    
+    behavior_ids_query = behavior_ids_query.distinct()
 
     behavior_ids = [row[0] for row in behavior_ids_query.all()]
 
@@ -2167,9 +2173,10 @@ def get_tasks_with_comment_counts(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str = None,
+    organization_id: str = None,
 ) -> List[models.Task]:
     """
-    Get tasks with comment counts using PostgreSQL aggregation.
+    Get tasks with comment counts using PostgreSQL aggregation with organization filtering.
     Uses a subquery to count comments for each task efficiently.
     """
     from sqlalchemy import func, select
@@ -2178,51 +2185,51 @@ def get_tasks_with_comment_counts(
     # Create alias for Comment model
     Comment = aliased(models.Comment)
 
-    # Subquery to count comments for each task
+    # Subquery to count comments for each task with organization filtering (SECURITY CRITICAL)
+    comment_filters = [Comment.entity_type == "Task"]
+    if organization_id:
+        from uuid import UUID
+        comment_filters.append(Comment.organization_id == UUID(organization_id))
+    
     comment_count_subquery = (
         select(Comment.entity_id, func.count(Comment.id).label("total_comments"))
-        .where(Comment.entity_type == "Task")
+        .where(*comment_filters)
         .group_by(Comment.entity_id)
         .subquery()
     )
 
-    # First get the tasks with organization filter
-    from rhesis.backend.app.utils.model_utils import apply_organization_filter
-
-    base_query = db.query(models.Task)
-    base_query = apply_organization_filter(db, base_query, models.Task)
-
-    # Apply OData filter if provided
-    if filter:
-        from rhesis.backend.app.utils.odata import apply_odata_filter
-
-        base_query = apply_odata_filter(base_query, models.Task, filter)
-
-    # Apply sorting
-    sort_column = getattr(models.Task, sort_by, models.Task.created_at)
-    if sort_order.lower() == "desc":
-        base_query = base_query.order_by(sort_column.desc())
-    else:
-        base_query = base_query.order_by(sort_column.asc())
-
-    # Apply pagination
-    base_query = base_query.offset(skip).limit(limit)
-
-    # Execute the base query to get tasks
-    tasks = base_query.all()
+    # First get the tasks with organization filter using QueryBuilder
+    from rhesis.backend.app.utils.model_utils import QueryBuilder
+    
+    # Use QueryBuilder for organization filtering, OData, sorting, and pagination
+    query_builder = (
+        QueryBuilder(db, models.Task)
+        .with_organization_filter(organization_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+    )
+    
+    # Execute the query to get tasks
+    tasks = query_builder.all()
 
     # Now get comment counts for these tasks
     task_ids = [task.id for task in tasks]
 
     if task_ids:
-        # Get comment counts for the tasks
-        comment_counts = (
+        # Get comment counts for the tasks with organization filtering (SECURITY CRITICAL)
+        comment_query = (
             db.query(Comment.entity_id, func.count(Comment.id).label("total_comments"))
             .where(Comment.entity_type == "Task")
             .where(Comment.entity_id.in_(task_ids))
-            .group_by(Comment.entity_id)
-            .all()
         )
+        
+        # Apply organization filtering to comments (SECURITY CRITICAL)
+        if organization_id:
+            from uuid import UUID
+            comment_query = comment_query.where(Comment.organization_id == UUID(organization_id))
+            
+        comment_counts = comment_query.group_by(Comment.entity_id).all()
 
         # Create a mapping of task_id to comment count
         comment_count_map = {str(task_id): count for task_id, count in comment_counts}

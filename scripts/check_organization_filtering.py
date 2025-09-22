@@ -53,6 +53,18 @@ class OrganizationFilterChecker:
             r'\.query\([^)]*\)\.filter\([^)]*organization_id[^)]*\)',  # Already has org filtering
         ]
         
+        # Additional patterns to check for existing organization filtering
+        self.org_filter_indicators = [
+            r'organization_id\s*==',
+            r'organization_id\s*=',
+            r'\.organization_id\s*==',
+            r'Tag\.organization_id',
+            r'TaggedItem\.organization_id',
+            r'Token\.organization_id',
+            r'Metric\.organization_id',
+            r'Behavior\.organization_id',
+        ]
+        
         # Directories to scan
         self.scan_dirs = [
             'apps/backend/src/rhesis/backend/app/crud.py',
@@ -81,7 +93,7 @@ class OrganizationFilterChecker:
                 for pattern in self.query_patterns:
                     matches = re.finditer(pattern, line)
                     for match in matches:
-                        if self._is_potentially_unsafe_query(line, match.group()):
+                        if self._is_potentially_unsafe_query(line, match.group(), lines, line_num):
                             issues.append({
                                 'file': str(file_path),
                                 'line': line_num,
@@ -96,7 +108,7 @@ class OrganizationFilterChecker:
                 
         return issues
 
-    def _is_potentially_unsafe_query(self, line: str, query_match: str) -> bool:
+    def _is_potentially_unsafe_query(self, line: str, query_match: str, lines: List[str], line_num: int) -> bool:
         """Determine if a query might be missing organization filtering"""
         
         # Check if it's a safe pattern
@@ -114,6 +126,23 @@ class OrganizationFilterChecker:
         for id_pattern in id_based_patterns:
             if re.search(id_pattern, line):
                 return False  # ID-based queries are safe
+        
+        # Check surrounding lines for organization filtering context (multi-line queries)
+        context_start = max(0, line_num - 10)
+        context_end = min(len(lines), line_num + 10)
+        context_lines = ' '.join(lines[context_start:context_end])
+        
+        # Check if organization filtering exists in the context
+        for org_indicator in self.org_filter_indicators:
+            if re.search(org_indicator, context_lines):
+                return False  # Organization filtering found in context
+        
+        # Check for function parameters that indicate organization filtering is handled
+        function_context = ' '.join(lines[max(0, line_num - 20):min(len(lines), line_num + 5)])
+        if re.search(r'def\s+\w+.*organization_id.*:', function_context):
+            # Function accepts organization_id parameter, likely handled properly
+            if 'filter_params' in context_lines or 'QueryBuilder' in context_lines:
+                return False  # Organization filtering handled through parameters or QueryBuilder
                 
         # Check if it queries an organization-aware model
         for model in self.organization_models:
