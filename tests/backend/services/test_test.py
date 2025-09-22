@@ -2,7 +2,7 @@
 Tests for test service functions.
 
 These tests verify the current behavior of functions before they are refactored
-to use the new get_org_aware_db approach.
+to use the new direct parameter passing approach.
 """
 
 import pytest

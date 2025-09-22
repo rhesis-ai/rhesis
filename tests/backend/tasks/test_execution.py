@@ -17,13 +17,13 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional, Dict, Any, List, Tuple
 
-# setup_tenant_context was removed - tenant context now handled by get_org_aware_db
+# setup_tenant_context was removed - tenant context now passed directly to CRUD operations
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.tasks.enums import ResultStatus
 
 
 # TestSetupTenantContext class removed - setup_tenant_context function no longer exists
-# Tenant context is now handled automatically by get_org_aware_db
+# Tenant context is now passed directly to CRUD operations
 
 
 class TestDataRetrievalFunctions:
@@ -133,13 +133,13 @@ class TestExecutionWorkflow:
     
     def test_full_execution_workflow(self):
         """Test complete test execution workflow"""
-        # Note: setup_tenant_context was removed - tenant context now handled by get_org_aware_db
+        # Note: setup_tenant_context was removed - tenant context now passed directly to CRUD operations
         # This test would need to be updated to test actual execution workflow components
         pass
     
     def test_execution_with_error_handling(self):
         """Test execution workflow with proper error handling"""
-        # Note: setup_tenant_context was removed - tenant context now handled by get_org_aware_db
+        # Note: setup_tenant_context was removed - tenant context now passed directly to CRUD operations
         # This test would need to be updated to test actual error handling in execution workflow
         pass
 
@@ -234,7 +234,7 @@ class TestExecutionContextFixtures:
     
     def test_with_execution_context(self, mock_test_execution_db, sample_execution_context):
         """Test execution with proper context using fixtures"""
-        # Note: setup_tenant_context was removed - tenant context now handled by get_org_aware_db
+        # Note: setup_tenant_context was removed - tenant context now passed directly to CRUD operations
         # This test would need to be updated to test actual execution context management
         pass
     
