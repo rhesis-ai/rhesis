@@ -493,44 +493,44 @@ def execute_test_set_on_endpoint(
     if not endpoint_id:
         raise ValueError("endpoint_id is required")
 
-        # Resolve test set
-        logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-        db_test_set = crud.resolve_test_set(test_set_identifier, db)
-        if db_test_set is None:
-            raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
-        logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
+    # Resolve test set
+    logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
+    db_test_set = crud.resolve_test_set(test_set_identifier, db)
+    if db_test_set is None:
+        raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
+    logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
 
-        # Verify endpoint exists
-        logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-        db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id)
-        if not db_endpoint:
-            raise ValueError(f"Endpoint not found: {endpoint_id}")
-        logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
+    # Verify endpoint exists
+    logger.debug(f"Verifying endpoint exists: {endpoint_id}")
+    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id)
+    if not db_endpoint:
+        raise ValueError(f"Endpoint not found: {endpoint_id}")
+    logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
 
-        # Check user access permissions
-        _validate_user_access(current_user, db_test_set, db_endpoint)
+    # Check user access permissions
+    _validate_user_access(current_user, db_test_set, db_endpoint)
 
-        # Create test configuration
-        test_config_id = _create_test_configuration(
-            db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes
-        )
+    # Create test configuration
+    test_config_id = _create_test_configuration(
+        db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes
+    )
 
-        # Submit for execution
-        task_result = _submit_test_configuration_for_execution(test_config_id, current_user)
+    # Submit for execution
+    task_result = _submit_test_configuration_for_execution(test_config_id, current_user)
 
-        # Return success response
-        response_data = {
-            "status": "submitted",
-            "message": f"Test set execution started for {db_test_set.name}",
-            "test_set_id": str(db_test_set.id),
-            "test_set_name": db_test_set.name,
-            "endpoint_id": str(endpoint_id),
-            "endpoint_name": db_endpoint.name,
-            "test_configuration_id": test_config_id,
-            "task_id": task_result.id,
-        }
-        logger.info(f"Successfully initiated test set execution: {response_data}")
-        return response_data
+    # Return success response
+    response_data = {
+        "status": "submitted",
+        "message": f"Test set execution started for {db_test_set.name}",
+        "test_set_id": str(db_test_set.id),
+        "test_set_name": db_test_set.name,
+        "endpoint_id": str(endpoint_id),
+        "endpoint_name": db_endpoint.name,
+        "test_configuration_id": test_config_id,
+        "task_id": task_result.id,
+    }
+    logger.info(f"Successfully initiated test set execution: {response_data}")
+    return response_data
 
 
 def _validate_user_access(
