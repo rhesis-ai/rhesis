@@ -75,8 +75,11 @@ class QueryBuilder:
                 # Use direct organization_id filtering (optimized)
                 self.query = self.query.filter(self.model.organization_id == organization_id)
             else:
-                # Fallback to session variable approach for backward compatibility
-                self.query = apply_organization_filter(self.db, self.query, self.model)
+                # No fallback - organization_id must be provided explicitly
+                logger.warning(
+                    f"with_organization_filter called without organization_id for model {self.model.__name__}. "
+                    "This may result in data leakage across organizations."
+                )
         return self
 
     def with_visibility_filter(self) -> "QueryBuilder":
@@ -277,48 +280,6 @@ def apply_optimized_loads(
     return query
 
 
-def apply_organization_filter(db: Session, query: Query, model: Type[T]) -> Query:
-    """Apply organization filter to query if model supports it"""
-    if has_organization_id(model):
-        current_org_id = get_current_organization_id(db)
-        logger.debug(
-            f"apply_organization_filter - model: {model.__name__}, current_org_id: '{current_org_id}', type: {type(current_org_id)}"
-        )
-        # Only apply filter if we have a valid organization ID
-        if current_org_id is not None:
-            logger.debug(
-                f"apply_organization_filter - Applying filter: {model.__name__}.organization_id == '{current_org_id}'"
-            )
-            query = query.filter(model.organization_id == current_org_id)
-        else:
-            logger.debug(
-                f"apply_organization_filter - No organization filter applied for {model.__name__}"
-            )
-    return query
-
-
-def apply_visibility_filter(db: Session, query: Query, model: Type[T]) -> Query:
-    """Apply visibility filtering based on visibility settings if model supports it"""
-    if has_visibility(model):
-        current_user_id = get_current_user_id(db)
-        current_org_id = get_current_organization_id(db)
-
-        # Start with public visibility - always visible to everyone
-        visibility_conditions = [model.visibility == "public"]
-
-        # Add organization-level visibility if user has a valid organization
-        if current_org_id is not None:
-            visibility_conditions.append(
-                (model.visibility == "organization") & (model.organization_id == current_org_id)
-            )
-
-        # Add user-level visibility if user is authenticated
-        if current_user_id is not None:
-            visibility_conditions.append(
-                (model.visibility == "user") & (model.user_id == current_user_id)
-            )
-
-        # Combine all conditions with OR
-        query = query.filter(or_(*visibility_conditions))
-
-    return query
+# Removed apply_organization_filter and apply_visibility_filter functions
+# These functions relied on session variables and have been replaced with direct parameter passing
+# Use QueryBuilder.with_organization_filter(organization_id) and with_visibility_filter(user_id, organization_id) instead
