@@ -43,8 +43,8 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID) -> List[D
     if not all_test_results:
         raise ValueError("No test results found for this test run")
 
-    # Get behaviors and metrics for this test run
-    behaviors = crud.get_test_run_behaviors(db, test_run_id)
+    # Get behaviors and metrics for this test run with organization filtering (SECURITY CRITICAL)
+    behaviors = crud.get_test_run_behaviors(db, test_run_id, organization_id=str(test_run.organization_id))
 
     # Create a mapping of behavior_id to behavior with metrics
     behavior_map = {}
