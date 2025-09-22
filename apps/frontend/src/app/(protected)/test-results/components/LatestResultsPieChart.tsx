@@ -80,16 +80,21 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
 
   if (isLoading) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height: 400, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Overall Results
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
           Distribution of passed and failed tests in the selected period
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="helperText" sx={{ ml: 2 }}>Loading results...</Typography>
+          <Typography variant="helperText" sx={{ ml: theme.customSpacing.container.small }}>Loading results...</Typography>
         </Box>
       </Paper>
     );
@@ -97,11 +102,16 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
 
   if (error) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height: 400, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Overall Results
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
           Error occurred
         </Typography>
         <Alert severity="error">{error}</Alert>
@@ -110,11 +120,25 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
   }
 
   return (
-    <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h6" sx={{ mb: 1 }}>
+    <Paper elevation={theme.elevation.standard} sx={{ 
+      p: theme.customSpacing.container.medium, 
+      height: 400, 
+      display: 'flex', 
+      flexDirection: 'column' 
+    }}>
+      <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
         {stats?.metadata?.test_run_id ? 'Test Run Results' : 'Overall Results'}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography 
+        variant="body2" 
+        color="text.secondary" 
+        sx={{ 
+          mb: theme.customSpacing.section.small,
+          minHeight: '2.5rem', // Ensure consistent height for 2 lines
+          display: 'flex',
+          alignItems: 'flex-start'
+        }}
+      >
         Distribution of passed and failed tests in the selected period
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -123,8 +147,9 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
           data={latestRunData}
           useThemeColors={true}
           colorPalette="pie"
-          height={240}
+          height={300}
           showPercentage={true}
+          elevation={0}
           legendProps={{
             wrapperStyle: { 
               fontSize: theme.typography.chartTick.fontSize,

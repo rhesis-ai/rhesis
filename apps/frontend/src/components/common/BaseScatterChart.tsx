@@ -67,6 +67,12 @@ export default function BaseScatterChart({
 }: BaseScatterChartProps) {
   const theme = useTheme();
   
+  // Convert rem to pixels for Recharts (assuming 1rem = 16px)
+  const getPixelFontSize = (remSize: string): number => {
+    const remValue = parseFloat(remSize);
+    return remValue * 16;
+  };
+  
   // Update legend props to use theme
   const themedLegendProps = {
     ...legendProps,
@@ -152,7 +158,10 @@ export default function BaseScatterChart({
               <XAxis 
                 dataKey="x"
                 type="number"
-                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
+                tick={{ 
+                  fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                  fill: theme.palette.text.primary
+                }}
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
                 label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}
@@ -161,7 +170,10 @@ export default function BaseScatterChart({
               <YAxis 
                 dataKey="y"
                 type="number"
-                tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }} 
+                tick={{ 
+                  fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                  fill: theme.palette.text.primary
+                }} 
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
                 label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}

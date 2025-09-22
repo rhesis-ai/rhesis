@@ -38,8 +38,14 @@ const calculateLineCount = (text: string, maxLineLength: number = 14): number =>
 
 // Custom tick component for wrapping text with dynamic positioning
 // Custom tick factory function that takes theme as parameter
-const createCustomTick = (chartTickFontSize: string) => 
-  ({ payload, x, y, textAnchor, cx, cy, ...rest }: any) => {
+const createCustomTick = (chartTickFontSize: string, textColor: string = "#666") => {
+  // Convert rem to pixels for the CustomTick component
+  const getPixelFontSize = (remSize: string): number => {
+    const remValue = parseFloat(remSize);
+    return remValue * 16;
+  };
+  
+  return ({ payload, x, y, textAnchor, cx, cy, ...rest }: any) => {
     const maxLineLength = 14; // Max characters per line (increased for pass rate)
     const lines = [];
     
@@ -94,8 +100,8 @@ const createCustomTick = (chartTickFontSize: string) =>
             x={adjustedX}
             y={adjustedY + (index * 12) - ((lines.length - 1) * 6)} // Center multi-line text vertically
             textAnchor={adjustedTextAnchor}
-            fontSize={parseInt(chartTickFontSize)}
-            fill="#666"
+            fontSize={getPixelFontSize(chartTickFontSize)}
+            fill={textColor}
             dominantBaseline="middle"
           >
             {line}
@@ -104,6 +110,7 @@ const createCustomTick = (chartTickFontSize: string) =>
       </g>
     );
   };
+};
 
 const transformDimensionDataForRadar = (
   dimensionData?: Record<string, PassFailStats>,
@@ -143,10 +150,16 @@ export default function DimensionRadarChart({
 }: DimensionRadarChartProps) {
   const theme = useTheme();
   
+  // Convert rem to pixels for Recharts (assuming 1rem = 16px)
+  const getPixelFontSize = (remSize: string): number => {
+    const remValue = parseFloat(remSize);
+    return remValue * 16;
+  };
+  
   // Create CustomTick component with theme access
   const CustomTick = useMemo(() => 
-    createCustomTick(theme.typography.chartTick.fontSize), 
-    [theme.typography.chartTick.fontSize]
+    createCustomTick(theme.typography.chartTick.fontSize, theme.palette.text.primary),
+    [theme.typography.chartTick.fontSize, theme.palette.text.primary]
   );
   
   const [stats, setStats] = useState<TestResultsStats | null>(null);
@@ -227,16 +240,21 @@ export default function DimensionRadarChart({
 
   if (isLoading) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height: 400, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
           Pass rates for the top 5 performing {dimension === 'category' ? 'categories' : `${dimension}s`}
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
           <CircularProgress size={24} />
-          <Typography variant="helperText" sx={{ ml: 2 }}>Loading {dimension}...</Typography>
+          <Typography variant="helperText" sx={{ ml: theme.customSpacing.container.small }}>Loading {dimension}...</Typography>
         </Box>
       </Paper>
     );
@@ -244,11 +262,16 @@ export default function DimensionRadarChart({
 
   if (error) {
     return (
-      <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper elevation={theme.elevation.standard} sx={{ 
+        p: theme.customSpacing.container.medium, 
+        height: 400, 
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}>
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
           Error occurred
         </Typography>
         <Alert severity="error">{error}</Alert>
@@ -257,11 +280,16 @@ export default function DimensionRadarChart({
   }
 
   return (
-    <Paper elevation={2} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h6" sx={{ mb: 1 }}>
+    <Paper elevation={theme.elevation.standard} sx={{ 
+      p: theme.customSpacing.container.medium, 
+      height: 400, 
+      display: 'flex', 
+      flexDirection: 'column' 
+    }}>
+      <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
         {title}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
         Pass rates for the top 5 performing {dimension === 'category' ? 'categories' : `${dimension}s`}
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -280,7 +308,10 @@ export default function DimensionRadarChart({
           <PolarRadiusAxis 
             angle={90} 
             domain={[0, 100]} 
-            tick={{ fontSize: parseInt(theme.typography.chartTick.fontSize) }}
+            tick={{ 
+              fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+              fill: theme.palette.text.primary
+            }}
             tickFormatter={(value) => `${value}%`}
           />
           <Radar
