@@ -1,16 +1,16 @@
 'use client';
 
 import { Box, Paper, Button, TextField, Typography, Tooltip, Chip } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '../../../../../utils/api-client/client-factory';
 import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
-import CancelIcon from '@mui/icons-material/Cancel';
-import CheckIcon from '@mui/icons-material/Check';
-import EditIcon from '@mui/icons-material/Edit';
+import CancelIcon from '@mui/icons-material/CancelOutlined';
+import CheckIcon from '@mui/icons-material/CheckOutlined';
+import EditIcon from '@mui/icons-material/EditOutlined';
 import TestSetTags from './TestSetTags';
 
 interface TestSetDetailsSectionProps {
@@ -53,7 +53,6 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
             label={item}
             variant="outlined"
             size="small"
-            color="secondary"
           />
         ))}
         {remainingCount > 0 && (
@@ -61,7 +60,6 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
             label={`+${remainingCount}`}
             variant="outlined"
             size="small"
-            color="secondary"
             sx={{
               fontWeight: 'medium',
             }}
@@ -170,70 +168,88 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
         </Button>
       </Box>
 
-      {/* Description TextField */}
+      {/* Description Field */}
       <Box sx={{ mb: 3, position: 'relative' }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Test Set Details
         </Typography>
-        <TextField
-          fullWidth
-          label="Description"
-          multiline
-          rows={4}
-          value={isEditingDescription ? editedDescription : (testSet.description || '')}
-          onChange={(e) => setEditedDescription(e.target.value)}
-          sx={{
-            mb: isEditingDescription ? 1 : 0,
-            '& .MuiInputBase-root': {
-              paddingRight: !isEditingDescription ? '80px' : '0',
-            }
-          }}
-          InputProps={{
-            readOnly: !isEditingDescription,
-          }}
-        />
-
-        {!isEditingDescription ? (
-          <Button
-            variant="text"
-            startIcon={<EditIcon />}
-            onClick={handleEditDescription}
-            sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              zIndex: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              }
-            }}
-          >
-            Edit Description
-          </Button>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Description
+        </Typography>
+        {isEditingDescription ? (
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            value={editedDescription}
+            onChange={(e) => setEditedDescription(e.target.value)}
+            sx={{ mb: 1 }}
+            autoFocus
+          />
         ) : (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<CancelIcon />}
-              onClick={handleCancelEdit}
-              disabled={isUpdating}
+          <Box sx={{ position: 'relative' }}>
+            <Typography
+              component="pre"
+              variant="body2"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'monospace',
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                padding: 1,
+                minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                paddingRight: '80px',
+                wordBreak: 'break-word',
+              }}
             >
-              Cancel
-            </Button>
+              {testSet.description || ' '}
+            </Typography>
             <Button
-              variant="contained"
-              color="primary"
-              startIcon={<CheckIcon />}
-              onClick={handleConfirmEdit}
-              disabled={isUpdating}
+              startIcon={<EditIcon />}
+              onClick={handleEditDescription}
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                zIndex: 1,
+                backgroundColor: (theme) => theme.palette.mode === 'dark' 
+                  ? 'rgba(0, 0, 0, 0.6)' 
+                  : 'rgba(255, 255, 255, 0.8)',
+                '&:hover': {
+                  backgroundColor: (theme) => theme.palette.mode === 'dark'
+                    ? 'rgba(0, 0, 0, 0.8)'
+                    : 'rgba(255, 255, 255, 0.9)',
+                }
+              }}
             >
-              Confirm
+              Edit
             </Button>
           </Box>
         )}
       </Box>
+
+      {isEditingDescription && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<CancelIcon />}
+            onClick={handleCancelEdit}
+            disabled={isUpdating}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<CheckIcon />}
+            onClick={handleConfirmEdit}
+            disabled={isUpdating}
+          >
+            Confirm
+          </Button>
+        </Box>
+      )}
 
       {/* Metadata Fields */}
       <Box sx={{ mb: 3 }}>

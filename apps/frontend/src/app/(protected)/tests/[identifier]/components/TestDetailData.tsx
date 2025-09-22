@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Grid, Typography } from '@mui/material';
+import { Box, Grid, Typography, useTheme } from '@mui/material';
+import { InsertDriveFileOutlined as DocumentIcon } from '@mui/icons-material';
 import BaseFreesoloAutocomplete, { AutocompleteOption } from '@/components/common/BaseFreesoloAutocomplete';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail, TypeLookup } from '@/utils/api-client/interfaces/tests';
@@ -20,6 +21,7 @@ interface TestDetailOption {
 }
 
 export default function TestDetailData({ sessionToken, test: initialTest }: TestDetailDataProps) {
+  const theme = useTheme();
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
   const [types, setTypes] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
@@ -308,9 +310,17 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {test.test_metadata.sources.map((source: any, index: number) => (
               <Box key={index}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  📄 {source.document || source.source || 'Unknown Document'}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <DocumentIcon 
+                    sx={{ 
+                      fontSize: theme.iconSizes.small,
+                      color: 'text.secondary'
+                    }} 
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {source.document || source.source || 'Unknown Document'}
+                  </Typography>
+                </Box>
                 <Box
                   sx={{
                     p: 2,
@@ -322,7 +332,7 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
                     maxHeight: '300px',
                     overflow: 'auto',
                     fontFamily: 'monospace',
-                    fontSize: '0.875rem',
+                    fontSize: theme.typography.helperText.fontSize,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word'
                   }}

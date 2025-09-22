@@ -155,7 +155,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
             label={behaviorName} 
             size="small" 
             variant="outlined"
-            color="primary"
           />
         );
       }
@@ -175,7 +174,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
             label={topicName} 
             size="small" 
             variant="outlined"
-            color="secondary"
           />
         );
       }
@@ -195,7 +193,6 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
             label={categoryName} 
             size="small" 
             variant="outlined"
-            color="secondary"
           />
         );
       }
@@ -392,6 +389,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         serverSideFiltering={true}
         onFilterModelChange={handleFilterModelChange}
         showToolbar={true}
+        disablePaperWrapper={true}
       />
 
       {sessionToken && (

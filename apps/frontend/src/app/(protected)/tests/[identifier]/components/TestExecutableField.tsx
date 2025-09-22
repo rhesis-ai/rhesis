@@ -117,9 +117,13 @@ export default function TestExecutableField({
             top: 8, 
             right: 8,
             zIndex: 1,
-            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            backgroundColor: (theme) => theme.palette.mode === 'dark' 
+              ? 'rgba(0, 0, 0, 0.6)' 
+              : 'rgba(255, 255, 255, 0.8)',
             '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backgroundColor: (theme) => theme.palette.mode === 'dark'
+                ? 'rgba(0, 0, 0, 0.8)'
+                : 'rgba(255, 255, 255, 0.9)',
             }
           }}
         >

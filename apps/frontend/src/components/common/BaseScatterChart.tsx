@@ -49,6 +49,47 @@ export interface BaseScatterChartProps {
   normalColor?: string;
 }
 
+// Utility functions for scatter chart data handling
+export const scatterChartUtils = {
+  /**
+   * Calculates optimal Y-axis width based on scatter data values
+   */
+  calculateYAxisWidth: (
+    data: ScatterDataPoint[], 
+    yAxisConfig?: { tickFormatter?: (value: number) => string }
+  ): number => {
+    if (!data.length) return 25; // Minimum width for empty data
+    
+    // Find all Y values
+    const yValues = data
+      .map(item => item.y)
+      .filter(value => typeof value === 'number' && !isNaN(value));
+    
+    if (yValues.length === 0) return 25;
+    
+    // Find the maximum and minimum values to determine required width
+    const maxValue = Math.max(...yValues);
+    const minValue = Math.min(...yValues);
+    
+    // Use custom formatter if provided, otherwise use default formatting
+    const formatValue = yAxisConfig?.tickFormatter || ((value: number) => value.toString());
+    
+    // Format the extreme values to see their string length
+    const maxValueStr = formatValue(maxValue);
+    const minValueStr = formatValue(minValue);
+    
+    // Find the longest formatted string
+    const maxLength = Math.max(maxValueStr.length, minValueStr.length);
+    
+    // Calculate width based on character count
+    // Approximate: 8px per character + 10px padding
+    const calculatedWidth = (maxLength * 8) + 10;
+    
+    // Ensure minimum and maximum bounds
+    return Math.max(20, Math.min(calculatedWidth, 60));
+  }
+};
+
 export default function BaseScatterChart({
   data,
   title,
@@ -66,12 +107,27 @@ export default function BaseScatterChart({
   normalColor
 }: BaseScatterChartProps) {
   const theme = useTheme();
+  
+  // Convert rem to pixels for Recharts (assuming 1rem = 16px)
+  const getPixelFontSize = (remSize: string): number => {
+    const remValue = parseFloat(remSize);
+    return remValue * 16;
+  };
+  
+  // Update legend props to use theme
+  const themedLegendProps = {
+    ...legendProps,
+    wrapperStyle: {
+      ...legendProps.wrapperStyle,
+      fontSize: theme.typography.chartTick.fontSize
+    }
+  };
   const { palettes } = useChartColors();
 
   // Default tooltip props with theme awareness
   const defaultTooltipProps = {
     contentStyle: { 
-      fontSize: '10px',
+      fontSize: theme.typography.chartTick.fontSize,
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
@@ -80,6 +136,9 @@ export default function BaseScatterChart({
   };
 
   const finalTooltipProps = tooltipProps || defaultTooltipProps;
+  
+  // Calculate optimal Y-axis width based on data
+  const yAxisWidth = scatterChartUtils.calculateYAxisWidth(data, yAxisConfig);
   
   // Get colors from theme or use defaults
   const chartColors = useMemo(() => {
@@ -126,10 +185,10 @@ export default function BaseScatterChart({
   };
 
   return (
-    <Card className={styles.card}>
+    <Card className={styles.card} elevation={2}>
       <CardContent className={styles.cardContent}>
         {title && (
-          <Typography variant="subtitle1" className={styles.title}>
+          <Typography variant="subtitle2" sx={{ mb: 1, px: 0.5, textAlign: 'center' }}>
             {title}
           </Typography>
         )}
@@ -137,25 +196,32 @@ export default function BaseScatterChart({
           <ResponsiveContainer width="100%" height={height}>
             <ScatterChart 
               data={data} 
-              margin={{ top: 30, right: 15, bottom: 20, left: 5 }}
+              margin={{ top: 5, right: 5, bottom: 15, left: 0 }}
             >
               {showGrid && <CartesianGrid strokeDasharray="3 3" />}
               <XAxis 
                 dataKey="x"
                 type="number"
-                tick={{ fontSize: 10 }}
+                tick={{ 
+                  fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                  fill: theme.palette.text.primary
+                }}
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
-                label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, style: { fontSize: '10px' } } : undefined}
+                label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}
                 {...xAxisConfig}
               />
               <YAxis 
                 dataKey="y"
                 type="number"
-                tick={{ fontSize: 10 }} 
+                tick={{ 
+                  fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                  fill: theme.palette.text.primary
+                }} 
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
-                label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: '10px' } } : undefined}
+                width={yAxisWidth}
+                label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}
                 {...yAxisConfig}
               />
               <Tooltip 

@@ -104,6 +104,8 @@ interface BaseDataGridProps {
   pageSizeOptions?: number[];
   // Quick filter props
   enableQuickFilter?: boolean;
+  // Styling props
+  disablePaperWrapper?: boolean;
 }
 
 // Create a styled version of DataGrid with bold headers
@@ -165,7 +167,8 @@ export default function BaseDataGrid({
   paginationModel,
   onPaginationModelChange,
   pageSizeOptions = [10, 25, 50],
-  enableQuickFilter = false
+  enableQuickFilter = false,
+  disablePaperWrapper = false
 }: BaseDataGridProps) {
   const router = useRouter();
   const apiRef = useGridApiRef();
@@ -452,7 +455,7 @@ export default function BaseDataGrid({
         {customToolbarContent}
       </Box>
 
-      <Paper sx={{ width: '100%', boxShadow: 0, borderRadius: 2, overflow: 'hidden' }}>
+      {disablePaperWrapper ? (
         <StyledDataGrid
           apiRef={apiRef}
           rows={serverSidePagination ? rows : filteredRows}
@@ -495,7 +498,58 @@ export default function BaseDataGrid({
             disableRowSelectionOnClick,
           })}
         />
-      </Paper>
+      ) : (
+        <Paper 
+          elevation={1}
+          sx={{ 
+            width: '100%', 
+            borderRadius: 2, 
+            overflow: 'hidden'
+          }}>
+          <StyledDataGrid
+            apiRef={apiRef}
+            rows={serverSidePagination ? rows : filteredRows}
+            columns={columns}
+            getRowId={getRowId}
+            autoHeight
+            pagination
+            paginationMode={serverSidePagination ? "server" : "client"}
+            rowCount={serverSidePagination ? totalRows : undefined}
+            paginationModel={paginationModel}
+            onPaginationModelChange={onPaginationModelChange}
+            pageSizeOptions={pageSizeOptions}
+            checkboxSelection={checkboxSelection}
+            disableVirtualization={false}
+            loading={loading}
+            onRowClick={enableEditing ? undefined : (linkPath || onRowClick) ? handleRowClickWithLink : undefined}
+            disableMultipleRowSelection={disableMultipleRowSelection}
+            {...(density && { density })}
+            {...(serverSideFiltering && {
+              filterMode: "server",
+              onFilterModelChange,
+              slots: { toolbar: CustomToolbarWithFilters }
+            })}
+            {...(enableQuickFilter && !serverSideFiltering && {
+              slots: { toolbar: CustomToolbar }
+            })}
+            {...(enableEditing && {
+              editMode,
+              processRowUpdate,
+              onProcessRowUpdateError,
+              isCellEditable,
+            })}
+            {...(onRowSelectionModelChange && {
+              onRowSelectionModelChange,
+            })}
+            {...(rowSelectionModel !== undefined && {
+              rowSelectionModel,
+            })}
+            {...(disableRowSelectionOnClick && {
+              disableRowSelectionOnClick,
+            })}
+          />
+        </Paper>
+      )}
     </>
   );
 } 

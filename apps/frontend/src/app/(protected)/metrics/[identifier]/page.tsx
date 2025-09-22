@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useTheme } from '@mui/material/styles';
 import { Box, Stack, Paper, Typography, Button, TextField, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
@@ -55,6 +56,7 @@ export default function MetricDetailPage() {
   const params = useParams();
   const identifier = params.identifier as string;
   const { data: session } = useSession();
+  const theme = useTheme();
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const notifications = useNotifications();
@@ -344,8 +346,21 @@ export default function MetricDetailPage() {
 
   
   return (
-    <Paper sx={{ p: 3, position: 'relative' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Paper sx={{ 
+        p: theme.spacing(3), 
+        position: 'relative',
+        borderRadius: theme.shape.borderRadius,
+        bgcolor: theme.palette.background.paper,
+        boxShadow: theme.shadows[1]
+      }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: theme.spacing(3),
+        pb: theme.spacing(2),
+        borderBottom: `1px solid ${theme.palette.divider}`
+      }}>
         <SectionHeader icon={icon} title={title} />
         {!isEditing && (
           <Button
@@ -353,6 +368,14 @@ export default function MetricDetailPage() {
             onClick={() => onEdit(section)}
             variant="outlined"
             size="small"
+            sx={{
+              color: theme.palette.primary.main,
+              borderColor: theme.palette.primary.main,
+              '&:hover': {
+                backgroundColor: theme.palette.primary.light,
+                borderColor: theme.palette.primary.main
+              }
+            }}
           >
             Edit Section
           </Button>
@@ -364,21 +387,34 @@ export default function MetricDetailPage() {
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
-            gap: 3,
-            p: 2,
-            bgcolor: 'action.hover',
-            borderRadius: 1,
-            mb: 3
+            gap: theme.spacing(3),
+            p: theme.spacing(2),
+            bgcolor: theme.palette.action.hover,
+            borderRadius: theme.shape.borderRadius,
+            mb: theme.spacing(3),
+            border: `1px solid ${theme.palette.divider}`
           }}>
             {children}
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            gap: theme.spacing(1),
+            mt: theme.spacing(2)
+          }}>
             <Button
               variant="outlined"
               color="error"
               startIcon={<CancelIcon />}
               onClick={onCancel}
               disabled={isSaving}
+              sx={{
+                borderColor: theme.palette.error.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.error.light,
+                  borderColor: theme.palette.error.main
+                }
+              }}
             >
               Cancel
             </Button>
@@ -388,6 +424,12 @@ export default function MetricDetailPage() {
               startIcon={<CheckIcon />}
               onClick={onConfirm}
               disabled={isSaving}
+              sx={{
+                bgcolor: theme.palette.primary.main,
+                '&:hover': {
+                  bgcolor: theme.palette.primary.dark
+                }
+              }}
             >
               {isSaving ? 'Saving...' : 'Save Section'}
             </Button>
@@ -404,23 +446,64 @@ export default function MetricDetailPage() {
 
 EditableSection.displayName = 'EditableSection';
 
-const SectionHeader = React.memo(({ icon, title }: { icon: React.ReactNode; title: string }) => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-    <Box sx={{ color: 'primary.main' }}>{icon}</Box>
-    <Typography variant="h6">{title}</Typography>
-  </Box>
-));
+const SectionHeader = React.memo(({ icon, title }: { icon: React.ReactNode; title: string }) => {
+  const theme = useTheme();
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}>
+      <Box sx={{ 
+        color: theme.palette.primary.main,
+        display: 'flex',
+        alignItems: 'center',
+        '& > svg': {
+          fontSize: theme.typography.h6.fontSize
+        }
+      }}>
+        {icon}
+      </Box>
+      <Typography 
+        variant="h6" 
+        sx={{ 
+          fontWeight: theme.typography.fontWeightMedium,
+          color: theme.palette.text.primary
+        }}
+      >
+        {title}
+      </Typography>
+    </Box>
+  );
+});
 
 SectionHeader.displayName = 'SectionHeader';
 
-const InfoRow = React.memo(({ label, children }: { label: string; children: React.ReactNode }) => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
-      {label}
-    </Typography>
-    {children}
-  </Box>
-));
+const InfoRow = React.memo(({ label, children }: { label: string; children: React.ReactNode }) => {
+  const theme = useTheme();
+  return (
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: theme.spacing(1),
+      py: theme.spacing(1)
+    }}>
+      <Typography 
+        variant="subtitle2" 
+        sx={{ 
+          color: theme.palette.text.secondary,
+          fontWeight: theme.typography.fontWeightMedium,
+          letterSpacing: '0.02em'
+        }}
+      >
+        {label}
+      </Typography>
+      <Box sx={{ 
+        '& .MuiTypography-root': {
+          color: theme.palette.text.primary
+        }
+      }}>
+        {children}
+      </Box>
+    </Box>
+  );
+});
 
 InfoRow.displayName = 'InfoRow';
 
@@ -733,7 +816,7 @@ const settingsIcon = <SettingsIcon />;
                         px: 1.5,
                         py: 0.5,
                         borderRadius: 1,
-                        fontSize: '0.875rem',
+                        fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                         fontWeight: 'medium'
                       }}
                     >
@@ -801,7 +884,7 @@ const settingsIcon = <SettingsIcon />;
                             px: 2,
                             py: 0.5,
                             borderRadius: 1,
-                            fontSize: '0.875rem',
+                            fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                             fontWeight: 'medium'
                           }}
                         >
@@ -850,8 +933,17 @@ const settingsIcon = <SettingsIcon />;
         </Box>
 
         {/* Right side - Workflow */}
-        <Box sx={{ width: { xs: '100%', md: '400px' }, flexShrink: 0 }}>
-          <Paper sx={{ p: 3 }}>
+        <Box sx={{ 
+          width: { xs: '100%', md: '400px' }, 
+          flexShrink: 0,
+          height: 'fit-content'
+        }}>
+          <Paper sx={{ 
+            p: theme.spacing(3),
+            borderRadius: theme.shape.borderRadius,
+            bgcolor: theme.palette.background.paper,
+            boxShadow: theme.shadows[1]
+          }}>
             {!loading && (
               <BaseWorkflowSection
                 title="Workflow"

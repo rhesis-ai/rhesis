@@ -200,7 +200,7 @@ export default function TestSetDetailCharts({ testSetId, sessionToken }: TestSet
         useThemeColors={true}
         colorPalette="line"
         height={180}
-        legendProps={{ wrapperStyle: { fontSize: '10px' }, iconSize: 8, layout: 'horizontal' }}
+        legendProps={{ wrapperStyle: { fontSize: theme.typography.chartTick.fontSize }, iconSize: 8, layout: 'horizontal' }}
         yAxisConfig={{
           domain: yAxisDomain,
           allowDataOverflow: true
@@ -219,7 +219,7 @@ export default function TestSetDetailCharts({ testSetId, sessionToken }: TestSet
           showPercentage={true}
           tooltipProps={{ 
             contentStyle: { 
-              fontSize: '10px',
+              fontSize: theme.typography.chartTick.fontSize,
               backgroundColor: theme.palette.background.paper,
               border: `1px solid ${theme.palette.divider}`,
               borderRadius: '4px',
