@@ -22,15 +22,19 @@ from rhesis.backend.app.utils.model_utils import QueryBuilder
 
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
     """
-    Load initial data from the JSON file into the database using optimized approach - no session variables needed.
+    Load initial data from the JSON file into the database using optimized approach.
+
+    This function uses get_org_aware_db internally for automatic transaction management
+    and tenant context injection. The db parameter is kept for backward compatibility
+    but is not used - the function creates its own database context.
 
     Performance improvements:
     - Uses get_org_aware_db for automatic transaction management
-    - Eliminates manual session variable management
+    - Eliminates manual session variable management  
     - Direct tenant context injection
 
     Args:
-        db: Database session (will be replaced with get_org_aware_db internally)
+        db: Database session (kept for backward compatibility, not used internally)
         organization_id: Organization ID to associate with all entities
         user_id: User ID to associate with all entities
     """
@@ -44,21 +48,21 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             print("Processing type lookups...")
             for item in initial_data.get("type_lookup", []):
                 get_or_create_type_lookup(
-                    db=db, type_name=item["type_name"], type_value=item["type_value"], commit=False
+                    db=db_ctx, type_name=item["type_name"], type_value=item["type_value"], commit=False
                 )
 
             # Process statuses next as they're also needed by other entities
             print("Processing statuses...")
             for item in initial_data.get("status", []):
                 get_or_create_status(
-                    db=db, name=item["name"], entity_type=item["entity_type"], commit=False
+                    db=db_ctx, name=item["name"], entity_type=item["entity_type"], commit=False
                 )
 
             # Process behaviors
             print("Processing behaviors...")
             for item in initial_data.get("behavior", []):
                 get_or_create_behavior(
-                    db=db,
+                    db=db_ctx,
                     name=item["name"],
                     description=item["description"],
                     status=item.get("status"),
@@ -77,14 +81,14 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "is_active": item.get("is_active", True),
                 }
                 get_or_create_entity(
-                    db=db, model=models.UseCase, entity_data=use_case_data, commit=False
+                    db=db_ctx, model=models.UseCase, entity_data=use_case_data, commit=False
                 )
 
             # Process risks
             print("Processing risks...")
             for item in initial_data.get("risk", []):
                 get_or_create_entity(
-                    db=db,
+                    db=db_ctx,
                     model=models.Risk,
                     entity_data={"name": item["name"], "description": item["description"]},
                     commit=False,
@@ -97,7 +101,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 status = None
                 if item.get("status"):
                     status = get_or_create_status(
-                        db=db, name=item["status"], entity_type="General", commit=False
+                        db=db_ctx, name=item["status"], entity_type="General", commit=False
                     )
 
                 project_data = {
@@ -113,7 +117,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     project_data["status_id"] = status.id
 
                 get_or_create_entity(
-                    db=db,
+                    db=db_ctx,
                     model=models.Project,
                     entity_data=project_data,
                     commit=False,
@@ -123,7 +127,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             print("Processing categories...")
             for item in initial_data.get("category", []):
                 get_or_create_category(
-                    db=db,
+                    db=db_ctx,
                     name=item["name"],
                     description=item["description"],
                     entity_type=item.get("entity_type"),
@@ -135,7 +139,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             print("Processing dimensions...")
             for item in initial_data.get("dimension", []):
                 get_or_create_entity(
-                    db=db,
+                    db=db_ctx,
                     model=models.Dimension,
                     entity_data={"name": item["name"], "description": item["description"]},
                     commit=False,
@@ -146,23 +150,23 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("demographic", []):
                 dimension_name = item.pop("dimension", None)
                 demographic = get_or_create_entity(
-                    db=db, model=models.Demographic, entity_data=item, commit=False
+                    db=db_ctx, model=models.Demographic, entity_data=item, commit=False
                 )
                 if dimension_name:
                     dimension = (
-                        db.query(models.Dimension)
+                        db_ctx.query(models.Dimension)
                         .filter(models.Dimension.name == dimension_name)
                         .first()
                     )
                     if dimension:
                         demographic.dimension_id = dimension.id
-                        db.flush()
+                        db_ctx.flush()
 
             # Process topics
             print("Processing topics...")
             for item in initial_data.get("topic", []):
                 get_or_create_topic(
-                    db=db,
+                    db=db_ctx,
                     name=item["name"],
                     description=item["description"],
                     entity_type=item.get("entity_type"),
@@ -176,22 +180,22 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("test", []):
                 # Get test type
                 test_type = get_or_create_type_lookup(
-                    db=db, type_name="TestType", type_value=item["test_type"], commit=False
+                    db=db_ctx, type_name="TestType", type_value=item["test_type"], commit=False
                 )
 
                 # Get test status
                 status = get_or_create_status(
-                    db=db, name=item["status"], entity_type="Test", commit=False
+                    db=db_ctx, name=item["status"], entity_type="Test", commit=False
                 )
 
                 # Get topic
                 topic = get_or_create_topic(
-                    db=db, name=item["topic"], entity_type="Test", commit=False
+                    db=db_ctx, name=item["topic"], entity_type="Test", commit=False
                 )
 
                 # Get category
                 category = get_or_create_category(
-                    db=db, name=item["category"], entity_type="Test", commit=False
+                    db=db_ctx, name=item["category"], entity_type="Test", commit=False
                 )
 
                 # Get behavior
@@ -199,7 +203,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
                 # Create prompt
                 prompt = get_or_create_entity(
-                    db=db,
+                    db=db_ctx,
                     model=models.Prompt,
                     entity_data={"content": item["prompt"]},
                     commit=False,
@@ -207,7 +211,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
                 # Create test
                 test = get_or_create_entity(
-                    db=db,
+                    db=db_ctx,
                     model=models.Test,
                     entity_data={
                         "prompt_id": prompt.id,
@@ -227,17 +231,17 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("test_set", []):
                 # Get test set status
                 status = get_or_create_status(
-                    db=db, name=item["status"], entity_type="TestSet", commit=False
+                    db=db_ctx, name=item["status"], entity_type="TestSet", commit=False
                 )
 
                 # Get license type
                 license_type = get_or_create_type_lookup(
-                    db=db, type_name="LicenseType", type_value=item["license_type"], commit=False
+                    db=db_ctx, type_name="LicenseType", type_value=item["license_type"], commit=False
                 )
 
                 # Create test set
                 test_set = get_or_create_entity(
-                    db=db,
+                    db=db_ctx,
                     model=models.TestSet,
                     entity_data={
                         "name": item["name"],
@@ -255,7 +259,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 for test in created_tests:
                     # Get the actual test object from the database
                     db_test = (
-                        db.query(models.Test)
+                        db_ctx.query(models.Test)
                         .filter(
                             models.Test.id == test.id,
                             models.Test.organization_id == organization_id,
@@ -270,25 +274,25 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                             "organization_id": organization_id,
                             "user_id": user_id,
                         }
-                        db.execute(test_test_set_association.insert().values(**values))
-                        db.flush()
+                        db_ctx.execute(test_test_set_association.insert().values(**values))
+                        db_ctx.flush()
 
             # Process metrics
             print("Processing metrics...")
             for item in initial_data.get("metric", []):
                 # Get metric type
                 metric_type = get_or_create_type_lookup(
-                    db=db, type_name="MetricType", type_value=item["metric_type"], commit=False
+                    db=db_ctx, type_name="MetricType", type_value=item["metric_type"], commit=False
                 )
 
                 # Get backend type
                 backend_type = get_or_create_type_lookup(
-                    db=db, type_name="BackendType", type_value=item["backend_type"], commit=False
+                    db=db_ctx, type_name="BackendType", type_value=item["backend_type"], commit=False
                 )
 
                 # Get metric status
                 status = get_or_create_status(
-                    db=db, name=item["status"], entity_type="Metric", commit=False
+                    db=db_ctx, name=item["status"], entity_type="Metric", commit=False
                 )
 
                 # Create metric
@@ -317,7 +321,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 }
 
                 metric = get_or_create_entity(
-                    db=db,
+                    db=db_ctx,
                     model=models.Metric,
                     entity_data=metric_data,
                     commit=False,
@@ -345,25 +349,25 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                             "organization_id": organization_id,
                             "user_id": user_id,
                         }
-                        db.execute(
+                        db_ctx.execute(
                             behavior_metric_association.insert().values(**association_values)
                         )
-                        db.flush()
+                        db_ctx.flush()
 
             # Mark organization as initialized
             org = (
-                db.query(models.Organization)
+                db_ctx.query(models.Organization)
                 .filter(models.Organization.id == organization_id)
                 .first()
             )
             if org:
                 org.is_onboarding_complete = True
-                db.flush()
+                db_ctx.flush()
 
-            db.commit()
+            # Transaction is handled automatically by get_org_aware_db
 
     except Exception:
-        db.rollback()
+        # Rollback is handled automatically by get_org_aware_db
         raise
 
 
