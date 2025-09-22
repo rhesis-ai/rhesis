@@ -6,8 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from typing import Tuple
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from the backend directory
+load_dotenv()  # Try current directory first
+load_dotenv("apps/backend/.env")  # Then try backend directory
 
 # Set test mode environment variable BEFORE importing any backend modules
 os.environ["SQLALCHEMY_DB_MODE"] = "test"
@@ -124,7 +125,7 @@ def clean_test_database():
                             auth_user_id = str(row.user_id)
                             auth_org_id = str(row.organization_id) if row.organization_id else None
                             auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
-                except Exception:
+                except Exception as e:
                     # If we can't get auth data, continue with normal cleanup
                     pass
                 
@@ -132,15 +133,18 @@ def clean_test_database():
                 # Clean test data but preserve session-scoped authentication data
                 tables_to_clean = [
                     # Main entity tables (reverse dependency order)
-                    'test_test_set_associations',
-                    'test_set_execution_results',
-                    'test_execution_results', 
-                    'tests',
-                    'test_sets',
-                    'endpoints',
+                    'test_test_set',  # Association table for tests and test sets
+                    'prompt_test_set',  # Association table for prompts and test sets
+                    'test_result',  # Test execution results
+                    'test_run',  # Test runs
+                    'test_configuration',  # Test configurations (must be before test_set due to FK)
+                    'test_context',  # Test contexts
+                    'test',  # Tests table
+                    'test_set',  # Test sets table
+                    'endpoint',  # Endpoints table
                     'token',  # Clean tokens but preserve auth tokens
                     'subscription',  # Clean subscriptions but preserve auth user's
-                    'organizations',  # Clean orgs but preserve auth org
+                    'organization',  # Clean orgs but preserve auth org (note: singular, not plural)
                     '"user"',  # Clean users but preserve auth user
                 ]
                 
@@ -150,7 +154,7 @@ def clean_test_database():
                             # Preserve the authenticated user
                             connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
                                              {"auth_user_id": auth_user_id})
-                        elif table_name == 'organizations' and auth_org_id:
+                        elif table_name == 'organization' and auth_org_id:
                             # Preserve the authenticated user's organization
                             connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_org_id'), 
                                              {"auth_org_id": auth_org_id})
