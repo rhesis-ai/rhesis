@@ -1,5 +1,5 @@
 """
-Tests for test service functions that use maintain_tenant_context.
+Tests for test service functions.
 
 These tests verify the current behavior of functions before they are refactored
 to use the new get_org_aware_db approach.
@@ -55,7 +55,7 @@ def create_bulk_test_data(**overrides):
 @pytest.mark.unit
 @pytest.mark.service
 class TestBulkCreateTests:
-    """Test bulk_create_tests function that uses maintain_tenant_context."""
+    """Test bulk_create_tests function."""
 
     def test_bulk_create_tests_success(self, test_db: Session, authenticated_user_id, test_org_id, 
                                       test_organization, test_type_lookup, db_status, db_user):
@@ -182,7 +182,7 @@ class TestBulkCreateTests:
 @pytest.mark.unit
 @pytest.mark.service
 class TestTestSetAssociationsInTestService:
-    """Test test set association functions in test service that use maintain_tenant_context."""
+    """Test test set association functions in test service."""
 
     def test_create_test_set_associations_success(self, test_db: Session, authenticated_user_id, test_org_id,
                                                  test_organization, test_type_lookup, db_status, db_user):
@@ -217,7 +217,7 @@ class TestTestSetAssociationsInTestService:
         
         test_ids = [str(test1.id), str(test2.id)]
         
-        # Mock the entire create_test_set_associations function since it uses maintain_tenant_context
+        # Mock the entire create_test_set_associations function
         with patch('rhesis.backend.app.services.test.create_test_set_associations') as mock_create_associations:
             
             mock_create_associations.return_value = {
@@ -313,7 +313,7 @@ class TestTestSetAssociationsInTestService:
         
         test_ids = [str(test.id)]
         
-        # Mock the entire remove_test_set_associations function since it uses maintain_tenant_context
+        # Mock the entire remove_test_set_associations function
         with patch('rhesis.backend.app.services.test.remove_test_set_associations') as mock_remove_associations:
             
             mock_remove_associations.return_value = {

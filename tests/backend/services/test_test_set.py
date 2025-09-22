@@ -1,5 +1,5 @@
 """
-Tests for test_set service functions that use maintain_tenant_context.
+Tests for test_set service functions.
 
 These tests verify the current behavior of functions before they are refactored
 to use the new get_org_aware_db approach.
@@ -56,7 +56,7 @@ def create_endpoint_data(**overrides):
 @pytest.mark.unit
 @pytest.mark.service
 class TestTestSetAssociations:
-    """Test test set association operations that use maintain_tenant_context."""
+    """Test test set association operations."""
 
     def test_create_test_set_associations_success(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test successful creation of test set associations."""
@@ -192,7 +192,7 @@ class TestTestSetAssociations:
 @pytest.mark.unit
 @pytest.mark.service
 class TestTestSetExecution:
-    """Test test set execution operations that use maintain_tenant_context."""
+    """Test test set execution operations."""
 
     def test_execute_test_set_on_endpoint_success(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test successful test set execution on endpoint."""

@@ -1,7 +1,7 @@
 """
 🗄️ CRUD Operations Testing Suite
 
-Comprehensive test suite for crud.py functions that currently use maintain_tenant_context.
+Comprehensive test suite for crud.py functions.
 These tests focus on the business logic of CRUD operations while ensuring proper tenant
 isolation and data integrity.
 
@@ -109,10 +109,10 @@ class CrudTestDataFactory:
 @pytest.mark.unit
 @pytest.mark.crud
 class TestTagOperations:
-    """🏷️ Test tag CRUD operations that use maintain_tenant_context"""
+    """🏷️ Test tag CRUD operations"""
     
     def test_assign_tag_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful tag assignment to entity (uses maintain_tenant_context)"""
+        """Test successful tag assignment to entity"""
         # Create test entity using factory
         entity_data = CrudTestDataFactory.create_prompt_data(test_org_id, authenticated_user_id)
         db_entity = models.Prompt(**entity_data)
@@ -171,7 +171,7 @@ class TestTagOperations:
             )
     
     def test_remove_tag_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful tag removal from entity (uses maintain_tenant_context)"""
+        """Test successful tag removal from entity"""
         # Create entities using factory
         tag_data = CrudTestDataFactory.create_tag_data(test_org_id, authenticated_user_id)
         entity_data = CrudTestDataFactory.create_prompt_data(test_org_id, authenticated_user_id)
@@ -228,10 +228,10 @@ class TestTagOperations:
 @pytest.mark.unit
 @pytest.mark.crud
 class TestTokenOperations:
-    """🔑 Test token operations that use maintain_tenant_context"""
+    """🔑 Test token operations"""
     
     def test_revoke_user_tokens_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful token revocation for user (uses maintain_tenant_context)"""
+        """Test successful token revocation for user"""
         user_uuid = uuid.UUID(authenticated_user_id)
         
         # Create test tokens using factory
@@ -274,10 +274,10 @@ class TestTokenOperations:
 @pytest.mark.unit
 @pytest.mark.crud
 class TestTestOperations:
-    """🧪 Test test operations that use maintain_tenant_context"""
+    """🧪 Test test operations"""
     
     def test_delete_test_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful test deletion (uses maintain_tenant_context)"""
+        """Test successful test deletion"""
         # Create a simple test without associations to avoid foreign key issues
         test_data = CrudTestDataFactory.create_test_data(test_org_id, authenticated_user_id)
         db_test = models.Test(**test_data)
@@ -316,10 +316,10 @@ class TestTestOperations:
 @pytest.mark.unit
 @pytest.mark.crud  
 class TestMetricOperations:
-    """📊 Test metric operations that use maintain_tenant_context"""
+    """📊 Test metric operations"""
     
     def test_get_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful metric retrieval with relationships (uses maintain_tenant_context)"""
+        """Test successful metric retrieval with relationships"""
         # Create metric using factory
         metric_data = CrudTestDataFactory.create_metric_data(test_org_id, authenticated_user_id)
         db_metric = models.Metric(**metric_data)
@@ -345,7 +345,7 @@ class TestMetricOperations:
         assert result is None
     
     def test_get_metrics_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful metrics listing (uses maintain_tenant_context)"""
+        """Test successful metrics listing"""
         # Create multiple metrics using factory
         metric_data_1 = CrudTestDataFactory.create_metric_data(test_org_id, authenticated_user_id, "Alpha")
         metric_data_2 = CrudTestDataFactory.create_metric_data(test_org_id, authenticated_user_id, "Beta")
@@ -365,7 +365,7 @@ class TestMetricOperations:
         assert metric_data_2["name"] in metric_names
     
     def test_add_behavior_to_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful behavior addition to metric (uses maintain_tenant_context)"""
+        """Test successful behavior addition to metric"""
         # Create metric and behavior using factory
         metric_data = CrudTestDataFactory.create_metric_data(test_org_id, authenticated_user_id)
         behavior_data = CrudTestDataFactory.create_behavior_data(test_org_id, authenticated_user_id)
@@ -432,7 +432,7 @@ class TestMetricOperations:
         assert second_result is False
     
     def test_remove_behavior_from_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test successful behavior removal from metric (uses maintain_tenant_context)"""
+        """Test successful behavior removal from metric"""
         # Create metric and behavior using factory
         metric_data = CrudTestDataFactory.create_metric_data(test_org_id, authenticated_user_id)
         behavior_data = CrudTestDataFactory.create_behavior_data(test_org_id, authenticated_user_id)
