@@ -110,7 +110,9 @@ class TestBaseTask:
         """Test getting tenant context when request lacks organization_id/user_id"""
         task = MockTask()
         task.request = Mock()
-        # Don't set organization_id or user_id attributes
+        # Explicitly set attributes to None to simulate missing attributes
+        task.request.organization_id = None
+        task.request.user_id = None
         
         org_id, user_id = task.get_tenant_context()
         
@@ -170,7 +172,7 @@ class TestBaseTask:
             mock_logger.warning.assert_called_once()
     
     def test_get_db_session_with_tenant_context(self):
-        """Test getting database session with tenant context"""
+        """Test getting database session with tenant context (session management refactored)"""
         task = MockTask()
         task.request.organization_id = "org123"
         task.request.user_id = "user456"
@@ -178,32 +180,29 @@ class TestBaseTask:
         mock_db = Mock(spec=Session)
         
         with patch('rhesis.backend.tasks.base.SessionLocal', return_value=mock_db) as mock_session_local:
-            with patch('rhesis.backend.tasks.base.set_tenant') as mock_set_tenant:
-                with task.get_db_session() as db:
-                    assert db == mock_db
-                    mock_db.expire_all.assert_called_once()
-                    mock_set_tenant.assert_called_once_with(mock_db, "org123", "user456")
-                
-                # Verify cleanup
-                mock_db.close.assert_called_once()
+            with task.get_db_session() as db:
+                assert db == mock_db
+                mock_db.expire_all.assert_called_once()
+                # Note: set_tenant removed - tenant context now passed directly to CRUD operations
+            
+            # Verify cleanup
+            mock_db.close.assert_called_once()
     
     def test_get_db_session_no_tenant_context(self):
-        """Test getting database session without tenant context"""
+        """Test getting database session without tenant context (session management refactored)"""
         task = MockTask()
         task.request = None
         
         mock_db = Mock(spec=Session)
         
         with patch('rhesis.backend.tasks.base.SessionLocal', return_value=mock_db):
-            with patch('rhesis.backend.tasks.base.set_tenant') as mock_set_tenant:
-                with task.get_db_session() as db:
-                    assert db == mock_db
-                    mock_db.expire_all.assert_called_once()
-                    # set_tenant should not be called when no context
-                    mock_set_tenant.assert_not_called()
+            with task.get_db_session() as db:
+                assert db == mock_db
+                mock_db.expire_all.assert_called_once()
+                # Note: set_tenant removed - tenant context now passed directly to CRUD operations
     
     def test_get_db_session_partial_context(self):
-        """Test getting database session with partial tenant context"""
+        """Test getting database session with partial tenant context (session management refactored)"""
         task = MockTask()
         task.request.organization_id = "org123"
         task.request.user_id = None  # Only org_id, no user_id
@@ -211,21 +210,20 @@ class TestBaseTask:
         mock_db = Mock(spec=Session)
         
         with patch('rhesis.backend.tasks.base.SessionLocal', return_value=mock_db):
-            with patch('rhesis.backend.tasks.base.set_tenant') as mock_set_tenant:
-                with task.get_db_session() as db:
-                    assert db == mock_db
-                    # Should still call set_tenant with available context
-                    mock_set_tenant.assert_called_once_with(mock_db, "org123", None)
+            with task.get_db_session() as db:
+                assert db == mock_db
+                # Note: set_tenant removed - partial tenant context now passed directly to CRUD operations
 
 
 class TestWithTenantContextDecorator:
-    """Test with_tenant_context decorator"""
+    """Test with_tenant_context decorator (REMOVED - decorator no longer needed)"""
     
     def test_with_tenant_context_decorator_success(self):
-        """Test successful execution with tenant context decorator"""
+        """Test that demonstrates decorator is no longer needed (session management refactored)"""
         
-        @with_tenant_context
         def mock_task_function(self, test_arg, db=None):
+            # Note: with_tenant_context decorator removed - db session and tenant context
+            # are now passed directly to task functions
             assert db is not None
             return f"Task executed with {test_arg}"
         
@@ -241,17 +239,15 @@ class TestWithTenantContextDecorator:
             mock_get_db_session.return_value.__enter__ = Mock(return_value=mock_db)
             mock_get_db_session.return_value.__exit__ = Mock(return_value=None)
             
-            with patch('rhesis.backend.tasks.base.set_tenant') as mock_set_tenant:
-                result = mock_task_function(task, "test_value")
-                
-                assert result == "Task executed with test_value"
-                mock_get_db_session.assert_called_once()
-                mock_set_tenant.assert_called_once_with(mock_db, "org123", "user456")
+            # Simulate direct function call (no decorator needed)
+            result = mock_task_function(task, "test_value", db=mock_db)
+            
+            assert result == "Task executed with test_value"
+            # Note: set_tenant removed - tenant context now passed directly to CRUD operations
     
     def test_with_tenant_context_decorator_no_context(self):
-        """Test decorator when no tenant context is available"""
+        """Test that demonstrates decorator is no longer needed when no tenant context (session management refactored)"""
         
-        @with_tenant_context
         def mock_task_function(self, test_arg, db=None):
             assert db is not None
             return f"Task executed with {test_arg}"
@@ -332,21 +328,20 @@ class TestTaskIntegration:
     """Integration tests for task functionality"""
     
     def test_full_task_lifecycle(self, mock_celery_task, mock_db_session):
-        """Test complete task execution lifecycle"""
+        """Test complete task execution lifecycle (session management refactored)"""
         
         with patch('rhesis.backend.tasks.base.SessionLocal', return_value=mock_db_session):
-            with patch('rhesis.backend.tasks.base.set_tenant') as mock_set_tenant:
-                # Test getting tenant context
-                org_id, user_id = mock_celery_task.get_tenant_context()
-                assert org_id == "org-456"
-                assert user_id == "user-789"
-                
-                # Test database session with context
-                with mock_celery_task.get_db_session() as db:
-                    assert db == mock_db_session
-                    mock_set_tenant.assert_called_once_with(mock_db_session, "org-456", "user-789")
-                
-                # Test logging with context
-                with patch('rhesis.backend.tasks.base.logger') as mock_logger:
-                    mock_celery_task.log_with_context("info", "Task completed successfully")
-                    mock_logger.info.assert_called_once()
+            # Test getting tenant context
+            org_id, user_id = mock_celery_task.get_tenant_context()
+            assert org_id == "org-456"
+            assert user_id == "user-789"
+            
+            # Test database session with context
+            with mock_celery_task.get_db_session() as db:
+                assert db == mock_db_session
+                # Note: set_tenant removed - tenant context now passed directly to CRUD operations
+            
+            # Test logging with context
+            with patch('rhesis.backend.tasks.base.logger') as mock_logger:
+                mock_celery_task.log_with_context("info", "Task completed successfully")
+                mock_logger.info.assert_called_once()

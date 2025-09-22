@@ -47,7 +47,7 @@ def create_endpoint_data(**overrides):
         "method": fake.random_element(elements=("GET", "POST", "PUT", "DELETE")),
         "protocol": "REST",
         "request_headers": {},
-        "environment": fake.random_element(elements=("DEVELOPMENT", "STAGING", "PRODUCTION"))
+        "environment": fake.random_element(elements=("development", "staging", "production"))
     }
     data.update(overrides)
     return data

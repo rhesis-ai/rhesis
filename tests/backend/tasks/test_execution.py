@@ -114,7 +114,7 @@ class TestResultProcessing:
         mock_db = Mock(spec=Session)
         test_id = "test-123"
         results = {
-            "status": ResultStatus.COMPLETED,
+            "status": "completed",
             "response": "AI response",
             "evaluation_results": {"accuracy": 0.85}
         }
