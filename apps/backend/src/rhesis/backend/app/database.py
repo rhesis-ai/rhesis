@@ -86,110 +86,11 @@ _current_tenant_organization_id: ContextVar[Optional[str]] = ContextVar(
 _current_tenant_user_id: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 
 
-def get_current_user_id(session: Session) -> Optional[UUID]:
-    """Get the current user ID from the database session."""
-    try:
-        result = session.execute(text('SHOW "app.current_user";')).scalar()
-        # Return None if result is None, empty string, or can't be converted to UUID
-        if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
-            return None
-        # Validate that result is a valid UUID format before converting
-        try:
-            return UUID(result)
-        except (ValueError, TypeError):
-            logger.debug(f"Invalid UUID format for user ID: {result}")
-            return None
-    except Exception as e:
-        logger.debug(f"Error getting current user ID: {e}")
-        return None
+# Removed legacy get_current_user_id and get_current_organization_id functions
+# These are no longer needed with get_org_aware_db pattern
 
 
-def get_current_organization_id(session: Session) -> Optional[UUID]:
-    """Get the current organization ID from the database session."""
-    try:
-        result = session.execute(text('SHOW "app.current_organization";')).scalar()
-        logger.debug(
-            f"get_current_organization_id - Raw result from DB: '{result}', type: {type(result)}"
-        )
-        # Return None if result is None, empty string, or can't be converted to UUID
-        if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
-            logger.debug(
-                f"get_current_organization_id - Returning None for empty/None result: '{result}'"
-            )
-            return None
-        # Validate that result is a valid UUID format before converting
-        try:
-            uuid_result = UUID(result)
-            logger.debug(f"get_current_organization_id - Returning valid UUID: {uuid_result}")
-            return uuid_result
-        except (ValueError, TypeError):
-            logger.debug(
-                f"get_current_organization_id - Invalid UUID format for organization ID: {result}"
-            )
-            return None
-    except Exception as e:
-        logger.debug(f"get_current_organization_id - Error getting current organization ID: {e}")
-        return None
-
-
-def _execute_set_tenant(
-    connection, organization_id: Optional[str] = None, user_id: Optional[str] = None
-):
-    """Helper function to execute SET commands for tenant context"""
-    try:
-        # Only set if organization_id is not None, not empty, and is a valid UUID format
-        if organization_id and organization_id.strip() and organization_id != "":
-            # Validate UUID format before setting
-            try:
-                UUID(organization_id)  # Validate it's a proper UUID
-                # logger.debug(f"Setting app.current_organization to: {organization_id}")
-                if hasattr(connection, "execute"):  # SQLAlchemy session
-                    connection.execute(
-                        text("SELECT set_config('app.current_organization', :org_id, false)"),
-                        {"org_id": str(organization_id)},
-                    )
-                else:  # Raw database connection
-                    cursor = connection.cursor()
-                    cursor.execute(
-                        "SELECT set_config('app.current_organization', %s, false)",
-                        (str(organization_id),),
-                    )
-                    cursor.close()
-            except (ValueError, TypeError) as uuid_error:
-                logger.debug(
-                    f"Invalid UUID format for organization_id: {organization_id}, error: {uuid_error}"
-                )
-        else:
-            pass
-            # logger.debug("Not setting app.current_organization (empty or None)")
-
-        # Only set if user_id is not None, not empty, and is a valid UUID format
-        if user_id and user_id.strip() and user_id != "":
-            # Validate UUID format before setting
-            try:
-                UUID(user_id)  # Validate it's a proper UUID
-                # logger.debug(f"Setting app.current_user to: {user_id}")
-                if hasattr(connection, "execute"):  # SQLAlchemy session
-                    connection.execute(
-                        text("SELECT set_config('app.current_user', :user_id, false)"),
-                        {"user_id": str(user_id)},
-                    )
-                else:  # Raw database connection
-                    cursor = connection.cursor()
-                    cursor.execute(
-                        "SELECT set_config('app.current_user', %s, false)", (str(user_id),)
-                    )
-                    cursor.close()
-            except (ValueError, TypeError) as uuid_error:
-                logger.debug(f"Invalid UUID format for user_id: {user_id}, error: {uuid_error}")
-        else:
-            pass
-            # logger.debug("Not setting app.current_user (empty or None)")
-    except Exception as e:
-        logger.error(f"Error setting tenant context: {e}")
-        # Don't raise the exception - allow the operation to continue
-        pass
-
+# Legacy set_tenant functions removed - use get_org_aware_db instead
 
 def clear_tenant_context():
     """Clear the tenant context variables"""
@@ -206,44 +107,13 @@ def clear_tenant_context():
 def reset_session_context(db: Session):
     """Reset PostgreSQL session variables for row-level security."""
     try:
-        # Use set_config with NULL instead of RESET to avoid issues with
-        # current_user reserved keyword
+        # Use set_config with NULL to clear session variables
         db.execute(text("SELECT set_config('app.current_organization', NULL, false)"))
         db.execute(text("SELECT set_config('app.current_user', NULL, false)"))
         # Also clear context vars
         clear_tenant_context()
     except Exception as e:
         logger.debug(f"Error resetting RLS session context: {e}")
-
-
-def set_tenant(
-    session: Session, organization_id: Optional[str] = None, user_id: Optional[str] = None
-):
-    """Set PostgreSQL session variables for row-level security."""
-    try:
-        # Store in context vars
-        if organization_id is not None:
-            _current_tenant_organization_id.set(organization_id)
-        if user_id is not None:
-            _current_tenant_user_id.set(user_id)
-
-        _execute_set_tenant(session, organization_id, user_id)
-    except Exception as e:
-        logger.debug(f"Error in set_tenant: {e}")
-
-
-def _set_tenant_for_connection(dbapi_connection, connection_record):
-    """Set tenant context for new connections"""
-    try:
-        org_id = _current_tenant_organization_id.get()
-        user_id = _current_tenant_user_id.get()
-        _execute_set_tenant(dbapi_connection, org_id, user_id)
-    except Exception as e:
-        logger.debug(f"Error in _set_tenant_for_connection: {e}")
-
-
-# Register the event listener
-event.listen(engine, "connect", _set_tenant_for_connection)
 
 
 
@@ -254,14 +124,17 @@ def init_db():
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Get a database session."""
+    """
+    Get a simple database session without tenant context.
+    
+    For operations requiring tenant context, use get_org_aware_db instead.
+    This function provides a basic session for operations like user lookup,
+    token validation, and other non-tenant-specific queries.
+    """
     db = SessionLocal()
     try:
         # Start with a clean session
         db.expire_all()
-
-        # Reset tenant context for this request
-        org_token, user_token = clear_tenant_context()
 
         yield db
     except Exception:
@@ -272,11 +145,6 @@ def get_db() -> Generator[Session, None, None]:
             # Clean up any pending transaction
             if db.in_transaction():
                 db.rollback()
-
-            # Clear tenant context and session state
-            _execute_set_tenant(db, None, None)
-            clear_tenant_context()
-            db.expire_all()
 
             # Close the session
             db.close()
@@ -350,43 +218,5 @@ def get_org_aware_db(organization_id: str, user_id: str = None) -> Generator[Ses
         db.close()
 
 
-def get_current_organization_id_cached(session: Session = None) -> Optional[UUID]:
-    """
-    Get current organization ID from context vars first, fallback to database query.
-    
-    OPTIMIZED: Avoids database SHOW queries when context is available.
-    """
-    # Try context vars first (no database query needed)
-    try:
-        org_id = _current_tenant_organization_id.get()
-        if org_id:
-            return UUID(org_id)
-    except Exception:
-        pass
-    
-    # Fallback to database query for backwards compatibility
-    if session:
-        return get_current_organization_id(session)
-    
-    return None
-
-
-def get_current_user_id_cached(session: Session = None) -> Optional[UUID]:
-    """
-    Get current user ID from context vars first, fallback to database query.
-    
-    OPTIMIZED: Avoids database SHOW queries when context is available.
-    """
-    # Try context vars first (no database query needed)
-    try:
-        user_id = _current_tenant_user_id.get()
-        if user_id:
-            return UUID(user_id)
-    except Exception:
-        pass
-    
-    # Fallback to database query for backwards compatibility
-    if session:
-        return get_current_user_id(session)
-    
-    return None
+# Removed legacy get_current_*_cached functions
+# These are no longer needed with get_org_aware_db pattern
