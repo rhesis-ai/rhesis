@@ -194,7 +194,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#50B9E0' : '#161B22', // Rhesis primary blue / secondary dark bg
+          backgroundColor: mode === 'light' ? '#2AA1CE' : '#161B22', // Rhesis primary CTA blue / secondary dark bg
           '& .MuiSvgIcon-root': {
             color: '#FFFFFF',
           },

@@ -187,7 +187,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height={300}>
           <ScatterChart
-            margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
+            margin={{ top: 5, right: 15, bottom: 35, left: -15 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
