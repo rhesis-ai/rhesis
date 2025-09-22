@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Rhesis backend implements a robust multi-tenancy model that ensures complete data isolation between different organizations. This is achieved through a combination of database design, row-level security policies, and session context management.
+The Rhesis backend implements a robust multi-tenancy model that ensures complete data isolation between different organizations. This is achieved through a combination of database design, explicit parameter passing, and organization filtering in CRUD operations.
 
 ## Multi-tenant Database Design
 
@@ -29,109 +29,110 @@ class SomeModel(Base):
     organization = relationship("Organization")
 ```
 
-## PostgreSQL Row-Level Security
+## Direct Parameter Passing Architecture
 
-The application leverages PostgreSQL's row-level security (RLS) features to enforce data isolation at the database level.
+The application uses **direct parameter passing** for tenant context instead of session variables, providing better performance and security.
 
-### Session Variables
+### Tenant Context Extraction
 
-Two PostgreSQL session variables are used to track the current tenant context:
-
-- `app.current_organization`: The ID of the current organization
-- `app.current_user`: The ID of the current user
-
-### Setting Tenant Context
-
-The tenant context is set during request processing:
+Tenant context is extracted from authenticated users and passed directly to CRUD operations:
 
 ```python
-def set_tenant(
-    session: Session, organization_id: Optional[str] = None, user_id: Optional[str] = None
-):
-    """Set PostgreSQL session variables for row-level security."""
-    try:
-        # Store in context vars
-        if organization_id is not None:
-            _current_tenant_organization_id.set(organization_id)
-        if user_id is not None:
-            _current_tenant_user_id.set(user_id)
-
-        # Set PostgreSQL session variables
-        _execute_set_tenant(session, organization_id, user_id)
-    except Exception as e:
-        logger.debug(f"Error in set_tenant: {e}")
+def get_tenant_context(current_user: User = Depends(require_current_user_or_token)):
+    """Extract tenant context from authenticated user."""
+    return current_user.organization_id, current_user.id
 ```
 
-### Context Variables
+### CRUD Operations with Tenant Context
 
-Python's `ContextVar` is used to maintain tenant context across async operations:
+All CRUD operations accept `organization_id` and `user_id` parameters explicitly:
 
 ```python
-_current_tenant_organization_id: ContextVar[Optional[str]] = ContextVar(
-    "organization_id", default=None
-)
-_current_tenant_user_id: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
+def create_entity(
+    db: Session, 
+    entity_data: EntityCreate, 
+    organization_id: str, 
+    user_id: str
+) -> Entity:
+    """Create entity with explicit tenant context."""
+    # Auto-populate tenant fields
+    populated_data = _auto_populate_tenant_fields(
+        Entity, entity_data.dict(), organization_id, user_id
+    )
+    
+    db_entity = Entity(**populated_data)
+    db.add(db_entity)
+    db.commit()
+    db.refresh(db_entity)
+    return db_entity
 ```
 
-## Database Connection Management
+### Query Filtering
 
-### Connection Event Listeners
-
-The application registers event listeners to set tenant context on new database connections:
+Database queries include organization filtering to prevent data leakage:
 
 ```python
-@event.listens_for(engine, "connect")
-def _set_tenant_for_connection(dbapi_connection, connection_record):
-    """Set tenant context for new connections"""
-    try:
-        organization_id = _current_tenant_organization_id.get()
-        user_id = _current_tenant_user_id.get()
-        _execute_set_tenant(dbapi_connection, organization_id, user_id)
-    except Exception as e:
-        logger.debug(f"Error in _set_tenant_for_connection: {e}")
+def get_entities(db: Session, organization_id: str) -> List[Entity]:
+    """Get entities filtered by organization."""
+    return db.query(Entity).filter(
+        Entity.organization_id == UUID(organization_id)
+    ).all()
 ```
 
-### Context Maintenance
+## Database Session Management
 
-A context manager ensures tenant context is maintained across transactions using `SET LOCAL` for transaction-scoped variables:
+### Simple Session Management
+
+Database sessions are managed without tenant setup overhead:
 
 ```python
 @contextmanager
-def get_db_with_tenant_context(organization_id: str, user_id: str):
-    """
-    Context manager for organization-aware database operations.
-    
-    Uses SET LOCAL for transaction-scoped variables and automatic transaction management.
-    This approach eliminates connection pooling issues and provides cleaner error handling.
-    """
-    # Get database session
-    db = next(get_db())
-    
+def get_db() -> Generator[Session, None, None]:
+    """Get a simple database session with transparent transaction management."""
+    db = SessionLocal()
     try:
-        # Begin transaction
-        with db.begin():
-            # Set tenant context using SET LOCAL (transaction-scoped)
-            db.execute(text("SET LOCAL app.current_organization = :organization_id"), {"organization_id": organization_id})
-            db.execute(text("SET LOCAL app.current_user = :user_id"), {"user_id": user_id})
-            
-            yield db
-            
-            # Transaction is automatically committed by db.begin() on success
+        yield db
+        # Commit any pending transactions automatically
+        if db.in_transaction():
+            db.commit()
     except Exception:
-        # Transaction is automatically rolled back by db.begin() on exception
+        # Rollback on exception
+        if db.in_transaction():
+            db.rollback()
         raise
     finally:
-        # Session cleanup
+        # Close the session
         db.close()
 ```
 
-**Key improvements over the previous approach:**
+### FastAPI Dependencies
 
-- **`SET LOCAL`**: Variables are automatically scoped to the transaction and cleared when it ends
-- **Automatic transaction management**: `db.begin()` handles commit/rollback automatically  
-- **No connection pooling issues**: Each context gets a fresh session
-- **Cleaner error handling**: No need for manual cleanup in finally blocks
-- **Better isolation**: Transaction-scoped variables prevent context leakage
+FastAPI dependencies provide both database sessions and tenant context:
+
+```python
+def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
+    """
+    FastAPI dependency that provides both a database session and tenant context.
+    
+    This eliminates the need for SET LOCAL commands by providing the tenant 
+    context directly to CRUD operations.
+    
+    Returns:
+        tuple: (db_session, organization_id, user_id)
+    """
+    organization_id, user_id = tenant_context
+    
+    with get_db() as db:
+        yield db, organization_id, user_id
+```
+
+**Key advantages of this approach:**
+
+- **No SET LOCAL overhead**: Eliminates PostgreSQL session variable management
+- **Better performance**: Reduces database round trips
+- **Explicit parameters**: Makes tenant context visible in function signatures
+- **Easier debugging**: Tenant context is explicit in stack traces
+- **Transparent transactions**: Automatic commit/rollback handling
 
 ### Usage Patterns
 
