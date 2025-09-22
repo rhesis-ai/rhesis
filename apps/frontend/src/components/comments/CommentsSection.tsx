@@ -10,6 +10,7 @@ import {
   Divider,
   Paper,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 import { Comment, EntityType } from '@/types/comments';
@@ -195,27 +196,29 @@ export function CommentsSection({
               }}
               InputProps={{
                 endAdornment: newComment.trim().length > 0 ? (
-                  <IconButton
-                    type="submit"
-                    disabled={isSubmitting || !newComment.trim()}
-                    size="small"
-                    sx={{ 
-                      mr: 0.5,
-                      color: 'text.secondary',
-                      '&:hover': {
-                        color: 'primary.main',
-                      },
-                      '&:disabled': {
-                        color: 'action.disabled',
-                      }
-                    }}
-                  >
-                    {isSubmitting ? (
-                      <CircularProgress size={16} color="inherit" />
-                    ) : (
-                      <SendIcon fontSize="small" />
-                    )}
-                  </IconButton>
+                  <Tooltip title="Send comment">
+                    <IconButton
+                      type="submit"
+                      disabled={isSubmitting || !newComment.trim()}
+                      size="small"
+                      sx={{ 
+                        mr: 0.5,
+                        color: 'text.secondary',
+                        '&:hover': {
+                          color: 'primary.main',
+                        },
+                        '&:disabled': {
+                          color: 'action.disabled',
+                        }
+                      }}
+                    >
+                      {isSubmitting ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        <SendIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
                 ) : null
               }}
             />

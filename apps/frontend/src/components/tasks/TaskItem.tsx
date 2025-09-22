@@ -109,7 +109,9 @@ export function TaskItem({
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-          <AssignmentIcon fontSize="small" color="action" />
+          <Tooltip title="Task">
+            <AssignmentIcon fontSize="small" color="action" />
+          </Tooltip>
           <Typography 
             variant="subtitle2" 
             fontWeight={600}

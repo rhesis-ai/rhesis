@@ -4,7 +4,7 @@ import React, { useCallback } from 'react';
 import { EntityType } from '@/types/tasks';
 import { useTasks } from '@/hooks/useTasks';
 import { TasksSection } from './TasksSection';
-import { TaskCreationModal } from './TaskCreationModal';
+import { TaskCreationDrawer } from './TaskCreationDrawer';
 
 interface TasksWrapperProps {
   entityType: EntityType;
@@ -63,7 +63,7 @@ export function TasksWrapper({
       />
 
       {/* Task Creation Modal */}
-      <TaskCreationModal
+      <TaskCreationDrawer
         open={false} // This will be controlled by the TasksSection component
         onClose={() => {
           (window as any).pendingCommentId = undefined;

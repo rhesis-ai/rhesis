@@ -237,29 +237,33 @@ export function CommentItem({
 
               {/* Edit/Delete Icons (only for comment owner) */}
               {canEdit && (
-                <IconButton
-                  size="small"
-                  onClick={() => setIsEditing(true)}
-                  sx={{ 
-                    color: 'text.secondary',
-                    '&:hover': { color: 'primary.main' }
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title="Edit comment">
+                  <IconButton
+                    size="small"
+                    onClick={() => setIsEditing(true)}
+                    sx={{ 
+                      color: 'text.secondary',
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
               
               {canDelete && (
-                <IconButton
-                  size="small"
-                  onClick={handleDeleteClick}
-                  sx={{ 
-                    color: 'text.secondary',
-                    '&:hover': { color: 'error.main' }
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title="Delete comment">
+                  <IconButton
+                    size="small"
+                    onClick={handleDeleteClick}
+                    sx={{ 
+                      color: 'text.secondary',
+                      '&:hover': { color: 'error.main' }
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
             </Box>
           </Box>
