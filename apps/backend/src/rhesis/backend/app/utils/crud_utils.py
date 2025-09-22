@@ -624,7 +624,8 @@ def get_or_create_topic(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type, commit=commit
+            db=db, type_name="EntityType", type_value=entity_type, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         topic_data["entity_type_id"] = entity_type_lookup.id
 
@@ -660,7 +661,8 @@ def get_or_create_category(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type, commit=commit
+            db=db, type_name="EntityType", type_value=entity_type, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         category_data["entity_type_id"] = entity_type_lookup.id
 
