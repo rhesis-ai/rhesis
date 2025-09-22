@@ -123,6 +123,7 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
 
+@contextmanager
 def get_db() -> Generator[Session, None, None]:
     """
     Get a simple database session without tenant context.
