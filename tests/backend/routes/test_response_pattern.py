@@ -109,12 +109,8 @@ class ResponsePatternTestMixin:
                 # For authentication tests, return a fake UUID since the request should fail anyway
                 return "00000000-0000-0000-0000-000000000000"
         
-        # If we can't find authenticated_client, raise an error with helpful message
-        raise RuntimeError(
-            "Could not find authenticated_client in call stack. "
-            "Response pattern tests require valid behavior_id. "
-            "Please call get_*_data(behavior_factory) explicitly."
-        )
+        # If we can't find authenticated_client, return None since behavior_id is now optional
+        return None
     
     def get_invalid_data(self) -> Dict[str, Any]:
         """Return invalid response pattern data using factory"""
@@ -426,15 +422,18 @@ class TestResponsePatternRoutes(ResponsePatternTestMixin, BaseEntityRouteTests):
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     def test_create_response_pattern_without_behavior_id(self, authenticated_client):
-        """Test creating response pattern without required behavior_id field"""
-        invalid_data = {"text": "Some response text"}
+        """Test creating response pattern without behavior_id field (now optional)"""
+        valid_data = {"text": "Some response text"}
         
         response = authenticated_client.post(
             self.endpoints.create,
-            json=invalid_data,
+            json=valid_data,
         )
         
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_200_OK
+        created_pattern = response.json()
+        assert created_pattern["text"] == valid_data["text"]
+        assert created_pattern["behavior_id"] is None
     
     def test_create_response_pattern_with_empty_text(self, authenticated_client):
         """Test creating response pattern with empty text"""
