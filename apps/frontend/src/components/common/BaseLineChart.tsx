@@ -103,6 +103,52 @@ export const chartUtils = {
     const upperBound = Math.ceil(maxValue * multiplier / 10) * 10;
     
     return [0, upperBound];
+  },
+
+  /**
+   * Calculates optimal Y-axis width based on data values and series configuration
+   */
+  calculateYAxisWidth: (
+    data: Record<string, any>[], 
+    series: LineDataSeries[], 
+    yAxisConfig?: { tickFormatter?: (value: number) => string }
+  ): number => {
+    if (!data.length || !series.length) return 25; // Minimum width for empty data
+    
+    // Find all numeric values across all series
+    const allValues: number[] = [];
+    
+    data.forEach(item => {
+      series.forEach(s => {
+        const value = item[s.dataKey];
+        if (typeof value === 'number' && !isNaN(value)) {
+          allValues.push(value);
+        }
+      });
+    });
+    
+    if (allValues.length === 0) return 25;
+    
+    // Find the maximum value to determine required width
+    const maxValue = Math.max(...allValues);
+    const minValue = Math.min(...allValues);
+    
+    // Use custom formatter if provided, otherwise use default formatting
+    const formatValue = yAxisConfig?.tickFormatter || ((value: number) => value.toString());
+    
+    // Format the extreme values to see their string length
+    const maxValueStr = formatValue(maxValue);
+    const minValueStr = formatValue(minValue);
+    
+    // Find the longest formatted string
+    const maxLength = Math.max(maxValueStr.length, minValueStr.length);
+    
+    // Calculate width based on character count
+    // Approximate: 8px per character + 10px padding
+    const calculatedWidth = (maxLength * 8) + 10;
+    
+    // Ensure minimum and maximum bounds
+    return Math.max(20, Math.min(calculatedWidth, 60));
   }
 };
 
@@ -112,7 +158,7 @@ export default function BaseLineChart({
   series,
   colorPalette = 'line',
   useThemeColors = true,
-  height = 150,
+  height = 180,
   xAxisDataKey = 'name',
   showGrid = true,
   legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
@@ -151,6 +197,9 @@ export default function BaseLineChart({
   const finalTooltipProps = tooltipProps || defaultTooltipProps;
   const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
   
+  // Calculate optimal Y-axis width based on data
+  const yAxisWidth = chartUtils.calculateYAxisWidth(data, series, yAxisConfig);
+  
   const chartContent = (
     <>
       {title && (
@@ -162,7 +211,7 @@ export default function BaseLineChart({
         <ResponsiveContainer width="100%" height={height}>
           <LineChart 
             data={data} 
-            margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
+            margin={{ top: 5, right: 5, bottom: 2, left: 0 }}
           >
             {showGrid && <CartesianGrid strokeDasharray="3 3" />}
             <XAxis 
@@ -181,10 +230,11 @@ export default function BaseLineChart({
               }} 
               axisLine={{ strokeWidth: 1 }}
               tickLine={{ strokeWidth: 1 }}
+              width={yAxisWidth}
               {...yAxisConfig}
             />
             <Tooltip {...finalTooltipProps} />
-            <Legend {...themedLegendProps} height={30} />
+            <Legend {...themedLegendProps} height={20} />
             {series.map((s, index) => (
               <Line
                 key={index}

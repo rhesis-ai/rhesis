@@ -313,10 +313,10 @@ export default function BasePieChart({
       )}
       <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <ResponsiveContainer width="100%" height={chartDimensions.adjustedHeight}>
-          <PieChart 
-            margin={{ top: 30, right: 15, bottom: 5, left: -15 }}
-            height={chartDimensions.adjustedHeight}
-          >
+            <PieChart 
+              margin={{ top: 5, right: 5, bottom: 5, left: 0 }}
+              height={chartDimensions.adjustedHeight}
+            >
             <Pie
               data={data}
               cx="50%"
