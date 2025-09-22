@@ -4,10 +4,7 @@ from uuid import UUID
 from sqlalchemy import desc, inspect, or_
 from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload, selectinload
 
-from rhesis.backend.app.database import (
-    get_current_organization_id,
-    get_current_user_id,
-)
+# Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.utils.odata import apply_odata_filter
 from rhesis.backend.app.utils.query_validation import (
     validate_odata_filter,

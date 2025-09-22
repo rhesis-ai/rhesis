@@ -130,31 +130,24 @@ def get_db() -> Generator[Session, None, None]:
     For operations requiring tenant context, use get_org_aware_db instead.
     This function provides a basic session for operations like user lookup,
     token validation, and other non-tenant-specific queries.
+    
+    Uses automatic transaction management consistent with get_org_aware_db.
     """
     db = SessionLocal()
     try:
-        # Start with a clean session
-        db.expire_all()
+        # Use automatic transaction management for consistency with get_org_aware_db
+        with db.begin():
+            # Start with a clean session
+            db.expire_all()
 
-        yield db
+            yield db
+            # Transaction commits automatically if no exception occurred
     except Exception:
-        db.rollback()
+        # Transaction rolls back automatically via db.begin() context manager
         raise
     finally:
-        try:
-            # Clean up any pending transaction
-            if db.in_transaction():
-                db.rollback()
-
-            # Close the session
-            db.close()
-        except Exception as e:
-            logger.debug(f"Error during session cleanup: {e}")
-            # Still try to close the session even if cleanup fails
-            try:
-                db.close()
-            except Exception:
-                pass
+        # Close the session
+        db.close()
 
 
 @contextmanager
