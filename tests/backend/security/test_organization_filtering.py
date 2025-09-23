@@ -7,11 +7,10 @@ filtering to prevent unauthorized access to data from other organizations.
 
 import uuid
 import pytest
-from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
 
 from rhesis.backend.app import models, crud
+from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 
 @pytest.mark.security
@@ -20,34 +19,35 @@ class TestCrudOrganizationFiltering:
     
     def test_get_task_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that get_task properly filters by organization"""
-        # Create two organizations
-        org1_id = str(uuid.uuid4())
-        org2_id = str(uuid.uuid4())
+        # Create two separate organizations and users
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"Security Test Org 1 {unique_id}", f"user1-{unique_id}@security-test.com", "Security User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"Security Test Org 2 {unique_id}", f"user2-{unique_id}@security-test.com", "Security User 2"
+        )
         
-        org1 = models.Organization(id=uuid.UUID(org1_id), name="Org 1")
-        org2 = models.Organization(id=uuid.UUID(org2_id), name="Org 2")
-        test_db.add_all([org1, org2])
-        test_db.flush()
+        # Create a task in org1 using direct model creation
+        task = models.Task(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            title="Test task in org1",
+            description="Test task in org1"
+        )
+        test_db.add(task)
+        test_db.commit()
         
-        # Create a simple task in org1 using the CRUD function directly
-        task_id = uuid.uuid4()
+        # User from org1 should be able to access the task
+        result_org1 = crud.get_task(test_db, task.id, organization_id=str(org1.id))
+        assert result_org1 is not None
+        assert result_org1.id == task.id
+        assert result_org1.organization_id == org1.id
         
-        # Mock the task creation to avoid complex foreign key setup
-        with patch.object(test_db, 'query') as mock_query:
-            mock_task = Mock()
-            mock_task.id = task_id
-            mock_task.organization_id = uuid.UUID(org1_id)
-            
-            # Test org1 access - should find the task
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_task
-            result = crud.get_task(test_db, task_id, organization_id=org1_id)
-            assert result is not None
-            assert result.id == task_id
-            
-            # Test org2 access - should not find the task
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = None
-            result = crud.get_task(test_db, task_id, organization_id=org2_id)
-            assert result is None
+        # User from org2 should NOT be able to access the task
+        result_org2 = crud.get_task(test_db, task.id, organization_id=str(org2.id))
+        assert result_org2 is None
 
     def test_get_test_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that get_test properly filters by organization"""
@@ -161,47 +161,84 @@ class TestCrudOrganizationFiltering:
 
     def test_get_model_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that get_model properly filters by organization"""
-        org1_id = str(uuid.uuid4())
-        org2_id = str(uuid.uuid4())
-        model_id = uuid.uuid4()
+        # Create two separate organizations and users
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"Model Test Org 1 {unique_id}", f"model-user1-{unique_id}@security-test.com", "Model User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"Model Test Org 2 {unique_id}", f"model-user2-{unique_id}@security-test.com", "Model User 2"
+        )
         
-        with patch.object(test_db, 'query') as mock_query:
-            mock_model = Mock()
-            mock_model.id = model_id
-            mock_model.organization_id = uuid.UUID(org1_id)
-            
-            # Test org1 access - should find the model
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_model
-            result = crud.get_model(test_db, model_id, organization_id=org1_id)
-            assert result is not None
-            assert result.id == model_id
-            
-            # Test org2 access - should not find the model
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = None
-            result = crud.get_model(test_db, model_id, organization_id=org2_id)
-            assert result is None
+        # Create a model in org1 using direct model creation
+        model = models.Model(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            name="Test Model",
+            description="Test model in org1",
+            model_name="test-model",
+            endpoint="https://test.example.com",
+            key="test-key"
+        )
+        test_db.add(model)
+        test_db.commit()
+        
+        # User from org1 should be able to access the model
+        result_org1 = crud.get_model(test_db, model.id, organization_id=str(org1.id))
+        assert result_org1 is not None
+        assert result_org1.id == model.id
+        assert result_org1.organization_id == org1.id
+        
+        # User from org2 should NOT be able to access the model
+        result_org2 = crud.get_model(test_db, model.id, organization_id=str(org2.id))
+        assert result_org2 is None
 
     def test_get_metric_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that get_metric properly filters by organization"""
-        org1_id = str(uuid.uuid4())
-        org2_id = str(uuid.uuid4())
-        metric_id = uuid.uuid4()
+        # Create two separate organizations and users
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"Metric Test Org 1 {unique_id}", f"metric-user1-{unique_id}@security-test.com", "Metric User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"Metric Test Org 2 {unique_id}", f"metric-user2-{unique_id}@security-test.com", "Metric User 2"
+        )
         
-        with patch.object(test_db, 'query') as mock_query:
-            mock_metric = Mock()
-            mock_metric.id = metric_id
-            mock_metric.organization_id = uuid.UUID(org1_id)
-            
-            # Test org1 access - should find the metric
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_metric
-            result = crud.get_metric(test_db, metric_id, organization_id=org1_id)
-            assert result is not None
-            assert result.id == metric_id
-            
-            # Test org2 access - should not find the metric
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = None
-            result = crud.get_metric(test_db, metric_id, organization_id=org2_id)
-            assert result is None
+        # Create a metric in org1 using CRUD function to handle complex relationships
+        from rhesis.backend.app.schemas.metric import MetricCreate
+        metric_data = MetricCreate(
+            name="Test Metric",
+            description="Test metric in org1",
+            evaluation_prompt="Test prompt",
+            evaluation_steps="Test steps",
+            reasoning="Test reasoning",
+            score_type="numeric",
+            min_score=0,
+            max_score=10,
+            threshold=5,
+            explanation="Test explanation",
+            ground_truth_required=False,
+            context_required=False,
+            class_name="TestMetric"
+        )
+        
+        metric = crud.create_metric(
+            db=test_db,
+            metric=metric_data,
+            organization_id=str(org1.id),
+            user_id=str(user1.id)
+        )
+        
+        # User from org1 should be able to access the metric
+        result_org1 = crud.get_metric(test_db, metric.id, organization_id=str(org1.id))
+        assert result_org1 is not None
+        assert result_org1.id == metric.id
+        assert result_org1.organization_id == org1.id
+        
+        # User from org2 should NOT be able to access the metric
+        result_org2 = crud.get_metric(test_db, metric.id, organization_id=str(org2.id))
+        assert result_org2 is None
 
 
 @pytest.mark.security
