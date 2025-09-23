@@ -1,7 +1,9 @@
+from dataclasses import asdict
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
+from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult
 from rhesis.sdk.metrics.constants import ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
@@ -330,6 +332,14 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             "passing_categories": self.passing_categories,
         }
         return config
+
+    def push(self) -> None:
+        """Push the metric to the backend."""
+        client = Client()
+        config = asdict(self.to_config())
+        config["reference_score"] = config["parameters"].get("passing_categories")[0]
+
+        client.send_request(Endpoints.METRICS, Methods.POST, config)
 
     def from_config(self, config: MetricConfig) -> "RhesisPromptMetricCategorical":
         """Create a metric from a dictionary."""
