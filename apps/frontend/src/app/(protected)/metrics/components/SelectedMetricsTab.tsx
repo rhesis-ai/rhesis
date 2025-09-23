@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -63,6 +64,7 @@ export default function SelectedMetricsTab({
 }: SelectedMetricsTabProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const theme = useTheme();
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -219,8 +221,8 @@ export default function SelectedMetricsTab({
     }
   };
 
-  const handleMetricDetail = (metricType: string) => {
-    router.push(`/metrics/${metricType}`);
+  const handleMetricDetail = (metricId: string) => {
+    router.push(`/metrics/${metricId}`);
   };
 
   const handleRemoveMetricFromBehavior = async (behaviorId: string, metricId: string) => {
@@ -270,18 +272,34 @@ export default function SelectedMetricsTab({
     const behaviorMetricsList = behaviorWithMetrics.metrics || [];
 
     return (
-      <Box key={behaviorWithMetrics.id} sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+      <Box key={behaviorWithMetrics.id} sx={{ mb: theme.spacing(4) }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          mb: theme.spacing(1),
+          pb: theme.spacing(1),
+          borderBottom: `1px solid ${theme.palette.divider}`
+        }}>
           <Typography 
             variant="h6" 
             component="h2" 
-            sx={{ fontWeight: 'bold' }}
+            sx={{ 
+              fontWeight: theme.typography.fontWeightBold,
+              color: theme.palette.text.primary
+            }}
           >
             {behaviorWithMetrics.name}
           </Typography>
           <IconButton 
             onClick={() => handleEditSection(behaviorWithMetrics.id as UUID, behaviorWithMetrics.name, behaviorWithMetrics.description || '')}
             size="small"
+            sx={{
+              color: theme.palette.primary.main,
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover
+              }
+            }}
           >
             <EditIcon />
           </IconButton>
@@ -289,7 +307,7 @@ export default function SelectedMetricsTab({
         <Typography 
           variant="body2" 
           color="text.secondary"
-          sx={{ mb: 3 }}
+          sx={{ mb: theme.spacing(3) }}
         >
           {behaviorWithMetrics.description || 'No description provided'}
         </Typography>
@@ -297,18 +315,15 @@ export default function SelectedMetricsTab({
         {behaviorMetricsList.length > 0 ? (
           <Box 
             sx={{ 
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 3,
-              '& > *': {
-                flex: { 
-                  xs: '1 1 100%', 
-                  sm: '1 1 calc(50% - 12px)', 
-                  md: '1 1 calc(33.333% - 16px)' 
-                },
-                minWidth: { xs: '100%', sm: '300px', md: '320px' },
-                maxWidth: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' }
-              }
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)'
+              },
+              gap: theme.spacing(3),
+              width: '100%',
+              px: 0
             }}
           >
             {behaviorMetricsList.map((metric) => (
@@ -316,10 +331,10 @@ export default function SelectedMetricsTab({
                 <Box 
                   sx={{ 
                     position: 'absolute',
-                    top: 8,
-                    right: 8,
+                    top: theme.spacing(1),
+                    right: theme.spacing(1),
                     display: 'flex',
-                    gap: 1,
+                    gap: theme.spacing(0.5),
                     zIndex: 1
                   }}
                 >
@@ -329,7 +344,8 @@ export default function SelectedMetricsTab({
                     sx={{
                       padding: '2px',
                       '& .MuiSvgIcon-root': {
-                        fontSize: '0.875rem'
+                        fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
+                        color: 'currentColor'
                       }
                     }}
                   >
@@ -344,7 +360,8 @@ export default function SelectedMetricsTab({
                     sx={{
                       padding: '2px',
                       '& .MuiSvgIcon-root': {
-                        fontSize: '0.875rem'
+                        fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
+                        color: 'currentColor'
                       }
                     }}
                   >
@@ -366,23 +383,38 @@ export default function SelectedMetricsTab({
           </Box>
         ) : (
           <Paper 
+            elevation={0}
             sx={{ 
-              p: 3, 
+              p: theme.spacing(3), 
               textAlign: 'center',
-              backgroundColor: 'action.hover',
+              backgroundColor: theme.palette.action.hover,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 2
+              gap: theme.spacing(2),
+              borderRadius: theme.shape.borderRadius,
+              border: `1px dashed ${theme.palette.divider}`
             }}
           >
-            <Typography color="text.secondary">
+            <Typography 
+              variant="body1"
+              color="text.secondary"
+              sx={{ fontWeight: theme.typography.fontWeightMedium }}
+            >
               No metrics assigned to this behavior
             </Typography>
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
               onClick={onTabChange}
+              sx={{
+                color: theme.palette.primary.main,
+                borderColor: theme.palette.primary.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.light,
+                  borderColor: theme.palette.primary.main
+                }
+              }}
             >
               Add Metric
             </Button>
@@ -420,8 +452,8 @@ export default function SelectedMetricsTab({
   return (
     <Box sx={{ 
       width: '100%',
-      pr: 2,
-      pb: 4
+      px: theme.spacing(3),
+      pb: theme.spacing(4)
     }}>
       {behaviorsWithMetrics
         .filter(b => b.name && b.name.trim() !== '')

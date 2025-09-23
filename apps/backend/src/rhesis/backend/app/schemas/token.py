@@ -51,3 +51,14 @@ class Token(TokenBase):
     last_refreshed_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+
+
+# Special response schema for token creation that includes the actual token value
+class TokenCreateResponse(Base):
+    id: UUID4  # Add ID field for consistency
+    access_token: str
+    token_obfuscated: str
+    token_type: str
+    expires_at: Optional[datetime]
+    name: str
+    last_refreshed_at: Optional[datetime] = None  # For refresh operations

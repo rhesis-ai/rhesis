@@ -144,7 +144,7 @@ export function CommentItem({
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ 
                 lineHeight: 1.2,
-                fontSize: '0.75rem'
+                fontSize: theme.typography.chartLabel.fontSize
               }}>
                 {formatDate(comment.created_at)}
               </Typography>
@@ -267,7 +267,7 @@ export function CommentItem({
                             }
                           }}
                         >
-                          <Typography variant="body2" sx={{ fontSize: '1rem' }}>{emoji}</Typography>
+                          <Typography variant="subtitle1">{emoji}</Typography>
                           <Typography variant="body2" fontWeight={600} sx={{ 
                             color: 'text.primary'
                           }}>

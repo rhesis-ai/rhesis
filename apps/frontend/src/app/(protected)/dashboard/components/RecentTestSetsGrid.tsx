@@ -124,6 +124,7 @@ export default function RecentTestSetsGrid({ sessionToken }: RecentTestSetsGridP
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disableRowSelectionOnClick
+        disablePaperWrapper={true}
       />
     </Box>
   );

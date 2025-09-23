@@ -95,11 +95,11 @@ const ChipContainer = ({ items }: { items: string[] }) => {
   return (
     <Box ref={containerRef} sx={{ display: 'flex', gap: 0.5, alignItems: 'center', width: '100%', overflow: 'hidden' }}>
       {visibleItems.map((item: string) => (
-        <Chip key={item} label={item} size="small" variant="outlined" color="secondary" />
+        <Chip key={item} label={item} size="small" variant="outlined" />
       ))}
       {remainingCount > 0 && (
         <Tooltip title={items.slice(visibleItems.length).join(', ')} arrow>
-          <Chip label={`+${remainingCount}`} size="small" variant="outlined" color="secondary" />
+          <Chip label={`+${remainingCount}`} size="small" variant="outlined" />
         </Tooltip>
       )}
     </Box>
@@ -218,7 +218,7 @@ export default function TestSetsGrid({
       field: 'status', 
       headerName: 'Status', 
       flex: 0.5,
-      renderCell: (params) => <Chip label={params.row.status} size="small" variant="outlined" color="secondary" />
+      renderCell: (params) => <Chip label={params.row.status} size="small" variant="outlined" />
     },
     {
       field: 'assignee',
@@ -325,6 +325,7 @@ export default function TestSetsGrid({
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
+        disablePaperWrapper={true}
       />
 
       {(sessionToken || session?.session_token) && (

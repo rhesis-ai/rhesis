@@ -615,8 +615,10 @@ class ProjectDataFactory(BaseDataFactory):
     @classmethod
     def minimal_data(cls) -> Dict[str, Any]:
         """Generate minimal project data (only required fields)"""
+        import time
+        unique_suffix = f"{int(time.time() * 1000000) % 1000000}"  # microsecond timestamp
         return {
-            "name": fake.catch_phrase() + " Project"
+            "name": f"{fake.catch_phrase()} Project {unique_suffix}"
         }
     
     @classmethod
@@ -630,8 +632,10 @@ class ProjectDataFactory(BaseDataFactory):
         Returns:
             Dict containing project test data
         """
+        import time
+        unique_suffix = f"{int(time.time() * 1000000) % 1000000}"  # microsecond timestamp
         data = {
-            "name": fake.company() + " " + fake.bs().title() + " Project"
+            "name": f"{fake.company()} {fake.bs().title()} Project {unique_suffix}"
         }
         
         if include_description:
@@ -642,8 +646,10 @@ class ProjectDataFactory(BaseDataFactory):
     @classmethod
     def update_data(cls) -> Dict[str, Any]:
         """Generate project update data"""
+        import time
+        unique_suffix = f"{int(time.time() * 1000000) % 1000000}"  # microsecond timestamp
         return {
-            "name": fake.catch_phrase() + " Updated Project",
+            "name": f"{fake.catch_phrase()} Updated Project {unique_suffix}",
             "description": fake.paragraph(nb_sentences=2),
             "icon": "🔄"
         }
