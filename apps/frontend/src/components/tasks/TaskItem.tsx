@@ -92,7 +92,7 @@ export function TaskItem({
         p: 2,
         border: '1px solid',
         borderColor: 'divider',
-        borderRadius: 2,
+        borderRadius: theme.shape.borderRadius,
         bgcolor: 'background.paper',
         transition: 'all 0.2s ease-in-out',
         cursor: 'pointer',
