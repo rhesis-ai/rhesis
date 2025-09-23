@@ -105,7 +105,7 @@ If you encounter errors with `docker-compose`, you're likely using the deprecate
 
 2. **📄 Copy environment variables**
    ```bash
-   cp env.example .env.docker
+   cp .env.example .env.docker
    ```
 
 3. **⚙️ Configure environment variables**
