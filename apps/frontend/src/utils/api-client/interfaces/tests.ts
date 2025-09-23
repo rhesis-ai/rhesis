@@ -69,6 +69,7 @@ export interface TestBase {
   status_id?: UUID;
   organization_id?: UUID;
   tags?: Tag[];
+  test_metadata?: Record<string, any>;
 }
 
 export interface TestCreate extends TestBase {}

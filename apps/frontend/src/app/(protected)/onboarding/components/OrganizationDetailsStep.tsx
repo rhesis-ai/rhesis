@@ -7,10 +7,12 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  Stack
+  Stack,
+  Paper
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import StepHeader from './StepHeader';
 
 interface FormData {
   firstName: string;
@@ -196,64 +198,63 @@ export default function OrganizationDetailsStep({
 
   return (
     <Box component="form" onSubmit={handleSubmit}>
-      {/* Header Section */}
-      <Box textAlign="center" mb={4}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          Help us get to know you and your organization
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          We need these details to set up your workspace and personalize your experience.
-        </Typography>
-      </Box>
+      <StepHeader
+        title="Help us get to know you and your organization"
+        description="We need these details to set up your workspace and personalize your experience."
+      />
 
       {/* Form Fields */}
-      <Stack spacing={3}>
-        <TextField
-          fullWidth
-          label="First Name"
-          name="firstName"
-          value={formData.firstName}
-          onChange={handleChange}
-          required
-          error={errors.firstName}
-          helperText={errors.firstName ? 'First name is required' : ''}
-          variant="outlined"
-        />
-        
-        <TextField
-          fullWidth
-          label="Last Name"
-          name="lastName"
-          value={formData.lastName}
-          onChange={handleChange}
-          required
-          error={errors.lastName}
-          helperText={errors.lastName ? 'Last name is required' : ''}
-          variant="outlined"
-        />
-        
-        <TextField
-          fullWidth
-          label="Organization Name"
-          name="organizationName"
-          value={formData.organizationName}
-          onChange={handleChange}
-          required
-          error={errors.organizationName}
-          helperText={errors.organizationName ? 'Organization name is required' : ''}
-          variant="outlined"
-        />
-        
-        <TextField
-          fullWidth
-          label="Website URL (Optional)"
-          name="website"
-          value={formData.website}
-          onChange={handleChange}
-          placeholder="https://example.com"
-          variant="outlined"
-        />
-      </Stack>
+      <Paper variant="outlined" elevation={0}>
+        <Box p={3}>
+          <Stack spacing={3}>
+            <TextField
+              fullWidth
+              label="First Name"
+              name="firstName"
+              value={formData.firstName}
+              onChange={handleChange}
+              required
+              error={errors.firstName}
+              helperText={errors.firstName ? 'First name is required' : ''}
+              variant="outlined"
+            />
+            
+            <TextField
+              fullWidth
+              label="Last Name"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleChange}
+              required
+              error={errors.lastName}
+              helperText={errors.lastName ? 'Last name is required' : ''}
+              variant="outlined"
+            />
+            
+            <TextField
+              fullWidth
+              label="Organization Name"
+              name="organizationName"
+              value={formData.organizationName}
+              onChange={handleChange}
+              required
+              error={errors.organizationName}
+              helperText={errors.organizationName ? 'Organization name is required' : ''}
+              variant="outlined"
+            />
+            
+            <TextField
+              fullWidth
+              label="Website URL (Optional)"
+              name="website"
+              value={formData.website}
+              onChange={handleChange}
+              placeholder="https://example.com"
+              variant="outlined"
+            />
+          </Stack>
+        </Box>
+      </Paper>
 
       {/* Action Buttons */}
       <Box display="flex" justifyContent="flex-end" mt={4}>

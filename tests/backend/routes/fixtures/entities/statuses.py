@@ -36,7 +36,7 @@ def test_type_lookup(test_db: Session, test_organization) -> TypeLookup:
         user_id=None  # Can be None for system types
     )
     test_db.add(type_lookup)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(type_lookup)
     return type_lookup
 
@@ -66,7 +66,7 @@ def db_status(test_db: Session, test_organization, test_type_lookup, db_user) ->
         user_id=db_user.id
     )
     test_db.add(status)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(status)
     return status
 
@@ -93,7 +93,7 @@ def db_inactive_status(test_db: Session, test_organization, test_type_lookup, db
         user_id=db_user.id
     )
     test_db.add(status)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(status)
     return status
 
@@ -120,6 +120,6 @@ def db_draft_status(test_db: Session, test_organization, test_type_lookup, db_us
         user_id=db_user.id
     )
     test_db.add(status)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(status)
     return status

@@ -148,18 +148,24 @@ def db_user(test_db, test_org_id):
     if User is None:
         pytest.skip("User model not available")
     
+    import uuid
+    import time
+    
+    # Generate truly unique data to avoid conflicts between tests
+    unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
+    
     user = User(
-        email=fake.email(),
+        email=f"test-{unique_suffix}@example.com",
         name=fake.name(),
         given_name=fake.first_name(),
         family_name=fake.last_name(),
         is_active=True,
         is_superuser=False,
-        auth0_id=f"auth0|{fake.uuid4()}",
+        auth0_id=f"auth0|{uuid.uuid4()}",
         organization_id=test_org_id
     )
     test_db.add(user)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(user)
     return user
 
@@ -190,7 +196,7 @@ def db_admin(test_db, test_org_id):
         organization_id=test_org_id
     )
     test_db.add(admin)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(admin)
     return admin
 
@@ -219,7 +225,7 @@ def db_inactive_user(test_db, test_org_id):
         organization_id=test_org_id
     )
     test_db.add(user)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(user)
     return user
 
@@ -241,8 +247,10 @@ def db_owner_user(test_db, test_org_id):
     if User is None:
         pytest.skip("User model not available")
     
+    import time
+    unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     owner = User(
-        email=f"owner+{fake.uuid4()[:8]}@example.com",
+        email=f"owner+{unique_suffix}@example.com",
         name=f"Owner {fake.last_name()}",
         given_name="Owner",
         family_name=fake.last_name(),
@@ -252,7 +260,7 @@ def db_owner_user(test_db, test_org_id):
         organization_id=test_org_id
     )
     test_db.add(owner)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(owner)
     return owner
 
@@ -274,8 +282,10 @@ def db_assignee_user(test_db, test_org_id):
     if User is None:
         pytest.skip("User model not available")
     
+    import time
+    unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp
     assignee = User(
-        email=f"assignee+{fake.uuid4()[:8]}@example.com",
+        email=f"assignee+{unique_suffix}@example.com",
         name=f"Assignee {fake.last_name()}",
         given_name="Assignee",
         family_name=fake.last_name(),
@@ -285,7 +295,7 @@ def db_assignee_user(test_db, test_org_id):
         organization_id=test_org_id
     )
     test_db.add(assignee)
-    test_db.commit()
+    test_db.flush()  # Make sure the object gets an ID
     test_db.refresh(assignee)
     return assignee
 

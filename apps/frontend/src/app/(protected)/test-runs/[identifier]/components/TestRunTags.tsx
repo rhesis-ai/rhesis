@@ -29,7 +29,7 @@ export default function TestRunTags({ sessionToken, testRun }: TestRunTagsProps)
         label="Tags" 
         placeholder="Add tags (press Enter or comma to add)"
         helperText="These tags help categorize and find this test run"
-        chipColor="primary"
+        chipColor="default"
         addOnBlur
         delimiters={[',', 'Enter']}
         size="small"
