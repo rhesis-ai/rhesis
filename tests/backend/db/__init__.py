@@ -6,7 +6,7 @@ configuration verification, test data management, and database utilities.
 """
 
 from .utils import (
-    test_environment,
+    setup_test_environment,
     create_temp_postgres_db,
     create_test_session,
     verify_test_database_isolation,
@@ -19,7 +19,7 @@ from .utils import (
 TestDataManager = DatabaseTestDataManager
 
 __all__ = [
-    "test_environment",
+    "setup_test_environment",
     "create_temp_postgres_db", 
     "create_test_session",
     "verify_test_database_isolation",
