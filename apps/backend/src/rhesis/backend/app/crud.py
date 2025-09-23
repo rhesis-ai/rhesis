@@ -1594,12 +1594,12 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-def get_metric(db: Session, metric_id: uuid.UUID) -> Optional[models.Metric]:
+def get_metric(db: Session, metric_id: uuid.UUID, organization_id: str = None) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
         .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_visibility_filter()
             .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
             .first()
@@ -1850,9 +1850,16 @@ def get_behavior_metrics(
 
 
 # Model CRUD
-def get_model(db: Session, model_id: uuid.UUID) -> Optional[models.Model]:
-    """Get a specific model by ID with its related objects"""
-    return get_item_detail(db, models.Model, model_id)
+def get_model(db: Session, model_id: uuid.UUID, organization_id: str = None) -> Optional[models.Model]:
+    """Get a specific model by ID with its related objects and organization filtering"""
+    query = db.query(models.Model).filter(models.Model.id == model_id)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID as UUIDType
+        query = query.filter(models.Model.organization_id == UUIDType(organization_id))
+    
+    return query.first()
 
 
 def get_models(
