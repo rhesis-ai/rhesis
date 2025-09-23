@@ -55,6 +55,7 @@ def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config["parameters"]["threshold"] = config.pop("threshold", None)
     config["parameters"]["threshold_operator"] = config.pop("threshold_operator", None)
     config["parameters"]["reference_score"] = config.pop("reference_score", None)
+    return config
 
 
 def run_evaluation(
