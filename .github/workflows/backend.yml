@@ -27,11 +27,6 @@ on:
         required: false
         default: false
         type: boolean
-      deploy_preview:
-        description: '⚠️  DEPRECATED: Use "Preview Deployment (Multi-Service)" workflow instead for coordinated frontend+backend previews'
-        required: false
-        default: false
-        type: boolean
       reason:
         description: 'Reason for manual deployment'
         required: false
@@ -45,11 +40,6 @@ on:
         type: string
       deploy_only:
         description: 'Skip build and only deploy latest image'
-        required: false
-        default: false
-        type: boolean
-      deploy_preview:
-        description: 'Deploy preview (will deploy new revision with commit)'
         required: false
         default: false
         type: boolean
@@ -74,7 +64,19 @@ env:
   SA_KEY_PATH: 'gcp-sa-key.json'
 
 jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ github.event.inputs.environment }}
+
   build:
+    needs: validate-inputs
     if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
     runs-on: ubuntu-latest
     permissions:
@@ -142,17 +144,15 @@ jobs:
           echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
           echo "🔍 Preview deployment mode: $IS_PREVIEW"
           
-          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            echo "SERVICE_NAME=rhesis-backend" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_ENV
-            echo "service_name=rhesis-backend" >> $GITHUB_OUTPUT
-            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_OUTPUT
-          else
-            echo "SERVICE_NAME=rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
-            echo "service_name=rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
-            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
-          fi
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: backend
+          project-id: ${{ secrets.PROJECT_ID }}
+          
+      - name: Set additional environment variables
+        run: |
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
       - name: Configure Docker for GCR
@@ -184,7 +184,7 @@ jobs:
           fi
 
   deploy:
-    needs: build
+    needs: [validate-inputs, build]
     if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     permissions:
@@ -233,13 +233,15 @@ jobs:
           REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
           echo "REGION=$REGION" >> $GITHUB_ENV
           
-          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            echo "SERVICE_NAME=rhesis-backend" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend" >> $GITHUB_ENV
-          else
-            echo "SERVICE_NAME=rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-backend-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
-          fi
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: backend
+          project-id: ${{ secrets.PROJECT_ID }}
+          
+      - name: Set additional environment variables
+        run: |
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
@@ -521,48 +523,14 @@ jobs:
           echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
           echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
           
-          # Add to job summary with URL masking workaround
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            SERVICE_URL="$DEPLOYED_URL"
-            
-            echo "## 🌐 ⚠️ PREVIEW - Backend Service Deployed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-            # Use printf to avoid URL masking issues
-            printf "**🧪 Preview URL:** [%s](%s)\n" "$SERVICE_URL" "$SERVICE_URL" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### ⚠️ Preview Warning" >> $GITHUB_STEP_SUMMARY
-            echo "- 🚫 **This is a PREVIEW deployment, NOT live ${{ env.ENVIRONMENT }}**" >> $GITHUB_STEP_SUMMARY
-            echo "- 📊 **Receives 0% live traffic**" >> $GITHUB_STEP_SUMMARY
-            echo "- 🔒 **Isolated from live environment**" >> $GITHUB_STEP_SUMMARY
-          else
-            # Set environment display name and use configured BACKEND_URL
-            if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-              ENV_DISPLAY="PRODUCTION"
-            elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
-              ENV_DISPLAY="STAGING"
-            else
-              ENV_DISPLAY="DEVELOPMENT"
-            fi
-            
-            SERVICE_URL="${{ secrets.BACKEND_URL }}"
-            
-            echo "## 🌐 ✅ $ENV_DISPLAY - Backend Service Deployed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-            printf "**🌍 $ENV_DISPLAY URL:** [%s](%s)\n" "$SERVICE_URL" "$SERVICE_URL" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### ✅ $ENV_DISPLAY Status" >> $GITHUB_STEP_SUMMARY
-            echo "- 🚀 **This is the LIVE $ENV_DISPLAY service**" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-              echo "- 📈 **Serving real user traffic**" >> $GITHUB_STEP_SUMMARY
-              echo "- 🔴 **Handle with care - affects users**" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "- 🧪 **Serving $ENV_DISPLAY environment traffic**" >> $GITHUB_STEP_SUMMARY
-              echo "- ⚠️ **Handle with care - affects $ENV_DISPLAY users**" >> $GITHUB_STEP_SUMMARY
-            fi
-          fi
+      - name: Generate deployment summary
+        uses: ./.github/actions/generate-deployment-summary
+        with:
+          service-type: Backend
+          is-preview: ${{ env.IS_PREVIEW }}
+          environment: ${{ env.ENVIRONMENT }}
+          env-display: ${{ env.ENV_DISPLAY }}
+          service-url: ${{ env.IS_PREVIEW == 'true' && env.DEPLOYED_URL || secrets.BACKEND_URL }}
 
       - name: Set Workflow Outputs
         id: output_url
