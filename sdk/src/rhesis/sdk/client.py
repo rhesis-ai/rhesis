@@ -56,7 +56,12 @@ class Client:
         return f"{self.base_url}/{endpoint}"
 
     def send_request(
-        self, endpoint: Endpoints, method: Methods, data: Optional[dict] = None
+        self,
+        endpoint: Endpoints,
+        method: Methods,
+        data: Optional[dict] = None,
+        params: Optional[dict] = None,
+        url_params: Optional[str] = None,
     ) -> dict:
         """
         Send a request to the API.
@@ -67,6 +72,11 @@ class Client:
             data: The data to send in the request body.
         """
         url = self.get_url(endpoint.value)
-        response = requests.request(method.value, url, headers=self.headers, json=data)
+        if url_params is not None:
+            url = f"{url}/{url_params}"
+        response = requests.request(
+            method.value, url, headers=self.headers, json=data, params=params
+        )
+        print(response.url)
         response.raise_for_status()
         return response.json()
