@@ -8,7 +8,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
 import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import BaseFreesoloAutocomplete from '@/components/common/BaseFreesoloAutocomplete';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
@@ -114,7 +114,7 @@ export default async function TestSetPage({ params }: { params: any }) {
         <Grid container spacing={3}>
           {/* Main Content Column */}
           <Grid item xs={12} md={9}>
-            <Paper sx={{ p: 3, mb: 4 }}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestSetDetailsSection 
                 testSet={serializedTestSet} 
                 sessionToken={session.session_token}
@@ -122,7 +122,7 @@ export default async function TestSetPage({ params }: { params: any }) {
             </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper sx={{ p: 3, mb: 4 }}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestSetTestsGrid
                 testSetId={identifier}
                 sessionToken={session.session_token}
@@ -142,7 +142,7 @@ export default async function TestSetPage({ params }: { params: any }) {
 
           {/* Workflow Column */}
           <Grid item xs={12} md={3}>
-            <Paper sx={{ p: 3 }}>
+            <Paper elevation={2} sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Workflow
               </Typography>

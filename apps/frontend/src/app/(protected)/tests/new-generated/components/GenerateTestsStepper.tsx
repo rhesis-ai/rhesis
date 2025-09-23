@@ -29,6 +29,7 @@ import {
   CircularProgress,
   Skeleton
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { LoadingButton } from '@mui/lab';
 import BaseTag from '@/components/common/BaseTag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -41,7 +42,7 @@ import {
   GenerationSample 
 } from '@/utils/api-client/interfaces/test-set';
 import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
-import StarIcon from '@mui/icons-material/Star';
+import StarIcon from '@mui/icons-material/StarOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -782,7 +783,7 @@ const ReviewSamples = ({
             }}
           >
             <Box sx={{ display: 'flex', gap: 1, mb: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <Chip label={sample.behavior} size="small" color={sample.behavior === 'Reliability' ? 'success' : 'warning'} />
+              <Chip label={sample.behavior} size="small" color={sample.behavior === 'Reliability' ? 'success' : 'warning'} variant="outlined" />
               <Chip label={sample.topic} size="small" variant="outlined" />
             </Box>
 
@@ -829,8 +830,8 @@ const ReviewSamples = ({
                     borderColor: 'divider',
                     px: 1,
                     py: 0.5,
-                    borderRadius: 1,
-                    fontSize: '0.75rem',
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                    fontSize: (theme) => theme.typography.chartLabel.fontSize,
                     whiteSpace: 'nowrap',
                     zIndex: 1,
                     boxShadow: 1,
@@ -955,6 +956,7 @@ const ConfirmGenerate = ({
 
 // Main Stepper Component
 export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStepperProps) {
+  const theme = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [configData, setConfigData] = useState(INITIAL_CONFIG);
   const [samples, setSamples] = useState<Sample[]>([]);

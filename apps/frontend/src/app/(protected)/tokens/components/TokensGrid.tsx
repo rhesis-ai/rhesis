@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Chip, Box, IconButton, Tooltip, Typography, Button, Paper } from '@mui/material';
+import { Chip, Box, IconButton, Tooltip, Typography, Button, Paper, useTheme } from '@mui/material';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { DeleteIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
 import AddIcon from '@mui/icons-material/Add';
@@ -35,6 +35,7 @@ export default function TokensGrid({
     pageSize: 10,
   }
 }: TokensGridProps) {
+  const theme = useTheme();
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
@@ -140,7 +141,7 @@ export default function TokensGrid({
             py: 8,
             px: 2,
             bgcolor: 'background.paper',
-            borderRadius: 1,
+            borderRadius: (theme) => theme.shape.borderRadius * 0.25,
           }}
         >
           <Typography variant="h5" sx={{ mb: 2 }}>
@@ -173,6 +174,7 @@ export default function TokensGrid({
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
+            disablePaperWrapper={true}
           />
         </Box>
       </Paper>

@@ -18,6 +18,8 @@ COPY next.config.mjs mdx-components.js theme.config.jsx ./
 COPY public ./public
 COPY app ./app
 COPY components ./components
+COPY content ./content
+COPY styles ./styles
 
 # Set build environment variables
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -53,6 +55,8 @@ RUN --mount=type=cache,target=/root/.npm \
 # Copy built application from builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/content ./content
+COPY --from=builder --chown=nextjs:nodejs /app/styles ./styles
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./
 COPY --from=builder --chown=nextjs:nodejs /app/mdx-components.js ./
 COPY --from=builder --chown=nextjs:nodejs /app/theme.config.jsx ./

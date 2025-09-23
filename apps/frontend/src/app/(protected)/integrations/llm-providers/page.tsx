@@ -13,11 +13,10 @@ import {
 import AnthropicIcon from '@mui/icons-material/Psychology';
 import CohereLogo from '@mui/icons-material/AutoFixHigh';
 import MistralIcon from '@mui/icons-material/AcUnit';
-import CloudIcon from '@mui/icons-material/Cloud';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
+import { DeleteIcon } from '@/components/icons';
+import { AddIcon, CloudIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
@@ -31,19 +30,19 @@ interface ProviderInfo {
 }
 
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
-  'anthropic': <AnthropicIcon sx={{ fontSize: 32 }} />,
-  'cohere': <CohereLogo sx={{ fontSize: 32 }} />,
+  'anthropic': <AnthropicIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
+  'cohere': <CohereLogo sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'google': <SiGoogle className="h-8 w-8" />,
-  'groq': <SmartToyIcon sx={{ fontSize: 32 }} />,
+  'groq': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'huggingface': <SiHuggingface className="h-8 w-8" />,
-  'meta': <SmartToyIcon sx={{ fontSize: 32 }} />,
-  'mistral': <MistralIcon sx={{ fontSize: 32 }} />,
+  'meta': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
+  'mistral': <MistralIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'ollama': <SiOllama className="h-8 w-8" />,
   'openai': <SiOpenai className="h-8 w-8" />,
-  'perplexity': <SmartToyIcon sx={{ fontSize: 32 }} />,
+  'perplexity': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
   'replicate': <SiReplicate className="h-8 w-8" />,
-  'together': <SmartToyIcon sx={{ fontSize: 32 }} />,
-  'vllm': <SmartToyIcon sx={{ fontSize: 32 }} />
+  'together': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />,
+  'vllm': <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />
 };
 
 interface ProviderSelectionDialogProps {
@@ -113,7 +112,7 @@ function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }:
               id: provider.type_value,
               name: provider.description || provider.type_value,
               description: provider.description || '',
-              icon: PROVIDER_ICONS[provider.type_value] || <SmartToyIcon sx={{ fontSize: 32 }} />
+              icon: PROVIDER_ICONS[provider.type_value] || <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />
             };
             
             return (
@@ -121,7 +120,7 @@ function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }:
                 key={provider.id}
                 onClick={() => onSelectProvider(provider)}
                 sx={{ 
-                  borderRadius: 1,
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                   my: 0.5,
                   '&:hover': {
                     backgroundColor: 'action.hover'
@@ -234,7 +233,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
     }
   };
 
-  const providerIcon = PROVIDER_ICONS[provider?.type_value || ''] || <SmartToyIcon sx={{ fontSize: 24 }} />;
+  const providerIcon = PROVIDER_ICONS[provider?.type_value || ''] || <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.medium }} />;
   const displayName = isCustomProvider ? 'Custom Provider' : (provider?.description || provider?.type_value || 'Provider');
 
   return (
@@ -244,7 +243,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
       maxWidth="md" 
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 2 }
+        sx: { borderRadius: (theme) => theme.shape.borderRadius * 0.5 }
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
@@ -607,7 +606,7 @@ export default function LLMProvidersPage() {
               
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon sx={{ fontSize: 32 }} />}
+                  {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon sx={{ fontSize: (theme) => theme.iconSizes.large }} />}
                   <CheckCircleIcon 
                     sx={{ 
                       ml: -1, 
@@ -644,7 +643,7 @@ export default function LLMProvidersPage() {
                   disableRipple
                   sx={{ 
                     textTransform: 'none',
-                    borderRadius: 1.5,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.375,
                     pointerEvents: 'none',
                     cursor: 'default'
                   }}
@@ -662,19 +661,19 @@ export default function LLMProvidersPage() {
               width: '100%',
               display: 'flex', 
               flexDirection: 'column',
-              bgcolor: 'grey.50',
+              bgcolor: 'action.hover',
               cursor: 'pointer',
               transition: 'all 0.2s',
               minHeight: 'inherit', // Inherit the minimum height from parent
               '&:hover': {
-                bgcolor: 'grey.100',
+                bgcolor: 'action.selected',
                 transform: 'translateY(-2px)'
               }
             }}
             onClick={handleAddLLM}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <AddIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+              <AddIcon sx={{ fontSize: (theme) => theme.iconSizes.large, color: 'grey.500' }} />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h6" color="text.secondary">Add LLM</Typography>
                 <Typography color="text.secondary" variant="body2">
@@ -690,7 +689,7 @@ export default function LLMProvidersPage() {
                 size="small"
                 sx={{ 
                   textTransform: 'none',
-                  borderRadius: 1.5
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.375
                 }}
               >
                 Add Provider

@@ -144,7 +144,7 @@ export function CommentItem({
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ 
                 lineHeight: 1.2,
-                fontSize: '0.75rem'
+                fontSize: theme.typography.chartLabel.fontSize
               }}>
                 {formatDate(comment.created_at)}
               </Typography>
@@ -256,7 +256,7 @@ export function CommentItem({
                             color: 'text.primary',
                             border: '1px solid',
                             borderColor: hasReacted ? 'primary.main' : 'divider',
-                            borderRadius: '16px',
+                            borderRadius: (theme) => theme.shape.borderRadius * 4,
                             px: 1.5,
                             py: 0.75,
                             cursor: 'pointer',
@@ -267,7 +267,7 @@ export function CommentItem({
                             }
                           }}
                         >
-                          <Typography variant="body2" sx={{ fontSize: '1rem' }}>{emoji}</Typography>
+                          <Typography variant="subtitle1">{emoji}</Typography>
                           <Typography variant="body2" fontWeight={600} sx={{ 
                             color: 'text.primary'
                           }}>
