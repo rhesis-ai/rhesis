@@ -4,11 +4,14 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { BasePieChart, BaseLineChart, BaseChartsGrid } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestStats } from '@/utils/api-client/interfaces/tests';
+import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
+import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { useSession } from 'next-auth/react';
 import { format, subMonths } from 'date-fns';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import { chartUtils } from '@/components/common/BaseLineChart';
 import { pieChartUtils } from '@/components/common/BasePieChart';
+import { formatTimelineDate } from '@/app/(protected)/test-results/components/timelineUtils';
 
 // Get last 6 months dynamically
 const getLastSixMonths = () => chartUtils.getLastNMonths(6);
@@ -43,6 +46,7 @@ interface ChartDataItem {
 export default function DashboardCharts() {
   const { data: session } = useSession();
   const [testStats, setTestStats] = useState<TestStats | null>(null);
+  const [testResultsStats, setTestResultsStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,16 +54,25 @@ export default function DashboardCharts() {
   const sessionToken = React.useMemo(() => session?.session_token, [session?.session_token]);
 
   useEffect(() => {
-    const fetchTestStats = async () => {
+    const fetchStats = async () => {
       try {
         setIsLoading(true);
         const clientFactory = new ApiClientFactory(sessionToken || '');
-        const testsClient = clientFactory.getTestsClient();
-        const stats = await testsClient.getTestStats({ top: 5, months: 6 });
-        setTestStats(stats);
+        
+        // Fetch both test stats and test results timeline data in parallel
+        const [testStatsResponse, testResultsResponse] = await Promise.all([
+          clientFactory.getTestsClient().getTestStats({ top: 5, months: 6 }),
+          clientFactory.getTestResultsClient().getComprehensiveTestResultsStats({
+            mode: 'timeline',
+            months: 6
+          } as TestResultsStatsOptions)
+        ]);
+        
+        setTestStats(testStatsResponse);
+        setTestResultsStats(testResultsResponse);
         setError(null);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load test statistics';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load statistics';
         setError(errorMessage);
       } finally {
         setIsLoading(false);
@@ -67,7 +80,7 @@ export default function DashboardCharts() {
     };
 
     if (sessionToken) {
-      fetchTestStats();
+      fetchStats();
     }
   }, [sessionToken]);
 
@@ -117,11 +130,34 @@ export default function DashboardCharts() {
     
     return generateData();
   }, [testStats]);
+
+  const generateTestExecutionTrendCallback = useCallback(() => {
+    // Generate test execution trend data from test results timeline
+    const generateData = () => {
+      if (!testResultsStats?.timeline || testResultsStats.timeline.length === 0) {
+        return testTrendData; // Fallback to mock data
+      }
+      
+      return testResultsStats.timeline.map(item => ({
+        name: formatTimelineDate(item.date),
+        tests: item.overall?.total || 0,
+        passed: item.overall?.passed || 0,
+        failed: item.overall?.failed || 0,
+        pass_rate: item.overall?.pass_rate || 0
+      })).sort((a, b) => {
+        // Sort by month chronologically (assuming date format is YYYY-MM)
+        return a.name.localeCompare(b.name);
+      });
+    };
+    
+    return generateData();
+  }, [testResultsStats]);
   
   // Memoize chart data to prevent unnecessary recalculations
   const categoryData = useMemo(() => generateCategoryDataCallback(), [generateCategoryDataCallback]);
   const behaviorData = useMemo(() => generateBehaviorDataCallback(), [generateBehaviorDataCallback]);
   const testCasesData = useMemo(() => generateTestCasesManagedCallback(), [generateTestCasesManagedCallback]);
+  const testExecutionTrendData = useMemo(() => generateTestExecutionTrendCallback(), [generateTestExecutionTrendCallback]);
 
   return (
     <>
@@ -154,12 +190,13 @@ export default function DashboardCharts() {
           
           <BaseLineChart
             title="Test Execution Trend"
-            data={testTrendData}
+            data={testExecutionTrendData}
             series={[
-              { dataKey: 'tests', name: 'Executed Tests' },
-              { dataKey: 'passed', name: 'Passed Tests' }
+              { dataKey: 'tests', name: 'Total Tests', color: '#50B9E0' }, // Primary blue
+              { dataKey: 'passed', name: 'Passed Tests', color: '#2E7D32' }, // Success green
+              { dataKey: 'failed', name: 'Failed Tests', color: '#C62828' } // Error red
             ]}
-            useThemeColors={true}
+            useThemeColors={false}
             colorPalette="line"
             height={180}
           />
