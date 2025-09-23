@@ -112,7 +112,7 @@ export default function CreateTaskPage() {
     };
 
     loadInitialData();
-  }, [show, session?.session_token]);
+  }, [show, session?.session_token, formData.priority_id, formData.status_id, priorities.length, statuses.length, users.length]);
 
   // Pre-fill form with query parameters
   useEffect(() => {

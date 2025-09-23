@@ -249,6 +249,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         totalRows={totalCount}
         serverSideFiltering={true}
         enableQuickFilter={true}
+        disablePaperWrapper={true}
         actionButtons={[
           {
             label: 'Create Task',

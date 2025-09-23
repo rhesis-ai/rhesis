@@ -111,7 +111,7 @@ export default function TaskDetailPage({ params }: PageProps) {
     if (taskId) {
       loadInitialData();
     }
-  }, [taskId, getTask, show, session?.session_token]);
+  }, [taskId, getTask, show, session?.session_token, editedTask, priorities.length, statuses.length, users.length]);
 
   // Show loading state while taskId is being set
   if (isLoading) {
