@@ -1,6 +1,20 @@
+from enum import Enum
 from typing import Optional
 
+import requests
+
 from rhesis.sdk.config import get_api_key, get_base_url
+
+
+class Endpoints(Enum):
+    BEHAVIORS = "behaviors"
+
+
+class Methods(Enum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    DELETE = "DELETE"
 
 
 class Client:
@@ -16,6 +30,10 @@ class Client:
         """
         self.api_key = api_key if api_key is not None else get_api_key()
         self._base_url = base_url if base_url is not None else get_base_url()
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
     @property
     def base_url(self) -> str:
@@ -35,3 +53,19 @@ class Client:
         # Remove leading slash from endpoint if present
         endpoint = endpoint.lstrip("/")
         return f"{self.base_url}/{endpoint}"
+
+    def send_request(
+        self, endpoint: Endpoints, method: Methods, data: Optional[dict] = None
+    ) -> dict:
+        """
+        Send a request to the API.
+
+        Args:
+            endpoint: The API endpoint path.
+            method: The HTTP method to use.
+            data: The data to send in the request body.
+        """
+        url = self.get_url(endpoint.value)
+        response = requests.request(method.value, url, headers=self.headers, json=data)
+        response.raise_for_status()
+        return response.json()
