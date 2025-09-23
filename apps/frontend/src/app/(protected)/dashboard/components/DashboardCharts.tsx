@@ -106,13 +106,24 @@ export default function DashboardCharts() {
       if (!testStats) return testCasesManagedData;
       
       if (testStats.history?.monthly_counts) {
-        return chartUtils.createMonthlyData(
+        const monthlyData = chartUtils.createMonthlyData(
           testStats.history.monthly_counts,
           getLastSixMonths()
         );
+        
+        // Ensure the most recent month shows the actual current total
+        // This handles cases where historical cumulative data doesn't match the current total
+        if (monthlyData.length > 0 && testStats.total) {
+          const lastMonth = monthlyData[monthlyData.length - 1];
+          if (lastMonth.total < testStats.total) {
+            lastMonth.total = testStats.total;
+          }
+        }
+        
+        return monthlyData;
       }
       
-      return [{ name: 'Total Test Cases', total: testStats.total || 0 }];
+      return [{ name: 'Current Total', total: testStats.total || 0 }];
     };
     
     return generateData();
@@ -142,7 +153,7 @@ export default function DashboardCharts() {
           columns={{ xs: 12, sm: 6, md: 3, lg: 3 }}
         >
           <BaseLineChart
-            title="Total Tests"
+            title="Cumulative Tests"
             data={testCasesData}
             series={[
               { dataKey: 'total', name: 'Total Test Cases' }
