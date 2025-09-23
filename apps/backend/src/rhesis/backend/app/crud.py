@@ -151,8 +151,7 @@ def get_prompts(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Prompt]:
-    """Get prompts with comments loaded for comment_count property"""
-    return get_items_detail(db, models.Prompt, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Prompt, skip, limit, sort_by, sort_order, filter)
 
 
 def create_prompt(
@@ -233,8 +232,7 @@ def get_categories(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Category]:
-    """Get categories with comments loaded for comment_count property"""
-    return get_items_detail(db, models.Category, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Category, skip, limit, sort_by, sort_order, filter)
 
 
 def create_category(
@@ -277,18 +275,9 @@ def get_behaviors(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Behavior]:
-    """Get behaviors with comments loaded for comment_count property"""
-    return get_items_detail(
-        db,
-        models.Behavior,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        None,
-        organization_id,
-        user_id,
+    """Get behaviors with optimized approach - no session variables needed."""
+    return get_items(
+        db, models.Behavior, skip, limit, sort_by, sort_order, filter, organization_id, user_id
     )
 
 
@@ -1267,7 +1256,6 @@ def get_tests(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Test]:
-    """Get tests with comments loaded for comment_count property"""
     return get_items_detail(db, models.Test, skip, limit, sort_by, sort_order, filter)
 
 
@@ -1392,7 +1380,6 @@ def get_test_runs(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.TestRun]:
-    """Get test runs with comments loaded for comment_count property"""
     return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
 
 
@@ -1848,7 +1835,7 @@ def get_models(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Model]:
-    """Get all models with comments loaded for comment_count property"""
+    """Get all models with their related objects"""
     return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter)
 
 
@@ -2063,8 +2050,7 @@ def remove_emoji_reaction(
 
 # Task CRUD
 def get_task(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
-    """Get a single task by ID with comments loaded for comment_count property"""
-    return get_item_detail(db, models.Task, task_id)
+    return get_items(db, models.Task, task_id)
 
 
 def get_tasks(
@@ -2075,7 +2061,7 @@ def get_tasks(
     sort_order: str = "desc",
     filter: str | None = None,
 ) -> List[models.Task]:
-    """Get tasks with comments loaded for comment_count property"""
+    """Get tasks with filtering and sorting"""
     return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter)
 
 
