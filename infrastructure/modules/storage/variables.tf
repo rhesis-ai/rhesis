@@ -64,4 +64,14 @@ variable "labels" {
   description = "Labels to apply to the storage bucket"
   type        = map(string)
   default     = {}
-} 
+}
+
+variable "public_access_prevention" {
+  description = "Public access prevention setting"
+  type        = string
+  default     = "inherited"
+  validation {
+    condition = contains(["inherited", "enforced"], var.public_access_prevention)
+    error_message = "Public access prevention must be either 'inherited' or 'enforced'."
+  }
+}
