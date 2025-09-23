@@ -13,6 +13,7 @@ import { GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-d
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 // Import icons for dynamic project icon rendering
 import { SmartToyIcon, DevicesIcon, WebIcon, StorageIcon, CodeIcon } from '@/components/icons';
@@ -315,38 +316,15 @@ export default function EndpointGrid({
       </Paper>
 
       {/* Delete confirmation dialog */}
-      <Dialog
+      <DeleteModal
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-      >
-        <DialogTitle id="delete-dialog-title">
-          Delete Endpoint{selectedRows.length > 1 ? 's' : ''}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            Are you sure you want to delete {selectedRows.length} endpoint{selectedRows.length > 1 ? 's' : ''}? 
-            This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setDeleteDialogOpen(false)} 
-            disabled={deleting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleDeleteEndpoints} 
-            color="error" 
-            variant="contained"
-            disabled={deleting}
-          >
-            {deleting ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleDeleteEndpoints}
+        isLoading={deleting}
+        title={`Delete Endpoint${selectedRows.length > 1 ? 's' : ''}`}
+        message={`Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? This action cannot be undone.`}
+        itemType="endpoints"
+      />
     </>
   );
 } 

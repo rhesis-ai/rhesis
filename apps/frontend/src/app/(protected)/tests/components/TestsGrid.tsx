@@ -21,6 +21,7 @@ import TestSetSelectionDialog from './TestSetSelectionDialog';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
 
 
@@ -50,6 +51,8 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestDetail | undefined>();
   const [testSetDialogOpen, setTestSetDialogOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -279,9 +282,48 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
 
   const handleDeleteTests = useCallback(() => {
     if (selectedRows.length > 0) {
-      alert(`Deleting ${selectedRows.length} tests`);
+      setDeleteModalOpen(true);
     }
   }, [selectedRows]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      setIsDeleting(true);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testsClient = clientFactory.getTestsClient();
+
+      // Delete all selected tests
+      await Promise.all(
+        selectedRows.map(id => testsClient.deleteTest(id as string))
+      );
+
+      // Show success notification
+      notifications.show(
+        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}`,
+        { severity: 'success', autoHideDuration: 4000 }
+      );
+
+      // Clear selection and refresh data
+      setSelectedRows([]);
+      fetchTests();
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting tests:', error);
+      notifications.show(
+        'Failed to delete tests',
+        { severity: 'error', autoHideDuration: 6000 }
+      );
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+    }
+  }, [selectedRows, sessionToken, notifications, fetchTests, onRefresh]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalOpen(false);
+  }, []);
 
   const handleNewTest = useCallback(() => {
     setSelectedTest(undefined);
@@ -406,6 +448,15 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
             onClose={() => setTestSetDialogOpen(false)}
             onSelect={handleTestSetSelect}
             sessionToken={sessionToken}
+          />
+          <DeleteModal
+            open={deleteModalOpen}
+            onClose={handleDeleteCancel}
+            onConfirm={handleDeleteConfirm}
+            isLoading={isDeleting}
+            title="Delete Tests"
+            message={`Are you sure you want to permanently delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? This action cannot be undone.`}
+            itemType="tests"
           />
         </>
       )}

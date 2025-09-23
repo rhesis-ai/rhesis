@@ -6,11 +6,6 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
@@ -28,6 +23,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -726,35 +722,14 @@ export default function MetricsDirectoryTab({
       </Box>
 
       {/* Dialogs */}
-      <Dialog
+      <DeleteModal
         open={deleteMetricDialogOpen}
         onClose={handleCancelDeleteMetric}
-        aria-labelledby="delete-metric-dialog-title"
-        aria-describedby="delete-metric-dialog-description"
-      >
-        <DialogTitle id="delete-metric-dialog-title">
-          Delete Metric
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-metric-dialog-description">
-            Are you sure you want to permanently delete the metric &quot;{metricToDeleteCompletely?.name}&quot;? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCancelDeleteMetric} disabled={isDeletingMetric}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmDeleteMetric} 
-            color="error" 
-            autoFocus
-            disabled={isDeletingMetric}
-            startIcon={isDeletingMetric ? <CircularProgress size={16} /> : undefined}
-          >
-            {isDeletingMetric ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmDeleteMetric}
+        isLoading={isDeletingMetric}
+        itemType="metric"
+        itemName={metricToDeleteCompletely?.name}
+      />
 
       <AssignMetricDialog
         open={assignDialogOpen}
