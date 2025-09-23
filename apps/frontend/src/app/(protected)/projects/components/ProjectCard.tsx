@@ -290,7 +290,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
         display: 'flex', 
         flexDirection: 'column',
         transition: 'all 0.2s ease-in-out',
-        borderRadius: 2,
+        borderRadius: (theme) => theme.shape.borderRadius * 0.5,
         overflow: 'hidden'
       }}
       elevation={2}

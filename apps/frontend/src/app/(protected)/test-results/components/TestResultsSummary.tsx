@@ -249,7 +249,7 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
                   p: theme.customSpacing.container.small, 
                   border: 1, 
                   borderColor: 'divider', 
-                  borderRadius: 1,
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease-in-out',
                   '&:hover': {

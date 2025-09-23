@@ -157,9 +157,9 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
           legendProps={{
             wrapperStyle: { 
               fontSize: theme.typography.chartTick.fontSize,
-              marginTop: '15px',
-              marginBottom: '10px',
-              paddingBottom: '10px'
+              marginTop: theme.spacing(1.875),
+              marginBottom: theme.spacing(1.25),
+              paddingBottom: theme.spacing(1.25)
             }, 
             iconSize: 8,
             layout: 'horizontal',
