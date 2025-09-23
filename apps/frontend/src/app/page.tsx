@@ -116,7 +116,7 @@ export default function LandingPage() {
           sm={4}
           md={7}
           sx={{
-            backgroundColor: '#2AA1CE',
+            backgroundColor: 'primary.dark',
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
@@ -134,7 +134,7 @@ export default function LandingPage() {
             <Toolbar>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Image
-                  src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
+                  src="/logos/rhesis-logo-platypus.png"
                   alt="Rhesis AI Logo"
                   width={200}
                   height={0}
@@ -160,7 +160,7 @@ export default function LandingPage() {
             <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <Box>
                 <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <CheckCircleIcon sx={{ color: '#FFFFFF' }} /> Your expertise, in every test.
+                  <CheckCircleIcon sx={{ color: 'common.white' }} /> Your expertise, in every test.
                 </Typography>
                 <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Transform business knowledge and expert input directly into powerful, actionable test cases.
@@ -169,7 +169,7 @@ export default function LandingPage() {
 
               <Box>
                 <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <GroupAddIcon sx={{ color: '#FFFFFF' }} /> Collaboration built in.
+                  <GroupAddIcon sx={{ color: 'common.white' }} /> Collaboration built in.
                 </Typography>
                 <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
@@ -178,7 +178,7 @@ export default function LandingPage() {
 
               <Box>
                 <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ControlCameraIcon sx={{ color: '#FFFFFF' }} /> End-to-end control.
+                  <ControlCameraIcon sx={{ color: 'common.white' }} /> End-to-end control.
                 </Typography>
                 <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   From test generation to execution to results, manage the entire validation process in one place.
@@ -187,7 +187,7 @@ export default function LandingPage() {
 
               <Box>
                 <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <TuneIcon sx={{ color: '#FFFFFF' }} /> Scale your validation power.
+                  <TuneIcon sx={{ color: 'common.white' }} /> Scale your validation power.
                 </Typography>
                 <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
@@ -213,7 +213,7 @@ export default function LandingPage() {
             {isMobile && (
               <Box sx={{ mb: 4 }}>
                 <Image
-                  src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
+                  src="/logos/rhesis-logo-platypus.png"
                   alt="Rhesis AI Logo"
                   width={160}
                   height={0}
@@ -228,7 +228,7 @@ export default function LandingPage() {
               maxWidth: 400, 
               textAlign: 'center',
               p: 3,
-              borderRadius: 2,
+              borderRadius: (theme) => theme.shape.borderRadius * 0.5,
               boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
               background: (theme) => theme.palette.mode === 'dark' 
                 ? 'rgba(0, 0, 0, 0.8)' 
@@ -257,7 +257,7 @@ export default function LandingPage() {
         sm={4}
         md={7}
         sx={{
-          backgroundColor: '#2AA1CE',
+          backgroundColor: 'primary.dark',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
@@ -275,7 +275,7 @@ export default function LandingPage() {
           <Toolbar>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Image
-                src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
+                src="/logos/rhesis-logo-platypus.png"
                 alt="Rhesis AI Logo"
                 width={200}
                 height={0}
@@ -302,7 +302,7 @@ export default function LandingPage() {
           <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box>
               <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <CheckCircleIcon sx={{ color: '#FFFFFF' }} /> Your expertise, in every test.
+                <CheckCircleIcon sx={{ color: 'common.white' }} /> Your expertise, in every test.
               </Typography>
               <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Transform business knowledge and expert input directly into powerful, actionable test cases.
@@ -311,7 +311,7 @@ export default function LandingPage() {
 
             <Box>
               <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <GroupAddIcon sx={{ color: '#FFFFFF' }} /> Collaboration built in.
+                <GroupAddIcon sx={{ color: 'common.white' }} /> Collaboration built in.
               </Typography>
               <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
@@ -320,7 +320,7 @@ export default function LandingPage() {
 
             <Box>
               <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <ControlCameraIcon sx={{ color: '#FFFFFF' }} /> End-to-end control.
+                <ControlCameraIcon sx={{ color: 'common.white' }} /> End-to-end control.
               </Typography>
               <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 From test generation to execution to results, manage the entire validation process in one place.
@@ -329,7 +329,7 @@ export default function LandingPage() {
 
             <Box>
               <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <TuneIcon sx={{ color: '#FFFFFF' }} /> Scale your validation power.
+                <TuneIcon sx={{ color: 'common.white' }} /> Scale your validation power.
               </Typography>
               <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
@@ -355,7 +355,7 @@ export default function LandingPage() {
           {isMobile && (
             <Box sx={{ mb: 4 }}>
               <Image
-                src="/logos/Rhesis AI_Logo_Increased_Platypus.png"
+                src="/logos/rhesis-logo-platypus.png"
                 alt="Rhesis AI Logo"
                 width={160}
                 height={0}

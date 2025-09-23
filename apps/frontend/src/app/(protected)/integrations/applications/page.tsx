@@ -55,7 +55,7 @@ export default function IntegrationsPage() {
               disabled
               sx={{ 
                 textTransform: 'none',
-                borderRadius: 1.5
+                borderRadius: (theme) => theme.shape.borderRadius * 1.5
               }}
             >
               Add Application
