@@ -148,8 +148,8 @@ const isInBottomArea = (angle: number): boolean => {
 };
 
 // Custom label rendering function factory - accepts theme color and font size
-const createCustomizedLabel = (chartLabelFontSize: string, textColor: string) => 
-  ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
+const createCustomizedLabel = (chartLabelFontSize: string, textColor: string) => {
+  const CustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
     // Only show labels for segments with significant percentage (helps prevent overlap)
     if (percent < CHART_CONSTANTS.MIN_PERCENTAGE_THRESHOLD) return null;
     
@@ -182,6 +182,10 @@ const createCustomizedLabel = (chartLabelFontSize: string, textColor: string) =>
       </text>
     );
   };
+  
+  CustomizedLabel.displayName = 'CustomizedLabel';
+  return CustomizedLabel;
+};
 
 // Custom label line rendering function
 const renderCustomizedLabelLine = ({ cx, cy, midAngle, outerRadius }: LabelLineProps) => {
@@ -231,7 +235,7 @@ export default function BasePieChart({
   // Default tooltip props with theme awareness
   const defaultTooltipProps = useMemo(() => ({
     contentStyle: { 
-      fontSize: theme.typography.chartTick.fontSize,
+      fontSize: String(theme.typography.chartTick.fontSize),
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
@@ -245,7 +249,7 @@ export default function BasePieChart({
   const chartColors = useMemo(() => {
     const defaultColors = theme.chartPalettes.pie;
     return colors || (useThemeColors ? (palettes[colorPalette] || defaultColors) : defaultColors);
-  }, [colors, useThemeColors, palettes, colorPalette]);
+  }, [colors, useThemeColors, palettes, colorPalette, theme.chartPalettes.pie]);
 
   // Memoize chart dimensions calculation
   const chartDimensions = useMemo(() => {
@@ -261,31 +265,34 @@ export default function BasePieChart({
   }, [height, showPercentage]);
 
   // Memoize enhanced legend props
-  const defaultLegendProps = { 
-    wrapperStyle: { 
-      fontSize: theme.typography.chartTick.fontSize,
-      marginTop: theme.spacing(0.625),
-      marginBottom: theme.spacing(0),
-      paddingBottom: '2px'
-    },
-    verticalAlign: 'bottom',
-    align: 'center'
-  };
-  const enhancedLegendProps = useMemo(() => ({
-    ...defaultLegendProps,
-    ...legendProps,
-    wrapperStyle: { 
-      ...defaultLegendProps.wrapperStyle,
-      ...legendProps?.wrapperStyle,
-      marginTop: theme.spacing(0.625),
-      marginBottom: theme.spacing(0),
-      paddingBottom: '2px'
-    }
-  }), [legendProps, theme]);
+  const enhancedLegendProps = useMemo(() => {
+    const defaultLegendProps = { 
+      wrapperStyle: { 
+        fontSize: String(theme.typography.chartTick.fontSize),
+        marginTop: theme.spacing(0.625),
+        marginBottom: theme.spacing(0),
+        paddingBottom: '2px'
+      },
+      verticalAlign: 'bottom' as const,
+      align: 'center' as const
+    };
+    
+    return {
+      ...defaultLegendProps,
+      ...legendProps,
+      wrapperStyle: { 
+        ...defaultLegendProps.wrapperStyle,
+        ...legendProps?.wrapperStyle,
+        marginTop: theme.spacing(0.625),
+        marginBottom: theme.spacing(0),
+        paddingBottom: '2px'
+      }
+    };
+  }, [legendProps, theme]);
 
   // Create customized label function with theme access
   const renderCustomizedLabel = useMemo(() => 
-    createCustomizedLabel(theme.typography.chartLabel.fontSize, theme.palette.text.primary), 
+    createCustomizedLabel(String(theme.typography.chartLabel.fontSize), theme.palette.text.primary), 
     [theme.typography.chartLabel.fontSize, theme.palette.text.primary]
   );
 

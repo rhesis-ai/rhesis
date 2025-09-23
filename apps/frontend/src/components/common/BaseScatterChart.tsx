@@ -115,14 +115,14 @@ export default function BaseScatterChart({
   };
   
   // Update legend props to use theme
-  const defaultLegendProps = { wrapperStyle: { fontSize: theme.typography.chartTick.fontSize }, iconSize: 8 };
+  const defaultLegendProps = { wrapperStyle: { fontSize: String(theme.typography.chartTick.fontSize) }, iconSize: 8 };
   const themedLegendProps = {
     ...defaultLegendProps,
     ...legendProps,
     wrapperStyle: {
       ...defaultLegendProps.wrapperStyle,
       ...legendProps?.wrapperStyle,
-      fontSize: theme.typography.chartTick.fontSize
+      fontSize: String(theme.typography.chartTick.fontSize)
     }
   };
   const { palettes } = useChartColors();
@@ -130,7 +130,7 @@ export default function BaseScatterChart({
   // Default tooltip props with theme awareness
   const defaultTooltipProps = {
     contentStyle: { 
-      fontSize: theme.typography.chartTick.fontSize,
+      fontSize: String(theme.typography.chartTick.fontSize),
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
@@ -147,7 +147,7 @@ export default function BaseScatterChart({
   const chartColors = useMemo(() => {
     const defaultColors = theme.chartPalettes.line;
     return useThemeColors ? (palettes[colorPalette] || defaultColors) : defaultColors;
-  }, [useThemeColors, palettes, colorPalette]);
+  }, [useThemeColors, palettes, colorPalette, theme.chartPalettes.line]);
 
   const finalHighlightedColor = highlightedColor || chartColors[0];
   const finalNormalColor = normalColor || chartColors[1] || theme.palette.action.disabled;
@@ -206,25 +206,25 @@ export default function BaseScatterChart({
                 dataKey="x"
                 type="number"
                 tick={{ 
-                  fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                  fontSize: getPixelFontSize(String(theme.typography.chartTick.fontSize)),
                   fill: theme.palette.text.primary
                 }}
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
-                label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}
+                label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, style: { fontSize: String(theme.typography.chartTick.fontSize) } } : undefined}
                 {...xAxisConfig}
               />
               <YAxis 
                 dataKey="y"
                 type="number"
                 tick={{ 
-                  fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                  fontSize: getPixelFontSize(String(theme.typography.chartTick.fontSize)),
                   fill: theme.palette.text.primary
                 }} 
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ strokeWidth: 1 }}
                 width={yAxisWidth}
-                label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: theme.typography.chartTick.fontSize } } : undefined}
+                label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: String(theme.typography.chartTick.fontSize) } } : undefined}
                 {...yAxisConfig}
               />
               <Tooltip 

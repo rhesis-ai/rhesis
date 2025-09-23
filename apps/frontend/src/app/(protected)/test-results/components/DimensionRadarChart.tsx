@@ -45,7 +45,7 @@ const createCustomTick = (chartTickFontSize: string, textColor: string = "text.s
     return remValue * 16;
   };
   
-  return ({ payload, x, y, textAnchor, cx, cy, ...rest }: any) => {
+  const CustomTick = ({ payload, x, y, textAnchor, cx, cy, ...rest }: any) => {
     const maxLineLength = 14; // Max characters per line (increased for pass rate)
     const lines = [];
     
@@ -111,6 +111,9 @@ const createCustomTick = (chartTickFontSize: string, textColor: string = "text.s
       </g>
     );
   };
+  
+  CustomTick.displayName = 'CustomTick';
+  return CustomTick;
 };
 
 const transformDimensionDataForRadar = (
@@ -159,7 +162,7 @@ export default function DimensionRadarChart({
   
   // Create CustomTick component with theme access
   const CustomTick = useMemo(() => 
-    createCustomTick(theme.typography.chartTick.fontSize, theme.palette.text.primary),
+    createCustomTick(String(theme.typography.chartTick.fontSize), theme.palette.text.primary),
     [theme.typography.chartTick.fontSize, theme.palette.text.primary]
   );
   
@@ -310,7 +313,7 @@ export default function DimensionRadarChart({
             angle={90} 
             domain={[0, 100]} 
             tick={{ 
-              fontSize: Math.max(8, getPixelFontSize(theme.typography.chartTick.fontSize) - 2),
+              fontSize: Math.max(8, getPixelFontSize(String(theme.typography.chartTick.fontSize)) - 2),
               fill: theme.palette.text.primary
             }}
             tickFormatter={(value) => `${value}%`}

@@ -80,7 +80,7 @@ const getProjectIcon = (project: Project) => {
 };
 
 // Environment chips should use neutral colors for better UX
-const getEnvironmentColor = (environment: string) => {
+const getEnvironmentColor = (environment: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   // Use 'default' for all environments to get neutral grey styling
   return 'default';
 };
