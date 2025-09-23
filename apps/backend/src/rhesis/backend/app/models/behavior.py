@@ -26,7 +26,20 @@ class Behavior(Base, OrganizationAndUserMixin):
         uselist=True,
     )
 
+    # Task relationship (polymorphic)
+    tasks = relationship(
+        "Task",
+        primaryjoin="and_(Task.entity_id == foreign(Behavior.id), Task.entity_type == 'Behavior')",
+        viewonly=True,
+        uselist=True,
+    )
+
     @property
     def comment_count(self):
         """Get the count of comments for this behavior"""
         return len(self.comments) if self.comments else 0
+
+    @property
+    def task_count(self):
+        """Get the count of tasks for this behavior"""
+        return len(self.tasks) if self.tasks else 0

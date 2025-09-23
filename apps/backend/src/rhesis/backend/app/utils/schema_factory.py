@@ -158,8 +158,8 @@ def create_detailed_schema(
             # For scalar relationships (many-to-one, one-to-one), use Optional
             fields[rel_name] = (Optional[related_schema], None)
 
-    # Add comment_count field for models that have comments relationship
-    entities_with_comments = [
+    # Base list of entities that support both comments and tasks
+    base_entities = [
         "Test",
         "TestSet",
         "TestRun",
@@ -169,10 +169,17 @@ def create_detailed_schema(
         "Prompt",
         "Behavior",
         "Category",
-        "Task",
     ]
+
+    # Add comment_count field for models that have comments relationship
+    entities_with_comments = base_entities + ["Task"]  # Task can have comments
     if model.__name__ in entities_with_comments:
         fields["comment_count"] = (Optional[int], 0)
+
+    # Add task_count field for models that have tasks relationship
+    entities_with_tasks = base_entities  # Task doesn't have tasks (exclude Task)
+    if model.__name__ in entities_with_tasks:
+        fields["task_count"] = (Optional[int], 0)
 
     # Create new schema class
     detailed_schema = create_model(f"{base_schema.__name__}Detail", __base__=base_schema, **fields)

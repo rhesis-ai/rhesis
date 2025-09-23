@@ -86,10 +86,23 @@ class TestSet(Base, TagsMixin):
         uselist=True,
     )
 
+    # Task relationship (polymorphic)
+    tasks = relationship(
+        "Task",
+        primaryjoin="and_(Task.entity_id == foreign(TestSet.id), Task.entity_type == 'TestSet')",
+        viewonly=True,
+        uselist=True,
+    )
+
     @property
     def comment_count(self):
         """Get the count of comments for this test set"""
         return len(self.comments) if self.comments else 0
+
+    @property
+    def task_count(self):
+        """Get the count of tasks for this test set"""
+        return len(self.tasks) if self.tasks else 0
 
     def _get_related_items(self, model_class, attribute_key):
         """Helper method to fetch related items from attributes"""
