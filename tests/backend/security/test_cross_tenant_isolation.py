@@ -33,24 +33,28 @@ class TestTaskManagementSecurity:
             test_db, "Security Test Org 2", f"user2-{unique_id}@security-test.com", "Security User 2"
         )
         
-        # Create status in org1
-        status_org1 = get_or_create_status(
-            db=test_db,
-            name="Test Status",
-            entity_type="test",
-            organization_id=str(org1.id),
-            user_id=str(user1.id)
+        # Create status in org1 using direct model creation
+        status1 = models.Status(
+            name="Active",
+            description="Active status",
+            organization_id=org1.id,
+            user_id=user1.id
         )
+        test_db.add(status1)
+        test_db.flush()
         
-        # Create a mock task that references the status from org1
+        # Create a mock task with org1 status but try to validate with org2 user
         mock_task = Mock()
-        mock_task.status_id = status_org1.id
-        mock_task.organization_id = org2.id  # Task is in org2, but references status from org1
+        mock_task.assignee_id = None  # No assignee to validate
+        mock_task.status_id = status1.id  # Status from org1
+        mock_task.priority_id = None  # No priority to validate
         
-        # This should raise an exception because the task is trying to reference
-        # a status from a different organization
-        with pytest.raises(ValueError, match="cross-tenant"):
-            validate_task_organization_constraints(test_db, mock_task, str(org2.id))
+        # Create a mock user from org2 (different from status1's org1)
+        mock_user = Mock()
+        mock_user.organization_id = org2.id
+        
+        with pytest.raises(ValueError, match="Status not found or not in same organization"):
+            validate_task_organization_constraints(test_db, mock_task, mock_user)
 
 
 @pytest.mark.security
@@ -58,24 +62,37 @@ class TestCrudTaskSecurity:
     """Test CRUD operations for tasks maintain proper organization isolation"""
     
     def test_get_task_cross_tenant_prevention(self, test_db):
-        """🔒 SECURITY: Test that get_task prevents cross-tenant data access"""
+        """🔒 SECURITY: Test that get_task prevents cross-tenant access"""
         # Create two separate organizations and users
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
         
+        # Generate unique email addresses to avoid conflicts with preserved data
         unique_id = str(uuid.uuid4())[:8]
         org1, user1, _ = create_test_organization_and_user(
-            test_db, "Task Test Org 1", f"task-user1-{unique_id}@security-test.com", "Task User 1"
+            test_db, "Task Security Org 1", f"task1-{unique_id}@security-test.com", "Task User 1"
         )
         org2, user2, _ = create_test_organization_and_user(
-            test_db, "Task Test Org 2", f"task-user2-{unique_id}@security-test.com", "Task User 2"
+            test_db, "Task Security Org 2", f"task2-{unique_id}@security-test.com", "Task User 2"
         )
         
-        # Create a task in org1 (using direct model creation for simplicity)
+        # Create a status for the task first
+        status1 = models.Status(
+            name="Active",
+            description="Active status",
+            organization_id=org1.id,
+            user_id=user1.id
+        )
+        test_db.add(status1)
+        test_db.flush()
+        
+        # Create a task in org1 with proper status reference
         task = models.Task(
             id=uuid.uuid4(),
             organization_id=org1.id,
             user_id=user1.id,
-            description="Test task in org1"
+            title="Test task in org1",
+            description="Test task in org1",
+            status_id=status1.id
         )
         test_db.add(task)
         test_db.commit()
