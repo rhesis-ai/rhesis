@@ -49,7 +49,20 @@ class Model(Base, OrganizationAndUserMixin, TagsMixin):
         uselist=True,
     )
 
+    # Task relationship (polymorphic)
+    tasks = relationship(
+        "Task",
+        primaryjoin="and_(Task.entity_id == foreign(Model.id), Task.entity_type == 'Model')",
+        viewonly=True,
+        uselist=True,
+    )
+
     @property
     def comment_count(self):
         """Get the count of comments for this model"""
         return len(self.comments) if self.comments else 0
+
+    @property
+    def task_count(self):
+        """Get the count of tasks for this model"""
+        return len(self.tasks) if self.tasks else 0

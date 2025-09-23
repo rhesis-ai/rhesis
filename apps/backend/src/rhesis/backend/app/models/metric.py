@@ -82,8 +82,20 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
         viewonly=True,
         uselist=True,
     )
+    # Task relationship (polymorphic)
+    tasks = relationship(
+        "Task",
+        primaryjoin="and_(Task.entity_id == foreign(Metric.id), Task.entity_type == 'Metric')",
+        viewonly=True,
+        uselist=True,
+    )
 
     @property
     def comment_count(self):
         """Get the count of comments for this metric"""
         return len(self.comments) if self.comments else 0
+
+    @property
+    def task_count(self):
+        """Get the count of tasks for this metric"""
+        return len(self.tasks) if self.tasks else 0
