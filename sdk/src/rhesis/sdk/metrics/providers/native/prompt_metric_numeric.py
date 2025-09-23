@@ -1,7 +1,9 @@
+from dataclasses import asdict
 from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
