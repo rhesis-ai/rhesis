@@ -14,8 +14,8 @@ from rhesis.backend.app import models, crud
 
 
 @pytest.mark.security
-class TestTagSecurityFixes:
-    """Test security fixes for tag management vulnerabilities"""
+class TestTagOrganizationSecurity:
+    """Test that tag operations properly enforce organization-based security"""
     
     def test_get_tag_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that get_tag accepts organization filtering for tag scoping"""
@@ -52,76 +52,107 @@ class TestTagSecurityFixes:
         signature = inspect.signature(crud.create_tag)
         assert 'organization_id' in signature.parameters, "create_tag should accept organization_id for tag scoping"
         
-        tag_name = "test_tag"
-        org_id = str(uuid.uuid4())
-        user_id = str(uuid.uuid4())
+        # Create a test organization and user
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org, user, _ = create_test_organization_and_user(
+            test_db, f"Tag Org {unique_id}", f"tag-user-{unique_id}@security-test.com", "Tag User"
+        )
         
-        # Mock the tag creation
-        with patch.object(test_db, 'add') as mock_add, \
-             patch.object(test_db, 'commit') as mock_commit:
-            
-            # Test tag creation with organization scoping
-            result = crud.create_tag(test_db, {"name": tag_name}, organization_id=org_id, user_id=user_id)
-            
-            # Verify that add and commit were called
-            mock_add.assert_called_once()
-            mock_commit.assert_called_once()
+        # Create a tag with organization scoping
+        from rhesis.backend.app.schemas.tag import TagCreate
+        tag_data = TagCreate(name=f"Security Test Tag {unique_id}")
+        
+        result = crud.create_tag(test_db, tag_data, organization_id=str(org.id), user_id=str(user.id))
+        
+        # Verify the tag was created with correct organization scoping
+        assert result is not None
+        assert result.name == f"Security Test Tag {unique_id}"
+        assert str(result.organization_id) == str(org.id)
+        assert str(result.user_id) == str(user.id)
 
     def test_delete_tag_organization_filtering(self, test_db: Session):
-        """🔒 SECURITY: Test that delete_tag accepts organization filtering for tag scoping"""
+        """🔒 SECURITY: Test that delete_tag properly filters by organization"""
         import inspect
         
         # Verify that delete_tag accepts organization_id parameter
         signature = inspect.signature(crud.delete_tag)
         assert 'organization_id' in signature.parameters, "delete_tag should accept organization_id for tag scoping"
         
-        tag_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
+        # Create two separate organizations and users
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"Tag Delete Org 1 {unique_id}", f"tag-delete-user1-{unique_id}@security-test.com", "Tag Delete User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"Tag Delete Org 2 {unique_id}", f"tag-delete-user2-{unique_id}@security-test.com", "Tag Delete User 2"
+        )
         
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_tag = Mock()
-            mock_tag.id = tag_id
-            mock_tag.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_tag
-            mock_query.return_value.filter.return_value.filter.return_value.delete.return_value = 1
-            
-            result_with_org = crud.delete_tag(test_db, tag_id, organization_id=org_id)
-            assert result_with_org == 1
+        # Create a tag in org1
+        from rhesis.backend.app.schemas.tag import TagCreate
+        tag_data = TagCreate(name=f"Tag to Delete {unique_id}")
+        tag = crud.create_tag(test_db, tag_data, organization_id=str(org1.id), user_id=str(user1.id))
+        
+        # User from org1 should be able to delete the tag
+        result_org1 = crud.delete_tag(test_db, tag.id, organization_id=str(org1.id), user_id=str(user1.id))
+        assert result_org1 is not None  # Tag was found and deleted
+        
+        # Create another tag in org1 for the next test
+        tag2 = crud.create_tag(test_db, TagCreate(name=f"Tag to Delete 2 {unique_id}"), organization_id=str(org1.id), user_id=str(user1.id))
+        
+        # User from org2 should NOT be able to delete the tag from org1
+        result_org2 = crud.delete_tag(test_db, tag2.id, organization_id=str(org2.id), user_id=str(user2.id))
+        assert result_org2 is None  # Tag was not found/deleted due to organization filtering
 
 
 @pytest.mark.security
-class TestTestSetServiceSecurityFixes:
-    """Test security fixes for test set service vulnerabilities"""
+class TestTestSetOrganizationSecurity:
+    """Test that test set operations properly enforce organization-based security"""
     
     def test_get_test_set_organization_filtering(self, test_db: Session):
-        """🔒 SECURITY: Test that get_test_set accepts organization filtering for test set scoping"""
+        """🔒 SECURITY: Test that get_test_set properly filters by organization"""
         import inspect
         
-        # Verify that get_test_set accepts organization_id parameter (test sets may be organization-scoped)
+        # Verify that get_test_set accepts organization_id parameter
         signature = inspect.signature(crud.get_test_set)
         assert 'organization_id' in signature.parameters, "get_test_set should accept organization_id for test set scoping"
         
-        test_set_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
+        # Create two separate organizations and users
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"TestSet Org 1 {unique_id}", f"testset-user1-{unique_id}@security-test.com", "TestSet User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"TestSet Org 2 {unique_id}", f"testset-user2-{unique_id}@security-test.com", "TestSet User 2"
+        )
         
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_test_set = Mock()
-            mock_test_set.id = test_set_id
-            mock_test_set.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_test_set
-            result_with_org = crud.get_test_set(test_db, test_set_id, organization_id=org_id)
-            assert result_with_org == mock_test_set
-            
-            # Test without organization filtering (should work but may return test sets from any org)
-            mock_query.return_value.filter.return_value.first.return_value = mock_test_set
-            result_without_org = crud.get_test_set(test_db, test_set_id)
-            assert result_without_org == mock_test_set
+        # Create a test set in org1
+        test_set = models.TestSet(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            name=f"Security Test Set {unique_id}",
+            description="Test set for security testing"
+        )
+        test_db.add(test_set)
+        test_db.commit()
+        
+        # User from org1 should be able to access the test set
+        result_org1 = crud.get_test_set(test_db, test_set.id, organization_id=str(org1.id))
+        assert result_org1 is not None
+        assert result_org1.id == test_set.id
+        assert str(result_org1.organization_id) == str(org1.id)
+        
+        # User from org2 should NOT be able to access the test set
+        result_org2 = crud.get_test_set(test_db, test_set.id, organization_id=str(org2.id))
+        assert result_org2 is None
+        
+        # Without organization filtering, should still work (finds the test set)
+        result_no_filter = crud.get_test_set(test_db, test_set.id)
+        assert result_no_filter is not None
+        assert result_no_filter.id == test_set.id
 
     def test_create_test_set_organization_scoping(self, test_db: Session):
         """🔒 SECURITY: Test that create_test_set properly scopes test sets to organizations"""
@@ -131,72 +162,101 @@ class TestTestSetServiceSecurityFixes:
         signature = inspect.signature(crud.create_test_set)
         assert 'organization_id' in signature.parameters, "create_test_set should accept organization_id for test set scoping"
         
-        test_set_data = {"name": "test_set"}
-        org_id = str(uuid.uuid4())
-        user_id = str(uuid.uuid4())
+        # Create a test organization and user
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org, user, _ = create_test_organization_and_user(
+            test_db, f"TestSet Create Org {unique_id}", f"testset-create-user-{unique_id}@security-test.com", "TestSet Create User"
+        )
         
-        # Mock the test set creation
-        with patch.object(test_db, 'add') as mock_add, \
-             patch.object(test_db, 'commit') as mock_commit:
-            
-            # Test test set creation with organization scoping
-            result = crud.create_test_set(test_db, test_set_data, organization_id=org_id, user_id=user_id)
-            
-            # Verify that add and commit were called
-            mock_add.assert_called_once()
-            mock_commit.assert_called_once()
+        # Create a test set with organization scoping
+        from rhesis.backend.app.schemas.test_set import TestSetCreate
+        test_set_data = TestSetCreate(
+            name=f"Security Test Set Create {unique_id}",
+            description="Test set for security testing"
+        )
+        
+        result = crud.create_test_set(test_db, test_set_data, organization_id=str(org.id), user_id=str(user.id))
+        
+        # Verify the test set was created with correct organization scoping
+        assert result is not None
+        assert result.name == f"Security Test Set Create {unique_id}"
+        assert str(result.organization_id) == str(org.id)
+        assert str(result.user_id) == str(user.id)
 
     def test_delete_test_set_organization_filtering(self, test_db: Session):
-        """🔒 SECURITY: Test that delete_test_set accepts organization filtering for test set scoping"""
+        """🔒 SECURITY: Test that delete_test_set properly filters by organization"""
         import inspect
         
         # Verify that delete_test_set accepts organization_id parameter
         signature = inspect.signature(crud.delete_test_set)
         assert 'organization_id' in signature.parameters, "delete_test_set should accept organization_id for test set scoping"
         
-        test_set_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
+        # Create two separate organizations and users
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"TestSet Delete Org 1 {unique_id}", f"testset-delete-user1-{unique_id}@security-test.com", "TestSet Delete User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"TestSet Delete Org 2 {unique_id}", f"testset-delete-user2-{unique_id}@security-test.com", "TestSet Delete User 2"
+        )
         
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_test_set = Mock()
-            mock_test_set.id = test_set_id
-            mock_test_set.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_test_set
-            mock_query.return_value.filter.return_value.filter.return_value.delete.return_value = 1
-            
-            result_with_org = crud.delete_test_set(test_db, test_set_id, organization_id=org_id)
-            assert result_with_org == 1
+        # Create a test set in org1
+        from rhesis.backend.app.schemas.test_set import TestSetCreate
+        test_set_data = TestSetCreate(name=f"TestSet to Delete {unique_id}", description="Test set for deletion")
+        test_set = crud.create_test_set(test_db, test_set_data, organization_id=str(org1.id), user_id=str(user1.id))
+        
+        # User from org1 should be able to delete the test set
+        result_org1 = crud.delete_test_set(test_db, test_set.id, organization_id=str(org1.id))
+        assert result_org1 is not None  # Test set was found and deleted
+        
+        # Create another test set in org1 for the next test
+        test_set2 = crud.create_test_set(test_db, TestSetCreate(name=f"TestSet to Delete 2 {unique_id}", description="Test set 2 for deletion"), organization_id=str(org1.id), user_id=str(user1.id))
+        
+        # User from org2 should NOT be able to delete the test set from org1
+        result_org2 = crud.delete_test_set(test_db, test_set2.id, organization_id=str(org2.id))
+        assert result_org2 is None  # Test set was not found/deleted due to organization filtering
 
     def test_update_test_set_organization_filtering(self, test_db: Session):
-        """🔒 SECURITY: Test that update_test_set accepts organization filtering for test set scoping"""
+        """🔒 SECURITY: Test that update_test_set properly filters by organization"""
         import inspect
         
         # Verify that update_test_set accepts organization_id parameter
         signature = inspect.signature(crud.update_test_set)
         assert 'organization_id' in signature.parameters, "update_test_set should accept organization_id for test set scoping"
         
-        test_set_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
-        update_data = {"name": "updated_test_set"}
+        # Create two separate organizations and users
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"TestSet Update Org 1 {unique_id}", f"testset-update-user1-{unique_id}@security-test.com", "TestSet Update User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"TestSet Update Org 2 {unique_id}", f"testset-update-user2-{unique_id}@security-test.com", "TestSet Update User 2"
+        )
         
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_test_set = Mock()
-            mock_test_set.id = test_set_id
-            mock_test_set.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_test_set
-            result_with_org = crud.update_test_set(test_db, test_set_id, update_data, organization_id=org_id)
-            assert result_with_org == mock_test_set
+        # Create a test set in org1
+        from rhesis.backend.app.schemas.test_set import TestSetCreate, TestSetUpdate
+        test_set_data = TestSetCreate(name=f"TestSet to Update {unique_id}", description="Test set for updating")
+        test_set = crud.create_test_set(test_db, test_set_data, organization_id=str(org1.id), user_id=str(user1.id))
+        
+        # User from org1 should be able to update the test set
+        update_data = TestSetUpdate(name=f"Updated TestSet {unique_id}")
+        result_org1 = crud.update_test_set(test_db, test_set.id, update_data, organization_id=str(org1.id))
+        assert result_org1 is not None
+        assert result_org1.name == f"Updated TestSet {unique_id}"
+        assert str(result_org1.organization_id) == str(org1.id)
+        
+        # User from org2 should NOT be able to update the test set from org1
+        update_data2 = TestSetUpdate(name=f"Should Not Update {unique_id}")
+        result_org2 = crud.update_test_set(test_db, test_set.id, update_data2, organization_id=str(org2.id))
+        assert result_org2 is None  # Test set was not found/updated due to organization filtering
 
 
 @pytest.mark.security
-class TestCrudTestSetSecurityFixes:
-    """Test CRUD security fixes for test set operations"""
+class TestTestSetCrudSecurity:
+    """Test that test set CRUD operations properly enforce organization isolation"""
     
     def test_get_test_sets_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that get_test_sets properly filters by organization"""
@@ -206,47 +266,71 @@ class TestCrudTestSetSecurityFixes:
         signature = inspect.signature(crud.get_test_sets)
         assert 'organization_id' in signature.parameters, "get_test_sets should accept organization_id for filtering"
         
-        org_id = str(uuid.uuid4())
+        # Create two separate organizations and users
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"TestSets Org 1 {unique_id}", f"testsets-user1-{unique_id}@security-test.com", "TestSets User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"TestSets Org 2 {unique_id}", f"testsets-user2-{unique_id}@security-test.com", "TestSets User 2"
+        )
         
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_test_sets = [Mock(), Mock()]
-            for mock_test_set in mock_test_sets:
-                mock_test_set.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.offset.return_value.limit.return_value.all.return_value = mock_test_sets
-            result_with_org = crud.get_test_sets(test_db, organization_id=org_id)
-            assert len(result_with_org) == 2
-            assert all(ts.organization_id == uuid.UUID(org_id) for ts in result_with_org)
+        # Create test sets in both organizations
+        test_set1_org1 = models.TestSet(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            name=f"Test Set 1 Org 1 {unique_id}",
+            description="Test set 1 in org 1"
+        )
+        test_set2_org1 = models.TestSet(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            name=f"Test Set 2 Org 1 {unique_id}",
+            description="Test set 2 in org 1"
+        )
+        test_set1_org2 = models.TestSet(
+            id=uuid.uuid4(),
+            organization_id=org2.id,
+            user_id=user2.id,
+            name=f"Test Set 1 Org 2 {unique_id}",
+            description="Test set 1 in org 2"
+        )
+        
+        test_db.add_all([test_set1_org1, test_set2_org1, test_set1_org2])
+        test_db.commit()
+        
+        # Get test sets for org1 - should return at least the 2 we created
+        result_org1 = crud.get_test_sets(test_db, organization_id=str(org1.id))
+        assert len(result_org1) >= 2  # At least the 2 we created, could be more from initial data
+        assert all(str(ts.organization_id) == str(org1.id) for ts in result_org1)
+        
+        # Verify our specific test sets are in the results
+        test_set_names_org1 = {ts.name for ts in result_org1}
+        assert f"Test Set 1 Org 1 {unique_id}" in test_set_names_org1
+        assert f"Test Set 2 Org 1 {unique_id}" in test_set_names_org1
+        
+        # Get test sets for org2 - should return at least the 1 we created
+        result_org2 = crud.get_test_sets(test_db, organization_id=str(org2.id))
+        assert len(result_org2) >= 1  # At least the 1 we created, could be more from initial data
+        assert all(str(ts.organization_id) == str(org2.id) for ts in result_org2)
+        
+        # Verify our specific test set is in the results
+        test_set_names_org2 = {ts.name for ts in result_org2}
+        assert f"Test Set 1 Org 2 {unique_id}" in test_set_names_org2
+        
+        # Get test sets without organization filtering - should return all test sets (at least 3)
+        result_all = crud.get_test_sets(test_db)
+        assert len(result_all) >= 3  # At least the 3 we created, could be more from other tests
 
-    def test_get_test_set_by_name_organization_filtering(self, test_db: Session):
-        """🔒 SECURITY: Test that get_test_set_by_name properly filters by organization"""
-        import inspect
-        
-        # Verify that get_test_set_by_name accepts organization_id parameter
-        signature = inspect.signature(crud.get_test_set_by_name)
-        assert 'organization_id' in signature.parameters, "get_test_set_by_name should accept organization_id for filtering"
-        
-        test_set_name = "test_set_name"
-        org_id = str(uuid.uuid4())
-        
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_test_set = Mock()
-            mock_test_set.name = test_set_name
-            mock_test_set.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_test_set
-            result_with_org = crud.get_test_set_by_name(test_db, test_set_name, organization_id=org_id)
-            assert result_with_org == mock_test_set
-            assert result_with_org.organization_id == uuid.UUID(org_id)
+    # Note: get_test_set_by_name function doesn't exist in crud.py, so this test is removed
 
 
 @pytest.mark.security
-class TestAdditionalSecurityRegression:
-    """Additional regression tests for service security fixes"""
+class TestServiceSecurityValidation:
+    """Test that service functions properly implement organization filtering and cross-tenant isolation"""
     
     def test_service_functions_accept_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Ensure all service-related functions accept organization filtering"""
@@ -262,7 +346,7 @@ class TestAdditionalSecurityRegression:
             'delete_test_set',
             'update_test_set',
             'get_test_sets',
-            'get_test_set_by_name',
+            # Note: get_test_set_by_name function doesn't exist in crud.py
         ]
         
         for func_name in service_functions:

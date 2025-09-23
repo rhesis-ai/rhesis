@@ -73,18 +73,25 @@ class TestCrudOrganizationFiltering:
             test_db, "Test Org 2", f"test-user2-{uuid.uuid4()}@security-test.com", "Test User 2"
         )
         
-        # Create a test in org1 using CRUD function
-        from rhesis.backend.app.schemas.test import TestCreate
-        test_data = TestCreate(
-            title="Test in org1",
-            description="Security test in org1"
-        )
-        test_obj = crud.create_test(
+        # Create a prompt in org1 using fixture data
+        from tests.backend.routes.fixtures.data_factories import PromptDataFactory
+        prompt_data = PromptDataFactory.minimal_data()
+        prompt = crud.create_prompt(
             db=test_db,
-            test=test_data,
+            prompt=prompt_data,
             organization_id=str(org1.id),
             user_id=str(user1.id)
         )
+        
+        # Create a test in org1 using the prompt
+        test_obj = models.Test(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            prompt_id=prompt.id
+        )
+        test_db.add(test_obj)
+        test_db.commit()
         
         # User from org1 should be able to access the test
         result_org1 = crud.get_test(test_db, test_obj.id, organization_id=str(org1.id))
@@ -106,32 +113,49 @@ class TestCrudOrganizationFiltering:
             test_db, "TestResult Org 2", f"testresult-user2-{uuid.uuid4()}@security-test.com", "TestResult User 2"
         )
         
-        # Create a test first (required for test result)
-        from rhesis.backend.app.schemas.test import TestCreate
-        test_data = TestCreate(
-            title="Test for result",
-            description="Test for result creation"
-        )
-        test_obj = crud.create_test(
+        # Create a prompt in org1 using fixture data
+        from tests.backend.routes.fixtures.data_factories import PromptDataFactory
+        prompt_data = PromptDataFactory.minimal_data()
+        prompt = crud.create_prompt(
             db=test_db,
-            test=test_data,
+            prompt=prompt_data,
             organization_id=str(org1.id),
             user_id=str(user1.id)
         )
         
-        # Create a test result in org1 using CRUD function
-        from rhesis.backend.app.schemas.test_result import TestResultCreate
-        test_result_data = TestResultCreate(
+        # Create a test first (required for test result)
+        test_obj = models.Test(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            prompt_id=prompt.id
+        )
+        test_db.add(test_obj)
+        test_db.commit()
+        
+        # Create a test configuration first (required for test result)
+        test_config = models.TestConfiguration(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            prompt_id=prompt.id,  # Use the prompt we created earlier
+            attributes={"test_type": "security"}
+        )
+        test_db.add(test_config)
+        test_db.commit()
+        
+        # Create a test result in org1 using direct model creation
+        test_result = models.TestResult(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
             test_id=test_obj.id,
-            status="completed",
-            result_data={}
+            test_configuration_id=test_config.id,  # Use real test configuration
+            test_output="Security test result",
+            test_metrics={"score": 0.8}
         )
-        test_result = crud.create_test_result(
-            db=test_db,
-            test_result=test_result_data,
-            organization_id=str(org1.id),
-            user_id=str(user1.id)
-        )
+        test_db.add(test_result)
+        test_db.commit()
         
         # User from org1 should be able to access the test result
         result_org1 = crud.get_test_result(test_db, test_result.id, organization_id=str(org1.id))
@@ -153,32 +177,48 @@ class TestCrudOrganizationFiltering:
             test_db, "TestRun Org 2", f"testrun-user2-{uuid.uuid4()}@security-test.com", "TestRun User 2"
         )
         
-        # Create a test first (required for test run)
-        from rhesis.backend.app.schemas.test import TestCreate
-        test_data = TestCreate(
-            title="Test for run",
-            description="Test for run creation"
-        )
-        test_obj = crud.create_test(
+        # Create a prompt in org1 using fixture data
+        from tests.backend.routes.fixtures.data_factories import PromptDataFactory
+        prompt_data = PromptDataFactory.minimal_data()
+        prompt = crud.create_prompt(
             db=test_db,
-            test=test_data,
+            prompt=prompt_data,
             organization_id=str(org1.id),
             user_id=str(user1.id)
         )
         
-        # Create a test run in org1 using CRUD function
-        from rhesis.backend.app.schemas.test_run import TestRunCreate
-        test_run_data = TestRunCreate(
-            test_id=test_obj.id,
+        # Create a test first (required for test run)
+        test_obj = models.Test(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            prompt_id=prompt.id
+        )
+        test_db.add(test_obj)
+        test_db.commit()
+        
+        # Create a test configuration first (required for test run)
+        test_config = models.TestConfiguration(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
+            prompt_id=prompt.id,  # Use the prompt we created earlier
+            attributes={"test_type": "security"}
+        )
+        test_db.add(test_config)
+        test_db.commit()
+        
+        # Create a test run in org1 using direct model creation
+        test_run = models.TestRun(
+            id=uuid.uuid4(),
+            organization_id=org1.id,
+            user_id=user1.id,
             name="Security test run",
-            status="pending"
+            test_configuration_id=test_config.id,  # Use real test configuration
+            attributes={"test_type": "security"}
         )
-        test_run = crud.create_test_run(
-            db=test_db,
-            test_run=test_run_data,
-            organization_id=str(org1.id),
-            user_id=str(user1.id)
-        )
+        test_db.add(test_run)
+        test_db.commit()
         
         # User from org1 should be able to access the test run
         result_org1 = crud.get_test_run(test_db, test_run.id, organization_id=str(org1.id))
@@ -200,13 +240,15 @@ class TestCrudOrganizationFiltering:
             test_db, "Endpoint Org 2", f"endpoint-user2-{uuid.uuid4()}@security-test.com", "Endpoint User 2"
         )
         
-        # Create an endpoint in org1 using CRUD function
+        # Create an endpoint in org1 using manual data
         from rhesis.backend.app.schemas.endpoint import EndpointCreate
         endpoint_data = EndpointCreate(
-            name="Test Endpoint",
-            description="Security test endpoint",
-            url="https://test.example.com/api",
-            method="POST"
+            name="Security Test Endpoint",
+            description="Test endpoint for security testing",
+            protocol="REST",
+            url="https://api.security-test.com/v1/test",
+            environment="development",
+            config_source="manual"
         )
         endpoint = crud.create_endpoint(
             db=test_db,
@@ -235,13 +277,9 @@ class TestCrudOrganizationFiltering:
             test_db, "Prompt Org 2", f"prompt-user2-{uuid.uuid4()}@security-test.com", "Prompt User 2"
         )
         
-        # Create a prompt in org1 using CRUD function
-        from rhesis.backend.app.schemas.prompt import PromptCreate
-        prompt_data = PromptCreate(
-            name="Test Prompt",
-            description="Security test prompt",
-            content="This is a test prompt for security testing"
-        )
+        # Create a prompt in org1 using fixture data
+        from tests.backend.routes.fixtures.data_factories import PromptDataFactory
+        prompt_data = PromptDataFactory.minimal_data()
         prompt = crud.create_prompt(
             db=test_db,
             prompt=prompt_data,
@@ -344,8 +382,8 @@ class TestCrudOrganizationFiltering:
 
 
 @pytest.mark.security
-class TestSecurityRegression:
-    """Regression tests to ensure security fixes remain effective"""
+class TestCrudParameterValidation:
+    """Test that CRUD functions properly accept organization_id parameters for security"""
     
     def test_organization_filtering_regression_suite(self, test_db: Session):
         """🔒 SECURITY: Comprehensive regression test for organization filtering"""
@@ -385,29 +423,45 @@ class TestTaskManagementSecuritySimplified:
         """🔒 SECURITY: Test task organization constraint validation"""
         from rhesis.backend.app.services.task_management import validate_task_organization_constraints
         
-        org_id = str(uuid.uuid4())
+        # Create two separate organizations and users
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        organization1, user1, _ = create_test_organization_and_user(
+            test_db, f"Task Org 1 {unique_id}", f"task-user1-{unique_id}@security-test.com", "Task User 1"
+        )
+        organization2, user2, _ = create_test_organization_and_user(
+            test_db, f"Task Org 2 {unique_id}", f"task-user2-{unique_id}@security-test.com", "Task User 2"
+        )
         
-        # Create a mock task
-        mock_task = Mock()
-        mock_task.organization_id = uuid.UUID(org_id)
-        mock_task.status_id = uuid.uuid4()
+        # Create a status in organization1
+        from rhesis.backend.app import models, crud
+        from rhesis.backend.app.schemas.status import StatusCreate
+        status_data = StatusCreate(name=f"Test Status {unique_id}")
+        status = crud.create_status(test_db, status_data, organization_id=str(organization1.id), user_id=str(user1.id))
         
-        # Mock the database query to return a status from the same organization
-        with patch.object(test_db, 'query') as mock_query:
-            mock_status = Mock()
-            mock_status.organization_id = uuid.UUID(org_id)
-            mock_query.return_value.filter.return_value.first.return_value = mock_status
-            
-            # This should not raise an exception
-            try:
-                validate_task_organization_constraints(test_db, mock_task, org_id)
-            except Exception as e:
-                pytest.fail(f"validate_task_organization_constraints raised an exception: {e}")
+        # Create a simple task object (not mock) with required attributes
+        class SimpleTask:
+            def __init__(self, organization_id, status_id, assignee_id=None, priority_id=None):
+                self.organization_id = organization_id
+                self.status_id = status_id
+                self.assignee_id = assignee_id
+                self.priority_id = priority_id
         
-        # Test cross-tenant scenario
-        different_org_id = str(uuid.uuid4())
-        mock_status.organization_id = uuid.UUID(different_org_id)
+        # Create a task in organization1
+        task = SimpleTask(
+            organization_id=organization1.id,
+            status_id=status.id,
+            assignee_id=None,  # No assignee for this test
+            priority_id=None   # No priority for this test
+        )
         
+        # This should not raise an exception when user and task are in same organization
+        try:
+            validate_task_organization_constraints(test_db, task, user1)
+        except Exception as e:
+            pytest.fail(f"validate_task_organization_constraints raised an exception: {e}")
+        
+        # Test cross-tenant scenario - user from organization2 trying to work with task from organization1
         # This should raise an exception
-        with pytest.raises(ValueError, match="cross-tenant"):
-            validate_task_organization_constraints(test_db, mock_task, org_id)
+        with pytest.raises(ValueError, match="not in same organization"):
+            validate_task_organization_constraints(test_db, task, user2)
