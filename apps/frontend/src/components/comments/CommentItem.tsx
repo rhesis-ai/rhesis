@@ -13,7 +13,7 @@ import {
   useTheme,
   Chip,
 } from '@mui/material';
-import { EditIcon, DeleteIcon, EmojiIcon, AddTaskIcon } from '@/components/icons';
+import { EditIcon, DeleteIcon, EmojiIcon, AssignmentIcon, AddTaskIcon } from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
@@ -159,10 +159,10 @@ export function CommentItem({
           alignItems: 'flex-start',
           // Highlighting styles
           ...(isHighlighted && {
-            backgroundColor: 'rgba(25, 118, 210, 0.08)', // Light blue background
+            backgroundColor: 'primary.light',
             border: '2px solid',
             borderColor: 'primary.main',
-            borderRadius: 2,
+            borderRadius: theme.shape.borderRadius,
             p: 2,
             mb: 3,
           })
@@ -204,9 +204,9 @@ export function CommentItem({
                     variant="outlined"
                     sx={{ 
                       height: 24,
-                      fontSize: '0.75rem',
+                      fontSize: theme.typography.caption.fontSize,
                       '& .MuiChip-icon': {
-                        fontSize: '0.875rem'
+                        fontSize: theme.typography.helperText.fontSize
                       }
                     }}
                   />
@@ -224,7 +224,7 @@ export function CommentItem({
                       '&:hover': { color: 'warning.main' }
                     }}
                   >
-                    <AddTaskIcon fontSize="small" />
+                    <AssignmentIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -392,7 +392,7 @@ export function CommentItem({
                         color: 'text.primary',
                         border: '1px solid',
                         borderColor: 'divider',
-                        borderRadius: '16px',
+                        borderRadius: theme.shape.borderRadius,
                         px: 1.5,
                         py: 0.75,
                         cursor: 'pointer',
@@ -406,7 +406,7 @@ export function CommentItem({
                       <AddTaskIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
                       <Typography variant="body2" fontWeight={600} sx={{ 
                         color: 'text.primary',
-                        fontSize: '0.75rem'
+                        fontSize: theme.typography.caption.fontSize
                       }}>
                         {task.title}
                       </Typography>

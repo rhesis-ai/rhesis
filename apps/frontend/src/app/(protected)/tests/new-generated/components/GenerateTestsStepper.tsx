@@ -30,7 +30,6 @@ import {
   CircularProgress,
   Skeleton
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import { LoadingButton } from '@mui/lab';
 import BaseTag from '@/components/common/BaseTag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -966,7 +965,6 @@ export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStep
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const router = useRouter();
-  const theme = useTheme();
   const { show } = useNotifications();
 
   const steps = ['Configure Generation', 'Upload Documents', 'Review Samples', 'Confirm & Generate'];

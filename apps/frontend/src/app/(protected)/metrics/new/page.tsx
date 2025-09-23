@@ -25,7 +25,6 @@ import StepLabel from '@mui/material/StepLabel';
 import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { useSession } from 'next-auth/react';
-import { useTheme } from '@mui/material/styles';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MetricCreate } from '@/utils/api-client/interfaces/metric';
 import { TypeLookupClient } from '@/utils/api-client/type-lookup-client';
