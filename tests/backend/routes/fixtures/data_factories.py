@@ -21,6 +21,8 @@ from typing import Dict, Any, Optional, List, Union
 from faker import Faker
 import uuid
 
+from rhesis.backend.app.constants import EntityType
+
 # Initialize Faker with consistent seed for reproducible tests
 fake = Faker()
 Faker.seed(12345)
@@ -1788,11 +1790,15 @@ class CommentDataFactory(BaseDataFactory):
         return {
             "content": fake.sentence(nb_words=8),
             "entity_id": fake.uuid4(),  # Will be replaced with real entity ID in tests
-            "entity_type": fake.random_element(elements=["Test", "TestSet", "TestRun", "TestResult", "Metric", "Model", "Prompt", "Behavior", "Category"])
+            "entity_type": fake.random_element(elements=[
+                EntityType.TEST.value, EntityType.TEST_SET.value, EntityType.TEST_RUN.value, 
+                EntityType.TEST_RESULT.value, EntityType.METRIC.value, EntityType.MODEL.value, 
+                EntityType.PROMPT.value, EntityType.BEHAVIOR.value, EntityType.CATEGORY.value
+            ])
         }
     
     @classmethod
-    def sample_data(cls, entity_id: Optional[str] = None, entity_type: str = "Test") -> Dict[str, Any]:
+    def sample_data(cls, entity_id: Optional[str] = None, entity_type: str = None) -> Dict[str, Any]:
         """
         Generate sample comment data
         
@@ -1806,7 +1812,7 @@ class CommentDataFactory(BaseDataFactory):
         return {
             "content": fake.paragraph(nb_sentences=2),
             "entity_id": entity_id or fake.uuid4(),  # Will be replaced with real entity ID in tests
-            "entity_type": entity_type,
+            "entity_type": entity_type or EntityType.TEST.value,
             "emojis": {}  # Start with no emoji reactions
         }
     
@@ -1824,31 +1830,31 @@ class CommentDataFactory(BaseDataFactory):
             return {
                 "content": fake.text(max_nb_chars=2000),
                 "entity_id": fake.uuid4(),
-                "entity_type": "Test"
+                "entity_type": EntityType.TEST.value
             }
         elif case_type == "special_chars":
             return {
                 "content": f"Comment with émojis 💬 and spëcial chars! @#$%^&*()",
                 "entity_id": fake.uuid4(),
-                "entity_type": "Test"
+                "entity_type": EntityType.TEST.value
             }
         elif case_type == "unicode":
             return {
                 "content": f"Comment 测试 тест テスト {fake.sentence()}",
                 "entity_id": fake.uuid4(),
-                "entity_type": "Test"
+                "entity_type": EntityType.TEST.value
             }
         elif case_type == "empty_content":
             return {
                 "content": "",
                 "entity_id": fake.uuid4(),
-                "entity_type": "Test"
+                "entity_type": EntityType.TEST.value
             }
         elif case_type == "sql_injection":
             return {
                 "content": "'; DROP TABLE comments; --",
                 "entity_id": fake.uuid4(),
-                "entity_type": "Test"
+                "entity_type": EntityType.TEST.value
             }
         
         return super().edge_case_data(case_type)
