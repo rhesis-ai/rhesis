@@ -12,7 +12,11 @@ def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config["max_score"] = config["parameters"].get("max_score")
     config["threshold"] = config["parameters"].get("threshold")
     config["threshold_operator"] = config["parameters"].get("threshold_operator")
-    config["reference_score"] = config["parameters"].get("passing_categories")[0]
+    if config["parameters"].get("passing_categories"):
+        config["reference_score"] = config["parameters"].get("passing_categories")[0]
+    else:
+        config["reference_score"] = None
+
     return config
 
 
