@@ -326,7 +326,13 @@ export default function TestSetsGrid({
   };
 
   const getActionButtons = () => {
-    const buttons = [
+    const buttons: {
+      label: string;
+      icon: React.ReactNode;
+      variant: 'text' | 'outlined' | 'contained';
+      color?: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+      onClick: () => void;
+    }[] = [
       {
         label: 'New Test Set',
         icon: <AddIcon />,
@@ -346,7 +352,7 @@ export default function TestSetsGrid({
       buttons.push({
         label: 'Delete Test Sets',
         icon: <DeleteIcon />,
-        variant: 'outlined' as const,
+        variant: 'contained' as const,
         color: 'error' as const,
         onClick: handleDeleteTestSets
       });
