@@ -9,6 +9,7 @@ from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOpera
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
+from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 
 class NumericScoreResponse(BaseModel):
@@ -328,6 +329,12 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         """
         client = Client()
         config = client.send_request(Endpoints.METRICS, Methods.GET, url_params=metric_id)
+
+        if config["class_name"] != "RhesisPromptMetricNumeric":
+            raise ValueError(f"Metric {config.get('id')} is not a RhesisPromptMetricNumeric")
+
+        config = backend_config_to_sdk_config(config)
+
         config = MetricConfig(**config)
         return RhesisPromptMetricNumeric.from_config(config)
 
