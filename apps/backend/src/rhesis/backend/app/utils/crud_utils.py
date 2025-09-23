@@ -297,47 +297,6 @@ def get_items_detail(
     )
 
 
-def get_items_detail_with_comments(
-    db: Session,
-    model: Type[T],
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    nested_relationships: dict = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[T]:
-    """
-    Get multiple items with comments loaded for comment_count property.
-    This is optimized for entities that need comment counts.
-
-    Performance improvements:
-    - Loads comments relationship for counting
-    - Uses optimized loading strategy
-    - Direct tenant context injection
-
-    Args:
-        nested_relationships: Dict specifying nested relationships to load.
-                            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
-    """
-    return (
-        QueryBuilder(db, model)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=False,  # Load one-to-many relationships like comments
-            nested_relationships=nested_relationships,
-        )
-        .with_organization_filter(organization_id)
-        .with_visibility_filter()
-        .with_odata_filter(filter)
-        .with_pagination(skip, limit)
-        .with_sorting(sort_by, sort_order)
-        .all()
-    )
-
-
 def create_item(
     db: Session,
     model: Type[T],
