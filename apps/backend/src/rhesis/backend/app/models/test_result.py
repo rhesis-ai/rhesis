@@ -44,11 +44,9 @@ class TestResult(Base):
     )
 
     @property
-    def comment_count(self):
-        """Get the count of comments for this test result"""
-        return len(self.comments) if self.comments else 0
-
-    @property
-    def task_count(self):
-        """Get the count of tasks for this test result"""
-        return len(self.tasks) if self.tasks else 0
+    def counts(self):
+        """Get the counts of comments, tasks for this test result"""
+        return {
+            "comments": len(self.comments) if self.comments else 0,
+            "tasks": len(self.tasks) if self.tasks else 0,
+        }
