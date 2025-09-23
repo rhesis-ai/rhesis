@@ -22,7 +22,6 @@ from rhesis.backend.app.utils.crud_utils import (
     get_item_detail,
     get_items,
     get_items_detail,
-    get_items_detail_with_comments,
     maintain_tenant_context,
     update_item,
 )
@@ -129,7 +128,9 @@ def update_use_case(
     return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
 
 
-def delete_use_case(db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.UseCase]:
+def delete_use_case(
+    db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.UseCase]:
     """Delete use case with optimized approach - no session variables needed."""
     return delete_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
@@ -151,9 +152,7 @@ def get_prompts(
     filter: str | None = None,
 ) -> List[models.Prompt]:
     """Get prompts with comments loaded for comment_count property"""
-    return get_items_detail_with_comments(
-        db, models.Prompt, skip, limit, sort_by, sort_order, filter
-    )
+    return get_items_detail(db, models.Prompt, skip, limit, sort_by, sort_order, filter)
 
 
 def create_prompt(
@@ -197,7 +196,10 @@ def get_prompt_templates(
 
 
 def create_prompt_template(
-    db: Session, prompt_template: schemas.PromptTemplateCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    prompt_template: schemas.PromptTemplateCreate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> models.PromptTemplate:
     """Create prompt template with optimized approach - no session variables needed."""
     return create_item(db, models.PromptTemplate, prompt_template, organization_id, user_id)
@@ -232,9 +234,7 @@ def get_categories(
     filter: str | None = None,
 ) -> List[models.Category]:
     """Get categories with comments loaded for comment_count property"""
-    return get_items_detail_with_comments(
-        db, models.Category, skip, limit, sort_by, sort_order, filter
-    )
+    return get_items_detail(db, models.Category, skip, limit, sort_by, sort_order, filter)
 
 
 def create_category(
@@ -278,7 +278,7 @@ def get_behaviors(
     user_id: str = None,
 ) -> List[models.Behavior]:
     """Get behaviors with comments loaded for comment_count property"""
-    return get_items_detail_with_comments(
+    return get_items_detail(
         db,
         models.Behavior,
         skip,
@@ -336,7 +336,10 @@ def get_response_patterns(
 
 
 def create_response_pattern(
-    db: Session, response_pattern: schemas.ResponsePatternCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    response_pattern: schemas.ResponsePatternCreate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> models.ResponsePattern:
     """Create response pattern with optimized approach - no session variables needed."""
     return create_item(db, models.ResponsePattern, response_pattern, organization_id, user_id)
@@ -606,7 +609,9 @@ def update_risk(
     return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
 
 
-def delete_risk(db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Risk]:
+def delete_risk(
+    db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Risk]:
     """Delete risk with optimized approach - no session variables needed."""
     return delete_item(db, models.Risk, risk_id, organization_id, user_id)
 
@@ -648,7 +653,9 @@ def update_status(
     return update_item(db, models.Status, status_id, status, organization_id, user_id)
 
 
-def delete_status(db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Status]:
+def delete_status(
+    db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Status]:
     """Delete status with optimized approach - no session variables needed."""
     return delete_item(db, models.Status, status_id, organization_id, user_id)
 
@@ -690,7 +697,9 @@ def update_source(
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
 
 
-def delete_source(db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Source]:
+def delete_source(
+    db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Source]:
     """Delete source with optimized approach - no session variables needed."""
     return delete_item(db, models.Source, source_id, organization_id, user_id)
 
@@ -732,7 +741,9 @@ def update_topic(
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)
 
 
-def delete_topic(db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Topic]:
+def delete_topic(
+    db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Topic]:
     """Delete topic with optimized approach - no session variables needed."""
     return delete_item(db, models.Topic, topic_id, organization_id, user_id)
 
@@ -941,7 +952,9 @@ def update_tag(
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
 
 
-def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Tag]:
+def delete_tag(
+    db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Tag]:
     """Delete tag with optimized approach - no session variables needed."""
     return delete_item(db, models.Tag, tag_id, organization_id, user_id)
 
@@ -1108,13 +1121,19 @@ def create_token(
 
 
 def update_token(
-    db: Session, token_id: uuid.UUID, token: schemas.TokenUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    token_id: uuid.UUID,
+    token: schemas.TokenUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Token]:
     """Update token with optimized approach - no session variables needed."""
     return update_item(db, models.Token, token_id, token, organization_id, user_id)
 
 
-def revoke_token(db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Token]:
+def revoke_token(
+    db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Token]:
     """Delete token with optimized approach - no session variables needed."""
     return delete_item(db, models.Token, token_id, organization_id, user_id)
 
@@ -1249,7 +1268,7 @@ def get_tests(
     filter: str | None = None,
 ) -> List[models.Test]:
     """Get tests with comments loaded for comment_count property"""
-    return get_items_detail_with_comments(db, models.Test, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Test, skip, limit, sort_by, sort_order, filter)
 
 
 def create_test(
@@ -1374,9 +1393,7 @@ def get_test_runs(
     filter: str | None = None,
 ) -> List[models.TestRun]:
     """Get test runs with comments loaded for comment_count property"""
-    return get_items_detail_with_comments(
-        db, models.TestRun, skip, limit, sort_by, sort_order, filter
-    )
+    return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
 
 
 def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID) -> List[models.Behavior]:
@@ -1556,7 +1573,9 @@ def update_type_lookup(
     return update_item(db, models.TypeLookup, type_lookup_id, type_lookup, organization_id, user_id)
 
 
-def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TypeLookup]:
+def delete_type_lookup(
+    db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.TypeLookup]:
     """Delete type lookup with optimized approach - no session variables needed."""
     return delete_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
@@ -1830,9 +1849,7 @@ def get_models(
     filter: str | None = None,
 ) -> List[models.Model]:
     """Get all models with comments loaded for comment_count property"""
-    return get_items_detail_with_comments(
-        db, models.Model, skip, limit, sort_by, sort_order, filter
-    )
+    return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter)
 
 
 def create_model(
@@ -1887,7 +1904,9 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
 
 
 # Comment CRUD
-def get_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+def get_comment(
+    db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Comment]:
     """Get a specific comment by ID with optimized tenant context"""
     return get_item(db, models.Comment, comment_id, organization_id, user_id)
 
@@ -1947,13 +1966,19 @@ def create_comment(
 
 
 def update_comment(
-    db: Session, comment_id: uuid.UUID, comment: schemas.CommentUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    comment_id: uuid.UUID,
+    comment: schemas.CommentUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Comment]:
     """Update a comment with optimized tenant context"""
     return update_item(db, models.Comment, comment_id, comment, organization_id, user_id)
 
 
-def delete_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+def delete_comment(
+    db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Comment]:
     """Delete a comment with optimized tenant context"""
     return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
@@ -2051,7 +2076,7 @@ def get_tasks(
     filter: str | None = None,
 ) -> List[models.Task]:
     """Get tasks with comments loaded for comment_count property"""
-    return get_items_detail_with_comments(db, models.Task, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter)
 
 
 def create_task(
