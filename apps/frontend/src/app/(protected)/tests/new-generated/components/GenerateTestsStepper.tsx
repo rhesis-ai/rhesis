@@ -30,6 +30,7 @@ import {
   CircularProgress,
   Skeleton
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { LoadingButton } from '@mui/lab';
 import BaseTag from '@/components/common/BaseTag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -830,8 +831,8 @@ const ReviewSamples = ({
                     borderColor: 'divider',
                     px: 1,
                     py: 0.5,
-                    borderRadius: 1,
-                    fontSize: theme.typography.chartLabel.fontSize,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                    fontSize: (theme) => theme.typography.chartLabel.fontSize,
                     whiteSpace: 'nowrap',
                     zIndex: 1,
                     boxShadow: 1,
@@ -956,6 +957,7 @@ const ConfirmGenerate = ({
 
 // Main Stepper Component
 export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStepperProps) {
+  const theme = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [configData, setConfigData] = useState(INITIAL_CONFIG);
   const [samples, setSamples] = useState<Sample[]>([]);

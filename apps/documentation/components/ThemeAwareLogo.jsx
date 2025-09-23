@@ -17,7 +17,7 @@ function ThemeAwareLogo() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <img 
-          src="/Rhesis AI_Logo_RGB_Website logo.png" 
+          src="/rhesis-logo-website.png" 
           alt="Rhesis" 
           style={{ height: '40px', width: 'auto' }}
         />
@@ -39,7 +39,7 @@ function ThemeAwareLogo() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <img 
-        src={isDark ? "/Rhesis AI_Logo_RGB_Website logo_white.png" : "/Rhesis AI_Logo_RGB_Website logo.png"} 
+        src={isDark ? "/rhesis-logo-website-white.png" : "/rhesis-logo-website.png"} 
         alt="Rhesis" 
         style={{ height: '40px', width: 'auto' }}
       />

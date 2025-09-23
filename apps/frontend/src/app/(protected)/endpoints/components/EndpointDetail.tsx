@@ -80,7 +80,7 @@ const getProjectIcon = (project: Project) => {
 };
 
 // Environment chips should use neutral colors for better UX
-const getEnvironmentColor = (environment: string) => {
+const getEnvironmentColor = (environment: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   // Use 'default' for all environments to get neutral grey styling
   return 'default';
 };
@@ -127,7 +127,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         justifyContent: 'center',
         border: '1px solid rgba(0, 0, 0, 0.23)',
         borderRadius: '4px',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'action.hover'
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

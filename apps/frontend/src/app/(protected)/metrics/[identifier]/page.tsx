@@ -670,7 +670,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: 1,
+                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -771,7 +771,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: 1,
+                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -815,7 +815,7 @@ const settingsIcon = <SettingsIcon />;
                         color: 'primary.contrastText',
                         px: 1.5,
                         py: 0.5,
-                        borderRadius: 1,
+                        borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                         fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                         fontWeight: 'medium'
                       }}
@@ -883,7 +883,7 @@ const settingsIcon = <SettingsIcon />;
                             color: 'success.contrastText',
                             px: 2,
                             py: 0.5,
-                            borderRadius: 1,
+                            borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                             fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                             fontWeight: 'medium'
                           }}
@@ -918,7 +918,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: 1,
+                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',

@@ -100,6 +100,7 @@ const EXCLUDE_PATTERNS = [
   /apps\/documentation/, // Exclude documentation app for now
   /theme\.ts$/, // Exclude the theme file itself
   /check-hardcoded-styles\.js$/, // Exclude this script itself
+  /create-pr-comment\.js$/, // Exclude PR comment script (contains documentation examples)
   /\.module\.css$/, // Exclude CSS modules (they might have hardcoded values for specific reasons)
   /\.test\./,
   /\.spec\./,

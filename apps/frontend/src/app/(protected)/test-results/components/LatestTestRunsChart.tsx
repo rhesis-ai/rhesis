@@ -65,8 +65,8 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
   };
   
   // Use a consistent blue color for pass rates that works in both light and dark themes
-  // This matches the first color in the default pie chart palette
-  const passRateColor = '#8884d8'; // Blue color that works in both light and dark themes
+  // This matches the first color in the theme's line chart palette
+  const passRateColor = theme.chartPalettes.line[0]; // Primary blue from theme
   
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,7 +198,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               textAnchor="end"
               interval={0}
               tick={{ 
-                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fontSize: getPixelFontSize(String(theme.typography.chartTick.fontSize)),
                 fill: theme.palette.text.primary
               }}
               height={60}
@@ -212,7 +212,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               domain={[0, 100]}
               tickCount={6}
               tick={{ 
-                fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                fontSize: getPixelFontSize(String(theme.typography.chartTick.fontSize)),
                 fill: theme.palette.text.primary
               }}
               axisLine={{ strokeWidth: 1 }}
@@ -221,7 +221,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
             />
             <Tooltip 
               contentStyle={{ 
-                fontSize: theme.typography.chartTick.fontSize,
+                fontSize: String(theme.typography.chartTick.fontSize),
                 backgroundColor: theme.palette.background.paper,
                 border: `1px solid ${theme.palette.divider}`,
                 borderRadius: '4px',
@@ -244,7 +244,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
                   color: passRateColor // Use consistent blue color for pass rates
                 }
               ]}
-              wrapperStyle={{ fontSize: theme.typography.chartTick.fontSize }}
+              wrapperStyle={{ fontSize: String(theme.typography.chartTick.fontSize) }}
               iconSize={8}
               height={30}
             />
