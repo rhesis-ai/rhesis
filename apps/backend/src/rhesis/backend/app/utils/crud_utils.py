@@ -520,8 +520,8 @@ def get_or_create_entity(
 # ============================================================================
 
 
-def get_or_create_status(db: Session, name: str, entity_type, organization_id: str = None, user_id: str = None, commit: bool = True) -> Status:
-    """Get or create a status with the specified name and entity type using optimized approach - no session variables needed."""
+def get_or_create_status(db: Session, name: str, entity_type, description: str = None, organization_id: str = None, user_id: str = None, commit: bool = True) -> Status:
+    """Get or create a status with the specified name, entity type, and optional description using optimized approach - no session variables needed."""
     # Handle EntityType enum or string
     entity_type_value = entity_type.value if hasattr(entity_type, "value") else entity_type
 
@@ -544,11 +544,18 @@ def get_or_create_status(db: Session, name: str, entity_type, organization_id: s
     if existing_status:
         return existing_status
 
+    # Prepare status data
+    status_data = {"name": name, "entity_type_id": entity_type_lookup.id}
+    
+    # Add description only if provided
+    if description is not None:
+        status_data["description"] = description
+
     # Create new status
     return create_item(
         db=db,
         model=Status,
-        item_data={"name": name, "entity_type_id": entity_type_lookup.id},
+        item_data=status_data,
         organization_id=organization_id,
         user_id=user_id,
         commit=commit,
