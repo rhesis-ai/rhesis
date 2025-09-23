@@ -139,16 +139,18 @@ export default function DashboardCharts() {
         return testTrendData; // Fallback to mock data
       }
       
-      return testResultsStats.timeline.map(item => ({
-        name: formatTimelineDate(item.date),
-        tests: item.overall?.total || 0,
-        passed: item.overall?.passed || 0,
-        failed: item.overall?.failed || 0,
-        pass_rate: item.overall?.pass_rate || 0
-      })).sort((a, b) => {
-        // Sort by month chronologically (assuming date format is YYYY-MM)
-        return a.name.localeCompare(b.name);
-      });
+      return testResultsStats.timeline
+        .sort((a, b) => {
+          // Sort by original date format (YYYY-MM) chronologically first
+          return a.date.localeCompare(b.date);
+        })
+        .map(item => ({
+          name: formatTimelineDate(item.date),
+          tests: item.overall?.total || 0,
+          passed: item.overall?.passed || 0,
+          failed: item.overall?.failed || 0,
+          pass_rate: item.overall?.pass_rate || 0
+        }));
     };
     
     return generateData();
