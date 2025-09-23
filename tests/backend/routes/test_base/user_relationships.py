@@ -114,7 +114,7 @@ class BaseUserRelationshipTests(BaseEntityTests):
         # Use the authenticated user ID (we know this exists and works with the API)
         # For testing purposes, we'll use the same user for all fields since we can't create additional users via API
         auth_user_id = str(authenticated_user.id)
-        new_user_id = auth_user_id
+        new_user_id = auth_user_id  # user_id should always remain the authenticated user for security
         new_owner_id = auth_user_id  
         new_assignee_id = auth_user_id
         
