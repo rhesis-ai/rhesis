@@ -57,6 +57,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("status", []):
                 get_or_create_status(
                     db=db, name=item["name"], entity_type=item["entity_type"], 
+                    description=item.get("description"),
                     organization_id=organization_id, user_id=user_id, commit=False
                 )
 
