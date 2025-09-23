@@ -12,16 +12,28 @@ from sqlalchemy.orm import Session
 from unittest.mock import Mock
 
 from rhesis.backend.app import models, crud
-from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.auth.permissions import ResourcePermission
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
+
+# Create a simple database session fixture
+@pytest.fixture
+def db_session():
+    """Simple database session for security tests that don't need authentication"""
+    from tests.backend.conftest import TestingSessionLocal
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.rollback()
+        db.close()
 
 
 @pytest.mark.security
 class TestTaskManagementSecurity:
     """Test security vulnerabilities in task management service"""
     
-    def test_validate_task_organization_constraints_cross_tenant_status(self, test_db: Session):
+    def test_validate_task_organization_constraints_cross_tenant_status(self, db_session):
         """🔒 SECURITY: Test that task organization constraints prevent cross-tenant status access"""
         # Create two separate organizations and users
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
@@ -29,10 +41,10 @@ class TestTaskManagementSecurity:
         # Generate unique email addresses to avoid conflicts with preserved data
         unique_id = str(uuid.uuid4())[:8]
         org1, user1, _ = create_test_organization_and_user(
-            test_db, "Security Test Org 1", f"user1-{unique_id}@security-test.com", "Security User 1"
+            db_session, "Security Test Org 1", f"user1-{unique_id}@security-test.com", "Security User 1"
         )
         org2, user2, _ = create_test_organization_and_user(
-            test_db, "Security Test Org 2", f"user2-{unique_id}@security-test.com", "Security User 2"
+            db_session, "Security Test Org 2", f"user2-{unique_id}@security-test.com", "Security User 2"
         )
         
         # Create status in org1
@@ -42,25 +54,29 @@ class TestTaskManagementSecurity:
             organization_id=org1.id,
             user_id=user1.id
         )
-        test_db.add(status1)
-        test_db.flush()
+        db_session.add(status1)
+        db_session.flush()
         
-        # Try to validate task with org2 context but org1 status - should fail
-        task_data = {
-            "name": "Test Task",
-            "status_id": status1.id,
-            "organization_id": str(org2.id)  # Different org!
-        }
+        # Create a mock task with org1 status but try to validate with org2 user
+        from unittest.mock import Mock
+        mock_task = Mock()
+        mock_task.assignee_id = None  # No assignee to validate
+        mock_task.status_id = status1.id  # Status from org1
+        mock_task.priority_id = None  # No priority to validate
         
-        with pytest.raises(ValueError, match="not found"):
-            validate_task_organization_constraints(test_db, task_data, str(org2.id))
+        # Create a mock user from org2 (different from status1's org1)
+        mock_user = Mock()
+        mock_user.organization_id = org2.id
+        
+        with pytest.raises(ValueError, match="Status not found or not in same organization"):
+            validate_task_organization_constraints(db_session, mock_task, mock_user)
 
 
 @pytest.mark.security
 class TestCrudTaskSecurity:
     """Test security vulnerabilities in CRUD operations"""
     
-    def test_get_task_cross_tenant_prevention(self, test_db: Session):
+    def test_get_task_cross_tenant_prevention(self, db_session):
         """🔒 SECURITY: Test that get_task prevents cross-tenant access"""
         # Create two separate organizations and users
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
@@ -68,24 +84,35 @@ class TestCrudTaskSecurity:
         # Generate unique email addresses to avoid conflicts with preserved data
         unique_id = str(uuid.uuid4())[:8]
         org1, user1, _ = create_test_organization_and_user(
-            test_db, "Task Security Org 1", f"task1-{unique_id}@security-test.com", "Task User 1"
+            db_session, "Task Security Org 1", f"task1-{unique_id}@security-test.com", "Task User 1"
         )
         org2, user2, _ = create_test_organization_and_user(
-            test_db, "Task Security Org 2", f"task2-{unique_id}@security-test.com", "Task User 2"
+            db_session, "Task Security Org 2", f"task2-{unique_id}@security-test.com", "Task User 2"
         )
         
-        # Create task in org1
-        task = models.Task(
-            name="Test Task",
-            description="Test Description",
+        # Create a status for the task first
+        status1 = models.Status(
+            name="Active",
+            description="Active status",
             organization_id=org1.id,
             user_id=user1.id
         )
-        test_db.add(task)
-        test_db.flush()
+        db_session.add(status1)
+        db_session.flush()
+        
+        # Create task in org1
+        task = models.Task(
+            title="Test Task",  # Task model uses 'title' not 'name'
+            description="Test Description",
+            organization_id=org1.id,
+            user_id=user1.id,
+            status_id=status1.id  # Task requires a status_id
+        )
+        db_session.add(task)
+        db_session.flush()
         
         # Try to access task from org2 - should fail
-        result = crud.get_task(test_db, task.id, organization_id=str(org2.id))
+        result = crud.get_task(db_session, task.id, organization_id=str(org2.id))
         assert result is None, "Task should not be accessible from different organization"
     
     def test_get_task_with_comment_count_cross_tenant_prevention(self, test_db: Session):
@@ -111,7 +138,7 @@ class TestAuthPermissionsSecurity:
 class TestStatusUtilitySecurity:
     """Test security vulnerabilities in status utilities"""
     
-    def test_get_or_create_status_cross_tenant_isolation(self, test_db: Session):
+    def test_get_or_create_status_cross_tenant_isolation(self, db_session):
         """🔒 SECURITY: Test that get_or_create_status properly isolates by organization"""
         # Create two separate organizations and users
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
@@ -119,17 +146,18 @@ class TestStatusUtilitySecurity:
         # Generate unique email addresses to avoid conflicts with preserved data
         unique_id = str(uuid.uuid4())[:8]
         org1, user1, _ = create_test_organization_and_user(
-            test_db, "Status Security Org 1", f"status1-{unique_id}@security-test.com", "Status User 1"
+            db_session, "Status Security Org 1", f"status1-{unique_id}@security-test.com", "Status User 1"
         )
         org2, user2, _ = create_test_organization_and_user(
-            test_db, "Status Security Org 2", f"status2-{unique_id}@security-test.com", "Status User 2"
+            db_session, "Status Security Org 2", f"status2-{unique_id}@security-test.com", "Status User 2"
         )
         
         # Create status in org1
+        from rhesis.backend.app.constants import EntityType
         status1 = get_or_create_status(
-            test_db, 
+            db_session, 
             "Active", 
-            "Test", 
+            EntityType.GENERAL,  # Use EntityType enum
             organization_id=str(org1.id),
             user_id=str(user1.id)
         )
@@ -137,9 +165,9 @@ class TestStatusUtilitySecurity:
         
         # Create status with same name in org2 - should create separate status
         status2 = get_or_create_status(
-            test_db, 
+            db_session, 
             "Active", 
-            "Test", 
+            EntityType.GENERAL,  # Use EntityType enum
             organization_id=str(org2.id),
             user_id=str(user2.id)
         )
@@ -148,9 +176,9 @@ class TestStatusUtilitySecurity:
         
         # Verify isolation - org1 query should not find org2's status
         status1_again = get_or_create_status(
-            test_db, 
+            db_session, 
             "Active", 
-            "Test", 
+            EntityType.GENERAL,  # Use EntityType enum
             organization_id=str(org1.id),
             user_id=str(user1.id)
         )
