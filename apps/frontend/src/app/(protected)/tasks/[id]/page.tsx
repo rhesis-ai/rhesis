@@ -18,6 +18,7 @@ import {
   CircularProgress,
   Chip,
   Avatar,
+  useTheme,
   IconButton,
   Divider,
   Tooltip
@@ -47,6 +48,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   const { getTask, updateTask } = useTasks({ autoFetch: false });
   const { show } = useNotifications();
   
+  const theme = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -244,7 +246,7 @@ export default function TaskDetailPage({ params }: PageProps) {
               }
             }}
             sx={{
-              borderRadius: '20px',
+              borderRadius: theme.shape.borderRadius,
               backgroundColor: 'background.paper',
               color: 'text.secondary',
               border: '1px solid',
@@ -262,7 +264,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                 sx={{
                   width: 20,
                   height: 20,
-                  borderRadius: '50%',
+                  borderRadius: '50%', // Circular element - 50% is standard
                   backgroundColor: 'text.secondary',
                   display: 'flex',
                   alignItems: 'center',
@@ -383,8 +385,8 @@ export default function TaskDetailPage({ params }: PageProps) {
                           display: 'flex',
                           alignItems: 'center',
                           gap: 1,
-                          paddingTop: '16px',
-                          paddingBottom: '16px'
+                          paddingTop: theme.spacing(2),
+                          paddingBottom: theme.spacing(2)
                         }
                       }}
                       renderValue={(value) => {

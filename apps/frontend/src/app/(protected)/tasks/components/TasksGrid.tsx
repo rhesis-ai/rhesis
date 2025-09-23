@@ -185,8 +185,9 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       renderCell: (params) => {
         const getStatusColor = (status?: string) => {
           switch (status) {
-            case 'Completed': return 'success';
+            case 'Open': return 'warning';
             case 'In Progress': return 'primary';
+            case 'Completed': return 'success';
             case 'Cancelled': return 'error';
             default: return 'default';
           }
