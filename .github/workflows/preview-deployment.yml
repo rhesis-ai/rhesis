@@ -52,12 +52,12 @@ jobs:
     steps:
       - name: Generate Multi-Service Preview Summary
         run: |
-          echo "# 🚀 ⚠️ MULTI-SERVICE PREVIEW DEPLOYMENT" >> $GITHUB_STEP_SUMMARY
+          echo "# 🚀 ⚠️ PREVIEW - Multi-Service Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🏷️ Deployment Details" >> $GITHUB_STEP_SUMMARY
           echo "- **🌍 Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **📝 Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **⚠️ Type:** PREVIEW (NOT Production)" >> $GITHUB_STEP_SUMMARY
+          echo "- **⚠️ Type:** PREVIEW (NOT Live Environment)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔗 Preview URLs" >> $GITHUB_STEP_SUMMARY
           # Debug URL information for troubleshooting
@@ -73,16 +73,16 @@ jobs:
           printf "- **🧪 Frontend Preview:** [%s](%s)\n" "$FRONTEND_URL" "$FRONTEND_URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## ⚠️ IMPORTANT PREVIEW WARNINGS" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚫 **These are NOT production services**" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **Both services receive 0% production traffic**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔒 **Completely isolated from production environment**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 **These are NOT live ${{ github.event.inputs.environment }} services**" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 **Both services receive 0% live traffic**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔒 **Completely isolated from live environment**" >> $GITHUB_STEP_SUMMARY
           echo "- 🔗 **Frontend is configured to communicate with backend preview**" >> $GITHUB_STEP_SUMMARY
           echo "- 🧪 **For testing and review purposes ONLY**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🧪 Testing Instructions" >> $GITHUB_STEP_SUMMARY
           echo "1. **Access the frontend preview URL above** to test the multi-service deployment" >> $GITHUB_STEP_SUMMARY
           echo "2. **Verify all functionality** works as expected in the preview environment" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Remember:** This is an isolated preview - no impact on production users" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Remember:** This is an isolated preview - no impact on live users" >> $GITHUB_STEP_SUMMARY
           
           echo "🎯 Multi-service preview deployment completed successfully!"
           echo "🔗 Backend:  ${{ needs.deploy-backend-preview.outputs.backend_preview_url }}"
