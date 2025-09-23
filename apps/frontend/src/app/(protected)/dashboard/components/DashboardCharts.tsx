@@ -8,7 +8,7 @@ import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { useSession } from 'next-auth/react';
 import { format, subMonths } from 'date-fns';
-import { Box, CircularProgress, Typography, Alert } from '@mui/material';
+import { Box, CircularProgress, Typography, Alert, useTheme } from '@mui/material';
 import { chartUtils } from '@/components/common/BaseLineChart';
 import { pieChartUtils } from '@/components/common/BasePieChart';
 import { formatTimelineDate } from '@/app/(protected)/test-results/components/timelineUtils';
@@ -45,6 +45,7 @@ interface ChartDataItem {
 
 export default function DashboardCharts() {
   const { data: session } = useSession();
+  const theme = useTheme();
   const [testStats, setTestStats] = useState<TestStats | null>(null);
   const [testResultsStats, setTestResultsStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -192,9 +193,9 @@ export default function DashboardCharts() {
             title="Test Execution Trend"
             data={testExecutionTrendData}
             series={[
-              { dataKey: 'tests', name: 'Total Tests', color: '#50B9E0' }, // Primary blue
-              { dataKey: 'passed', name: 'Passed Tests', color: '#2E7D32' }, // Success green
-              { dataKey: 'failed', name: 'Failed Tests', color: '#C62828' } // Error red
+              { dataKey: 'tests', name: 'Total Tests', color: theme.palette.primary.main }, // Primary blue
+              { dataKey: 'passed', name: 'Passed Tests', color: theme.palette.success.main }, // Success green
+              { dataKey: 'failed', name: 'Failed Tests', color: theme.palette.error.main } // Error red
             ]}
             useThemeColors={false}
             colorPalette="line"
