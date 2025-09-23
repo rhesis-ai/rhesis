@@ -84,6 +84,10 @@ const getDesignTokens = (mode: PaletteMode) => ({
       },
     }),
   },
+  shape: {
+    borderRadius: 4, // Default MUI border radius
+    circular: '50%', // For circular elements
+  },
   typography: {
     fontFamily: '"Be Vietnam Pro", "Roboto", "Helvetica", "Arial", sans-serif',
     h1: {
@@ -431,6 +435,10 @@ declare module '@mui/material/styles' {
       standard: number;
       prominent: number;
       modal: number;
+    };
+    shape: {
+      borderRadius: number;
+      circular: string;
     };
     customSpacing: {
       container: {
