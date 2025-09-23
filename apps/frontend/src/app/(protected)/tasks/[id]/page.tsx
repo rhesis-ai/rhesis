@@ -59,14 +59,17 @@ export default function TaskDetailPage({ params }: PageProps) {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
 
   const resolvedParams = use(params);
   const taskId = resolvedParams.id;
 
-  // Initialize edit description when task loads
+  // Initialize edit description and title when task loads
   useEffect(() => {
     if (editedTask) {
       setEditDescription(editedTask.description || '');
+      setEditTitle(editedTask.title || '');
     }
   }, [editedTask]);
 
@@ -217,14 +220,38 @@ export default function TaskDetailPage({ params }: PageProps) {
     }
   };
 
+  const handleSaveTitle = async () => {
+    if (!editTitle.trim()) {
+      show('Task title cannot be empty', { severity: 'error' });
+      return;
+    }
+    
+    if (!editedTask) return;
+    
+    setIsSaving(true);
+    const updatedTask = { ...editedTask, title: editTitle.trim() };
+    setEditedTask(updatedTask);
+    setIsEditingTitle(false);
+    
+    try {
+      await handleSave(updatedTask);
+    } catch (error) {
+      // Revert on error
+      setEditTitle(editedTask.title || '');
+      setIsEditingTitle(true);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <PageContainer 
-      breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: task.title, path: `/tasks/${taskId}` }]}
+      breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: editedTask?.title || task.title, path: `/tasks/${taskId}` }]}
     >
       {/* Title and Navigation Button in same row */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 500 }}>
-          {task.title}
+          {editedTask?.title || task.title}
         </Typography>
         {(task.entity_type && task.entity_id) && (
           <Button
@@ -453,6 +480,76 @@ export default function TaskDetailPage({ params }: PageProps) {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                   Key information about this task.
                 </Typography>
+              </Box>
+
+              {/* Title */}
+              <Box sx={{ mb: 4 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Title
+                  </Typography>
+                  {!isEditingTitle ? (
+                    <Tooltip title="Edit title">
+                      <IconButton
+                        onClick={() => setIsEditingTitle(true)}
+                        size="small"
+                        sx={{ 
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                          }
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
+                </Box>
+                {isEditingTitle ? (
+                  <Box sx={{ mb: 2 }}>
+                    <TextField
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                      placeholder="Enter task title..."
+                      error={!editTitle.trim()}
+                      helperText={!editTitle.trim() ? 'Title cannot be empty' : ''}
+                      sx={{ mb: 1 }}
+                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                      <Button 
+                        size="small" 
+                        onClick={() => {
+                          setIsEditingTitle(false);
+                          setEditTitle(task.title || '');
+                        }}
+                        disabled={isSaving}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        size="small" 
+                        variant="contained" 
+                        onClick={handleSaveTitle}
+                        disabled={isSaving || !editTitle.trim()}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        {isSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography variant="body1" sx={{ 
+                    minHeight: '24px',
+                    color: (editedTask?.title || task.title) ? 'text.primary' : 'text.secondary',
+                    fontStyle: (editedTask?.title || task.title) ? 'normal' : 'italic'
+                  }}>
+                    {editedTask?.title || task.title || 'No title set'}
+                  </Typography>
+                )}
               </Box>
 
               {/* Description */}
