@@ -95,7 +95,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: '4px',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'grey.100'
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

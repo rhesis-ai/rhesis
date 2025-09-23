@@ -15,7 +15,7 @@ export default function ToolbarActions() {
         <AppVersion 
           variant="caption"
           sx={{ 
-            fontSize: '0.75rem',
+            fontSize: (theme) => theme.typography.chartLabel.fontSize,
             fontFamily: 'monospace',
             color: 'text.secondary'
           }}
