@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTheme } from '@mui/material/styles';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -51,6 +52,7 @@ interface MetricTypeDialogProps {
 
 export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProps) {
   const router = useRouter();
+  const theme = useTheme();
 
   const handleTypeSelect = (type: string, disabled?: boolean) => {
     if (disabled) return;
@@ -78,7 +80,7 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
                 mb: 2,
                 border: '1px solid',
                 borderColor: 'divider',
-                borderRadius: 1,
+                borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                 cursor: option.disabled ? 'not-allowed' : 'pointer',
                 opacity: option.disabled ? 0.7 : 1,
                 '&:hover': {
@@ -114,7 +116,7 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
                     sx={{
                       bgcolor: 'primary.main',
                       color: 'primary.contrastText',
-                      fontSize: '0.75rem'
+                      fontSize: theme?.typography?.chartLabel?.fontSize || '0.75rem'
                     }}
                   />
                 )}

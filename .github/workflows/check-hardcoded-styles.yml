@@ -1,0 +1,62 @@
+name: Check Hardcoded Styles
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/frontend/src/**/*.ts'
+      - 'apps/frontend/src/**/*.tsx'
+      - 'apps/frontend/src/**/*.js'
+      - 'apps/frontend/src/**/*.jsx'
+  workflow_dispatch:
+    inputs:
+      target_directory:
+        description: 'Target directory to check (optional)'
+        required: false
+        default: 'apps/frontend/src'
+        type: string
+
+jobs:
+  check-styles:
+    runs-on: ubuntu-latest
+    name: Check for hardcoded styles
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch more commits for git diff to work properly
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Make scripts executable
+        run: |
+          chmod +x scripts/check-hardcoded-styles.js
+          chmod +x scripts/create-pr-comment.js
+
+      - name: Run hardcoded styles check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.target_directory }}" ]; then
+            echo "Manual run - checking directory: ${{ github.event.inputs.target_directory }}"
+            find "${{ github.event.inputs.target_directory }}" -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | head -50 | xargs node scripts/check-hardcoded-styles.js
+          else
+            echo "PR run - checking changed files"
+            node scripts/check-hardcoded-styles.js
+          fi
+        env:
+          # Set environment to indicate we're in a CI context
+          CI: true
+
+      - name: Comment on PR (if violations found)
+        if: failure() && github.event_name == 'pull_request'
+        run: node scripts/create-pr-comment.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}

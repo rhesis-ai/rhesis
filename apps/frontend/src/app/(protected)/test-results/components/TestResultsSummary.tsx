@@ -10,7 +10,8 @@ import {
   CardContent,
   Chip,
   Alert,
-  CircularProgress
+  CircularProgress,
+  useTheme
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -56,6 +57,7 @@ function getPassRateDisplay(passRate: number) {
 }
 
 export default function TestResultsSummary({ sessionToken, filters }: TestResultsSummaryProps) {
+  const theme = useTheme();
   const [data, setData] = useState<TestResultsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +95,7 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
+      <Alert severity="error" sx={{ mt: theme.customSpacing.section.small }}>
         {error}
       </Alert>
     );
@@ -101,7 +103,7 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
 
   if (!data) {
     return (
-      <Alert severity="info" sx={{ mt: 2 }}>
+      <Alert severity="info" sx={{ mt: theme.customSpacing.section.small }}>
         No summary data available.
       </Alert>
     );
@@ -129,12 +131,17 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
   return (
     <Box>
       {/* Overall Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={theme.customSpacing.section.medium} sx={{ mb: theme.customSpacing.section.medium }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', minHeight: 120 }}>
-            <CardContent sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-              <Box display="flex" alignItems="center" gap={2}>
-                <AnalyticsIcon color="primary" />
+          <Card elevation={theme.elevation.standard} sx={{ height: '100%', minHeight: 120 }}>
+            <CardContent sx={{ 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center',
+              p: theme.customSpacing.container.medium
+            }}>
+              <Box display="flex" alignItems="center" gap={theme.customSpacing.container.small}>
+                <AnalyticsIcon color="primary" sx={{ fontSize: theme.iconSizes.large }} />
                 <Box>
                   <Typography variant="h4" fontWeight="bold">
                     {metadata.total_test_runs}
@@ -149,10 +156,15 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', minHeight: 120 }}>
-            <CardContent sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-              <Box display="flex" alignItems="center" gap={2}>
-                <AssessmentIcon color="primary" />
+          <Card elevation={theme.elevation.standard} sx={{ height: '100%', minHeight: 120 }}>
+            <CardContent sx={{ 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center',
+              p: theme.customSpacing.container.medium
+            }}>
+              <Box display="flex" alignItems="center" gap={theme.customSpacing.container.small}>
+                <AssessmentIcon color="primary" sx={{ fontSize: theme.iconSizes.large }} />
                 <Box>
                   <Typography variant="h4" fontWeight="bold">
                     {metadata.total_test_results}
@@ -167,10 +179,18 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', minHeight: 120 }}>
-            <CardContent sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-              <Box display="flex" alignItems="center" gap={2}>
-                {React.createElement(passRateDisplay.icon, { color: passRateDisplay.iconColor })}
+          <Card elevation={theme.elevation.standard} sx={{ height: '100%', minHeight: 120 }}>
+            <CardContent sx={{ 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center',
+              p: theme.customSpacing.container.medium
+            }}>
+              <Box display="flex" alignItems="center" gap={theme.customSpacing.container.small}>
+                {React.createElement(passRateDisplay.icon, { 
+                  color: passRateDisplay.iconColor,
+                  sx: { fontSize: theme.iconSizes.large }
+                })}
                 <Box>
                   <Typography variant="h4" fontWeight="bold" color={passRateDisplay.color}>
                     {overallPassRate.toFixed(1)}%
@@ -185,10 +205,15 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', minHeight: 120 }}>
-            <CardContent sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-              <Box display="flex" alignItems="center" gap={2}>
-                <ScheduleIcon color="primary" />
+          <Card elevation={theme.elevation.standard} sx={{ height: '100%', minHeight: 120 }}>
+            <CardContent sx={{ 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center',
+              p: theme.customSpacing.container.medium
+            }}>
+              <Box display="flex" alignItems="center" gap={theme.customSpacing.container.small}>
+                <ScheduleIcon color="primary" sx={{ fontSize: theme.iconSizes.large }} />
                 <Box>
                   <Typography variant="body1" fontWeight="bold">
                     {metadata.period || `Last ${filters.months || 6} months`}
@@ -205,36 +230,52 @@ export default function TestResultsSummary({ sessionToken, filters }: TestResult
 
       {/* Recent Test Runs */}
       {recentTestRuns.length > 0 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={theme.elevation.standard} sx={{ 
+          p: theme.customSpacing.container.medium, 
+          mb: theme.customSpacing.section.medium 
+        }}>
           <Typography variant="h6" gutterBottom>
             Latest Test Runs ({recentTestRuns.length})
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: theme.customSpacing.section.small 
+          }}>
             {recentTestRuns.map((run, index) => (
               <Box 
                 key={run.id || index} 
                 sx={{ 
-                  p: 2, 
+                  p: theme.customSpacing.container.small, 
                   border: 1, 
                   borderColor: 'divider', 
-                  borderRadius: 1
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                    borderColor: 'primary.main',
+                    transform: 'translateY(-1px)',
+                    boxShadow: theme.shadows[2]
+                  }
+                }}
+                onClick={() => {
+                  if (run.id) {
+                    window.open(`/test-runs/${run.id}`, '_blank');
+                  }
                 }}
               >
-                <Box display="flex" alignItems="center" gap={2} mb={1}>
+                <Box display="flex" alignItems="center" gap={theme.customSpacing.container.small} mb={1}>
                   <Chip 
                     label={run.name || `Run ${index + 1}`} 
-                    color={index === 0 ? "primary" : "default"}
-                    variant={index === 0 ? "filled" : "outlined"}
+                    variant="outlined"
                     size="small"
                   />
                   <Typography variant="body2" color="text.secondary">
                     {run.created_at ? new Date(run.created_at).toLocaleString() : 'N/A'}
                   </Typography>
-                  {index === 0 && (
-                    <Chip label="Most Recent" size="small" color="success" variant="outlined" />
-                  )}
                 </Box>
-                <Grid container spacing={2}>
+                <Grid container spacing={theme.customSpacing.container.small}>
                   <Grid item xs={6} sm={3}>
                     <Typography variant="caption" color="text.secondary">Total Tests</Typography>
                     <Typography variant="body1" fontWeight="medium">{run.total_tests || 0}</Typography>

@@ -64,3 +64,8 @@ class ExtractDocumentRequest(BaseModel):
 class ExtractDocumentResponse(BaseModel):
     content: str
     format: str
+
+
+class GenerateContentRequest(BaseModel):
+    prompt: str
+    schema: Optional[Dict[str, Any]] = None

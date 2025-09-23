@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -89,7 +90,9 @@ function AssignMetricDialog({ open, onClose, onAssign, behaviors, isLoading, err
           </Box>
         ) : (
           <Stack spacing={2} sx={{ mt: 2 }}>
-            {behaviors.map((behavior) => (
+            {[...behaviors]
+              .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              .map((behavior) => (
               <Button
                 key={behavior.id}
                 variant="outlined"
@@ -149,6 +152,7 @@ export default function MetricsDirectoryTab({
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const theme = useTheme();
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -664,7 +668,7 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: '0.875rem'
+                          fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
                         }
                       }}
                     >
@@ -679,46 +683,29 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: '0.875rem'
+                          fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
                         }
                       }}
                     >
                       <AddIcon fontSize="inherit" />
                     </IconButton>
-                    {assignedBehaviors.length > 0 ? (
+                    {/* Only show delete button for unassigned custom metrics */}
+                    {assignedBehaviors.length === 0 && metric.backend_type?.type_value?.toLowerCase() === 'custom' && (
                       <IconButton
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleRemoveMetricFromBehavior(assignedBehaviors[0].id, metric.id);
+                          handleDeleteMetric(metric.id, metric.name);
                         }}
                         sx={{
                           padding: '2px',
                           '& .MuiSvgIcon-root': {
-                            fontSize: '0.875rem'
+                            fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
                           }
                         }}
                       >
-                        <CloseIcon fontSize="inherit" />
+                        <DeleteIcon fontSize="inherit" />
                       </IconButton>
-                    ) : (
-                      metric.backend_type?.type_value?.toLowerCase() === 'custom' && (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteMetric(metric.id, metric.name);
-                          }}
-                          sx={{
-                            padding: '2px',
-                            '& .MuiSvgIcon-root': {
-                              fontSize: '0.875rem'
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="inherit" />
-                        </IconButton>
-                      )
                     )}
                   </Box>
                   <MetricCard 

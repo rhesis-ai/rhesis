@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Button, TextField, Paper, Typography } from '@mui/material';
+import { Box, Button, TextField, Paper, Typography, useTheme } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
@@ -25,6 +25,7 @@ export default function TestExecutableField({
   onUpdate,
   fieldName = 'content'
 }: TestExecutableFieldProps) {
+  const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(initialContent);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -94,7 +95,7 @@ export default function TestExecutableField({
             whiteSpace: 'pre-wrap',
             fontFamily: 'monospace',
             bgcolor: 'action.hover',
-            borderRadius: 1,
+            borderRadius: (theme) => theme.shape.borderRadius * 0.25,
             padding: boxPadding,
             minHeight: displayMinHeight,
             // Ensure text does not go under the absolutely positioned Edit button
@@ -117,9 +118,13 @@ export default function TestExecutableField({
             top: 8, 
             right: 8,
             zIndex: 1,
-            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            backgroundColor: (theme) => theme.palette.mode === 'dark' 
+              ? 'rgba(0, 0, 0, 0.6)' 
+              : 'rgba(255, 255, 255, 0.8)',
             '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backgroundColor: (theme) => theme.palette.mode === 'dark'
+                ? 'rgba(0, 0, 0, 0.8)'
+                : 'rgba(255, 255, 255, 0.9)',
             }
           }}
         >

@@ -10,7 +10,7 @@ import {
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import Link from 'next/link';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 
 import { PageContainer } from '@toolpad/core/PageContainer';
 import TestWorkflowSection from './components/TestWorkflowSection';

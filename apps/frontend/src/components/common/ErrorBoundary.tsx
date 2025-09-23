@@ -101,8 +101,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                   sx={{
                     backgroundColor: 'grey.100',
                     p: 2,
-                    borderRadius: 1,
-                    fontSize: '0.875rem',
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                    fontSize: (theme) => theme.typography.helperText.fontSize,
                     overflow: 'auto',
                     maxHeight: 200,
                   }}
