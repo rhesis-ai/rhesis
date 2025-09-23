@@ -358,6 +358,15 @@ jobs:
           )"
             
             echo "✅ Regular deployment completed successfully"
+            
+            # For regular deployments, ensure the new revision gets 100% traffic
+            echo "🚦 Setting new revision to receive 100% traffic..."
+            gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+              --to-latest \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }}
+            
+            echo "✅ Traffic successfully routed to new revision"
           fi
 
       - name: Tag revision for commit-specific URL
