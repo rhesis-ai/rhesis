@@ -256,7 +256,7 @@ export function CommentItem({
                             color: 'text.primary',
                             border: '1px solid',
                             borderColor: hasReacted ? 'primary.main' : 'divider',
-                            borderRadius: '16px',
+                            borderRadius: (theme) => theme.shape.borderRadius * 4,
                             px: 1.5,
                             py: 0.75,
                             cursor: 'pointer',

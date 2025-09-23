@@ -120,7 +120,7 @@ function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }:
                 key={provider.id}
                 onClick={() => onSelectProvider(provider)}
                 sx={{ 
-                  borderRadius: 1,
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                   my: 0.5,
                   '&:hover': {
                     backgroundColor: 'action.hover'
@@ -243,7 +243,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
       maxWidth="md" 
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 2 }
+        sx: { borderRadius: (theme) => theme.shape.borderRadius * 0.5 }
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
@@ -643,7 +643,7 @@ export default function LLMProvidersPage() {
                   disableRipple
                   sx={{ 
                     textTransform: 'none',
-                    borderRadius: 1.5,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.375,
                     pointerEvents: 'none',
                     cursor: 'default'
                   }}
@@ -689,7 +689,7 @@ export default function LLMProvidersPage() {
                 size="small"
                 sx={{ 
                   textTransform: 'none',
-                  borderRadius: 1.5
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.375
                 }}
               >
                 Add Provider
