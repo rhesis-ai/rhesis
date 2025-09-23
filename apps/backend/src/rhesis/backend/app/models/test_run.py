@@ -5,10 +5,10 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.models.guid import GUID
 
 from .base import Base
-from .mixins import CommentTaskMixin, OrganizationMixin, TagsMixin
+from .mixins import CountMixin, OrganizationMixin, TagsMixin
 
 
-class TestRun(Base, TagsMixin, OrganizationMixin, CommentTaskMixin):
+class TestRun(Base, TagsMixin, OrganizationMixin, CountMixin):
     __tablename__ = "test_run"
 
     user_id = Column(GUID(), ForeignKey("user.id"))

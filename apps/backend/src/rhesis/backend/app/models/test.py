@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentTaskMixin, OrganizationMixin, TagsMixin
+from .mixins import CountMixin, OrganizationMixin, TagsMixin
 
 # Association table for test_set and test
 test_test_set_association = Table(
@@ -17,7 +17,7 @@ test_test_set_association = Table(
 )
 
 
-class Test(Base, TagsMixin, OrganizationMixin, CommentTaskMixin):
+class Test(Base, TagsMixin, OrganizationMixin, CountMixin):
     __tablename__ = "test"
 
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))

@@ -8,12 +8,12 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentTaskMixin, OrganizationMixin, TagsMixin
+from .mixins import CountMixin, OrganizationMixin, TagsMixin
 from .test_set import prompt_test_set_association
 from .use_case import prompt_use_case_association
 
 
-class Prompt(Base, TagsMixin, OrganizationMixin, CommentTaskMixin):
+class Prompt(Base, TagsMixin, OrganizationMixin, CountMixin):
     __tablename__ = "prompt"
     content = Column(Text, nullable=False)
     demographic_id = Column(

@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentTaskMixin, OrganizationAndUserMixin
+from .mixins import CountMixin, OrganizationAndUserMixin
 
 
-class Category(Base, OrganizationAndUserMixin, CommentTaskMixin):
+class Category(Base, OrganizationAndUserMixin, CountMixin):
     __tablename__ = "category"
     name = Column(String)
     description = Column(Text)
