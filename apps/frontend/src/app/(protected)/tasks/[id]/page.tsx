@@ -264,7 +264,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                 sx={{
                   width: 20,
                   height: 20,
-                  borderRadius: '50%', // Circular element - 50% is standard
+                  borderRadius: theme.shape.circular,
                   backgroundColor: 'text.secondary',
                   display: 'flex',
                   alignItems: 'center',
