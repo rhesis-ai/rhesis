@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, relationship
 from rhesis.backend.app.models.guid import GUID
 
 from .base import Base
-from .mixins import TagsMixin
+from .mixins import CommentTaskMixin, TagsMixin
 from .test import test_test_set_association
 
 """
@@ -38,7 +38,7 @@ prompt_test_set_association = Table(
 )
 
 
-class TestSet(Base, TagsMixin):
+class TestSet(Base, TagsMixin, CommentTaskMixin):
     __tablename__ = "test_set"
     name = Column(String, nullable=False)
     description = Column(Text)
@@ -77,30 +77,6 @@ class TestSet(Base, TagsMixin):
     tests = relationship(
         "Test", secondary=test_test_set_association, back_populates="test_sets", viewonly=True
     )
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(TestSet.id), Comment.entity_type == 'TestSet')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    # Task relationship (polymorphic)
-    tasks = relationship(
-        "Task",
-        primaryjoin="and_(Task.entity_id == foreign(TestSet.id), Task.entity_type == 'TestSet')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    @property
-    def counts(self):
-        """Get the counts of comments, tasks for this test set"""
-        return {
-            "comments": len(self.comments) if self.comments else 0,
-            "tasks": len(self.tasks) if self.tasks else 0,
-        }
 
     def _get_related_items(self, model_class, attribute_key):
         """Helper method to fetch related items from attributes"""

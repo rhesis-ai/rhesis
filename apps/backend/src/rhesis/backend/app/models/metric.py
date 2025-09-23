@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin, TagsMixin, UserOwnedMixin
+from .mixins import CommentTaskMixin, OrganizationMixin, TagsMixin, UserOwnedMixin
 
 # Association table for behavior and metric
 behavior_metric_association = Table(
@@ -33,7 +33,7 @@ class ThresholdOperator(str, Enum):
     NOT_EQUAL = "!="
 
 
-class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
+class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin, CommentTaskMixin):
     __tablename__ = "metric"
 
     name = Column(String, nullable=False)
@@ -75,25 +75,3 @@ class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin):
     behaviors = relationship(
         "Behavior", secondary=behavior_metric_association, back_populates="metrics"
     )
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Metric.id), Comment.entity_type == 'Metric')",
-        viewonly=True,
-        uselist=True,
-    )
-    # Task relationship (polymorphic)
-    tasks = relationship(
-        "Task",
-        primaryjoin="and_(Task.entity_id == foreign(Metric.id), Task.entity_type == 'Metric')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    @property
-    def counts(self):
-        """Get the counts of comments, tasks for this metric"""
-        return {
-            "comments": len(self.comments) if self.comments else 0,
-            "tasks": len(self.tasks) if self.tasks else 0,
-        }

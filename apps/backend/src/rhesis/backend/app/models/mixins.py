@@ -46,6 +46,44 @@ class TagsMixin:
             self._tags_relationship.append(tagged_item)
 
 
+class CommentTaskMixin:
+    """Mixin that provides polymorphic comment and task relationships with counts"""
+
+    @declared_attr
+    def comments(cls):
+        """Polymorphic comment relationship"""
+        return relationship(
+            "Comment",
+            primaryjoin=(
+                f"and_({cls.__name__}.id == foreign(Comment.entity_id), "
+                f"Comment.entity_type == '{cls.__name__}')"
+            ),
+            viewonly=True,
+            uselist=True,
+        )
+
+    @declared_attr
+    def tasks(cls):
+        """Polymorphic task relationship"""
+        return relationship(
+            "Task",
+            primaryjoin=(
+                f"and_({cls.__name__}.id == foreign(Task.entity_id), "
+                f"Task.entity_type == '{cls.__name__}')"
+            ),
+            viewonly=True,
+            uselist=True,
+        )
+
+    @property
+    def counts(self):
+        """Get the counts of comments and tasks for this entity"""
+        return {
+            "comments": len(self.comments) if self.comments else 0,
+            "tasks": len(self.tasks) if self.tasks else 0,
+        }
+
+
 class OrganizationMixin:
     """Mixin for organization-level multi-tenancy"""
 

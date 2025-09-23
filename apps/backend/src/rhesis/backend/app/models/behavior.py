@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import CommentTaskMixin, OrganizationAndUserMixin
 
 
-class Behavior(Base, OrganizationAndUserMixin):
+class Behavior(Base, OrganizationAndUserMixin, CommentTaskMixin):
     __tablename__ = "behavior"
     name = Column(String, nullable=False)
     description = Column(Text)
@@ -17,27 +17,3 @@ class Behavior(Base, OrganizationAndUserMixin):
     prompts = relationship("Prompt", back_populates="behavior")
     tests = relationship("Test", back_populates="behavior")
     metrics = relationship("Metric", secondary="behavior_metric", back_populates="behaviors")
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Behavior.id), Comment.entity_type == 'Behavior')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    # Task relationship (polymorphic)
-    tasks = relationship(
-        "Task",
-        primaryjoin="and_(Task.entity_id == foreign(Behavior.id), Task.entity_type == 'Behavior')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    @property
-    def counts(self):
-        """Get the counts of comments, tasks for this behavior"""
-        return {
-            "comments": len(self.comments) if self.comments else 0,
-            "tasks": len(self.tasks) if self.tasks else 0,
-        }

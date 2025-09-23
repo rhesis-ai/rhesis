@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin, TagsMixin
+from .mixins import CommentTaskMixin, OrganizationMixin, TagsMixin
 
 # Association table for test_set and test
 test_test_set_association = Table(
@@ -17,7 +17,7 @@ test_test_set_association = Table(
 )
 
 
-class Test(Base, TagsMixin, OrganizationMixin):
+class Test(Base, TagsMixin, OrganizationMixin, CommentTaskMixin):
     __tablename__ = "test"
 
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
@@ -54,27 +54,3 @@ class Test(Base, TagsMixin, OrganizationMixin):
     test_sets = relationship(
         "TestSet", secondary=test_test_set_association, back_populates="tests", viewonly=True
     )
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Test.id), Comment.entity_type == 'Test')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    # Task relationship (polymorphic)
-    tasks = relationship(
-        "Task",
-        primaryjoin="and_(Task.entity_id == foreign(Test.id), Task.entity_type == 'Test')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    @property
-    def counts(self):
-        """Get the counts of comments, tasks for this test"""
-        return {
-            "comments": len(self.comments) if self.comments else 0,
-            "tasks": len(self.tasks) if self.tasks else 0,
-        }
