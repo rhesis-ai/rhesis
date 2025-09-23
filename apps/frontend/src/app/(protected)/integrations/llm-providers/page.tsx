@@ -21,6 +21,7 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface ProviderInfo {
   id: string;
@@ -52,31 +53,6 @@ interface ProviderSelectionDialogProps {
   providers: TypeLookup[];
 }
 
-interface DeleteConfirmationDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  modelName: string;
-}
-
-function DeleteConfirmationDialog({ open, onClose, onConfirm, modelName }: DeleteConfirmationDialogProps) {
-  return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Delete Model Connection</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete the connection to {modelName}? This action cannot be undone.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={onConfirm} color="error">
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
 
 function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }: ProviderSelectionDialogProps) {
   if (!providers || providers.length === 0) {
@@ -716,14 +692,16 @@ export default function LLMProvidersPage() {
         onConnect={handleConnect}
       />
 
-      <DeleteConfirmationDialog
+      <DeleteModal
         open={deleteDialogOpen}
         onClose={() => {
           setDeleteDialogOpen(false);
           setModelToDelete(null);
         }}
         onConfirm={handleDeleteConfirm}
-        modelName={modelToDelete?.name || ''}
+        itemType="model connection"
+        itemName={modelToDelete?.name}
+        title="Delete Model Connection"
       />
     </Box>
   );
