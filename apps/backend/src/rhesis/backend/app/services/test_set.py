@@ -28,9 +28,9 @@ from rhesis.backend.app.utils.uuid_utils import (
 from rhesis.backend.logging import logger
 
 
-def get_test_set(db: Session, test_set_id: uuid.UUID):
-    """Get test set by ID - UUID is globally unique, no organization filtering needed"""
-    return (
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
+    """Get test set by ID with organization filtering for security"""
+    query = (
         db.query(TestSet)
         .filter(TestSet.id == test_set_id)
         .options(
@@ -43,8 +43,14 @@ def get_test_set(db: Session, test_set_id: uuid.UUID):
             joinedload(TestSet.prompts).joinedload(Prompt.status),
             joinedload(TestSet.prompts).joinedload(Prompt.user),
         )
-        .first()
     )
+    
+    # Apply organization filtering if provided
+    if organization_id:
+        from uuid import UUID as UUIDType
+        query = query.filter(TestSet.organization_id == UUIDType(organization_id))
+    
+    return query.first()
 
 
 def load_defaults():

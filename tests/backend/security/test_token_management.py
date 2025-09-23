@@ -14,8 +14,8 @@ from rhesis.backend.app import models, crud
 
 
 @pytest.mark.security
-class TestTokenSecurityFixes:
-    """Test security fixes for token management vulnerabilities"""
+class TestTokenOrganizationSecurity:
+    """Test that token operations properly enforce organization-based security"""
     
     def test_revoke_user_tokens_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that revoke_user_tokens accepts organization filtering for token scoping"""
@@ -76,60 +76,82 @@ class TestTokenSecurityFixes:
         signature = inspect.signature(crud.create_token)
         assert 'organization_id' in signature.parameters, "create_token should accept organization_id for token scoping"
         
-        user_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
+        # Create a test organization and user
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org, user, _ = create_test_organization_and_user(
+            test_db, f"Token Org {unique_id}", f"token-user-{unique_id}@security-test.com", "Token User"
+        )
         
-        # Mock the token creation
-        with patch.object(test_db, 'add') as mock_add, \
-             patch.object(test_db, 'commit') as mock_commit, \
-             patch.object(test_db, 'refresh') as mock_refresh:
-            
-            mock_token = Mock()
-            mock_token.user_id = user_id
-            mock_token.organization_id = uuid.UUID(org_id)
-            
-            # Test token creation with organization scoping
-            result = crud.create_token(test_db, user_id, organization_id=org_id)
-            
-            # Verify that add, commit, and refresh were called
-            mock_add.assert_called_once()
-            mock_commit.assert_called_once()
+        # Create a token with organization scoping
+        from rhesis.backend.app.schemas.token import TokenCreate
+        import secrets
+        token_value = secrets.token_urlsafe(32)
+        token_data = TokenCreate(
+            name=f"Test Token {unique_id}",
+            token=token_value,
+            token_obfuscated=token_value[:8] + "...",
+            user_id=user.id
+        )
+        result = crud.create_token(test_db, token_data, organization_id=str(org.id), user_id=str(user.id))
+        
+        # Verify the token was created with correct organization scoping
+        assert result is not None
+        assert str(result.user_id) == str(user.id)
+        assert str(result.organization_id) == str(org.id)
 
-    def test_delete_token_organization_filtering(self, test_db: Session):
-        """🔒 SECURITY: Test that delete_token accepts organization filtering for token scoping"""
+    def test_revoke_token_organization_filtering(self, test_db: Session):
+        """🔒 SECURITY: Test that revoke_token properly filters by organization"""
         import inspect
         
-        # Verify that delete_token accepts organization_id parameter
-        signature = inspect.signature(crud.delete_token)
-        assert 'organization_id' in signature.parameters, "delete_token should accept organization_id for token scoping"
+        # Verify that revoke_token accepts organization_id parameter
+        signature = inspect.signature(crud.revoke_token)
+        assert 'organization_id' in signature.parameters, "revoke_token should accept organization_id for token scoping"
         
-        token_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
+        # Create two separate organizations and users
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"Token Delete Org 1 {unique_id}", f"token-delete-user1-{unique_id}@security-test.com", "Token Delete User 1"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"Token Delete Org 2 {unique_id}", f"token-delete-user2-{unique_id}@security-test.com", "Token Delete User 2"
+        )
         
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_token = Mock()
-            mock_token.id = token_id
-            mock_token.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_token
-            mock_query.return_value.filter.return_value.filter.return_value.delete.return_value = 1
-            
-            result_with_org = crud.delete_token(test_db, token_id, organization_id=org_id)
-            assert result_with_org == 1
-            
-            # Test without organization filtering (should work but may delete tokens from any org)
-            mock_query.return_value.filter.return_value.first.return_value = mock_token
-            mock_query.return_value.filter.return_value.delete.return_value = 1
-            
-            result_without_org = crud.delete_token(test_db, token_id)
-            assert result_without_org == 1
+        # Create a token in org1
+        from rhesis.backend.app.schemas.token import TokenCreate
+        import secrets
+        token_value1 = secrets.token_urlsafe(32)
+        token_data = TokenCreate(
+            name=f"Test Token 1 {unique_id}",
+            token=token_value1,
+            token_obfuscated=token_value1[:8] + "...",
+            user_id=user1.id
+        )
+        token = crud.create_token(test_db, token_data, organization_id=str(org1.id), user_id=str(user1.id))
+        
+        # User from org1 should be able to revoke the token
+        result_org1 = crud.revoke_token(test_db, token.id, organization_id=str(org1.id), user_id=str(user1.id))
+        assert result_org1 is not None  # Token was found and revoked
+        
+        # Create another token in org1 for the next test
+        token_value2 = secrets.token_urlsafe(32)
+        token_data2 = TokenCreate(
+            name=f"Test Token 2 {unique_id}",
+            token=token_value2,
+            token_obfuscated=token_value2[:8] + "...",
+            user_id=user1.id
+        )
+        token2 = crud.create_token(test_db, token_data2, organization_id=str(org1.id), user_id=str(user1.id))
+        
+        # User from org2 should NOT be able to revoke the token from org1
+        result_org2 = crud.revoke_token(test_db, token2.id, organization_id=str(org2.id), user_id=str(user2.id))
+        assert result_org2 is None  # Token was not found/revoked due to organization filtering
 
 
 @pytest.mark.security
-class TestTokenRegression:
-    """Regression tests for token security fixes"""
+class TestTokenParameterValidation:
+    """Test that token functions properly accept organization_id parameters for security"""
     
     def test_token_functions_accept_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Ensure all token-related functions accept organization filtering"""
@@ -140,7 +162,7 @@ class TestTokenRegression:
             'revoke_user_tokens',
             'get_token_by_value', 
             'create_token',
-            'delete_token',
+            'revoke_token',
         ]
         
         for func_name in token_functions:

@@ -338,12 +338,13 @@ def delete_response_pattern(
 
 
 # TestSet CRUD
-def get_test_set(db: Session, test_set_id: uuid.UUID) -> Optional[models.TestSet]:
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None) -> Optional[models.TestSet]:
     """
-    Get a test set by its UUID, applying proper visibility filtering.
+    Get a test set by its UUID, applying proper visibility filtering and organization scoping.
     """
     return (
         QueryBuilder(db, models.TestSet)
+        .with_organization_filter(organization_id)  # Add organization filtering
         .with_visibility_filter()
         .with_custom_filter(lambda q: q.filter(models.TestSet.id == test_set_id))
         .first()
@@ -428,8 +429,8 @@ def update_test_set(
     return update_item(db, models.TestSet, test_set_id, test_set, organization_id, user_id)
 
 
-def delete_test_set(db: Session, test_set_id: uuid.UUID) -> Optional[models.TestSet]:
-    return delete_item(db, models.TestSet, test_set_id)
+def delete_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TestSet]:
+    return delete_item(db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id)
 
 
 def get_test_set_by_nano_id_or_slug(db: Session, identifier: str) -> Optional[models.TestSet]:
