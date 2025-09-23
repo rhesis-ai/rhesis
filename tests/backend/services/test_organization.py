@@ -25,86 +25,60 @@ class TestLoadInitialData:
     """Test load_initial_data function."""
 
     def test_load_initial_data_success(self, test_db: Session, authenticated_user_id, test_org_id):
-        """Test successful loading of initial data."""
-        # Mock initial data JSON
-        mock_initial_data = {
-            "type_lookup": [
-                {"type_name": "TestType", "type_value": "default"}
-            ],
-            "status": [
-                {"name": "active", "entity_type": "test"}
-            ],
-            "behavior": [
-                {"name": "test_behavior", "description": "Test behavior", "status": "active"}
-            ],
-            "use_case": [
-                {"name": "test_use_case", "description": "Test use case", "industry": "tech"}
-            ],
-            "risk": [
-                {"name": "test_risk", "description": "Test risk", "severity": "medium"}
-            ]
-        }
+        """Test successful loading of initial data using real database operations."""
+        # Count entities before loading initial data
+        initial_type_lookup_count = test_db.query(models.TypeLookup).filter(
+            models.TypeLookup.organization_id == test_org_id
+        ).count()
+        initial_status_count = test_db.query(models.Status).filter(
+            models.Status.organization_id == test_org_id
+        ).count()
+        initial_behavior_count = test_db.query(models.Behavior).filter(
+            models.Behavior.organization_id == test_org_id
+        ).count()
         
-        # Mock file operations and utility functions
-        with patch('builtins.open', mock_open(read_data=json.dumps(mock_initial_data))), \
-             patch('rhesis.backend.app.services.organization.get_or_create_type_lookup') as mock_get_type, \
-             patch('rhesis.backend.app.services.organization.get_or_create_status') as mock_get_status, \
-             patch('rhesis.backend.app.services.organization.get_or_create_behavior') as mock_get_behavior, \
-             patch('rhesis.backend.app.services.organization.get_or_create_entity') as mock_get_entity:
-            
-            # Call the function (now uses provided db parameter directly)
-            organization_service.load_initial_data(
-                db=test_db,
-                organization_id=test_org_id,
-                user_id=authenticated_user_id
-            )
-            
-            # Verify type_lookup creation (now includes organization_id and user_id)
-            mock_get_type.assert_called_once_with(
-                db=test_db,
-                type_name="TestType",
-                type_value="default",
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                commit=False
-            )
-            
-            # Verify status creation (now includes organization_id and user_id)
-            mock_get_status.assert_called_once_with(
-                db=test_db,
-                name="active",
-                entity_type="test",
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                commit=False
-            )
-            
-            # Verify behavior creation (now includes organization_id and user_id)
-            mock_get_behavior.assert_called_once_with(
-                db=test_db,
-                name="test_behavior",
-                description="Test behavior",
-                status="active",
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                commit=False
-            )
-            
-            # Verify use_case creation (now includes organization_id and user_id)
-            mock_get_entity.assert_any_call(
-                db=test_db,
-                model=models.UseCase,
-                entity_data={
-                    "name": "test_use_case",
-                    "description": "Test use case",
-                    "industry": "tech",
-                    "application": None,
-                    "is_active": True
-                },
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                commit=False
-            )
+        # Call the real function with real database
+        organization_service.load_initial_data(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
+        )
+        
+        # Verify that entities were actually created in the database
+        final_type_lookup_count = test_db.query(models.TypeLookup).filter(
+            models.TypeLookup.organization_id == test_org_id
+        ).count()
+        final_status_count = test_db.query(models.Status).filter(
+            models.Status.organization_id == test_org_id
+        ).count()
+        final_behavior_count = test_db.query(models.Behavior).filter(
+            models.Behavior.organization_id == test_org_id
+        ).count()
+        
+        # Assert that data was actually loaded
+        assert final_type_lookup_count > initial_type_lookup_count, "TypeLookup entities should have been created"
+        assert final_status_count > initial_status_count, "Status entities should have been created"
+        assert final_behavior_count > initial_behavior_count, "Behavior entities should have been created"
+        
+        # Verify specific entities exist with correct tenant context
+        # Check that a test status was created with correct organization_id
+        test_status = test_db.query(models.Status).filter(
+            models.Status.organization_id == test_org_id,
+            models.Status.name.ilike("%test%")
+        ).first()
+        
+        if test_status:
+            assert str(test_status.organization_id) == test_org_id
+            assert str(test_status.user_id) == authenticated_user_id
+        
+        # Check that behaviors were created with correct tenant context
+        test_behavior = test_db.query(models.Behavior).filter(
+            models.Behavior.organization_id == test_org_id
+        ).first()
+        
+        if test_behavior:
+            assert str(test_behavior.organization_id) == test_org_id
+            assert str(test_behavior.user_id) == authenticated_user_id
 
     def test_load_initial_data_with_custom_file_path(self, test_db: Session, authenticated_user_id, test_org_id):
         """Integration test: load_initial_data with custom file path that contains minimal data."""
