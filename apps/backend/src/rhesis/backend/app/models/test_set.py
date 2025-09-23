@@ -95,14 +95,12 @@ class TestSet(Base, TagsMixin):
     )
 
     @property
-    def comment_count(self):
-        """Get the count of comments for this test set"""
-        return len(self.comments) if self.comments else 0
-
-    @property
-    def task_count(self):
-        """Get the count of tasks for this test set"""
-        return len(self.tasks) if self.tasks else 0
+    def counts(self):
+        """Get the counts of comments, tasks for this test set"""
+        return {
+            "comments": len(self.comments) if self.comments else 0,
+            "tasks": len(self.tasks) if self.tasks else 0,
+        }
 
     def _get_related_items(self, model_class, attribute_key):
         """Helper method to fetch related items from attributes"""
