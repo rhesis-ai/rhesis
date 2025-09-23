@@ -1,5 +1,8 @@
 import os
+import uuid
+import secrets
 import pytest
+from datetime import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -97,7 +100,7 @@ def setup_test_database():
 
 @pytest.fixture(autouse=True)
 def clean_test_database():
-    """Clean test database between tests for isolation while preserving session-scoped auth data."""
+    """Clean test database between tests while generating fresh auth data for each test run."""
     # Clean up BEFORE each test to ensure isolation
     try:
         with test_engine.connect() as connection:
@@ -107,45 +110,57 @@ def clean_test_database():
             auth_token_ids = []
             
             try:
-                # Try to get the authenticated user info from environment
+                # Always generate fresh test auth data for each test run
                 import os
-                api_key = os.getenv("RHESIS_API_KEY")
-                if api_key:
-                    # Get the user and org that should be preserved
-                    result = connection.execute(text("""
-                        SELECT u.id as user_id, u.organization_id, array_agg(DISTINCT t.id) as token_ids
-                        FROM "user" u 
-                        JOIN token t ON t.user_id = u.id 
-                        WHERE t.token = :api_key
-                        GROUP BY u.id, u.organization_id
-                    """), {"api_key": api_key})
-                    
-                    row = result.fetchone()
-                    if row:
-                        auth_user_id = str(row.user_id)
-                        auth_org_id = str(row.organization_id) if row.organization_id else None
-                        auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
-                        print(f"🔐 Preserving auth data: user={auth_user_id}, org={auth_org_id}, tokens={len(auth_token_ids)}")
-                    else:
-                        print(f"⚠️ API key {api_key[:20]}... not found in database")
+                from tests.backend.fixtures.test_setup import create_test_organization_and_user
+                from tests.backend.conftest import TestingSessionLocal
                 
-                # If no API key or auth data found, try to preserve ANY existing auth tokens
-                # This prevents complete data wipeout when running tests without RHESIS_API_KEY
+                # Create a database session for the setup
+                db = TestingSessionLocal()
+                try:
+                    # Generate unique names for this test run
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    test_org_name = f"Test Organization {timestamp}"
+                    test_user_email = f"test_{timestamp}@rhesis-test.com"
+                    test_user_name = "Test User"
+                    
+                    # Use existing routine to create org, user, and token
+                    organization, user, token = create_test_organization_and_user(
+                        db, test_org_name, test_user_email, test_user_name
+                    )
+                    
+                    # Set up preservation for our fresh test data
+                    auth_user_id = str(user.id)
+                    auth_org_id = str(organization.id)
+                    auth_token_ids = [str(token.id)]
+                    
+                    # Update environment for this test run
+                    os.environ["RHESIS_API_KEY"] = token.token
+                    print(f"🆕 Created fresh test auth data: user={auth_user_id}, org={auth_org_id}, api_key={token.token[:20]}...")
+                    
+                except Exception as e:
+                    print(f"❌ Failed to create fresh test auth data: {e}")
+                    db.rollback()
+                finally:
+                    db.close()
+                
+                # Fallback: Preserve ALL production data if fresh generation fails
                 if not auth_user_id:
+                    # Fallback: preserve all production tokens
                     result = connection.execute(text("""
-                        SELECT u.id as user_id, u.organization_id, array_agg(DISTINCT t.id) as token_ids
+                        SELECT array_agg(DISTINCT u.id) as user_ids, 
+                               array_agg(DISTINCT u.organization_id) as org_ids,
+                               array_agg(DISTINCT t.id) as token_ids
                         FROM "user" u 
-                        JOIN token t ON t.user_id = u.id 
-                        GROUP BY u.id, u.organization_id
-                        LIMIT 1
+                        JOIN token t ON t.user_id = u.id
                     """))
                     
                     row = result.fetchone()
                     if row:
-                        auth_user_id = str(row.user_id)
-                        auth_org_id = str(row.organization_id) if row.organization_id else None
+                        auth_user_ids = [str(uid) for uid in (row.user_ids or []) if uid]
+                        auth_org_ids = [str(oid) for oid in (row.org_ids or []) if oid]  
                         auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
-                        print(f"🔐 Preserving fallback auth data: user={auth_user_id}, org={auth_org_id}, tokens={len(auth_token_ids)}")
+                        print(f"🔐 Preserving ALL production data: {len(auth_user_ids)} users, {len(auth_org_ids)} orgs, {len(auth_token_ids)} tokens")
                         
             except Exception as e:
                 # If we can't get auth data, continue with normal cleanup
@@ -220,20 +235,40 @@ def clean_test_database():
             for table_name in tables_to_clean:
                 try:
                     with connection.begin():
-                        if table_name == '"user"' and auth_user_id:
-                            # Preserve the authenticated user
-                            result = connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
-                                             {"auth_user_id": auth_user_id})
-                            if result.rowcount > 0:
-                                print(f"  🗑️ Cleaned {result.rowcount} users (preserved auth user)")
-                        elif table_name == 'organization' and auth_org_id:
-                            # Preserve the authenticated user's organization
-                            result = connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_org_id'), 
-                                             {"auth_org_id": auth_org_id})
-                            if result.rowcount > 0:
-                                print(f"  🗑️ Cleaned {result.rowcount} organizations (preserved auth org)")
+                        if table_name == '"user"':
+                            # Handle different preservation modes
+                            if 'auth_user_ids' in locals() and auth_user_ids:
+                                # Preserve ALL production users
+                                placeholders = ','.join([f':user_{i}' for i in range(len(auth_user_ids))])
+                                user_params = {f'user_{i}': user_id for i, user_id in enumerate(auth_user_ids)}
+                                result = connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
+                                                 user_params)
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} users (preserved {len(auth_user_ids)} production users)")
+                            elif auth_user_id:
+                                # Preserve single auth user (fresh test user or specific production user)
+                                result = connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
+                                                 {"auth_user_id": auth_user_id})
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} users (preserved 1 auth user)")
+                        elif table_name == 'organization':
+                            # Handle different preservation modes
+                            if 'auth_org_ids' in locals() and auth_org_ids:
+                                # Preserve ALL production organizations
+                                placeholders = ','.join([f':org_{i}' for i in range(len(auth_org_ids))])
+                                org_params = {f'org_{i}': org_id for i, org_id in enumerate(auth_org_ids)}
+                                result = connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
+                                                 org_params)
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} organizations (preserved {len(auth_org_ids)} production orgs)")
+                            elif auth_org_id:
+                                # Preserve single auth organization (fresh test org or specific production org)
+                                result = connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_org_id'), 
+                                                 {"auth_org_id": auth_org_id})
+                                if result.rowcount > 0:
+                                    print(f"  🗑️ Cleaned {result.rowcount} organizations (preserved 1 auth org)")
                         elif table_name == 'token' and auth_token_ids:
-                            # Preserve the authentication tokens
+                            # Preserve authentication tokens (works for both single and multiple modes)
                             placeholders = ','.join([f':token_{i}' for i in range(len(auth_token_ids))])
                             token_params = {f'token_{i}': token_id for i, token_id in enumerate(auth_token_ids)}
                             result = connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
