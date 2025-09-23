@@ -453,13 +453,13 @@ jobs:
           echo "## 🚀 ⚠️ PREVIEW DEPLOYMENT - Frontend Service" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🏷️ Preview Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type:** Preview Deployment (NOT Production)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type:** Preview Deployment (NOT Live Environment)" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit SHA:** \`${{ env.COMMIT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Preview URL:** [$PREVIEW_URL]($PREVIEW_URL)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚫 **This is NOT the production service**" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **Receives 0% production traffic**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 **This is NOT the live ${{ env.ENVIRONMENT }} service**" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 **Receives 0% live traffic**" >> $GITHUB_STEP_SUMMARY
           echo "- 🔗 **Only accessible via the tagged URL above**" >> $GITHUB_STEP_SUMMARY
           echo "- 🧪 **For testing and review purposes only**" >> $GITHUB_STEP_SUMMARY
 
@@ -500,19 +500,36 @@ jobs:
             printf "**🧪 Preview URL:** [%s](%s)\n" "$DEPLOYED_URL" "$DEPLOYED_URL" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### ⚠️ Preview Warning" >> $GITHUB_STEP_SUMMARY
-            echo "- 🚫 **This is a PREVIEW deployment, NOT production**" >> $GITHUB_STEP_SUMMARY
-            echo "- 📊 **Receives 0% production traffic**" >> $GITHUB_STEP_SUMMARY
-            echo "- 🔒 **Isolated from production environment**" >> $GITHUB_STEP_SUMMARY
+            echo "- 🚫 **This is a PREVIEW deployment, NOT live ${{ env.ENVIRONMENT }}**" >> $GITHUB_STEP_SUMMARY
+            echo "- 📊 **Receives 0% live traffic**" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔒 **Isolated from live environment**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "## 🌐 ✅ PRODUCTION - Frontend Service Deployed" >> $GITHUB_STEP_SUMMARY
+            # Set environment display name and DNS URL
+            if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+              ENV_DISPLAY="PRODUCTION"
+              DNS_URL="https://app.rhesis.ai"
+            elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
+              ENV_DISPLAY="STAGING"
+              DNS_URL="https://stg-app.rhesis.ai"
+            else
+              ENV_DISPLAY="DEVELOPMENT"
+              DNS_URL="https://dev-app.rhesis.ai"
+            fi
+            
+            echo "## 🌐 ✅ $ENV_DISPLAY - Frontend Service Deployed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-            printf "**🌍 Production URL:** [%s](%s)\n" "$DEPLOYED_URL" "$DEPLOYED_URL" >> $GITHUB_STEP_SUMMARY
+            printf "**🌍 $ENV_DISPLAY URL:** [%s](%s)\n" "$DNS_URL" "$DNS_URL" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### ✅ Production Status" >> $GITHUB_STEP_SUMMARY
-            echo "- 🚀 **This is the LIVE production service**" >> $GITHUB_STEP_SUMMARY
-            echo "- 📈 **Serving real user traffic**" >> $GITHUB_STEP_SUMMARY
-            echo "- 🔴 **Handle with care - affects users**" >> $GITHUB_STEP_SUMMARY
+            echo "### ✅ $ENV_DISPLAY Status" >> $GITHUB_STEP_SUMMARY
+            echo "- 🚀 **This is the LIVE $ENV_DISPLAY service**" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+              echo "- 📈 **Serving real user traffic**" >> $GITHUB_STEP_SUMMARY
+              echo "- 🔴 **Handle with care - affects users**" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- 🧪 **Serving $ENV_DISPLAY environment traffic**" >> $GITHUB_STEP_SUMMARY
+              echo "- ⚠️ **Handle with care - affects $ENV_DISPLAY users**" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
       - name: Set Workflow Outputs
