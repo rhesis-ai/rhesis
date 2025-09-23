@@ -28,16 +28,30 @@ class TestCrudOrganizationFiltering:
             test_db, f"Security Test Org 2 {unique_id}", f"user2-{unique_id}@security-test.com", "Security User 2"
         )
         
-        # Create a task in org1 using direct model creation
-        task = models.Task(
-            id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
-            title="Test task in org1",
-            description="Test task in org1"
+        # Create a task in org1 using CRUD function
+        from rhesis.backend.app.schemas.task_management import TaskCreate
+        from rhesis.backend.app.utils.crud_utils import get_or_create_status
+        
+        # Create a status for the task
+        status = get_or_create_status(
+            db=test_db,
+            name="In Progress",
+            entity_type="Task",
+            organization_id=str(org1.id),
+            user_id=str(user1.id)
         )
-        test_db.add(task)
-        test_db.commit()
+        
+        task_data = TaskCreate(
+            title="Test task in org1",
+            description="Test task in org1",
+            status_id=status.id
+        )
+        task = crud.create_task(
+            db=test_db,
+            task=task_data,
+            organization_id=str(org1.id),
+            user_id=str(user1.id)
+        )
         
         # User from org1 should be able to access the task
         result_org1 = crud.get_task(test_db, task.id, organization_id=str(org1.id))
@@ -170,19 +184,21 @@ class TestCrudOrganizationFiltering:
             test_db, f"Model Test Org 2 {unique_id}", f"model-user2-{unique_id}@security-test.com", "Model User 2"
         )
         
-        # Create a model in org1 using direct model creation
-        model = models.Model(
-            id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+        # Create a model in org1 using CRUD function
+        from rhesis.backend.app.schemas.model import ModelCreate
+        model_data = ModelCreate(
             name="Test Model",
             description="Test model in org1",
             model_name="test-model",
             endpoint="https://test.example.com",
             key="test-key"
         )
-        test_db.add(model)
-        test_db.commit()
+        model = crud.create_model(
+            db=test_db,
+            model=model_data,
+            organization_id=str(org1.id),
+            user_id=str(user1.id)
+        )
         
         # User from org1 should be able to access the model
         result_org1 = crud.get_model(test_db, model.id, organization_id=str(org1.id))
