@@ -55,7 +55,7 @@ export default function ToolsPage() {
               disabled
               sx={{ 
                 textTransform: 'none',
-                borderRadius: 1.5
+                borderRadius: (theme) => theme.shape.borderRadius * 0.375
               }}
             >
               Add Tool

@@ -178,7 +178,7 @@ export const metadata: Metadata = {
   },
   description: 'Rhesis AI | OSS Gen AI Testing Platform',
   icons: {
-    icon: '/logos/Rhesis AI_Logo_RGB_Favicon.svg',
+    icon: '/logos/rhesis-logo-favicon.svg',
   },
 };
 

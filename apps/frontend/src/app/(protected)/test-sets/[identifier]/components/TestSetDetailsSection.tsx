@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Paper, Button, TextField, Typography, Tooltip, Chip } from '@mui/material';
+import { Box, Paper, Button, TextField, Typography, Tooltip, Chip, useTheme } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -71,6 +71,7 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
 }
 
 export default function TestSetDetailsSection({ testSet, sessionToken }: TestSetDetailsSectionProps) {
+  const theme = useTheme();
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(testSet.description || '');
@@ -195,10 +196,10 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
                 whiteSpace: 'pre-wrap',
                 fontFamily: 'monospace',
                 bgcolor: 'action.hover',
-                borderRadius: 1,
+                borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                 padding: 1,
                 minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
-                paddingRight: '80px',
+                paddingRight: theme.spacing(10),
                 wordBreak: 'break-word',
               }}
             >
@@ -272,7 +273,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
                   p: 2,
                   border: 1,
                   borderColor: 'divider',
-                  borderRadius: 1,
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                   backgroundColor: 'background.paper'
                 }}
               >

@@ -321,7 +321,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                     domain={[0, 100]}
                     tickCount={6}
                     tick={{ 
-                      fontSize: getPixelFontSize(theme.typography.chartTick.fontSize),
+                      fontSize: getPixelFontSize(String(theme.typography.chartTick.fontSize)),
                       fill: theme.palette.text.primary
                     }}
                     axisLine={{ strokeWidth: 1 }}
@@ -331,7 +331,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      fontSize: theme.typography.chartTick.fontSize, 
+                      fontSize: String(theme.typography.chartTick.fontSize), 
                       backgroundColor: theme.palette.background.paper, 
                       border: `1px solid ${theme.palette.divider}`, 
                       borderRadius: '4px',
@@ -342,11 +342,11 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                         const data = payload[0].payload;
                         return (
                           <div style={{ 
-                            padding: '8px', 
+                            padding: theme.spacing(1), 
                             backgroundColor: theme.palette.background.paper, 
                             border: `1px solid ${theme.palette.divider}`, 
                             borderRadius: '4px',
-                            fontSize: theme.typography.chartTick.fontSize,
+                            fontSize: String(theme.typography.chartTick.fontSize),
                             color: theme.palette.text.primary
                           }}>
                             <div style={{ fontWeight: 'bold', marginBottom: '4px', color: theme.palette.text.primary }}>{data.name}</div>
@@ -365,7 +365,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
                     type: 'circle',
                     color: palettes.line[index % palettes.line.length]
                   })) : []}
-                  wrapperStyle={{ fontSize: theme.typography.chartTick.fontSize, marginTop: '0px', paddingTop: '0px' }}
+                  wrapperStyle={{ fontSize: String(theme.typography.chartTick.fontSize), marginTop: '0px', paddingTop: '0px' }}
                   iconSize={8}
                   height={20}
                   layout="horizontal"
@@ -433,7 +433,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
         showPercentage={true}
         tooltipProps={{
           contentStyle: { 
-            fontSize: theme.typography.chartTick.fontSize,
+            fontSize: String(theme.typography.chartTick.fontSize),
             backgroundColor: theme.palette.background.paper,
             border: `1px solid ${theme.palette.divider}`,
             borderRadius: '4px',
@@ -456,7 +456,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
         showPercentage={true}
         tooltipProps={{
           contentStyle: { 
-            fontSize: theme.typography.chartTick.fontSize,
+            fontSize: String(theme.typography.chartTick.fontSize),
             backgroundColor: theme.palette.background.paper,
             border: `1px solid ${theme.palette.divider}`,
             borderRadius: '4px',
@@ -479,7 +479,7 @@ export default function TestRunDetailCharts({ testRunId, sessionToken }: TestRun
         showPercentage={true}
         tooltipProps={{
           contentStyle: { 
-            fontSize: theme.typography.chartTick.fontSize,
+            fontSize: String(theme.typography.chartTick.fontSize),
             backgroundColor: theme.palette.background.paper,
             border: `1px solid ${theme.palette.divider}`,
             borderRadius: '4px',

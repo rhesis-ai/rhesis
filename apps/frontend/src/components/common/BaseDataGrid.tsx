@@ -5,6 +5,7 @@ import {
   Button,
   Paper,
   styled,
+  useTheme,
   FormControl,
   InputLabel,
   Select,
@@ -170,6 +171,7 @@ export default function BaseDataGrid({
   enableQuickFilter = false,
   disablePaperWrapper = false
 }: BaseDataGridProps) {
+  const theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
   
@@ -503,7 +505,7 @@ export default function BaseDataGrid({
           elevation={1}
           sx={{ 
             width: '100%', 
-            borderRadius: 2, 
+            borderRadius: (theme) => theme.shape.borderRadius * 0.5, 
             overflow: 'hidden'
           }}>
           <StyledDataGrid
