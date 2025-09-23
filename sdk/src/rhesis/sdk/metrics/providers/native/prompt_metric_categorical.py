@@ -346,13 +346,3 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             categories=config.parameters.get("categories"),
             passing_categories=config.parameters.get("passing_categories"),
         )
-
-
-if __name__ == "__main__":
-    metric = RhesisPromptMetricCategorical(
-        name="test",
-        evaluation_prompt="test",
-        categories=["test"],
-        passing_categories=["test"],
-    )
-    print(metric.to_config())
