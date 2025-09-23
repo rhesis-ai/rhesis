@@ -264,7 +264,6 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
               size="small"
               variant="outlined"
               color="secondary"
-              variant="caption"
             />
           ))}
           {project.tags.length > 3 && (
@@ -272,7 +271,6 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
               label={`+${project.tags.length - 3}`} 
               size="small" 
               variant="outlined"
-              variant="caption" 
             />
           )}
         </Box>
@@ -292,7 +290,7 @@ const ProjectCard = React.memo(({ project, isLoading = false }: ProjectCardProps
         display: 'flex', 
         flexDirection: 'column',
         transition: 'all 0.2s ease-in-out',
-        borderRadius: 2,
+        borderRadius: (theme) => theme.shape.borderRadius * 0.5,
         overflow: 'hidden'
       }}
       elevation={2}

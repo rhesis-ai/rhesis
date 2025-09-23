@@ -107,13 +107,13 @@ export default {
       <meta name="description" content="Rhesis: AI-powered testing and evaluation platform" />
       <meta name="og:description" content="Rhesis: AI-powered testing and evaluation platform" />
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:image" content="/Rhesis AI_Logo_RGB_Website logo.png" />
+      <meta name="twitter:image" content="/rhesis-logo-website.png" />
       <meta name="twitter:site:domain" content="docs.rhesis.ai" />
       <meta name="twitter:url" content="https://docs.rhesis.ai" />
-      <meta name="og:image" content="/Rhesis AI_Logo_RGB_Website logo.png" />
+      <meta name="og:image" content="/rhesis-logo-website.png" />
       <meta name="apple-mobile-web-app-title" content="Rhesis Docs" />
-      <link rel="icon" type="image/svg+xml" href="/Rhesis AI_Logo_RGB_Favicon.svg" id="favicon-light" />
-      <link rel="icon" type="image/svg+xml" href="/Rhesis AI_Logo_RGB_Favicon_white.svg" id="favicon-dark" media="(prefers-color-scheme: dark)" />
+      <link rel="icon" type="image/svg+xml" href="/rhesis-logo-favicon.svg" id="favicon-light" />
+      <link rel="icon" type="image/svg+xml" href="/rhesis-logo-favicon-white.svg" id="favicon-dark" media="(prefers-color-scheme: dark)" />
       <script dangerouslySetInnerHTML={{
         __html: `
           (function() {
@@ -130,7 +130,7 @@ export default {
                   link.id = 'favicon-dark';
                   link.rel = 'icon';
                   link.type = 'image/svg+xml';
-                  link.href = '/Rhesis AI_Logo_RGB_Favicon_white.svg';
+                  link.href = '/rhesis-logo-favicon-white.svg';
                   document.head.appendChild(link);
                 }
               } else {
@@ -140,7 +140,7 @@ export default {
                   link.id = 'favicon-light';
                   link.rel = 'icon';
                   link.type = 'image/svg+xml';
-                  link.href = '/Rhesis AI_Logo_RGB_Favicon.svg';
+                  link.href = '/rhesis-logo-favicon.svg';
                   document.head.appendChild(link);
                 }
               }

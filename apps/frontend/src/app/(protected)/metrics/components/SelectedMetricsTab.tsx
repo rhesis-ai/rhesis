@@ -466,7 +466,7 @@ export default function SelectedMetricsTab({
           p: 3, 
           border: '2px dashed',
           borderColor: 'divider',
-          borderRadius: 1,
+          borderRadius: (theme) => theme.shape.borderRadius * 0.25,
           display: 'flex',
           justifyContent: 'center',
           mb: 8
