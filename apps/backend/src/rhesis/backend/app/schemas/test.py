@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, validator
+from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.user import UserReference
@@ -11,8 +11,7 @@ from rhesis.backend.app.schemas.user import UserReference
 class UserBase(Base):
     id: UUID4
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TypeLookup(Base):
@@ -21,8 +20,7 @@ class TypeLookup(Base):
     type_value: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Topic(Base):
@@ -30,16 +28,14 @@ class Topic(Base):
     name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Prompt(Base):
     id: UUID4
     content: str  # Changed from text to content based on your model
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Status(Base):
@@ -47,8 +43,7 @@ class Status(Base):
     name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Behavior(Base):
@@ -56,8 +51,7 @@ class Behavior(Base):
     name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Category(Base):
@@ -65,8 +59,7 @@ class Category(Base):
     name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TestTag(Base):
@@ -74,8 +67,7 @@ class TestTag(Base):
     name: str
     icon_unicode: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Test schemas
@@ -110,8 +102,7 @@ class Test(TestBase):
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # The detailed model with expanded relations
@@ -150,7 +141,8 @@ class TestBulkCreate(BaseModel):
     status: Optional[str] = None
     priority: Optional[int] = None
 
-    @validator("assignee_id", "owner_id")
+    @field_validator("assignee_id", "owner_id")
+    @classmethod
     def validate_uuid(cls, v):
         if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
             return None
@@ -185,8 +177,7 @@ class TestBulkResponse(BaseModel):
     test_configuration: Optional[Dict[str, Any]] = None
     prompt: Optional[Dict[str, Any]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TestBulkCreateResponse(BaseModel):

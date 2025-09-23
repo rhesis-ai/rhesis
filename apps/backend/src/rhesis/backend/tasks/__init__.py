@@ -18,7 +18,6 @@ from rhesis.backend.tasks.base import (
     EmailEnabledTask,
     SilentTask,
     email_notification,
-    with_tenant_context,
 )
 from rhesis.backend.tasks.enums import (
     DEFAULT_METRIC_WORKERS,
@@ -54,7 +53,6 @@ __all__ = [
     "EmailEnabledTask",
     "SilentTask",
     # Decorators
-    "with_tenant_context",
     "email_notification",
     # Helper functions
     "task_launcher",
@@ -105,7 +103,7 @@ def task_launcher(task: T, *args: Any, current_user=None, **kwargs: Any):
             result = task_launcher(my_task, arg1, arg2, current_user=current_user)
             return {"task_id": result.id}
 
-        # With a decorated task that uses with_tenant_context
+        # With a task that gets tenant context passed directly
         @router.post("/{test_configuration_id}/execute")
         def execute_endpoint(
             test_configuration_id: UUID,

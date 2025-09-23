@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic import UUID4
+from pydantic import UUID4, ConfigDict
 
 from .base import Base
 from .status import Status
@@ -59,5 +59,5 @@ class Model(ModelBase):
     assignee: Optional[User] = None
     tags: Optional[List[Tag]] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+from_attributes=True)

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import UUID4, Field, field_validator
+from pydantic import UUID4, Field, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
 
@@ -47,5 +47,4 @@ class UserReference(Base):
     email: Optional[str] = ""  # Default to empty string to avoid validation errors
     picture: Optional[str] = ""  # Default to empty string to avoid validation errors
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Union
 
-from pydantic import UUID4
+from pydantic import UUID4, ConfigDict
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.status import Status
@@ -70,8 +70,8 @@ class Metric(MetricBase):
     updated_at: Union[datetime, str]
     tags: Optional[List[Tag]] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+from_attributes=True)
 
 
 class MetricDetail(Metric):

@@ -2,7 +2,7 @@ import datetime
 from typing import Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from rhesis.backend.app.constants import EntityType
 
@@ -44,8 +44,8 @@ class CommentCreate(BaseModel):
         ),
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+from_attributes=True)
 
 
 class CommentUpdate(BaseModel):
@@ -53,8 +53,8 @@ class CommentUpdate(BaseModel):
 
     content: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+from_attributes=True)
 
 
 class Comment(CommentBase):
@@ -66,5 +66,5 @@ class Comment(CommentBase):
     created_at: Union[datetime.datetime, str]
     updated_at: Union[datetime.datetime, str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+from_attributes=True)

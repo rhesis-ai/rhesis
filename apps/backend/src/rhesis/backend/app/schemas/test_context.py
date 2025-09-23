@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from pydantic import UUID4
+from pydantic import UUID4, ConfigDict
 
 from rhesis.backend.app.schemas import Base
 
@@ -30,5 +30,5 @@ class TestContext(TestContextBase):
     created_at: str
     updated_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+from_attributes=True)

@@ -1,13 +1,15 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from typing import Tuple
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from test directory first, then backend
+load_dotenv()  # Try current directory first
+load_dotenv("tests/.env")  # Load from test directory where RHESIS_API_KEY should be
+load_dotenv("apps/backend/.env")  # Then backend directory for other vars
 
 # Set test mode environment variable BEFORE importing any backend modules
 os.environ["SQLALCHEMY_DB_MODE"] = "test"
@@ -95,39 +97,123 @@ def setup_test_database():
 
 @pytest.fixture(autouse=True)
 def clean_test_database():
-    """Clean test database between tests for isolation while maintaining production behavior."""
+    """Clean test database between tests for isolation while preserving session-scoped auth data."""
     # Clean up BEFORE each test to ensure isolation
     try:
         with test_engine.connect() as connection:
-            with connection.begin():
-                # Simple approach: truncate all tables except reference data
-                # This is faster and more reliable than DELETE
+            # Get session-scoped authentication data to preserve it (outside transaction)
+            auth_user_id = None
+            auth_org_id = None
+            auth_token_ids = []
+            
+            try:
+                # Try to get the authenticated user info from environment
+                import os
+                api_key = os.getenv("RHESIS_API_KEY")
+                if api_key:
+                    # Get the user and org that should be preserved
+                    result = connection.execute(text("""
+                        SELECT u.id as user_id, u.organization_id, array_agg(t.id) as token_ids
+                        FROM "user" u 
+                        LEFT JOIN token t ON t.user_id = u.id AND t.token = :api_key
+                        WHERE u.id IN (SELECT user_id FROM token WHERE token = :api_key)
+                        GROUP BY u.id, u.organization_id
+                    """), {"api_key": api_key})
+                    
+                    row = result.fetchone()
+                    if row:
+                        auth_user_id = str(row.user_id)
+                        auth_org_id = str(row.organization_id) if row.organization_id else None
+                        auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
+            except Exception as e:
+                # If we can't get auth data, continue with normal cleanup
+                pass
+            
+            # List of tables to clean (in correct dependency order - most dependent first)
+            # Clean ALL test data but preserve ONLY core authentication data (tokens, users, organization)
+            tables_to_clean = [
+                # Level 1: Association tables (no dependencies, just references)
+                'test_test_set',  # test.id + test_set.id
+                'prompt_test_set',  # prompt.id + test_set.id  
+                'behavior_metric',  # behavior.id + metric.id
+                'risk_use_case',  # risk.id + use_case.id
+                'prompt_use_case',  # prompt.id + use_case.id
+                'tagged_item',  # tag.id + entity polymorphic
                 
-                # List of tables to truncate (in dependency order)
-                tables_to_truncate = [
-                    # Main entity tables (reverse dependency order)
-                    'test_test_set_associations',
-                    'test_set_execution_results',
-                    'test_execution_results', 
-                    'tests',
-                    'test_sets',
-                    'endpoints',
-                    'organizations',
-                    '"user"',  # user is a reserved word, needs quotes
-                    # Add other tables as needed
-                ]
+                # Level 2: Highly dependent entities (reference many other tables)
+                'comment',  # -> user, organization (polymorphic entity refs)
+                'test_result',  # -> test_configuration, test_run, prompt, test, status, user, organization
                 
-                for table_name in tables_to_truncate:
-                    try:
-                        # TRUNCATE is faster than DELETE and resets sequences
-                        connection.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE'))
-                    except Exception as e:
-                        # Table might not exist or have other issues - try DELETE as fallback
-                        try:
+                # Level 3: Execution/runtime entities
+                'test_run',  # -> user, status, test_configuration, organization
+                'test_configuration',  # -> endpoint, category, topic, prompt, use_case, test_set, user, status, organization
+                
+                # Level 4: Test entities
+                'test_context',  # -> test, organization, user
+                'test',  # -> prompt, type_lookup, user(3x), topic, behavior, category, status, organization
+                
+                # Level 5: Content entities  
+                'prompt',  # -> demographic, category(2x), topic, behavior, prompt, prompt_template, source, user, status
+                'test_set',  # -> status, type_lookup, user(3x), organization
+                'prompt_template',  # -> user, organization
+                'model',  # -> user(2x), organization
+                'task',  # -> user(2x), status, type_lookup, organization
+                'metric',  # -> user(2x), organization
+                'endpoint',  # -> user, organization
+                'project',  # -> user(2x), status, organization
+                
+                # Level 6: Reference/lookup entities (clean everything - no preservation)
+                'response_pattern',  # -> organization
+                'risk',  # -> organization, user
+                'use_case',  # -> organization, user
+                'source',  # -> organization
+                'behavior',  # -> organization, user  
+                'category',  # -> organization, user
+                'topic',  # -> organization, user
+                'demographic',  # -> dimension, organization, user
+                'dimension',  # -> organization, user
+                'tag',  # -> (referenced by tagged_item)
+                'type_lookup',  # -> organization, user
+                'status',  # -> organization, user
+                
+                # Level 7: User-related tables (clean everything except auth tokens)
+                'subscription',  # -> user, organization (CLEAN ALL)
+                
+                # Level 8: Core authentication tables (preserve ONLY auth user/org/tokens)
+                'token',  # -> user, organization (PRESERVE AUTH TOKENS ONLY)
+                'organization',  # -> user(2x) [owner_id, user_id] (PRESERVE AUTH ORG ONLY)
+                '"user"',  # -> organization [organization_id] (PRESERVE AUTH USER ONLY)
+            ]
+                
+            # Clean each table in its own transaction to prevent cascading failures
+            for table_name in tables_to_clean:
+                try:
+                    with connection.begin():
+                        if table_name == '"user"' and auth_user_id:
+                            # Preserve the authenticated user
+                            connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_user_id'), 
+                                             {"auth_user_id": auth_user_id})
+                        elif table_name == 'organization' and auth_org_id:
+                            # Preserve the authenticated user's organization
+                            connection.execute(text(f'DELETE FROM {table_name} WHERE id != :auth_org_id'), 
+                                             {"auth_org_id": auth_org_id})
+                        elif table_name == 'token' and auth_token_ids:
+                            # Preserve the authentication tokens
+                            placeholders = ','.join([f':token_{i}' for i in range(len(auth_token_ids))])
+                            token_params = {f'token_{i}': token_id for i, token_id in enumerate(auth_token_ids)}
+                            connection.execute(text(f'DELETE FROM {table_name} WHERE id NOT IN ({placeholders})'), 
+                                             token_params)
+                        elif table_name == 'subscription':
+                            # Clean ALL subscriptions (no preservation)
                             connection.execute(text(f'DELETE FROM {table_name}'))
-                        except Exception:
-                            # If both fail, continue - some tables might not exist yet
-                            pass
+                        else:
+                            # For all other tables (reference/lookup tables), clean everything
+                            connection.execute(text(f'DELETE FROM {table_name}'))
+                            
+                except Exception as e:
+                    # If cleanup fails for a table, continue with others
+                    # This is expected for tables that don't exist or have complex constraints
+                    pass
                             
     except Exception as e:
         # If cleanup fails completely, continue - tests might still work

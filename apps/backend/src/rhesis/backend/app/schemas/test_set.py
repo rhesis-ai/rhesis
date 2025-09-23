@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, BaseModel, validator
+from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.tag import Tag
@@ -58,7 +58,8 @@ class TestData(BaseModel):
     priority: Optional[int] = None
     metadata: Dict[str, Any] = {}
 
-    @validator("assignee_id", "owner_id")
+    @field_validator("assignee_id", "owner_id")
+    @classmethod
     def validate_uuid(cls, v):
         if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
             return None
@@ -84,7 +85,8 @@ class TestSetBulkCreate(BaseModel):
     tests: List[TestData]
     metadata: Optional[Dict[str, Any]] = None
 
-    @validator("owner_id", "assignee_id")
+    @field_validator("owner_id", "assignee_id")
+    @classmethod
     def validate_uuid_fields(cls, v):
         if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
             return None
@@ -112,8 +114,7 @@ class TestSetBulkResponse(BaseModel):
     visibility: Optional[str] = None
     attributes: Optional[Dict[str, Any]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TestSetBulkAssociateRequest(BaseModel):
@@ -132,8 +133,7 @@ class TestSetBulkAssociateResponse(BaseModel):
         "invalid_test_ids": None,
     }
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TestSetBulkDisassociateRequest(BaseModel):
@@ -152,7 +152,8 @@ class TestSetExecutionRequest(BaseModel):
 
     execution_options: Optional[Dict[str, Any]] = None
 
-    @validator("execution_options")
+    @field_validator("execution_options")
+    @classmethod
     def validate_execution_options(cls, v):
         if v is None:
             return {"execution_mode": "Parallel"}
