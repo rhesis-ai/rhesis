@@ -127,7 +127,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         justifyContent: 'center',
         border: '1px solid rgba(0, 0, 0, 0.23)',
         borderRadius: '4px',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'grey.100'
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -468,7 +468,7 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                   <Typography variant="subtitle1" sx={{ mb: 2 }}>Environment</Typography>
                   <Chip 
                     label={endpoint.environment}
-                    color={getEnvironmentColor(endpoint.environment as string)}
+                    color={getEnvironmentColor(endpoint.environment as string) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
                     variant="outlined"
                     sx={{ textTransform: 'capitalize' }}
                   />

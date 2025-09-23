@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Button, TextField, Paper, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
@@ -25,6 +26,7 @@ export default function TestExecutableField({
   onUpdate,
   fieldName = 'content'
 }: TestExecutableFieldProps) {
+  const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(initialContent);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -94,7 +96,7 @@ export default function TestExecutableField({
             whiteSpace: 'pre-wrap',
             fontFamily: 'monospace',
             bgcolor: 'action.hover',
-            borderRadius: 1,
+            borderRadius: theme.shape.borderRadius,
             padding: boxPadding,
             minHeight: displayMinHeight,
             // Ensure text does not go under the absolutely positioned Edit button

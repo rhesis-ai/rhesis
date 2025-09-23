@@ -326,7 +326,7 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
                     p: 2,
                     border: 1,
                     borderColor: 'divider',
-                    borderRadius: 1,
+                    borderRadius: theme.shape.borderRadius,
                     backgroundColor: 'background.paper',
                     minHeight: '100px',
                     maxHeight: '300px',

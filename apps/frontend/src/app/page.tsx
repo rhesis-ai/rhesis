@@ -116,7 +116,7 @@ export default function LandingPage() {
           sm={4}
           md={7}
           sx={{
-            backgroundColor: '#2AA1CE',
+            backgroundColor: 'primary.main',
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
@@ -159,37 +159,37 @@ export default function LandingPage() {
             {/* Feature points - same as unauthenticated view */}
             <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <Box>
-                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <CheckCircleIcon sx={{ color: '#FFFFFF' }} /> Your expertise, in every test.
+                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <CheckCircleIcon sx={{ color: 'white' }} /> Your expertise, in every test.
                 </Typography>
-                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Transform business knowledge and expert input directly into powerful, actionable test cases.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <GroupAddIcon sx={{ color: '#FFFFFF' }} /> Collaboration built in.
+                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <GroupAddIcon sx={{ color: 'white' }} /> Collaboration built in.
                 </Typography>
-                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ControlCameraIcon sx={{ color: '#FFFFFF' }} /> End-to-end control.
+                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <ControlCameraIcon sx={{ color: 'white' }} /> End-to-end control.
                 </Typography>
-                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   From test generation to execution to results, manage the entire validation process in one place.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <TuneIcon sx={{ color: '#FFFFFF' }} /> Scale your validation power.
+                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <TuneIcon sx={{ color: 'white' }} /> Scale your validation power.
                 </Typography>
-                <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                   Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
                 </Typography>
               </Box>
@@ -228,7 +228,7 @@ export default function LandingPage() {
               maxWidth: 400, 
               textAlign: 'center',
               p: 3,
-              borderRadius: 2,
+              borderRadius: theme.shape.borderRadius,
               boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
               background: (theme) => theme.palette.mode === 'dark' 
                 ? 'rgba(0, 0, 0, 0.8)' 
@@ -257,7 +257,7 @@ export default function LandingPage() {
         sm={4}
         md={7}
         sx={{
-          backgroundColor: '#2AA1CE',
+          backgroundColor: 'primary.main',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
@@ -301,37 +301,37 @@ export default function LandingPage() {
           {/* Feature points */}
           <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box>
-              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <CheckCircleIcon sx={{ color: '#FFFFFF' }} /> Your expertise, in every test.
+              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <CheckCircleIcon sx={{ color: 'white' }} /> Your expertise, in every test.
               </Typography>
-              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Transform business knowledge and expert input directly into powerful, actionable test cases.
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <GroupAddIcon sx={{ color: '#FFFFFF' }} /> Collaboration built in.
+              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <GroupAddIcon sx={{ color: 'white' }} /> Collaboration built in.
               </Typography>
-              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <ControlCameraIcon sx={{ color: '#FFFFFF' }} /> End-to-end control.
+              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <ControlCameraIcon sx={{ color: 'white' }} /> End-to-end control.
               </Typography>
-              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 From test generation to execution to results, manage the entire validation process in one place.
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="h6" color="#FFFFFF" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <TuneIcon sx={{ color: '#FFFFFF' }} /> Scale your validation power.
+              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <TuneIcon sx={{ color: 'white' }} /> Scale your validation power.
               </Typography>
-              <Typography variant="body2" color="#FFFFFF" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
+              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}>
                 Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
               </Typography>
             </Box>

@@ -80,7 +80,7 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
                 mb: 2,
                 border: '1px solid',
                 borderColor: 'divider',
-                borderRadius: 1,
+                borderRadius: theme.shape.borderRadius,
                 cursor: option.disabled ? 'not-allowed' : 'pointer',
                 opacity: option.disabled ? 0.7 : 1,
                 '&:hover': {

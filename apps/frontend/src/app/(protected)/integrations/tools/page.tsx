@@ -1,9 +1,11 @@
 'use client';
 
 import { Box, Paper, Typography, Button, Stack, Chip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 
 export default function ToolsPage() {
+  const theme = useTheme();
   const handleAddTool = () => {
     // Disabled for now - coming soon
     console.log('Add tool - coming soon');
@@ -55,7 +57,7 @@ export default function ToolsPage() {
               disabled
               sx={{ 
                 textTransform: 'none',
-                borderRadius: 1.5
+                borderRadius: theme.shape.borderRadius
               }}
             >
               Add Tool

@@ -29,8 +29,8 @@ export default function MetricTimelineChart({ metricName, timelineData }: Metric
       contextInfo={contextInfo}
       filterEmptyData={true}
       titleVariant="h6"
-      titleFontSize={theme.typography.subtitle1.fontSize}
-      subtitleFontSize={theme.typography.helperText.fontSize}
+      titleFontSize={String(theme.typography.subtitle1.fontSize || '16px')}
+      subtitleFontSize={String(theme.typography.helperText.fontSize || '14px')}
     />
   );
 }

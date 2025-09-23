@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Chip, Box, IconButton, Tooltip, Typography, Button, Paper } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -35,6 +36,7 @@ export default function TokensGrid({
     pageSize: 10,
   }
 }: TokensGridProps) {
+  const theme = useTheme();
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
@@ -140,7 +142,7 @@ export default function TokensGrid({
             py: 8,
             px: 2,
             bgcolor: 'background.paper',
-            borderRadius: 1,
+            borderRadius: theme.shape.borderRadius,
           }}
         >
           <Typography variant="h5" sx={{ mb: 2 }}>

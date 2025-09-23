@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, CircularProgress, Alert, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Stack } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { 
   SiOpenai,
   SiGoogle,
@@ -79,6 +80,7 @@ function DeleteConfirmationDialog({ open, onClose, onConfirm, modelName }: Delet
 }
 
 function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }: ProviderSelectionDialogProps) {
+  const theme = useTheme();
   if (!providers || providers.length === 0) {
     return (
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -120,7 +122,7 @@ function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }:
                 key={provider.id}
                 onClick={() => onSelectProvider(provider)}
                 sx={{ 
-                  borderRadius: 1,
+                  borderRadius: theme.shape.borderRadius,
                   my: 0.5,
                   '&:hover': {
                     backgroundColor: 'action.hover'
@@ -154,6 +156,7 @@ interface ConnectionDialogProps {
 }
 
 function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDialogProps) {
+  const theme = useTheme();
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
@@ -243,7 +246,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
       maxWidth="md" 
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 2 }
+        sx: { borderRadius: theme.shape.borderRadius }
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
@@ -447,6 +450,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
 }
 
 export default function LLMProvidersPage() {
+  const theme = useTheme();
   const { data: session } = useSession();
   const [connectedModels, setConnectedModels] = useState<Model[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
@@ -643,7 +647,7 @@ export default function LLMProvidersPage() {
                   disableRipple
                   sx={{ 
                     textTransform: 'none',
-                    borderRadius: 1.5,
+                    borderRadius: theme.shape.borderRadius,
                     pointerEvents: 'none',
                     cursor: 'default'
                   }}
@@ -689,7 +693,7 @@ export default function LLMProvidersPage() {
                 size="small"
                 sx={{ 
                   textTransform: 'none',
-                  borderRadius: 1.5
+                  borderRadius: theme.shape.borderRadius
                 }}
               >
                 Add Provider

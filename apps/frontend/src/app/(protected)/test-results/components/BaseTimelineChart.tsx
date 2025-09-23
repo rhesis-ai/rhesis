@@ -44,7 +44,7 @@ export default function BaseTimelineChart({
   
   // Use a consistent blue color for pass rates that works in both light and dark themes
   // This matches the first color in the default pie chart palette
-  const passRateColor = '#8884d8'; // Blue color that works in both light and dark themes
+  const passRateColor = theme.palette.primary.main; // Use theme primary color
   
   const chartData = useMemo(() => {
     const transformedData = transformTimelineData(data, dataExtractor, filterEmptyData);

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@mui/material/styles';
 import {
   Box,
   Button,
@@ -634,7 +635,9 @@ const ReviewSamples = ({
   configData: ConfigData;
   documents: ProcessedDocument[];
   isLoading?: boolean;
-}) => {  const [isLoadingMore, setIsLoadingMore] = useState(false);
+}) => {  
+  const theme = useTheme();
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [regenerating, setRegenerating] = useState<Set<number>>(new Set());
   const { show } = useNotifications();
 
@@ -829,7 +832,7 @@ const ReviewSamples = ({
                     borderColor: 'divider',
                     px: 1,
                     py: 0.5,
-                    borderRadius: 1,
+                    borderRadius: theme.shape.borderRadius,
                     fontSize: theme.typography.chartLabel.fontSize,
                     whiteSpace: 'nowrap',
                     zIndex: 1,

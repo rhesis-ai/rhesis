@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageContainer } from '@toolpad/core/PageContainer';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -73,6 +74,7 @@ const steps = ['Metric Information and Criteria', 'Confirmation'];
 const STEP_SEPARATOR = '\n---\n';
 
 export default function NewMetricPage() {
+  const theme = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
@@ -477,7 +479,7 @@ export default function NewMetricPage() {
                     color: 'primary.contrastText',
                     px: 1.5,
                     py: 0.5,
-                    borderRadius: 1,
+                    borderRadius: theme.shape.borderRadius,
                     fontSize: theme.typography.helperText.fontSize
                   }}>
                     {tag}
@@ -583,7 +585,7 @@ export default function NewMetricPage() {
                 color: 'primary.contrastText',
                 px: 1.5,
                 py: 0.5,
-                borderRadius: 1,
+                borderRadius: theme.shape.borderRadius,
                 fontSize: theme.typography.helperText.fontSize,
                 display: 'inline-block',
                 mt: 0.5

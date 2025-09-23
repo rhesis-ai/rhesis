@@ -1,9 +1,11 @@
 'use client';
 
 import { Box, Paper, Typography, Button, Stack, Chip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 
 export default function IntegrationsPage() {
+  const theme = useTheme();
   const handleAddApplication = () => {
     // Disabled for now - coming soon
     console.log('Add application - coming soon');
@@ -55,7 +57,7 @@ export default function IntegrationsPage() {
               disabled
               sx={{ 
                 textTransform: 'none',
-                borderRadius: 1.5
+                borderRadius: theme.shape.borderRadius
               }}
             >
               Add Application

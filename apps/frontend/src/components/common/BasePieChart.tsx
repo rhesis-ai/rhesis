@@ -147,41 +147,6 @@ const isInBottomArea = (angle: number): boolean => {
   return normalizedAngle >= CHART_CONSTANTS.BOTTOM_AREA_START && normalizedAngle <= CHART_CONSTANTS.BOTTOM_AREA_END;
 };
 
-// Custom label rendering function factory - will be created inside component to access theme
-const createCustomizedLabel = (chartLabelFontSize: string) => 
-  ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
-    // Only show labels for segments with significant percentage (helps prevent overlap)
-    if (percent < CHART_CONSTANTS.MIN_PERCENTAGE_THRESHOLD) return null;
-    
-    // Check if the label would be in the bottom area where legend is positioned
-    const isBottomArea = isInBottomArea(midAngle);
-    
-    // Adjust radius based on position to avoid legend overlap
-    const radius = isBottomArea 
-      ? outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.BOTTOM 
-      : outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.NORMAL;
-    
-    const x = cx + radius * Math.cos(-midAngle * CHART_CONSTANTS.RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * CHART_CONSTANTS.RADIAN);
-    
-    // Determine if the label is on the right side or left side of the chart
-    const isRightSide = x > cx;
-    
-    return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="#333333"
-        textAnchor={isRightSide ? "start" : "end"}
-        dominantBaseline="central"
-        fontSize={chartLabelFontSize}
-        fontWeight="bold"
-        aria-label={`${(percent * 100).toFixed(0)}% of ${name}`}
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
 
 // Custom label line rendering function
 const renderCustomizedLabelLine = ({ cx, cy, midAngle, outerRadius }: LabelLineProps) => {
@@ -212,13 +177,7 @@ export default function BasePieChart({
   innerRadius = 30,
   outerRadius = 55,
   showPercentage = true,
-  legendProps = { 
-    wrapperStyle: { fontSize: '10px' }, 
-    iconSize: 8,
-    layout: 'horizontal',
-    verticalAlign: 'bottom',
-    align: 'center'
-  },
+  legendProps,
   tooltipProps,
   elevation = 2,
   preventLegendOverflow = false,
@@ -232,11 +191,53 @@ export default function BasePieChart({
   // Get theme colors
   const theme = useTheme();
   
+  // Custom label rendering function factory - moved inside component to access theme
+  const createCustomizedLabel = useCallback((chartLabelFontSize: string) => {
+    const CustomizedLabelComponent = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: LabelProps) => {
+      // Only show labels for segments with significant percentage (helps prevent overlap)
+      if (percent < CHART_CONSTANTS.MIN_PERCENTAGE_THRESHOLD) return null;
+      
+      // Check if the label would be in the bottom area where legend is positioned
+      const isBottomArea = isInBottomArea(midAngle);
+      
+      // Adjust radius based on position to avoid legend overlap
+      const radius = isBottomArea 
+        ? outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.BOTTOM 
+        : outerRadius * CHART_CONSTANTS.LABEL_RADIUS_MULTIPLIER.NORMAL;
+      
+      // Calculate label position
+      const RADIAN = Math.PI / 180;
+      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+      
+      // Determine if label should be on right side
+      const isRightSide = x > cx;
+      
+      return (
+        <text 
+          x={x} 
+          y={y} 
+          fill={theme.palette.text.primary}
+          textAnchor={isRightSide ? "start" : "end"}
+          dominantBaseline="central"
+          fontSize={chartLabelFontSize}
+          fontWeight="bold"
+          aria-label={`${(percent * 100).toFixed(0)}% of ${name}`}
+        >
+          {`${(percent * 100).toFixed(0)}%`}
+        </text>
+      );
+    };
+    
+    CustomizedLabelComponent.displayName = 'CustomizedLabelComponent';
+    return CustomizedLabelComponent;
+  }, [theme]);
+  
   // Update legend props to use theme
   const themedLegendProps = {
     ...legendProps,
     wrapperStyle: {
-      ...legendProps.wrapperStyle,
+      ...legendProps?.wrapperStyle,
       fontSize: theme.typography.chartTick.fontSize
     }
   };
@@ -257,9 +258,15 @@ export default function BasePieChart({
   
   // Memoize chart colors calculation
   const chartColors = useMemo(() => {
-    const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE'];
+    const defaultColors = [
+      theme.palette.primary.main,
+      theme.palette.secondary.main,
+      theme.palette.success.main,
+      theme.palette.warning.main,
+      theme.palette.info.main
+    ];
     return colors || (useThemeColors ? (palettes[colorPalette] || defaultColors) : defaultColors);
-  }, [colors, useThemeColors, palettes, colorPalette]);
+  }, [colors, useThemeColors, palettes, colorPalette, theme.palette.primary.main, theme.palette.secondary.main, theme.palette.success.main, theme.palette.warning.main, theme.palette.info.main]);
 
   // Memoize chart dimensions calculation
   const chartDimensions = useMemo(() => {
@@ -278,17 +285,18 @@ export default function BasePieChart({
   const enhancedLegendProps = useMemo(() => ({
     ...legendProps,
     wrapperStyle: { 
-      ...legendProps.wrapperStyle,
-      marginTop: '5px',
-      marginBottom: '0px',
+      ...legendProps?.wrapperStyle,
+      marginTop: theme.spacing(0.625),
+      marginBottom: theme.spacing(0),
       paddingBottom: '2px'
     }
-  }), [legendProps]);
+  }), [legendProps, theme]);
 
   // Create customized label function with theme access
+  const chartLabelFontSize = String(theme.typography.chartLabel.fontSize || '12px');
   const renderCustomizedLabel = useMemo(() => 
-    createCustomizedLabel(theme.typography.chartLabel.fontSize), 
-    [theme.typography.chartLabel.fontSize]
+    createCustomizedLabel(chartLabelFontSize), 
+    [chartLabelFontSize, createCustomizedLabel]
   );
 
   // Memoize data lookup for better tooltip performance
@@ -333,7 +341,7 @@ export default function BasePieChart({
               innerRadius={innerRadius}
               outerRadius={outerRadius}
               paddingAngle={2}
-              fill="#8884d8"
+              fill={theme.palette.primary.main}
               dataKey="value"
               label={showPercentage ? renderCustomizedLabel : undefined}
               labelLine={showPercentage ? renderCustomizedLabelLine : false}
