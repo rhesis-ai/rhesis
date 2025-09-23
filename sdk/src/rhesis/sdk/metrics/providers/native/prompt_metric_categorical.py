@@ -9,6 +9,7 @@ from rhesis.sdk.metrics.constants import ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
+from rhesis.sdk.metrics.utils import sdk_config_to_backend_config
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -337,8 +338,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         """Push the metric to the backend."""
         client = Client()
         config = asdict(self.to_config())
-        config["reference_score"] = config["parameters"].get("passing_categories")[0]
-
+        config = sdk_config_to_backend_config(config)
         client.send_request(Endpoints.METRICS, Methods.POST, config)
 
     def from_config(self, config: MetricConfig) -> "RhesisPromptMetricCategorical":

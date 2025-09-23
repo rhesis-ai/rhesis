@@ -7,6 +7,15 @@ import tenacity
 from rhesis.sdk.metrics.base import F, MetricConfig
 
 
+def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    config["min_score"] = config["parameters"].get("min_score")
+    config["max_score"] = config["parameters"].get("max_score")
+    config["threshold"] = config["parameters"].get("threshold")
+    config["threshold_operator"] = config["parameters"].get("threshold_operator")
+    config["reference_score"] = config["parameters"].get("passing_categories")[0]
+    return config
+
+
 def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
     keys_to_remove = [
         "id",
