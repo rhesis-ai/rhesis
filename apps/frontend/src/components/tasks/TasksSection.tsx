@@ -83,14 +83,30 @@ export function TasksSection({
       ),
     },
     {
+      field: 'description',
+      headerName: 'Description',
+      width: 400,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ 
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: '100%'
+        }}>
+          {params.row.description || '-'}
+        </Typography>
+      ),
+    },
+    {
       field: 'status',
       headerName: 'Status',
       width: 120,
       renderCell: (params) => {
         const getStatusColor = (status?: string) => {
           switch (status) {
-            case 'Completed': return 'success';
+            case 'Open': return 'warning';
             case 'In Progress': return 'primary';
+            case 'Completed': return 'success';
             case 'Cancelled': return 'error';
             default: return 'default';
           }
@@ -100,29 +116,6 @@ export function TasksSection({
           <Chip 
             label={params.row.status?.name || 'Unknown'} 
             color={getStatusColor(params.row.status?.name) as any}
-            size="small"
-          />
-        );
-      },
-    },
-    {
-      field: 'priority',
-      headerName: 'Priority',
-      width: 120,
-      renderCell: (params) => {
-        const getPriorityColor = (priority?: string) => {
-          switch (priority) {
-            case 'High': return 'error';
-            case 'Medium': return 'warning';
-            case 'Low': return 'default';
-            default: return 'default';
-          }
-        };
-        
-        return (
-          <Chip 
-            label={params.row.priority?.type_value || 'Unknown'} 
-            color={getPriorityColor(params.row.priority?.type_value) as any}
             size="small"
           />
         );
@@ -145,16 +138,6 @@ export function TasksSection({
             {params.row.assignee?.name || 'Unassigned'}
           </Typography>
         </Box>
-      ),
-    },
-    {
-      field: 'user',
-      headerName: 'Creator',
-      width: 150,
-      renderCell: (params) => (
-        <Typography variant="body2">
-          {params.row.user?.name || 'Unknown'}
-        </Typography>
       ),
     },
   ];

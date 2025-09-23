@@ -70,7 +70,7 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
           <StatCard title="Open" value={stats.open} color="warning" />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard title="In Progress" value={stats.inProgress} color="info" />
+          <StatCard title="In Progress" value={stats.inProgress} color="primary" />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <StatCard title="Completed" value={stats.completed} color="success" />

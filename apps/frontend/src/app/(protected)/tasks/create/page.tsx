@@ -16,7 +16,8 @@ import {
   Grid,
   Alert,
   CircularProgress,
-  Avatar
+  Avatar,
+  useTheme
 } from '@mui/material';
 import { ArrowBackIcon } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
@@ -35,6 +36,7 @@ export default function CreateTaskPage() {
   const { data: session } = useSession();
   const { createTask } = useTasks({ autoFetch: false });
   const { show } = useNotifications();
+  const theme = useTheme();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -270,8 +272,8 @@ export default function CreateTaskPage() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 1,
-                            paddingTop: '16px',
-                            paddingBottom: '16px'
+                            paddingTop: theme.spacing(2),
+                            paddingBottom: theme.spacing(2)
                           }
                         }}
                         renderValue={(value) => {
