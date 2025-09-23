@@ -109,63 +109,27 @@ def clean_test_database():
             auth_org_id = None
             auth_token_ids = []
             
-            try:
-                # Always generate fresh test auth data for each test run
-                import os
-                from tests.backend.fixtures.test_setup import create_test_organization_and_user
-                from tests.backend.conftest import TestingSessionLocal
+            # We don't need to create fresh auth data in cleanup
+            # The tests should be completely self-contained and not rely on external API keys
+            print("🧹 Skipping auth data creation - tests should be self-contained")
+            
+            # Fallback: Preserve ALL production data if fresh generation fails
+            if not auth_user_id:
+                # Fallback: preserve all production tokens
+                result = connection.execute(text("""
+                    SELECT array_agg(DISTINCT u.id) as user_ids, 
+                           array_agg(DISTINCT u.organization_id) as org_ids,
+                           array_agg(DISTINCT t.id) as token_ids
+                    FROM "user" u 
+                    JOIN token t ON t.user_id = u.id
+                """))
                 
-                # Create a database session for the setup
-                db = TestingSessionLocal()
-                try:
-                    # Generate unique names for this test run
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    test_org_name = f"Test Organization {timestamp}"
-                    test_user_email = f"test_{timestamp}@rhesis-test.com"
-                    test_user_name = "Test User"
-                    
-                    # Use existing routine to create org, user, and token
-                    organization, user, token = create_test_organization_and_user(
-                        db, test_org_name, test_user_email, test_user_name
-                    )
-                    
-                    # Set up preservation for our fresh test data
-                    auth_user_id = str(user.id)
-                    auth_org_id = str(organization.id)
-                    auth_token_ids = [str(token.id)]
-                    
-                    # Update environment for this test run
-                    os.environ["RHESIS_API_KEY"] = token.token
-                    print(f"🆕 Created fresh test auth data: user={auth_user_id}, org={auth_org_id}, api_key={token.token[:20]}...")
-                    
-                except Exception as e:
-                    print(f"❌ Failed to create fresh test auth data: {e}")
-                    db.rollback()
-                finally:
-                    db.close()
-                
-                # Fallback: Preserve ALL production data if fresh generation fails
-                if not auth_user_id:
-                    # Fallback: preserve all production tokens
-                    result = connection.execute(text("""
-                        SELECT array_agg(DISTINCT u.id) as user_ids, 
-                               array_agg(DISTINCT u.organization_id) as org_ids,
-                               array_agg(DISTINCT t.id) as token_ids
-                        FROM "user" u 
-                        JOIN token t ON t.user_id = u.id
-                    """))
-                    
-                    row = result.fetchone()
-                    if row:
-                        auth_user_ids = [str(uid) for uid in (row.user_ids or []) if uid]
-                        auth_org_ids = [str(oid) for oid in (row.org_ids or []) if oid]  
-                        auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
-                        print(f"🔐 Preserving ALL production data: {len(auth_user_ids)} users, {len(auth_org_ids)} orgs, {len(auth_token_ids)} tokens")
-                        
-            except Exception as e:
-                # If we can't get auth data, continue with normal cleanup
-                print(f"⚠️ Could not retrieve auth data for preservation: {e}")
-                pass
+                row = result.fetchone()
+                if row:
+                    auth_user_ids = [str(uid) for uid in (row.user_ids or []) if uid]
+                    auth_org_ids = [str(oid) for oid in (row.org_ids or []) if oid]  
+                    auth_token_ids = [str(tid) for tid in (row.token_ids or []) if tid]
+                    print(f"🔐 Preserving ALL production data: {len(auth_user_ids)} users, {len(auth_org_ids)} orgs, {len(auth_token_ids)} tokens")
             
             # List of tables to clean (in correct dependency order - most dependent first)
             # Clean ALL test data but preserve ONLY core authentication data (tokens, users, organization)
@@ -421,37 +385,50 @@ def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
         return None, None
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def authenticated_user_info() -> tuple[str, str]:
     """
-    🔑 Get the authenticated user and organization IDs from API key
+    🔑 Create fresh test user and organization for each test
     
-    This fixture retrieves the actual user and organization IDs that correspond
-    to the RHESIS_API_KEY environment variable. This ensures tests use the
-    correct authenticated context.
+    This fixture creates a completely self-contained test environment without
+    relying on external API keys or environment variables.
         
     Returns:
         Tuple of (organization_id, user_id) as strings
-        
-    Raises:
-        pytest.skip: If API key is invalid or user not found
     """
-    # Create a temporary database session for this session-scoped fixture
+    from tests.backend.fixtures.test_setup import create_test_organization_and_user
+    from datetime import datetime
+    import uuid
+    
+    # Create a temporary database session
     session = TestingSessionLocal()
     try:
-        org_id, user_id = get_authenticated_user_info(session)
+        # Generate unique names for this test
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_suffix = str(uuid.uuid4())[:8]
+        test_org_name = f"Test Organization {timestamp}_{unique_suffix}"
+        test_user_email = f"test_{timestamp}_{unique_suffix}@rhesis-test.com"
+        test_user_name = "Test User"
         
-        if not org_id or not user_id:
-            pytest.skip("Could not retrieve authenticated user info from RHESIS_API_KEY")
+        # Create fresh test data
+        organization, user, token = create_test_organization_and_user(
+            session, test_org_name, test_user_email, test_user_name
+        )
         
-        return org_id, user_id
+        print(f"🆕 Created fresh test auth data: user={user.id}, org={organization.id}")
+        
+        return str(organization.id), str(user.id)
+        
+    except Exception as e:
+        print(f"❌ Failed to create test auth data: {e}")
+        pytest.skip(f"Could not create test authentication data: {e}")
     finally:
         session.close()
 
 
-@pytest.fixture(scope="session") 
+@pytest.fixture(scope="function") 
 def test_org_id(authenticated_user_info) -> str:
-    """🏢 Get the test organization ID from authenticated API key"""
+    """🏢 Get the test organization ID from fresh test data"""
     org_id, _ = authenticated_user_info
     return org_id
 
@@ -472,8 +449,8 @@ def test_entity_type(test_db, test_org_id, authenticated_user_id):
     return entity_type
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def authenticated_user_id(authenticated_user_info) -> str:
-    """👤 Get the authenticated user ID from API key"""
+    """👤 Get the authenticated user ID from fresh test data"""
     _, user_id = authenticated_user_info
     return user_id
