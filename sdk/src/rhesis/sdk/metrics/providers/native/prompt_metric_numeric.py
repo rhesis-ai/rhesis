@@ -316,8 +316,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         config = asdict(self.to_config())
         config = sdk_config_to_backend_config(config)
 
-        response = client.send_request(Endpoints.METRICS, Methods.POST, config)
-        response.raise_for_status()
+        client.send_request(Endpoints.METRICS, Methods.POST, config)
 
     @staticmethod
     def pull(metric_id: str) -> "RhesisPromptMetricNumeric":
@@ -353,3 +352,31 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             threshold=config.parameters.get("threshold"),
             threshold_operator=config.parameters.get("threshold_operator"),
         )
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
+
+    metric = RhesisPromptMetricNumeric(
+        name="test",
+        description="test",
+        metric_type="rag",
+        evaluation_prompt="test",
+        evaluation_steps="test",
+        reasoning="test",
+        evaluation_examples="test",
+        min_score=10,
+        max_score=60,
+        threshold=15,
+        threshold_operator=ThresholdOperator.GREATER_THAN_OR_EQUAL,
+    )
+    metric.push()
+    # config = metric.to_config()
+
+    # metric = RhesisPromptMetricNumeric.pull(id)
+    # config2 = metric.to_config()
+
+    # print(config)
+    # print(config2)
