@@ -307,6 +307,18 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         }
         return config
 
+    def push(self) -> None:
+        """Push the metric to the backend."""
+        client = Client()
+        config = asdict(self.to_config())
+        config["min_score"] = config["parameters"].get("min_score")
+        config["max_score"] = config["parameters"].get("max_score")
+        config["threshold"] = config["parameters"].get("threshold")
+        config["threshold_operator"] = config["parameters"].get("threshold_operator")
+
+        response = client.send_request(Endpoints.METRICS, Methods.POST, config)
+        response.raise_for_status()
+
     def from_config(self, config: MetricConfig) -> "RhesisPromptMetricNumeric":
         """Create a metric from a dictionary."""
         return RhesisPromptMetricNumeric(
