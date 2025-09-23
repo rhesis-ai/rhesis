@@ -9,7 +9,7 @@ from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOpera
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
-from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
+from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
 
 
 class NumericScoreResponse(BaseModel):
@@ -314,10 +314,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         """Push the metric to the backend."""
         client = Client()
         config = asdict(self.to_config())
-        config["min_score"] = config["parameters"].get("min_score")
-        config["max_score"] = config["parameters"].get("max_score")
-        config["threshold"] = config["parameters"].get("threshold")
-        config["threshold_operator"] = config["parameters"].get("threshold_operator")
+        config = sdk_config_to_backend_config(config)
 
         response = client.send_request(Endpoints.METRICS, Methods.POST, config)
         response.raise_for_status()
