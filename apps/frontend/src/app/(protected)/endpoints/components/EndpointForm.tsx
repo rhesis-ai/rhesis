@@ -92,7 +92,8 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        border: '1px solid rgba(0, 0, 0, 0.23)',
+        border: '1px solid',
+        borderColor: 'divider',
         borderRadius: '4px',
         backgroundColor: '#f5f5f5'
       }}
@@ -145,13 +146,15 @@ interface FormData extends Omit<Endpoint, 'id' | 'request_headers' | 'request_bo
 
 // Add this style component at the top level of your component
 const editorWrapperStyle = {
-  border: '1px solid rgba(0, 0, 0, 0.23)',
+  border: '1px solid',
+  borderColor: 'divider',
   borderRadius: '4px',
   '&:hover': {
-    border: '1px solid rgba(0, 0, 0, 0.87)',
+    borderColor: 'text.primary',
   },
   '&:focus-within': {
-    border: '2px solid #1976d2',
+    border: '2px solid',
+    borderColor: 'primary.main',
     margin: '-1px',
   },
 };

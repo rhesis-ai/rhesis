@@ -214,13 +214,9 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
                 top: 8,
                 right: 8,
                 zIndex: 1,
-                backgroundColor: (theme) => theme.palette.mode === 'dark' 
-                  ? 'rgba(0, 0, 0, 0.6)' 
-                  : 'rgba(255, 255, 255, 0.8)',
+                backgroundColor: 'background.paper',
                 '&:hover': {
-                  backgroundColor: (theme) => theme.palette.mode === 'dark'
-                    ? 'rgba(0, 0, 0, 0.8)'
-                    : 'rgba(255, 255, 255, 0.9)',
+                  backgroundColor: 'action.hover',
                 }
               }}
             >

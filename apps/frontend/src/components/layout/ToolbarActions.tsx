@@ -17,7 +17,7 @@ export default function ToolbarActions() {
           sx={{ 
             fontSize: '0.75rem',
             fontFamily: 'monospace',
-            color: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(160, 160, 160, 0.8)'
+            color: 'text.secondary'
           }}
         />
       )}

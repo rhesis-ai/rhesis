@@ -110,9 +110,9 @@ interface BaseDataGridProps {
 }
 
 // Create a styled version of DataGrid with bold headers
-const StyledDataGrid = styled(DataGrid)({
+const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-columnHeaders': {
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    backgroundColor: theme.palette.action.hover,
     fontWeight: 'bold',
   },
   '& .MuiDataGrid-columnHeaderTitle': {
@@ -126,14 +126,14 @@ const StyledDataGrid = styled(DataGrid)({
   },
   '& .MuiDataGrid-row:hover': {
     cursor: 'pointer',
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    backgroundColor: theme.palette.action.hover,
   },
   '& .MuiDataGrid-cell': {
     display: 'flex',
     alignItems: 'center', // This ensures vertical centering of all cell content
   },
   border: 'none',
-});
+}));
 
 export default function BaseDataGrid({
   columns,

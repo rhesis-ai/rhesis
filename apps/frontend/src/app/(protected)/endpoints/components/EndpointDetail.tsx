@@ -107,7 +107,8 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const editorWrapperStyle = {
-  border: '1px solid rgba(0, 0, 0, 0.23)',
+  border: '1px solid',
+  borderColor: 'divider',
   borderRadius: '4px',
 };
 
@@ -125,7 +126,8 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        border: '1px solid rgba(0, 0, 0, 0.23)',
+        border: '1px solid',
+        borderColor: 'divider',
         borderRadius: '4px',
         backgroundColor: 'grey.100'
       }}
