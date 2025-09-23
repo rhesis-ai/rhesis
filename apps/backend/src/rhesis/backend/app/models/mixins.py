@@ -46,7 +46,7 @@ class TagsMixin:
             self._tags_relationship.append(tagged_item)
 
 
-class CommentTaskMixin:
+class CountMixin:
     """Mixin that provides polymorphic comment and task relationships with counts"""
 
     @declared_attr
