@@ -13,13 +13,13 @@ import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 
 import { PageContainer } from '@toolpad/core/PageContainer';
-import TestWorkflowSection from './components/TestWorkflowSection';
 
 import TestDetailCharts from './components/TestDetailCharts';
 import TestDetailData from './components/TestDetailData';
 import TestToTestSet from './components/TestToTestSet';
 import TestTags from './components/TestTags';
 import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Updated import
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 
 interface PageProps {
@@ -71,7 +71,7 @@ export default async function TestDetailPage({ params }: PageProps) {
 
           <Grid container spacing={3}>
             {/* Main Content Column */}
-            <Grid item xs={12} md={9}>
+            <Grid item xs={12}>
               <Paper sx={{ p: 3, mb: 4 }}>
                 <Grid container spacing={3}>
                   {/* Action Buttons */}
@@ -113,8 +113,8 @@ export default async function TestDetailPage({ params }: PageProps) {
                 </Grid>
               </Paper>
 
-              {/* Comments Section */}
-              <CommentsWrapper
+              {/* Tasks and Comments Section */}
+              <TasksAndCommentsWrapper
                 entityType="Test"
                 entityId={test.id}
                 sessionToken={session.session_token}
@@ -122,23 +122,6 @@ export default async function TestDetailPage({ params }: PageProps) {
                 currentUserName={session.user?.name || ''}
                 currentUserPicture={session.user?.picture || undefined}
               />
-            </Grid>
-
-            {/* Workflow Column */}
-            <Grid item xs={12} md={3}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Workflow
-                </Typography>
-                <TestWorkflowSection 
-                  sessionToken={session.session_token} 
-                  testId={identifier}
-                  status={test.status?.name}
-                  priority={test.priority}
-                  assignee={test.assignee}
-                  owner={test.owner}
-                />
-              </Paper>
             </Grid>
           </Grid>
         </Box>
