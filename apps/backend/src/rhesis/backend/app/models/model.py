@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin, TagsMixin
+from .mixins import CommentTaskMixin, OrganizationAndUserMixin, TagsMixin
 
 
-class Model(Base, OrganizationAndUserMixin, TagsMixin):
+class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentTaskMixin):
     __tablename__ = "model"
 
     # Basic information
@@ -40,27 +40,3 @@ class Model(Base, OrganizationAndUserMixin, TagsMixin):
 
     # Metrics relationship
     metrics = relationship("Metric", back_populates="model")
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Model.id), Comment.entity_type == 'Model')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    # Task relationship (polymorphic)
-    tasks = relationship(
-        "Task",
-        primaryjoin="and_(Task.entity_id == foreign(Model.id), Task.entity_type == 'Model')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    @property
-    def counts(self):
-        """Get the counts of comments, tasks for this model"""
-        return {
-            "comments": len(self.comments) if self.comments else 0,
-            "tasks": len(self.tasks) if self.tasks else 0,
-        }

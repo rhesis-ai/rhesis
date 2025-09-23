@@ -7,9 +7,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
+from .mixins import CommentTaskMixin
 
 
-class TestResult(Base):
+class TestResult(Base, CommentTaskMixin):
     __tablename__ = "test_result"
     test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"))
     test_run_id = Column(GUID(), ForeignKey("test_run.id"))
@@ -26,27 +27,3 @@ class TestResult(Base):
     status = relationship("Status", back_populates="test_results")
     organization = relationship("Organization", back_populates="test_results")
     test = relationship("Test", back_populates="test_results")
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(TestResult.id), Comment.entity_type == 'TestResult')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    # Task relationship (polymorphic)
-    tasks = relationship(
-        "Task",
-        primaryjoin="and_(Task.entity_id == foreign(TestResult.id), Task.entity_type == 'TestResult')",
-        viewonly=True,
-        uselist=True,
-    )
-
-    @property
-    def counts(self):
-        """Get the counts of comments, tasks for this test result"""
-        return {
-            "comments": len(self.comments) if self.comments else 0,
-            "tasks": len(self.tasks) if self.tasks else 0,
-        }
