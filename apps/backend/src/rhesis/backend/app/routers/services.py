@@ -12,6 +12,7 @@ from rhesis.backend.app.schemas.services import (
     DocumentUploadResponse,
     ExtractDocumentRequest,
     ExtractDocumentResponse,
+    GenerateContentRequest,
     GenerateTestsRequest,
     GenerateTestsResponse,
     PromptRequest,
@@ -134,22 +135,21 @@ async def create_chat_completion_endpoint(request: dict):
 
 
 @router.post("/generate/content")
-async def generate_content_endpoint(request: dict):
+async def generate_content_endpoint(request: GenerateContentRequest):
     """
-    OpenAI-compatible chat completions endpoint.
-    Accepts requests in the standard OpenAI chat completion format.
+    Generate text using LLM with optional OpenAI schema validation.
 
     Args:
-        request: The complete chat completion request body matching OpenAI's format
+        request: Contains prompt and optional OpenAI schema for structured output
 
     Returns:
-        dict: The unmodified OpenAI API response
+        str or dict: Raw text if no schema, validated dict if schema provided
     """
     try:
         from rhesis.sdk.models.providers.gemini import GeminiLLM
 
-        prompt = request.get("prompt")
-        schema = request.get("schema")
+        prompt = request.prompt
+        schema = request.schema
 
         model = GeminiLLM()
         response = model.generate(prompt, schema=schema)

@@ -44,16 +44,23 @@ export { default as ApiIcon } from '@mui/icons-material/ApiOutlined';
 export { default as AddIcon } from '@mui/icons-material/AddOutlined';
 export { default as DeleteIcon } from '@mui/icons-material/DeleteOutlined';
 export { default as CheckIcon } from '@mui/icons-material/CheckOutlined';
+export { default as CheckCircleIcon } from '@mui/icons-material/CheckCircleOutlined';
+export { default as AddTaskIcon } from '@mui/icons-material/AddTaskOutlined';
 export { default as CloseIcon } from '@mui/icons-material/CloseOutlined';
 export { default as InfoIcon } from '@mui/icons-material/InfoOutlined';
 export { default as SettingsIcon } from '@mui/icons-material/SettingsOutlined';
+export { default as AssignmentIcon } from '@mui/icons-material/AssignmentOutlined';
 
 // Common UI icons
 export { default as PersonIcon } from '@mui/icons-material/PersonOutlined';
 export { default as DownloadIcon } from '@mui/icons-material/DownloadOutlined';
 export { default as ContentCopyIcon } from '@mui/icons-material/ContentCopyOutlined';
 export { default as ArrowBackIcon } from '@mui/icons-material/ArrowBackOutlined';
+export { default as ArrowOutwardIcon } from '@mui/icons-material/ArrowOutwardOutlined';
 export { default as ClearIcon } from '@mui/icons-material/ClearOutlined';
+export { default as RefreshIcon } from '@mui/icons-material/RefreshOutlined';
+export { default as SendIcon } from '@mui/icons-material/SendOutlined';
+export { default as EmojiIcon } from '@mui/icons-material/EmojiEmotionsOutlined';
 
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturingOutlined';
