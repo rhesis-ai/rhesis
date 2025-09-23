@@ -16,10 +16,10 @@ from rhesis.backend.app.services.task_management import validate_task_organizati
 from rhesis.backend.app.auth.permissions import ResourcePermission
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
-# Create a simple database session fixture
+# Use the proper database fixture that triggers cleanup
 @pytest.fixture
-def db_session():
-    """Simple database session for security tests that don't need authentication"""
+def db_session(setup_test_database):
+    """Database session for security tests that triggers cleanup but avoids auth dependencies"""
     from tests.backend.conftest import TestingSessionLocal
     db = TestingSessionLocal()
     try:
