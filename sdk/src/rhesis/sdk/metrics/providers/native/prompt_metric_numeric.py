@@ -321,7 +321,18 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         response = client.send_request(Endpoints.METRICS, Methods.POST, config)
         response.raise_for_status()
 
-    def from_config(self, config: MetricConfig) -> "RhesisPromptMetricNumeric":
+    @staticmethod
+    def pull(metric_id: str) -> "RhesisPromptMetricNumeric":
+        """
+        Pull the metric from the backend.
+        """
+        client = Client()
+        config = client.send_request(Endpoints.METRICS, Methods.GET, url_params=metric_id)
+        config = MetricConfig(**config)
+        return RhesisPromptMetricNumeric.from_config(config)
+
+    @staticmethod
+    def from_config(config: MetricConfig) -> "RhesisPromptMetricNumeric":
         """Create a metric from a dictionary."""
         return RhesisPromptMetricNumeric(
             # Backend required items
