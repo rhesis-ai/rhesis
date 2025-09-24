@@ -332,33 +332,32 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         Returns:
             RhesisPromptMetricNumeric: The metric
         """
-        client = Client()
         if not name and not nano_id:
             raise ValueError("Either name or nano_id must be provided")
 
-        if nano_id:
-            params = {
-                "$filter": f"nano_id eq '{nano_id}'",
-            }
-            config = client.send_request(Endpoints.METRICS, Methods.GET, params=params)
-        elif name:
-            params = {
-                "$filter": f"name eq '{name}'",
-            }
-            config = client.send_request(Endpoints.METRICS, Methods.GET, params=params)
-            if len(config) > 1:
-                raise ValueError(f"Multiple metrics found with name {name}, please use nano_id")
+        client = Client()
 
-        if len(config) == 0:
-            raise ValueError(f"No metric found with name {name} or nano_id {nano_id}")
+        # Build filter based on provided parameter
+        filter_field = "nano_id" if nano_id else "name"
+        filter_value = nano_id or name
+
+        config = client.send_request(
+            Endpoints.METRICS,
+            Methods.GET,
+            params={"$filter": f"{filter_field} eq '{filter_value}'"},
+        )
+
+        if not config:
+            raise ValueError(f"No metric found with {filter_field} {filter_value}")
+
+        if len(config) > 1:
+            raise ValueError(f"Multiple metrics found with name {name}, please use nano_id")
 
         config = config[0]
-
         if config["class_name"] != cls.__name__:
             raise ValueError(f"Metric {config.get('id')} is not a {cls.__name__}")
 
         config = backend_config_to_sdk_config(config)
-
         config = MetricConfig(**config)
         return cls.from_config(config)
 
@@ -387,24 +386,5 @@ if __name__ == "__main__":
 
     load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
 
-    metric = RhesisPromptMetricNumeric(
-        name="test",
-        description="test",
-        metric_type="rag",
-        evaluation_prompt="test",
-        evaluation_steps="test",
-        reasoning="test",
-        evaluation_examples="test",
-        min_score=10,
-        max_score=60,
-        threshold=15,
-        threshold_operator=ThresholdOperator.GREATER_THAN_OR_EQUAL,
-    )
-    metric.push()
-    # config = metric.to_config()
-
-    # metric = RhesisPromptMetricNumeric.pull(id)
-    # config2 = metric.to_config()
-
-    # print(config)
-    # print(config2)
+    metric = RhesisPromptMetricNumeric.pull(nano_id="TzER8pYKQh8k")
+    print(metric)
