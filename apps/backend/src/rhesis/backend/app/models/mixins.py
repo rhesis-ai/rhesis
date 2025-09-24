@@ -46,7 +46,7 @@ class TagsMixin:
             self._tags_relationship.append(tagged_item)
 
 
-class CommentMixin:
+class CommentsMixin:
     """Mixin that provides polymorphic comment relationships"""
 
     @declared_attr
@@ -63,7 +63,7 @@ class CommentMixin:
         )
 
 
-class TaskMixin:
+class TasksMixin:
     """Mixin that provides polymorphic task relationships"""
 
     @declared_attr
@@ -80,16 +80,16 @@ class TaskMixin:
         )
 
 
-class CountMixin:
+class CountsMixin:
     """Mixin that provides count properties for comments and tasks"""
 
     @property
-    def comment_count(self):
+    def comments_count(self):
         """Get the count of comments for this entity"""
         return len(self.comments) if hasattr(self, "comments") and self.comments else 0
 
     @property
-    def task_count(self):
+    def tasks_count(self):
         """Get the count of tasks for this entity"""
         return len(self.tasks) if hasattr(self, "tasks") and self.tasks else 0
 
@@ -100,11 +100,11 @@ class CountMixin:
 
         # Add comment count if the model has comments relationship
         if hasattr(self, "comments"):
-            counts["comments"] = self.comment_count
+            counts["comments"] = self.comments_count
 
         # Add task count if the model has tasks relationship
         if hasattr(self, "tasks"):
-            counts["tasks"] = self.task_count
+            counts["tasks"] = self.tasks_count
 
         return counts
 
