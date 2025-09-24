@@ -125,9 +125,6 @@ jobs:
           echo "✅ Service account key validated as proper JSON"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
-      - name: Setup Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -231,9 +228,6 @@ jobs:
           
           echo "✅ Service account key validated as proper JSON"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
-
-      - name: Setup Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
