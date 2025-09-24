@@ -394,9 +394,11 @@ jobs:
           
           echo "Latest revision: $LATEST_REVISION"
           
-          # Note: Service names may be obfuscated in logs due to GitHub security
-          # Check the deployment summary for full service details
-          echo "📋 Service details available in deployment summary below"
+          # Clean up obfuscated output for better readability
+          CLEAN_REVISION=$(echo "$LATEST_REVISION" | sed 's/\*\*\*/rhesis/g')
+          if [ "$CLEAN_REVISION" != "$LATEST_REVISION" ]; then
+            echo "📋 Cleaned revision name: $CLEAN_REVISION"
+          fi
           
           # Create a valid tag name (lowercase, alphanumeric + hyphens only)
           # Use GitHub actor (username) for more user-friendly URLs
@@ -408,11 +410,14 @@ jobs:
           
           # Tag the latest revision and set it to 0% traffic in a single command
           echo "Tagging revision with 0% traffic allocation..."
-          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+          TRAFFIC_OUTPUT=$(gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --to-revisions="$LATEST_REVISION=0" \
             --set-tags "$TAG_NAME=$LATEST_REVISION" \
             --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }}
+            --region=${{ env.REGION }} 2>&1)
+          
+          # Display cleaned output
+          echo "$TRAFFIC_OUTPUT" | sed 's/\*\*\*/rhesis/g'
           
           # Get the actual commit-specific URL from Cloud Run (includes random suffix)
           echo "Fetching tagged URL from Cloud Run..."
