@@ -37,36 +37,26 @@ class TestEndpointService:
         
         assert service.schema_path == custom_path
     
-    def test_get_endpoint_success(self):
+    def test_get_endpoint_success(self, test_db: Session, db_endpoint_minimal: Endpoint):
         """Test successful endpoint retrieval"""
         service = EndpointService()
         
-        mock_endpoint = Mock(spec=Endpoint)
-        mock_endpoint.id = "endpoint123"
-        mock_endpoint.name = "Test Endpoint"
+        result = service._get_endpoint(test_db, str(db_endpoint_minimal.id))
         
-        mock_db = Mock(spec=Session)
-        mock_query = Mock()
-        mock_query.filter.return_value.first.return_value = mock_endpoint
-        mock_db.query.return_value = mock_query
-        
-        result = service._get_endpoint(mock_db, "endpoint123")
-        
-        assert result == mock_endpoint
-        mock_db.query.assert_called_once_with(Endpoint)
-        mock_query.filter.assert_called_once()
+        assert result is not None
+        assert result.id == db_endpoint_minimal.id
+        assert result.name == db_endpoint_minimal.name
     
-    def test_get_endpoint_not_found(self):
+    def test_get_endpoint_not_found(self, test_db: Session):
         """Test endpoint retrieval when endpoint doesn't exist"""
+        import uuid
         service = EndpointService()
         
-        mock_db = Mock(spec=Session)
-        mock_query = Mock()
-        mock_query.filter.return_value.first.return_value = None
-        mock_db.query.return_value = mock_query
+        # Use a non-existent UUID
+        nonexistent_id = str(uuid.uuid4())
         
         with pytest.raises(HTTPException) as exc_info:
-            service._get_endpoint(mock_db, "nonexistent")
+            service._get_endpoint(test_db, nonexistent_id)
         
         assert exc_info.value.status_code == 404
         assert "Endpoint not found" in str(exc_info.value.detail)
