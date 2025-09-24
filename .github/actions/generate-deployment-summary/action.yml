@@ -30,7 +30,7 @@ runs:
           echo "## ⚠️ PREVIEW - ${{ inputs.service-type }} Service Deployed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Access Information" >> $GITHUB_STEP_SUMMARY
-          printf "**Preview URL:** [%s](%s)\n" "${{ inputs.service-url }}" "${{ inputs.service-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Preview URL:** [${{ inputs.service-url }}](${{ inputs.service-url }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Service Information" >> $GITHUB_STEP_SUMMARY
           echo "- **Service:** rhesis-$(echo "${{ inputs.service-type }}" | tr '[:upper:]' '[:lower:]')-${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
