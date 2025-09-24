@@ -1,0 +1,89 @@
+name: Preview Deployment (Multi-Service)
+
+# Multi-service preview deployment for both backend and frontend
+# This ensures frontend gets the correct backend preview URL
+# Updated: Manual trigger workflow for multi-service preview deployments
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      reason:
+        description: 'Reason for preview deployment'
+        required: false
+        type: string
+        default: 'Multi-service preview deployment'
+
+jobs:
+  deploy-backend-preview:
+    name: Deploy Backend Preview
+    uses: ./.github/workflows/backend.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      deploy_preview: true
+      deploy_only: false
+      reason: ${{ github.event.inputs.reason || 'Multi-service preview deployment - Backend' }}
+    secrets: inherit
+
+  deploy-frontend-preview:
+    name: Deploy Frontend Preview
+    needs: deploy-backend-preview
+    uses: ./.github/workflows/frontend.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      deploy_preview: true
+      deploy_only: false
+      reason: ${{ github.event.inputs.reason || 'Multi-service preview deployment - Frontend' }}
+      backend_preview_url: ${{ needs.deploy-backend-preview.outputs.backend_preview_url }}
+    secrets: inherit
+
+  generate-summary:
+    name: Generate Multi-Service Deployment Summary
+    needs: [deploy-backend-preview, deploy-frontend-preview]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Multi-Service Preview Summary
+        run: |
+          echo "# 🚀 ⚠️ PREVIEW - Multi-Service Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏷️ Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **🌍 Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **📝 Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **⚠️ Type:** PREVIEW (NOT Live Environment)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Preview URLs" >> $GITHUB_STEP_SUMMARY
+          # Debug URL information for troubleshooting
+          BACKEND_URL="${{ needs.deploy-backend-preview.outputs.backend_preview_url }}"
+          FRONTEND_URL="${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }}"
+          
+          echo "🔍 Multi-Service URL Debug:"
+          echo "  - Backend URL: ${BACKEND_URL:0:30}...${BACKEND_URL: -20}"
+          echo "  - Frontend URL: ${FRONTEND_URL:0:30}...${FRONTEND_URL: -20}"
+          
+          # Use printf to avoid URL masking issues
+          printf "- **🧪 Backend Preview:** [%s](%s)\n" "$BACKEND_URL" "$BACKEND_URL" >> $GITHUB_STEP_SUMMARY
+          printf "- **🧪 Frontend Preview:** [%s](%s)\n" "$FRONTEND_URL" "$FRONTEND_URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ⚠️ IMPORTANT PREVIEW WARNINGS" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 **These are NOT live ${{ github.event.inputs.environment }} services**" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 **Both services receive 0% live traffic**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔒 **Completely isolated from live environment**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 **Frontend is configured to communicate with backend preview**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🧪 **For testing and review purposes ONLY**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧪 Testing Instructions" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Access the frontend preview URL above** to test the multi-service deployment" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Verify all functionality** works as expected in the preview environment" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Remember:** This is an isolated preview - no impact on live users" >> $GITHUB_STEP_SUMMARY
+          
+          echo "🎯 Multi-service preview deployment completed successfully!"
+          echo "🔗 Backend:  ${{ needs.deploy-backend-preview.outputs.backend_preview_url }}"
+          echo "🔗 Frontend: ${{ needs.deploy-frontend-preview.outputs.frontend_preview_url }}"
