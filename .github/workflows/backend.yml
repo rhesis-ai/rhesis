@@ -32,6 +32,11 @@ on:
         required: false
         type: string
         default: 'Manual deployment'
+      preview:
+        description: 'Deploy as preview (tagged URL, no live traffic)'
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       environment:
@@ -48,6 +53,11 @@ on:
         required: false
         type: string
         default: 'Manual deployment'
+      preview:
+        description: 'Deploy as preview (tagged URL, no live traffic)'
+        required: false
+        default: false
+        type: boolean
       backend_preview_url_override:
         description: 'Override backend URL for preview deployments'
         required: false
@@ -135,7 +145,7 @@ jobs:
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           
           # Check if this is a preview deployment
-          if [ "${{ inputs.deploy_preview }}" = "true" ] || [ "${{ github.event.inputs.deploy_preview }}" = "true" ]; then
+          if [ "${{ inputs.preview }}" = "true" ] || [ "${{ github.event.inputs.preview }}" = "true" ]; then
             IS_PREVIEW="true"
           else
             IS_PREVIEW="false"
