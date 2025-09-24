@@ -661,7 +661,6 @@ jobs:
           environment: ${{ env.ENVIRONMENT }}
           env-display: ${{ env.ENV_DISPLAY }}
           service-url: ${{ env.IS_PREVIEW == 'true' && env.DEPLOYED_URL || '' }}
-          service-name: ${{ env.SERVICE_NAME }}
 
       - name: Set Workflow Outputs
         id: output_url
