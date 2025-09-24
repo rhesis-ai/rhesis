@@ -543,7 +543,7 @@ jobs:
           is-preview: ${{ env.IS_PREVIEW }}
           environment: ${{ env.ENVIRONMENT }}
           env-display: ${{ env.ENV_DISPLAY }}
-          service-url: ${{ env.IS_PREVIEW == 'true' && env.DEPLOYED_URL || secrets.BACKEND_URL }}
+          service-url: ${{ env.IS_PREVIEW == 'true' && env.DEPLOYED_URL || '' }}
 
       - name: Set Workflow Outputs
         id: output_url

@@ -27,33 +27,31 @@ runs:
         
         if [ "${{ inputs.is-preview }}" = "true" ]; then
           # Preview deployment summary
-          echo "## 🌐 ⚠️ PREVIEW - ${{ inputs.service-type }} Service Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "## ⚠️ PREVIEW - ${{ inputs.service-type }} Service Deployed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-          printf "**🧪 Preview URL:** [%s](%s)\n" "${{ inputs.service-url }}" "${{ inputs.service-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Access Information" >> $GITHUB_STEP_SUMMARY
+          printf "**Preview URL:** [%s](%s)\n" "${{ inputs.service-url }}" "${{ inputs.service-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ⚠️ Preview Warning" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚫 **This is a PREVIEW deployment, NOT live ${{ inputs.environment }}**" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **Receives 0% live traffic**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔒 **Isolated from live environment**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 **Only accessible via the tagged URL above**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🧪 **For testing and review purposes only**" >> $GITHUB_STEP_SUMMARY
+          echo "### Preview Warning" >> $GITHUB_STEP_SUMMARY
+          echo "- **This is a PREVIEW deployment, NOT live ${{ inputs.environment }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Receives 0% live traffic**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Isolated from live environment**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Only accessible via the tagged URL above**" >> $GITHUB_STEP_SUMMARY
+          echo "- **For testing and review purposes only**" >> $GITHUB_STEP_SUMMARY
         else
-          # Regular deployment summary
-          echo "## 🌐 ✅ ${{ inputs.env-display }} - ${{ inputs.service-type }} Service Deployed" >> $GITHUB_STEP_SUMMARY
+          # Regular deployment summary - no URL shown since it's a secret
+          echo "## ✅ ${{ inputs.env-display }} - ${{ inputs.service-type }} Service Deployed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-          printf "**🌍 ${{ inputs.env-display }} URL:** [%s](%s)\n" "${{ inputs.service-url }}" "${{ inputs.service-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ✅ ${{ inputs.env-display }} Status" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚀 **This is the LIVE ${{ inputs.env-display }} service**" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **This is the LIVE ${{ inputs.env-display }} service**" >> $GITHUB_STEP_SUMMARY
+          echo "- **New revision is receiving 100% traffic**" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ inputs.environment }}" = "prd" ]; then
-            echo "- 📈 **Serving real user traffic**" >> $GITHUB_STEP_SUMMARY
-            echo "- 🔴 **Handle with care - affects users**" >> $GITHUB_STEP_SUMMARY
+            echo "- **Serving real user traffic**" >> $GITHUB_STEP_SUMMARY
+            echo "- **Handle with care - affects users**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- 🧪 **Serving ${{ inputs.env-display }} environment traffic**" >> $GITHUB_STEP_SUMMARY
-            echo "- ⚠️ **Handle with care - affects ${{ inputs.env-display }} users**" >> $GITHUB_STEP_SUMMARY
+            echo "- **Serving ${{ inputs.env-display }} environment traffic**" >> $GITHUB_STEP_SUMMARY
+            echo "- **Handle with care - affects ${{ inputs.env-display }} users**" >> $GITHUB_STEP_SUMMARY
           fi
         fi
         
