@@ -166,8 +166,26 @@ class BaseMetric(ABC):
     ):
         self.name = name
         self.description = description
-        self.metric_type = metric_type
+
         self.score_type = score_type
+        if isinstance(self.score_type, str):
+            try:
+                self.score_type = ScoreType(self.score_type)
+            except ValueError:
+                allowed = [member.value for member in ScoreType]
+                raise ValueError(
+                    f"Invalid score_type value: {self.score_type}. Allowed values: {allowed}"
+                )
+
+        self.metric_type = metric_type
+        if isinstance(self.metric_type, str):
+            try:
+                self.metric_type = MetricType(self.metric_type)
+            except ValueError:
+                allowed = [member.value for member in MetricType]
+                raise ValueError(
+                    f"Invalid metric_type value: {self.metric_type}. Allowed values: {allowed}"
+                )
 
         self.model = self.set_model(model)
 
