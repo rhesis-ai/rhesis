@@ -475,13 +475,6 @@ jobs:
           
           echo "Preview URL created: $PREVIEW_URL"
           
-          # Clean up any obfuscated patterns in the URL for display
-          CLEAN_PREVIEW_URL=$(echo "$PREVIEW_URL" | sed 's/--/-rhesis-/g' | sed 's/----/---rhesis-/g')
-          if [ "$CLEAN_PREVIEW_URL" != "$PREVIEW_URL" ]; then
-            echo "📋 Cleaned preview URL: $CLEAN_PREVIEW_URL"
-            PREVIEW_URL="$CLEAN_PREVIEW_URL"
-          fi
-          
           # Output for use in other steps or jobs
           echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
           

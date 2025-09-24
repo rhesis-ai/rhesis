@@ -485,13 +485,6 @@ jobs:
           
           echo "Preview URL created: $PREVIEW_URL"
           
-          # Clean up any obfuscated patterns in the URL for display
-          CLEAN_PREVIEW_URL=$(echo "$PREVIEW_URL" | sed 's/--/-rhesis-/g' | sed 's/----/---rhesis-/g')
-          if [ "$CLEAN_PREVIEW_URL" != "$PREVIEW_URL" ]; then
-            echo "📋 Cleaned preview URL: $CLEAN_PREVIEW_URL"
-            PREVIEW_URL="$CLEAN_PREVIEW_URL"
-          fi
-          
           # Output for use in other steps or jobs
           echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
           
@@ -622,12 +615,19 @@ jobs:
       - name: Set Workflow Outputs
         id: output_url
         run: |
+          echo "🔍 Debug workflow outputs:"
+          echo "  - IS_PREVIEW: ${{ env.IS_PREVIEW }}"
+          echo "  - PREVIEW_URL: ${{ env.PREVIEW_URL }}"
+          echo "  - DEPLOYED_URL: ${{ env.DEPLOYED_URL }}"
+          
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             BACKEND_PREVIEW_URL="${{ env.PREVIEW_URL }}"
             DEPLOYED_URL="$BACKEND_PREVIEW_URL"
+            echo "  - Setting backend_preview_url: $BACKEND_PREVIEW_URL"
             echo "backend_preview_url=$BACKEND_PREVIEW_URL" >> $GITHUB_OUTPUT
           else
             DEPLOYED_URL="${{ env.DEPLOYED_URL }}"
+            echo "  - Setting backend_preview_url: (empty)"
             echo "backend_preview_url=" >> $GITHUB_OUTPUT
           fi
           echo "deployed_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
