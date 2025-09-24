@@ -99,7 +99,12 @@ output "uploads_bucket" {
   value       = module.uploads_bucket.bucket_name
 }
 
+output "sources_bucket" {
+  description = "The name of the sources bucket"
+  value       = module.sources_bucket.bucket_name
+}
+
 output "worker_static_ip" {
   description = "The static IP address for the worker"
   value       = module.network.static_ip_addresses["worker"]
-} 
+}
