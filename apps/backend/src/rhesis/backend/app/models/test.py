@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin, TagsMixin
+from .mixins import CommentsMixin, CountsMixin, OrganizationMixin, TagsMixin, TasksMixin
 
 # Association table for test_set and test
 test_test_set_association = Table(
@@ -17,7 +17,7 @@ test_test_set_association = Table(
 )
 
 
-class Test(Base, TagsMixin, OrganizationMixin):
+class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "test"
 
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
@@ -53,11 +53,4 @@ class Test(Base, TagsMixin, OrganizationMixin):
     test_results = relationship("TestResult", back_populates="test")
     test_sets = relationship(
         "TestSet", secondary=test_test_set_association, back_populates="tests", viewonly=True
-    )
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Test.id), Comment.entity_type == 'Test')",
-        viewonly=True,
     )

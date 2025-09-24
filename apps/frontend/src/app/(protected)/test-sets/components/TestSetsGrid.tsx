@@ -10,9 +10,12 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
 import TestSetDrawer from './TestSetDrawer';
 import TestRunDrawer from './TestRunDrawer';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 interface StatusInfo {
   label: string;
@@ -125,6 +128,9 @@ export default function TestSetsGrid({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const notifications = useNotifications();
 
   // Set initial data from props
   useEffect(() => {
@@ -276,8 +282,57 @@ export default function TestSetsGrid({
     // Optionally refresh the test sets list if needed
   };
 
+  const handleDeleteTestSets = () => {
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      setIsDeleting(true);
+      const token = sessionToken || session?.session_token;
+      const clientFactory = new ApiClientFactory(token!);
+      const testSetsClient = clientFactory.getTestSetsClient();
+
+      // Delete all selected test sets
+      await Promise.all(
+        selectedRows.map(id => testSetsClient.deleteTestSet(id as string))
+      );
+
+      // Show success notification
+      notifications.show(
+        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}`,
+        { severity: 'success', autoHideDuration: 4000 }
+      );
+
+      // Clear selection and refresh data
+      setSelectedRows([]);
+      fetchTestSets();
+    } catch (error) {
+      console.error('Error deleting test sets:', error);
+      notifications.show(
+        'Failed to delete test sets',
+        { severity: 'error', autoHideDuration: 6000 }
+      );
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+  };
+
   const getActionButtons = () => {
-    const buttons = [
+    const buttons: {
+      label: string;
+      icon: React.ReactNode;
+      variant: 'text' | 'outlined' | 'contained';
+      color?: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+      onClick: () => void;
+    }[] = [
       {
         label: 'New Test Set',
         icon: <AddIcon />,
@@ -292,6 +347,14 @@ export default function TestSetsGrid({
         icon: <PlayArrowIcon />,
         variant: 'contained' as const,
         onClick: handleRunTestSets
+      });
+
+      buttons.push({
+        label: 'Delete Test Sets',
+        icon: <DeleteIcon />,
+        variant: 'contained' as const,
+        color: 'error' as const,
+        onClick: handleDeleteTestSets
       });
     }
 
@@ -342,6 +405,15 @@ export default function TestSetsGrid({
             sessionToken={sessionToken || session?.session_token!}
             selectedTestSetIds={selectedRows as string[]}
             onSuccess={handleTestRunSuccess}
+          />
+          <DeleteModal
+            open={deleteModalOpen}
+            onClose={handleDeleteCancel}
+            onConfirm={handleDeleteConfirm}
+            isLoading={isDeleting}
+            title="Delete Test Sets"
+            message={`Are you sure you want to permanently delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? This action cannot be undone.`}
+            itemType="test sets"
           />
         </>
       )}

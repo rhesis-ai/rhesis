@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, relationship
 from rhesis.backend.app.models.guid import GUID
 
 from .base import Base
-from .mixins import TagsMixin
+from .mixins import CommentsMixin, CountsMixin, TagsMixin, TasksMixin
 from .test import test_test_set_association
 
 """
@@ -38,7 +38,7 @@ prompt_test_set_association = Table(
 )
 
 
-class TestSet(Base, TagsMixin):
+class TestSet(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "test_set"
     name = Column(String, nullable=False)
     description = Column(Text)
@@ -76,13 +76,6 @@ class TestSet(Base, TagsMixin):
 
     tests = relationship(
         "Test", secondary=test_test_set_association, back_populates="test_sets", viewonly=True
-    )
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(TestSet.id), Comment.entity_type == 'TestSet')",
-        viewonly=True,
     )
 
     def _get_related_items(self, model_class, attribute_key):
