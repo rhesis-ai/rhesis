@@ -74,9 +74,9 @@ jobs:
           echo "  - Backend URL: ${BACKEND_URL:0:30}...${BACKEND_URL: -20}"
           echo "  - Frontend URL: ${FRONTEND_URL:0:30}...${FRONTEND_URL: -20}"
           
-          # Use printf to avoid URL masking issues
-          printf "- **Backend Preview:** [%s](%s)\n" "$BACKEND_URL" "$BACKEND_URL" >> $GITHUB_STEP_SUMMARY
-          printf "- **Frontend Preview:** [%s](%s)\n" "$FRONTEND_URL" "$FRONTEND_URL" >> $GITHUB_STEP_SUMMARY
+          # Use echo to avoid printf option parsing issues with URLs starting with dashes
+          echo "- **Backend Preview:** [$BACKEND_URL]($BACKEND_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend Preview:** [$FRONTEND_URL]($FRONTEND_URL)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Important Preview Warnings" >> $GITHUB_STEP_SUMMARY
           echo "- **These are NOT live ${{ github.event.inputs.environment }} services**" >> $GITHUB_STEP_SUMMARY
