@@ -5,10 +5,10 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.models.guid import GUID
 
 from .base import Base
-from .mixins import OrganizationMixin, TagsMixin
+from .mixins import CommentsMixin, CountsMixin, OrganizationMixin, TagsMixin, TasksMixin
 
 
-class TestRun(Base, TagsMixin, OrganizationMixin):
+class TestRun(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "test_run"
 
     user_id = Column(GUID(), ForeignKey("user.id"))
@@ -31,10 +31,3 @@ class TestRun(Base, TagsMixin, OrganizationMixin):
     test_configuration = relationship("TestConfiguration", back_populates="test_runs")
     test_results = relationship("TestResult", back_populates="test_run")
     organization = relationship("Organization", back_populates="test_runs")
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(TestRun.id), Comment.entity_type == 'TestRun')",
-        viewonly=True,
-    )

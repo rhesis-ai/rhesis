@@ -46,6 +46,69 @@ class TagsMixin:
             self._tags_relationship.append(tagged_item)
 
 
+class CommentsMixin:
+    """Mixin that provides polymorphic comment relationships"""
+
+    @declared_attr
+    def comments(cls):
+        """Polymorphic comment relationship"""
+        return relationship(
+            "Comment",
+            primaryjoin=(
+                f"and_({cls.__name__}.id == foreign(Comment.entity_id), "
+                f"Comment.entity_type == '{cls.__name__}')"
+            ),
+            viewonly=True,
+            uselist=True,
+        )
+
+
+class TasksMixin:
+    """Mixin that provides polymorphic task relationships"""
+
+    @declared_attr
+    def tasks(cls):
+        """Polymorphic task relationship"""
+        return relationship(
+            "Task",
+            primaryjoin=(
+                f"and_({cls.__name__}.id == foreign(Task.entity_id), "
+                f"Task.entity_type == '{cls.__name__}')"
+            ),
+            viewonly=True,
+            uselist=True,
+        )
+
+
+class CountsMixin:
+    """Mixin that provides count properties for comments and tasks"""
+
+    @property
+    def comments_count(self):
+        """Get the count of comments for this entity"""
+        return len(self.comments) if hasattr(self, "comments") and self.comments else 0
+
+    @property
+    def tasks_count(self):
+        """Get the count of tasks for this entity"""
+        return len(self.tasks) if hasattr(self, "tasks") and self.tasks else 0
+
+    @property
+    def counts(self):
+        """Get the counts of comments and tasks for this entity"""
+        counts = {}
+
+        # Add comment count if the model has comments relationship
+        if hasattr(self, "comments"):
+            counts["comments"] = self.comments_count
+
+        # Add task count if the model has tasks relationship
+        if hasattr(self, "tasks"):
+            counts["tasks"] = self.tasks_count
+
+        return counts
+
+
 class OrganizationMixin:
     """Mixin for organization-level multi-tenancy"""
 

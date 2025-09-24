@@ -7,9 +7,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
+from .mixins import CommentsMixin, CountsMixin, TasksMixin
 
 
-class TestResult(Base):
+class TestResult(Base, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "test_result"
     test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"))
     test_run_id = Column(GUID(), ForeignKey("test_run.id"))
@@ -26,10 +27,3 @@ class TestResult(Base):
     status = relationship("Status", back_populates="test_results")
     organization = relationship("Organization", back_populates="test_results")
     test = relationship("Test", back_populates="test_results")
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(TestResult.id), Comment.entity_type == 'TestResult')",
-        viewonly=True,
-    )
