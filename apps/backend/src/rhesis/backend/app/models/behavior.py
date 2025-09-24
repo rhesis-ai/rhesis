@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CountMixin, OrganizationAndUserMixin
+from .mixins import CommentMixin, CountMixin, OrganizationAndUserMixin, TaskMixin
 
 
-class Behavior(Base, OrganizationAndUserMixin, CountMixin):
+class Behavior(Base, OrganizationAndUserMixin, CommentMixin, TaskMixin, CountMixin):
     __tablename__ = "behavior"
     name = Column(String, nullable=False)
     description = Column(Text)
