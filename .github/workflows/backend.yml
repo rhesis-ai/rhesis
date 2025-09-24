@@ -647,22 +647,19 @@ jobs:
           echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
           echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
 
-      - name: Extract actual service name
-        id: extract_service_name
+      - name: Set actual service name
+        id: set_service_name
         run: |
-          # Extract the actual service name from Cloud Run to bypass obfuscation
-          ACTUAL_SERVICE_NAME=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --format="value(metadata.name)" 2>/dev/null || echo "")
-          
-          if [ -n "$ACTUAL_SERVICE_NAME" ]; then
-            echo "✅ Extracted service name: $ACTUAL_SERVICE_NAME"
-            echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
+          # Use repository variable to construct service name (avoids obfuscation)
+          SERVICE_TYPE="backend"
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}"
           else
-            echo "⚠️ Could not extract service name, using generic name"
-            echo "ACTUAL_SERVICE_NAME=cloud-run-service" >> $GITHUB_ENV
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}-${{ env.ENVIRONMENT }}"
           fi
+          
+          echo "✅ Service name: $ACTUAL_SERVICE_NAME"
+          echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
           
       - name: Generate deployment summary
         uses: ./.github/actions/generate-deployment-summary
