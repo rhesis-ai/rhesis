@@ -17,6 +17,9 @@ inputs:
   service-url:
     description: 'Service URL to display'
     required: true
+  actual-service-name:
+    description: 'Actual service name extracted from Cloud Run (bypasses obfuscation)'
+    required: false
 runs:
   using: 'composite'
   steps:
@@ -34,15 +37,12 @@ runs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployment Information" >> $GITHUB_STEP_SUMMARY
           
-          # Create service identifier without using the actual project name
-          SERVICE_TYPE_LOWER=$(echo "${{ inputs.service-type }}" | tr '[:upper:]' '[:lower:]')
-          if [ "${{ inputs.environment }}" = "prd" ]; then
-            SERVICE_IDENTIFIER="production-${SERVICE_TYPE_LOWER}"
-          else
-            SERVICE_IDENTIFIER="${{ inputs.environment }}-${SERVICE_TYPE_LOWER}"
+          # Display actual service name if provided (extracted from Cloud Run)
+          if [ -n "${{ inputs.actual-service-name }}" ]; then
+            echo "- **Service Name:** \`${{ inputs.actual-service-name }}\`" >> $GITHUB_STEP_SUMMARY
           fi
           
-          echo "- **Service:** $SERVICE_IDENTIFIER" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service Type:** ${{ inputs.service-type }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Platform:** Google Cloud Run" >> $GITHUB_STEP_SUMMARY
           echo "- **Region:** us-central1" >> $GITHUB_STEP_SUMMARY
@@ -54,14 +54,6 @@ runs:
           fi
           
           echo "- **Deployed:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          
-          # Add service location information
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Service Location" >> $GITHUB_STEP_SUMMARY
-          echo "- **Cloud Provider:** Google Cloud Platform" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service Type:** Cloud Run Container" >> $GITHUB_STEP_SUMMARY
-          echo "- **Naming Pattern:** \`project-${SERVICE_TYPE_LOWER}-${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Full Service Path:** \`projects/[project-id]/locations/us-central1/services/project-${SERVICE_TYPE_LOWER}-${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Preview Warning" >> $GITHUB_STEP_SUMMARY
           echo "- **This is a PREVIEW deployment, NOT live ${{ inputs.environment }}**" >> $GITHUB_STEP_SUMMARY
