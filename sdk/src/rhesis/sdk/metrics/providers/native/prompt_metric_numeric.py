@@ -2,11 +2,14 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult
-from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
+
+METRIC_TYPE = MetricType.RAG
+SCORE_TYPE = ScoreType.NUMERIC
 
 
 class NumericScoreResponse(BaseModel):
@@ -35,7 +38,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         name: Optional[str] = None,
         description: Optional[str] = None,
         model: Optional[str] = None,
-        metric_type: Optional[str] = "rag",
         **kwargs,
     ):
         """
@@ -58,7 +60,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
                 score to threshold. Can be a ThresholdOperator enum or string. Defaults to None.
             model (Optional[str], optional): The LLM model to use for evaluation.
                 If None, uses the default model. Defaults to None.
-            metric_type (str, optional): Type of metric for categorization. Defaults to "rag".
             **kwargs: Additional keyword arguments passed to the base class
 
         Raises:
@@ -69,13 +70,12 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         super().__init__(
             name=name,
             description=description,
-            metric_type=metric_type,
-            score_type=ScoreType.NUMERIC,
+            metric_type=METRIC_TYPE,
+            score_type=SCORE_TYPE,
             model=model,
             **kwargs,
         )
         # Convert string to enum if needed
-        self.score_type = ScoreType.NUMERIC
         if isinstance(threshold_operator, str):
             threshold_operator = ThresholdOperator(threshold_operator)
         self.threshold_operator = threshold_operator

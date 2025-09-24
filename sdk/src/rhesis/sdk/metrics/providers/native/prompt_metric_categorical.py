@@ -2,12 +2,14 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult
-from rhesis.sdk.metrics.constants import ScoreType
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
 from rhesis.sdk.models.base import BaseLLM
+
+METRIC_TYPE = MetricType.RAG
+SCORE_TYPE = ScoreType.CATEGORICAL
 
 
 class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
@@ -27,7 +29,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         name: Optional[str] = None,
         description: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
-        metric_type: Optional[str] = "rag",
         **kwargs,
     ):
         """
@@ -47,7 +48,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
                 Defaults to empty string.
             model (Optional[str], optional): The LLM model to use for evaluation.
                 If None, uses the default model. Defaults to None.
-            metric_type (str, optional): Type of metric for categorization. Defaults to "rag".
             **kwargs: Additional keyword arguments passed to the base class
 
         Raises:
@@ -59,16 +59,14 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         super().__init__(
             name=name,
             description=description,
-            score_type=ScoreType.CATEGORICAL,
-            metric_type=metric_type,
+            score_type=SCORE_TYPE,
+            metric_type=METRIC_TYPE,
             model=model,
             **kwargs,
         )
         # Convert string to enum if needed
-        self.score_type = ScoreType.CATEGORICAL
         self.categories = categories
         self.passing_categories = passing_categories
-        self.model = model
 
         # Validate input parameters
         self._validate_categories()
