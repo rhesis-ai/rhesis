@@ -429,13 +429,33 @@ jobs:
             --region=${{ env.REGION }} \
             --format="value(status.traffic[tag=$TAG_NAME].url)")
           
+          # Validate that we got a URL
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Warning: Could not fetch tagged URL, retrying..."
+            sleep 5
+            PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }} \
+              --format="value(status.traffic[tag=$TAG_NAME].url)")
+          fi
+          
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Error: Failed to get preview URL after retry"
+            exit 1
+          fi
+          
           echo "Preview URL created: $PREVIEW_URL"
           
           # Output for use in other steps or jobs
           echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
           
           # Now redeploy with the correct environment variables
-          echo "🔄 Updating service with correct preview URL in environment variables..."
+          echo "Updating service with correct preview URL in environment variables..."
+          
+          # Create a unique revision suffix to avoid conflicts
+          TIMESTAMP=$(date +%s)
+          REVISION_SUFFIX="${{ env.COMMIT_SHA }}-${TIMESTAMP: -4}"
+          echo "Using revision suffix: $REVISION_SUFFIX"
           
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
@@ -453,7 +473,7 @@ jobs:
             --max-instances=10 \
             --min-instances=1 \
             --no-traffic \
-            --revision-suffix=${{ env.COMMIT_SHA }} \
+            --revision-suffix=$REVISION_SUFFIX \
             --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="$(cat <<EOF
           PROJECT_ID=${{ env.PROJECT_ID }},
