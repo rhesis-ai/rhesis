@@ -19,13 +19,39 @@ Also, the method retry_evaluationmight be better placed in a utils type of modul
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar, Union
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 
-MetricType = Literal["rag", "generation", "classification"]
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+class Backend(str, Enum):
+    RHESIS = "rhesis"
+    DEEPEVAL = "deepeval"
+
+
+class ScoreType(str, Enum):
+    BINARY = "binary"
+    NUMERIC = "numeric"
+    CATEGORICAL = "categorical"
+
+
+class MetricType(str, Enum):
+    RAG = "rag"
+    GENERATION = "generation"
+    CLASSIFICATION = "classification"
+
+
+class ThresholdOperator(str, Enum):
+    EQUAL = "="
+    LESS_THAN = "<"
+    GREATER_THAN = ">"
+    LESS_THAN_OR_EQUAL = "<="
+    GREATER_THAN_OR_EQUAL = ">="
+    NOT_EQUAL = "!="
 
 
 @dataclass
@@ -46,7 +72,7 @@ class MetricConfig:
     class_name: str = "RhesisPromptMetricNumeric"
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
 
-    backend: str = "rhesis"
+    backend: Optional[Union[str, Backend]] = Backend.RHESIS
     """The backend/framework to use for this metric (e.g., 'deepeval')"""
 
     name: Optional[str] = None
@@ -55,10 +81,10 @@ class MetricConfig:
     description: Optional[str] = None
     """Human-readable description of what the metric measures"""
 
-    score_type: Optional[str] = None  # string or enum
+    score_type: Optional[Union[str, ScoreType]] = None  # string or enum
     """The score type of the metric eg. numeric, categorical, etc."""
 
-    metric_type: Optional[MetricType] = None  # string or enum
+    metric_type: Optional[Union[str, MetricType]] = None  # string or enum
     """The type of the metric eg. rag, generation, classification"""
 
     ground_truth_required: Optional[bool] = False
@@ -84,6 +110,43 @@ class MetricConfig:
     parameters: Dict[str, Any] = field(default_factory=dict)
     """Additional parameters specific to this metric implementation"""
 
+    def __post_init__(self):
+        # The config accept both string and enum for score_type and metric_type. However, the object
+        # will keep it as a string for easier serialization
+
+        if isinstance(self.backend, str):
+            try:
+                self.backend = Backend(self.backend)
+            except ValueError:
+                allowed = [member.value for member in Backend]
+                raise ValueError(
+                    f"Invalid backend value: {self.backend}. Allowed values: {allowed}"
+                )
+        elif isinstance(self.backend, Backend):
+            self.backend = self.backend.value
+
+        if isinstance(self.score_type, str):
+            try:
+                self.score_type = ScoreType(self.score_type)
+            except ValueError:
+                allowed = [member.value for member in ScoreType]
+                raise ValueError(
+                    f"Invalid score_type value: {self.score_type}. Allowed values: {allowed}"
+                )
+        elif isinstance(self.score_type, ScoreType):
+            self.score_type = self.score_type.value
+
+        if isinstance(self.metric_type, str):
+            try:
+                self.metric_type = MetricType(self.metric_type)
+            except ValueError:
+                allowed = [member.value for member in MetricType]
+                raise ValueError(
+                    f"Invalid metric_type value: {self.metric_type}. Allowed values: {allowed}"
+                )
+        elif isinstance(self.metric_type, MetricType):
+            self.metric_type = self.metric_type.value
+
 
 class MetricResult:
     """Result of a metric evaluation."""
@@ -104,7 +167,7 @@ class BaseMetric(ABC):
         name: Optional[str] = None,
         description: Optional[str] = None,
         score_type: Optional[str] = None,
-        metric_type: MetricType = "rag",
+        metric_type: Union[str, MetricType] = "rag",
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):

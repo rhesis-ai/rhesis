@@ -1,21 +1,6 @@
 import operator
-from enum import Enum
 
-
-class ScoreType(str, Enum):
-    BINARY = "binary"
-    NUMERIC = "numeric"
-    CATEGORICAL = "categorical"
-
-
-class ThresholdOperator(str, Enum):
-    EQUAL = "="
-    LESS_THAN = "<"
-    GREATER_THAN = ">"
-    LESS_THAN_OR_EQUAL = "<="
-    GREATER_THAN_OR_EQUAL = ">="
-    NOT_EQUAL = "!="
-
+from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
 
 # Mapping threshold operators to Python operator functions
 OPERATOR_MAP = {
