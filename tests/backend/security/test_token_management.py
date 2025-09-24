@@ -41,7 +41,7 @@ class TestTokenOrganizationSecurity:
             result_without_org = crud.revoke_user_tokens(test_db, user_id)
             assert result_without_org == 3
 
-    def test_get_token_by_value_organization_filtering(self, test_db: Session):
+    def test_get_token_by_value_organization_filtering(self, test_db: Session, test_organization, db_user):
         """🔒 SECURITY: Test that get_token_by_value accepts organization filtering for token scoping"""
         import inspect
         
@@ -52,21 +52,31 @@ class TestTokenOrganizationSecurity:
         token_value = "test_token_value"
         org_id = str(uuid.uuid4())
         
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, 'query') as mock_query:
-            mock_token = Mock()
-            mock_token.token = token_value
-            mock_token.organization_id = uuid.UUID(org_id)
-            
-            # Test with organization filtering
-            mock_query.return_value.filter.return_value.filter.return_value.first.return_value = mock_token
-            result_with_org = crud.get_token_by_value(test_db, token_value, organization_id=org_id)
-            assert result_with_org == mock_token
-            
-            # Test without organization filtering (should work but may return tokens from any org)
-            mock_query.return_value.filter.return_value.first.return_value = mock_token
-            result_without_org = crud.get_token_by_value(test_db, token_value)
-            assert result_without_org == mock_token
+        # Create a real token in the database instead of mocking
+        from rhesis.backend.app.models.token import Token
+        
+        # Create a real token using existing fixtures
+        token = Token(
+            name="Test Token",
+            token=token_value,
+            token_obfuscated="test_***",
+            token_type="api",
+            user_id=db_user.id,
+            organization_id=test_organization.id
+        )
+        test_db.add(token)
+        test_db.flush()
+        
+        # Test with organization filtering
+        result_with_org = crud.get_token_by_value(test_db, token_value, organization_id=str(test_organization.id))
+        assert result_with_org is not None
+        assert result_with_org.token == token_value
+        assert result_with_org.organization_id == test_organization.id
+        
+        # Test without organization filtering (should still work)
+        result_without_org = crud.get_token_by_value(test_db, token_value)
+        assert result_without_org is not None
+        assert result_without_org.token == token_value
 
     def test_create_token_organization_scoping(self, test_db: Session):
         """🔒 SECURITY: Test that create_token properly scopes tokens to organizations"""
