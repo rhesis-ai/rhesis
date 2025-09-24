@@ -23,6 +23,9 @@ from rhesis.backend.app.database import Base, get_db, get_database_url
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import EntityType
 
+# Import all entity fixtures to make them available to tests
+from tests.backend.routes.fixtures.entities import *
+
 
 
 # Simple fixtures for testing markers functionality
