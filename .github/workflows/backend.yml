@@ -652,6 +652,23 @@ jobs:
           # Set as output for potential use in other workflows and steps
           echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
           echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
+
+      - name: Extract actual service name
+        id: extract_service_name
+        run: |
+          # Extract the actual service name from Cloud Run to bypass obfuscation
+          ACTUAL_SERVICE_NAME=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="value(metadata.name)" 2>/dev/null || echo "")
+          
+          if [ -n "$ACTUAL_SERVICE_NAME" ]; then
+            echo "✅ Extracted service name: $ACTUAL_SERVICE_NAME"
+            echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
+          else
+            echo "⚠️ Could not extract service name, using generic name"
+            echo "ACTUAL_SERVICE_NAME=cloud-run-service" >> $GITHUB_ENV
+          fi
           
       - name: Generate deployment summary
         uses: ./.github/actions/generate-deployment-summary
@@ -661,6 +678,7 @@ jobs:
           environment: ${{ env.ENVIRONMENT }}
           env-display: ${{ env.ENV_DISPLAY }}
           service-url: ${{ env.IS_PREVIEW == 'true' && env.DEPLOYED_URL || '' }}
+          actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
 
       - name: Set Workflow Outputs
         id: output_url
