@@ -16,6 +16,8 @@ from rhesis.backend.app.schemas.services import (
     GenerateTestsRequest,
     GenerateTestsResponse,
     PromptRequest,
+    TestConfigRequest,
+    TestConfigResponse,
     TextResponse,
 )
 from rhesis.backend.app.services.document_handler import DocumentHandler
@@ -26,6 +28,7 @@ from rhesis.backend.app.services.gemini_client import (
 )
 from rhesis.backend.app.services.generation import generate_tests
 from rhesis.backend.app.services.github import read_repo_contents
+from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.types import Document
 
@@ -339,3 +342,30 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
         if request.path:
             handler = DocumentHandler()
             await handler.cleanup(request.path)
+
+
+@router.post("/generate/test_config", response_model=TestConfigResponse)
+async def generate_test_config(request: TestConfigRequest):
+    """
+    Generate test configuration JSON based on user description.
+
+    This endpoint analyzes a user-provided description and generates a configuration
+    JSON containing relevant behaviors, topics, test categories, and test scenarios
+    from predefined lists.
+
+    Args:
+        request: Contains prompt (description) for test configuration generation
+
+    Returns:
+        TestConfigResponse: JSON containing selected behaviors, topics, test categories,
+            and scenarios
+    """
+    try:
+        service = TestConfigGeneratorService()
+        return service.generate_config(request.prompt)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
