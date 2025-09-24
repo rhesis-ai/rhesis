@@ -426,10 +426,11 @@ jobs:
           echo "Fetching tagged URL from Cloud Run..."
           
           # Use a more reliable method to extract the tagged URL
+          # First try with jq (more reliable)
           PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
-            --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url')
+            --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url' 2>/dev/null || echo "")
           
           # Validate that we got a URL
           if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
