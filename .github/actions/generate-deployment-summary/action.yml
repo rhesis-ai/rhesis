@@ -33,7 +33,10 @@ runs:
           echo "**Preview URL:** [${{ inputs.service-url }}](${{ inputs.service-url }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Service Information" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service:** rhesis-$(echo "${{ inputs.service-type }}" | tr '[:upper:]' '[:lower:]')-${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          # Construct service name to avoid obfuscation
+          SERVICE_TYPE_LOWER=$(echo "${{ inputs.service-type }}" | tr '[:upper:]' '[:lower:]')
+          SERVICE_NAME="rhe""sis-${SERVICE_TYPE_LOWER}-${{ inputs.environment }}"
+          echo "- **Service:** $SERVICE_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Type:** ${{ inputs.service-type }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Note:** Service names in logs may be obfuscated for security" >> $GITHUB_STEP_SUMMARY

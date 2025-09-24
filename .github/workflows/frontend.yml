@@ -538,20 +538,6 @@ jobs:
             --update-env-vars="NEXTAUTH_URL=$PREVIEW_URL,NEXT_PUBLIC_APP_URL=$PREVIEW_URL,NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,BACKEND_URL=$BACKEND_URL_VAR"
           
           echo "✅ Frontend service updated with correct preview URL in environment variables"
-          
-          # Add to job summary for easy access
-          echo "## 🚀 ⚠️ PREVIEW DEPLOYMENT - Frontend Service" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🏷️ Preview Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type:** Preview Deployment (NOT Live Environment)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit SHA:** \`${{ env.COMMIT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Preview URL:** [$PREVIEW_URL]($PREVIEW_URL)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ⚠️ Important Notes" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚫 **This is NOT the live ${{ env.ENVIRONMENT }} service**" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **Receives 0% live traffic**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 **Only accessible via the tagged URL above**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🧪 **For testing and review purposes only**" >> $GITHUB_STEP_SUMMARY
 
       - name: Output deployed service URL
         id: output_service_url
