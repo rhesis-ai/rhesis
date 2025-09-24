@@ -399,15 +399,10 @@ jobs:
           TAG_NAME=$(echo "$TAG_NAME" | tr '[:upper:]' '[:lower:]')
           echo "Using tag name: $TAG_NAME"
           
-          # Tag the latest revision to get a commit-specific URL
-          # First, set the revision to receive 0% traffic (if not already)
+          # Tag the latest revision and set it to 0% traffic in a single command
+          echo "Tagging revision with 0% traffic allocation..."
           gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --to-revisions="$LATEST_REVISION=0" \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }}
-          
-          # Then, create the tag for the commit-specific URL
-          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --set-tags "$TAG_NAME=$LATEST_REVISION" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }}
