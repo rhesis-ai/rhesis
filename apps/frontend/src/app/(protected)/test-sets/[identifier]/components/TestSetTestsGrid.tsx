@@ -117,7 +117,7 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
             label={behaviorName}
             variant="outlined"
             size="small"
-            color="primary"
+            color="default"
           />
         );
       }
@@ -135,7 +135,7 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
             label={topicName}
             variant="outlined"
             size="small"
-            color="secondary"
+            color="default"
           />
         );
       }
@@ -245,6 +245,7 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
+        disablePaperWrapper={true}
       />
     </>
   );
