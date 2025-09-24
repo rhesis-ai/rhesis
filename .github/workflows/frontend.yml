@@ -478,20 +478,32 @@ jobs:
             --no-traffic \
             --revision-suffix=$REVISION_SUFFIX \
             --set-env-vars="$(cat <<EOF
-          NEXTAUTH_URL=$PREVIEW_URL,
+          NEXTAUTH_URL=PLACEHOLDER_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
           NEXT_PUBLIC_API_BASE_URL=${{ inputs.backend_preview_url || secrets.NEXT_PUBLIC_API_BASE_URL }},
           BACKEND_URL=${{ inputs.backend_preview_url || secrets.BACKEND_URL }},
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
-          NEXT_PUBLIC_APP_URL=$PREVIEW_URL,
+          NEXT_PUBLIC_APP_URL=PLACEHOLDER_URL,
           NEXT_PUBLIC_AUTH0_CLIENT_ID=${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID }},
           NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }},
           NEXT_PUBLIC_AUTH0_AUDIENCE=${{ secrets.NEXT_PUBLIC_AUTH0_AUDIENCE }},
           NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }}
           EOF
           )"
+          
+          # Update the service with the actual preview URLs
+          echo "🔄 Updating frontend service with actual preview URLs..."
+          
+          # Prepare environment variables for update
+          BACKEND_API_URL="${{ inputs.backend_preview_url || secrets.NEXT_PUBLIC_API_BASE_URL }}"
+          BACKEND_URL_VAR="${{ inputs.backend_preview_url || secrets.BACKEND_URL }}"
+          
+          gcloud run services update ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --update-env-vars="NEXTAUTH_URL=$PREVIEW_URL,NEXT_PUBLIC_APP_URL=$PREVIEW_URL,NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,BACKEND_URL=$BACKEND_URL_VAR"
           
           echo "✅ Frontend service updated with correct preview URL in environment variables"
           
