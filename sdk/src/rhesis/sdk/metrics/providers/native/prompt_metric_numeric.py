@@ -318,26 +318,54 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
         client.send_request(Endpoints.METRICS, Methods.POST, config)
 
-    @staticmethod
-    def pull(metric_id: str) -> "RhesisPromptMetricNumeric":
+    @classmethod
+    def pull(
+        cls, name: Optional[str] = None, nano_id: Optional[str] = None
+    ) -> "RhesisPromptMetricNumeric":
         """
         Pull the metric from the backend.
+
+        Args:
+            name (Optional[str]): The name of the metric
+            nano_id (Optional[str]): The nano_id of the metric
+
+        Returns:
+            RhesisPromptMetricNumeric: The metric
         """
         client = Client()
-        config = client.send_request(Endpoints.METRICS, Methods.GET, url_params=metric_id)
+        if not name and not nano_id:
+            raise ValueError("Either name or nano_id must be provided")
 
-        if config["class_name"] != "RhesisPromptMetricNumeric":
-            raise ValueError(f"Metric {config.get('id')} is not a RhesisPromptMetricNumeric")
+        if nano_id:
+            params = {
+                "$filter": f"nano_id eq '{nano_id}'",
+            }
+            config = client.send_request(Endpoints.METRICS, Methods.GET, params=params)
+        elif name:
+            params = {
+                "$filter": f"name eq '{name}'",
+            }
+            config = client.send_request(Endpoints.METRICS, Methods.GET, params=params)
+            if len(config) > 1:
+                raise ValueError(f"Multiple metrics found with name {name}, please use nano_id")
+
+        if len(config) == 0:
+            raise ValueError(f"No metric found with name {name} or nano_id {nano_id}")
+
+        config = config[0]
+
+        if config["class_name"] != cls.__name__:
+            raise ValueError(f"Metric {config.get('id')} is not a {cls.__name__}")
 
         config = backend_config_to_sdk_config(config)
 
         config = MetricConfig(**config)
-        return RhesisPromptMetricNumeric.from_config(config)
+        return cls.from_config(config)
 
-    @staticmethod
-    def from_config(config: MetricConfig) -> "RhesisPromptMetricNumeric":
+    @classmethod
+    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricNumeric":
         """Create a metric from a dictionary."""
-        return RhesisPromptMetricNumeric(
+        return cls(
             # Backend required items
             name=config.name,
             description=config.description,
