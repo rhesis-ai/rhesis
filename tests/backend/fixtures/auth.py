@@ -2,9 +2,9 @@
 🔑 Authentication Fixtures Module
 
 This module contains authentication-related fixtures for testing, including:
-- User authentication and organization setup
-- API key management
-- Dynamic authentication fixtures
+- Session-scoped user authentication and organization setup
+- API key management with environment detection
+- Optimized authentication fixtures for fast test execution
 
 Extracted from conftest.py for better modularity and maintainability.
 """
@@ -13,9 +13,13 @@ import os
 import pytest
 from datetime import datetime
 import uuid
-from typing import Tuple
+from typing import Tuple, Optional
 
 from .database import TestingSessionLocal
+
+
+# Global session authentication cache
+_session_auth_cache: Optional[Tuple[str, str, str]] = None  # (org_id, user_id, token)
 
 
 def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
@@ -55,71 +59,137 @@ def get_authenticated_user_info(db) -> tuple[str | None, str | None]:
         return None, None
 
 
-@pytest.fixture
-def rhesis_api_key():
-    """🔑 API key from environment for testing"""
-    api_key = os.getenv("RHESIS_API_KEY")
-    masked_key = f"{api_key[:3]}...{api_key[-4:]}" if api_key else None
-    print(f"🔍 DEBUG: RHESIS_API_KEY from environment: {masked_key}")
-    if not api_key:
-        # Fallback to mock key if no real key is available
-        fallback_key = "rh-test1234567890abcdef"
-        fallback_masked = f"{fallback_key[:3]}...{fallback_key[-4:]}"
-        print(f"🔍 DEBUG: Using fallback key: {fallback_masked}")
-        return fallback_key
-    print(f"🔍 DEBUG: Using environment API key: {masked_key}")
-    return api_key
-
-
-@pytest.fixture(scope="function")
-def authenticated_user_info() -> tuple[str, str]:
+def create_session_authentication() -> Tuple[str, str, str]:
     """
-    🔑 Create fresh test user and organization for each test
+    Create session-scoped authentication data (user, organization, token).
+    This is called only once per test session.
     
-    This fixture creates a completely self-contained test environment without
-    relying on external API keys or environment variables.
-        
     Returns:
-        Tuple of (organization_id, user_id) as strings
+        Tuple of (organization_id, user_id, token_value) as strings
     """
+    global _session_auth_cache
+    
+    if _session_auth_cache is not None:
+        print(f"🔄 Using cached session auth: org={_session_auth_cache[0]}, user={_session_auth_cache[1]}")
+        return _session_auth_cache
+    
     from tests.backend.fixtures.test_setup import create_test_organization_and_user
     
     # Create a temporary database session
     session = TestingSessionLocal()
     try:
-        # Generate unique names for this test
+        # Generate unique names for this session
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        unique_suffix = str(uuid.uuid4())[:8]
-        test_org_name = f"Test Organization {timestamp}_{unique_suffix}"
-        test_user_email = f"test_{timestamp}_{unique_suffix}@rhesis-test.com"
-        test_user_name = "Test User"
+        session_suffix = str(uuid.uuid4())[:8]
+        test_org_name = f"Test Session Org {timestamp}_{session_suffix}"
+        test_user_email = f"session_{timestamp}_{session_suffix}@rhesis-test.com"
+        test_user_name = "Test Session User"
         
-        # Create fresh test data
+        # Create session auth data
         organization, user, token = create_test_organization_and_user(
             session, test_org_name, test_user_email, test_user_name
         )
         
-        print(f"🆕 Created fresh test auth data: user={user.id}, org={organization.id}")
+        # Cache the session auth data
+        _session_auth_cache = (str(organization.id), str(user.id), token.token)
         
-        return str(organization.id), str(user.id)
+        # Set the token in environment for all tests to use
+        os.environ["RHESIS_API_KEY"] = token.token
+        
+        print(f"🆕 Created session auth data: user={user.id}, org={organization.id}")
+        print(f"🔑 Set RHESIS_API_KEY for session: {token.token[:3]}...{token.token[-4:]}")
+        
+        return _session_auth_cache
         
     except Exception as e:
-        print(f"❌ Failed to create test auth data: {e}")
-        pytest.skip(f"Could not create test authentication data: {e}")
+        print(f"❌ Failed to create session auth data: {e}")
+        raise RuntimeError(f"Could not create session authentication data: {e}")
     finally:
         session.close()
 
 
-@pytest.fixture(scope="function") 
+def get_or_create_session_auth() -> Tuple[str, str, str]:
+    """
+    Get existing session auth or create new one.
+    Checks for RHESIS_API_KEY environment variable first.
+    
+    Returns:
+        Tuple of (organization_id, user_id, token_value) as strings
+    """
+    # First check if we have an environment API key
+    api_key = os.getenv("RHESIS_API_KEY")
+    if api_key:
+        print(f"🔍 Found RHESIS_API_KEY in environment: {api_key[:3]}...{api_key[-4:]}")
+        
+        # Try to get user info from this API key
+        session = TestingSessionLocal()
+        try:
+            org_id, user_id = get_authenticated_user_info(session)
+            if org_id and user_id:
+                print(f"✅ Using existing API key auth: org={org_id}, user={user_id}")
+                return org_id, user_id, api_key
+            else:
+                print("⚠️ API key found but could not retrieve user info, creating new session auth")
+        except Exception as e:
+            print(f"⚠️ Error validating API key: {e}, creating new session auth")
+        finally:
+            session.close()
+    
+    # No valid environment API key, create session auth
+    print("🔧 No valid RHESIS_API_KEY detected, creating session authentication")
+    return create_session_authentication()
+
+
+@pytest.fixture(scope="session")
+def session_auth_data() -> Tuple[str, str, str]:
+    """
+    🔑 Session-scoped authentication data (organization_id, user_id, token)
+    
+    This fixture creates authentication data once per test session for optimal performance.
+    It first checks for RHESIS_API_KEY environment variable, and if not found,
+    creates fresh test authentication data.
+    
+    Returns:
+        Tuple of (organization_id, user_id, token_value) as strings
+    """
+    return get_or_create_session_auth()
+
+
+@pytest.fixture
+def rhesis_api_key(session_auth_data):
+    """🔑 API key from session authentication"""
+    _, _, token = session_auth_data
+    masked_key = f"{token[:3]}...{token[-4:]}" if token else None
+    print(f"🔍 Using session API key: {masked_key}")
+    return token
+
+
+@pytest.fixture(scope="session")
+def authenticated_user_info(session_auth_data) -> tuple[str, str]:
+    """
+    🔑 Session-scoped user and organization info
+    
+    This fixture provides the same user/organization throughout the test session
+    for optimal performance while maintaining test isolation through proper cleanup.
+        
+    Returns:
+        Tuple of (organization_id, user_id) as strings
+    """
+    org_id, user_id, _ = session_auth_data
+    print(f"🔄 Using session auth: org={org_id}, user={user_id}")
+    return org_id, user_id
+
+
+@pytest.fixture(scope="session") 
 def test_org_id(authenticated_user_info) -> str:
-    """🏢 Get the test organization ID from fresh test data"""
+    """🏢 Get the session organization ID"""
     org_id, _ = authenticated_user_info
     return org_id
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def authenticated_user_id(authenticated_user_info) -> str:
-    """👤 Get the authenticated user ID from fresh test data"""
+    """👤 Get the session authenticated user ID"""
     _, user_id = authenticated_user_info
     return user_id
 
