@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import create_model
 
@@ -217,29 +217,20 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             with detailed information rather than raising exceptions for LLM-related issues.
             Only input validation errors are raised as exceptions.
         """
-        # Validate inputs
-        if not isinstance(input, str) or not input.strip():
-            raise ValueError("input must be a non-empty string")
-
-        if not isinstance(output, str):
-            raise ValueError("output must be a string")
-
-        if expected_output is None and self.requires_ground_truth:
-            raise ValueError(f"{self.name} metric requires ground truth but none was provided")
-
-        if context is not None and not isinstance(context, list):
-            raise ValueError("context must be a list of strings or None")
+        # Validate inputs using shared method
+        self._validate_evaluate_inputs(input, output, expected_output, context)
 
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
         # Initialize common details fields
-        details: Dict[str, Any] = {
-            "score_type": self.score_type.value,
-            "prompt": prompt,
-            "categories": self.categories,
-            "passing_categories": self.passing_categories,
-        }
+        details = self._get_base_details(prompt)
+        details.update(
+            {
+                "categories": self.categories,
+                "passing_categories": self.passing_categories,
+            }
+        )
 
         try:
             # Run the evaluation with structured response model
@@ -278,31 +269,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             return MetricResult(score=score, details=details)
 
         except Exception as e:
-            # Log unexpected errors for debugging
-            import logging
-            import traceback
-
-            logger = logging.getLogger(__name__)
-            error_msg = f"Unexpected error evaluating with {self.name}: {str(e)}"
-            logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
-            logger.error(f"Exception type: {type(e).__name__}")
-            logger.error(f"Exception details: {str(e)}")
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
-            # Update details with error-specific fields
-            details.update(
-                {
-                    "error": error_msg,
-                    "reason": f"Unexpected error: {str(e)}",
-                    "exception_type": type(e).__name__,
-                    "exception_details": str(e),
-                    "model": self.model,
-                    "is_successful": False,
-                }
-            )
-
-            # Return a default failure score for categorical metrics
-            return MetricResult(score="error", details=details)
+            return self._handle_evaluation_error(e, details, "error")
 
     def _evaluate_score(self, score: str, passing_categories: List[str]) -> bool:
         """
