@@ -26,9 +26,12 @@ jobs:
   deploy-backend-preview:
     name: Deploy Backend Preview
     uses: ./.github/workflows/backend.yml
+    permissions:
+      contents: read
+      id-token: write
     with:
       environment: ${{ github.event.inputs.environment }}
-      deploy_preview: true
+      preview: true
       deploy_only: false
       reason: ${{ github.event.inputs.reason || 'Multi-service preview deployment - Backend' }}
     secrets: inherit
@@ -37,9 +40,12 @@ jobs:
     name: Deploy Frontend Preview
     needs: deploy-backend-preview
     uses: ./.github/workflows/frontend.yml
+    permissions:
+      contents: read
+      id-token: write
     with:
       environment: ${{ github.event.inputs.environment }}
-      deploy_preview: true
+      preview: true
       deploy_only: false
       reason: ${{ github.event.inputs.reason || 'Multi-service preview deployment - Frontend' }}
       backend_preview_url: ${{ needs.deploy-backend-preview.outputs.backend_preview_url }}
