@@ -210,23 +210,24 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             with detailed information rather than raising exceptions for LLM-related issues.
             Only ground truth validation errors are raised as exceptions.
         """
-        if expected_output is None and self.requires_ground_truth:
-            raise ValueError(f"{self.name} metric requires ground truth but none was provided")
+        # Validate inputs using shared method
+        self._validate_evaluate_inputs(input, output, expected_output, context)
 
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
         # Base details dictionary with common fields
-        details = {
-            "score_type": self.score_type.value,
-            "prompt": prompt,
-            "threshold_operator": (
-                self.threshold_operator.value if self.threshold_operator else None
-            ),
-            "min_score": self.min_score,
-            "max_score": self.max_score,
-            "threshold": self.threshold,
-        }
+        details = self._get_base_details(prompt)
+        details.update(
+            {
+                "threshold_operator": (
+                    self.threshold_operator.value if self.threshold_operator else None
+                ),
+                "min_score": self.min_score,
+                "max_score": self.max_score,
+                "threshold": self.threshold,
+            }
+        )
 
         try:
             # Run the evaluation with structured response model
@@ -252,31 +253,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             return MetricResult(score=score, details=details)
 
         except Exception as e:
-            # Log the error for debugging with full traceback
-            import logging
-            import traceback
-
-            logger = logging.getLogger(__name__)
-
-            error_msg = f"Error evaluating with {self.name}: {str(e)}"
-            logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
-            logger.error(f"Exception type: {type(e).__name__}")
-            logger.error(f"Exception details: {str(e)}")
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
-            # Update details with error-specific fields
-            details.update(
-                {
-                    "error": error_msg,
-                    "reason": error_msg,
-                    "exception_type": type(e).__name__,
-                    "exception_details": str(e),
-                    "model": self.model,
-                }
-            )
-
-            # Return a default minimal score for numeric
-            return MetricResult(score=0.0, details=details)
+            return self._handle_evaluation_error(e, details, 0.0)
 
     def _evaluate_score(self, score: float) -> bool:
         """
