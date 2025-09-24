@@ -5,7 +5,14 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CountMixin, OrganizationMixin, TagsMixin, UserOwnedMixin
+from .mixins import (
+    CommentMixin,
+    CountMixin,
+    OrganizationMixin,
+    TagsMixin,
+    TaskMixin,
+    UserOwnedMixin,
+)
 
 # Association table for behavior and metric
 behavior_metric_association = Table(
@@ -33,7 +40,9 @@ class ThresholdOperator(str, Enum):
     NOT_EQUAL = "!="
 
 
-class Metric(Base, TagsMixin, UserOwnedMixin, OrganizationMixin, CountMixin):
+class Metric(
+    Base, TagsMixin, UserOwnedMixin, OrganizationMixin, CommentMixin, TaskMixin, CountMixin
+):
     __tablename__ = "metric"
 
     name = Column(String, nullable=False)
