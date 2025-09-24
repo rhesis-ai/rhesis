@@ -385,6 +385,7 @@ jobs:
           echo "Creating tag for commit-specific URL"
           
           # Get the latest revision (the one we just created)
+          echo "🔍 Getting latest revision for service: ${{ env.SERVICE_NAME }}"
           LATEST_REVISION=$(gcloud run revisions list \
             --service=${{ env.SERVICE_NAME }} \
             --region=${{ env.REGION }} \
@@ -393,6 +394,14 @@ jobs:
             --limit=1)
           
           echo "Latest revision: $LATEST_REVISION"
+          
+          # Validate revision was found
+          if [ -z "$LATEST_REVISION" ]; then
+            echo "❌ Error: No latest revision found!"
+            echo "🔍 Available revisions:"
+            gcloud run revisions list --service=${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} --limit=5
+            exit 1
+          fi
           
           # Clean up obfuscated output for better readability
           CLEAN_REVISION=$(echo "$LATEST_REVISION" | sed 's/\*\*\*/rhesis/g')
@@ -410,14 +419,29 @@ jobs:
           
           # Tag the latest revision and set it to 0% traffic in a single command
           echo "Tagging revision with 0% traffic allocation..."
+          echo "🔍 Debug tagging parameters:"
+          echo "  - SERVICE_NAME: ${{ env.SERVICE_NAME }}"
+          echo "  - LATEST_REVISION: $LATEST_REVISION"
+          echo "  - TAG_NAME: $TAG_NAME"
+          echo "  - PROJECT_ID: ${{ env.PROJECT_ID }}"
+          echo "  - REGION: ${{ env.REGION }}"
+          
           TRAFFIC_OUTPUT=$(gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --to-revisions="$LATEST_REVISION=0" \
             --set-tags "$TAG_NAME=$LATEST_REVISION" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} 2>&1)
           
+          TRAFFIC_EXIT_CODE=$?
+          echo "🔍 Traffic update exit code: $TRAFFIC_EXIT_CODE"
+          
           # Display cleaned output
           echo "$TRAFFIC_OUTPUT" | sed 's/\*\*\*/rhesis/g'
+          
+          if [ $TRAFFIC_EXIT_CODE -ne 0 ]; then
+            echo "❌ Traffic update failed!"
+            exit 1
+          fi
           
           # Get the actual commit-specific URL from Cloud Run (includes random suffix)
           echo "Fetching tagged URL from Cloud Run..."
