@@ -60,7 +60,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       
       // Debug logging for search functionality
       if (oDataFilter) {
-        console.log('🔍 Task search/filter OData:', oDataFilter);
+        console.log('Task search/filter OData:', oDataFilter);
       }
       
       const response = await tasksClient.getTasks({
