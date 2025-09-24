@@ -32,13 +32,11 @@ runs:
           echo "### Access Information" >> $GITHUB_STEP_SUMMARY
           printf "**Preview URL:** [%s](%s)\n" "${{ inputs.service-url }}" "${{ inputs.service-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Service Details" >> $GITHUB_STEP_SUMMARY
-          SERVICE_PREFIX="rhe"
-          SERVICE_MIDDLE="sis"
-          SERVICE_FULL="${SERVICE_PREFIX}${SERVICE_MIDDLE}"
-          echo "- **Service Name Pattern:** ${SERVICE_FULL}-$(echo "${{ inputs.service-type }}" | tr '[:upper:]' '[:lower:]')-${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Service Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** rhesis-$(echo "${{ inputs.service-type }}" | tr '[:upper:]' '[:lower:]')-${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Type:** ${{ inputs.service-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Note:** Service names in logs may be obfuscated for security" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Preview Warning" >> $GITHUB_STEP_SUMMARY
           echo "- **This is a PREVIEW deployment, NOT live ${{ inputs.environment }}**" >> $GITHUB_STEP_SUMMARY
