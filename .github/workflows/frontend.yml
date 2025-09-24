@@ -541,10 +541,52 @@ jobs:
           echo "  - Final BACKEND_API_URL: '$BACKEND_API_URL'"
           echo "  - Final BACKEND_URL_VAR: '$BACKEND_URL_VAR'"
           
-          gcloud run services update ${{ env.SERVICE_NAME }} \
+          # Deploy a new revision with the correct environment variables
+          # This revision will replace the tagged revision and receive the preview traffic
+          FINAL_REVISION_SUFFIX="${{ env.COMMIT_SHA }}-final"
+          echo "🚀 Deploying final revision with correct URLs: $FINAL_REVISION_SUFFIX"
+          
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
-            --update-env-vars="NEXTAUTH_URL=$PREVIEW_URL,NEXT_PUBLIC_APP_URL=$PREVIEW_URL,NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,BACKEND_URL=$BACKEND_URL_VAR"
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=3000 \
+            --memory=2Gi \
+            --cpu=1 \
+            --concurrency=80 \
+            --timeout=300s \
+            --max-instances=10 \
+            --min-instances=1 \
+            --no-traffic \
+            --revision-suffix=$FINAL_REVISION_SUFFIX \
+            --set-env-vars="$(cat <<EOF
+          NEXTAUTH_URL=$PREVIEW_URL,
+          NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
+          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
+          BACKEND_URL=$BACKEND_URL_VAR,
+          FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
+          NEXT_PUBLIC_APP_URL=$PREVIEW_URL,
+          NEXT_PUBLIC_AUTH0_CLIENT_ID=${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID }},
+          NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }},
+          NEXT_PUBLIC_AUTH0_AUDIENCE=${{ secrets.NEXT_PUBLIC_AUTH0_AUDIENCE }},
+          NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }}
+          EOF
+          )"
+          
+          # Update the tag to point to the new revision with correct environment variables
+          FINAL_REVISION="${{ env.SERVICE_NAME }}-$FINAL_REVISION_SUFFIX"
+          echo "🏷️ Updating tag to point to final revision: $FINAL_REVISION"
+          
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --set-tags "$TAG_NAME=$FINAL_REVISION" \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+          
+          echo "✅ Tagged revision updated with correct environment variables"
           
           echo "✅ Frontend service updated with correct preview URL in environment variables"
 

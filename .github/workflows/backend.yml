@@ -553,12 +553,76 @@ jobs:
           EOF
           )"
           
-          # Update the service with the actual preview URL
-          echo "🔄 Updating backend service with actual preview URL..."
-          gcloud run services update ${{ env.SERVICE_NAME }} \
+          # Deploy a final revision with the actual preview URL and update the tag
+          echo "🔄 Deploying final backend revision with actual preview URL..."
+          FINAL_REVISION_SUFFIX="${{ env.COMMIT_SHA }}-final"
+          echo "🚀 Deploying final revision: $FINAL_REVISION_SUFFIX"
+          
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
             --project=${{ env.PROJECT_ID }} \
+            --vpc-connector=redis-connector \
+            --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
-            --update-env-vars="RHESIS_BASE_URL=$PREVIEW_URL,BACKEND_URL=$PREVIEW_URL"
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8000 \
+            --memory=2Gi \
+            --cpu=2 \
+            --concurrency=80 \
+            --timeout=3600 \
+            --max-instances=10 \
+            --min-instances=1 \
+            --no-traffic \
+            --revision-suffix=$FINAL_REVISION_SUFFIX \
+            --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
+            --set-env-vars="$(cat <<EOF
+          PROJECT_ID=${{ env.PROJECT_ID }},
+          ENVIRONMENT=${{ env.ENVIRONMENT }},
+          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
+          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
+          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
+          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
+          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
+          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
+          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          LOG_LEVEL=${{ secrets.LOG_LEVEL }},
+          AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},
+          AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},
+          AUTH0_CLIENT_ID=${{ secrets.AUTH0_CLIENT_ID }},
+          AUTH0_CLIENT_SECRET=${{ secrets.AUTH0_CLIENT_SECRET }},
+          AUTH0_SECRET_KEY=${{ secrets.AUTH0_SECRET_KEY }},
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
+          JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }},
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }},
+          FRONTEND_URL=${{ secrets.FRONTEND_URL }},
+          AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }},
+          AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }},
+          AZURE_OPENAI_DEPLOYMENT_NAME=${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }},
+          AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }},
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
+          GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
+          RHESIS_BASE_URL=$PREVIEW_URL,
+          BACKEND_URL=$PREVIEW_URL,
+          BACKEND_ENV=${{ secrets.BACKEND_ENV }},
+          SMTP_HOST=${{ secrets.SMTP_HOST }},
+          SMTP_PORT=${{ secrets.SMTP_PORT }},
+          SMTP_USER=${{ secrets.SMTP_USER }},
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }},
+          BROKER_URL=${{ secrets.BROKER_URL }},
+          CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}
+          EOF
+          )"
+          
+          # Update the tag to point to the final revision with correct environment variables
+          FINAL_REVISION="${{ env.SERVICE_NAME }}-$FINAL_REVISION_SUFFIX"
+          echo "🏷️ Updating tag to point to final revision: $FINAL_REVISION"
+          
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --set-tags "$TAG_NAME=$FINAL_REVISION" \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
           
           echo "✅ Backend service updated with correct preview URL in environment variables"
 
