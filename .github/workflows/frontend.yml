@@ -526,8 +526,17 @@ jobs:
           echo "  - secrets.NEXT_PUBLIC_API_BASE_URL: '${{ secrets.NEXT_PUBLIC_API_BASE_URL }}'"
           echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
           
-          BACKEND_API_URL="${{ inputs.backend_preview_url || secrets.NEXT_PUBLIC_API_BASE_URL }}"
-          BACKEND_URL_VAR="${{ inputs.backend_preview_url || secrets.BACKEND_URL }}"
+          # Check if we have a backend preview URL
+          if [ -n "${{ inputs.backend_preview_url }}" ]; then
+            BACKEND_API_URL="${{ inputs.backend_preview_url }}"
+            BACKEND_URL_VAR="${{ inputs.backend_preview_url }}"
+            echo "  - ✅ Using backend preview URL: '$BACKEND_API_URL'"
+          else
+            BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
+            BACKEND_URL_VAR="${{ secrets.BACKEND_URL }}"
+            echo "  - ⚠️ WARNING: No backend preview URL provided, using defaults"
+            echo "  - This means frontend will NOT communicate with backend preview!"
+          fi
           
           echo "  - Final BACKEND_API_URL: '$BACKEND_API_URL'"
           echo "  - Final BACKEND_URL_VAR: '$BACKEND_URL_VAR'"

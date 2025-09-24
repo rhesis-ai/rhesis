@@ -603,17 +603,26 @@ jobs:
         run: |
           echo "🔍 Debug workflow outputs:"
           echo "  - IS_PREVIEW: ${{ env.IS_PREVIEW }}"
-          echo "  - PREVIEW_URL: ${{ env.PREVIEW_URL }}"
-          echo "  - DEPLOYED_URL: ${{ env.DEPLOYED_URL }}"
+          echo "  - PREVIEW_URL: '${{ env.PREVIEW_URL }}'"
+          echo "  - DEPLOYED_URL: '${{ env.DEPLOYED_URL }}'"
           
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             BACKEND_PREVIEW_URL="${{ env.PREVIEW_URL }}"
             DEPLOYED_URL="$BACKEND_PREVIEW_URL"
-            echo "  - Setting backend_preview_url: $BACKEND_PREVIEW_URL"
-            echo "backend_preview_url=$BACKEND_PREVIEW_URL" >> $GITHUB_OUTPUT
+            echo "  - Setting backend_preview_url: '$BACKEND_PREVIEW_URL'"
+            
+            # Validate that we have a valid URL before setting output
+            if [ -n "$BACKEND_PREVIEW_URL" ] && [ "$BACKEND_PREVIEW_URL" != "null" ]; then
+              echo "backend_preview_url=$BACKEND_PREVIEW_URL" >> $GITHUB_OUTPUT
+              echo "  - ✅ Backend preview URL output set successfully"
+            else
+              echo "  - ❌ ERROR: Backend preview URL is empty or null!"
+              echo "  - PREVIEW_URL from env: '${{ env.PREVIEW_URL }}'"
+              exit 1
+            fi
           else
             DEPLOYED_URL="${{ env.DEPLOYED_URL }}"
-            echo "  - Setting backend_preview_url: (empty)"
+            echo "  - Setting backend_preview_url: (empty for non-preview)"
             echo "backend_preview_url=" >> $GITHUB_OUTPUT
           fi
           echo "deployed_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
