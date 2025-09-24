@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricType, ScoreType
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -17,8 +17,8 @@ class RhesisPromptMetricBase(BaseMetric):
         self,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        score_type: Optional[str] = None,
-        metric_type: Optional[str] = None,
+        score_type: Optional[Union[str, ScoreType]] = None,
+        metric_type: Optional[Union[str, MetricType]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
@@ -30,9 +30,6 @@ class RhesisPromptMetricBase(BaseMetric):
             model=model,
             **kwargs,
         )
-
-        self.ground_truth_required = False  # set up by subclasses
-        self.context_required = False  # set up by subclasses
 
     def _setup_jinja_environment(self) -> None:
         """
