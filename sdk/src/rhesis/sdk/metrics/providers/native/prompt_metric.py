@@ -115,7 +115,7 @@ class RhesisPromptMetricBase(BaseMetric):
         return prompt
 
     def to_config(self) -> MetricConfig:
-        """Convert the metric to a dictionary."""
+        """Convert the metric to a MetricConfig."""
         """Subclasses should override this method to add their own parameters."""
         config = MetricConfig(
             # Backend required items

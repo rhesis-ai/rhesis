@@ -24,7 +24,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
     def __init__(
         self,
-        evaluation_prompt: str,  # optional
+        evaluation_prompt: str,
         evaluation_steps: Optional[str] = None,
         reasoning: Optional[str] = None,
         evaluation_examples: Optional[str] = None,
