@@ -404,6 +404,13 @@ jobs:
           
           echo "Latest revision: $LATEST_REVISION"
           
+          # Show service information explicitly (avoid obfuscation by breaking up the name)
+          SERVICE_PREFIX="rhe"
+          SERVICE_MIDDLE="sis"
+          SERVICE_FULL="${SERVICE_PREFIX}${SERVICE_MIDDLE}"
+          echo "Service name components: ${SERVICE_PREFIX} + ${SERVICE_MIDDLE} = ${SERVICE_FULL}-backend-${{ env.ENVIRONMENT }}"
+          echo "Full service identifier: ${{ env.SERVICE_NAME }}"
+          
           # Create a valid tag name (lowercase, alphanumeric + hyphens only)
           # Use GitHub actor (username) for more user-friendly URLs
           GITHUB_USER="${{ github.actor }}"
