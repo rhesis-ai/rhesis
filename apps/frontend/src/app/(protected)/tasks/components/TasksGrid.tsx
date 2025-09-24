@@ -14,6 +14,7 @@ import { Task } from '@/utils/api-client/interfaces/task';
 import { Typography, Box, Alert, Chip, Button, Avatar } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTaskFiltersToOData } from '@/utils/odata-filter';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
@@ -40,6 +41,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
@@ -110,19 +113,29 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   }, [sessionToken, notifications, onRefresh]);
 
   // Delete selected tasks
-  const handleDeleteSelected = useCallback(async () => {
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedRows.length === 0) return;
+    setDeleteModalOpen(true);
+  }, [selectedRows]);
+
+  const handleDeleteConfirm = useCallback(async () => {
     if (selectedRows.length === 0) return;
     
-    const confirmed = window.confirm(`Are you sure you want to delete ${selectedRows.length} task(s)?`);
-    if (!confirmed) return;
-    
     try {
+      setIsDeleting(true);
       await Promise.all(selectedRows.map(id => deleteTask(id as string)));
       setSelectedRows([]);
     } catch (err) {
       console.error('Error deleting tasks:', err);
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
     }
   }, [selectedRows, deleteTask]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalOpen(false);
+  }, []);
 
   // Handle row click
   const handleRowClick = useCallback((params: any) => {
@@ -272,6 +285,16 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
             cursor: 'pointer',
           },
         }}
+      />
+      
+      <DeleteModal
+        open={deleteModalOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        title="Delete Tasks"
+        message={`Are you sure you want to permanently delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? This action cannot be undone.`}
+        itemType="tasks"
       />
     </Box>
   );
