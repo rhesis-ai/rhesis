@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Box, CircularProgress, Typography, Paper, Button, useTheme, Fade, Grow } from '@mui/material';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Image from 'next/image';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
@@ -87,7 +88,7 @@ export default function DemoPage() {
             maxWidth: 520,
             width: '100%',
             textAlign: 'center',
-            borderRadius: 3,
+            borderRadius: theme.shape.borderRadius,
             bgcolor: 'background.paper',
             border: `1px solid ${theme.palette.divider}`,
             position: 'relative',
@@ -131,7 +132,7 @@ export default function DemoPage() {
                   mt: 2, 
                   bgcolor: 'background.paper',
                   border: `1px solid ${theme.palette.divider}`,
-                  borderRadius: 2,
+                  borderRadius: theme.shape.borderRadius,
                 }}
               >
                 <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: 'text.primary' }}>
@@ -140,7 +141,7 @@ export default function DemoPage() {
                 <Box sx={{ 
                   bgcolor: 'background.paper', 
                   p: 3, 
-                  borderRadius: 1,
+                  borderRadius: theme.shape.borderRadius * 0.5,
                   border: `1px solid ${theme.palette.divider}`,
                 }}>
                   <Typography variant="body1" sx={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
@@ -156,11 +157,14 @@ export default function DemoPage() {
                 p: 2, 
                 bgcolor: 'background.light2',
                 color: 'text.primary',
-                borderRadius: 1, 
+                borderRadius: theme.shape.borderRadius * 0.5, 
                 border: `1px solid ${theme.palette.divider}`,
                 fontWeight: 'medium'
               }}>
-                ⚠️ Demo Account Notice: Please do not add any real or sensitive data to this demo account. All data may be visible to other users and will be regularly reset.
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <WarningAmberIcon sx={{ color: 'warning.main', mt: 0.2, flexShrink: 0 }} />
+                  <span>Demo Account Notice: Please do not add any real or sensitive data to this demo account. All data may be visible to other users and will be regularly reset.</span>
+                </Box>
               </Typography>
 
               <Button 
@@ -171,7 +175,6 @@ export default function DemoPage() {
                   minWidth: 220,
                   py: 1.5,
                   px: 3,
-                  fontSize: '1.1rem',
                 }}
               >
                 Continue to Demo Login
