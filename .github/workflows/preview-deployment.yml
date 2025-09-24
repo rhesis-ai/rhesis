@@ -36,9 +36,26 @@ jobs:
       reason: ${{ github.event.inputs.reason || 'Preview deployment - Backend' }}
     secrets: inherit
 
+  debug-backend-output:
+    name: Debug Backend Output
+    needs: deploy-backend-preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug backend workflow outputs
+        run: |
+          echo "🔍 Debugging backend workflow outputs:"
+          echo "  - backend_preview_url: '${{ needs.deploy-backend-preview.outputs.backend_preview_url }}'"
+          echo "  - deployed_url: '${{ needs.deploy-backend-preview.outputs.deployed_url }}'"
+          
+          if [ -z "${{ needs.deploy-backend-preview.outputs.backend_preview_url }}" ]; then
+            echo "  - ❌ ERROR: backend_preview_url is EMPTY!"
+          else
+            echo "  - ✅ backend_preview_url has value"
+          fi
+
   deploy-frontend-preview:
     name: Deploy Frontend Preview
-    needs: deploy-backend-preview
+    needs: [deploy-backend-preview, debug-backend-output]
     uses: ./.github/workflows/frontend.yml
     permissions:
       contents: read
