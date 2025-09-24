@@ -1,8 +1,9 @@
 'use client';
 
-import { Box, Paper, Button, TextField, Typography, Tooltip, Chip, useTheme } from '@mui/material';
+import { Box, Button, TextField, Typography, Tooltip, Chip, useTheme } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
+import DocumentIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
@@ -148,7 +149,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
   const sources = testSet.attributes?.metadata?.sources || [];
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
+    <>
       {/* Action Buttons */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <Button
@@ -277,8 +278,9 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
                   backgroundColor: 'background.paper'
                 }}
               >
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  📄 {source.name || source.document || 'Unknown Document'}
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <DocumentIcon sx={{ fontSize: 'inherit' }} />
+                  {source.name || source.document || 'Unknown Document'}
                 </Typography>
                 {source.description && (
                   <Typography variant="body2" color="text.secondary">
@@ -308,6 +310,6 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
         testSetId={testSet.id}
         sessionToken={sessionToken}
       />
-    </Paper>
+    </>
   );
 }

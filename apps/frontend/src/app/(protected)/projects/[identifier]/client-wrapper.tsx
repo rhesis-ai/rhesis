@@ -14,6 +14,7 @@ import { useActivePage } from '@toolpad/core/useActivePage';
 import { PageContainer, Breadcrumb } from '@toolpad/core/PageContainer';
 import invariant from 'invariant';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface ClientWrapperProps {
   project: Project;
@@ -134,28 +135,15 @@ export default function ClientWrapper({ project, sessionToken, projectId }: Clie
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
+      <DeleteModal
         open={deleteConfirmOpen}
         onClose={handleDeleteCancel}
-      >
-        <DialogTitle>Delete Project</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete the project &quot;{currentProject.name}&quot;? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} disabled={isDeleting}>Cancel</Button>
-          <Button 
-            onClick={handleDeleteConfirm} 
-            color="error" 
-            autoFocus
-            disabled={isDeleting}
-          >
-            {isDeleting ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        itemType="project"
+        itemName={currentProject.name}
+        title="Delete Project"
+      />
     </PageContainer>
   );
 } 

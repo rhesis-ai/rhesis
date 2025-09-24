@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,25 +11,27 @@ import {
   TextField,
   Tooltip,
   useTheme,
+  Chip,
 } from '@mui/material';
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  EmojiEmotions as EmojiIcon,
-} from '@mui/icons-material';
+import { EditIcon, DeleteIcon, EmojiIcon, AssignmentIcon, AddTaskIcon } from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
-import { DeleteCommentModal } from './DeleteCommentModal';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
+import { useTasks } from '@/hooks/useTasks';
+import { Task } from '@/utils/api-client/interfaces/task';
 
 interface CommentItemProps {
   comment: Comment;
   onEdit: (commentId: string, newText: string) => Promise<void>;
   onDelete: (commentId: string) => Promise<void>;
   onReact: (commentId: string, emoji: string) => Promise<void>;
+  onCreateTask?: (commentId: string) => void;
   currentUserId: string;
+  entityType?: string; // Add entityType to determine if Create Task button should show
+  isHighlighted?: boolean; // Add highlighting prop
 }
 
 export function CommentItem({ 
@@ -37,7 +39,10 @@ export function CommentItem({
   onEdit, 
   onDelete, 
   onReact, 
-  currentUserId 
+  onCreateTask,
+  currentUserId,
+  entityType,
+  isHighlighted = false
 }: CommentItemProps) {
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -46,10 +51,31 @@ export function CommentItem({
   const [emojiAnchorEl, setEmojiAnchorEl] = useState<HTMLElement | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [associatedTasks, setAssociatedTasks] = useState<Task[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+
+  const { fetchTasksByCommentId } = useTasks({ autoFetch: false });
 
   const isOwner = comment.user_id === currentUserId;
   const canEdit = isOwner;
   const canDelete = isOwner;
+
+  // Fetch associated tasks when component mounts
+  useEffect(() => {
+    const loadAssociatedTasks = async () => {
+      setIsLoadingTasks(true);
+      try {
+        const tasks = await fetchTasksByCommentId(comment.id);
+        setAssociatedTasks(tasks);
+      } catch (error) {
+        console.error('Failed to fetch associated tasks:', error);
+      } finally {
+        setIsLoadingTasks(false);
+      }
+    };
+
+    loadAssociatedTasks();
+  }, [comment.id, fetchTasksByCommentId]);
 
   const handleSaveEdit = async () => {
     if (!editText.trim()) return;
@@ -119,14 +145,29 @@ export function CommentItem({
     }
   };
 
+  // Get task count for this comment (placeholder - would need API call in real implementation)
+  const taskCount: number = 0; // TODO: Implement API call to get task count by comment ID
+
   return (
     <>
-      <Box sx={{ 
-        display: 'flex', 
-        gap: 2, 
-        mb: 3,
-        alignItems: 'flex-start'
-      }}>
+      <Box 
+        id={`comment-${comment.id}`}
+        sx={{ 
+          display: 'flex', 
+          gap: 2, 
+          mb: 3,
+          alignItems: 'flex-start',
+          // Highlighting styles
+          ...(isHighlighted && {
+            backgroundColor: 'primary.light',
+            border: '2px solid',
+            borderColor: 'primary.main',
+            borderRadius: theme.shape.borderRadius,
+            p: 2,
+            mb: 3,
+          })
+        }}
+      >
         {/* User Avatar */}
         <UserAvatar 
           userName={comment.user?.name}
@@ -150,33 +191,73 @@ export function CommentItem({
               </Typography>
             </Box>
 
-            {/* Action Buttons */}
+            {/* Action Buttons and Task Counter */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Task Counter */}
+              {taskCount > 0 && (
+                <Tooltip title={`${taskCount} task${taskCount === 1 ? '' : 's'} created from this comment`}>
+                  <Chip
+                    icon={<AddTaskIcon />}
+                    label={taskCount}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    sx={{ 
+                      height: 24,
+                      fontSize: theme.typography.caption.fontSize,
+                      '& .MuiChip-icon': {
+                        fontSize: theme.typography.helperText.fontSize
+                      }
+                    }}
+                  />
+                </Tooltip>
+              )}
+
+              {/* Create Task Button */}
+              {onCreateTask && entityType !== 'Task' && (
+                <Tooltip title="Create Task from Comment">
+                  <IconButton
+                    size="small"
+                    onClick={() => onCreateTask(comment.id)}
+                    sx={{ 
+                      color: 'text.secondary',
+                      '&:hover': { color: 'warning.main' }
+                    }}
+                  >
+                    <AssignmentIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+
               {/* Edit/Delete Icons (only for comment owner) */}
               {canEdit && (
-                <IconButton
-                  size="small"
-                  onClick={() => setIsEditing(true)}
-                  sx={{ 
-                    color: 'text.secondary',
-                    '&:hover': { color: 'primary.main' }
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title="Edit comment">
+                  <IconButton
+                    size="small"
+                    onClick={() => setIsEditing(true)}
+                    sx={{ 
+                      color: 'text.secondary',
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
               
               {canDelete && (
-                <IconButton
-                  size="small"
-                  onClick={handleDeleteClick}
-                  sx={{ 
-                    color: 'text.secondary',
-                    '&:hover': { color: 'error.main' }
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title="Delete comment">
+                  <IconButton
+                    size="small"
+                    onClick={handleDeleteClick}
+                    sx={{ 
+                      color: 'text.secondary',
+                      '&:hover': { color: 'error.main' }
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
             </Box>
           </Box>
@@ -291,6 +372,49 @@ export function CommentItem({
                 <EmojiIcon fontSize="small" />
               </IconButton>
             </Box>
+
+            {/* Associated Tasks */}
+            {associatedTasks.length > 0 && (
+              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  Associated Tasks:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {associatedTasks.map((task) => (
+                    <Box
+                      key={task.id}
+                      onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        bgcolor: 'background.default',
+                        color: 'text.primary',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: theme.shape.borderRadius,
+                        px: 1.5,
+                        py: 0.75,
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          color: 'text.primary',
+                          borderColor: 'text.primary'
+                        }
+                      }}
+                    >
+                      <AddTaskIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                      <Typography variant="body2" fontWeight={600} sx={{ 
+                        color: 'text.primary',
+                        fontSize: theme.typography.caption.fontSize
+                      }}>
+                        {task.title}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
         </Box>
 
         {/* Emoji Picker Popover */}
@@ -312,11 +436,12 @@ export function CommentItem({
       </Box>
 
       {/* Delete Confirmation Modal */}
-      <DeleteCommentModal
+      <DeleteModal
         open={showDeleteModal}
         onClose={handleCancelDelete}
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
+        itemType="comment"
       />
     </>
   );
