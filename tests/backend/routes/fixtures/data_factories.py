@@ -1920,6 +1920,111 @@ class CommentDataFactory(BaseDataFactory):
 
 
 @dataclass
+class TestDataFactory(BaseDataFactory):
+    """Factory for generating test entity test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal test data (only required fields)"""
+        # Test entity only requires organization_id and user_id (from OrganizationMixin)
+        # All other fields are optional
+        return {}
+    
+    @classmethod
+    def sample_data(cls, include_prompt: bool = True, include_behavior: bool = True, 
+                   include_category: bool = True, include_status: bool = True) -> Dict[str, Any]:
+        """
+        Generate sample test data
+        
+        Args:
+            include_prompt: Whether to include prompt_id reference
+            include_behavior: Whether to include behavior_id reference
+            include_category: Whether to include category_id reference
+            include_status: Whether to include status_id reference
+            
+        Returns:
+            Dict containing test data
+        """
+        data = {}
+        
+        # Optional fields that can be included
+        if include_prompt:
+            data["prompt_id"] = None  # Will be set by fixtures
+        
+        if include_behavior:
+            data["behavior_id"] = None  # Will be set by fixtures
+            
+        if include_category:
+            data["category_id"] = None  # Will be set by fixtures
+            
+        if include_status:
+            data["status_id"] = None  # Will be set by fixtures
+        
+        # Other optional fields
+        data.update({
+            "priority": fake.random_int(min=1, max=5),
+            "test_metadata": {
+                "source": fake.random_element(["manual", "automated", "imported"]),
+                "tags": fake.words(nb=3),
+                "notes": fake.sentence()
+            }
+        })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate test update data"""
+        return {
+            "priority": fake.random_int(min=1, max=5),
+            "test_metadata": {
+                "updated": True,
+                "notes": fake.sentence(),
+                "tags": fake.words(nb=2)
+            }
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate test edge case data"""
+        if case_type == "high_priority":
+            return {
+                "priority": 1,
+                "test_metadata": {
+                    "priority_reason": "Critical security test"
+                }
+            }
+        elif case_type == "low_priority":
+            return {
+                "priority": 5,
+                "test_metadata": {
+                    "priority_reason": "Nice to have test"
+                }
+            }
+        elif case_type == "complex_metadata":
+            return {
+                "test_metadata": {
+                    "execution_context": {
+                        "environment": "staging",
+                        "browser": "chrome",
+                        "viewport": {"width": 1920, "height": 1080}
+                    },
+                    "test_data": {
+                        "inputs": fake.words(nb=5),
+                        "expected_outputs": fake.words(nb=3)
+                    },
+                    "configuration": {
+                        "timeout": 30000,
+                        "retries": 3,
+                        "parallel": True
+                    }
+                }
+            }
+        
+        return super().edge_case_data(case_type)
+
+
+@dataclass
 class TagDataFactory(BaseDataFactory):
     """Factory for generating tag test data"""
     
@@ -2021,6 +2126,7 @@ FACTORY_REGISTRY.update({
     "source": SourceDataFactory,
     "status": StatusDataFactory,
     "tag": TagDataFactory,
+    "test": TestDataFactory,
     "token": TokenDataFactory,
     "topic": TopicDataFactory,
     "type_lookup": TypeLookupDataFactory,
@@ -2045,6 +2151,7 @@ __all__ = [
     "SourceDataFactory",
     "StatusDataFactory",
     "TagDataFactory",
+    "TestDataFactory",
     "TokenDataFactory",
     "TopicDataFactory",
     "TypeLookupDataFactory",

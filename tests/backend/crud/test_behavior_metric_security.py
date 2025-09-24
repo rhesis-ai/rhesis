@@ -27,8 +27,10 @@ from rhesis.backend.app import crud, models
 class TestBehaviorMetricSecurity:
     """🔒 Security tests for behavior-metric operations"""
 
-    def test_add_behavior_to_metric_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str, crud_factory):
+    def test_add_behavior_to_metric_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str):
         """🔒 SECURITY: Test that users cannot add behaviors from other organizations to their metrics"""
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory, BehaviorDataFactory
+        
         # Create two separate organizations
         org1_id = str(uuid.uuid4())
         org2_id = str(uuid.uuid4())
@@ -39,9 +41,18 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
         
-        # Create metric in org1 and behavior in org2
-        metric_data_org1 = crud_factory.create_metric_data(org1_id, authenticated_user_id)
-        behavior_data_org2 = crud_factory.create_behavior_data(org2_id, authenticated_user_id)
+        # Create metric in org1 and behavior in org2 using data factories
+        metric_data_org1 = MetricDataFactory.sample_data()
+        metric_data_org1.update({
+            "organization_id": uuid.UUID(org1_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        behavior_data_org2 = BehaviorDataFactory.sample_data()
+        behavior_data_org2.update({
+            "organization_id": uuid.UUID(org2_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric_org1 = models.Metric(**metric_data_org1)
         db_behavior_org2 = models.Behavior(**behavior_data_org2)
@@ -67,8 +78,10 @@ class TestBehaviorMetricSecurity:
         ).first()
         assert association is None
 
-    def test_add_behavior_to_metric_cross_tenant_metric_prevention(self, test_db: Session, authenticated_user_id: str, crud_factory):
+    def test_add_behavior_to_metric_cross_tenant_metric_prevention(self, test_db: Session, authenticated_user_id: str):
         """🔒 SECURITY: Test that users cannot add behaviors to metrics from other organizations"""
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory, BehaviorDataFactory
+        
         # Create two separate organizations
         org1_id = str(uuid.uuid4())
         org2_id = str(uuid.uuid4())
@@ -79,9 +92,18 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
         
-        # Create metric in org1 and behavior in org2
-        metric_data_org1 = crud_factory.create_metric_data(org1_id, authenticated_user_id)
-        behavior_data_org2 = crud_factory.create_behavior_data(org2_id, authenticated_user_id)
+        # Create metric in org1 and behavior in org2 using data factories
+        metric_data_org1 = MetricDataFactory.sample_data()
+        metric_data_org1.update({
+            "organization_id": uuid.UUID(org1_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        behavior_data_org2 = BehaviorDataFactory.sample_data()
+        behavior_data_org2.update({
+            "organization_id": uuid.UUID(org2_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric_org1 = models.Metric(**metric_data_org1)
         db_behavior_org2 = models.Behavior(**behavior_data_org2)
@@ -98,8 +120,10 @@ class TestBehaviorMetricSecurity:
                 user_id=authenticated_user_id
             )
 
-    def test_remove_behavior_from_metric_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str, crud_factory):
+    def test_remove_behavior_from_metric_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str):
         """🔒 SECURITY: Test that users cannot remove behaviors from metrics in other organizations"""
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory, BehaviorDataFactory
+        
         # Create two separate organizations
         org1_id = str(uuid.uuid4())
         org2_id = str(uuid.uuid4())
@@ -110,9 +134,18 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
         
-        # Create metric and behavior in org1
-        metric_data_org1 = crud_factory.create_metric_data(org1_id, authenticated_user_id)
-        behavior_data_org1 = crud_factory.create_behavior_data(org1_id, authenticated_user_id)
+        # Create metric and behavior in org1 using data factories
+        metric_data_org1 = MetricDataFactory.sample_data()
+        metric_data_org1.update({
+            "organization_id": uuid.UUID(org1_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        behavior_data_org1 = BehaviorDataFactory.sample_data()
+        behavior_data_org1.update({
+            "organization_id": uuid.UUID(org1_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric_org1 = models.Metric(**metric_data_org1)
         db_behavior_org1 = models.Behavior(**behavior_data_org1)
@@ -148,8 +181,10 @@ class TestBehaviorMetricSecurity:
         ).first()
         assert association is not None
 
-    def test_get_metric_behaviors_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str, crud_factory):
+    def test_get_metric_behaviors_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str):
         """🔒 SECURITY: Test that users cannot get behaviors for metrics from other organizations"""
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
+        
         # Create two separate organizations
         org1_id = str(uuid.uuid4())
         org2_id = str(uuid.uuid4())
@@ -160,8 +195,12 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
         
-        # Create metric in org1
-        metric_data_org1 = crud_factory.create_metric_data(org1_id, authenticated_user_id)
+        # Create metric in org1 using data factory
+        metric_data_org1 = MetricDataFactory.sample_data()
+        metric_data_org1.update({
+            "organization_id": uuid.UUID(org1_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         db_metric_org1 = models.Metric(**metric_data_org1)
         test_db.add(db_metric_org1)
         test_db.flush()
@@ -174,8 +213,10 @@ class TestBehaviorMetricSecurity:
                 organization_id=org2_id  # User is in org2, but metric is in org1
             )
 
-    def test_get_behavior_metrics_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str, crud_factory):
+    def test_get_behavior_metrics_cross_tenant_prevention(self, test_db: Session, authenticated_user_id: str):
         """🔒 SECURITY: Test that users cannot get metrics for behaviors from other organizations"""
+        from tests.backend.routes.fixtures.data_factories import BehaviorDataFactory
+        
         # Create two separate organizations
         org1_id = str(uuid.uuid4())
         org2_id = str(uuid.uuid4())
@@ -186,8 +227,12 @@ class TestBehaviorMetricSecurity:
         test_db.add_all([org1, org2])
         test_db.flush()
         
-        # Create behavior in org1
-        behavior_data_org1 = crud_factory.create_behavior_data(org1_id, authenticated_user_id)
+        # Create behavior in org1 using data factory
+        behavior_data_org1 = BehaviorDataFactory.sample_data()
+        behavior_data_org1.update({
+            "organization_id": uuid.UUID(org1_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         db_behavior_org1 = models.Behavior(**behavior_data_org1)
         test_db.add(db_behavior_org1)
         test_db.flush()

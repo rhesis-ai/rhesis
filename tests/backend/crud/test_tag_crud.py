@@ -26,13 +26,10 @@ from rhesis.backend.app.constants import EntityType
 class TestTagOperations:
     """🏷️ Test tag CRUD operations"""
     
-    def test_assign_tag_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_assign_tag_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_prompt):
         """Test successful tag assignment to entity"""
-        # Create test entity using factory
-        entity_data = crud_factory.create_prompt_data(test_org_id, authenticated_user_id)
-        db_entity = models.Prompt(**entity_data)
-        test_db.add(db_entity)
-        test_db.flush()
+        # Use existing database fixture instead of creating manually
+        db_entity = db_prompt
         
         # Create tag schema for assignment
         tag_create_schema = schemas.TagCreate(
@@ -85,15 +82,21 @@ class TestTagOperations:
                 entity_type=EntityType.PROMPT
             )
     
-    def test_remove_tag_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_remove_tag_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_prompt):
         """Test successful tag removal from entity"""
-        # Create entities using factory
-        tag_data = crud_factory.create_tag_data(test_org_id, authenticated_user_id)
-        entity_data = crud_factory.create_prompt_data(test_org_id, authenticated_user_id)
+        # Create tag using data factory
+        from tests.backend.routes.fixtures.data_factories import TagDataFactory
+        import uuid
+        
+        tag_data = TagDataFactory.sample_data()
+        tag_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_tag = models.Tag(**tag_data)
-        db_entity = models.Prompt(**entity_data)
-        test_db.add_all([db_tag, db_entity])
+        db_entity = db_prompt
+        test_db.add(db_tag)
         test_db.flush()
         
         # Create tagged_item relationship

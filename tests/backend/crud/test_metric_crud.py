@@ -27,10 +27,17 @@ from rhesis.backend.app import crud, models
 class TestMetricOperations:
     """📊 Test metric operations"""
     
-    def test_get_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_get_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test successful metric retrieval with relationships"""
-        # Create metric using factory
-        metric_data = crud_factory.create_metric_data(test_org_id, authenticated_user_id)
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
+        import uuid
+        
+        # Create metric using data factory
+        metric_data = MetricDataFactory.sample_data()
+        metric_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         db_metric = models.Metric(**metric_data)
         test_db.add(db_metric)
         test_db.flush()
@@ -53,11 +60,25 @@ class TestMetricOperations:
         # Should return None for non-existent metric
         assert result is None
     
-    def test_get_metrics_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_get_metrics_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test successful metrics listing"""
-        # Create multiple metrics using factory
-        metric_data_1 = crud_factory.create_metric_data(test_org_id, authenticated_user_id, "Alpha")
-        metric_data_2 = crud_factory.create_metric_data(test_org_id, authenticated_user_id, "Beta")
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
+        import uuid
+        
+        # Create multiple metrics using data factory
+        metric_data_1 = MetricDataFactory.sample_data()
+        metric_data_1.update({
+            "name": f"{metric_data_1['name']} Alpha",
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        metric_data_2 = MetricDataFactory.sample_data()
+        metric_data_2.update({
+            "name": f"{metric_data_2['name']} Beta",
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric_1 = models.Metric(**metric_data_1)
         db_metric_2 = models.Metric(**metric_data_2)
@@ -79,11 +100,23 @@ class TestMetricOperations:
 class TestBehaviorMetricOperations:
     """📊🎯 Test behavior-metric association operations"""
     
-    def test_add_behavior_to_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_add_behavior_to_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test successful behavior addition to metric"""
-        # Create metric and behavior using factory
-        metric_data = crud_factory.create_metric_data(test_org_id, authenticated_user_id)
-        behavior_data = crud_factory.create_behavior_data(test_org_id, authenticated_user_id)
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory, BehaviorDataFactory
+        import uuid
+        
+        # Create metric and behavior using data factories
+        metric_data = MetricDataFactory.sample_data()
+        metric_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        behavior_data = BehaviorDataFactory.sample_data()
+        behavior_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric = models.Metric(**metric_data)
         db_behavior = models.Behavior(**behavior_data)
@@ -113,11 +146,23 @@ class TestBehaviorMetricOperations:
         assert association is not None
         assert association.organization_id == uuid.UUID(test_org_id)
     
-    def test_add_behavior_to_metric_duplicate(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_add_behavior_to_metric_duplicate(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test adding duplicate behavior to metric"""
-        # Create metric and behavior using factory
-        metric_data = crud_factory.create_metric_data(test_org_id, authenticated_user_id)
-        behavior_data = crud_factory.create_behavior_data(test_org_id, authenticated_user_id)
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory, BehaviorDataFactory
+        import uuid
+        
+        # Create metric and behavior using data factories
+        metric_data = MetricDataFactory.sample_data()
+        metric_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        behavior_data = BehaviorDataFactory.sample_data()
+        behavior_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric = models.Metric(**metric_data)
         db_behavior = models.Behavior(**behavior_data)
@@ -146,11 +191,23 @@ class TestBehaviorMetricOperations:
         # Should return False for duplicate
         assert second_result is False
     
-    def test_remove_behavior_from_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_remove_behavior_from_metric_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test successful behavior removal from metric"""
-        # Create metric and behavior using factory
-        metric_data = crud_factory.create_metric_data(test_org_id, authenticated_user_id)
-        behavior_data = crud_factory.create_behavior_data(test_org_id, authenticated_user_id)
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory, BehaviorDataFactory
+        import uuid
+        
+        # Create metric and behavior using data factories
+        metric_data = MetricDataFactory.sample_data()
+        metric_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        behavior_data = BehaviorDataFactory.sample_data()
+        behavior_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric = models.Metric(**metric_data)
         db_behavior = models.Behavior(**behavior_data)
@@ -189,11 +246,23 @@ class TestBehaviorMetricOperations:
         
         assert association is None
     
-    def test_remove_behavior_from_metric_not_found(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_remove_behavior_from_metric_not_found(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test behavior removal with non-existent association"""
-        # Create metric and behavior but no association using factory
-        metric_data = crud_factory.create_metric_data(test_org_id, authenticated_user_id)
-        behavior_data = crud_factory.create_behavior_data(test_org_id, authenticated_user_id)
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory, BehaviorDataFactory
+        import uuid
+        
+        # Create metric and behavior but no association using data factories
+        metric_data = MetricDataFactory.sample_data()
+        metric_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
+        
+        behavior_data = BehaviorDataFactory.sample_data()
+        behavior_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         
         db_metric = models.Metric(**metric_data)
         db_behavior = models.Behavior(**behavior_data)
@@ -224,10 +293,17 @@ class TestBehaviorMetricOperations:
                 organization_id=uuid.UUID(test_org_id)
             )
     
-    def test_remove_behavior_from_metric_invalid_behavior(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_remove_behavior_from_metric_invalid_behavior(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test behavior removal with non-existent behavior"""
-        # Create metric using factory
-        metric_data = crud_factory.create_metric_data(test_org_id, authenticated_user_id)
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
+        import uuid
+        
+        # Create metric using data factory
+        metric_data = MetricDataFactory.sample_data()
+        metric_data.update({
+            "organization_id": uuid.UUID(test_org_id),
+            "user_id": uuid.UUID(authenticated_user_id)
+        })
         db_metric = models.Metric(**metric_data)
         test_db.add(db_metric)
         test_db.flush()

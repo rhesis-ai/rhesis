@@ -25,6 +25,7 @@ from .users import *  # Enhanced user fixtures
 from .statuses import *
 from .projects import *
 from .prompts import *
+from .tests import *
 
 __all__ = [
     # Dimension fixtures
@@ -64,5 +65,8 @@ __all__ = [
     "db_project", "db_inactive_project", "db_draft_project",
     
     # Prompt fixtures
-    "db_prompt", "db_multilingual_prompt", "db_parent_prompt", "db_child_prompt"
+    "db_prompt",
+    
+    # Test fixtures
+    "db_test", "db_test_with_prompt", "db_test_minimal"
 ]
