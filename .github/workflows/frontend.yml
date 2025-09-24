@@ -414,23 +414,30 @@ jobs:
           
           # Get the actual commit-specific URL from Cloud Run (includes random suffix)
           echo "Fetching tagged URL from Cloud Run..."
+          
+          # Use a more reliable method to extract the tagged URL
           PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
-            --format="value(status.traffic[tag=$TAG_NAME].url)")
+            --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url')
           
           # Validate that we got a URL
-          if [ -z "$PREVIEW_URL" ]; then
+          if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
             echo "Warning: Could not fetch tagged URL, retrying..."
             sleep 5
             PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.REGION }} \
-              --format="value(status.traffic[tag=$TAG_NAME].url)")
+              --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url')
           fi
           
-          if [ -z "$PREVIEW_URL" ]; then
+          if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
             echo "Error: Failed to get preview URL after retry"
+            echo "Debug: Available traffic entries:"
+            gcloud run services describe ${{ env.SERVICE_NAME }} \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }} \
+              --format="json" | jq -r '.status.traffic[] | "Tag: \(.tag // "none"), URL: \(.url)"'
             exit 1
           fi
           
