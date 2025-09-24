@@ -159,8 +159,8 @@ class BaseMetric(ABC):
         self,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        score_type: Optional[str] = None,
-        metric_type: Union[str, MetricType] = "rag",
+        score_type: Optional[Union[str, ScoreType]] = None,
+        metric_type: Optional[Union[str, MetricType]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
