@@ -56,3 +56,4 @@ runs:
         echo "  Environment: ${{ inputs.environment }} ($ENV_DISPLAY)"
         echo "  Service: $SERVICE_NAME"
         echo "  Image: $IMAGE_NAME"
+

@@ -28,3 +28,4 @@ runs:
         else
           echo "✅ No environment parameter to validate (automatic trigger)"
         fi
+
