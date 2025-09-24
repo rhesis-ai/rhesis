@@ -72,16 +72,16 @@ def db_status(test_db: Session, test_organization, test_entity_type, db_user) ->
 
 
 @pytest.fixture
-def db_inactive_status(test_db: Session, test_organization, test_type_lookup, db_user) -> Status:
+def db_inactive_status(test_db: Session, test_organization, test_entity_type, db_user) -> Status:
     """
     📊 Create an inactive status in the test database
-    
+
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
         test_entity_type: TypeLookup fixture
         db_user: User fixture
-        
+
     Returns:
         Status: Real inactive status record
     """

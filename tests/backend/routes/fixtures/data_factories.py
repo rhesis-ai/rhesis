@@ -766,6 +766,125 @@ class PromptDataFactory(BaseDataFactory):
         }
 
 
+class EndpointDataFactory(BaseDataFactory):
+    """
+    Endpoint Data Factory for generating endpoint entity data
+    
+    Provides consistent endpoint data generation for Endpoint entities with various
+    scenarios including minimal data, comprehensive data, and edge cases.
+    """
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal required data for Endpoint entity creation"""
+        return {
+            "name": fake.word().title() + " Endpoint",
+            "protocol": "REST",
+            "url": fake.url(),
+        }
+    
+    @classmethod
+    def sample_data(cls) -> Dict[str, Any]:
+        """Generate comprehensive sample data for Endpoint entity"""
+        return {
+            **cls.minimal_data(),
+            "description": fake.sentence(),
+            "environment": fake.random_element(elements=("development", "staging", "production")),
+            "config_source": fake.random_element(elements=("manual", "openapi", "llm_generated")),
+            "method": fake.random_element(elements=("GET", "POST", "PUT", "DELETE", "PATCH")),
+            "endpoint_path": f"/{fake.word()}/{fake.word()}",
+            "request_headers": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {token}"
+            },
+            "query_params": {
+                "limit": 10,
+                "offset": 0
+            },
+            "request_body_template": {
+                "name": "{name}",
+                "value": "{value}"
+            },
+            "response_format": fake.random_element(elements=("json", "xml", "text")),
+            "response_mappings": {
+                "data": "$.result",
+                "error": "$.error"
+            },
+            "validation_rules": {
+                "status_code": [200, 201],
+                "response_time": {"max": 5000}
+            },
+            "auth_type": fake.random_element(elements=("bearer", "api_key", "oauth2")),
+            "auth": {
+                "type": "bearer",
+                "token": fake.sha256()
+            }
+        }
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate data for updating Endpoint entities"""
+        return {
+            "description": fake.sentence(),
+            "environment": fake.random_element(elements=("development", "staging", "production")),
+            "auth": {
+                "type": "api_key",
+                "key": fake.sha256()
+            }
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate edge case data for Endpoint entities"""
+        base_data = cls.sample_data()
+        
+        if case_type == "minimal":
+            return cls.minimal_data()
+        elif case_type == "websocket":
+            base_data.update({
+                "protocol": "WebSocket",
+                "url": f"wss://{fake.domain_name()}/ws",
+                "method": None,
+                "endpoint_path": None
+            })
+        elif case_type == "grpc":
+            base_data.update({
+                "protocol": "GRPC",
+                "url": f"grpc://{fake.domain_name()}:9090",
+                "method": None,
+                "endpoint_path": f"{fake.word()}.{fake.word()}"
+            })
+        elif case_type == "oauth2":
+            base_data.update({
+                "auth_type": "oauth2",
+                "client_id": fake.uuid4(),
+                "client_secret": fake.sha256(),
+                "token_url": fake.url() + "/oauth/token",
+                "scopes": ["read", "write"],
+                "audience": fake.domain_name()
+            })
+        elif case_type == "complex_config":
+            base_data.update({
+                "openapi_spec": {
+                    "openapi": "3.0.0",
+                    "info": {"title": fake.sentence(), "version": "1.0.0"},
+                    "paths": {
+                        "/test": {
+                            "get": {
+                                "responses": {"200": {"description": "Success"}}
+                            }
+                        }
+                    }
+                },
+                "llm_suggestions": {
+                    "confidence": 0.95,
+                    "suggested_params": ["id", "name", "status"]
+                }
+            })
+        
+        return base_data
+
+
 # Factory registry for dynamic access - moved after all factory definitions
 FACTORY_REGISTRY = {
     "behavior": BehaviorDataFactory,
@@ -777,6 +896,7 @@ FACTORY_REGISTRY = {
     "dimension": DimensionDataFactory,
     "project": ProjectDataFactory,
     "prompt": PromptDataFactory,
+    "endpoint": EndpointDataFactory,
 }
 
 
@@ -2141,6 +2261,7 @@ __all__ = [
     "TopicDataFactory", 
     "CategoryDataFactory",
     "CommentDataFactory",
+    "EndpointDataFactory",
     "MetricDataFactory",
     "ModelDataFactory",
     "OrganizationDataFactory",
