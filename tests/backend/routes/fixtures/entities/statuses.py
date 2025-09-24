@@ -42,7 +42,7 @@ def test_type_lookup(test_db: Session, test_organization) -> TypeLookup:
 
 
 @pytest.fixture
-def db_status(test_db: Session, test_organization, test_type_lookup, db_user) -> Status:
+def db_status(test_db: Session, test_organization, test_entity_type, db_user) -> Status:
     """
     📊 Create a real status in the test database
     
@@ -52,7 +52,7 @@ def db_status(test_db: Session, test_organization, test_type_lookup, db_user) ->
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
-        test_type_lookup: TypeLookup fixture
+        test_entity_type: TypeLookup fixture
         db_user: User fixture
         
     Returns:
@@ -61,7 +61,7 @@ def db_status(test_db: Session, test_organization, test_type_lookup, db_user) ->
     status = Status(
         name="Active",
         description="Active status for testing",
-        entity_type_id=test_type_lookup.id,
+        entity_type_id=test_entity_type.id,
         organization_id=test_organization.id,
         user_id=db_user.id
     )
@@ -79,7 +79,7 @@ def db_inactive_status(test_db: Session, test_organization, test_type_lookup, db
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
-        test_type_lookup: TypeLookup fixture
+        test_entity_type: TypeLookup fixture
         db_user: User fixture
         
     Returns:
@@ -88,7 +88,7 @@ def db_inactive_status(test_db: Session, test_organization, test_type_lookup, db
     status = Status(
         name="Inactive",
         description="Inactive status for testing",
-        entity_type_id=test_type_lookup.id,
+        entity_type_id=test_entity_type.id,
         organization_id=test_organization.id,
         user_id=db_user.id
     )
@@ -106,7 +106,7 @@ def db_draft_status(test_db: Session, test_organization, test_type_lookup, db_us
     Args:
         test_db: Database session fixture
         test_organization: Organization fixture
-        test_type_lookup: TypeLookup fixture
+        test_entity_type: TypeLookup fixture
         db_user: User fixture
         
     Returns:
@@ -115,7 +115,7 @@ def db_draft_status(test_db: Session, test_organization, test_type_lookup, db_us
     status = Status(
         name="Draft",
         description="Draft status for testing",
-        entity_type_id=test_type_lookup.id,
+        entity_type_id=test_entity_type.id,
         organization_id=test_organization.id,
         user_id=db_user.id
     )

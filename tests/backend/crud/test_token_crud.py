@@ -24,16 +24,29 @@ from rhesis.backend.app import crud, models
 class TestTokenOperations:
     """🔑 Test token operations"""
     
-    def test_revoke_user_tokens_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, crud_factory):
+    def test_revoke_user_tokens_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test successful token revocation for user"""
         user_uuid = uuid.UUID(authenticated_user_id)
         
-        # Create test tokens using factory
-        token_data_1 = crud_factory.create_token_data(test_org_id, authenticated_user_id, "1")
-        token_data_2 = crud_factory.create_token_data(test_org_id, authenticated_user_id, "2")
+        # Create test tokens with proper Token model fields
+        db_token_1 = models.Token(
+            name="Test Token 1",
+            token="test_token_1_abc123",
+            token_obfuscated="test_...123",
+            token_type="bearer",
+            user_id=user_uuid,
+            organization_id=uuid.UUID(test_org_id)
+        )
         
-        db_token_1 = models.Token(**token_data_1)
-        db_token_2 = models.Token(**token_data_2)
+        db_token_2 = models.Token(
+            name="Test Token 2",
+            token="test_token_2_def456",
+            token_obfuscated="test_...456",
+            token_type="bearer", 
+            user_id=user_uuid,
+            organization_id=uuid.UUID(test_org_id)
+        )
+        
         test_db.add_all([db_token_1, db_token_2])
         test_db.flush()
         
