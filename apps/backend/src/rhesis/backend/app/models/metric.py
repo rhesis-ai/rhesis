@@ -6,11 +6,11 @@ from sqlalchemy.orm import relationship
 from .base import Base
 from .guid import GUID
 from .mixins import (
-    CommentMixin,
-    CountMixin,
+    CommentsMixin,
+    CountsMixin,
     OrganizationMixin,
     TagsMixin,
-    TaskMixin,
+    TasksMixin,
     UserOwnedMixin,
 )
 
@@ -41,7 +41,7 @@ class ThresholdOperator(str, Enum):
 
 
 class Metric(
-    Base, TagsMixin, UserOwnedMixin, OrganizationMixin, CommentMixin, TaskMixin, CountMixin
+    Base, TagsMixin, UserOwnedMixin, OrganizationMixin, CommentsMixin, TasksMixin, CountsMixin
 ):
     __tablename__ = "metric"
 

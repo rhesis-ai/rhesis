@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentMixin, CountMixin, OrganizationAndUserMixin, TagsMixin, TaskMixin
+from .mixins import CommentsMixin, CountsMixin, OrganizationAndUserMixin, TagsMixin, TasksMixin
 
 
-class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentMixin, TaskMixin, CountMixin):
+class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "model"
 
     # Basic information
