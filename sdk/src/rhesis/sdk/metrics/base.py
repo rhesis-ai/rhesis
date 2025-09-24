@@ -114,38 +114,31 @@ class MetricConfig:
         # The config accept both string and enum for score_type and metric_type. However, the object
         # will keep it as a string for easier serialization
 
-        if isinstance(self.backend, str):
-            try:
-                self.backend = Backend(self.backend)
-            except ValueError:
-                allowed = [member.value for member in Backend]
-                raise ValueError(
-                    f"Invalid backend value: {self.backend}. Allowed values: {allowed}"
-                )
-        elif isinstance(self.backend, Backend):
-            self.backend = self.backend.value
+        if self.backend is not None:
+            self.backend = self._validate_enum_value(self.backend, Backend, "backend")
 
-        if isinstance(self.score_type, str):
-            try:
-                self.score_type = ScoreType(self.score_type)
-            except ValueError:
-                allowed = [member.value for member in ScoreType]
-                raise ValueError(
-                    f"Invalid score_type value: {self.score_type}. Allowed values: {allowed}"
-                )
-        elif isinstance(self.score_type, ScoreType):
-            self.score_type = self.score_type.value
+        if self.score_type is not None:
+            self.score_type = self._validate_enum_value(self.score_type, ScoreType, "score_type")
 
-        if isinstance(self.metric_type, str):
+        if self.metric_type is not None:
+            self.metric_type = self._validate_enum_value(
+                self.metric_type, MetricType, "metric_type"
+            )
+
+    def _validate_enum_value(
+        self, value: Union[str, Enum], enum_class: type, field_name: str
+    ) -> str:
+        if isinstance(value, str):
             try:
-                self.metric_type = MetricType(self.metric_type)
+                enum_instance = enum_class(value)
+                return enum_instance.value
             except ValueError:
-                allowed = [member.value for member in MetricType]
-                raise ValueError(
-                    f"Invalid metric_type value: {self.metric_type}. Allowed values: {allowed}"
-                )
-        elif isinstance(self.metric_type, MetricType):
-            self.metric_type = self.metric_type.value
+                allowed = [member.value for member in enum_class]
+                raise ValueError(f"Invalid {field_name} value: {value}. Allowed values: {allowed}")
+        elif isinstance(value, enum_class):
+            return value.value
+        else:
+            raise ValueError(f"Invalid {field_name} type: {type(value)}")
 
 
 class MetricResult:
