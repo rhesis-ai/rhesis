@@ -395,9 +395,12 @@ jobs:
           echo "Latest revision: $LATEST_REVISION"
           
           # Create a valid tag name (lowercase, alphanumeric + hyphens only)
-          TAG_NAME="commit-${{ env.COMMIT_SHA }}"
+          # Use GitHub actor (username) for more user-friendly URLs
+          GITHUB_USER="${{ github.actor }}"
+          GITHUB_USER=$(echo "$GITHUB_USER" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+          TAG_NAME="$GITHUB_USER-${{ env.COMMIT_SHA }}"
           TAG_NAME=$(echo "$TAG_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "Using tag name: $TAG_NAME"
+          echo "Using tag name: $TAG_NAME (user: ${{ github.actor }})"
           
           # Tag the latest revision and set it to 0% traffic in a single command
           echo "Tagging revision with 0% traffic allocation..."
