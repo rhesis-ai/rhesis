@@ -227,6 +227,9 @@ jobs:
       deployed_url: ${{ steps.output_url.outputs.deployed_url }}
       
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
       - name: Create and validate service account key file
         id: sa_key
         run: |
