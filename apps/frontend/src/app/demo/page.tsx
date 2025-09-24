@@ -1,20 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, CircularProgress, Typography, Paper, Button } from '@mui/material';
+import { Box, CircularProgress, Typography, Paper, Button, useTheme, Fade, Grow } from '@mui/material';
+import Image from 'next/image';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
 export default function DemoPage() {
   const [showCredentials, setShowCredentials] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showBackground, setShowBackground] = useState(false);
+  const theme = useTheme();
 
   useEffect(() => {
     // Show credentials after a brief moment
     const timer = setTimeout(() => {
       setShowCredentials(true);
+    }, 800);
+    
+    // Show background element
+    const backgroundTimer = setTimeout(() => {
+      setShowBackground(true);
     }, 500);
     
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(backgroundTimer);
+    };
   }, []);
 
   const handleContinue = () => {
@@ -33,84 +44,151 @@ export default function DemoPage() {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        bgcolor: 'background.default',
-        p: 3,
+        bgcolor: 'background.light1',
+        p: { xs: 2, sm: 3 },
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <Paper
-        elevation={3}
-        sx={{
-          p: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 3,
-          maxWidth: 500,
-          textAlign: 'center',
-        }}
-      >
-        <Typography variant="h4" component="h1" gutterBottom>
-          🐾 Rhesis Demo
-        </Typography>
-        
-        {!showCredentials && (
-          <>
-            <CircularProgress size={48} />
-            <Typography variant="body1" color="textSecondary">
-              Preparing your demo experience...
-            </Typography>
-          </>
-        )}
+      {/* Background wave element on the right side */}
+      <Fade in={showBackground} timeout={1500}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '75%',
+            height: '100%',
+            zIndex: 0,
+            opacity: 0.3,
+          }}
+        >
+          <Image
+            src="/elements/rhesis-brand-element-18.svg"
+            alt="Background element"
+            fill
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'left center',
+            }}
+          />
+        </Box>
+      </Fade>
 
-        {showCredentials && !isRedirecting && (
-          <Box sx={{ textAlign: 'center', width: '100%' }}>
-            <Typography variant="body1" color="textSecondary" gutterBottom>
-              Ready to try Rhesis? Here are your demo credentials:
-            </Typography>
-            
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: 3, 
-                mt: 2, 
-                bgcolor: 'primary.50',
-                border: '2px solid',
-                borderColor: 'primary.main'
+      <Grow in={true} timeout={1200}>
+        <Paper
+          elevation={6}
+          sx={{
+            p: { xs: 4, sm: 6 },
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: { xs: 3, sm: 4 },
+            maxWidth: 520,
+            width: '100%',
+            textAlign: 'center',
+            borderRadius: 3,
+            bgcolor: 'background.paper',
+            border: `1px solid ${theme.palette.divider}`,
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          {/* Normal logo presentation */}
+          <Box sx={{ mb: 1 }}>
+            <Image
+              src="/logos/rhesis-logo-platypus.png"
+              alt="Rhesis AI Platypus Logo"
+              width={300}
+              height={150}
+              style={{
+                objectFit: 'contain',
               }}
-            >
-              <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold', mb: 2 }}>
-                Demo Login Credentials
-              </Typography>
-              <Typography variant="body1" sx={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
-                <strong>Email:</strong> demo@rhesis.ai<br/>
-                <strong>Password:</strong> tryrhesis
-              </Typography>
-            </Paper>
-            
-            <Typography variant="body2" color="textSecondary" sx={{ mt: 2, mb: 3 }}>
-              Click below to proceed to the secure login page. The email will be pre-filled!
-            </Typography>
-
-            <Button 
-              variant="contained" 
-              size="large" 
-              onClick={handleContinue}
-              sx={{ minWidth: 200 }}
-            >
-              Continue to Demo Login
-            </Button>
+            />
           </Box>
-        )}
+        
+          {!showCredentials && (
+            <Fade in={true} timeout={1500}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <CircularProgress size={48} sx={{ color: 'primary.main' }} />
+                <Typography variant="body1" color="textSecondary">
+                  Preparing your demo experience...
+                </Typography>
+              </Box>
+            </Fade>
+          )}
 
-        {isRedirecting && (
-          <>
-            <CircularProgress size={48} />
-            <Typography variant="body1" color="textSecondary">
-              Redirecting to secure login...
-            </Typography>
-          </>
-        )}
-      </Paper>
+          <Fade in={showCredentials && !isRedirecting} timeout={1000}>
+            <Box sx={{ textAlign: 'center', width: '100%', display: showCredentials && !isRedirecting ? 'block' : 'none' }}>
+              <Typography variant="body1" color="textSecondary" gutterBottom sx={{ mb: 3 }}>
+                Ready to explore? Here are your demo credentials:
+              </Typography>
+              
+              <Paper 
+                elevation={2} 
+                sx={{ 
+                  p: 4, 
+                  mt: 2, 
+                  bgcolor: 'background.paper',
+                  border: `1px solid ${theme.palette.divider}`,
+                  borderRadius: 2,
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: 'text.primary' }}>
+                  Demo login credentials
+                </Typography>
+                <Box sx={{ 
+                  bgcolor: 'background.paper', 
+                  p: 3, 
+                  borderRadius: 1,
+                  border: `1px solid ${theme.palette.divider}`,
+                }}>
+                  <Typography variant="body1" sx={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
+                    <strong>Email:</strong> demo@rhesis.ai<br/>
+                    <strong>Password:</strong> PlatypusDemo!
+                  </Typography>
+                </Box>
+              </Paper>
+              
+              <Typography variant="body2" sx={{ 
+                mt: 4,
+                mb: 4, 
+                p: 2, 
+                bgcolor: 'background.light2',
+                color: 'text.primary',
+                borderRadius: 1, 
+                border: `1px solid ${theme.palette.divider}`,
+                fontWeight: 'medium'
+              }}>
+                ⚠️ Demo Account Notice: Please do not add any real or sensitive data to this demo account. All data may be visible to other users and will be regularly reset.
+              </Typography>
+
+              <Button 
+                variant="contained" 
+                size="large" 
+                onClick={handleContinue}
+                sx={{ 
+                  minWidth: 220,
+                  py: 1.5,
+                  px: 3,
+                  fontSize: '1.1rem',
+                }}
+              >
+                Continue to Demo Login
+              </Button>
+            </Box>
+          </Fade>
+
+          <Fade in={isRedirecting} timeout={500}>
+            <Box sx={{ display: isRedirecting ? 'flex' : 'none', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <CircularProgress size={48} sx={{ color: 'primary.main' }} />
+              <Typography variant="body1" color="textSecondary">
+                Redirecting to secure login...
+              </Typography>
+            </Box>
+          </Fade>
+        </Paper>
+      </Grow>
     </Box>
   );
 }
