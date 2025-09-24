@@ -516,8 +516,8 @@ jobs:
           AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }},
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
           GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
-          RHESIS_BASE_URL=$PREVIEW_URL,
-          BACKEND_URL=$PREVIEW_URL,
+          RHESIS_BASE_URL=PLACEHOLDER_WILL_BE_SET_AFTER_TAGGING,
+          BACKEND_URL=PLACEHOLDER_WILL_BE_SET_AFTER_TAGGING,
           BACKEND_ENV=${{ secrets.BACKEND_ENV }},
           SMTP_HOST=${{ secrets.SMTP_HOST }},
           SMTP_PORT=${{ secrets.SMTP_PORT }},
@@ -529,7 +529,14 @@ jobs:
           EOF
           )"
           
-          echo "✅ Service updated with correct preview URL in environment variables"
+          # Update the service with the actual preview URL
+          echo "🔄 Updating backend service with actual preview URL..."
+          gcloud run services update ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --update-env-vars="RHESIS_BASE_URL=$PREVIEW_URL,BACKEND_URL=$PREVIEW_URL"
+          
+          echo "✅ Backend service updated with correct preview URL in environment variables"
           
           # Add to job summary for easy access
           echo "## 🚀 ⚠️ PREVIEW DEPLOYMENT - Backend Service" >> $GITHUB_STEP_SUMMARY
