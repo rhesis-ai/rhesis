@@ -17,7 +17,7 @@ import { EditIcon, DeleteIcon, EmojiIcon, AssignmentIcon, AddTaskIcon } from '@/
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
-import { DeleteCommentModal } from './DeleteCommentModal';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
 import { useTasks } from '@/hooks/useTasks';
@@ -436,11 +436,12 @@ export function CommentItem({
       </Box>
 
       {/* Delete Confirmation Modal */}
-      <DeleteCommentModal
+      <DeleteModal
         open={showDeleteModal}
         onClose={handleCancelDelete}
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
+        itemType="comment"
       />
     </>
   );
