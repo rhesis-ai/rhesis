@@ -5,9 +5,7 @@ This service handles the generation of test configurations based on user prompts
 using LLM and Jinja2 templates.
 """
 
-import json
 from pathlib import Path
-from typing import Any, Dict
 
 import jinja2
 
@@ -47,47 +45,8 @@ class TestConfigGeneratorService:
             raise ValueError("Prompt cannot be empty")
 
         # Render template with user prompt
-        template = self.jinja_env.get_template("test_config_generation.jinja2")
+        template = self.jinja_env.get_template("test_config_generator.jinja2")
         rendered_prompt = template.render({"prompt": prompt})
 
         # Generate response using LLM
-        response = self.llm.generate(rendered_prompt)
-
-        # Parse and validate response
-        parsed_response = self._parse_llm_response(response)
-
-        return TestConfigResponse(
-            behaviors=parsed_response.get("behaviors", []),
-            topics=parsed_response.get("topics", []),
-            test_categories=parsed_response.get("test_categories", []),
-            test_scenarios=parsed_response.get("test_scenarios", []),
-        )
-
-    def _parse_llm_response(self, response: Any) -> Dict[str, Any]:
-        """
-        Parse LLM response and extract JSON data.
-
-        Args:
-            response: Raw response from LLM
-
-        Returns:
-            Dict containing parsed JSON data
-
-        Raises:
-            RuntimeError: If response cannot be parsed as JSON
-        """
-        try:
-            if isinstance(response, str):
-                # Remove markdown code blocks if present
-                cleaned_response = response.strip()
-                if cleaned_response.startswith("```json"):
-                    cleaned_response = cleaned_response[7:]  # Remove ```json
-                if cleaned_response.endswith("```"):
-                    cleaned_response = cleaned_response[:-3]  # Remove ```
-                cleaned_response = cleaned_response.strip()
-
-                return json.loads(cleaned_response)
-            else:
-                return response
-        except json.JSONDecodeError as e:
-            raise RuntimeError(f"Failed to parse LLM response as JSON: {e}. Response: {response}")
+        return self.llm.generate(rendered_prompt, schema=TestConfigResponse)
