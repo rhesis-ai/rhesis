@@ -243,6 +243,9 @@ class RhesisPromptMetricBase(BaseMetric):
     ) -> "RhesisPromptMetricBase":
         """
         Pull the metric from the backend.
+        # Either 'name' or 'nano_id' must be provided to pull a metric from the backend.
+        # If 'name' is not unique (i.e., multiple metrics share the same name), an error
+        # will be raised and you will be asked to use 'nano_id' instead for disambiguation.
 
         Args:
             name (Optional[str]): The name of the metric
