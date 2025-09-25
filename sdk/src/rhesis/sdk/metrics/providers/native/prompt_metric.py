@@ -236,6 +236,9 @@ class RhesisPromptMetricBase(BaseMetric):
 
         return config
 
+    def from_config(self):
+        raise NotImplementedError("Subclasses should override this method")
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the metric to a dictionary."""
         return asdict(self.to_config())
