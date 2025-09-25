@@ -1,7 +1,9 @@
 import os
 from enum import Enum
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+from requests.exceptions import HTTPError
+from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_collection import BaseCollection
 
 os.environ["RHESIS_API_KEY"] = "test_api_key"
@@ -46,3 +48,19 @@ def test_exists(mock_request):
         json=None,
         params=None,
     )
+
+
+@patch("requests.request")
+def test_exists_when_nonexistent(mock_request):
+    """Test exists method returns False for nonexistent entity."""
+    # Mock unprocessable entity error response
+    mock_response = MagicMock()
+    mock_response.status_code = HTTPStatus.UNPROCESSABLE_ENTITY
+
+    http_error = HTTPError("422 Client Error")
+    http_error.response = mock_response
+    mock_request.side_effect = http_error
+
+    result = TestBaseCollection.exists(10)
+
+    assert result is False
