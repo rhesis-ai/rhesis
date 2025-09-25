@@ -60,6 +60,8 @@ function show_usage() {
   echo "  SMTP_USER                     SMTP user"
   echo "  SMTP_PASSWORD                 SMTP password"
   echo "  FROM_EMAIL                    Email address to use as sender"
+  echo "  DEMO_USER_EMAIL               Demo user email address"
+  echo "  DEMO_USER_PASSWORD            Demo user password"
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
@@ -213,6 +215,8 @@ SERVICE_VARS=(
   "SMTP_USER"
   "SMTP_PASSWORD"
   "FROM_EMAIL"
+  "DEMO_USER_EMAIL"
+  "DEMO_USER_PASSWORD"
   
   # Celery worker variables
   "BROKER_URL"
