@@ -1,7 +1,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, TypeVar, cast
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 import requests
 
@@ -188,65 +188,3 @@ class BaseEntity:
                 f"Cannot update {self.__class__.__name__}: "
                 f"created_at and updated_at must be datetime objects"
             )
-
-
-class BaseCollection:
-    """Base class for API collection interactions.
-
-    This class provides basic CRUD operations for interacting with REST API endpoints.
-    It handles authentication and common HTTP operations.
-    """
-
-    endpoint: str
-    fields: Dict[str, Any]
-
-    @classmethod
-    @handle_http_errors
-    def all(cls, **kwargs: Any) -> Optional[list[Any]]:
-        """Retrieve all records from the API."""
-        client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-        url = f"{client.get_url(cls.endpoint)}/"
-
-        try:
-            response = requests.get(
-                url,
-                params=kwargs,
-                headers=headers,
-            )
-            if response.status_code == 200:
-                result = response.json()
-                if not isinstance(result, list):
-                    result = [result] if result else []
-                return cast(list[Any], result)
-            response.raise_for_status()
-        except requests.exceptions.RequestException:
-            raise
-
-        return None
-
-    @handle_http_errors
-    def first(cls, **kwargs: Any) -> Optional[Dict[str, Any]]:
-        """Retrieve the first record matching the query parameters."""
-        records = cls.all(**kwargs)
-        return records[0] if records else None
-
-    @classmethod
-    @handle_http_errors
-    def exists(cls, record_id: str) -> bool:
-        """Check if an entity exists."""
-        client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-        url = f"{client.get_url(cls.endpoint)}/{record_id}/"
-        logger.debug(f"GET request to {url} for exists check")
-        response = requests.get(
-            url,
-            headers=headers,
-        )
-        return response.status_code == 200
