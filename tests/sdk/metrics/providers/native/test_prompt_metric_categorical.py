@@ -1,5 +1,7 @@
+from unittest.mock import Mock, patch
+
 import pytest
-from rhesis.sdk.metrics.base import MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
     RhesisPromptMetricCategorical,
 )
@@ -88,3 +90,71 @@ def test_to_config(metric):
         "categories": ["test_category1", "test_category2"],
         "passing_categories": ["test_category1"],
     }
+
+
+def test_evaluate_successful_evaluation(metric):
+    """Test successful evaluation with valid LLM response and passing score."""
+    # Mock the model to return a valid response
+    mock_response = Mock()
+    mock_response.score = "test_category1"
+    mock_response.reason = "The output correctly matches the expected category"
+
+    with patch.object(metric.model, "generate") as mock_generate:
+        mock_generate.return_value = {
+            "score": "test_category1",
+            "reason": "The output correctly matches the expected category",
+        }
+
+        # Call evaluate method
+        result = metric.evaluate(
+            input="What is the capital of France?",
+            output="Paris",
+            expected_output="Paris",
+            context=["France is a country in Europe"],
+        )
+
+        # Verify the result
+        assert isinstance(result, MetricResult)
+        assert result.score == "test_category1"
+        assert result.details["score"] == "test_category1"
+        assert (
+            result.details["reason"]
+            == "The output correctly matches the expected category"
+        )
+        assert result.details["is_successful"] is True
+        assert result.details["score_type"] == "categorical"
+        assert result.details["categories"] == ["test_category1", "test_category2"]
+        assert result.details["passing_categories"] == ["test_category1"]
+        assert "prompt" in result.details
+
+        # Verify model was called with correct parameters
+        mock_generate.assert_called_once()
+        call_args = mock_generate.call_args
+        assert "schema" in call_args.kwargs
+
+
+def test_evaluate_error_handling(metric):
+    """Test error handling when LLM evaluation fails."""
+    # Mock the model to raise an exception
+    with patch.object(metric.model, "generate") as mock_generate:
+        mock_generate.side_effect = Exception("LLM service unavailable")
+
+        # Call evaluate method
+        result = metric.evaluate(
+            input="What is the capital of France?",
+            output="Paris",
+            expected_output="Paris",
+            context=["France is a country in Europe"],
+        )
+
+        # Verify error handling
+        assert isinstance(result, MetricResult)
+        assert result.score == "error"
+        assert result.details["is_successful"] is False
+        assert result.details["score_type"] == "categorical"
+        assert result.details["categories"] == ["test_category1", "test_category2"]
+        assert result.details["passing_categories"] == ["test_category1"]
+        assert "error" in result.details
+        assert "exception_type" in result.details
+        assert "exception_details" in result.details
+        assert "prompt" in result.details
