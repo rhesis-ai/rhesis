@@ -2,12 +2,10 @@ from typing import List, Literal, Optional, Union
 
 from pydantic import create_model
 
-from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
-from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 from rhesis.sdk.models.base import BaseLLM
 
 METRIC_TYPE = MetricType.RAG
@@ -302,9 +300,10 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         }
         return config
 
-    def from_config(self, config: MetricConfig) -> "RhesisPromptMetricCategorical":
+    @classmethod
+    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricCategorical":
         """Create a metric from a dictionary."""
-        return RhesisPromptMetricCategorical(
+        return cls(
             # Backend required items
             name=config.name,
             description=config.description,
@@ -317,18 +316,20 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             passing_categories=config.parameters.get("passing_categories"),
         )
 
-    @staticmethod
-    def pull(metric_id: str) -> "RhesisPromptMetricCategorical":
-        """
-        Pull the metric from the backend.
-        """
-        client = Client()
-        config = client.send_request(Endpoints.METRICS, Methods.GET, url_params=metric_id)
 
-        if config["class_name"] != "RhesisPromptMetricCategorical":
-            raise ValueError(f"Metric {config.get('id')} is not a RhesisPromptMetricCategorical")
+if __name__ == "__main__":
+    from dotenv import load_dotenv
 
-        config = backend_config_to_sdk_config(config)
+    load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
 
-        config = MetricConfig(**config)
-        return RhesisPromptMetricCategorical.from_config(config)
+    metric = RhesisPromptMetricCategorical(
+        name="testowa_metryka",
+        description="Testowa metryka kategorii",
+        categories=["good", "bad"],
+        passing_categories="good",
+        evaluation_prompt="Evaluate the following response based on the given criteria. Provide a score between 0 and 100.",
+    )
+
+    config = metric.to_dict()
+    metric = RhesisPromptMetricCategorical.from_dict(config)
+    print(metric)
