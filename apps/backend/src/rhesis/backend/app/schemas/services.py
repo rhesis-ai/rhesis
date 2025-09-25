@@ -78,5 +78,5 @@ class TestConfigRequest(BaseModel):
 class TestConfigResponse(BaseModel):
     behaviors: List[str]
     topics: List[str]
-    test_categories: List[str]
-    test_scenarios: List[str]
+    categories: List[str]
+    scenarios: List[str]
