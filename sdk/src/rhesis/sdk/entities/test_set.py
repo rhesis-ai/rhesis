@@ -9,7 +9,9 @@ import tqdm
 from jinja2 import Template
 from pydantic import BaseModel
 
+from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities import BaseEntity
+from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.utils import count_tokens
 
@@ -484,3 +486,7 @@ class TestSet(BaseEntity):
             self.test_count = len(self.tests) if self.tests is not None else 0
         else:
             raise ValueError("LLM response was not in the expected format")
+
+
+class TestSets(BaseCollection):
+    endpoint = Endpoints.TEST_SETS
