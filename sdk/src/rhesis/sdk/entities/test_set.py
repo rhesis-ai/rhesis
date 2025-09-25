@@ -15,6 +15,8 @@ from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.utils import count_tokens
 
+ENDPOINT = Endpoints.TEST_SETS
+
 
 class TestSetProperties(BaseModel):
     name: str
@@ -46,7 +48,7 @@ class TestSet(BaseEntity):
     """
 
     #: :no-index: The API endpoint for test sets
-    endpoint = "test_sets"
+    endpoint = ENDPOINT
 
     #: :no-index: Cached list of tests for the test set
     tests: Optional[list[Any]] = None
@@ -489,4 +491,4 @@ class TestSet(BaseEntity):
 
 
 class TestSets(BaseCollection):
-    endpoint = Endpoints.TEST_SETS
+    endpoint = ENDPOINT
