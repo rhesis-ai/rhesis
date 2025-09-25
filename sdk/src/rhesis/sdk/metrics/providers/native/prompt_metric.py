@@ -220,6 +220,15 @@ class RhesisPromptMetricBase(BaseMetric):
 
         return config
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the metric to a dictionary."""
+        return asdict(self.to_config())
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricBase":
+        """Create a metric from a dictionary."""
+        return cls.from_config(MetricConfig(**config))
+
     def push(self) -> None:
         """Push the metric to the backend."""
         client = Client()
