@@ -306,12 +306,3 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             threshold=config.parameters.get("threshold"),
             threshold_operator=config.parameters.get("threshold_operator"),
         )
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
-
-    metric = RhesisPromptMetricNumeric.pull(nano_id="TzER8pYKQh8k")
-    print(metric)

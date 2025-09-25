@@ -315,21 +315,3 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             categories=config.parameters.get("categories"),
             passing_categories=config.parameters.get("passing_categories"),
         )
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
-
-    metric = RhesisPromptMetricCategorical(
-        name="testowa_metryka",
-        description="Testowa metryka kategorii",
-        categories=["good", "bad"],
-        passing_categories="good",
-        evaluation_prompt="Evaluate the following response based on the given criteria. Provide a score between 0 and 100.",
-    )
-
-    config = metric.to_dict()
-    metric = RhesisPromptMetricCategorical.from_dict(config)
-    print(metric)
