@@ -1,6 +1,8 @@
 from typing import Any, Dict, Optional
 
-from rhesis.sdk.client import Client, Methods
+from requests.exceptions import HTTPError
+
+from rhesis.sdk.client import Client, HTTPStatus, Methods
 from rhesis.sdk.entities.base_entity import handle_http_errors
 
 
@@ -34,9 +36,16 @@ class BaseCollection:
     def exists(cls, record_id: str) -> bool:
         """Check if an entity exists."""
         client = Client()
-        response = client.send_request(
-            endpoint=cls.endpoint,
-            method=Methods.GET,
-            url_params=record_id,
-        )
-        return response is not None
+        try:
+            response = client.send_request(
+                endpoint=cls.endpoint,
+                method=Methods.GET,
+                url_params=record_id,
+            )
+            return response is not None
+        except HTTPError as e:
+            # Get the HTTP status code
+            if e.response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
+                return False
+            else:
+                raise e
