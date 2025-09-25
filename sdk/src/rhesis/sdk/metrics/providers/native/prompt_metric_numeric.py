@@ -13,6 +13,8 @@ from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to
 
 METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.NUMERIC
+GROUND_TRUTH_REQUIRED = True
+CONTEXT_REQUIRED = False
 
 
 class NumericScoreResponse(BaseModel):
@@ -93,8 +95,14 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         self.reasoning = reasoning
         self.evaluation_examples = evaluation_examples
 
+        self.ground_truth_required = GROUND_TRUTH_REQUIRED
+        self.context_required = CONTEXT_REQUIRED
+
         # Set up Jinja environment
         self._setup_jinja_environment()
+
+    def __repr__(self) -> str:
+        return str(self.to_config())
 
     def _validate_score_range(self, min_score: Optional[float], max_score: Optional[float]) -> None:
         """
@@ -287,6 +295,24 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         }
         return config
 
+    @classmethod
+    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricNumeric":
+        """Create a metric from a dictionary."""
+        return cls(
+            # Backend required items
+            name=config.name,
+            description=config.description,
+            # Custom items
+            evaluation_prompt=config.evaluation_prompt,
+            evaluation_steps=config.evaluation_steps,
+            reasoning=config.reasoning,
+            evaluation_examples=config.evaluation_examples,
+            min_score=config.parameters.get("min_score"),
+            max_score=config.parameters.get("max_score"),
+            threshold=config.parameters.get("threshold"),
+            threshold_operator=config.parameters.get("threshold_operator"),
+        )
+
     def push(self) -> None:
         """Push the metric to the backend."""
         client = Client()
@@ -337,25 +363,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         config = backend_config_to_sdk_config(config)
         config = MetricConfig(**config)
         return cls.from_config(config)
-
-    @classmethod
-    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricNumeric":
-        """Create a metric from a dictionary."""
-        return cls(
-            # Backend required items
-            name=config.name,
-            description=config.description,
-            metric_type=config.metric_type,
-            # Custom items
-            evaluation_prompt=config.evaluation_prompt,
-            evaluation_steps=config.evaluation_steps,
-            reasoning=config.reasoning,
-            evaluation_examples=config.evaluation_examples,
-            min_score=config.parameters.get("min_score"),
-            max_score=config.parameters.get("max_score"),
-            threshold=config.parameters.get("threshold"),
-            threshold_operator=config.parameters.get("threshold_operator"),
-        )
 
 
 if __name__ == "__main__":
