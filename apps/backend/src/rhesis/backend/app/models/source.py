@@ -1,7 +1,6 @@
 from sqlalchemy import Column, DateTime, Integer, String, Text
 
 from .base import Base
-from .guid import GUID
 from .mixins import OrganizationAndUserMixin, TagsMixin
 
 
