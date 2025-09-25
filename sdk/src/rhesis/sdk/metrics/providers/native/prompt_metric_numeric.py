@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
@@ -9,7 +8,7 @@ from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
-from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
+from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.NUMERIC
@@ -100,9 +99,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
         # Set up Jinja environment
         self._setup_jinja_environment()
-
-    def __repr__(self) -> str:
-        return str(self.to_config())
 
     def _validate_score_range(self, min_score: Optional[float], max_score: Optional[float]) -> None:
         """
@@ -312,14 +308,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             threshold=config.parameters.get("threshold"),
             threshold_operator=config.parameters.get("threshold_operator"),
         )
-
-    def push(self) -> None:
-        """Push the metric to the backend."""
-        client = Client()
-        config = asdict(self.to_config())
-        config = sdk_config_to_backend_config(config)
-
-        client.send_request(Endpoints.METRICS, Methods.POST, config)
 
     @classmethod
     def pull(

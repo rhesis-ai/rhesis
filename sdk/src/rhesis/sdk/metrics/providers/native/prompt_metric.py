@@ -1,11 +1,14 @@
 import logging
 import traceback
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.utils import sdk_config_to_backend_config
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -32,6 +35,9 @@ class RhesisPromptMetricBase(BaseMetric):
             model=model,
             **kwargs,
         )
+
+    def __repr__(self) -> str:
+        return str(self.to_config())
 
     def _validate_evaluate_inputs(
         self, input: str, output: str, expected_output: Optional[str], context: Optional[List[str]]
@@ -213,3 +219,11 @@ class RhesisPromptMetricBase(BaseMetric):
         )
 
         return config
+
+    def push(self) -> None:
+        """Push the metric to the backend."""
+        client = Client()
+        config = asdict(self.to_config())
+        config = sdk_config_to_backend_config(config)
+
+        client.send_request(Endpoints.METRICS, Methods.POST, config)
