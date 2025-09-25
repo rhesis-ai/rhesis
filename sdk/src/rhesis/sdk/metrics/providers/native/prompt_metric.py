@@ -39,6 +39,9 @@ class RhesisPromptMetricBase(BaseMetric):
     def __repr__(self) -> str:
         return str(self.to_config())
 
+    def evaluate(self):
+        pass
+
     def _validate_evaluate_inputs(
         self, input: str, output: str, expected_output: Optional[str], context: Optional[List[str]]
     ) -> None:
