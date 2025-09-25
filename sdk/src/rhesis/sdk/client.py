@@ -9,6 +9,12 @@ from rhesis.sdk.config import get_api_key, get_base_url
 class Endpoints(Enum):
     BEHAVIORS = "behaviors"
     METRICS = "metrics"
+    CATEGORIES = "categories"
+    STATUSES = "statuses"
+    TEST_SETS = "test_sets"
+    TESTS = "tests"
+    TOPICS = "topics"
+    PROMPTS = "prompts"
 
 
 class Methods(Enum):
