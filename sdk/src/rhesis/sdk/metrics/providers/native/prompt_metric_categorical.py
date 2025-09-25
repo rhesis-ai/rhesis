@@ -12,6 +12,8 @@ from rhesis.sdk.models.base import BaseLLM
 
 METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.CATEGORICAL
+GROUND_TRUTH_REQUIRED = True
+CONTEXT_REQUIRED = False
 
 
 class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
@@ -69,6 +71,8 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         # Convert string to enum if needed
         self.categories = categories
         self.passing_categories = passing_categories
+        self.ground_truth_required = GROUND_TRUTH_REQUIRED
+        self.context_required = CONTEXT_REQUIRED
 
         # Validate input parameters
         self._validate_categories()
@@ -304,7 +308,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             # Backend required items
             name=config.name,
             description=config.description,
-            metric_type=config.metric_type,
             # Custom parameters
             evaluation_prompt=config.evaluation_prompt,
             evaluation_steps=config.evaluation_steps,
