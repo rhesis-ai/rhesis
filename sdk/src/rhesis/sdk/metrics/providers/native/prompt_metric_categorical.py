@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from typing import List, Literal, Optional, Union
 
 from pydantic import create_model
@@ -8,7 +7,7 @@ from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, Scor
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
-from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
+from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 from rhesis.sdk.models.base import BaseLLM
 
 METRIC_TYPE = MetricType.RAG
@@ -298,13 +297,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             "passing_categories": self.passing_categories,
         }
         return config
-
-    def push(self) -> None:
-        """Push the metric to the backend."""
-        client = Client()
-        config = asdict(self.to_config())
-        config = sdk_config_to_backend_config(config)
-        client.send_request(Endpoints.METRICS, Methods.POST, config)
 
     @staticmethod
     def pull(metric_id: str) -> "RhesisPromptMetricCategorical":
