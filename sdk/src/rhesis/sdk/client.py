@@ -77,6 +77,5 @@ class Client:
         response = requests.request(
             method.value, url, headers=self.headers, json=data, params=params
         )
-        print(response.url)
         response.raise_for_status()
         return response.json()
