@@ -65,8 +65,8 @@ def test_send_request_get(mock_request):
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
-        "GET",
-        "https://test.example.com/behaviors",
+        method="GET",
+        url="https://test.example.com/behaviors",
         headers=client.headers,
         json=None,
         params=None,
@@ -91,8 +91,8 @@ def test_send_request_post_with_data(mock_request):
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
-        "POST",
-        "https://test.example.com/behaviors",
+        method="POST",
+        url="https://test.example.com/behaviors",
         headers=client.headers,
         json=data,
         params=None,
@@ -117,8 +117,8 @@ def test_send_request_with_params(mock_request):
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
-        "GET",
-        "https://test.example.com/metrics",
+        method="GET",
+        url="https://test.example.com/metrics",
         headers=client.headers,
         json=None,
         params=params,
@@ -142,8 +142,8 @@ def test_send_request_with_url_params(mock_request):
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
-        "GET",
-        "https://test.example.com/behaviors/123",
+        method="GET",
+        url="https://test.example.com/behaviors/123",
         headers=client.headers,
         json=None,
         params=None,
@@ -171,8 +171,8 @@ def test_send_request_put_with_all_params(mock_request):
 
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
-        "PUT",
-        "https://test.example.com/behaviors/123",
+        method="PUT",
+        url="https://test.example.com/behaviors/123",
         headers=client.headers,
         json=data,
         params=params,
