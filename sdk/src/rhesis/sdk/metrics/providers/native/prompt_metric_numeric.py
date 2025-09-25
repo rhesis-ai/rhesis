@@ -2,13 +2,11 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
-from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.NUMERIC
@@ -308,49 +306,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             threshold=config.parameters.get("threshold"),
             threshold_operator=config.parameters.get("threshold_operator"),
         )
-
-    @classmethod
-    def pull(
-        cls, name: Optional[str] = None, nano_id: Optional[str] = None
-    ) -> "RhesisPromptMetricNumeric":
-        """
-        Pull the metric from the backend.
-
-        Args:
-            name (Optional[str]): The name of the metric
-            nano_id (Optional[str]): The nano_id of the metric
-
-        Returns:
-            RhesisPromptMetricNumeric: The metric
-        """
-        if not name and not nano_id:
-            raise ValueError("Either name or nano_id must be provided")
-
-        client = Client()
-
-        # Build filter based on provided parameter
-        filter_field = "nano_id" if nano_id else "name"
-        filter_value = nano_id or name
-
-        config = client.send_request(
-            Endpoints.METRICS,
-            Methods.GET,
-            params={"$filter": f"{filter_field} eq '{filter_value}'"},
-        )
-
-        if not config:
-            raise ValueError(f"No metric found with {filter_field} {filter_value}")
-
-        if len(config) > 1:
-            raise ValueError(f"Multiple metrics found with name {name}, please use nano_id")
-
-        config = config[0]
-        if config["class_name"] != cls.__name__:
-            raise ValueError(f"Metric {config.get('id')} is not a {cls.__name__}")
-
-        config = backend_config_to_sdk_config(config)
-        config = MetricConfig(**config)
-        return cls.from_config(config)
 
 
 if __name__ == "__main__":
