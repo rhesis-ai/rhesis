@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar, cast
 
 import requests
 
-from rhesis.sdk.client import Client
+from rhesis.sdk.client import Client, Methods
 
 T = TypeVar("T")
 
@@ -88,55 +88,49 @@ class BaseEntity:
     @handle_http_errors
     def save(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
-        # try:
+        client = Client()
         data = {k: v for k, v in self.fields.items() if k != "id"}
 
         if "id" in self.fields:
-            url = f"{self.client.get_url(self.endpoint)}/{self.fields['id']}/"
-            try:
-                response = requests.put(
-                    url,
-                    json=data,
-                    headers=self.headers,
-                )
-                response.raise_for_status()
-                return dict(response.json())
-            except requests.exceptions.RequestException:
-                raise
-        else:
-            url = f"{self.client.get_url(self.endpoint)}/"
-            response = requests.post(
-                url,
-                json=data,
-                headers=self.headers,
+            response = client.send_request(
+                endpoint=self.endpoint,
+                method=Methods.PUT,
+                url_params=self.fields["id"],
+                data=data,
             )
-            response.raise_for_status()
-            return dict(response.json())
-        # except requests.exceptions.HTTPError:
-        #    return None
+            return response
+        else:
+            response = client.send_request(
+                endpoint=self.endpoint,
+                method=Methods.POST,
+                data=data,
+            )
+            return response
 
     @handle_http_errors
-    def delete(self, record_id: str) -> bool:
+    def delete(self, nano_id: str) -> bool:
         """Delete the entity from the database."""
+        client = Client()
         try:
-            url = f"{self.client.get_url(self.endpoint)}/{record_id}/"
-            response = requests.delete(
-                url,
-                headers=self.headers,
+            client.send_request(
+                endpoint=self.endpoint,
+                method=Methods.DELETE,
+                url_params=nano_id,
             )
-            return response.status_code in [200, 204]
+            return True
         except requests.exceptions.HTTPError:
             return False
 
     @handle_http_errors
     def fetch(self) -> None:
         """Fetch the current entity's data from the API and update local fields."""
-        response = requests.get(
-            self.client.get_url(f"{self.endpoint}/{self.fields['id']}"),
-            headers=self.headers,
+        client = Client()
+        response = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=self.fields["id"],
         )
-        response.raise_for_status()
-        self.fields.update(response.json())
+        self.fields.update(response)
 
     @handle_http_errors
     def to_record(self) -> Dict[str, Any]:
@@ -234,72 +228,6 @@ class BaseEntity:
                 f"entity with id {id} does not exist in database"
             )
         return dict(entity_dict)
-
-    @classmethod
-    @handle_http_errors
-    def get_fields_with_types(cls) -> Optional[Dict[str, Any]]:
-        """Get field names for this entity type using the OpenAPI schema.
-
-        This method retrieves the OpenAPI schema from the API and extracts
-        the field names for this entity type. This provides the most accurate
-        and complete field information including types and descriptions.
-
-        Returns:
-            Optional[Dict[str, Any]]: Dictionary of field names and their types if successful,
-             None if failed.
-
-        Example:
-            >>> field_names_with_types = Behavior.get_fields_with_types()
-            >>> print(field_names_with_types)  # {'id': ['string'], 'name': ['string'],
-             'description': ['string'], 'status_id': ['string'], ...}
-        """
-        client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        # Get OpenAPI schema
-        url = f"{client.base_url}/openapi.json"
-        logger.debug(f"GET request to {url} for schema discovery")
-
-        try:
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-
-            schema = response.json()
-            # Extract entity schema fields
-            # The entity name in OpenAPI schema is typically the class name
-            entity_schema = schema.get("components", {}).get("schemas", {}).get(cls.__name__, {})
-            properties = entity_schema.get("properties", {})
-
-            if not properties:
-                logger.warning(f"No schema found for entity {cls.__name__}")
-                return []
-
-            fields_with_types = {}
-            for field_name, field_type in properties.items():
-                type_list = []
-                # Handle anyOf (optional fields)
-                if "anyOf" in field_type:
-                    for type_option in field_type["anyOf"]:
-                        field_type = type_option.get("type")
-                        if field_type:
-                            type_list.append(field_type)
-
-                else:
-                    # Direct type
-                    field_type = field_type.get("type")
-                    if field_type:
-                        type_list.append(field_type)
-
-                if type_list:
-                    fields_with_types[field_name] = type_list
-
-            return fields_with_types
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to get field names for {cls.__name__}: {e}")
-            return None
 
     def _validate_update(self) -> None:
         """Validate entity before update."""
