@@ -86,3 +86,18 @@ def test_base_set_model(monkeypatch):
 
     metric.set_model(GeminiLLM())
     assert isinstance(metric.model, GeminiLLM)
+
+
+def test_base_metric_model_in_init(monkeypatch):
+    monkeypatch.setenv("RHESIS_API_KEY", "test")
+
+    class TestMetric(BaseMetric):
+        def evaluate(self):
+            pass
+
+    metric = TestMetric(model=None)
+    assert isinstance(metric.model, RhesisLLM)
+    metric = TestMetric(model="gemini")
+    assert isinstance(metric.model, GeminiLLM)
+    metric = TestMetric(model=GeminiLLM())
+    assert isinstance(metric.model, GeminiLLM)

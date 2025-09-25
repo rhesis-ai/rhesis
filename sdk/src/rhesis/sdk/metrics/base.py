@@ -191,11 +191,11 @@ class BaseMetric(ABC):
 
     def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
         if model is None:
-            self.model = None
+            return get_model()  # Use default model
         if isinstance(model, BaseLLM):
-            self.model = model
+            return model
         elif isinstance(model, str) or model is None:
-            self.model = get_model(model)
+            return get_model(model)
         else:
             raise ValueError(f"Invalid model type: {type(model)}")
 
