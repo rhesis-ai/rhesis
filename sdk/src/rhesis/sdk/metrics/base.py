@@ -69,7 +69,7 @@ class MetricConfig:
 
     # Backend required items
 
-    class_name: str = "RhesisPromptMetricNumeric"
+    class_name: Optional[str] = None
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
 
     backend: Optional[Union[str, Backend]] = Backend.RHESIS
