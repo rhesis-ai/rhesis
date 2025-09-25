@@ -108,12 +108,20 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
         Raises:
             ValueError: If only one of min_score or max_score is provided
+            ValueError: If min_score and max_score are the same
+            ValueError: If min_score is greater than max_score
         """
         if min_score is not None and max_score is None:
             raise ValueError("Only min_score was set, please set max_score")
 
         if min_score is None and max_score is not None:
             raise ValueError("Only max_score was set, please set min_score")
+
+        if min_score is not None and max_score is not None and min_score == max_score:
+            raise ValueError("min_score and max_score cannot be the same")
+
+        if min_score is not None and max_score is not None and min_score > max_score:
+            raise ValueError("min_score cannot be greater than max_score")
 
     def _set_score_parameters(
         self, min_score: Optional[float], max_score: Optional[float], threshold: Optional[float]
