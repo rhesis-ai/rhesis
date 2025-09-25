@@ -6,6 +6,21 @@ import requests
 from rhesis.sdk.config import get_api_key, get_base_url
 
 
+class HTTPStatus:
+    """HTTP status codes for consistent testing.
+    See tests/backend/routes/endpoints.py for definitions
+    """
+
+    OK = 200
+    CREATED = 201
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    UNPROCESSABLE_ENTITY = 422
+    INTERNAL_SERVER_ERROR = 500
+
+
 class Endpoints(Enum):
     BEHAVIORS = "behaviors"
     METRICS = "metrics"
