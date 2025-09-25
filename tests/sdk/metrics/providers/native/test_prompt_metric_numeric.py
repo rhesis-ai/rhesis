@@ -1,5 +1,5 @@
 import pytest
-from rhesis.sdk.metrics.base import MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricType, ScoreType, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
     RhesisPromptMetricNumeric,
 )
@@ -41,6 +41,49 @@ def test_validate_score_range(metric):
 
     with pytest.raises(ValueError):
         metric._validate_score_range(10, 1)
+
+
+def test_set_score_parameters(metric):
+    metric._set_score_parameters(1, 10, 5)
+    assert metric.min_score == 1
+    assert metric.max_score == 10
+    assert metric.threshold == 5
+
+    metric._set_score_parameters(1, 10, None)
+    assert metric.min_score == 1
+    assert metric.max_score == 10
+    assert metric.threshold == 5.5
+
+    with pytest.raises(ValueError):
+        metric._set_score_parameters(1, 10, 11)
+
+
+def test_evaluate_score(metric):
+    metric.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
+    metric.threshold = 5
+    assert metric._evaluate_score(5) is True
+    assert metric._evaluate_score(4) is False
+    assert metric._evaluate_score(6) is True
+
+    metric.threshold_operator = ThresholdOperator.LESS_THAN_OR_EQUAL
+    metric.threshold = 5
+    assert metric._evaluate_score(5) is True
+    assert metric._evaluate_score(4) is True
+    assert metric._evaluate_score(6) is False
+
+
+def test_to_config(metric):
+    metric.min_score = 1
+    metric.max_score = 10
+    metric.threshold = 5
+    metric.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
+    config = metric.to_config()
+    assert config.parameters == {
+        "min_score": 1,
+        "max_score": 10,
+        "threshold": 5,
+        "threshold_operator": ThresholdOperator.GREATER_THAN_OR_EQUAL,
+    }
 
 
 if __name__ == "__main__":
