@@ -78,14 +78,14 @@ def test_base_set_model(monkeypatch):
         metric_type="generation",
     )
     # Test default model
-    metric.set_model(None)
-    assert isinstance(metric.model, RhesisLLM)
+    model = metric.set_model(None)
+    assert isinstance(model, RhesisLLM)
 
-    metric.set_model("gemini")
-    assert isinstance(metric.model, GeminiLLM)
+    model = metric.set_model("gemini")
+    assert isinstance(model, GeminiLLM)
 
-    metric.set_model(GeminiLLM())
-    assert isinstance(metric.model, GeminiLLM)
+    model = metric.set_model(GeminiLLM())
+    assert isinstance(model, GeminiLLM)
 
 
 def test_base_metric_model_in_init(monkeypatch):
