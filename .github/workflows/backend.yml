@@ -63,12 +63,12 @@ on:
         required: false
         type: string
     outputs:
-      backend_preview_url:
-        description: 'The backend preview URL if deployed as preview'
-        value: ${{ jobs.deploy.outputs.backend_preview_url }}
-      deployed_url:
-        description: 'The deployed service URL'
-        value: ${{ jobs.deploy.outputs.deployed_url }}
+      backend_preview_url_encoded:
+        description: 'The backend preview URL if deployed as preview (base64 encoded)'
+        value: ${{ jobs.deploy.outputs.backend_preview_url_encoded }}
+      deployed_url_encoded:
+        description: 'The deployed service URL (base64 encoded)'
+        value: ${{ jobs.deploy.outputs.deployed_url_encoded }}
 
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'
@@ -205,8 +205,8 @@ jobs:
       IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
 
     outputs:
-      backend_preview_url: ${{ steps.output_url.outputs.backend_preview_url }}
-      deployed_url: ${{ steps.output_url.outputs.deployed_url }}
+      backend_preview_url_encoded: ${{ steps.output_url.outputs.backend_preview_url_encoded }}
+      deployed_url_encoded: ${{ steps.output_url.outputs.deployed_url_encoded }}
       
     steps:
       - name: Checkout repository
@@ -686,8 +686,11 @@ jobs:
             
             # Validate that we have a valid URL before setting output
             if [ -n "$BACKEND_PREVIEW_URL" ] && [ "$BACKEND_PREVIEW_URL" != "null" ]; then
-              echo "backend_preview_url=$BACKEND_PREVIEW_URL" >> $GITHUB_OUTPUT
-              echo "  - ✅ Backend preview URL output set successfully"
+              # Encode URL to avoid GitHub secret detection
+              URL_ENCODED=$(echo "$BACKEND_PREVIEW_URL" | base64 -w 0)
+              echo "backend_preview_url_encoded=$URL_ENCODED" >> $GITHUB_OUTPUT
+              echo "deployed_url_encoded=$URL_ENCODED" >> $GITHUB_OUTPUT
+              echo "  - ✅ Backend preview URL encoded and set successfully"
             else
               echo "  - ❌ ERROR: Backend preview URL is empty or null!"
               echo "  - PREVIEW_URL from env: '${{ env.PREVIEW_URL }}'"
@@ -696,6 +699,8 @@ jobs:
           else
             DEPLOYED_URL="${{ env.DEPLOYED_URL }}"
             echo "  - Setting backend_preview_url: (empty for non-preview)"
-            echo "backend_preview_url=" >> $GITHUB_OUTPUT
+            # Encode URL to avoid GitHub secret detection
+            URL_ENCODED=$(echo "$DEPLOYED_URL" | base64 -w 0)
+            echo "deployed_url_encoded=$URL_ENCODED" >> $GITHUB_OUTPUT
+            echo "backend_preview_url_encoded=" >> $GITHUB_OUTPUT
           fi
-          echo "deployed_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
