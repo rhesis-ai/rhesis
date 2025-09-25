@@ -65,7 +65,7 @@ jobs:
       preview: true
       deploy_only: false
       reason: ${{ github.event.inputs.reason || 'Preview deployment - Frontend' }}
-            backend_preview_url_encoded: ${{ needs.deploy-backend-preview.outputs.backend_preview_url_encoded }}
+      backend_preview_url_encoded: ${{ needs.deploy-backend-preview.outputs.backend_preview_url_encoded }}
     secrets: inherit
 
   generate-summary:
