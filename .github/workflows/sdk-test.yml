@@ -28,4 +28,5 @@ jobs:
     - name: Test SDK
       run: |
         uv run --project sdk pytest tests/sdk/models
+        uv run --project sdk pytest tests/sdk/test_client.py
       continue-on-error: false
