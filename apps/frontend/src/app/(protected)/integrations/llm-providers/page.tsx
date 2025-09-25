@@ -21,6 +21,7 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface ProviderInfo {
   id: string;
@@ -52,31 +53,6 @@ interface ProviderSelectionDialogProps {
   providers: TypeLookup[];
 }
 
-interface DeleteConfirmationDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  modelName: string;
-}
-
-function DeleteConfirmationDialog({ open, onClose, onConfirm, modelName }: DeleteConfirmationDialogProps) {
-  return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Delete Model Connection</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete the connection to {modelName}? This action cannot be undone.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={onConfirm} color="error">
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
 
 function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }: ProviderSelectionDialogProps) {
   if (!providers || providers.length === 0) {
@@ -120,7 +96,7 @@ function ProviderSelectionDialog({ open, onClose, onSelectProvider, providers }:
                 key={provider.id}
                 onClick={() => onSelectProvider(provider)}
                 sx={{ 
-                  borderRadius: 1,
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                   my: 0.5,
                   '&:hover': {
                     backgroundColor: 'action.hover'
@@ -243,7 +219,7 @@ function ConnectionDialog({ open, provider, onClose, onConnect }: ConnectionDial
       maxWidth="md" 
       fullWidth
       PaperProps={{
-        sx: { borderRadius: 2 }
+        sx: { borderRadius: (theme) => theme.shape.borderRadius * 0.5 }
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
@@ -643,7 +619,7 @@ export default function LLMProvidersPage() {
                   disableRipple
                   sx={{ 
                     textTransform: 'none',
-                    borderRadius: 1.5,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.375,
                     pointerEvents: 'none',
                     cursor: 'default'
                   }}
@@ -689,7 +665,7 @@ export default function LLMProvidersPage() {
                 size="small"
                 sx={{ 
                   textTransform: 'none',
-                  borderRadius: 1.5
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.375
                 }}
               >
                 Add Provider
@@ -716,14 +692,16 @@ export default function LLMProvidersPage() {
         onConnect={handleConnect}
       />
 
-      <DeleteConfirmationDialog
+      <DeleteModal
         open={deleteDialogOpen}
         onClose={() => {
           setDeleteDialogOpen(false);
           setModelToDelete(null);
         }}
         onConfirm={handleDeleteConfirm}
-        modelName={modelToDelete?.name || ''}
+        itemType="model connection"
+        itemName={modelToDelete?.name}
+        title="Delete Model Connection"
       />
     </Box>
   );

@@ -13,6 +13,7 @@ import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import IconButton from '@mui/material/IconButton';
+import { useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { useRouter } from 'next/navigation';
@@ -77,6 +78,7 @@ export default function NewMetricPage() {
   const searchParams = useSearchParams();
   const notifications = useNotifications();
   const { data: session } = useSession();
+  const theme = useTheme();
   const type = searchParams.get('type');
   const [activeStep, setActiveStep] = React.useState(0);
   const [formData, setFormData] = React.useState<MetricFormData>(initialFormData);
@@ -477,7 +479,7 @@ export default function NewMetricPage() {
                     color: 'primary.contrastText',
                     px: 1.5,
                     py: 0.5,
-                    borderRadius: 1,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                     fontSize: theme.typography.helperText.fontSize
                   }}>
                     {tag}
@@ -583,7 +585,7 @@ export default function NewMetricPage() {
                 color: 'primary.contrastText',
                 px: 1.5,
                 py: 0.5,
-                borderRadius: 1,
+                borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                 fontSize: theme.typography.helperText.fontSize,
                 display: 'inline-block',
                 mt: 0.5

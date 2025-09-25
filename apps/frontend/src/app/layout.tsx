@@ -21,7 +21,8 @@ import {
   SmartToyIcon, 
   GridViewIcon, 
   ApiIcon, 
-  TerminalIcon 
+  TerminalIcon,
+  AssignmentIcon
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -120,6 +121,12 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
     },
     {
       kind: 'page',
+      segment: 'tasks',
+      title: 'Tasks',
+      icon: <AssignmentIcon />,
+    },
+    {
+      kind: 'page',
       segment: 'metrics',
       title: 'Metrics',
       icon: <AutoGraphIcon />,
@@ -178,7 +185,7 @@ export const metadata: Metadata = {
   },
   description: 'Rhesis AI | OSS Gen AI Testing Platform',
   icons: {
-    icon: '/logos/Rhesis AI_Logo_RGB_Favicon.svg',
+    icon: '/logos/rhesis-logo-favicon.svg',
   },
 };
 

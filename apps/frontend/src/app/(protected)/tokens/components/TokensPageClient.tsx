@@ -22,6 +22,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import TokenDisplay from './TokenDisplay';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface TokensPageClientProps {
   sessionToken: string;
@@ -211,23 +212,12 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
         </DialogActions>
       </Dialog>
 
-      <Dialog
+      <DeleteModal
         open={deleteTokenId !== null}
         onClose={() => setDeleteTokenId(null)}
-      >
-        <DialogTitle>Delete Token</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this token? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteTokenId(null)}>Cancel</Button>
-          <Button onClick={confirmDelete} color="error">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={confirmDelete}
+        itemType="token"
+      />
     </Box>
   );
 } 

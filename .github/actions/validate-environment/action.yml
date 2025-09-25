@@ -1,0 +1,31 @@
+name: 'Validate Environment'
+description: 'Validates environment parameter and other inputs'
+inputs:
+  environment:
+    description: 'Environment parameter to validate'
+    required: false
+  valid-environments:
+    description: 'Comma-separated list of valid environments'
+    required: false
+    default: 'dev,stg,prd'
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate environment parameter
+      shell: bash
+      run: |
+        if [[ "${{ inputs.environment }}" != "" ]]; then
+          # Convert comma-separated list to regex pattern
+          VALID_ENVS="${{ inputs.valid-environments }}"
+          PATTERN=$(echo "$VALID_ENVS" | sed 's/,/|/g')
+          
+          if [[ ! "${{ inputs.environment }}" =~ ^($PATTERN)$ ]]; then
+            echo "❌ Error: Invalid environment '${{ inputs.environment }}'"
+            echo "Valid environments: $VALID_ENVS"
+            exit 1
+          fi
+          echo "✅ Environment validation passed: ${{ inputs.environment }}"
+        else
+          echo "✅ No environment parameter to validate (automatic trigger)"
+        fi
+

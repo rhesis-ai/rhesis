@@ -1,6 +1,6 @@
 'use client';
 
-import { Typography, Grid, Box, TextField, Chip, Button } from '@mui/material';
+import { Typography, Grid, Box, TextField, Chip, Button, useTheme } from '@mui/material';
 import { useState, useMemo, useEffect } from 'react';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
@@ -33,6 +33,7 @@ interface TestRunDetailsSectionProps {
 }
 
 export default function TestRunDetailsSection({ testRun, sessionToken }: TestRunDetailsSectionProps) {
+  const theme = useTheme();
   const [isRetrying, setIsRetrying] = useState(false);
   const [endpointName, setEndpointName] = useState<string | null>(null);
   const notifications = useNotifications();
@@ -154,8 +155,8 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
           '& .MuiInputBase-root': {
             minHeight: '54px',
             alignItems: 'flex-start',
-            paddingTop: '14px',
-            paddingBottom: '14px',
+            paddingTop: theme.spacing(1.75),
+            paddingBottom: theme.spacing(1.75),
           },
           '& .MuiInputBase-input': {
             display: 'none'

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@mui/material/styles';
 import {
   Box,
   Button,
@@ -829,8 +830,8 @@ const ReviewSamples = ({
                     borderColor: 'divider',
                     px: 1,
                     py: 0.5,
-                    borderRadius: 1,
-                    fontSize: theme.typography.chartLabel.fontSize,
+                    borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                    fontSize: (theme) => theme.typography.chartLabel.fontSize,
                     whiteSpace: 'nowrap',
                     zIndex: 1,
                     boxShadow: 1,
@@ -955,6 +956,7 @@ const ConfirmGenerate = ({
 
 // Main Stepper Component
 export default function GenerateTestsStepper({ sessionToken }: GenerateTestsStepperProps) {
+  const theme = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [configData, setConfigData] = useState(INITIAL_CONFIG);
   const [samples, setSamples] = useState<Sample[]>([]);

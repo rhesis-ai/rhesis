@@ -1,16 +1,18 @@
 from dataclasses import asdict
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import create_model
 
 from rhesis.sdk.client import Client, Endpoints, Methods
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult
-from rhesis.sdk.metrics.constants import ScoreType
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
 from rhesis.sdk.models.base import BaseLLM
+
+METRIC_TYPE = MetricType.RAG
+SCORE_TYPE = ScoreType.CATEGORICAL
 
 
 class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
@@ -30,7 +32,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         name: Optional[str] = None,
         description: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
-        metric_type: Optional[str] = "rag",
         **kwargs,
     ):
         """
@@ -50,7 +51,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
                 Defaults to empty string.
             model (Optional[str], optional): The LLM model to use for evaluation.
                 If None, uses the default model. Defaults to None.
-            metric_type (str, optional): Type of metric for categorization. Defaults to "rag".
             **kwargs: Additional keyword arguments passed to the base class
 
         Raises:
@@ -62,16 +62,14 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         super().__init__(
             name=name,
             description=description,
-            score_type=ScoreType.CATEGORICAL,
-            metric_type=metric_type,
+            score_type=SCORE_TYPE,
+            metric_type=METRIC_TYPE,
             model=model,
             **kwargs,
         )
         # Convert string to enum if needed
-        self.score_type = ScoreType.CATEGORICAL
         self.categories = categories
         self.passing_categories = passing_categories
-        self.model = model
 
         # Validate input parameters
         self._validate_categories()
@@ -222,29 +220,20 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             with detailed information rather than raising exceptions for LLM-related issues.
             Only input validation errors are raised as exceptions.
         """
-        # Validate inputs
-        if not isinstance(input, str) or not input.strip():
-            raise ValueError("input must be a non-empty string")
-
-        if not isinstance(output, str):
-            raise ValueError("output must be a string")
-
-        if expected_output is None and self.requires_ground_truth:
-            raise ValueError(f"{self.name} metric requires ground truth but none was provided")
-
-        if context is not None and not isinstance(context, list):
-            raise ValueError("context must be a list of strings or None")
+        # Validate inputs using shared method
+        self._validate_evaluate_inputs(input, output, expected_output, context)
 
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
         # Initialize common details fields
-        details: Dict[str, Any] = {
-            "score_type": self.score_type.value,
-            "prompt": prompt,
-            "categories": self.categories,
-            "passing_categories": self.passing_categories,
-        }
+        details = self._get_base_details(prompt)
+        details.update(
+            {
+                "categories": self.categories,
+                "passing_categories": self.passing_categories,
+            }
+        )
 
         try:
             # Run the evaluation with structured response model
@@ -283,31 +272,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             return MetricResult(score=score, details=details)
 
         except Exception as e:
-            # Log unexpected errors for debugging
-            import logging
-            import traceback
-
-            logger = logging.getLogger(__name__)
-            error_msg = f"Unexpected error evaluating with {self.name}: {str(e)}"
-            logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
-            logger.error(f"Exception type: {type(e).__name__}")
-            logger.error(f"Exception details: {str(e)}")
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
-            # Update details with error-specific fields
-            details.update(
-                {
-                    "error": error_msg,
-                    "reason": f"Unexpected error: {str(e)}",
-                    "exception_type": type(e).__name__,
-                    "exception_details": str(e),
-                    "model": self.model,
-                    "is_successful": False,
-                }
-            )
-
-            # Return a default failure score for categorical metrics
-            return MetricResult(score="error", details=details)
+            return self._handle_evaluation_error(e, details, "error")
 
     def _evaluate_score(self, score: str, passing_categories: List[str]) -> bool:
         """

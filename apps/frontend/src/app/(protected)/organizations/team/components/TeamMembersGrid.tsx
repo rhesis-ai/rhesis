@@ -22,6 +22,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import PersonIcon from '@mui/icons-material/Person';
 import { DeleteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface TeamMembersGridProps {
   refreshTrigger?: number; // Used to trigger refresh when new invites are sent
@@ -296,40 +297,16 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
+      <DeleteModal
         open={deleteDialogOpen}
         onClose={handleCancelDelete}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-      >
-        <DialogTitle id="delete-dialog-title">
-          Remove Team Member
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            Are you sure you want to remove <strong>{userToDelete ? getDisplayName(userToDelete) : ''}</strong> from the team?
-            <br />
-            <br />
-            This action cannot be undone and the user will lose access to the organization.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={handleCancelDelete} 
-            disabled={deleting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmDelete} 
-            color="error" 
-            variant="contained"
-            disabled={deleting}
-          >
-            {deleting ? 'Removing...' : 'Remove User'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmDelete}
+        isLoading={deleting}
+        title="Remove Team Member"
+        message={`Are you sure you want to remove ${userToDelete ? getDisplayName(userToDelete) : ''} from the team?\n\nThis action cannot be undone and the user will lose access to the organization.`}
+        itemType="team member"
+        confirmButtonText={deleting ? 'Removing...' : 'Remove User'}
+      />
     </Box>
   );
 } 

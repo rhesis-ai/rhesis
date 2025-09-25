@@ -86,7 +86,10 @@ const PATTERNS = {
   boxShadows: /boxShadow:\s*['"`]([^'"`]+)['"`]/g,
   
   // Border radius values
-  borderRadius: /borderRadius:\s*['"`]?(\d+(?:\.\d+)?(?:px|rem|em)?)['"`]?/g
+  borderRadius: /borderRadius:\s*['"`]?(\d+(?:\.\d+)?(?:px|rem|em)?)['"`]?/g,
+  
+  // Emoji characters (Unicode emoji ranges)
+  emojis: /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu
 };
 
 // Files to exclude from checking
@@ -100,6 +103,7 @@ const EXCLUDE_PATTERNS = [
   /apps\/documentation/, // Exclude documentation app for now
   /theme\.ts$/, // Exclude the theme file itself
   /check-hardcoded-styles\.js$/, // Exclude this script itself
+  /create-pr-comment\.js$/, // Exclude PR comment script (contains documentation examples)
   /\.module\.css$/, // Exclude CSS modules (they might have hardcoded values for specific reasons)
   /\.test\./,
   /\.spec\./,
@@ -210,6 +214,9 @@ class StyleChecker {
         }
         return `Consider using consistent borderRadius values from theme`;
       
+      case 'emoji':
+        return `Use MUI icons instead of emoji characters for better accessibility and theme consistency`;
+      
       default:
         return `Consider using theme values instead of hardcoded ${type}`;
     }
@@ -319,6 +326,20 @@ class StyleChecker {
           });
         }
 
+        // Check for emoji characters
+        PATTERNS.emojis.lastIndex = 0;
+        while ((match = PATTERNS.emojis.exec(line)) !== null) {
+          this.violations.push({
+            file: filePath,
+            line: lineNumber,
+            column: match.index + 1,
+            type: 'emoji',
+            value: match[0],
+            message: this.suggestThemeAlternative('emoji', match[0]),
+            context: line.trim()
+          });
+        }
+
         // Reset regex lastIndex to avoid issues
         Object.values(PATTERNS).forEach(pattern => {
           if (pattern.global) pattern.lastIndex = 0;
@@ -421,6 +442,7 @@ class StyleChecker {
     console.log('  • Font sizes: Use Typography variants (h1, h2, body1, etc.) or theme.typography.*');
     console.log('  • Spacing: Use theme.spacing(1), theme.spacing(2), or theme.customSpacing.*');
     console.log('  • Elevations: Use theme.elevation.standard, theme.elevation.prominent, etc.');
+    console.log('  • Emojis: Use MUI icons from @mui/icons-material instead of emoji characters');
     console.log('  • See apps/frontend/src/styles/rhesis-theme-usage.md for detailed examples');
   }
 

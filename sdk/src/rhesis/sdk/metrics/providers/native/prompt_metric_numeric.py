@@ -4,12 +4,15 @@ from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.client import Client, Endpoints, Methods
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult
-from rhesis.sdk.metrics.constants import OPERATOR_MAP, ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     RhesisPromptMetricBase,
 )
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
+
+METRIC_TYPE = MetricType.RAG
+SCORE_TYPE = ScoreType.NUMERIC
 
 
 class NumericScoreResponse(BaseModel):
@@ -27,7 +30,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
 
     def __init__(
         self,
-        evaluation_prompt: str,  # optional
+        evaluation_prompt: str,
         evaluation_steps: Optional[str] = None,
         reasoning: Optional[str] = None,
         evaluation_examples: Optional[str] = None,
@@ -38,7 +41,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         name: Optional[str] = None,
         description: Optional[str] = None,
         model: Optional[str] = None,
-        metric_type: Optional[str] = "rag",
         **kwargs,
     ):
         """
@@ -61,7 +63,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
                 score to threshold. Can be a ThresholdOperator enum or string. Defaults to None.
             model (Optional[str], optional): The LLM model to use for evaluation.
                 If None, uses the default model. Defaults to None.
-            metric_type (str, optional): Type of metric for categorization. Defaults to "rag".
             **kwargs: Additional keyword arguments passed to the base class
 
         Raises:
@@ -72,13 +73,12 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         super().__init__(
             name=name,
             description=description,
-            metric_type=metric_type,
-            score_type=ScoreType.NUMERIC,
+            metric_type=METRIC_TYPE,
+            score_type=SCORE_TYPE,
             model=model,
             **kwargs,
         )
         # Convert string to enum if needed
-        self.score_type = ScoreType.NUMERIC
         if isinstance(threshold_operator, str):
             threshold_operator = ThresholdOperator(threshold_operator)
         self.threshold_operator = threshold_operator
@@ -213,23 +213,24 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             with detailed information rather than raising exceptions for LLM-related issues.
             Only ground truth validation errors are raised as exceptions.
         """
-        if expected_output is None and self.requires_ground_truth:
-            raise ValueError(f"{self.name} metric requires ground truth but none was provided")
+        # Validate inputs using shared method
+        self._validate_evaluate_inputs(input, output, expected_output, context)
 
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
 
         # Base details dictionary with common fields
-        details = {
-            "score_type": self.score_type.value,
-            "prompt": prompt,
-            "threshold_operator": (
-                self.threshold_operator.value if self.threshold_operator else None
-            ),
-            "min_score": self.min_score,
-            "max_score": self.max_score,
-            "threshold": self.threshold,
-        }
+        details = self._get_base_details(prompt)
+        details.update(
+            {
+                "threshold_operator": (
+                    self.threshold_operator.value if self.threshold_operator else None
+                ),
+                "min_score": self.min_score,
+                "max_score": self.max_score,
+                "threshold": self.threshold,
+            }
+        )
 
         try:
             # Run the evaluation with structured response model
@@ -255,31 +256,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             return MetricResult(score=score, details=details)
 
         except Exception as e:
-            # Log the error for debugging with full traceback
-            import logging
-            import traceback
-
-            logger = logging.getLogger(__name__)
-
-            error_msg = f"Error evaluating with {self.name}: {str(e)}"
-            logger.error(f"Exception in RhesisPromptMetric.evaluate: {error_msg}")
-            logger.error(f"Exception type: {type(e).__name__}")
-            logger.error(f"Exception details: {str(e)}")
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
-            # Update details with error-specific fields
-            details.update(
-                {
-                    "error": error_msg,
-                    "reason": error_msg,
-                    "exception_type": type(e).__name__,
-                    "exception_details": str(e),
-                    "model": self.model,
-                }
-            )
-
-            # Return a default minimal score for numeric
-            return MetricResult(score=0.0, details=details)
+            return self._handle_evaluation_error(e, details, 0.0)
 
     def _evaluate_score(self, score: float) -> bool:
         """
