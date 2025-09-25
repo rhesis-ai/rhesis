@@ -5,6 +5,13 @@ import re
 from typing import Any, Dict, List
 
 import tiktoken
+from nanoid import generate
+
+CUSTOM_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def generate_nano_id() -> str:
+    return generate(size=12, alphabet=CUSTOM_ALPHABET)
 
 
 def count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
