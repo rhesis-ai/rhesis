@@ -66,6 +66,7 @@ def test_base_metric_init(monkeypatch):
 
 def test_base_set_model(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
 
     class TestMetric(BaseMetric):
         def evaluate(self):
@@ -90,6 +91,7 @@ def test_base_set_model(monkeypatch):
 
 def test_base_metric_model_in_init(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
 
     class TestMetric(BaseMetric):
         def evaluate(self):
