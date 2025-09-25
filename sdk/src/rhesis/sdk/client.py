@@ -10,6 +10,12 @@ class Endpoints(Enum):
     BEHAVIORS = "behaviors"
     METRICS = "metrics"
     HEALTH = "health"
+    CATEGORIES = "categories"
+    STATUSES = "statuses"
+    TEST_SETS = "test_sets"
+    TESTS = "tests"
+    TOPICS = "topics"
+    PROMPTS = "prompts"
 
 
 class Methods(Enum):
