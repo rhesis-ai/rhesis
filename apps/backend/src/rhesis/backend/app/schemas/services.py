@@ -69,3 +69,14 @@ class ExtractDocumentResponse(BaseModel):
 class GenerateContentRequest(BaseModel):
     prompt: str
     schema: Optional[Dict[str, Any]] = None
+
+
+class TestConfigRequest(BaseModel):
+    prompt: str
+
+
+class TestConfigResponse(BaseModel):
+    behaviors: List[str]
+    topics: List[str]
+    categories: List[str]
+    scenarios: List[str]
