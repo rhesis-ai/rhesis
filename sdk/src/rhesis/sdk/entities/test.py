@@ -4,9 +4,11 @@ from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
+ENDPOINT = Endpoints.TESTS
+
 
 class Test(BaseEntity):
-    endpoint = Endpoints.TESTS
+    endpoint = ENDPOINT
 
     def __init__(self, **fields: Any) -> None:
         super().__init__(**fields)
@@ -17,4 +19,4 @@ class Test(BaseEntity):
 
 
 class Tests(BaseCollection):
-    endpoint = Endpoints.TESTS
+    endpoint = ENDPOINT
