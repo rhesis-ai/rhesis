@@ -10,6 +10,8 @@ from rhesis.sdk.metrics.providers.native.prompt_metric import (
 
 METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.NUMERIC
+GROUND_TRUTH_REQUIRED = True
+CONTEXT_REQUIRED = False
 
 
 class NumericScoreResponse(BaseModel):
@@ -89,6 +91,9 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         self.evaluation_steps = evaluation_steps
         self.reasoning = reasoning
         self.evaluation_examples = evaluation_examples
+
+        self.ground_truth_required = GROUND_TRUTH_REQUIRED
+        self.context_required = CONTEXT_REQUIRED
 
         # Set up Jinja environment
         self._setup_jinja_environment()
@@ -284,13 +289,13 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         }
         return config
 
-    def from_config(self, config: MetricConfig) -> "RhesisPromptMetricNumeric":
+    @classmethod
+    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricNumeric":
         """Create a metric from a dictionary."""
-        return RhesisPromptMetricNumeric(
+        return cls(
             # Backend required items
             name=config.name,
             description=config.description,
-            metric_type=config.metric_type,
             # Custom items
             evaluation_prompt=config.evaluation_prompt,
             evaluation_steps=config.evaluation_steps,
