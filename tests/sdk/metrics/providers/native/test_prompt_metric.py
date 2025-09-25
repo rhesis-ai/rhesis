@@ -15,7 +15,8 @@ def metric(monkeypatch):
     )
 
 
-def test_prompt_metric_base__init__():
+def test_prompt_metric_base__init__(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
     metric = RhesisPromptMetricBase(
         name="test_metric",
         description="test_description",
