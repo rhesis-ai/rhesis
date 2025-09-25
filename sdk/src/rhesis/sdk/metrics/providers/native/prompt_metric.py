@@ -197,7 +197,7 @@ class RhesisPromptMetricBase(BaseMetric):
         config = MetricConfig(
             # Backend required items
             class_name=self.__class__.__name__,
-            backend="native",
+            backend="rhesis",
             name=self.name,
             description=self.description,
             score_type=self.score_type,
