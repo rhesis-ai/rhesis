@@ -24,6 +24,12 @@ jobs:
       with:
         version: latest
         enable-cache: true
+      
+    - name: Test SDK
+      run: |
+        uv run --project sdk pytest tests/sdk/models
+        make test
+      continue-on-error: false
 
     - name: Run SDK linting
       run: |
