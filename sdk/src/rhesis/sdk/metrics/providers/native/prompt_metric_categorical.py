@@ -298,22 +298,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         }
         return config
 
-    @staticmethod
-    def pull(metric_id: str) -> "RhesisPromptMetricCategorical":
-        """
-        Pull the metric from the backend.
-        """
-        client = Client()
-        config = client.send_request(Endpoints.METRICS, Methods.GET, url_params=metric_id)
-
-        if config["class_name"] != "RhesisPromptMetricCategorical":
-            raise ValueError(f"Metric {config.get('id')} is not a RhesisPromptMetricCategorical")
-
-        config = backend_config_to_sdk_config(config)
-
-        config = MetricConfig(**config)
-        return RhesisPromptMetricCategorical.from_config(config)
-
     def from_config(self, config: MetricConfig) -> "RhesisPromptMetricCategorical":
         """Create a metric from a dictionary."""
         return RhesisPromptMetricCategorical(
@@ -329,3 +313,19 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             categories=config.parameters.get("categories"),
             passing_categories=config.parameters.get("passing_categories"),
         )
+
+    @staticmethod
+    def pull(metric_id: str) -> "RhesisPromptMetricCategorical":
+        """
+        Pull the metric from the backend.
+        """
+        client = Client()
+        config = client.send_request(Endpoints.METRICS, Methods.GET, url_params=metric_id)
+
+        if config["class_name"] != "RhesisPromptMetricCategorical":
+            raise ValueError(f"Metric {config.get('id')} is not a RhesisPromptMetricCategorical")
+
+        config = backend_config_to_sdk_config(config)
+
+        config = MetricConfig(**config)
+        return RhesisPromptMetricCategorical.from_config(config)
