@@ -60,8 +60,8 @@ on:
         required: false
         default: false
         type: boolean
-      backend_preview_url:
-        description: 'Backend preview URL for coordinated deployments'
+      backend_preview_url_encoded:
+        description: 'Backend preview URL for coordinated deployments (base64 encoded)'
         required: false
         type: string
     outputs:
@@ -173,9 +173,10 @@ jobs:
             echo "Building preview image with frontend URL: $PREVIEW_FRONTEND_URL"
             
             # Use provided backend URL or default
-            if [ -n "${{ inputs.backend_preview_url }}" ]; then
-              BACKEND_API_URL="${{ inputs.backend_preview_url }}"
-              echo "🔗 Using provided backend URL: $BACKEND_API_URL"
+            if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
+              # Decode the base64 encoded backend URL
+              BACKEND_API_URL=$(echo "${{ inputs.backend_preview_url_encoded }}" | base64 -d)
+              echo "🔗 Using decoded backend URL: $BACKEND_API_URL"
             else
               BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
               echo "🔗 Using default backend URL: $BACKEND_API_URL"
@@ -303,8 +304,8 @@ jobs:
               --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=$PREVIEW_FRONTEND_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=${{ inputs.backend_preview_url || secrets.NEXT_PUBLIC_API_BASE_URL }},
-          BACKEND_URL=${{ inputs.backend_preview_url || secrets.BACKEND_URL }},
+          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
+          BACKEND_URL=$BACKEND_API_URL,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
@@ -498,8 +499,8 @@ jobs:
             --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=PLACEHOLDER_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=${{ inputs.backend_preview_url || secrets.NEXT_PUBLIC_API_BASE_URL }},
-          BACKEND_URL=${{ inputs.backend_preview_url || secrets.BACKEND_URL }},
+          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
+          BACKEND_URL=$BACKEND_API_URL,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
@@ -516,15 +517,16 @@ jobs:
           
           # Prepare environment variables for update
           echo "🔍 Debug backend URL inputs:"
-          echo "  - inputs.backend_preview_url: '${{ inputs.backend_preview_url }}'"
+          echo "  - inputs.backend_preview_url_encoded: '${{ inputs.backend_preview_url_encoded }}'"
           echo "  - secrets.NEXT_PUBLIC_API_BASE_URL: '${{ secrets.NEXT_PUBLIC_API_BASE_URL }}'"
           echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
           
-          # Check if we have a backend preview URL
-          if [ -n "${{ inputs.backend_preview_url }}" ]; then
-            BACKEND_API_URL="${{ inputs.backend_preview_url }}"
-            BACKEND_URL_VAR="${{ inputs.backend_preview_url }}"
-            echo "  - ✅ Using backend preview URL: '$BACKEND_API_URL'"
+          # Check if we have a backend preview URL (encoded)
+          if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
+            # Decode the base64 encoded backend URL
+            BACKEND_API_URL=$(echo "${{ inputs.backend_preview_url_encoded }}" | base64 -d)
+            BACKEND_URL_VAR="$BACKEND_API_URL"
+            echo "  - ✅ Decoded backend preview URL: '$BACKEND_API_URL'"
           else
             BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
             BACKEND_URL_VAR="${{ secrets.BACKEND_URL }}"
