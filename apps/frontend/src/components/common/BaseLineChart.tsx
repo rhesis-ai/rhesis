@@ -163,7 +163,7 @@ export default function BaseLineChart({
   height = 180,
   xAxisDataKey = 'name',
   showGrid = true,
-  legendProps = { wrapperStyle: { fontSize: '10px' }, iconSize: 8 },
+  legendProps,
   tooltipProps,
   elevation = 2,
   preventLegendOverflow = false,
@@ -180,10 +180,13 @@ export default function BaseLineChart({
   };
   
   // Update legend props to use theme
+  const defaultLegendProps = { wrapperStyle: { fontSize: theme.typography.chartTick.fontSize }, iconSize: 8 };
   const themedLegendProps = {
+    ...defaultLegendProps,
     ...legendProps,
     wrapperStyle: {
-      ...legendProps.wrapperStyle,
+      ...defaultLegendProps.wrapperStyle,
+      ...legendProps?.wrapperStyle,
       fontSize: theme.typography.chartTick.fontSize
     }
   };
@@ -200,7 +203,7 @@ export default function BaseLineChart({
   };
 
   const finalTooltipProps = tooltipProps || defaultTooltipProps;
-  const defaultColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
+  const defaultColors = theme.chartPalettes.line;
   
   // Calculate optimal Y-axis width based on data (dashboard optimization)
   const yAxisWidth = variant === 'dashboard' 

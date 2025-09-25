@@ -36,10 +36,14 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
     } catch (err) {
       setError('Failed to fetch comments');
       console.error('Error fetching comments:', err);
+      notifications.show('Failed to fetch comments', { 
+        severity: 'error',
+        autoHideDuration: 3000
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId, sessionToken]);
+  }, [entityType, entityId, sessionToken, notifications]);
 
   const createComment = useCallback(async (text: string) => {
     if (!sessionToken) {
@@ -181,10 +185,9 @@ export function useComments({ entityType, entityId, sessionToken, currentUserId,
         }
       };
       
-      // Update local state
       setComments(prev => 
-        prev.map(comment => 
-          comment.id === commentId ? commentWithUser : comment
+        prev.map(c => 
+          c.id === commentId ? commentWithUser : c
         )
       );
     } catch (err) {

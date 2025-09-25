@@ -11,7 +11,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
 import BaseTag from '@/components/common/BaseTag';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useParams } from 'next/navigation';
@@ -540,8 +539,8 @@ const settingsIcon = <SettingsIcon />;
       { title: metric.name, path: `/metrics/${identifier}` }
     ]}>
       {/* Memoize the entire content to prevent unnecessary re-renders */}
-    <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-      {/* Left side - Main content */}
+    <Stack direction="column" spacing={3}>
+      {/* Main content */}
       <Box sx={{ flex: 1 }}>
         <Stack spacing={3}>
             {/* General Information Section */}
@@ -670,7 +669,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: 1,
+                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -771,7 +770,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: 1,
+                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -815,7 +814,7 @@ const settingsIcon = <SettingsIcon />;
                         color: 'primary.contrastText',
                         px: 1.5,
                         py: 0.5,
-                        borderRadius: 1,
+                        borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                         fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                         fontWeight: 'medium'
                       }}
@@ -883,7 +882,7 @@ const settingsIcon = <SettingsIcon />;
                             color: 'success.contrastText',
                             px: 2,
                             py: 0.5,
-                            borderRadius: 1,
+                            borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                             fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
                             fontWeight: 'medium'
                           }}
@@ -918,7 +917,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: 1,
+                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -932,54 +931,6 @@ const settingsIcon = <SettingsIcon />;
           </Stack>
         </Box>
 
-        {/* Right side - Workflow */}
-        <Box sx={{ 
-          width: { xs: '100%', md: '400px' }, 
-          flexShrink: 0,
-          height: 'fit-content'
-        }}>
-          <Paper sx={{ 
-            p: theme.spacing(3),
-            borderRadius: theme.shape.borderRadius,
-            bgcolor: theme.palette.background.paper,
-            boxShadow: theme.shadows[1]
-          }}>
-            {!loading && (
-              <BaseWorkflowSection
-                title="Workflow"
-                entityId={identifier}
-                entityType="Metric"
-                status={metric.status?.name}
-                assignee={metric.assignee}
-                owner={metric.owner}
-                clientFactory={session?.session_token ? new ApiClientFactory(session.session_token) : undefined}
-                showPriority={false}
-                preloadedStatuses={statuses}
-                preloadedUsers={users}
-
-              onUpdateEntity={async (updateData, fieldName) => {
-                if (!session?.session_token) return;
-                
-                try {
-                  const clientFactory = new ApiClientFactory(session.session_token);
-                  const metricsClient = clientFactory.getMetricsClient();
-                  await metricsClient.updateMetric(identifier as UUID, updateData);
-                  
-                  // Refresh metric data after successful update
-                  const updatedMetric = await metricsClient.getMetric(identifier as UUID);
-                  setMetric(updatedMetric);
-                  
-                  notifications.show(`${fieldName} updated successfully`, { severity: 'success' });
-                } catch (error) {
-                  console.error('Error updating metric:', error);
-                  notifications.show(`Failed to update ${fieldName}`, { severity: 'error' });
-                  throw error; // Re-throw to let BaseWorkflowSection handle the error
-                }
-              }}
-              />
-            )}
-          </Paper>
-        </Box>
       </Stack>
     </PageContainer>
   );

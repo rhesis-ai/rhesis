@@ -1,8 +1,9 @@
 'use client';
 
-import { Box, Paper, Button, TextField, Typography, Tooltip, Chip } from '@mui/material';
+import { Box, Button, TextField, Typography, Tooltip, Chip, useTheme } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
+import DocumentIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
@@ -71,6 +72,7 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
 }
 
 export default function TestSetDetailsSection({ testSet, sessionToken }: TestSetDetailsSectionProps) {
+  const theme = useTheme();
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(testSet.description || '');
@@ -147,7 +149,7 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
   const sources = testSet.attributes?.metadata?.sources || [];
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
+    <>
       {/* Action Buttons */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <Button
@@ -195,10 +197,10 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
                 whiteSpace: 'pre-wrap',
                 fontFamily: 'monospace',
                 bgcolor: 'action.hover',
-                borderRadius: 1,
+                borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                 padding: 1,
                 minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
-                paddingRight: '80px',
+                paddingRight: theme.spacing(10),
                 wordBreak: 'break-word',
               }}
             >
@@ -272,12 +274,13 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
                   p: 2,
                   border: 1,
                   borderColor: 'divider',
-                  borderRadius: 1,
+                  borderRadius: (theme) => theme.shape.borderRadius * 0.25,
                   backgroundColor: 'background.paper'
                 }}
               >
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  📄 {source.name || source.document || 'Unknown Document'}
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <DocumentIcon sx={{ fontSize: 'inherit' }} />
+                  {source.name || source.document || 'Unknown Document'}
                 </Typography>
                 {source.description && (
                   <Typography variant="body2" color="text.secondary">
@@ -307,6 +310,6 @@ export default function TestSetDetailsSection({ testSet, sessionToken }: TestSet
         testSetId={testSet.id}
         sessionToken={sessionToken}
       />
-    </Paper>
+    </>
   );
 }

@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     gcc \
+    g++ \
     procps \
     && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*

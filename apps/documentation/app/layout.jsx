@@ -14,12 +14,12 @@ export const metadata = {
   icons: {
     icon: [
       {
-        url: '/Rhesis AI_Logo_RGB_Favicon.svg',
+        url: '/rhesis-logo-favicon.svg',
         type: 'image/svg+xml',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/Rhesis AI_Logo_RGB_Favicon_white.svg',
+        url: '/rhesis-logo-favicon-white.svg',
         type: 'image/svg+xml',
         media: '(prefers-color-scheme: dark)',
       },
