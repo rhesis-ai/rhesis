@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [ main ]
+    paths:
+      - 'sdk/**'
 
 jobs:
-  lint:
+  test-sdk:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
