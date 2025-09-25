@@ -76,7 +76,7 @@ class Client:
         if url_params is not None:
             url = f"{url}/{url_params}"
         response = requests.request(
-            method.value, url, headers=self.headers, json=data, params=params
+            method=method.value, url=url, headers=self.headers, json=data, params=params
         )
         response.raise_for_status()
         return response.json()
