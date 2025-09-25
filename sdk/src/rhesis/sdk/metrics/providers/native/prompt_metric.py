@@ -24,6 +24,10 @@ class RhesisPromptMetricBase(BaseMetric):
         description: Optional[str] = None,
         score_type: Optional[Union[str, ScoreType]] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
+        evaluation_prompt: Optional[str] = None,
+        evaluation_steps: Optional[str] = None,
+        reasoning: Optional[str] = None,
+        evaluation_examples: Optional[List[str]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
@@ -36,11 +40,23 @@ class RhesisPromptMetricBase(BaseMetric):
             **kwargs,
         )
 
+        self.evaluation_prompt = evaluation_prompt
+        self.evaluation_steps = evaluation_steps
+        self.reasoning = reasoning
+        self.evaluation_examples = evaluation_examples
+
     def __repr__(self) -> str:
         return str(self.to_config())
 
+    def evaluate(self):
+        pass
+
     def _validate_evaluate_inputs(
-        self, input: str, output: str, expected_output: Optional[str], context: Optional[List[str]]
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
     ) -> None:
         """
         Validate common inputs for evaluate method.
@@ -219,6 +235,9 @@ class RhesisPromptMetricBase(BaseMetric):
         )
 
         return config
+
+    def from_config(self):
+        raise NotImplementedError("Subclasses should override this method")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the metric to a dictionary."""

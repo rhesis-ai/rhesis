@@ -24,7 +24,7 @@ jobs:
       with:
         version: latest
         enable-cache: true
-
+      
     - name: Run SDK linting
       run: |
         cd sdk
