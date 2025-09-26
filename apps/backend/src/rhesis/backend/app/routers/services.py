@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
@@ -206,14 +207,6 @@ async def generate_tests_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    finally:
-        # Cleanup documents regardless of success or failure
-        if documents_sdk:
-            handler = DocumentHandler()
-            for doc in documents_sdk:
-                if doc.path:  # dataclass attribute, not dict key
-                    await handler.cleanup(doc.path)
-
 
 @router.post("/generate/text", response_model=TextResponse)
 async def generate_text(prompt_request: PromptRequest):
@@ -258,26 +251,29 @@ async def generate_text(prompt_request: PromptRequest):
 
 
 @router.post("/documents/upload", response_model=DocumentUploadResponse)
-async def upload_document(document: UploadFile = File(...)):
+async def upload_document(
+    document: UploadFile = File(...),
+    tenant_context=Depends(get_tenant_context)
+):
     """
-    Upload a document to temporary storage.
+    Upload a document to persistent storage.
 
-    The document will be saved in a temporary directory with a UUID prefix to avoid
-    naming conflicts.
+    The document will be saved to the configured storage backend (GCS or local filesystem)
+    with a multi-tenant path structure.
     Maximum document size is 5MB.
 
     Args:
         document: The document to upload (multipart/form-data)
+        tenant_context: Tenant context containing organization_id and user_id
 
     Returns:
         DocumentUploadResponse: Contains the full path to the uploaded document
-
-    Note:
-        The document will be saved in the temporary directory and should be cleaned up after use.
-        Use the returned path to reference this document in other endpoints.
     """
+    organization_id, user_id = tenant_context
     handler = DocumentHandler()
-    path = await handler.save_document(document)
+
+    # Use user_id as source_id for now (can be changed to a proper source ID later)
+    path, metadata = await handler.save_document(document, organization_id, user_id)
     return {"path": path}
 
 
@@ -301,10 +297,6 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
 
     Returns:
         ExtractDocumentResponse containing the extracted text content and detected format
-
-    Note:
-        Documents are automatically cleaned up after processing, so the path must
-        point to a recently uploaded document that hasn't been cleaned up yet.
     """
     try:
         # Initialize extractor
@@ -337,15 +329,10 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
 
     except FileNotFoundError:
         raise HTTPException(
-            status_code=404, detail="Document not found. It may have been cleaned up already."
+            status_code=404, detail="Document not found. Please check the file path."
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to extract document content: {str(e)}")
-    finally:
-        # Cleanup regardless of success or failure
-        if request.path:
-            handler = DocumentHandler()
-            await handler.cleanup(request.path)
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
