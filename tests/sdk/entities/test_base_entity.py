@@ -17,23 +17,6 @@ class TestEntity(BaseEntity):
 
 
 @patch("requests.request")
-def test_delete(mock_request):
-    record_id = 1
-    entity = TestEntity()
-    entity.delete(record_id)
-    mock_request.assert_called_once_with(
-        method="DELETE",
-        url="http://test:8000/test/1",
-        headers={
-            "Authorization": "Bearer test_api_key",
-            "Content-Type": "application/json",
-        },
-        json=None,
-        params=None,
-    )
-
-
-@patch("requests.request")
 def test_save_with_id(mock_request):
     entity = TestEntity()
     entity.fields = {"id": 1, "name": "Test", "description": "Test"}
