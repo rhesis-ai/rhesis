@@ -66,26 +66,6 @@ class BaseEntity:
             field_strings.append(f"{key}: {value}\n")
         return f"class_name: {self.__class__.__name__}\n{''.join(field_strings)}"
 
-    @property
-    def id(self) -> Optional[str]:
-        """Get the entity's ID.
-
-        Provides convenient access to the entity's ID without having to access
-        the fields dictionary directly. This is the recommended way to get an
-        entity's ID throughout the codebase.
-
-        Returns:
-            Optional[str]: The entity's ID if it exists, otherwise None.
-
-        Example:
-            >>> entity = BaseEntity(id="123")
-            >>> print(entity.id)  # "123"
-            >>> entity = BaseEntity()
-            >>> print(entity.id)  # None
-        """
-        return self.fields.get("id")
-
-    @handle_http_errors
     def save(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
         client = Client()
@@ -107,7 +87,6 @@ class BaseEntity:
             )
             return response
 
-    @handle_http_errors
     def delete(self, nano_id: str) -> bool:
         """Delete the entity from the database."""
         client = Client()
@@ -121,7 +100,6 @@ class BaseEntity:
         except requests.exceptions.HTTPError:
             return False
 
-    @handle_http_errors
     def fetch(self) -> None:
         """Fetch the current entity's data from the API and update local fields."""
         client = Client()
