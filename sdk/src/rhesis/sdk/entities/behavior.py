@@ -28,8 +28,3 @@ class Behavior(BaseEntity):
 
 class Behaviors(BaseCollection):
     endpoint = ENDPOINT
-
-
-if __name__ == "__main__":
-    a = BehaviorConfig(name="Test Behavior", description="Test Description")
-    print(a.nano_id)
