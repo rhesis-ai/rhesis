@@ -30,7 +30,12 @@ class StatsCalculator:
         """Apply organization filtering to a query if organization_id is set and model supports it"""
         if self.organization_id and hasattr(model, 'organization_id'):
             from uuid import UUID
-            query = query.filter(model.organization_id == UUID(self.organization_id))
+            # Handle both string and UUID inputs
+            if isinstance(self.organization_id, UUID):
+                org_id = self.organization_id
+            else:
+                org_id = UUID(self.organization_id)
+            query = query.filter(model.organization_id == org_id)
         return query
 
     def _process_dimension_breakdown(self, stats: List[Tuple], top: Optional[int] = None) -> Dict:
