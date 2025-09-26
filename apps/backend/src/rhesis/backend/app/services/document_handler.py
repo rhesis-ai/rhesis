@@ -1,39 +1,43 @@
-import os
-import uuid
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import UploadFile
 
+from rhesis.backend.app.services.storage_service import StorageService
+
 
 class DocumentHandler:
-    """Handles temporary document storage without registry - relies on UUID uniqueness."""
+    """Handles persistent document storage with cloud/local backend."""
 
     def __init__(
-        self, temp_dir: Optional[str] = None, max_size: int = 5 * 1024 * 1024
-    ):  # 5MB default
+        self,
+        storage_service: Optional[StorageService] = None,
+        max_size: int = 5 * 1024 * 1024,  # 5MB default
+    ):
         """
-        Initialize DocumentHandler with configurable temp directory and max size.
+        Initialize DocumentHandler with storage service and max size.
 
         Args:
-            temp_dir: Optional custom temp directory path. If None, uses system temp dir
+            storage_service: StorageService instance for file operations
             max_size: Maximum allowed document size in bytes (default 5MB)
         """
-        self.temp_dir = temp_dir or os.path.join(os.path.dirname(__file__), "temp")
+        self.storage_service = storage_service or StorageService()
         self.max_size = max_size
 
-        # Ensure temp directory exists
-        os.makedirs(self.temp_dir, exist_ok=True)
-
-    async def save_document(self, document: UploadFile) -> str:
+    async def save_document(
+        self, document: UploadFile, organization_id: str, source_id: str
+    ) -> Tuple[str, dict]:
         """
-        Save uploaded document to temporary location with UUID prefix.
+        Save uploaded document to persistent storage.
 
         Args:
             document: FastAPI UploadFile object
+            organization_id: Organization ID for multi-tenant storage
+            source_id: Source ID for unique file naming
 
         Returns:
-            str: Full path to the saved document (e.g. '/tmp/temp/uuid_filename.ext')
+            Tuple[str, dict]: (file_path, metadata_dict)
 
         Raises:
             ValueError: If document size exceeds limit or is empty
@@ -48,28 +52,76 @@ class DocumentHandler:
         if len(content) == 0:
             raise ValueError("Document is empty")
 
-        # Reset document position after reading
-        await document.seek(0)
+        # Generate file path
+        file_path = self.storage_service.get_file_path(
+            organization_id, source_id, document.filename
+        )
 
-        # Generate unique filename
-        ext = Path(document.filename).suffix
-        filename = f"{uuid.uuid4().hex}{ext}"
-        full_path = os.path.join(self.temp_dir, filename)
+        # Save to storage
+        await self.storage_service.save_file(content, file_path)
 
-        # Save document
-        with open(full_path, "wb") as f:
-            f.write(content)
+        # Get metadata
+        metadata = self._extract_metadata(content, document.filename)
 
-        return full_path
+        return file_path, metadata
 
-    async def cleanup(self, path: str) -> None:
+    async def get_document_content(self, file_path: str) -> bytes:
         """
-        Remove document at the specified path.
+        Retrieve document content from storage.
 
         Args:
-            path: Full path to the document to cleanup.
+            file_path: Path to the document in storage
+
+        Returns:
+            bytes: Document content
         """
-        try:
-            os.remove(path)
-        except OSError:
-            pass  # File already gone or permission error
+        return await self.storage_service.get_file(file_path)
+
+    async def delete_document(self, file_path: str) -> bool:
+        """
+        Delete document from storage.
+
+        Args:
+            file_path: Path to the document in storage
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        return await self.storage_service.delete_file(file_path)
+
+    def _extract_metadata(self, content: bytes, filename: str) -> dict:
+        """Extract file metadata."""
+        return {
+            "file_size": len(content),
+            "file_hash": self._calculate_file_hash(content),
+            "uploaded_at": datetime.now(datetime.timezone.utc),
+            "original_filename": filename,
+            "file_type": self._get_mime_type(filename),
+        }
+
+    def _calculate_file_hash(self, content: bytes) -> str:
+        """Calculate SHA-256 hash of file content."""
+        import hashlib
+
+        return hashlib.sha256(content).hexdigest()
+
+    def _get_mime_type(self, filename: str) -> str:
+        """Get MIME type from filename."""
+        ext = Path(filename).suffix.lower()
+        mime_types = {
+            ".pdf": "application/pdf",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".txt": "text/plain",
+            ".md": "text/markdown",
+            ".html": "text/html",
+            ".csv": "text/csv",
+            ".json": "application/json",
+            ".xml": "application/xml",
+            ".zip": "application/zip",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml",
+        }
+        return mime_types.get(ext, "application/octet-stream")
