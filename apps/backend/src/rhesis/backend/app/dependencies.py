@@ -54,6 +54,20 @@ def get_tenant_context(current_user: User = Depends(require_current_user_or_toke
     return organization_id, user_id
 
 
+def get_db_session():
+    """
+    FastAPI dependency that provides a database session directly.
+    
+    This is for routes that need a Session object directly rather than a context manager.
+    It properly handles the context manager from get_db() and yields the actual Session.
+    
+    Returns:
+        Session: The database session
+    """
+    with get_db() as db:
+        yield db
+
+
 def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
     """
     FastAPI dependency that provides both a database session and tenant context.
