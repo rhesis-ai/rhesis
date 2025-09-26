@@ -1,3 +1,4 @@
+from rhesis.backend.app.models.user import User
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List
@@ -9,22 +10,19 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
-from rhesis.backend.app.models.user import User
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.schemas.token import (
     TokenCreate,
     TokenCreateResponse,
     TokenRead,
-    TokenUpdate,
-)
+    TokenUpdate)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 
 router = APIRouter(
     prefix="/tokens",
     tags=["tokens"],
-    responses={404: {"description": "Not found"}},
-)
+    responses={404: {"description": "Not found"}})
 
 
 @router.post("/", response_model=TokenCreateResponse)
@@ -34,10 +32,9 @@ router = APIRouter(
 def create_token(
     request: Request,
     data: dict = Body(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create token with optimized approach - no session variables needed.
 
@@ -81,8 +78,7 @@ def create_token(
         token_obfuscated=created_token.token_obfuscated,
         token_type=created_token.token_type,
         expires_at=created_token.expires_at,
-        name=created_token.name,
-    )
+        name=created_token.name)
 
 
 @router.get("/", response_model=List[TokenRead])
@@ -94,9 +90,8 @@ async def read_tokens(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """List all active API tokens for the current user"""
     return crud.get_user_tokens(
         db=db,
@@ -105,17 +100,15 @@ async def read_tokens(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
-        filter=filter,
-    )
+        filter=filter)
 
 
 @router.get("/{token_id}", response_model=TokenRead)
 def read_token(
     token_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get token with optimized approach - no session variables needed.
 
@@ -137,10 +130,9 @@ def read_token(
 @router.delete("/{token_id}", response_model=TokenRead)
 def delete_token(
     token_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Delete token with optimized approach - no session variables needed.
 
@@ -163,10 +155,9 @@ def delete_token(
 def update_token(
     token_id: uuid.UUID,
     token: TokenUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update token with optimized approach - no session variables needed.
 
@@ -182,8 +173,7 @@ def update_token(
         token_id=token_id,
         token=token,
         organization_id=organization_id,
-        user_id=user_id,
-    )
+        user_id=user_id)
     if db_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
     return db_token
@@ -193,10 +183,9 @@ def update_token(
 def refresh_token(
     token_id: uuid.UUID,
     data: dict = Body(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """Refresh token with new value and expiration"""
     organization_id, user_id = tenant_context
 
@@ -217,8 +206,7 @@ def refresh_token(
         token=new_token_value,
         token_obfuscated=new_token_value[:3] + "..." + new_token_value[-4:],
         last_refreshed_at=datetime.now(timezone.utc),
-        expires_at=expires_at,
-    )
+        expires_at=expires_at)
 
     updated_token = crud.update_token(db=db, token_id=token.id, token=token_update)
     if updated_token is None:
@@ -232,5 +220,4 @@ def refresh_token(
         token_type=updated_token.token_type,
         expires_at=updated_token.expires_at,
         name=updated_token.name,
-        last_refreshed_at=updated_token.last_refreshed_at,
-    )
+        last_refreshed_at=updated_token.last_refreshed_at)

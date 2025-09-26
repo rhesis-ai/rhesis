@@ -1,3 +1,4 @@
+from rhesis.backend.app.models.user import User
 import uuid
 from typing import List
 
@@ -8,8 +9,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
-from rhesis.backend.app.models.user import User
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
@@ -20,8 +20,7 @@ router = APIRouter(
     prefix="/comments",
     tags=["comments"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
-)
+    dependencies=[Depends(require_current_user_or_token)])
 
 """
 # Comment API Documentation
@@ -69,10 +68,9 @@ The structure is: {emoji_character: [list_of_user_reactions]}
 @handle_database_exceptions(entity_name="comment", custom_unique_message="Comment already exists")
 def create_comment(
     comment: schemas.CommentCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create comment with optimized approach - no session variables needed.
 
@@ -95,10 +93,9 @@ def read_comments(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get all comments with filtering and pagination - optimized approach.
     
@@ -114,18 +111,16 @@ def read_comments(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
-        filter=filter,
-    )
+        filter=filter)
     return comments
 
 
 @router.get("/{comment_id}")
 def read_comment(
     comment_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get comment with optimized approach - no session variables needed.
 
@@ -147,10 +142,9 @@ def read_comment(
 def update_comment(
     comment_id: uuid.UUID,
     comment: schemas.CommentUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update comment with optimized approach - no session variables needed.
 
@@ -177,10 +171,9 @@ def update_comment(
 @router.delete("/{comment_id}", response_model=schemas.Comment)
 def delete_comment(
     comment_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Delete comment with optimized approach - no session variables needed.
 
@@ -212,10 +205,9 @@ def read_comments_by_entity(
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get all comments for a specific entity - optimized approach.
     
@@ -234,8 +226,7 @@ def read_comments_by_entity(
         valid_entity_types = [e.value for e in EntityType]
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid entity_type. Must be one of: {', '.join(valid_entity_types)}",
-        )
+            detail=f"Invalid entity_type. Must be one of: {', '.join(valid_entity_types)}")
 
     comments = crud.get_comments_by_entity(
         db=db,
@@ -244,8 +235,7 @@ def read_comments_by_entity(
         skip=skip,
         limit=limit,
         sort_by=sort_by,
-        sort_order=sort_order,
-    )
+        sort_order=sort_order)
     return comments
 
 
@@ -253,10 +243,9 @@ def read_comments_by_entity(
 def add_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     ## Emoji Reactions Structure
 
@@ -304,8 +293,7 @@ def add_emoji_reaction(
         comment_id=comment_id,
         emoji=emoji,
         user_id=current_user.id,
-        user_name=current_user.given_name or current_user.email,
-    )
+        user_name=current_user.given_name or current_user.email)
 
     if updated_comment is None:
         raise HTTPException(status_code=400, detail="Failed to add emoji reaction")
@@ -317,10 +305,9 @@ def add_emoji_reaction(
 def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Remove an emoji reaction from a comment - optimized approach.
     
