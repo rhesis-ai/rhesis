@@ -64,8 +64,10 @@ def get_endpoints(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Endpoint]:
-    return get_items_detail(db, models.Endpoint, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Endpoint, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_endpoint(
@@ -105,8 +107,10 @@ def get_use_cases(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.UseCase]:
-    return get_items(db, models.UseCase, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.UseCase, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_use_case(
@@ -147,8 +151,10 @@ def get_prompts(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Prompt]:
-    return get_items(db, models.Prompt, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Prompt, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_prompt(
@@ -187,8 +193,10 @@ def get_prompt_templates(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.PromptTemplate]:
-    return get_items(db, models.PromptTemplate, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.PromptTemplate, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_prompt_template(
@@ -225,8 +233,10 @@ def get_categories(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Category]:
-    return get_items(db, models.Category, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Category, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_category(
@@ -314,8 +324,10 @@ def get_response_patterns(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.ResponsePattern]:
-    return get_items(db, models.ResponsePattern, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.ResponsePattern, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_response_pattern(
@@ -530,8 +542,10 @@ def get_test_configurations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestConfiguration]:
-    return get_items_detail(db, models.TestConfiguration, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.TestConfiguration, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_test_configuration(
@@ -573,8 +587,10 @@ def get_risks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Risk]:
-    return get_items(db, models.Risk, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Risk, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_risk(
@@ -615,8 +631,10 @@ def get_statuses(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Status]:
-    return get_items(db, models.Status, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Status, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_status(
@@ -657,8 +675,10 @@ def get_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Source]:
-    return get_items(db, models.Source, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Source, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_source(
@@ -699,8 +719,10 @@ def get_topics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Topic]:
-    return get_items(db, models.Topic, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Topic, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_topic(
@@ -741,8 +763,10 @@ def get_demographics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Demographic]:
-    return get_items(db, models.Demographic, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Demographic, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_demographic(
@@ -787,8 +811,10 @@ def get_dimensions(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Dimension]:
-    return get_items(db, models.Dimension, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Dimension, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_dimension(
@@ -831,8 +857,10 @@ def get_users(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.User]:
-    return get_items(db, models.User, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.User, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
@@ -908,8 +936,10 @@ def get_tags(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Tag]:
-    return get_items(db, models.Tag, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Tag, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_tag(
@@ -1165,8 +1195,10 @@ def get_organizations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Organization]:
-    return get_items(db, models.Organization, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Organization, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_organization(
@@ -1232,8 +1264,10 @@ def get_projects(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Project]:
-    return get_items_detail(db, models.Project, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Project, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_project(
@@ -1263,8 +1297,10 @@ def get_tests(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Test]:
-    return get_items_detail(db, models.Test, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Test, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_test(
@@ -1331,8 +1367,10 @@ def get_test_contexts(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestContext]:
-    return get_items(db, models.TestContext, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.TestContext, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def get_test_contexts_by_test(db: Session, test_id: uuid.UUID) -> List[models.TestContext]:
@@ -1386,8 +1424,10 @@ def get_test_runs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestRun]:
-    return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID, organization_id: str = None) -> List[models.Behavior]:
@@ -1500,8 +1540,10 @@ def get_test_results(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestResult]:
-    return get_items(db, models.TestResult, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.TestResult, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_test_result(
@@ -1548,8 +1590,10 @@ def get_type_lookups(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TypeLookup]:
-    return get_items(db, models.TypeLookup, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.TypeLookup, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_type_lookup(
@@ -1614,6 +1658,8 @@ def get_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Metric]:
     """Get all metrics with their related objects, including many-to-many relationships"""
     return (
@@ -1870,9 +1916,11 @@ def get_models(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Model]:
     """Get all models with their related objects"""
-    return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_model(
@@ -2124,9 +2172,11 @@ def get_tasks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Task]:
     """Get tasks with filtering and sorting"""
-    return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_task(
