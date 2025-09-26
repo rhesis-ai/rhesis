@@ -148,22 +148,15 @@ class BaseEntity:
         return self.fields
 
     @classmethod
-    @handle_http_errors
     def from_id(cls, record_id: str) -> Optional["BaseEntity"]:
         """Create an entity instance from a record ID."""
         client = Client()
-        headers = {
-            "Authorization": f"Bearer {client.api_key}",
-            "Content-Type": "application/json",
-        }
-        url = f"{client.get_url(cls.endpoint)}/{record_id}/"
-        logger.debug(f"GET request to {url} for from_id")
-        response = requests.get(
-            url,
-            headers=headers,
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.GET,
+            url_params=record_id,
         )
-        response.raise_for_status()
-        return cls(**response.json())
+        return cls(**response)
 
     def update(self) -> None:
         """Update entity in database."""
