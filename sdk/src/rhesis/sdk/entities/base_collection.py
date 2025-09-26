@@ -1,6 +1,5 @@
 from typing import Any, Dict, Optional
 
-import requests
 from requests.exceptions import HTTPError
 
 from rhesis.sdk.client import Client, HTTPStatus, Methods
@@ -15,23 +14,6 @@ class BaseCollection:
     """
 
     endpoint: str
-
-    @classmethod
-    def delete(cls, id: str) -> bool:
-        """Delete the entity from the database."""
-        client = Client()
-        try:
-            client.send_request(
-                endpoint=cls.endpoint,
-                method=Methods.DELETE,
-                url_params=id,
-            )
-            return True
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == HTTPStatus.NOT_FOUND:
-                return False
-            else:
-                raise e
 
     @classmethod
     def all(cls) -> Optional[list[Any]]:
