@@ -9,6 +9,8 @@ interface TestSetDetailLayoutProps {
   children: React.ReactNode;
 }
 
-export default function TestSetDetailLayout({ children }: TestSetDetailLayoutProps) {
+export default function TestSetDetailLayout({
+  children,
+}: TestSetDetailLayoutProps) {
   return children;
-} 
+}

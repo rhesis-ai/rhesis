@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { AddIcon, DeleteIcon } from '@/components/icons';
-import { 
-  GridColDef, 
-  GridRowSelectionModel, 
+import {
+  GridColDef,
+  GridRowSelectionModel,
   GridPaginationModel,
-  GridFilterModel
+  GridFilterModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -27,7 +27,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
-  
+
   // Component state
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -47,41 +47,46 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
     if (!isMounted.current) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const tasksClient = clientFactory.getTasksClient();
-      
+
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
-      
+
       // Convert filter model to OData filter (includes both regular filters and quick filter)
       const oDataFilter = combineTaskFiltersToOData(filterModel);
-      
+
       // Debug logging for search functionality
       if (oDataFilter) {
         console.log('Task search/filter OData:', oDataFilter);
       }
-      
+
       const response = await tasksClient.getTasks({
         skip,
         limit,
         sort_by: 'nano_id',
         sort_order: 'desc',
-        $filter: oDataFilter
+        $filter: oDataFilter,
       });
-      
+
       if (isMounted.current) {
         setTasks(response);
         // Note: Backend should return total count in headers, but for now we'll estimate
-        setTotalCount(response.length < limit ? skip + response.length : skip + response.length + 1);
+        setTotalCount(
+          response.length < limit
+            ? skip + response.length
+            : skip + response.length + 1
+        );
       }
     } catch (err) {
       if (isMounted.current) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch tasks';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to fetch tasks';
         setError(errorMessage);
         notifications.show(errorMessage, { severity: 'error' });
       }
@@ -93,24 +98,30 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   }, [sessionToken, paginationModel, filterModel, notifications]);
 
   // Delete task
-  const deleteTask = useCallback(async (taskId: string) => {
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const tasksClient = clientFactory.getTasksClient();
-      
-      await tasksClient.deleteTask(taskId);
-      
-      // Remove from local state
-      setTasks(prev => prev.filter(task => task.id !== taskId));
-      setSelectedRows(prev => prev.filter(id => id !== taskId));
-      
-      notifications.show('Task deleted successfully', { severity: 'success' });
-      onRefresh?.();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete task';
-      notifications.show(errorMessage, { severity: 'error' });
-    }
-  }, [sessionToken, notifications, onRefresh]);
+  const deleteTask = useCallback(
+    async (taskId: string) => {
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const tasksClient = clientFactory.getTasksClient();
+
+        await tasksClient.deleteTask(taskId);
+
+        // Remove from local state
+        setTasks(prev => prev.filter(task => task.id !== taskId));
+        setSelectedRows(prev => prev.filter(id => id !== taskId));
+
+        notifications.show('Task deleted successfully', {
+          severity: 'success',
+        });
+        onRefresh?.();
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to delete task';
+        notifications.show(errorMessage, { severity: 'error' });
+      }
+    },
+    [sessionToken, notifications, onRefresh]
+  );
 
   // Delete selected tasks
   const handleDeleteSelected = useCallback(() => {
@@ -120,7 +131,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
   const handleDeleteConfirm = useCallback(async () => {
     if (selectedRows.length === 0) return;
-    
+
     try {
       setIsDeleting(true);
       await Promise.all(selectedRows.map(id => deleteTask(id as string)));
@@ -138,14 +149,20 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   }, []);
 
   // Handle row click
-  const handleRowClick = useCallback((params: any) => {
-    router.push(`/tasks/${params.id}`);
-  }, [router]);
+  const handleRowClick = useCallback(
+    (params: any) => {
+      router.push(`/tasks/${params.id}`);
+    },
+    [router]
+  );
 
   // Handle pagination change
-  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-  }, []);
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+    },
+    []
+  );
 
   // Handle filter change
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
@@ -170,7 +187,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       field: 'title',
       headerName: 'Title',
       width: 300,
-      renderCell: (params) => (
+      renderCell: params => (
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {params.row.title}
         </Typography>
@@ -180,13 +197,16 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       field: 'description',
       headerName: 'Description',
       width: 400,
-      renderCell: (params) => (
-        <Typography variant="body2" sx={{ 
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          maxWidth: '100%'
-        }}>
+      renderCell: params => (
+        <Typography
+          variant="body2"
+          sx={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+          }}
+        >
           {params.row.description || '-'}
         </Typography>
       ),
@@ -195,20 +215,25 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       field: 'status',
       headerName: 'Status',
       width: 120,
-      renderCell: (params) => {
+      renderCell: params => {
         const getStatusColor = (status?: string) => {
           switch (status) {
-            case 'Open': return 'warning';
-            case 'In Progress': return 'primary';
-            case 'Completed': return 'success';
-            case 'Cancelled': return 'error';
-            default: return 'default';
+            case 'Open':
+              return 'warning';
+            case 'In Progress':
+              return 'primary';
+            case 'Completed':
+              return 'success';
+            case 'Cancelled':
+              return 'error';
+            default:
+              return 'default';
           }
         };
-        
+
         return (
-          <Chip 
-            label={params.row.status?.name || 'Unknown'} 
+          <Chip
+            label={params.row.status?.name || 'Unknown'}
             color={getStatusColor(params.row.status?.name) as any}
             size="small"
           />
@@ -219,12 +244,16 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       field: 'assignee',
       headerName: 'Assignee',
       width: 150,
-      renderCell: (params) => (
+      renderCell: params => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar 
-            src={params.row.assignee?.picture} 
+          <Avatar
+            src={params.row.assignee?.picture}
             alt={params.row.assignee?.name || 'Unassigned'}
-            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+            sx={{
+              width: AVATAR_SIZES.SMALL,
+              height: AVATAR_SIZES.SMALL,
+              bgcolor: 'primary.main',
+            }}
           >
             {params.row.assignee?.name?.charAt(0) || 'U'}
           </Avatar>
@@ -256,7 +285,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         onPaginationModelChange={handlePaginationModelChange}
         onFilterModelChange={handleFilterModelChange}
         pageSizeOptions={[10, 25, 50, 100]}
-        getRowId={(row) => row.id}
+        getRowId={row => row.id}
         disableRowSelectionOnClick
         showToolbar={true}
         serverSidePagination={true}
@@ -270,15 +299,19 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
             onClick: () => router.push('/tasks/create'),
             icon: <AddIcon />,
             variant: 'contained' as const,
-            color: 'primary' as const
+            color: 'primary' as const,
           },
-          ...(selectedRows.length > 0 ? [{
-            label: `Delete (${selectedRows.length})`,
-            onClick: handleDeleteSelected,
-            icon: <DeleteIcon />,
-            variant: 'outlined' as const,
-            color: 'error' as const
-          }] : [])
+          ...(selectedRows.length > 0
+            ? [
+                {
+                  label: `Delete (${selectedRows.length})`,
+                  onClick: handleDeleteSelected,
+                  icon: <DeleteIcon />,
+                  variant: 'outlined' as const,
+                  color: 'error' as const,
+                },
+              ]
+            : []),
         ]}
         sx={{
           '& .MuiDataGrid-row': {
@@ -286,7 +319,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
           },
         }}
       />
-      
+
       <DeleteModal
         open={deleteModalOpen}
         onClose={handleDeleteCancel}

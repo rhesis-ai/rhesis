@@ -9,14 +9,14 @@ import TestResultsDashboard from './components/TestResultsDashboard';
 export default async function TestResultsPage() {
   try {
     const session = await auth();
-    
+
     if (!session?.session_token) {
       throw new Error('No session token available');
     }
-    
+
     return (
-      <PageContainer 
-        title="Test Results" 
+      <PageContainer
+        title="Test Results"
         breadcrumbs={[{ title: 'Test Results', path: '/test-results' }]}
       >
         <TestResultsDashboard sessionToken={session.session_token} />
@@ -30,9 +30,7 @@ export default async function TestResultsPage() {
           <Typography color="error" variant="h6" gutterBottom>
             Error Loading Test Results
           </Typography>
-          <Typography color="text.secondary">
-            {errorMessage}
-          </Typography>
+          <Typography color="text.secondary">{errorMessage}</Typography>
         </Paper>
       </PageContainer>
     );

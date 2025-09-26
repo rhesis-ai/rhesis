@@ -73,7 +73,7 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   PhoneIphone: PhoneIphoneIcon,
   School: SchoolIcon,
   Science: ScienceIcon,
-  AccountTree: AccountTreeIcon
+  AccountTree: AccountTreeIcon,
 };
 
 const ENVIRONMENTS = ['production', 'staging', 'development'];
@@ -85,7 +85,7 @@ const getProjectIcon = (project: Project) => {
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
-  
+
   // Fall back to a default icon
   return <SmartToyIcon />;
 };
@@ -98,7 +98,7 @@ export default function SwaggerEndpointForm() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const { data: session } = useSession();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -114,17 +114,20 @@ export default function SwaggerEndpointForm() {
       try {
         setLoadingProjects(true);
         let sessionToken = session?.session_token;
-        
+
         // Fallback to server-side auth if client-side session is not available
         if (!sessionToken) {
           try {
             const serverSession = await auth();
             sessionToken = serverSession?.session_token;
           } catch (error) {
-            console.error('Failed to get session from server-side auth:', error);
+            console.error(
+              'Failed to get session from server-side auth:',
+              error
+            );
           }
         }
-        
+
         if (sessionToken) {
           const client = new ApiClientFactory(sessionToken).getProjectsClient();
           const data = await client.getProjects();
@@ -146,26 +149,27 @@ export default function SwaggerEndpointForm() {
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const handleImportSpecification = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // TODO: Implement the actual swagger import logic
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
-      
+
       // Update the form data with the Swagger URL
       setFormData(prev => ({
         ...prev,
-        openapi_spec_url: swaggerUrl
+        openapi_spec_url: swaggerUrl,
       }));
-      
     } catch (error) {
-      setError(`Failed to import Swagger specification: ${(error as Error).message}`);
+      setError(
+        `Failed to import Swagger specification: ${(error as Error).message}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -192,11 +196,13 @@ export default function SwaggerEndpointForm() {
     <form onSubmit={handleSubmit}>
       <Card>
         {/* Action buttons row */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          p: 2
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            p: 2,
+          }}
+        >
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
@@ -219,14 +225,16 @@ export default function SwaggerEndpointForm() {
           <Grid container spacing={3}>
             {/* General Information */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>General Information</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                General Information
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
                     label="Name"
                     value={formData.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
+                    onChange={e => handleChange('name', e.target.value)}
                     required
                   />
                 </Grid>
@@ -235,7 +243,7 @@ export default function SwaggerEndpointForm() {
                     fullWidth
                     label="Description"
                     value={formData.description}
-                    onChange={(e) => handleChange('description', e.target.value)}
+                    onChange={e => handleChange('description', e.target.value)}
                     multiline
                     rows={1}
                   />
@@ -245,7 +253,9 @@ export default function SwaggerEndpointForm() {
 
             {/* Swagger URL */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Swagger Configuration</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Swagger Configuration
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', gap: 2 }}>
@@ -253,7 +263,7 @@ export default function SwaggerEndpointForm() {
                       fullWidth
                       label="Swagger Documentation URL"
                       value={swaggerUrl}
-                      onChange={(e) => setSwaggerUrl(e.target.value)}
+                      onChange={e => setSwaggerUrl(e.target.value)}
                       placeholder="https://api.example.com/swagger.json"
                     />
                     <LoadingButton
@@ -273,17 +283,19 @@ export default function SwaggerEndpointForm() {
 
             {/* Project Selection */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Project</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Project
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   {projects.length === 0 && !loadingProjects ? (
-                    <Alert 
-                      severity="warning" 
+                    <Alert
+                      severity="warning"
                       action={
-                        <Button 
-                          color="inherit" 
-                          size="small" 
-                          component="a" 
+                        <Button
+                          color="inherit"
+                          size="small"
+                          component="a"
                           href="/projects/create-new"
                         >
                           Create Project
@@ -293,22 +305,38 @@ export default function SwaggerEndpointForm() {
                       No projects available. Please create a project first.
                     </Alert>
                   ) : (
-                    <FormControl fullWidth required error={Boolean(error && !formData.project_id)}>
-                      <InputLabel id="project-select-label">Select Project</InputLabel>
+                    <FormControl
+                      fullWidth
+                      required
+                      error={Boolean(error && !formData.project_id)}
+                    >
+                      <InputLabel id="project-select-label">
+                        Select Project
+                      </InputLabel>
                       <Select
                         labelId="project-select-label"
                         id="project-select"
                         value={formData.project_id}
-                        onChange={(e) => handleChange('project_id', e.target.value)}
+                        onChange={e =>
+                          handleChange('project_id', e.target.value)
+                        }
                         label="Select Project"
                         disabled={loadingProjects}
                         required
-                        renderValue={(selected) => {
-                          const selectedProject = projects.find(p => p.id === selected);
+                        renderValue={selected => {
+                          const selectedProject = projects.find(
+                            p => p.id === selected
+                          );
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                               {selectedProject && (
-                                <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                                <Box
+                                  sx={{
+                                    mr: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                  }}
+                                >
                                   {getProjectIcon(selectedProject)}
                                 </Box>
                               )}
@@ -323,12 +351,15 @@ export default function SwaggerEndpointForm() {
                             Loading projects...
                           </MenuItem>
                         ) : (
-                          projects.map((project) => (
+                          projects.map(project => (
                             <MenuItem key={project.id} value={project.id}>
                               <ListItemIcon>
                                 {getProjectIcon(project)}
                               </ListItemIcon>
-                              <ListItemText primary={project.name} secondary={project.description} />
+                              <ListItemText
+                                primary={project.name}
+                                secondary={project.description}
+                              />
                             </MenuItem>
                           ))
                         )}
@@ -346,7 +377,9 @@ export default function SwaggerEndpointForm() {
 
             {/* Environment */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Environment</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Environment
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <ToggleButtonGroup
@@ -356,7 +389,7 @@ export default function SwaggerEndpointForm() {
                       if (newValue !== null) {
                         setFormData(prev => ({
                           ...prev,
-                          environment: newValue
+                          environment: newValue,
                         }));
                       }
                     }}
@@ -371,9 +404,9 @@ export default function SwaggerEndpointForm() {
                       },
                     }}
                   >
-                    {ENVIRONMENTS.map((env) => (
-                      <ToggleButton 
-                        key={env} 
+                    {ENVIRONMENTS.map(env => (
+                      <ToggleButton
+                        key={env}
                         value={env}
                         sx={{
                           textTransform: 'capitalize',
@@ -403,4 +436,4 @@ export default function SwaggerEndpointForm() {
       )}
     </form>
   );
-} 
+}

@@ -7,7 +7,7 @@ export default async function TokensPage() {
   if (!session?.session_token) {
     throw new Error('No session token available');
   }
-  
+
   return (
     <Box sx={{ p: 3 }}>
       <TokensPageClient sessionToken={session.session_token} />

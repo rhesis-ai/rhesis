@@ -13,7 +13,10 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type { Behavior as ApiBehavior, BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type {
+  Behavior as ApiBehavior,
+  BehaviorWithMetrics,
+} from '@/utils/api-client/interfaces/behavior';
 import type { TypeLookup as MetricType } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 
@@ -38,11 +41,7 @@ function CustomTabPanel(props: TabPanelProps) {
       {...other}
       style={{ height: '100%' }}
     >
-      {value === index && (
-        <Box sx={{ height: '100%' }}>
-          {children}
-        </Box>
-      )}
+      {value === index && <Box sx={{ height: '100%' }}>{children}</Box>}
     </div>
   );
 }
@@ -65,7 +64,7 @@ const initialFilterState: FilterState = {
   search: '',
   backend: [],
   type: [],
-  scoreType: []
+  scoreType: [],
 };
 
 interface FilterOptions {
@@ -79,8 +78,8 @@ const initialFilterOptions: FilterOptions = {
   type: [],
   scoreType: [
     { value: 'binary', label: 'Binary (Pass/Fail)' },
-    { value: 'numeric', label: 'Numeric' }
-  ]
+    { value: 'numeric', label: 'Numeric' },
+  ],
 };
 
 interface BehaviorMetrics {
@@ -88,7 +87,7 @@ interface BehaviorMetrics {
     metrics: MetricDetail[] | any[];
     isLoading: boolean;
     error: string | null;
-  }
+  };
 }
 
 interface MetricsClientProps {
@@ -96,38 +95,48 @@ interface MetricsClientProps {
   organizationId: UUID;
 }
 
-export default function MetricsClientComponent({ sessionToken, organizationId }: MetricsClientProps) {
+export default function MetricsClientComponent({
+  sessionToken,
+  organizationId,
+}: MetricsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
-  
+
   // Initialize tab value from URL parameter
   const initialTab = React.useMemo(() => {
     const tab = searchParams.get('tab');
     if (tab === 'selected') return 1;
     return 0; // Default to Metrics Directory
   }, [searchParams]);
-  
+
   const [value, setValue] = React.useState(initialTab);
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>([]);
-  const [behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<BehaviorWithMetrics[]>([]);
+  const [behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
+    BehaviorWithMetrics[]
+  >([]);
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
-  
+
   // Separate loading states for each tab
-  const [isLoadingSelectedMetrics, setIsLoadingSelectedMetrics] = React.useState(true);
-  const [isLoadingMetricsDirectory, setIsLoadingMetricsDirectory] = React.useState(true);
+  const [isLoadingSelectedMetrics, setIsLoadingSelectedMetrics] =
+    React.useState(true);
+  const [isLoadingMetricsDirectory, setIsLoadingMetricsDirectory] =
+    React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Filter state
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
-  const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(initialFilterOptions);
-  const [behaviorMetrics, setBehaviorMetrics] = React.useState<BehaviorMetrics>({});
-  
+  const [filterOptions, setFilterOptions] =
+    React.useState<FilterOptions>(initialFilterOptions);
+  const [behaviorMetrics, setBehaviorMetrics] = React.useState<BehaviorMetrics>(
+    {}
+  );
+
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);
-  
+
   // Use ref to track the actual session token value to prevent unnecessary re-fetches
   const lastSessionTokenRef = React.useRef<string | null>(null);
   const hasFetchedRef = React.useRef(false);
@@ -136,59 +145,68 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
   React.useEffect(() => {
     const fetchData = async () => {
       if (!sessionToken) return;
-      
+
       // Check if this is a real session token change or just a session object recreation
       const isTokenChange = lastSessionTokenRef.current !== sessionToken;
       const isRefresh = refreshKey > 0;
       const isFirstLoad = !hasFetchedRef.current;
-      
+
       if (!isTokenChange && !isRefresh && !isFirstLoad) {
-        console.log('🔄 [DEBUG] Skipping fetchData - session token unchanged, no refresh, not first load');
+        console.log(
+          '[DEBUG] [DEBUG] Skipping fetchData - session token unchanged, no refresh, not first load'
+        );
         return;
       }
-      
-      console.log('🚀 [DEBUG] Metrics client fetchData started', {
+
+      console.log('[DEBUG] [DEBUG] Metrics client fetchData started', {
         isTokenChange,
         isRefresh,
         isFirstLoad,
-        tokenChanged: lastSessionTokenRef.current !== sessionToken
+        tokenChanged: lastSessionTokenRef.current !== sessionToken,
       });
-      
+
       // Update refs
       lastSessionTokenRef.current = sessionToken;
       hasFetchedRef.current = true;
-      
+
       try {
-        console.log('📊 [DEBUG] Setting loading state and clearing errors');
+        console.log(
+          '[DEBUG] [DEBUG] Setting loading state and clearing errors'
+        );
         setIsLoadingSelectedMetrics(true);
         setIsLoadingMetricsDirectory(true);
         setError(null);
 
-        console.log('🔧 [DEBUG] Creating API clients with session token:', !!sessionToken);
+        console.log(
+          '[DEBUG] [DEBUG] Creating API clients with session token:',
+          !!sessionToken
+        );
         const behaviorClient = new BehaviorClient(sessionToken);
         const metricsClient = new MetricsClient(sessionToken);
 
-        console.log('📡 [DEBUG] Fetching behaviors with metrics and all metrics...');
+        console.log(
+          '[DEBUG] [DEBUG] Fetching behaviors with metrics and all metrics...'
+        );
         const [behaviorsWithMetricsData, allMetricsData] = await Promise.all([
           behaviorClient.getBehaviorsWithMetrics({
             skip: 0,
             limit: 100,
             sort_by: 'created_at',
-            sort_order: 'desc'
+            sort_order: 'desc',
           }),
           metricsClient.getMetrics({
             skip: 0,
             limit: 100,
             sort_by: 'created_at',
-            sort_order: 'desc'
-          })
+            sort_order: 'desc',
+          }),
         ]);
 
-        console.log('📊 [DEBUG] API calls completed. Processing data...');
+        console.log('[DEBUG] [DEBUG] API calls completed. Processing data...');
 
         // Extract behaviors from the optimized response
         const behaviorsData = behaviorsWithMetricsData;
-        
+
         // Use all metrics from the dedicated metrics endpoint
         const metricsData = allMetricsData.data || [];
 
@@ -197,14 +215,18 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
           const behaviorIds = behaviorsWithMetricsData
             .filter(behavior => behavior.metrics?.some(m => m.id === metric.id))
             .map(behavior => behavior.id);
-          
+
           return {
             ...metric,
-            behaviors: behaviorIds
+            behaviors: behaviorIds,
           };
         });
 
-        console.log('✅ [DEBUG] Metrics processing completed - found', metricsWithBehaviors.length, 'unique metrics');
+        console.log(
+          '[SUCCESS] [DEBUG] Metrics processing completed - found',
+          metricsWithBehaviors.length,
+          'unique metrics'
+        );
 
         // Set the data
         setBehaviorsWithMetrics(behaviorsWithMetricsData);
@@ -217,29 +239,34 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
           initialBehaviorMetrics[behavior.id] = {
             metrics: behavior.metrics || [],
             isLoading: false,
-            error: null
+            error: null,
           };
         });
         setBehaviorMetrics(initialBehaviorMetrics);
-        
+
         // Extract backend types and metric types from the metrics in the response
         const uniqueBackendTypes = new Map<string, { type_value: string }>();
-        const uniqueMetricTypes = new Map<string, { type_value: string; description: string }>();
-        
+        const uniqueMetricTypes = new Map<
+          string,
+          { type_value: string; description: string }
+        >();
+
         metricsWithBehaviors.forEach(metric => {
           // Extract backend types from metric.backend_type
           if (metric.backend_type) {
-            const backendTypeValue = metric.backend_type.type_value.charAt(0).toUpperCase() + metric.backend_type.type_value.slice(1);
+            const backendTypeValue =
+              metric.backend_type.type_value.charAt(0).toUpperCase() +
+              metric.backend_type.type_value.slice(1);
             uniqueBackendTypes.set(metric.backend_type.type_value, {
-              type_value: backendTypeValue
+              type_value: backendTypeValue,
             });
           }
-          
+
           // Extract metric types from metric.metric_type
           if (metric.metric_type) {
             uniqueMetricTypes.set(metric.metric_type.type_value, {
               type_value: metric.metric_type.type_value,
-              description: metric.metric_type.description || ''
+              description: metric.metric_type.description || '',
             });
           }
         });
@@ -250,25 +277,31 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
         setFilterOptions(prev => ({
           ...prev,
           backend: backendTypes,
-          type: metricTypes
+          type: metricTypes,
         }));
 
-        console.log('✅ [DEBUG] Extracted filter options from metrics:', {
-          backendTypes: backendTypes.length,
-          metricTypes: metricTypes.length
-        });
+        console.log(
+          '[SUCCESS] [DEBUG] Extracted filter options from metrics:',
+          {
+            backendTypes: backendTypes.length,
+            metricTypes: metricTypes.length,
+          }
+        );
 
-        console.log('✅ [DEBUG] All data processing completed successfully');
+        console.log(
+          '[SUCCESS] [DEBUG] All data processing completed successfully'
+        );
       } catch (err) {
-        console.error('❌ [DEBUG] Error in fetchData:', err);
-        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+        console.error('[ERROR] [DEBUG] Error in fetchData:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : 'An error occurred';
         setError(errorMessage);
         notifications.show('Failed to load metrics data', {
           severity: 'error',
-          autoHideDuration: 4000
+          autoHideDuration: 4000,
         });
       } finally {
-        console.log('🏁 [DEBUG] Setting loading to false');
+        console.log('[COMPLETE] [DEBUG] Setting loading to false');
         setIsLoadingSelectedMetrics(false);
         setIsLoadingMetricsDirectory(false);
       }
@@ -276,14 +309,14 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
 
     fetchData();
   }, [sessionToken, refreshKey, notifications]);
-  
+
   // Debug log for useEffect triggers
   React.useEffect(() => {
-    console.log('🔄 [DEBUG] MetricsClient useEffect triggered', {
+    console.log('[DEBUG] [DEBUG] MetricsClient useEffect triggered', {
       sessionToken: !!sessionToken,
       refreshKey,
       lastToken: !!lastSessionTokenRef.current,
-      hasFetched: hasFetchedRef.current
+      hasFetched: hasFetchedRef.current,
     });
   }, [sessionToken, refreshKey]);
 
@@ -306,27 +339,32 @@ export default function MetricsClientComponent({ sessionToken, organizationId }:
 
   return (
     <ErrorBoundary>
-      <Box sx={{ 
-        width: '100%',
-        minHeight: '100%'
-      }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, bgcolor: 'background.paper' }}>
-          <Tabs 
-            value={value} 
-            onChange={handleChange} 
-            aria-label="metrics tabs"
-          >
-            <Tab 
-              icon={<ViewQuiltIcon />} 
-              iconPosition="start" 
-              label="Metrics Directory" 
-              {...a11yProps(0)} 
+      <Box
+        sx={{
+          width: '100%',
+          minHeight: '100%',
+        }}
+      >
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            mb: 2,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Tabs value={value} onChange={handleChange} aria-label="metrics tabs">
+            <Tab
+              icon={<ViewQuiltIcon />}
+              iconPosition="start"
+              label="Metrics Directory"
+              {...a11yProps(0)}
             />
-            <Tab 
-              icon={<ChecklistIcon />} 
-              iconPosition="start" 
-              label="Selected Metrics" 
-              {...a11yProps(1)} 
+            <Tab
+              icon={<ChecklistIcon />}
+              iconPosition="start"
+              label="Selected Metrics"
+              {...a11yProps(1)}
             />
           </Tabs>
         </Box>

@@ -1,12 +1,19 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Project, ProjectCreate, ProjectUpdate, ProjectsQueryParams } from './interfaces/project';
+import {
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+  ProjectsQueryParams,
+} from './interfaces/project';
 import { PaginatedResponse } from './interfaces/pagination';
 
 export class ProjectsClient extends BaseApiClient {
-  async getProjects(params: ProjectsQueryParams = {}): Promise<PaginatedResponse<Project>> {
+  async getProjects(
+    params: ProjectsQueryParams = {}
+  ): Promise<PaginatedResponse<Project>> {
     const { skip = 0, limit = 10, sort_by, sort_order, $filter } = params;
-    
+
     // Build query string
     const queryParams = new URLSearchParams();
     queryParams.append('skip', skip.toString());
@@ -14,11 +21,11 @@ export class ProjectsClient extends BaseApiClient {
     if (sort_by) queryParams.append('sort_by', sort_by);
     if (sort_order) queryParams.append('sort_order', sort_order);
     if ($filter) queryParams.append('$filter', $filter);
-    
+
     const url = `${API_ENDPOINTS.projects}?${queryParams.toString()}`;
-    
+
     return this.fetch<PaginatedResponse<Project>>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
@@ -51,4 +58,4 @@ export class ProjectsClient extends BaseApiClient {
       method: 'DELETE',
     });
   }
-} 
+}

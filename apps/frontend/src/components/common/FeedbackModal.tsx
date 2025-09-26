@@ -9,7 +9,7 @@ import {
   Typography,
   Box,
   CircularProgress,
-  Rating
+  Rating,
 } from '@mui/material';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import { useNotifications } from './NotificationContext';
@@ -33,7 +33,7 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
     }
 
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch('/api/feedback', {
         method: 'POST',
@@ -43,7 +43,7 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
         body: JSON.stringify({
           feedback,
           email: email || undefined,
-          rating
+          rating,
         }),
       });
 
@@ -59,7 +59,9 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
       }
     } catch (error) {
       console.error('Error sending feedback:', error);
-      show(error instanceof Error ? error.message : 'Failed to send feedback', { severity: 'error' });
+      show(error instanceof Error ? error.message : 'Failed to send feedback', {
+        severity: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -74,12 +76,15 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
       <DialogContent dividers>
         <Box sx={{ mb: 3 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            We value your input! Please share any thoughts, suggestions, or issues you&apos;ve encountered.
+            We value your input! Please share any thoughts, suggestions, or
+            issues you&apos;ve encountered.
           </Typography>
         </Box>
-        
+
         <Box sx={{ mb: 3 }}>
-          <Typography component="legend" gutterBottom>How would you rate your experience?</Typography>
+          <Typography component="legend" gutterBottom>
+            How would you rate your experience?
+          </Typography>
           <Rating
             name="rating"
             value={rating}
@@ -99,18 +104,18 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
           multiline
           rows={4}
           value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
+          onChange={e => setFeedback(e.target.value)}
           required
         />
-        
+
         <TextField
           margin="dense"
           id="email"
-          label="Your Email (optional, if you&apos;d like us to follow up)"
+          label="Your Email (optional, if you'd like us to follow up)"
           type="email"
           fullWidth
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
           sx={{ mt: 2 }}
         />
       </DialogContent>
@@ -118,9 +123,9 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
         <Button onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button 
-          onClick={handleSubmit} 
-          variant="contained" 
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
           color="primary"
           disabled={isSubmitting}
           startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
@@ -130,4 +135,4 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
       </DialogActions>
     </Dialog>
   );
-} 
+}

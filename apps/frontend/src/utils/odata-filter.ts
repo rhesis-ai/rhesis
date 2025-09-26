@@ -10,16 +10,13 @@ export function createTaskWildcardSearchFilter(searchTerm: string): string {
   }
 
   const escapedTerm = escapeODataValue(searchTerm.trim());
-  
+
   // Define all the searchable fields for tasks - only title and description
-  const searchableFields = [
-    'title',
-    'description'
-  ];
+  const searchableFields = ['title', 'description'];
 
   // Create contains conditions for each field
-  const conditions = searchableFields.map(field => 
-    `contains(tolower(${field}), tolower('${escapedTerm}'))`
+  const conditions = searchableFields.map(
+    field => `contains(tolower(${field}), tolower('${escapedTerm}'))`
   );
 
   // Join all conditions with OR
@@ -36,11 +33,11 @@ export function createWildcardSearchFilter(searchTerm: string): string {
   }
 
   const escapedTerm = escapeODataValue(searchTerm.trim());
-  
+
   // Define all the searchable fields for tests
   const searchableFields = [
     'behavior/name',
-    'topic/name', 
+    'topic/name',
     'category/name',
     'prompt/content',
     'assignee/name',
@@ -49,13 +46,13 @@ export function createWildcardSearchFilter(searchTerm: string): string {
     'assignee/family_name',
     'owner/name',
     'owner/email',
-    'owner/given_name', 
-    'owner/family_name'
+    'owner/given_name',
+    'owner/family_name',
   ];
 
   // Create contains conditions for each field
-  const conditions = searchableFields.map(field => 
-    `contains(tolower(${field}), tolower('${escapedTerm}'))`
+  const conditions = searchableFields.map(
+    field => `contains(tolower(${field}), tolower('${escapedTerm}'))`
   );
 
   // Join all conditions with OR
@@ -68,26 +65,32 @@ export function createWildcardSearchFilter(searchTerm: string): string {
  */
 function convertFilterItemToOData(item: GridFilterItem): string {
   const { field, operator, value } = item;
-  
-  if (!field || !operator || value === undefined || value === null || value === '') {
+
+  if (
+    !field ||
+    !operator ||
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
     return '';
   }
 
   // Convert dot notation to OData relationship syntax
   // e.g., 'behavior.name' becomes 'behavior/name'
-  let odataField = field.replace(/\./g, '/');
+  const odataField = field.replace(/\./g, '/');
 
   // Handle different operators following the official OData guide patterns
   switch (operator) {
     case 'contains':
       return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-    
+
     case 'startsWith':
       return `startswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-    
+
     case 'endsWith':
       return `endswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-    
+
     case 'equals':
     case '=':
     case 'is':
@@ -96,7 +99,7 @@ function convertFilterItemToOData(item: GridFilterItem): string {
         return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
       }
       return `${odataField} eq '${escapeODataValue(value)}'`;
-    
+
     case 'not':
     case '!=':
       // For string fields, use case-insensitive comparison
@@ -104,36 +107,38 @@ function convertFilterItemToOData(item: GridFilterItem): string {
         return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
       }
       return `${odataField} ne '${escapeODataValue(value)}'`;
-    
+
     case 'greaterThan':
     case '>':
       return `${odataField} gt ${escapeODataValue(value)}`;
-    
+
     case 'greaterThanOrEqual':
     case '>=':
       return `${odataField} ge ${escapeODataValue(value)}`;
-    
+
     case 'lessThan':
     case '<':
       return `${odataField} lt ${escapeODataValue(value)}`;
-    
+
     case 'lessThanOrEqual':
     case '<=':
       return `${odataField} le ${escapeODataValue(value)}`;
-    
+
     case 'isEmpty':
       return `${odataField} eq null or ${odataField} eq ''`;
-    
+
     case 'isNotEmpty':
       return `${odataField} ne null and ${odataField} ne ''`;
-    
+
     case 'isAnyOf':
       if (Array.isArray(value) && value.length > 0) {
-        const conditions = value.map(v => `${odataField} eq '${escapeODataValue(v)}'`).join(' or ');
+        const conditions = value
+          .map(v => `${odataField} eq '${escapeODataValue(v)}'`)
+          .join(' or ');
         return `(${conditions})`;
       }
       return '';
-    
+
     default:
       // Fallback for unknown operators - treat as contains
       return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
@@ -146,8 +151,14 @@ function convertFilterItemToOData(item: GridFilterItem): string {
  */
 function convertTaskFilterItemToOData(item: GridFilterItem): string {
   const { field, operator, value } = item;
-  
-  if (!field || !operator || value === undefined || value === null || value === '') {
+
+  if (
+    !field ||
+    !operator ||
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
     return '';
   }
 
@@ -158,7 +169,7 @@ function convertTaskFilterItemToOData(item: GridFilterItem): string {
 
   // Map task-specific fields to their OData relationship syntax
   let odataField = field;
-  
+
   // Handle relationship fields
   switch (field) {
     case 'status':
@@ -182,13 +193,13 @@ function convertTaskFilterItemToOData(item: GridFilterItem): string {
   switch (operator) {
     case 'contains':
       return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-    
+
     case 'startsWith':
       return `startswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-    
+
     case 'endsWith':
       return `endswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
-    
+
     case 'equals':
     case '=':
     case 'is':
@@ -197,7 +208,7 @@ function convertTaskFilterItemToOData(item: GridFilterItem): string {
         return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
       }
       return `${odataField} eq '${escapeODataValue(value)}'`;
-    
+
     case 'not':
     case '!=':
       // For string fields, use case-insensitive comparison
@@ -205,36 +216,38 @@ function convertTaskFilterItemToOData(item: GridFilterItem): string {
         return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
       }
       return `${odataField} ne '${escapeODataValue(value)}'`;
-    
+
     case 'greaterThan':
     case '>':
       return `${odataField} gt ${escapeODataValue(value)}`;
-    
+
     case 'greaterThanOrEqual':
     case '>=':
       return `${odataField} ge ${escapeODataValue(value)}`;
-    
+
     case 'lessThan':
     case '<':
       return `${odataField} lt ${escapeODataValue(value)}`;
-    
+
     case 'lessThanOrEqual':
     case '<=':
       return `${odataField} le ${escapeODataValue(value)}`;
-    
+
     case 'isEmpty':
       return `${odataField} eq null or ${odataField} eq ''`;
-    
+
     case 'isNotEmpty':
       return `${odataField} ne null and ${odataField} ne ''`;
-    
+
     case 'isAnyOf':
       if (Array.isArray(value) && value.length > 0) {
-        const conditions = value.map(v => `${odataField} eq '${escapeODataValue(v)}'`).join(' or ');
+        const conditions = value
+          .map(v => `${odataField} eq '${escapeODataValue(v)}'`)
+          .join(' or ');
         return `(${conditions})`;
       }
       return '';
-    
+
     default:
       // Fallback for unknown operators - treat as contains
       return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
@@ -248,7 +261,7 @@ function escapeODataValue(value: any): string {
   if (typeof value !== 'string') {
     return String(value);
   }
-  
+
   // Escape single quotes by doubling them
   return value.replace(/'/g, "''");
 }
@@ -257,7 +270,9 @@ function escapeODataValue(value: any): string {
  * Converts a MUI DataGrid filter model to an OData filter expression
  * Optimized for Tasks filtering
  */
-export function convertTaskFilterModelToOData(filterModel: GridFilterModel): string {
+export function convertTaskFilterModelToOData(
+  filterModel: GridFilterModel
+): string {
   if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
     return '';
   }
@@ -284,7 +299,9 @@ export function convertTaskFilterModelToOData(filterModel: GridFilterModel): str
  * Converts a MUI DataGrid filter model to an OData filter expression
  * Optimized for Tests filtering
  */
-export function convertGridFilterModelToOData(filterModel: GridFilterModel): string {
+export function convertGridFilterModelToOData(
+  filterModel: GridFilterModel
+): string {
   if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
     return '';
   }
@@ -310,22 +327,33 @@ export function convertGridFilterModelToOData(filterModel: GridFilterModel): str
 /**
  * Handles quick filter (global search) conversion to OData
  */
-export function convertQuickFilterToOData(quickFilterValues: any[], searchFields: string[]): string {
-  if (!quickFilterValues || quickFilterValues.length === 0 || !searchFields || searchFields.length === 0) {
+export function convertQuickFilterToOData(
+  quickFilterValues: any[],
+  searchFields: string[]
+): string {
+  if (
+    !quickFilterValues ||
+    quickFilterValues.length === 0 ||
+    !searchFields ||
+    searchFields.length === 0
+  ) {
     return '';
   }
 
-  const quickFilterExpressions = quickFilterValues.map(value => {
-    if (!value || value === '') return '';
-    
-    // Create a contains condition for each search field
-    const fieldConditions = searchFields.map(field => 
-      `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-    );
-    
-    // Join field conditions with OR (search in any field)
-    return `(${fieldConditions.join(' or ')})`;
-  }).filter(expr => expr !== '');
+  const quickFilterExpressions = quickFilterValues
+    .map(value => {
+      if (!value || value === '') return '';
+
+      // Create a contains condition for each search field
+      const fieldConditions = searchFields.map(
+        field =>
+          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
+      );
+
+      // Join field conditions with OR (search in any field)
+      return `(${fieldConditions.join(' or ')})`;
+    })
+    .filter(expr => expr !== '');
 
   if (quickFilterExpressions.length === 0) {
     return '';
@@ -367,9 +395,10 @@ export function combineTaskFiltersToOData(
     .filter(expr => expr !== '');
 
   // Convert quick filters
-  const quickFilterExpression = quickFilterValues.length > 0 
-    ? convertTaskQuickFilterToOData(quickFilterValues)
-    : '';
+  const quickFilterExpression =
+    quickFilterValues.length > 0
+      ? convertTaskQuickFilterToOData(quickFilterValues)
+      : '';
 
   // Combine both types of filters
   const allExpressions = [...regularFilterExpressions];
@@ -394,14 +423,15 @@ export function combineTaskFiltersToOData(
  * Combines regular filters and quick filters into a single OData expression
  */
 export function combineFiltersToOData(
-  filterModel: GridFilterModel, 
-  quickFilterValues?: any[], 
+  filterModel: GridFilterModel,
+  quickFilterValues?: any[],
   searchFields?: string[]
 ): string {
   const regularFilter = convertGridFilterModelToOData(filterModel);
-  const quickFilter = quickFilterValues && searchFields 
-    ? convertQuickFilterToOData(quickFilterValues, searchFields) 
-    : '';
+  const quickFilter =
+    quickFilterValues && searchFields
+      ? convertQuickFilterToOData(quickFilterValues, searchFields)
+      : '';
 
   if (regularFilter && quickFilter) {
     return `(${regularFilter}) and (${quickFilter})`;
@@ -413,28 +443,30 @@ export function combineFiltersToOData(
 /**
  * Handles quick filter (global search) conversion to OData for tasks
  */
-export function convertTaskQuickFilterToOData(quickFilterValues: any[]): string {
+export function convertTaskQuickFilterToOData(
+  quickFilterValues: any[]
+): string {
   if (!quickFilterValues || quickFilterValues.length === 0) {
     return '';
   }
 
   // Define task searchable fields - only title and description
-  const searchFields = [
-    'title',
-    'description'
-  ];
+  const searchFields = ['title', 'description'];
 
-  const quickFilterExpressions = quickFilterValues.map(value => {
-    if (!value || value === '') return '';
-    
-    // Create a contains condition for each search field
-    const fieldConditions = searchFields.map(field => 
-      `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
-    );
-    
-    // Join field conditions with OR (search in any field)
-    return `(${fieldConditions.join(' or ')})`;
-  }).filter(expr => expr !== '');
+  const quickFilterExpressions = quickFilterValues
+    .map(value => {
+      if (!value || value === '') return '';
+
+      // Create a contains condition for each search field
+      const fieldConditions = searchFields.map(
+        field =>
+          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
+      );
+
+      // Join field conditions with OR (search in any field)
+      return `(${fieldConditions.join(' or ')})`;
+    })
+    .filter(expr => expr !== '');
 
   if (quickFilterExpressions.length === 0) {
     return '';
@@ -446,4 +478,4 @@ export function convertTaskQuickFilterToOData(quickFilterValues: any[]): string 
 
   // Join multiple quick filter values with AND (all values must match)
   return `(${quickFilterExpressions.join(' and ')})`;
-} 
+}

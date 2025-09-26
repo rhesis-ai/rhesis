@@ -19,4 +19,4 @@ export default function ThemeToggle() {
       {colorMode.mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
     </IconButton>
   );
-} 
+}

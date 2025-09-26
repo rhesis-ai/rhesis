@@ -17,7 +17,7 @@ interface SectionEditDrawerProps {
   title: string;
   description: string;
   onSave: (title: string, description: string, organization_id: UUID) => void;
-  onDelete?: () => void; 
+  onDelete?: () => void;
   isNew?: boolean;
   loading?: boolean;
   error?: string;
@@ -36,10 +36,11 @@ const SectionEditDrawer = ({
   loading = false,
   error,
   entityName = 'Dimension',
-  organization_id
+  organization_id,
 }: SectionEditDrawerProps) => {
   const [currentTitle, setCurrentTitle] = React.useState(initialTitle);
-  const [currentDescription, setCurrentDescription] = React.useState(initialDescription);
+  const [currentDescription, setCurrentDescription] =
+    React.useState(initialDescription);
 
   React.useEffect(() => {
     setCurrentTitle(initialTitle);
@@ -64,7 +65,7 @@ const SectionEditDrawer = ({
       error={error}
       width={600}
     >
-      <Stack 
+      <Stack
         spacing={{ xs: 2, sm: 3 }}
         divider={!isNew && onDelete ? <Divider /> : null}
         useFlexGap
@@ -78,7 +79,7 @@ const SectionEditDrawer = ({
           <TextField
             label="Name"
             value={currentTitle}
-            onChange={(e) => setCurrentTitle(e.target.value)}
+            onChange={e => setCurrentTitle(e.target.value)}
             fullWidth
             required
             variant="outlined"
@@ -88,7 +89,7 @@ const SectionEditDrawer = ({
           <TextField
             label="Description"
             value={currentDescription}
-            onChange={(e) => setCurrentDescription(e.target.value)}
+            onChange={e => setCurrentDescription(e.target.value)}
             multiline
             rows={4}
             fullWidth
@@ -96,7 +97,7 @@ const SectionEditDrawer = ({
             disabled={loading}
           />
         </Stack>
-        
+
         {/* Danger Zone Section */}
         {!isNew && onDelete && (
           <Stack spacing={2}>
@@ -120,4 +121,4 @@ const SectionEditDrawer = ({
   );
 };
 
-export default SectionEditDrawer; 
+export default SectionEditDrawer;

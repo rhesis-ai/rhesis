@@ -1,19 +1,28 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { 
-  Behavior, 
-  BehaviorCreate, 
-  BehaviorUpdate, 
-  BehaviorsQueryParams, 
-  BehaviorWithMetrics 
+import {
+  Behavior,
+  BehaviorCreate,
+  BehaviorUpdate,
+  BehaviorsQueryParams,
+  BehaviorWithMetrics,
 } from './interfaces/behavior';
 import { UUID } from 'crypto';
 import { MetricDetail } from './interfaces/metric';
 
 export class BehaviorClient extends BaseApiClient {
-  async getBehaviors(params: BehaviorsQueryParams = {}): Promise<BehaviorWithMetrics[]> {
-    const { skip = 0, limit = 10, sort_by = 'created_at', sort_order = 'desc', $filter, include } = params;
-    
+  async getBehaviors(
+    params: BehaviorsQueryParams = {}
+  ): Promise<BehaviorWithMetrics[]> {
+    const {
+      skip = 0,
+      limit = 10,
+      sort_by = 'created_at',
+      sort_order = 'desc',
+      $filter,
+      include,
+    } = params;
+
     // Build query string
     const queryParams = new URLSearchParams();
     queryParams.append('skip', skip.toString());
@@ -25,11 +34,11 @@ export class BehaviorClient extends BaseApiClient {
     }
     // Note: The backend now always returns behaviors with metrics and their relationships
     // No need for conditional include parameter since get_items_detail always loads relationships
-    
+
     const url = `${API_ENDPOINTS.behaviors}?${queryParams.toString()}`;
-    
+
     return this.fetch<BehaviorWithMetrics[]>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
@@ -40,30 +49,37 @@ export class BehaviorClient extends BaseApiClient {
   async getBehaviorWithMetrics(id: UUID): Promise<BehaviorWithMetrics> {
     const queryParams = new URLSearchParams();
     queryParams.append('include', 'metrics');
-    
+
     const url = `${API_ENDPOINTS.behaviors}/${id}?${queryParams.toString()}`;
-    
+
     return this.fetch<BehaviorWithMetrics>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
-  async getBehaviorsWithMetrics(params: Omit<BehaviorsQueryParams, 'include'> = {}): Promise<BehaviorWithMetrics[]> {
-    console.log('🔍 [DEBUG] getBehaviorsWithMetrics called with params:', params);
+  async getBehaviorsWithMetrics(
+    params: Omit<BehaviorsQueryParams, 'include'> = {}
+  ): Promise<BehaviorWithMetrics[]> {
+    console.log(
+      '[SEARCH] [DEBUG] getBehaviorsWithMetrics called with params:',
+      params
+    );
     try {
       // Since getBehaviors now always returns BehaviorWithMetrics, we can just call it directly
       const result = await this.getBehaviors(params);
-      console.log('✅ [DEBUG] getBehaviorsWithMetrics result:', {
+      console.log('[SUCCESS] [DEBUG] getBehaviorsWithMetrics result:', {
         count: result.length,
-        firstItem: result[0] ? {
-          id: result[0].id,
-          name: result[0].name,
-          metricsCount: result[0].metrics?.length || 0
-        } : null
+        firstItem: result[0]
+          ? {
+              id: result[0].id,
+              name: result[0].name,
+              metricsCount: result[0].metrics?.length || 0,
+            }
+          : null,
       });
       return result;
     } catch (error) {
-      console.error('❌ [DEBUG] getBehaviorsWithMetrics error:', error);
+      console.error('[ERROR] [DEBUG] getBehaviorsWithMetrics error:', error);
       throw error;
     }
   }
@@ -88,18 +104,21 @@ export class BehaviorClient extends BaseApiClient {
     });
   }
 
-  async getBehaviorMetrics(behaviorId: UUID, params: { skip?: number; limit?: number } = {}): Promise<MetricDetail[]> {
+  async getBehaviorMetrics(
+    behaviorId: UUID,
+    params: { skip?: number; limit?: number } = {}
+  ): Promise<MetricDetail[]> {
     const { skip = 0, limit = 100 } = params;
-    
+
     // Build query string
     const queryParams = new URLSearchParams();
     queryParams.append('skip', skip.toString());
     queryParams.append('limit', limit.toString());
-    
+
     const url = `${API_ENDPOINTS.behaviors}/${behaviorId}/metrics/?${queryParams.toString()}`;
-    
+
     return this.fetch<MetricDetail[]>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
-} 
+}

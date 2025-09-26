@@ -20,7 +20,11 @@ interface Test {
   metadata: TestMetadata;
 }
 
-import { Document } from './interfaces/documents';
+import {
+  Document,
+  DocumentUploadResponse,
+  DocumentMetadata,
+} from './interfaces/documents';
 
 interface GenerateTestsRequest {
   prompt: object;
@@ -36,8 +40,6 @@ interface TextResponse {
   text: string;
 }
 
-import { DocumentUploadResponse, DocumentMetadata } from './interfaces/documents';
-
 interface ExtractDocumentResponse {
   content: string;
   format: string;
@@ -45,18 +47,20 @@ interface ExtractDocumentResponse {
 
 export class ServicesClient extends BaseApiClient {
   async getGitHubContents(repo_url: string): Promise<string> {
-    return this.fetch<string>(`${API_ENDPOINTS.services}/github/contents?repo_url=${encodeURIComponent(repo_url)}`);
+    return this.fetch<string>(
+      `${API_ENDPOINTS.services}/github/contents?repo_url=${encodeURIComponent(repo_url)}`
+    );
   }
 
   async getOpenAIJson(prompt: string) {
     return this.fetch<any>(`${API_ENDPOINTS.services}/openai/json`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt)
-      })
+        prompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt),
+      }),
     });
   }
 
@@ -64,37 +68,44 @@ export class ServicesClient extends BaseApiClient {
     return this.fetch<string>(`${API_ENDPOINTS.services}/openai/chat`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         messages,
-        response_format: 'text'
-      })
+        response_format: 'text',
+      }),
     });
   }
 
-  async generateText(prompt: string, stream: boolean = false): Promise<TextResponse> {
+  async generateText(
+    prompt: string,
+    stream: boolean = false
+  ): Promise<TextResponse> {
     return this.fetch<TextResponse>(`${API_ENDPOINTS.services}/generate/text`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         prompt,
-        stream
-      })
+        stream,
+      }),
     });
   }
 
-  async generateTests(request: GenerateTestsRequest): Promise<GenerateTestsResponse> {
-    return this.fetch<GenerateTestsResponse>(`${API_ENDPOINTS.services}/generate/tests`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(request)
-  
-    });
+  async generateTests(
+    request: GenerateTestsRequest
+  ): Promise<GenerateTestsResponse> {
+    return this.fetch<GenerateTestsResponse>(
+      `${API_ENDPOINTS.services}/generate/tests`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    );
   }
 
   async uploadDocument(file: File): Promise<DocumentUploadResponse> {
@@ -104,7 +115,7 @@ export class ServicesClient extends BaseApiClient {
     // For multipart/form-data, we need to override the default headers
     // Create headers object without Content-Type so browser can set it correctly
     const headers: Record<string, string> = {};
-    
+
     // Add authorization if we have a session token (copied from BaseApiClient logic)
     if (this.sessionToken) {
       headers['Authorization'] = `Bearer ${this.sessionToken}`;
@@ -116,7 +127,7 @@ export class ServicesClient extends BaseApiClient {
       method: 'POST',
       body: formData,
       headers,
-      credentials: 'include'
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -142,31 +153,38 @@ export class ServicesClient extends BaseApiClient {
 
     Document content: ${content}
   `;
-  
-  const response = await this.generateText(structuredPrompt);
-  
-  try {
-    // First try to find the name and description using the structured format
-    const nameMatch = response.text.match(/Name:\s*([\s\S]+?)(?=\n|Description:|$)/);
-    const descriptionMatch = response.text.match(/Description:\s*([\s\S]+?)(?=\n|$)/);
 
-    return {
-      name: (nameMatch?.[1] || '').trim() || 'Untitled Document',
-      description: (descriptionMatch?.[1] || '').trim() || ''
-    };
-  } catch {
-    // Fallback to the old method if parsing fails
-    return {
-      name: 'Untitled Document',
-      description: ''
-    };
+    const response = await this.generateText(structuredPrompt);
+
+    try {
+      // First try to find the name and description using the structured format
+      const nameMatch = response.text.match(
+        /Name:\s*([\s\S]+?)(?=\n|Description:|$)/
+      );
+      const descriptionMatch = response.text.match(
+        /Description:\s*([\s\S]+?)(?=\n|$)/
+      );
+
+      return {
+        name: (nameMatch?.[1] || '').trim() || 'Untitled Document',
+        description: (descriptionMatch?.[1] || '').trim() || '',
+      };
+    } catch {
+      // Fallback to the old method if parsing fails
+      return {
+        name: 'Untitled Document',
+        description: '',
+      };
+    }
   }
-  }
-  
+
   async extractDocument(path: string): Promise<ExtractDocumentResponse> {
-    return this.fetch<ExtractDocumentResponse>(`${API_ENDPOINTS.services}/documents/extract`, {
-      method: 'POST',
-      body: JSON.stringify({ path })
-    });
+    return this.fetch<ExtractDocumentResponse>(
+      `${API_ENDPOINTS.services}/documents/extract`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ path }),
+      }
+    );
   }
 }

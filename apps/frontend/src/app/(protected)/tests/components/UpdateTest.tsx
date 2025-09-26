@@ -12,10 +12,17 @@ import {
   ListItemAvatar,
   ListItemText,
   Divider,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
-import BaseFreesoloAutocomplete, { AutocompleteOption as FreeSoloOption } from '@/components/common/BaseFreesoloAutocomplete';
-import { TestBulkCreateRequest, PriorityLevel, TestDetail, TestUpdate } from '@/utils/api-client/interfaces/tests';
+import BaseFreesoloAutocomplete, {
+  AutocompleteOption as FreeSoloOption,
+} from '@/components/common/BaseFreesoloAutocomplete';
+import {
+  TestBulkCreateRequest,
+  PriorityLevel,
+  TestDetail,
+  TestUpdate,
+} from '@/utils/api-client/interfaces/tests';
 import { PromptUpdate } from '@/utils/api-client/interfaces/prompt';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UUID } from 'crypto';
@@ -54,16 +61,17 @@ interface UpdateTestProps {
 const PRIORITY_OPTIONS: PriorityLevel[] = ['Low', 'Medium', 'High', 'Urgent'];
 
 const isValidUUID = (str: string): boolean => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(str);
 };
 
-export default function UpdateTest({ 
+export default function UpdateTest({
   sessionToken,
   onSuccess,
   onError,
   submitRef,
-  test
+  test,
 }: UpdateTestProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>({
@@ -74,9 +82,9 @@ export default function UpdateTest({
     prompt_content: test.prompt?.content || '',
     assignee_id: test.assignee?.id || undefined,
     owner_id: test.owner?.id || undefined,
-    status_id: test.status?.id || undefined
+    status_id: test.status?.id || undefined,
   });
-  
+
   // Options for dropdowns
   const [behaviors, setBehaviors] = useState<AutocompleteOption[]>([]);
   const [topics, setTopics] = useState<AutocompleteOption[]>([]);
@@ -89,9 +97,9 @@ export default function UpdateTest({
     console.log('Test prop in UpdateTest:', {
       test,
       testStatus: test?.status,
-      testStatusId: test?.status?.id
+      testStatusId: test?.status?.id,
     });
-    
+
     if (test) {
       setFormData(prevData => {
         const newData = {
@@ -102,16 +110,16 @@ export default function UpdateTest({
           prompt_content: test.prompt?.content || '',
           assignee_id: test.assignee?.id || undefined,
           owner_id: test.owner?.id || undefined,
-          status_id: test.status?.id
+          status_id: test.status?.id,
         };
-        
+
         console.log('Updating formData:', {
           prevData,
           newData,
           statusFromTest: test.status,
-          statusIdFromTest: test.status?.id
+          statusIdFromTest: test.status?.id,
         });
-        
+
         return newData;
       });
     }
@@ -134,38 +142,38 @@ export default function UpdateTest({
         const categoryClient = apiFactory.getCategoryClient();
         const usersClient = apiFactory.getUsersClient();
         const statusClient = apiFactory.getStatusClient();
-        
+
         // Load all options in parallel
         const [
           behaviorsData,
           topicsData,
           categoriesData,
           usersData,
-          statusesData
+          statusesData,
         ] = await Promise.all([
           behaviorClient.getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
-          topicClient.getTopics({ 
-            sort_by: 'name', 
+          topicClient.getTopics({
+            sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test'
+            entity_type: 'Test',
           }),
-          categoryClient.getCategories({ 
-            sort_by: 'name', 
+          categoryClient.getCategories({
+            sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test'
+            entity_type: 'Test',
           }),
           usersClient.getUsers(),
-          statusClient.getStatuses({ 
-            sort_by: 'name', 
+          statusClient.getStatuses({
+            sort_by: 'name',
             sort_order: 'asc',
-            entity_type: ENTITY_TYPES.test
-          })
+            entity_type: ENTITY_TYPES.test,
+          }),
         ]);
 
         console.log('Debug - Options loaded:', {
           statusesData,
           testStatus: test.status,
-          formDataStatusId: formData.status_id
+          formDataStatusId: formData.status_id,
         });
 
         // Filter out duplicates and invalid entries before setting state
@@ -173,11 +181,14 @@ export default function UpdateTest({
         setTopics(filterUniqueValidOptions(topicsData));
         setCategories(filterUniqueValidOptions(categoriesData));
         setStatuses(statusesData);
-        
+
         // Transform users into options with display names
         const transformedUsers = usersData.data.map(user => ({
           ...user,
-          displayName: user.name || `${user.given_name || ''} ${user.family_name || ''}`.trim() || user.email
+          displayName:
+            user.name ||
+            `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+            user.email,
         }));
         setUsers(transformedUsers);
       } catch (err) {
@@ -186,45 +197,57 @@ export default function UpdateTest({
     };
 
     loadOptions();
-  }, [sessionToken, onError, setBehaviors, setTopics, setCategories, setStatuses, setUsers, formData.status_id, test.status]);
+  }, [
+    sessionToken,
+    onError,
+    setBehaviors,
+    setTopics,
+    setCategories,
+    setStatuses,
+    setUsers,
+    formData.status_id,
+    test.status,
+  ]);
 
   // Update form data with autocomplete value (either string or option)
-  const handleFieldChange = (field: keyof TestFormData) => (value: AutocompleteOption | string | null) => {
-    if (value === null) {
-      // Cleared value
-      setFormData(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
-    } else if (typeof value === 'string') {
-      // User entered a string that is not a UUID
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    } else if (value && 'inputValue' in value && value.inputValue) {
-      // User selected "Add new" option
-      setFormData(prev => ({
-        ...prev,
-        [field]: value.inputValue
-      }));
-    } else if (value && 'id' in value) {
-      // User selected an existing option
-      setFormData(prev => ({
-        ...prev,
-        [field]: value.id
-      }));
-    }
-  };
+  const handleFieldChange =
+    (field: keyof TestFormData) =>
+    (value: AutocompleteOption | string | null) => {
+      if (value === null) {
+        // Cleared value
+        setFormData(prev => ({
+          ...prev,
+          [field]: undefined,
+        }));
+      } else if (typeof value === 'string') {
+        // User entered a string that is not a UUID
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+        }));
+      } else if (value && 'inputValue' in value && value.inputValue) {
+        // User selected "Add new" option
+        setFormData(prev => ({
+          ...prev,
+          [field]: value.inputValue,
+        }));
+      } else if (value && 'id' in value) {
+        // User selected an existing option
+        setFormData(prev => ({
+          ...prev,
+          [field]: value.id,
+        }));
+      }
+    };
 
-  const handleChange = (field: keyof TestFormData) => (
-    event: React.ChangeEvent<HTMLInputElement | { value: unknown }>
-  ) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
+  const handleChange =
+    (field: keyof TestFormData) =>
+    (event: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: event.target.value,
+      }));
+    };
 
   // Helper function to create a new behavior if needed
   const validateEntityName = (name: string): string => {
@@ -238,106 +261,131 @@ export default function UpdateTest({
     return trimmedName;
   };
 
-  const getOrCreateBehavior = useCallback(async (name: string) => {
-    const behaviorName = validateEntityName(name);
-    const apiFactory = new ApiClientFactory(sessionToken);
-    const behaviorClient = apiFactory.getBehaviorClient();
-    
-    // First check if it's a UUID
-    if (isValidUUID(name)) {
-      const existingBehavior = behaviors.find(b => b.id === name);
+  const getOrCreateBehavior = useCallback(
+    async (name: string) => {
+      const behaviorName = validateEntityName(name);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const behaviorClient = apiFactory.getBehaviorClient();
+
+      // First check if it's a UUID
+      if (isValidUUID(name)) {
+        const existingBehavior = behaviors.find(b => b.id === name);
+        if (existingBehavior) {
+          return existingBehavior.name;
+        }
+      }
+
+      // Then check by name
+      const existingBehavior = behaviors.find(
+        b => b.name.toLowerCase() === behaviorName.toLowerCase()
+      );
       if (existingBehavior) {
         return existingBehavior.name;
       }
-    }
 
-    // Then check by name
-    const existingBehavior = behaviors.find(b => b.name.toLowerCase() === behaviorName.toLowerCase());
-    if (existingBehavior) {
-      return existingBehavior.name;
-    }
+      try {
+        // Create new behavior
+        const newBehavior = await behaviorClient.createBehavior({
+          name: behaviorName,
+        });
 
-    try {
-      // Create new behavior
-      const newBehavior = await behaviorClient.createBehavior({
-        name: behaviorName
-      });
-
-      // Add to local state
-      setBehaviors(prev => [...prev, { id: newBehavior.id, name: newBehavior.name }]);
-      return newBehavior.name;
-    } catch (error) {
-      throw new Error(`Failed to create behavior: ${(error as Error).message}`);
-    }
-  }, [sessionToken, behaviors, setBehaviors]);
+        // Add to local state
+        setBehaviors(prev => [
+          ...prev,
+          { id: newBehavior.id, name: newBehavior.name },
+        ]);
+        return newBehavior.name;
+      } catch (error) {
+        throw new Error(
+          `Failed to create behavior: ${(error as Error).message}`
+        );
+      }
+    },
+    [sessionToken, behaviors, setBehaviors]
+  );
 
   // Helper function to create a new topic if needed
-  const getOrCreateTopic = useCallback(async (name: string) => {
-    const topicName = validateEntityName(name);
-    const apiFactory = new ApiClientFactory(sessionToken);
-    const topicClient = apiFactory.getTopicClient();
-    
-    // First check if it's a UUID
-    if (isValidUUID(name)) {
-      const existingTopic = topics.find(t => t.id === name);
+  const getOrCreateTopic = useCallback(
+    async (name: string) => {
+      const topicName = validateEntityName(name);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const topicClient = apiFactory.getTopicClient();
+
+      // First check if it's a UUID
+      if (isValidUUID(name)) {
+        const existingTopic = topics.find(t => t.id === name);
+        if (existingTopic) {
+          return existingTopic.name;
+        }
+      }
+
+      // Then check by name
+      const existingTopic = topics.find(
+        t => t.name.toLowerCase() === topicName.toLowerCase()
+      );
       if (existingTopic) {
         return existingTopic.name;
       }
-    }
 
-    // Then check by name
-    const existingTopic = topics.find(t => t.name.toLowerCase() === topicName.toLowerCase());
-    if (existingTopic) {
-      return existingTopic.name;
-    }
+      try {
+        // Create new topic
+        const newTopic = await topicClient.createTopic({
+          name: topicName,
+        });
 
-    try {
-      // Create new topic
-      const newTopic = await topicClient.createTopic({
-        name: topicName
-      });
-
-      // Add to local state
-      setTopics(prev => [...prev, { id: newTopic.id, name: newTopic.name }]);
-      return newTopic.name;
-    } catch (error) {
-      throw new Error(`Failed to create topic: ${(error as Error).message}`);
-    }
-  }, [sessionToken, topics, setTopics]);
+        // Add to local state
+        setTopics(prev => [...prev, { id: newTopic.id, name: newTopic.name }]);
+        return newTopic.name;
+      } catch (error) {
+        throw new Error(`Failed to create topic: ${(error as Error).message}`);
+      }
+    },
+    [sessionToken, topics, setTopics]
+  );
 
   // Helper function to create a new category if needed
-  const getOrCreateCategory = useCallback(async (name: string) => {
-    const categoryName = validateEntityName(name);
-    const apiFactory = new ApiClientFactory(sessionToken);
-    const categoryClient = apiFactory.getCategoryClient();
-    
-    // First check if it's a UUID
-    if (isValidUUID(name)) {
-      const existingCategory = categories.find(c => c.id === name);
+  const getOrCreateCategory = useCallback(
+    async (name: string) => {
+      const categoryName = validateEntityName(name);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const categoryClient = apiFactory.getCategoryClient();
+
+      // First check if it's a UUID
+      if (isValidUUID(name)) {
+        const existingCategory = categories.find(c => c.id === name);
+        if (existingCategory) {
+          return existingCategory.name;
+        }
+      }
+
+      // Then check by name
+      const existingCategory = categories.find(
+        c => c.name.toLowerCase() === categoryName.toLowerCase()
+      );
       if (existingCategory) {
         return existingCategory.name;
       }
-    }
 
-    // Then check by name
-    const existingCategory = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
-    if (existingCategory) {
-      return existingCategory.name;
-    }
+      try {
+        // Create new category
+        const newCategory = await categoryClient.createCategory({
+          name: categoryName,
+        });
 
-    try {
-      // Create new category
-      const newCategory = await categoryClient.createCategory({
-        name: categoryName
-      });
-
-      // Add to local state
-      setCategories(prev => [...prev, { id: newCategory.id, name: newCategory.name }]);
-      return newCategory.name;
-    } catch (error) {
-      throw new Error(`Failed to create category: ${(error as Error).message}`);
-    }
-  }, [sessionToken, categories, setCategories]);
+        // Add to local state
+        setCategories(prev => [
+          ...prev,
+          { id: newCategory.id, name: newCategory.name },
+        ]);
+        return newCategory.name;
+      } catch (error) {
+        throw new Error(
+          `Failed to create category: ${(error as Error).message}`
+        );
+      }
+    },
+    [sessionToken, categories, setCategories]
+  );
 
   const handleSubmit = useCallback(async () => {
     try {
@@ -351,25 +399,27 @@ export default function UpdateTest({
       const apiFactory = new ApiClientFactory(sessionToken);
       const testsClient = apiFactory.getTestsClient();
       const promptsClient = apiFactory.getPromptsClient();
-      
+
       // First update the prompt if content has changed
       if (formData.prompt_content !== test.prompt?.content) {
         const promptUpdate: PromptUpdate = {
           content: formData.prompt_content.trim(),
-          language_code: 'en'  // Maintain existing language code
+          language_code: 'en', // Maintain existing language code
         };
-        
+
         await promptsClient.updatePrompt(test.prompt_id, promptUpdate);
       }
 
       // Convert priority from string to numeric value
       const priorityMap: Record<PriorityLevel, number> = {
-        'Low': 0,
-        'Medium': 1,
-        'High': 2,
-        'Urgent': 3
+        Low: 0,
+        Medium: 1,
+        High: 2,
+        Urgent: 3,
       };
-      const numericPriority: number = formData.priorityLevel ? priorityMap[formData.priorityLevel] : 1;
+      const numericPriority: number = formData.priorityLevel
+        ? priorityMap[formData.priorityLevel]
+        : 1;
 
       // Validate and process behavior
       if (!formData.behavior_id) {
@@ -390,11 +440,21 @@ export default function UpdateTest({
       const categoryName = await getOrCreateCategory(formData.category_id);
 
       // Get IDs for the selected entities
-      const selectedBehavior = behaviors.find(b => b.name.toLowerCase() === behaviorName.toLowerCase());
-      const selectedTopic = topics.find(t => t.name.toLowerCase() === topicName.toLowerCase());
-      const selectedCategory = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+      const selectedBehavior = behaviors.find(
+        b => b.name.toLowerCase() === behaviorName.toLowerCase()
+      );
+      const selectedTopic = topics.find(
+        t => t.name.toLowerCase() === topicName.toLowerCase()
+      );
+      const selectedCategory = categories.find(
+        c => c.name.toLowerCase() === categoryName.toLowerCase()
+      );
 
-      if (!selectedBehavior?.id || !selectedTopic?.id || !selectedCategory?.id) {
+      if (
+        !selectedBehavior?.id ||
+        !selectedTopic?.id ||
+        !selectedCategory?.id
+      ) {
         throw new Error('Failed to retrieve IDs for selected entities');
       }
 
@@ -406,7 +466,7 @@ export default function UpdateTest({
         priority: numericPriority,
         assignee_id: formData.assignee_id,
         owner_id: formData.owner_id,
-        status_id: formData.status_id
+        status_id: formData.status_id,
       };
 
       await testsClient.updateTest(test.id, updateData);
@@ -428,7 +488,7 @@ export default function UpdateTest({
     getOrCreateBehavior,
     getOrCreateTopic,
     getOrCreateCategory,
-    setLoading
+    setLoading,
   ]);
 
   // Expose handleSubmit to parent component via ref
@@ -449,20 +509,20 @@ export default function UpdateTest({
           select
           label="Status"
           value={formData.status_id || ''}
-          onChange={(event) => {
+          onChange={event => {
             console.log('Status changed:', {
               newValue: event.target.value,
               currentValue: formData.status_id,
-              availableStatuses: statuses
+              availableStatuses: statuses,
             });
             setFormData(prev => ({
               ...prev,
-              status_id: event.target.value as UUID
+              status_id: event.target.value as UUID,
             }));
           }}
           required
         >
-          {statuses.map((status) => (
+          {statuses.map(status => (
             <MenuItem key={status.id} value={status.id}>
               {status.name}
             </MenuItem>
@@ -476,11 +536,11 @@ export default function UpdateTest({
         onChange={(event, newValue) => {
           setFormData(prev => ({
             ...prev,
-            assignee_id: newValue?.id
+            assignee_id: newValue?.id,
           }));
         }}
-        getOptionLabel={(option) => option.displayName}
-        renderInput={(params) => (
+        getOptionLabel={option => option.displayName}
+        renderInput={params => (
           <TextField
             {...params}
             label="Assignee"
@@ -489,13 +549,15 @@ export default function UpdateTest({
               startAdornment: formData.assignee_id && (
                 <Box sx={{ display: 'flex', alignItems: 'center', pl: 2 }}>
                   <Avatar
-                    src={users.find(u => u.id === formData.assignee_id)?.picture}
+                    src={
+                      users.find(u => u.id === formData.assignee_id)?.picture
+                    }
                     sx={{ width: 24, height: 24 }}
                   >
                     <PersonIcon />
                   </Avatar>
                 </Box>
-              )
+              ),
             }}
           />
         )}
@@ -504,10 +566,7 @@ export default function UpdateTest({
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Avatar
-                  src={option.picture}
-                  sx={{ width: 32, height: 32 }}
-                >
+                <Avatar src={option.picture} sx={{ width: 32, height: 32 }}>
                   <PersonIcon />
                 </Avatar>
                 <Typography>{option.displayName}</Typography>
@@ -523,11 +582,11 @@ export default function UpdateTest({
         onChange={(event, newValue) => {
           setFormData(prev => ({
             ...prev,
-            owner_id: newValue?.id
+            owner_id: newValue?.id,
           }));
         }}
-        getOptionLabel={(option) => option.displayName}
-        renderInput={(params) => (
+        getOptionLabel={option => option.displayName}
+        renderInput={params => (
           <TextField
             {...params}
             label="Owner"
@@ -542,7 +601,7 @@ export default function UpdateTest({
                     <PersonIcon />
                   </Avatar>
                 </Box>
-              )
+              ),
             }}
           />
         )}
@@ -551,10 +610,7 @@ export default function UpdateTest({
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Avatar
-                  src={option.picture}
-                  sx={{ width: 32, height: 32 }}
-                >
+                <Avatar src={option.picture} sx={{ width: 32, height: 32 }}>
                   <PersonIcon />
                 </Avatar>
                 <Typography>{option.displayName}</Typography>
@@ -602,7 +658,7 @@ export default function UpdateTest({
           onChange={handleChange('priorityLevel')}
           required
         >
-          {PRIORITY_OPTIONS.map((option) => (
+          {PRIORITY_OPTIONS.map(option => (
             <MenuItem key={option} value={option}>
               {option}
             </MenuItem>
@@ -622,4 +678,4 @@ export default function UpdateTest({
       </FormControl>
     </Stack>
   );
-} 
+}

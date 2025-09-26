@@ -1,6 +1,13 @@
 'use client';
 
-import { Box, Button, TextField, Paper, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  TextField,
+  Paper,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
@@ -17,13 +24,13 @@ interface TestExecutableFieldProps {
   fieldName?: 'content' | 'expected_response';
 }
 
-export default function TestExecutableField({ 
-  sessionToken, 
-  testId, 
-  promptId, 
+export default function TestExecutableField({
+  sessionToken,
+  testId,
+  promptId,
   initialContent,
   onUpdate,
-  fieldName = 'content'
+  fieldName = 'content',
 }: TestExecutableFieldProps) {
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -34,9 +41,9 @@ export default function TestExecutableField({
   // Default rows for TextField and minHeight calculation
   const displayRows = 4;
   // Approx line height for monospace font, adjust if necessary
-  const lineHeight = '1.4375em'; 
+  const lineHeight = '1.4375em';
   // Padding for the display box (theme.spacing(1) = 8px)
-  const boxPadding = '8px'; 
+  const boxPadding = '8px';
   // Min height for display box, considering rows and padding
   const displayMinHeight = `calc(${displayRows} * ${lineHeight} + 2 * ${boxPadding})`;
   // Space for the edit button
@@ -53,23 +60,28 @@ export default function TestExecutableField({
 
   const handleConfirmEdit = async () => {
     if (!sessionToken) return;
-    
+
     setIsUpdating(true);
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const promptsClient = clientFactory.getPromptsClient();
-      
+
       await promptsClient.updatePrompt(promptId, {
         [fieldName]: editedContent.trim(),
-        language_code: 'en'  // Maintain existing language code
+        language_code: 'en', // Maintain existing language code
       });
-      
+
       setIsEditing(false);
-      showNotification(`Successfully updated test ${fieldName.replace('_', ' ')}`, { severity: 'success' });
+      showNotification(
+        `Successfully updated test ${fieldName.replace('_', ' ')}`,
+        { severity: 'success' }
+      );
       onUpdate?.();
     } catch (error) {
       console.error(`Error updating test ${fieldName}:`, error);
-      showNotification(`Failed to update test ${fieldName.replace('_', ' ')}`, { severity: 'error' });
+      showNotification(`Failed to update test ${fieldName.replace('_', ' ')}`, {
+        severity: 'error',
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -83,7 +95,7 @@ export default function TestExecutableField({
           multiline
           rows={displayRows} // Use the constant
           value={editedContent}
-          onChange={(e) => setEditedContent(e.target.value)}
+          onChange={e => setEditedContent(e.target.value)}
           sx={{ mb: 1 }} // Margin for confirm/cancel buttons
           autoFocus
         />
@@ -95,37 +107,40 @@ export default function TestExecutableField({
             whiteSpace: 'pre-wrap',
             fontFamily: 'monospace',
             bgcolor: 'action.hover',
-            borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
             padding: boxPadding,
             minHeight: displayMinHeight,
             // Ensure text does not go under the absolutely positioned Edit button
-            paddingRight: editButtonSpace, 
+            paddingRight: editButtonSpace,
             // Break long words to prevent overflow if absolutely necessary,
             // though pre-wrap should handle most cases.
-            wordBreak: 'break-word', 
+            wordBreak: 'break-word',
           }}
         >
-          {initialContent || ' '} {/* Display a space if content is empty to render the box */}
+          {initialContent || ' '}{' '}
+          {/* Display a space if content is empty to render the box */}
         </Typography>
       )}
-      
+
       {!isEditing ? (
         <Button
           startIcon={<EditIcon />}
           onClick={handleEdit}
-          sx={{ 
-            position: 'absolute', 
-            top: 8, 
+          sx={{
+            position: 'absolute',
+            top: 8,
             right: 8,
             zIndex: 1,
-            backgroundColor: (theme) => theme.palette.mode === 'dark' 
-              ? 'rgba(0, 0, 0, 0.6)' 
-              : 'rgba(255, 255, 255, 0.8)',
+            backgroundColor: theme =>
+              theme.palette.mode === 'dark'
+                ? 'rgba(0, 0, 0, 0.6)'
+                : 'rgba(255, 255, 255, 0.8)',
             '&:hover': {
-              backgroundColor: (theme) => theme.palette.mode === 'dark'
-                ? 'rgba(0, 0, 0, 0.8)'
-                : 'rgba(255, 255, 255, 0.9)',
-            }
+              backgroundColor: theme =>
+                theme.palette.mode === 'dark'
+                  ? 'rgba(0, 0, 0, 0.8)'
+                  : 'rgba(255, 255, 255, 0.9)',
+            },
           }}
         >
           Edit
@@ -154,4 +169,4 @@ export default function TestExecutableField({
       )}
     </Box>
   );
-} 
+}

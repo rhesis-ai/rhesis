@@ -20,7 +20,7 @@ interface TestSetWorkflowSectionProps {
   onOwnerChange?: (newOwner: User | null) => void;
 }
 
-export default function TestSetWorkflowSection({ 
+export default function TestSetWorkflowSection({
   status = 'In Review',
   priority = 1,
   assignee,
@@ -30,24 +30,41 @@ export default function TestSetWorkflowSection({
   onStatusChange,
   onPriorityChange,
   onAssigneeChange,
-  onOwnerChange
+  onOwnerChange,
 }: TestSetWorkflowSectionProps) {
   const notifications = useNotifications();
 
-  const updateTestSet = async (updateData: Partial<TestSet>, fieldName: string) => {
+  const updateTestSet = async (
+    updateData: Partial<TestSet>,
+    fieldName: string
+  ) => {
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
-      const { id, status_details, user, owner, assignee, organization, ...rest } = updateData;
+      const {
+        id,
+        status_details,
+        user,
+        owner,
+        assignee,
+        organization,
+        ...rest
+      } = updateData;
       const processedData: Partial<TestSetCreate> = {
         ...rest,
-        tags: updateData.tags?.map(tag => (typeof tag === 'string' ? tag : tag.name))
+        tags: updateData.tags?.map(tag =>
+          typeof tag === 'string' ? tag : tag.name
+        ),
       };
       await testSetsClient.updateTestSet(testSetId, processedData);
-      notifications.show(`${fieldName} updated successfully`, { severity: 'success' });
+      notifications.show(`${fieldName} updated successfully`, {
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Error updating test set:', error);
-      notifications.show(`Failed to update ${fieldName}`, { severity: 'error' });
+      notifications.show(`Failed to update ${fieldName}`, {
+        severity: 'error',
+      });
       throw error;
     }
   };
@@ -69,4 +86,4 @@ export default function TestSetWorkflowSection({
       onUpdateEntity={updateTestSet}
     />
   );
-} 
+}

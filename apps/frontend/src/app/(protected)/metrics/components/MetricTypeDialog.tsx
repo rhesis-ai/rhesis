@@ -26,22 +26,23 @@ const metricTypes: MetricTypeOption[] = [
   {
     type: 'Custom Prompt',
     title: 'Evaluation Prompt',
-    description: 'Evaluates the response using a LLM judge and a custom evaluation prompt',
-    icon: <ChatIcon />
+    description:
+      'Evaluates the response using a LLM judge and a custom evaluation prompt',
+    icon: <ChatIcon />,
   },
   {
     type: 'Custom Code',
     title: 'Code Evaluation',
     description: 'Evaluates the response using the code provided',
     icon: <CodeIcon />,
-    disabled: true
+    disabled: true,
   },
   {
     type: 'API Call',
     title: 'API Call',
     description: 'Uses an external API service to check the response',
     icon: <ApiIcon />,
-    disabled: true
+    disabled: true,
   },
 ];
 
@@ -50,7 +51,10 @@ interface MetricTypeDialogProps {
   onClose: () => void;
 }
 
-export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProps) {
+export default function MetricTypeDialog({
+  open,
+  onClose,
+}: MetricTypeDialogProps) {
   const router = useRouter();
   const theme = useTheme();
 
@@ -60,18 +64,11 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
   };
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-    >
-      <DialogTitle>
-        Create a custom metric for your evaluation
-      </DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Create a custom metric for your evaluation</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
-          {metricTypes.map((option) => (
+          {metricTypes.map(option => (
             <Box
               key={option.type}
               onClick={() => handleTypeSelect(option.type, option.disabled)}
@@ -80,31 +77,33 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
                 mb: 2,
                 border: '1px solid',
                 borderColor: 'divider',
-                borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                borderRadius: theme => theme.shape.borderRadius * 0.25,
                 cursor: option.disabled ? 'not-allowed' : 'pointer',
                 opacity: option.disabled ? 0.7 : 1,
                 '&:hover': {
                   bgcolor: option.disabled ? undefined : 'action.hover',
                 },
                 transition: 'background-color 0.2s',
-                position: 'relative'
+                position: 'relative',
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Box sx={{ 
-                  mr: 1.5,
-                  color: 'primary.main',
-                  display: 'flex',
-                  alignItems: 'center',
-                  opacity: option.disabled ? 0.5 : 1
-                }}>
+                <Box
+                  sx={{
+                    mr: 1.5,
+                    color: 'primary.main',
+                    display: 'flex',
+                    alignItems: 'center',
+                    opacity: option.disabled ? 0.5 : 1,
+                  }}
+                >
                   {option.icon}
                 </Box>
-                <Typography 
-                  variant="subtitle1" 
-                  sx={{ 
+                <Typography
+                  variant="subtitle1"
+                  sx={{
                     flex: 1,
-                    color: option.disabled ? 'text.disabled' : 'text.primary'
+                    color: option.disabled ? 'text.disabled' : 'text.primary',
                   }}
                 >
                   {option.title}
@@ -116,13 +115,14 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
                     sx={{
                       bgcolor: 'primary.main',
                       color: 'primary.contrastText',
-                      fontSize: theme?.typography?.chartLabel?.fontSize || '0.75rem'
+                      fontSize:
+                        theme?.typography?.chartLabel?.fontSize || '0.75rem',
                     }}
                   />
                 )}
               </Box>
-              <Typography 
-                variant="body2" 
+              <Typography
+                variant="body2"
                 color={option.disabled ? 'text.disabled' : 'text.secondary'}
               >
                 {option.description}
@@ -136,4 +136,4 @@ export default function MetricTypeDialog({ open, onClose }: MetricTypeDialogProp
       </DialogActions>
     </Dialog>
   );
-} 
+}

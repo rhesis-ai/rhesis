@@ -1,5 +1,9 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
-import { PaginationParams, PaginatedResponse, PaginationMetadata } from './interfaces/pagination';
+import {
+  PaginationParams,
+  PaginatedResponse,
+  PaginationMetadata,
+} from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import { clearAllSessionData } from '../session';
 
@@ -33,11 +37,11 @@ export class BaseApiClient {
 
   protected getHeaders(): HeadersInit {
     const headers: Record<string, string> = { ...API_CONFIG.defaultHeaders };
-    
+
     if (this.sessionToken) {
       headers['Authorization'] = `Bearer ${this.sessionToken}`;
     }
-    
+
     return headers;
   }
 
@@ -46,7 +50,8 @@ export class BaseApiClient {
   }
 
   private calculateBackoff(attempt: number): number {
-    const backoffMs = this.retryConfig.initialDelayMs * 
+    const backoffMs =
+      this.retryConfig.initialDelayMs *
       Math.pow(this.retryConfig.backoffMultiplier, attempt - 1);
     return Math.min(backoffMs, this.retryConfig.maxDelayMs);
   }
@@ -59,12 +64,19 @@ export class BaseApiClient {
         return false;
       }
     }
-    
+
     // Retry on network errors and 5xx server errors
-    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+    if (
+      error instanceof TypeError &&
+      error.message.includes('Failed to fetch')
+    ) {
       return true;
     }
-    if (error instanceof Error && 'status' in error && typeof (error as any).status === 'number') {
+    if (
+      error instanceof Error &&
+      'status' in error &&
+      typeof (error as any).status === 'number'
+    ) {
       const status = (error as any).status;
       return status >= 500 && status < 600;
     }
@@ -84,25 +96,33 @@ export class BaseApiClient {
       await this.delay(1000);
       throw new Error('Unauthorized');
     }
-    
+
     isSessionClearing = true;
-    
+
     try {
-      console.log('🔴 Unauthorized error detected in API client, checking current location...');
-      
+      console.log(
+        '[ERROR] Unauthorized error detected in API client, checking current location...'
+      );
+
       // Don't interfere if we're already on logout/signin pages
       const currentPath = window.location.pathname;
-      if (currentPath.includes('/auth/signout') || currentPath.includes('/auth/signin') || currentPath === '/') {
-        console.log('🔴 Already on auth page, skipping session clearing');
+      if (
+        currentPath.includes('/auth/signout') ||
+        currentPath.includes('/auth/signin') ||
+        currentPath === '/'
+      ) {
+        console.log('[ERROR] Already on auth page, skipping session clearing');
         throw new Error('Unauthorized');
       }
-      
-      console.log('🔴 Clearing session due to unauthorized API response...');
-      
+
+      console.log(
+        '[ERROR] Clearing session due to unauthorized API response...'
+      );
+
       // Add a delay to ensure any pending operations complete
       await this.delay(500);
       await clearAllSessionData(); // This now redirects to home page
-      
+
       // This line should never be reached as clearAllSessionData redirects
       throw new Error('Unauthorized - session cleared');
     } catch (error) {
@@ -122,13 +142,16 @@ export class BaseApiClient {
    * @param defaultValue Optional default value if header is not present
    * @returns The parsed total count or defaultValue if header is not present/invalid
    */
-  protected extractTotalCount(response: Response, defaultValue: number = 0): number {
+  protected extractTotalCount(
+    response: Response,
+    defaultValue: number = 0
+  ): number {
     try {
       const totalCount = response.headers.get('x-total-count');
       if (!totalCount) {
         return defaultValue;
       }
-      
+
       const parsed = parseInt(totalCount, 10);
       return isNaN(parsed) ? defaultValue : parsed;
     } catch (error) {
@@ -141,12 +164,13 @@ export class BaseApiClient {
     endpoint: keyof typeof API_ENDPOINTS | string,
     options: RequestInit = {}
   ): Promise<T> {
-    const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const path =
+      API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
     const url = joinUrl(this.baseUrl, path);
     const headers = this.getHeaders();
 
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= this.retryConfig.maxAttempts; attempt++) {
       try {
         const response = await fetch(url, {
@@ -159,23 +183,28 @@ export class BaseApiClient {
         });
 
         if (!response.ok) {
-          console.error('❌ [DEBUG] API Response Error:', {
+          console.error('[ERROR] [DEBUG] API Response Error:', {
             url,
             status: response.status,
             statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries())
+            headers: Object.fromEntries(response.headers.entries()),
           });
-          
+
           let errorMessage = '';
           let errorData: any;
-          
+
           try {
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
               errorData = await response.json();
               if (errorData.detail) {
-                errorMessage = Array.isArray(errorData.detail) 
-                  ? errorData.detail.map((err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`).join(', ')
+                errorMessage = Array.isArray(errorData.detail)
+                  ? errorData.detail
+                      .map(
+                        (err: any) =>
+                          `${err.loc?.join('.') || 'field'}: ${err.msg}`
+                      )
+                      .join(', ')
                   : errorData.detail;
               } else if (errorData.message) {
                 errorMessage = errorData.message;
@@ -186,54 +215,76 @@ export class BaseApiClient {
               errorMessage = await response.text();
             }
           } catch (parseError) {
-            console.error('❌ [DEBUG] Error parsing response:', parseError);
+            console.error(
+              '[ERROR] [DEBUG] Error parsing response:',
+              parseError
+            );
             errorMessage = await response.text();
           }
-          
-          console.error('❌ [DEBUG] Full error details:', { errorMessage, errorData });
-          
-          const error = new Error(`API error: ${response.status} - ${errorMessage}`) as Error & { 
+
+          console.error('[ERROR] [DEBUG] Full error details:', {
+            errorMessage,
+            errorData,
+          });
+
+          const error = new Error(
+            `API error: ${response.status} - ${errorMessage}`
+          ) as Error & {
             status?: number;
             data?: any;
           };
           error.status = response.status;
           error.data = errorData;
-          
+
           // Handle authentication errors
           if (response.status === 401 || response.status === 403) {
             return await this.handleUnauthorizedError();
           }
-          
+
           throw error;
         }
 
         // For 204 No Content or empty responses, return undefined as T
-        if (response.status === 204 || response.headers.get('content-length') === '0') {
-          console.log('✅ [DEBUG] API Success (No Content):', { url, status: response.status });
+        if (
+          response.status === 204 ||
+          response.headers.get('content-length') === '0'
+        ) {
+          console.log('[SUCCESS] [DEBUG] API Success (No Content):', {
+            url,
+            status: response.status,
+          });
           return undefined as unknown as T;
         }
 
         const result = await response.json();
-        console.log('✅ [DEBUG] API Success:', {
+        console.log('[SUCCESS] [DEBUG] API Success:', {
           url,
           status: response.status,
           dataType: Array.isArray(result) ? 'array' : typeof result,
-          count: Array.isArray(result) ? result.length : undefined
+          count: Array.isArray(result) ? result.length : undefined,
         });
         return result;
       } catch (error: any) {
         lastError = error;
-        
+
         // Handle authentication errors immediately without retrying
         if (error.status === 401 || error.status === 403) {
           return await this.handleUnauthorizedError();
         }
-        
+
         // If this is the last attempt or error is not retryable, throw the error
-        if (attempt === this.retryConfig.maxAttempts || !this.isRetryableError(error)) {
-          if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        if (
+          attempt === this.retryConfig.maxAttempts ||
+          !this.isRetryableError(error)
+        ) {
+          if (
+            error instanceof TypeError &&
+            error.message.includes('Failed to fetch')
+          ) {
             console.error(`Network error requesting ${url}:`, error);
-            throw new Error(`Network error when connecting to ${this.baseUrl}. Please check your connection and ensure the API server is running.`);
+            throw new Error(
+              `Network error when connecting to ${this.baseUrl}. Please check your connection and ensure the API server is running.`
+            );
           }
           console.error(`API request failed for ${url}:`, error);
           throw error;
@@ -258,27 +309,42 @@ export class BaseApiClient {
    */
   protected async fetchPaginated<T>(
     endpoint: keyof typeof API_ENDPOINTS | string,
-    params: PaginationParams & { $filter?: string } & Record<string, any> = { skip: 0, limit: 10 },
+    params: PaginationParams & { $filter?: string } & Record<string, any> = {
+      skip: 0,
+      limit: 10,
+    },
     options: RequestInit = {}
   ): Promise<PaginatedResponse<T>> {
     const queryParams = new URLSearchParams();
-    if (params.skip !== undefined) queryParams.append('skip', params.skip.toString());
-    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params.skip !== undefined)
+      queryParams.append('skip', params.skip.toString());
+    if (params.limit !== undefined)
+      queryParams.append('limit', params.limit.toString());
     if (params.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params.$filter) queryParams.append('$filter', params.$filter);
-    
+
     // Add any additional parameters (excluding the ones we've already handled)
-    const excludedParams = ['skip', 'limit', 'sort_by', 'sort_order', '$filter'];
+    const excludedParams = [
+      'skip',
+      'limit',
+      'sort_by',
+      'sort_order',
+      '$filter',
+    ];
     Object.keys(params).forEach(key => {
       if (!excludedParams.includes(key) && params[key] !== undefined) {
         queryParams.append(key, params[key].toString());
       }
     });
 
-    const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const path =
+      API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
     const queryString = queryParams.toString();
-    const url = joinUrl(this.baseUrl, queryString ? `${path}?${queryString}` : path);
+    const url = joinUrl(
+      this.baseUrl,
+      queryString ? `${path}?${queryString}` : path
+    );
 
     const response = await fetch(url, {
       ...options,
@@ -292,36 +358,39 @@ export class BaseApiClient {
     if (!response.ok) {
       let errorMessage = '';
       let errorData: any;
-      
+
       try {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
-          errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+          errorMessage =
+            errorData.detail || errorData.message || JSON.stringify(errorData);
         } else {
           errorMessage = await response.text();
         }
       } catch (parseError) {
         errorMessage = await response.text();
       }
-      
-      const error = new Error(`API error: ${response.status} - ${errorMessage}`) as Error & { 
+
+      const error = new Error(
+        `API error: ${response.status} - ${errorMessage}`
+      ) as Error & {
         status?: number;
         data?: any;
       };
       error.status = response.status;
       error.data = errorData;
-      
+
       // Handle authentication errors
       if (response.status === 401 || response.status === 403) {
         return await this.handleUnauthorizedError();
       }
-      
+
       throw error;
     }
 
     const totalCount = this.extractTotalCount(response);
-    const data = await response.json() as T[];
+    const data = (await response.json()) as T[];
     const pageSize = params.limit ?? 10;
     const currentPage = Math.floor((params.skip ?? 0) / pageSize);
     const totalPages = Math.ceil(totalCount / pageSize);
@@ -334,8 +403,8 @@ export class BaseApiClient {
         limit: params.limit ?? pageSize,
         currentPage,
         pageSize,
-        totalPages
-      }
+        totalPages,
+      },
     };
   }
-} 
+}

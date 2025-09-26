@@ -67,4 +67,4 @@ export interface ModelsResponse {
 export interface ModelQueryParams extends PaginationParams {
   status?: string;
   provider_type?: string;
-} 
+}

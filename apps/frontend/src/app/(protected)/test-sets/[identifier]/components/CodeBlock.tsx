@@ -7,13 +7,14 @@ import 'prismjs/components/prism-python';
 // Additional Prism components for better Python highlighting
 import 'prismjs/plugins/line-numbers/prism-line-numbers.css';
 import 'prismjs/plugins/line-numbers/prism-line-numbers.js';
-import { Paper, IconButton, Snackbar } from '@mui/material';
+import { Paper, IconButton, Snackbar, useTheme } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 export default function CodeBlock({ identifier }: { identifier: string }) {
   const [showCopyNotification, setShowCopyNotification] = useState(false);
   const codeRef = useRef<HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
+  const theme = useTheme();
 
   const code = `from rhesis.entities import TestSet
 
@@ -27,13 +28,13 @@ test_set.download()  # Downloads to current directory as test_set_{id}.csv`;
 
   useEffect(() => {
     setIsClient(true);
-    
+
     // Ensure Prism is available in the browser environment
     if (typeof window !== 'undefined') {
       // Need to re-require Prism here to make sure it's loaded on the client side
       require('prismjs');
       require('prismjs/components/prism-python');
-      
+
       // Force highlighting after the component is mounted
       if (codeRef.current) {
         Prism.highlightElement(codeRef.current);
@@ -54,22 +55,22 @@ test_set.download()  # Downloads to current directory as test_set_{id}.csv`;
   };
 
   return (
-    <Paper 
-      variant="outlined" 
-      sx={{ 
-        p: 2, 
-        bgcolor: '#1e1e1e',  // Darker background for better contrast
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
         position: 'relative',
         borderRadius: '4px',
         '& pre, & code, & span': {
           margin: '0 !important',
-          fontSize: '14px !important',  // Slightly larger font
-          lineHeight: '1.5 !important',  // Better line height for readability
+          fontSize: '14px !important', // Slightly larger font
+          lineHeight: '1.5 !important', // Better line height for readability
           fontFamily: '"Roboto Mono", "Fira Code", monospace !important',
         },
         '& pre': {
           backgroundColor: 'transparent !important',
-          padding: '8px 0',
+          padding: theme.spacing(1, 0),
           overflow: 'auto',
         },
         '& code': {
@@ -80,38 +81,38 @@ test_set.download()  # Downloads to current directory as test_set_{id}.csv`;
           backgroundColor: 'transparent !important',
         },
         // Enhanced token colors for Python syntax
-        '& .token.comment': { 
-          color: '#6A9955 !important' 
+        '& .token.comment': {
+          color: theme.palette.mode === 'dark' ? '#6A9955' : '#6A9955',
         },
-        '& .token.string': { 
-          color: '#ce9178 !important' 
+        '& .token.string': {
+          color: theme.palette.mode === 'dark' ? '#ce9178' : '#ce9178',
         },
-        '& .token.keyword': { 
-          color: '#569cd6 !important',
-          fontWeight: '500 !important'
+        '& .token.keyword': {
+          color: theme.palette.mode === 'dark' ? '#569cd6' : '#1976d2',
+          fontWeight: '500 !important',
         },
-        '& .token.function': { 
-          color: '#dcdcaa !important' 
+        '& .token.function': {
+          color: theme.palette.mode === 'dark' ? '#dcdcaa' : '#dcdcaa',
         },
-        '& .token.class-name': { 
-          color: '#4EC9B0 !important' 
+        '& .token.class-name': {
+          color: theme.palette.mode === 'dark' ? '#4EC9B0' : '#4EC9B0',
         },
-        '& .token.operator': { 
-          color: '#d4d4d4 !important' 
+        '& .token.operator': {
+          color: theme.palette.mode === 'dark' ? '#d4d4d4' : '#424242',
         },
-        '& .token.number': { 
-          color: '#b5cea8 !important' 
+        '& .token.number': {
+          color: theme.palette.mode === 'dark' ? '#b5cea8' : '#b5cea8',
         },
-        '& .token.punctuation': { 
-          color: '#d4d4d4 !important' 
+        '& .token.punctuation': {
+          color: theme.palette.mode === 'dark' ? '#d4d4d4' : '#424242',
         },
-        '& .token.builtin': { 
-          color: '#4EC9B0 !important' 
+        '& .token.builtin': {
+          color: theme.palette.mode === 'dark' ? '#4EC9B0' : '#4EC9B0',
         },
-        '& .token.important': { 
-          color: '#ff9d00 !important',
-          fontWeight: 'bold'
-        }
+        '& .token.important': {
+          color: theme.palette.mode === 'dark' ? '#ff9d00' : '#ff9d00',
+          fontWeight: 'bold',
+        },
       }}
     >
       <IconButton
@@ -130,14 +131,20 @@ test_set.download()  # Downloads to current directory as test_set_{id}.csv`;
       >
         <ContentCopyIcon fontSize="small" />
       </IconButton>
-      
+
       <div className="code-wrapper">
         {isClient ? (
           <pre className="language-python" tabIndex={0}>
-            <code ref={codeRef} className="language-python">{code}</code>
+            <code ref={codeRef} className="language-python">
+              {code}
+            </code>
           </pre>
         ) : (
-          <pre style={{ color: '#d4d4d4' }}>
+          <pre
+            style={{
+              color: theme.palette.mode === 'dark' ? '#d4d4d4' : '#424242',
+            }}
+          >
             <code>{code}</code>
           </pre>
         )}
@@ -151,4 +158,4 @@ test_set.download()  # Downloads to current directory as test_set_{id}.csv`;
       />
     </Paper>
   );
-} 
+}

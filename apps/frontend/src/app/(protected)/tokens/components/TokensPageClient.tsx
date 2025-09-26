@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Box, 
-  Button, 
+import {
+  Box,
+  Button,
   Typography,
   Dialog,
   DialogTitle,
@@ -12,7 +12,7 @@ import {
   DialogContentText,
   TextField,
   IconButton,
-  Alert
+  Alert,
 } from '@mui/material';
 import { GridPaginationModel } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,11 +28,15 @@ interface TokensPageClientProps {
   sessionToken: string;
 }
 
-export default function TokensPageClient({ sessionToken }: TokensPageClientProps) {
+export default function TokensPageClient({
+  sessionToken,
+}: TokensPageClientProps) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newToken, setNewToken] = useState<TokenResponse | null>(null);
-  const [refreshedToken, setRefreshedToken] = useState<TokenResponse | null>(null);
+  const [refreshedToken, setRefreshedToken] = useState<TokenResponse | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteTokenId, setDeleteTokenId] = useState<string | null>(null);
@@ -41,9 +45,11 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
     page: 0,
     pageSize: 10,
   });
-  
+
   // Use a ref to store the tokens client to prevent recreation on each render
-  const tokensClientRef = useRef(new ApiClientFactory(sessionToken).getTokensClient());
+  const tokensClientRef = useRef(
+    new ApiClientFactory(sessionToken).getTokensClient()
+  );
 
   const loadTokens = useCallback(async () => {
     try {
@@ -54,9 +60,9 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
         skip,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
-        sort_order: 'desc'
+        sort_order: 'desc',
       });
-      
+
       setTokens(response.data);
       setTotalCount(response.pagination.totalCount);
     } catch (error) {
@@ -71,12 +77,18 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
     setPaginationModel(newModel);
   };
 
-  const handleCreateToken = async (name: string, expiresInDays: number | null) => {
+  const handleCreateToken = async (
+    name: string,
+    expiresInDays: number | null
+  ) => {
     try {
-      const response = await tokensClientRef.current.createToken(name, expiresInDays);
+      const response = await tokensClientRef.current.createToken(
+        name,
+        expiresInDays
+      );
       setNewToken({
         ...response,
-        name
+        name,
       });
       setIsCreateModalOpen(false);
       await loadTokens();
@@ -96,9 +108,15 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
     setIsCreateModalOpen(true);
   };
 
-  const handleRefreshToken = async (tokenId: string, expiresInDays: number | null) => {
+  const handleRefreshToken = async (
+    tokenId: string,
+    expiresInDays: number | null
+  ) => {
     try {
-      const response = await tokensClientRef.current.refreshToken(tokenId, expiresInDays);
+      const response = await tokensClientRef.current.refreshToken(
+        tokenId,
+        expiresInDays
+      );
       await loadTokens(); // Reload tokens to get updated list
       setRefreshedToken(response);
     } catch (error) {
@@ -113,7 +131,8 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
   const confirmDelete = async () => {
     if (deleteTokenId) {
       try {
-        const deletedToken = await tokensClientRef.current.deleteToken(deleteTokenId);
+        const deletedToken =
+          await tokensClientRef.current.deleteToken(deleteTokenId);
         await loadTokens();
         setDeleteTokenId(null);
       } catch (error) {
@@ -146,7 +165,7 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
         </Alert>
       )}
 
-      <TokensGrid 
+      <TokensGrid
         tokens={tokens}
         onRefreshToken={handleRefreshToken}
         onDeleteToken={handleDeleteToken}
@@ -181,10 +200,14 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
             Token Name: {refreshedToken?.name}
           </Typography>
           <Typography variant="subtitle2" sx={{ mb: 2 }}>
-            Expires: {refreshedToken?.expires_at ? new Date(refreshedToken.expires_at).toLocaleDateString() : 'Never'}
+            Expires:{' '}
+            {refreshedToken?.expires_at
+              ? new Date(refreshedToken.expires_at).toLocaleDateString()
+              : 'Never'}
           </Typography>
           <Typography color="warning.main" sx={{ mb: 2 }}>
-            Store this token securely - it won&apos;t be shown again. If you lose it, you&apos;ll need to generate a new one.
+            Store this token securely - it won&apos;t be shown again. If you
+            lose it, you&apos;ll need to generate a new one.
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TextField
@@ -195,12 +218,14 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
                 readOnly: true,
               }}
             />
-            <IconButton 
+            <IconButton
               onClick={async () => {
                 if (refreshedToken) {
-                  await navigator.clipboard.writeText(refreshedToken.access_token);
+                  await navigator.clipboard.writeText(
+                    refreshedToken.access_token
+                  );
                 }
-              }} 
+              }}
               color="primary"
             >
               <ContentCopyIcon />
@@ -220,4 +245,4 @@ export default function TokensPageClient({ sessionToken }: TokensPageClientProps
       />
     </Box>
   );
-} 
+}

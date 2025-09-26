@@ -25,7 +25,11 @@ interface EmptyStateMessageProps {
 /**
  * Reusable empty state component with customizable title, description and icon
  */
-function EmptyStateMessage({ title, description, icon }: EmptyStateMessageProps) {
+function EmptyStateMessage({
+  title,
+  description,
+  icon,
+}: EmptyStateMessageProps) {
   return (
     <Paper elevation={2} className={styles.emptyState}>
       {icon || (
@@ -34,11 +38,11 @@ function EmptyStateMessage({ title, description, icon }: EmptyStateMessageProps)
           <AutoAwesomeIcon className={styles.secondaryIcon} />
         </Box>
       )}
-      
+
       <Typography variant="h5" className={styles.title}>
         {title}
       </Typography>
-      
+
       <Typography variant="body1" className={styles.description}>
         {description}
       </Typography>
@@ -56,14 +60,20 @@ interface ProjectsClientWrapperProps {
  * Client component for the Projects page
  * Handles displaying projects
  */
-export default function ProjectsClientWrapper({ initialProjects = [], sessionToken }: ProjectsClientWrapperProps) {
+export default function ProjectsClientWrapper({
+  initialProjects = [],
+  sessionToken,
+}: ProjectsClientWrapperProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects || []);
   const notifications = useNotifications();
 
   // Show error state if no session token
   if (!sessionToken) {
     return (
-      <PageContainer title="Projects" breadcrumbs={[{ title: 'Projects', path: '/projects' }]}>
+      <PageContainer
+        title="Projects"
+        breadcrumbs={[{ title: 'Projects', path: '/projects' }]}
+      >
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
@@ -74,30 +84,41 @@ export default function ProjectsClientWrapper({ initialProjects = [], sessionTok
       </PageContainer>
     );
   }
-  
+
   return (
-    <PageContainer title="Projects" breadcrumbs={[{ title: 'Projects', path: '/projects' }]}>
+    <PageContainer
+      title="Projects"
+      breadcrumbs={[{ title: 'Projects', path: '/projects' }]}
+    >
       {/* Header with actions */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3 }}>
-        <Button 
-          component={Link} 
-          href="/projects/create-new" 
-          variant="contained" 
-          color="primary" 
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          mb: 3,
+        }}
+      >
+        <Button
+          component={Link}
+          href="/projects/create-new"
+          variant="contained"
+          color="primary"
           startIcon={<AddIcon />}
         >
           Create Project
         </Button>
       </Box>
-      
+
       {/* Projects grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {Array.isArray(projects) && projects.map((project) => (
-          <Grid item key={project.id} xs={12} md={6} lg={4}>
-            <ProjectCard project={project} />
-          </Grid>
-        ))}
-        
+        {Array.isArray(projects) &&
+          projects.map(project => (
+            <Grid item key={project.id} xs={12} md={6} lg={4}>
+              <ProjectCard project={project} />
+            </Grid>
+          ))}
+
         {(!Array.isArray(projects) || projects.length === 0) && (
           <Grid item xs={12}>
             <EmptyStateMessage
@@ -109,4 +130,4 @@ export default function ProjectsClientWrapper({ initialProjects = [], sessionTok
       </Grid>
     </PageContainer>
   );
-} 
+}

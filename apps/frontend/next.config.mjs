@@ -13,8 +13,14 @@ const __dirname = path.dirname(__filename);
 // Function to get git information
 function getGitInfo() {
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8', timeout: 5000 }).trim();
-    const commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8', timeout: 5000 }).trim();
+    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+    const commit = execSync('git rev-parse --short HEAD', {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
     return { branch, commit };
   } catch (error) {
     console.warn('Could not get git information:', error.message);
@@ -30,34 +36,36 @@ const nextConfig = {
   // ===== DEVELOPMENT-SPECIFIC ANTI-CACHING =====
   // These are the key additions to fix your caching issues
   generateEtags: !isDev, // Disable ETags in development
-  
+
   // Compiler optimizations
   compiler: {
     // Remove console.log in production only
     removeConsole: isProd,
   },
-  
+
   // Source maps: enable in prod for debugging, faster option in dev
   productionBrowserSourceMaps: isProd,
-  
+
   // Experimental features
   experimental: {
     // Enable optimized package imports for MUI and other heavy libraries
     optimizePackageImports: [
       '@mui/material',
-      '@mui/icons-material', 
+      '@mui/icons-material',
       '@mui/x-data-grid',
       '@mui/x-date-pickers',
       '@toolpad/core',
-      'lucide-react', 
+      'lucide-react',
       'date-fns',
-      'lodash'
+      'lodash',
     ],
   },
 
   // Environment variables available to the client
   env: {
-    APP_VERSION: JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version,
+    APP_VERSION: JSON.parse(
+      readFileSync(path.join(__dirname, 'package.json'), 'utf8')
+    ).version,
     ...(() => {
       const gitInfo = getGitInfo();
       return {
@@ -125,14 +133,14 @@ const nextConfig = {
     // Your existing markdown rule
     config.module.rules.push({
       test: /\.md$/,
-      type: 'asset/source'
+      type: 'asset/source',
     });
 
     // Development-specific optimizations
     if (dev) {
       // Use faster source map option
       config.devtool = 'eval-cheap-module-source-map';
-      
+
       // MODIFIED: More aggressive file watching for better change detection
       config.watchOptions = {
         poll: 500, // Reduced from 1000 for faster detection
@@ -148,10 +156,10 @@ const nextConfig = {
           '**/build/**',
         ],
       };
-      
+
       // Optimize module resolution
       config.resolve.symlinks = false;
-      
+
       // MODIFIED: Less aggressive caching for development
       config.cache = {
         type: 'filesystem',
@@ -209,7 +217,10 @@ const nextConfig = {
       '~': path.resolve(__dirname, './'),
     };
 
-    config.resolve.modules = ['node_modules', path.resolve(__dirname, 'node_modules')];
+    config.resolve.modules = [
+      'node_modules',
+      path.resolve(__dirname, 'node_modules'),
+    ];
     config.resolve.extensions = ['.js', '.jsx', '.ts', '.tsx', '.json'];
 
     return config;
@@ -217,10 +228,10 @@ const nextConfig = {
 
   // Reduce JavaScript bundle size
   poweredByHeader: false,
-  
+
   // Enable compression only in production
   compress: isProd,
-  
+
   // MODIFIED: Headers with environment-specific caching
   async headers() {
     const baseHeaders = [
@@ -236,10 +247,14 @@ const nextConfig = {
             value: 'DENY',
           },
           // Development: Disable caching for HTML pages
-          ...(isDev ? [{
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
-          }] : []),
+          ...(isDev
+            ? [
+                {
+                  key: 'Cache-Control',
+                  value: 'no-cache, no-store, must-revalidate',
+                },
+              ]
+            : []),
         ],
       },
     ];

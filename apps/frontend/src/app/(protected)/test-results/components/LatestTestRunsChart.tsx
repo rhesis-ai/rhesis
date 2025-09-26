@@ -1,10 +1,29 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Paper, Typography, CircularProgress, Alert, Box, useTheme } from '@mui/material';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import {
+  Paper,
+  Typography,
+  CircularProgress,
+  Alert,
+  Box,
+  useTheme,
+} from '@mui/material';
+import {
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestResultsStats, TestRunSummaryItem } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultsStats,
+  TestRunSummaryItem,
+} from '@/utils/api-client/interfaces/test-results';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 
 interface LatestTestRunsChartProps {
@@ -19,17 +38,17 @@ const transformTestRunsData = (testRunSummary?: Array<TestRunSummaryItem>) => {
     { name: 'Test Run 2', pass_rate: 78, total: 95, passed: 74, failed: 21 },
     { name: 'Test Run 3', pass_rate: 92, total: 88, passed: 81, failed: 7 },
     { name: 'Test Run 4', pass_rate: 88, total: 110, passed: 97, failed: 13 },
-    { name: 'Test Run 5', pass_rate: 95, total: 75, passed: 71, failed: 4 }
+    { name: 'Test Run 5', pass_rate: 95, total: 75, passed: 71, failed: 4 },
   ];
 
   // Return mock data if no valid test run summary
   if (!Array.isArray(testRunSummary) || testRunSummary.length === 0) {
     return mockData;
   }
-  
+
   // Create a copy of the array to avoid mutating the original
   const runs = [...testRunSummary];
-  
+
   // Sort by started_at (most recent first) and take last 10
   const sortedRuns = runs
     .sort((a, b) => {
@@ -40,34 +59,40 @@ const transformTestRunsData = (testRunSummary?: Array<TestRunSummaryItem>) => {
     .slice(0, 5) // Take the 5 most recent
     .reverse(); // Reverse to show chronologically (oldest to newest for chart)
 
-  return sortedRuns.map((item) => {
+  return sortedRuns.map(item => {
     // Use the name field from the test run data
     const runName = item.name || 'Unnamed Run';
 
     return {
       name: runName,
-      pass_rate: item.overall?.pass_rate != null ? Math.round(item.overall.pass_rate * 10) / 10 : 0,
+      pass_rate:
+        item.overall?.pass_rate != null
+          ? Math.round(item.overall.pass_rate * 10) / 10
+          : 0,
       total: item.overall?.total || 0,
       passed: item.overall?.passed || 0,
       failed: item.overall?.failed || 0,
-      test_run_id: item.id
+      test_run_id: item.id,
     };
   });
 };
 
-export default function LatestTestRunsChart({ sessionToken, filters }: LatestTestRunsChartProps) {
+export default function LatestTestRunsChart({
+  sessionToken,
+  filters,
+}: LatestTestRunsChartProps) {
   const theme = useTheme();
-  
+
   // Convert rem to pixels for Recharts (assuming 1rem = 16px)
   const getPixelFontSize = (remSize: string): number => {
     const remValue = parseFloat(remSize);
     return remValue * 16;
   };
-  
+
   // Use a consistent blue color for pass rates that works in both light and dark themes
   // This matches the first color in the theme's line chart palette
   const passRateColor = theme.chartPalettes.line[0]; // Primary blue from theme
-  
+
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,13 +102,14 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
       setIsLoading(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
-      
+
       const options: TestResultsStatsOptions = {
         mode: 'test_runs', // Specific mode for test runs data
-        ...filters
+        ...filters,
       };
 
-      const statsData = await testResultsClient.getComprehensiveTestResultsStats(options);
+      const statsData =
+        await testResultsClient.getComprehensiveTestResultsStats(options);
       if (statsData && typeof statsData === 'object') {
         console.log('Test Runs API Response:', statsData);
         console.log('Test runs data:', statsData.test_run_summary);
@@ -94,7 +120,8 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
         setError('Invalid test runs data received');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load test runs data';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to load test runs data';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -111,7 +138,7 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
     console.log('Transformed test runs data:', data);
     const finalData = data.map(item => ({
       ...item,
-      pass_rate: isNaN(item.pass_rate) ? 0 : item.pass_rate
+      pass_rate: isNaN(item.pass_rate) ? 0 : item.pass_rate,
     }));
     console.log('Final test runs data for chart:', finalData);
     return finalData;
@@ -123,21 +150,40 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
 
   if (isLoading) {
     return (
-      <Paper elevation={theme.elevation.standard} sx={{ 
-        p: theme.customSpacing.container.medium, 
-        height: 400, 
-        display: 'flex', 
-        flexDirection: 'column' 
-      }}>
+      <Paper
+        elevation={theme.elevation.standard}
+        sx={{
+          p: theme.customSpacing.container.medium,
+          height: 400,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Latest Test Runs
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: theme.customSpacing.section.small }}
+        >
           Pass rates from the 5 most recent test executions
         </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flex: 1,
+          }}
+        >
           <CircularProgress size={24} />
-          <Typography variant="helperText" sx={{ ml: theme.customSpacing.container.small }}>Loading test runs...</Typography>
+          <Typography
+            variant="helperText"
+            sx={{ ml: theme.customSpacing.container.small }}
+          >
+            Loading test runs...
+          </Typography>
         </Box>
       </Paper>
     );
@@ -145,16 +191,23 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
 
   if (error) {
     return (
-      <Paper elevation={theme.elevation.standard} sx={{ 
-        p: theme.customSpacing.container.medium, 
-        height: 400, 
-        display: 'flex', 
-        flexDirection: 'column' 
-      }}>
+      <Paper
+        elevation={theme.elevation.standard}
+        sx={{
+          p: theme.customSpacing.container.medium,
+          height: 400,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Latest Test Runs
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: theme.customSpacing.section.small }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: theme.customSpacing.section.small }}
+        >
           Error occurred
         </Typography>
         <Alert severity="error">{error}</Alert>
@@ -163,32 +216,33 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
   }
 
   return (
-    <Paper elevation={theme.elevation.standard} sx={{ 
-      p: theme.customSpacing.container.medium, 
-      height: 400, 
-      display: 'flex', 
-      flexDirection: 'column' 
-    }}>
+    <Paper
+      elevation={theme.elevation.standard}
+      sx={{
+        p: theme.customSpacing.container.medium,
+        height: 400,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
         Latest Test Runs
       </Typography>
-      <Typography 
-        variant="body2" 
-        color="text.secondary" 
-        sx={{ 
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{
           mb: theme.customSpacing.section.small,
           minHeight: '2.5rem', // Ensure consistent height for 2 lines
           display: 'flex',
-          alignItems: 'flex-start'
+          alignItems: 'flex-start',
         }}
       >
         Pass rates from the 5 most recent test executions
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height={300}>
-          <ScatterChart
-            margin={{ top: 5, right: 15, bottom: 35, left: -15 }}
-          >
+          <ScatterChart margin={{ top: 5, right: 15, bottom: 35, left: -15 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"
@@ -197,9 +251,11 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               angle={-45}
               textAnchor="end"
               interval={0}
-              tick={{ 
-                fontSize: getPixelFontSize(String(theme.typography.chartTick.fontSize)),
-                fill: theme.palette.text.primary
+              tick={{
+                fontSize: getPixelFontSize(
+                  String(theme.typography.chartTick.fontSize)
+                ),
+                fill: theme.palette.text.primary,
               }}
               height={60}
               axisLine={{ strokeWidth: 1 }}
@@ -211,21 +267,23 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
               name="Pass Rate"
               domain={[0, 100]}
               tickCount={6}
-              tick={{ 
-                fontSize: getPixelFontSize(String(theme.typography.chartTick.fontSize)),
-                fill: theme.palette.text.primary
+              tick={{
+                fontSize: getPixelFontSize(
+                  String(theme.typography.chartTick.fontSize)
+                ),
+                fill: theme.palette.text.primary,
               }}
               axisLine={{ strokeWidth: 1 }}
               tickLine={{ strokeWidth: 1 }}
               tickFormatter={(value: number) => `${value}%`}
             />
-            <Tooltip 
-              contentStyle={{ 
+            <Tooltip
+              contentStyle={{
                 fontSize: String(theme.typography.chartTick.fontSize),
                 backgroundColor: theme.palette.background.paper,
                 border: `1px solid ${theme.palette.divider}`,
                 borderRadius: '4px',
-                color: theme.palette.text.primary
+                color: theme.palette.text.primary,
               }}
               formatter={(value: any, name: string, props: any) => {
                 // The value here is the pass_rate from the data
@@ -236,15 +294,17 @@ export default function LatestTestRunsChart({ sessionToken, filters }: LatestTes
                 return label || 'Test Run';
               }}
             />
-            <Legend 
+            <Legend
               payload={[
                 {
                   value: 'Pass Rate',
                   type: 'circle',
-                  color: passRateColor // Use consistent blue color for pass rates
-                }
+                  color: passRateColor, // Use consistent blue color for pass rates
+                },
               ]}
-              wrapperStyle={{ fontSize: String(theme.typography.chartTick.fontSize) }}
+              wrapperStyle={{
+                fontSize: String(theme.typography.chartTick.fontSize),
+              }}
               iconSize={8}
               height={30}
             />

@@ -11,7 +11,8 @@ import {
   Typography,
   Button,
   Collapse,
-  CircularProgress
+  CircularProgress,
+  useTheme,
 } from '@mui/material';
 import Link from 'next/link';
 
@@ -49,17 +50,18 @@ interface BaseTableProps {
   loading?: boolean;
 }
 
-export default function BaseTable({ 
-  columns, 
-  data, 
+export default function BaseTable({
+  columns,
+  data,
   title,
   onRowClick,
   actionButtons,
   rowHighlight,
   expandedRow,
   renderExpanded,
-  loading = false
+  loading = false,
 }: BaseTableProps) {
+  const theme = useTheme();
   const handleRowClick = (row: any) => {
     if (onRowClick) {
       onRowClick(row);
@@ -69,7 +71,14 @@ export default function BaseTable({
   return (
     <>
       {(title || actionButtons) && (
-        <Box sx={{ display: 'flex', justifyContent: title ? 'space-between' : 'flex-end', alignItems: 'center', mb: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: title ? 'space-between' : 'flex-end',
+            alignItems: 'center',
+            mb: 3,
+          }}
+        >
           {title && (
             <Typography variant="h5" component="h1">
               {title}
@@ -77,18 +86,22 @@ export default function BaseTable({
           )}
           {actionButtons && (
             <Box sx={{ display: 'flex', gap: 2 }}>
-              {actionButtons.map((button, index) => (
+              {actionButtons.map((button, index) =>
                 button.href ? (
-                  <Link key={index} href={button.href} style={{ textDecoration: 'none' }}>
-                    <Button 
-                      variant={button.variant || 'contained'} 
+                  <Link
+                    key={index}
+                    href={button.href}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Button
+                      variant={button.variant || 'contained'}
                       startIcon={button.icon}
                     >
                       {button.label}
                     </Button>
                   </Link>
                 ) : (
-                  <Button 
+                  <Button
                     key={index}
                     variant={button.variant || 'contained'}
                     startIcon={button.icon}
@@ -97,53 +110,51 @@ export default function BaseTable({
                     {button.label}
                   </Button>
                 )
-              ))}
+              )}
             </Box>
           )}
         </Box>
       )}
 
-      <TableContainer 
-        component={Paper} 
-        sx={{ 
+      <TableContainer
+        component={Paper}
+        sx={{
           boxShadow: 1,
-          borderRadius: 2,
+          borderRadius: theme.shape.borderRadius,
           overflow: 'hidden',
           bgcolor: 'background.paper',
           minHeight: 200,
-          position: 'relative'
+          position: 'relative',
         }}
       >
         {loading ? (
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
               alignItems: 'center',
-              height: 200
+              height: 200,
             }}
           >
             <CircularProgress />
           </Box>
         ) : data.length === 0 ? (
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
               alignItems: 'center',
-              height: 200
+              height: 200,
             }}
           >
-            <Typography color="text.secondary">
-              No data available
-            </Typography>
+            <Typography color="text.secondary">No data available</Typography>
           </Box>
         ) : (
           <Table sx={{ minWidth: 650 }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                {columns.map((column) => (
-                  <TableCell 
+                {columns.map(column => (
+                  <TableCell
                     key={column.id}
                     sx={{ fontWeight: 'bold', color: 'text.primary' }}
                   >
@@ -155,22 +166,22 @@ export default function BaseTable({
             <TableBody>
               {data.map((row, index) => (
                 <React.Fragment key={index}>
-                  <TableRow 
-                    sx={{ 
+                  <TableRow
+                    sx={{
                       '&:nth-of-type(odd)': { backgroundColor: 'grey.50' },
-                      '&:hover': { 
+                      '&:hover': {
                         backgroundColor: 'grey.100',
-                        cursor: onRowClick ? 'pointer' : 'default'
+                        cursor: onRowClick ? 'pointer' : 'default',
                       },
                       transition: 'background-color 0.2s',
                       ...(rowHighlight?.[index] && {
                         outline: `2px solid ${rowHighlight[index].color}`,
-                        outlineOffset: '-1px'
-                      })
+                        outlineOffset: '-1px',
+                      }),
                     }}
                     onClick={() => handleRowClick(row)}
                   >
-                    {columns.map((column) => (
+                    {columns.map(column => (
                       <TableCell key={column.id}>
                         {column.render(row, index)}
                       </TableCell>
@@ -178,14 +189,16 @@ export default function BaseTable({
                   </TableRow>
                   {renderExpanded && (
                     <TableRow>
-                      <TableCell 
-                        style={{ paddingBottom: 0, paddingTop: 0 }} 
+                      <TableCell
+                        style={{ paddingBottom: 0, paddingTop: 0 }}
                         colSpan={columns.length}
                       >
-                        <Collapse in={expandedRow === index} timeout="auto" unmountOnExit>
-                          <Box sx={{ py: 2 }}>
-                            {renderExpanded(row, index)}
-                          </Box>
+                        <Collapse
+                          in={expandedRow === index}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <Box sx={{ py: 2 }}>{renderExpanded(row, index)}</Box>
                         </Collapse>
                       </TableCell>
                     </TableRow>
@@ -198,4 +211,4 @@ export default function BaseTable({
       </TableContainer>
     </>
   );
-} 
+}

@@ -11,10 +11,16 @@ import {
   Typography,
   ListItemAvatar,
   ListItemText,
-  Divider
+  Divider,
 } from '@mui/material';
-import BaseFreesoloAutocomplete, { AutocompleteOption as FreeSoloOption } from '@/components/common/BaseFreesoloAutocomplete';
-import { TestBulkCreateRequest, PriorityLevel, TestDetail } from '@/utils/api-client/interfaces/tests';
+import BaseFreesoloAutocomplete, {
+  AutocompleteOption as FreeSoloOption,
+} from '@/components/common/BaseFreesoloAutocomplete';
+import {
+  TestBulkCreateRequest,
+  PriorityLevel,
+  TestDetail,
+} from '@/utils/api-client/interfaces/tests';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UUID } from 'crypto';
 import PersonIcon from '@mui/icons-material/Person';
@@ -60,20 +66,20 @@ const defaultFormData: TestFormData = {
   prompt_content: '',
   assignee_id: undefined,
   owner_id: undefined,
-  status_id: undefined
+  status_id: undefined,
 };
 
-export default function CreateTest({ 
+export default function CreateTest({
   sessionToken,
   onSuccess,
   onError,
   defaultOwnerId,
   submitRef,
-  test
+  test,
 }: CreateTestProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>(defaultFormData);
-  
+
   // Options for dropdowns
   const [behaviors, setBehaviors] = useState<AutocompleteOption[]>([]);
   const [topics, setTopics] = useState<AutocompleteOption[]>([]);
@@ -92,13 +98,13 @@ export default function CreateTest({
         prompt_content: test.prompt?.content || '',
         assignee_id: test.assignee?.id || undefined,
         owner_id: test.owner?.id || undefined,
-        status_id: test.status?.id || undefined
+        status_id: test.status?.id || undefined,
       });
     } else if (defaultOwnerId) {
       // Only set default owner if no test is provided
       setFormData(prev => ({
         ...prev,
-        owner_id: defaultOwnerId
+        owner_id: defaultOwnerId,
       }));
     }
   }, [test, defaultOwnerId]);
@@ -113,32 +119,32 @@ export default function CreateTest({
         const categoryClient = apiFactory.getCategoryClient();
         const usersClient = apiFactory.getUsersClient();
         const statusClient = apiFactory.getStatusClient();
-        
+
         // Load all options in parallel
         const [
           behaviorsData,
           topicsData,
           categoriesData,
           usersData,
-          statusesData
+          statusesData,
         ] = await Promise.all([
           behaviorClient.getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
-          topicClient.getTopics({ 
-            sort_by: 'name', 
+          topicClient.getTopics({
+            sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test'
+            entity_type: 'Test',
           }),
-          categoryClient.getCategories({ 
-            sort_by: 'name', 
+          categoryClient.getCategories({
+            sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test'
+            entity_type: 'Test',
           }),
           usersClient.getUsers(),
-          statusClient.getStatuses({ 
-            sort_by: 'name', 
+          statusClient.getStatuses({
+            sort_by: 'name',
             sort_order: 'asc',
-            entity_type: ENTITY_TYPES.test
-          })
+            entity_type: ENTITY_TYPES.test,
+          }),
         ]);
 
         // Filter out duplicates and invalid entries before setting state
@@ -146,11 +152,14 @@ export default function CreateTest({
         setTopics(filterUniqueValidOptions(topicsData));
         setCategories(filterUniqueValidOptions(categoriesData));
         setStatuses(statusesData);
-        
+
         // Transform users into options with display names
         const transformedUsers = usersData.data.map(user => ({
           ...user,
-          displayName: user.name || `${user.given_name || ''} ${user.family_name || ''}`.trim() || user.email
+          displayName:
+            user.name ||
+            `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+            user.email,
         }));
         setUsers(transformedUsers);
       } catch (err) {
@@ -162,164 +171,195 @@ export default function CreateTest({
   }, [sessionToken, onError]);
 
   // Update form data with autocomplete value (either string or option)
-  const handleFieldChange = (field: keyof TestFormData) => (value: AutocompleteOption | string | null) => {
-    if (value === null) {
-      // Cleared value
-      setFormData(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
-    } else if (typeof value === 'string') {
-      // User entered a string that is not a UUID
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    } else if (value && 'inputValue' in value && value.inputValue) {
-      // User selected "Add new" option
-      setFormData(prev => ({
-        ...prev,
-        [field]: value.inputValue
-      }));
-    } else if (value && 'id' in value) {
-      // User selected an existing option
-      setFormData(prev => ({
-        ...prev,
-        [field]: value.id
-      }));
-    }
-  };
-
-  const handleChange = (field: keyof TestFormData) => (
-    event: React.ChangeEvent<HTMLInputElement | { value: unknown }>
-  ) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
-
-  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-    try {
-      setLoading(true);
-
-      // Validate required fields
-      if (!formData.prompt_content || formData.prompt_content.trim() === '') {
-        throw new Error('Prompt content is required');
+  const handleFieldChange =
+    (field: keyof TestFormData) =>
+    (value: AutocompleteOption | string | null) => {
+      if (value === null) {
+        // Cleared value
+        setFormData(prev => ({
+          ...prev,
+          [field]: undefined,
+        }));
+      } else if (typeof value === 'string') {
+        // User entered a string that is not a UUID
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+        }));
+      } else if (value && 'inputValue' in value && value.inputValue) {
+        // User selected "Add new" option
+        setFormData(prev => ({
+          ...prev,
+          [field]: value.inputValue,
+        }));
+      } else if (value && 'id' in value) {
+        // User selected an existing option
+        setFormData(prev => ({
+          ...prev,
+          [field]: value.id,
+        }));
       }
+    };
 
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const testsClient = apiFactory.getTestsClient();
-      
-      // Format prompt data
-      const promptData = {
-        content: formData.prompt_content || '',
-        language_code: 'en'  // Default to English
-      };
+  const handleChange =
+    (field: keyof TestFormData) =>
+    (event: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: event.target.value,
+      }));
+    };
 
-      // Convert priority from string to numeric value
-      const priorityMap: Record<PriorityLevel, number> = {
-        'Low': 0,
-        'Medium': 1,
-        'High': 2,
-        'Urgent': 3
-      };
-      const numericPriority: number = formData.priorityLevel ? priorityMap[formData.priorityLevel] : 1; // Default to Medium (1) if undefined
+  const handleSubmit = useCallback(
+    async (e?: React.FormEvent) => {
+      if (e) {
+        e.preventDefault();
+      }
+      try {
+        setLoading(true);
 
-      // Helper function to validate UUID
-      const isValidUUID = (str: string) => {
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        return uuidRegex.test(str);
-      };
+        // Validate required fields
+        if (!formData.prompt_content || formData.prompt_content.trim() === '') {
+          throw new Error('Prompt content is required');
+        }
 
-      // Get behavior name - always use name, not ID
-      let behaviorName = '';
-      if (formData.behavior_id) {
-        if (typeof formData.behavior_id === 'string') {
-          const selectedBehavior = behaviors.find(b => b.id === formData.behavior_id);
-          if (selectedBehavior) {
-            behaviorName = selectedBehavior.name;
-          } else {
-            // If not found as UUID, use as direct input
-            behaviorName = formData.behavior_id.trim();
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const testsClient = apiFactory.getTestsClient();
+
+        // Format prompt data
+        const promptData = {
+          content: formData.prompt_content || '',
+          language_code: 'en', // Default to English
+        };
+
+        // Convert priority from string to numeric value
+        const priorityMap: Record<PriorityLevel, number> = {
+          Low: 0,
+          Medium: 1,
+          High: 2,
+          Urgent: 3,
+        };
+        const numericPriority: number = formData.priorityLevel
+          ? priorityMap[formData.priorityLevel]
+          : 1; // Default to Medium (1) if undefined
+
+        // Helper function to validate UUID
+        const isValidUUID = (str: string) => {
+          const uuidRegex =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          return uuidRegex.test(str);
+        };
+
+        // Get behavior name - always use name, not ID
+        let behaviorName = '';
+        if (formData.behavior_id) {
+          if (typeof formData.behavior_id === 'string') {
+            const selectedBehavior = behaviors.find(
+              b => b.id === formData.behavior_id
+            );
+            if (selectedBehavior) {
+              behaviorName = selectedBehavior.name;
+            } else {
+              // If not found as UUID, use as direct input
+              behaviorName = formData.behavior_id.trim();
+            }
           }
         }
-      }
 
-      if (!behaviorName) {
-        throw new Error('Behavior is required');
-      }
+        if (!behaviorName) {
+          throw new Error('Behavior is required');
+        }
 
-      // Get topic name - always use name, not ID
-      let topicName = '';
-      if (formData.topic_id) {
-        if (typeof formData.topic_id === 'string') {
-          const selectedTopic = topics.find(t => t.id === formData.topic_id);
-          if (selectedTopic) {
-            topicName = selectedTopic.name;
-          } else {
-            // If not found as UUID, use as direct input
-            topicName = formData.topic_id.trim();
+        // Get topic name - always use name, not ID
+        let topicName = '';
+        if (formData.topic_id) {
+          if (typeof formData.topic_id === 'string') {
+            const selectedTopic = topics.find(t => t.id === formData.topic_id);
+            if (selectedTopic) {
+              topicName = selectedTopic.name;
+            } else {
+              // If not found as UUID, use as direct input
+              topicName = formData.topic_id.trim();
+            }
           }
         }
-      }
 
-      if (!topicName) {
-        throw new Error('Topic is required');
-      }
+        if (!topicName) {
+          throw new Error('Topic is required');
+        }
 
-      // Get category name - always use name, not ID
-      let categoryName = '';
-      if (formData.category_id) {
-        if (typeof formData.category_id === 'string') {
-          const selectedCategory = categories.find(c => c.id === formData.category_id);
-          if (selectedCategory) {
-            categoryName = selectedCategory.name;
-          } else {
-            // If not found as UUID, use as direct input
-            categoryName = formData.category_id.trim();
+        // Get category name - always use name, not ID
+        let categoryName = '';
+        if (formData.category_id) {
+          if (typeof formData.category_id === 'string') {
+            const selectedCategory = categories.find(
+              c => c.id === formData.category_id
+            );
+            if (selectedCategory) {
+              categoryName = selectedCategory.name;
+            } else {
+              // If not found as UUID, use as direct input
+              categoryName = formData.category_id.trim();
+            }
           }
         }
+
+        if (!categoryName) {
+          throw new Error('Category is required');
+        }
+
+        // Create bulk request data
+        const bulkRequest: TestBulkCreateRequest = {
+          tests: [
+            {
+              prompt: promptData,
+              behavior: behaviorName,
+              category: categoryName,
+              topic: topicName,
+              test_configuration: {},
+              priority: numericPriority,
+              // Only include IDs if they are valid UUIDs
+              ...(formData.assignee_id && isValidUUID(formData.assignee_id)
+                ? { assignee_id: formData.assignee_id }
+                : {}),
+              ...(formData.owner_id && isValidUUID(formData.owner_id)
+                ? { owner_id: formData.owner_id }
+                : {}),
+              ...(formData.status_id
+                ? {
+                    status: statuses.find(s => s.id === formData.status_id)
+                      ?.name,
+                  }
+                : {}),
+            },
+          ],
+        };
+
+        const response = await testsClient.createTestsBulk(bulkRequest);
+
+        if (!response.success) {
+          throw new Error(response.message);
+        }
+
+        onSuccess?.();
+      } catch (err) {
+        onError?.((err as Error).message);
+      } finally {
+        setLoading(false);
       }
-
-      if (!categoryName) {
-        throw new Error('Category is required');
-      }
-
-      // Create bulk request data
-      const bulkRequest: TestBulkCreateRequest = {
-        tests: [
-          {
-            prompt: promptData,
-            behavior: behaviorName,
-            category: categoryName,
-            topic: topicName,
-            test_configuration: {},
-            priority: numericPriority,
-            // Only include IDs if they are valid UUIDs
-            ...(formData.assignee_id && isValidUUID(formData.assignee_id) ? { assignee_id: formData.assignee_id } : {}),
-            ...(formData.owner_id && isValidUUID(formData.owner_id) ? { owner_id: formData.owner_id } : {}),
-            ...(formData.status_id ? { status: statuses.find(s => s.id === formData.status_id)?.name } : {})
-          }
-        ]
-      };
-
-      const response = await testsClient.createTestsBulk(bulkRequest);
-      
-      if (!response.success) {
-        throw new Error(response.message);
-      }
-
-      onSuccess?.();
-    } catch (err) {
-      onError?.((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [formData, sessionToken, onSuccess, onError, behaviors, topics, categories, statuses, setLoading]);
+    },
+    [
+      formData,
+      sessionToken,
+      onSuccess,
+      onError,
+      behaviors,
+      topics,
+      categories,
+      statuses,
+      setLoading,
+    ]
+  );
 
   // Expose handleSubmit to parent component via ref
   useEffect(() => {
@@ -339,15 +379,15 @@ export default function CreateTest({
           select
           label="Status"
           value={formData.status_id || ''}
-          onChange={(event) => {
+          onChange={event => {
             setFormData(prev => ({
               ...prev,
-              status_id: event.target.value as UUID
+              status_id: event.target.value as UUID,
             }));
           }}
           required
         >
-          {statuses.map((status) => (
+          {statuses.map(status => (
             <MenuItem key={status.id} value={status.id}>
               {status.name}
             </MenuItem>
@@ -361,11 +401,11 @@ export default function CreateTest({
         onChange={(event, newValue) => {
           setFormData(prev => ({
             ...prev,
-            assignee_id: newValue?.id
+            assignee_id: newValue?.id,
           }));
         }}
-        getOptionLabel={(option) => option.displayName}
-        renderInput={(params) => (
+        getOptionLabel={option => option.displayName}
+        renderInput={params => (
           <TextField
             {...params}
             label="Assignee"
@@ -374,13 +414,15 @@ export default function CreateTest({
               startAdornment: formData.assignee_id && (
                 <Box sx={{ display: 'flex', alignItems: 'center', pl: 2 }}>
                   <Avatar
-                    src={users.find(u => u.id === formData.assignee_id)?.picture}
+                    src={
+                      users.find(u => u.id === formData.assignee_id)?.picture
+                    }
                     sx={{ width: 24, height: 24 }}
                   >
                     <PersonIcon />
                   </Avatar>
                 </Box>
-              )
+              ),
             }}
           />
         )}
@@ -389,10 +431,7 @@ export default function CreateTest({
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Avatar
-                  src={option.picture}
-                  sx={{ width: 32, height: 32 }}
-                >
+                <Avatar src={option.picture} sx={{ width: 32, height: 32 }}>
                   <PersonIcon />
                 </Avatar>
                 <Typography>{option.displayName}</Typography>
@@ -408,11 +447,11 @@ export default function CreateTest({
         onChange={(event, newValue) => {
           setFormData(prev => ({
             ...prev,
-            owner_id: newValue?.id
+            owner_id: newValue?.id,
           }));
         }}
-        getOptionLabel={(option) => option.displayName}
-        renderInput={(params) => (
+        getOptionLabel={option => option.displayName}
+        renderInput={params => (
           <TextField
             {...params}
             label="Owner"
@@ -427,7 +466,7 @@ export default function CreateTest({
                     <PersonIcon />
                   </Avatar>
                 </Box>
-              )
+              ),
             }}
           />
         )}
@@ -436,10 +475,7 @@ export default function CreateTest({
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Avatar
-                  src={option.picture}
-                  sx={{ width: 32, height: 32 }}
-                >
+                <Avatar src={option.picture} sx={{ width: 32, height: 32 }}>
                   <PersonIcon />
                 </Avatar>
                 <Typography>{option.displayName}</Typography>
@@ -487,7 +523,7 @@ export default function CreateTest({
           onChange={handleChange('priorityLevel')}
           required
         >
-          {PRIORITY_OPTIONS.map((option) => (
+          {PRIORITY_OPTIONS.map(option => (
             <MenuItem key={option} value={option}>
               {option}
             </MenuItem>
@@ -507,4 +543,4 @@ export default function CreateTest({
       </FormControl>
     </Stack>
   );
-} 
+}

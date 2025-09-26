@@ -11,7 +11,9 @@ interface OrganizationsTableProps {
   organizations: Organization[];
 }
 
-export default function OrganizationsTable({ organizations }: OrganizationsTableProps) {
+export default function OrganizationsTable({
+  organizations,
+}: OrganizationsTableProps) {
   const router = useRouter();
 
   const handleRowClick = (organization: Organization) => {
@@ -44,7 +46,7 @@ export default function OrganizationsTable({ organizations }: OrganizationsTable
     {
       id: 'domain',
       label: 'Domain',
-      render: (organization: Organization) => (
+      render: (organization: Organization) =>
         organization.domain && (
           <Chip
             label={organization.domain}
@@ -52,8 +54,7 @@ export default function OrganizationsTable({ organizations }: OrganizationsTable
             variant="outlined"
             color={organization.is_domain_verified ? 'success' : 'warning'}
           />
-        )
-      ),
+        ),
     },
   ];
 
@@ -65,12 +66,12 @@ export default function OrganizationsTable({ organizations }: OrganizationsTable
       title="Organizations"
       actionButtons={[
         {
-          label: "New Organization",
-          href: "/organizations/new",
+          label: 'New Organization',
+          href: '/organizations/new',
           icon: <AddIcon />,
-          variant: "contained"
-        }
+          variant: 'contained',
+        },
       ]}
     />
   );
-} 
+}

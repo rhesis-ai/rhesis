@@ -17,7 +17,16 @@ interface CommentsWrapperProps {
   onCreateTaskFromEntity?: () => void;
 }
 
-export default function CommentsWrapper({ entityType, entityId, sessionToken, currentUserId, currentUserName, currentUserPicture, onCreateTask, onCreateTaskFromEntity }: CommentsWrapperProps) {
+export default function CommentsWrapper({
+  entityType,
+  entityId,
+  sessionToken,
+  currentUserId,
+  currentUserName,
+  currentUserPicture,
+  onCreateTask,
+  onCreateTaskFromEntity,
+}: CommentsWrapperProps) {
   const {
     comments,
     isLoading,
@@ -26,14 +35,14 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
     editComment,
     deleteComment,
     reactToComment,
-    refetch
+    refetch,
   } = useComments({
     entityType,
     entityId,
     sessionToken,
     currentUserId,
     currentUserName,
-    currentUserPicture
+    currentUserPicture,
   });
 
   // Wrap the functions to match the expected Promise<void> return type
@@ -41,7 +50,10 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
     await createComment(text);
   };
 
-  const handleEditComment = async (commentId: string, newText: string): Promise<void> => {
+  const handleEditComment = async (
+    commentId: string,
+    newText: string
+  ): Promise<void> => {
     await editComment(commentId, newText);
   };
 
@@ -49,7 +61,10 @@ export default function CommentsWrapper({ entityType, entityId, sessionToken, cu
     await deleteComment(commentId);
   };
 
-  const handleReactToComment = async (commentId: string, emoji: string): Promise<void> => {
+  const handleReactToComment = async (
+    commentId: string,
+    emoji: string
+  ): Promise<void> => {
     await reactToComment(commentId, emoji);
   };
 

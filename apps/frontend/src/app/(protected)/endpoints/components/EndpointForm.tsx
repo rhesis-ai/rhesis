@@ -32,7 +32,7 @@ import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { createEndpoint } from '@/actions/endpoints';
 import { LoadingButton } from '@mui/lab';
-import { 
+import {
   PlayArrowIcon,
   SmartToyIcon,
   DevicesIcon,
@@ -53,7 +53,7 @@ import {
   PhoneIphoneIcon,
   SchoolIcon,
   ScienceIcon,
-  AccountTreeIcon
+  AccountTreeIcon,
 } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -79,30 +79,32 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   PhoneIphone: PhoneIphoneIcon,
   School: SchoolIcon,
   Science: ScienceIcon,
-  AccountTree: AccountTreeIcon
+  AccountTree: AccountTreeIcon,
 };
 
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
-    <Box 
-      sx={{ 
-        height: '200px', 
-        display: 'flex', 
-        alignItems: 'center', 
+    <Box
+      sx={{
+        height: '200px',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         border: '1px solid rgba(0, 0, 0, 0.23)',
         borderRadius: '4px',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'grey.100',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={20} />
-        <Typography variant="body2" color="text.secondary">Loading editor...</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Loading editor...
+        </Typography>
       </Box>
     </Box>
-  )
+  ),
 });
 
 // Enums based on your backend models
@@ -128,16 +130,16 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`endpoint-tab-${index}`}
       {...other}
     >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
 }
 
-interface FormData extends Omit<Endpoint, 'id' | 'request_headers' | 'request_body_template' | 'response_mappings'> {
+interface FormData
+  extends Omit<
+    Endpoint,
+    'id' | 'request_headers' | 'request_body_template' | 'response_mappings'
+  > {
   request_headers?: string;
   request_body_template?: string;
   response_mappings?: string;
@@ -151,7 +153,8 @@ const editorWrapperStyle = {
     border: '1px solid rgba(0, 0, 0, 0.87)',
   },
   '&:focus-within': {
-    border: '2px solid #1976d2',
+    border: '2px solid',
+    borderColor: 'primary.main',
     margin: '-1px',
   },
 };
@@ -163,7 +166,7 @@ const getProjectIcon = (project: Project) => {
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
-  
+
   // Fall back to a default icon
   return <SmartToyIcon />;
 };
@@ -204,9 +207,11 @@ export default function EndpointForm() {
 
       try {
         setLoadingProjects(true);
-        const client = new ApiClientFactory(session.session_token).getProjectsClient();
+        const client = new ApiClientFactory(
+          session.session_token
+        ).getProjectsClient();
         const data = await client.getProjects();
-        setProjects(Array.isArray(data) ? data : (data?.data || []));
+        setProjects(Array.isArray(data) ? data : data?.data || []);
       } catch (err) {
         console.error('Error fetching projects:', err);
         setError('Failed to load projects. Please try again later.');
@@ -242,7 +247,7 @@ export default function EndpointForm() {
       if (value.trim()) {
         JSON.parse(value);
       }
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         [field]: value,
       }));
@@ -268,9 +273,13 @@ export default function EndpointForm() {
 
     try {
       const transformedData = { ...formData } as Partial<typeof formData>;
-      
+
       // Handle JSON string fields
-      const jsonStringFields = ['request_headers', 'request_body_template', 'response_mappings'] as const;
+      const jsonStringFields = [
+        'request_headers',
+        'request_body_template',
+        'response_mappings',
+      ] as const;
       for (const field of jsonStringFields) {
         const value = transformedData[field] as string;
         if (value && typeof value === 'string' && value.trim()) {
@@ -287,20 +296,25 @@ export default function EndpointForm() {
 
       // Remove organization_id as it should not be part of the request
       delete (transformedData as any).organization_id;
-      
-      // Remove empty project_id 
+
+      // Remove empty project_id
       if (!transformedData.project_id || transformedData.project_id === '') {
         delete (transformedData as any).project_id;
       }
 
       // Ensure we're sending a single object, not an array
       const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
-      console.log('Submitting endpoint data:', JSON.stringify(endpointData, null, 2));
+      console.log(
+        'Submitting endpoint data:',
+        JSON.stringify(endpointData, null, 2)
+      );
       const result = await createEndpoint(endpointData);
       console.log('Create endpoint result:', result);
-      
+
       // Show success notification
-      notifications.show('Endpoint created successfully!', { severity: 'success' });
+      notifications.show('Endpoint created successfully!', {
+        severity: 'success',
+      });
       router.push('/endpoints');
     } catch (error) {
       setError((error as Error).message);
@@ -311,12 +325,13 @@ export default function EndpointForm() {
     <form onSubmit={handleSubmit}>
       <Card>
         {/* Action buttons row */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          p: 2, 
-
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            p: 2,
+          }}
+        >
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
@@ -337,7 +352,11 @@ export default function EndpointForm() {
 
         {/* Tabs row */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={currentTab} onChange={handleTabChange} aria-label="endpoint configuration tabs">
+          <Tabs
+            value={currentTab}
+            onChange={handleTabChange}
+            aria-label="endpoint configuration tabs"
+          >
             <Tab label="Basic Information" />
             <Tab label="Request Settings" />
             <Tab label="Response Settings" />
@@ -350,7 +369,9 @@ export default function EndpointForm() {
           <Grid container spacing={3}>
             {/* General Information */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>General Information</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                General Information
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <TextField
@@ -359,7 +380,7 @@ export default function EndpointForm() {
                     label="Name"
                     name="name"
                     value={formData.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
+                    onChange={e => handleChange('name', e.target.value)}
                     helperText="A unique name to identify this endpoint"
                   />
                 </Grid>
@@ -369,7 +390,7 @@ export default function EndpointForm() {
                     label="Description"
                     name="description"
                     value={formData.description}
-                    onChange={(e) => handleChange('description', e.target.value)}
+                    onChange={e => handleChange('description', e.target.value)}
                     multiline
                     rows={1}
                   />
@@ -378,7 +399,9 @@ export default function EndpointForm() {
             </Grid>
             {/* Request Configuration */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Request Configuration</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Request Configuration
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <TextField
@@ -386,7 +409,7 @@ export default function EndpointForm() {
                     label="URL"
                     name="url"
                     value={formData.url}
-                    onChange={(e) => handleChange('url', e.target.value)}
+                    onChange={e => handleChange('url', e.target.value)}
                     required
                     error={Boolean(urlError)}
                     helperText={urlError}
@@ -399,12 +422,14 @@ export default function EndpointForm() {
                     <Select
                       name="protocol"
                       value={formData.protocol}
-                      onChange={(e) => handleChange('protocol', e.target.value)}
+                      onChange={e => handleChange('protocol', e.target.value)}
                       label="Protocol"
                       required
                     >
                       {PROTOCOLS.map(protocol => (
-                        <MenuItem key={protocol} value={protocol}>{protocol}</MenuItem>
+                        <MenuItem key={protocol} value={protocol}>
+                          {protocol}
+                        </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
@@ -415,11 +440,13 @@ export default function EndpointForm() {
                     <Select
                       name="method"
                       value={formData.method}
-                      onChange={(e) => handleChange('method', e.target.value)}
+                      onChange={e => handleChange('method', e.target.value)}
                       label="Method"
                     >
                       {METHODS.map(method => (
-                        <MenuItem key={method} value={method}>{method}</MenuItem>
+                        <MenuItem key={method} value={method}>
+                          {method}
+                        </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
@@ -427,20 +454,21 @@ export default function EndpointForm() {
               </Grid>
             </Grid>
 
-
             {/* Project Selection */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Project</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Project
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   {(projects?.length || 0) === 0 && !loadingProjects ? (
-                    <Alert 
-                      severity="warning" 
+                    <Alert
+                      severity="warning"
                       action={
-                        <Button 
-                          color="inherit" 
-                          size="small" 
-                          component="a" 
+                        <Button
+                          color="inherit"
+                          size="small"
+                          component="a"
                           href="/projects/create-new"
                         >
                           Create Project
@@ -450,23 +478,39 @@ export default function EndpointForm() {
                       No projects available. Please create a project first.
                     </Alert>
                   ) : (
-                    <FormControl fullWidth required error={Boolean(error && !formData.project_id)}>
-                      <InputLabel id="project-select-label">Select Project</InputLabel>
+                    <FormControl
+                      fullWidth
+                      required
+                      error={Boolean(error && !formData.project_id)}
+                    >
+                      <InputLabel id="project-select-label">
+                        Select Project
+                      </InputLabel>
                       <Select
                         labelId="project-select-label"
                         id="project-select"
                         name="project_id"
                         value={formData.project_id}
-                        onChange={(e) => handleChange('project_id', e.target.value)}
+                        onChange={e =>
+                          handleChange('project_id', e.target.value)
+                        }
                         label="Select Project"
                         disabled={loadingProjects}
                         required
-                        renderValue={(selected) => {
-                          const selectedProject = projects.find(p => p.id === selected);
+                        renderValue={selected => {
+                          const selectedProject = projects.find(
+                            p => p.id === selected
+                          );
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                               {selectedProject && (
-                                <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                                <Box
+                                  sx={{
+                                    mr: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                  }}
+                                >
                                   {getProjectIcon(selectedProject)}
                                 </Box>
                               )}
@@ -481,12 +525,15 @@ export default function EndpointForm() {
                             Loading projects...
                           </MenuItem>
                         ) : (
-                          projects.map((project) => (
+                          projects.map(project => (
                             <MenuItem key={project.id} value={project.id}>
                               <ListItemIcon>
                                 {getProjectIcon(project)}
                               </ListItemIcon>
-                              <ListItemText primary={project.name} secondary={project.description} />
+                              <ListItemText
+                                primary={project.name}
+                                secondary={project.description}
+                              />
                             </MenuItem>
                           ))
                         )}
@@ -502,10 +549,11 @@ export default function EndpointForm() {
               </Grid>
             </Grid>
 
-            
             {/* Environment & Configuration */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Environment</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Environment
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <ToggleButtonGroup
@@ -527,9 +575,9 @@ export default function EndpointForm() {
                       },
                     }}
                   >
-                    {ENVIRONMENTS.map((env) => (
-                      <ToggleButton 
-                        key={env} 
+                    {ENVIRONMENTS.map(env => (
+                      <ToggleButton
+                        key={env}
                         value={env}
                         sx={{
                           textTransform: 'capitalize',
@@ -556,10 +604,12 @@ export default function EndpointForm() {
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Request Headers define key-value pairs for authentication and other required headers.
+                Request Headers define key-value pairs for authentication and
+                other required headers.
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Example: <code>{`{
+                Example:{' '}
+                <code>{`{
   "Authorization": "Bearer {API_KEY}",
   "x-api-key": "{API_KEY}",
   "Content-Type": "application/json"
@@ -570,7 +620,9 @@ export default function EndpointForm() {
                   height="200px"
                   defaultLanguage="json"
                   value={formData.request_headers}
-                  onChange={(value) => handleJsonChange('request_headers', value || '')}
+                  onChange={value =>
+                    handleJsonChange('request_headers', value || '')
+                  }
                   options={{
                     minimap: { enabled: false },
                     lineNumbers: 'on',
@@ -592,10 +644,12 @@ export default function EndpointForm() {
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Request Body Template defines the structure of your request with placeholders for dynamic values.
+                Request Body Template defines the structure of your request with
+                placeholders for dynamic values.
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Example: <code>{`{
+                Example:{' '}
+                <code>{`{
   "model": "gpt-3.5-turbo",
   "messages": [
     {
@@ -611,7 +665,9 @@ export default function EndpointForm() {
                   height="300px"
                   defaultLanguage="json"
                   value={formData.request_body_template}
-                  onChange={(value) => handleJsonChange('request_body_template', value || '')}
+                  onChange={value =>
+                    handleJsonChange('request_body_template', value || '')
+                  }
                   options={{
                     minimap: { enabled: false },
                     lineNumbers: 'on',
@@ -639,17 +695,21 @@ export default function EndpointForm() {
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Response Mappings define how to extract values from the API response using JSONPath syntax.
+                Response Mappings define how to extract values from the API
+                response using JSONPath syntax.
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Example: <code>{"{ \"output\": \"$.choices[0].message.content\" }"}</code>
+                Example:{' '}
+                <code>{'{ "output": "$.choices[0].message.content" }'}</code>
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
                   height="200px"
                   defaultLanguage="json"
                   value={formData.response_mappings}
-                  onChange={(value) => handleJsonChange('response_mappings', value || '')}
+                  onChange={value =>
+                    handleJsonChange('response_mappings', value || '')
+                  }
                   options={{
                     minimap: { enabled: false },
                     lineNumbers: 'on',
@@ -680,7 +740,8 @@ export default function EndpointForm() {
                 Test your endpoint configuration with sample data
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter sample JSON data that matches your request template structure
+                Enter sample JSON data that matches your request template
+                structure
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
@@ -708,7 +769,7 @@ export default function EndpointForm() {
                 />
               </Box>
             </Grid>
-            
+
             <Grid item xs={12} sx={{ mt: 2 }}>
               <LoadingButton
                 variant="contained"
@@ -718,18 +779,30 @@ export default function EndpointForm() {
                   try {
                     // TODO: Implement actual test logic here
                     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
-                    setTestResponse(JSON.stringify({
-                      success: true,
-                      message: "Response from endpoint",
-                      data: {
-                        output: "Sample response data"
-                      }
-                    }, null, 2));
+                    setTestResponse(
+                      JSON.stringify(
+                        {
+                          success: true,
+                          message: 'Response from endpoint',
+                          data: {
+                            output: 'Sample response data',
+                          },
+                        },
+                        null,
+                        2
+                      )
+                    );
                   } catch (error) {
-                    setTestResponse(JSON.stringify({
-                      success: false,
-                      error: (error as Error).message
-                    }, null, 2));
+                    setTestResponse(
+                      JSON.stringify(
+                        {
+                          success: false,
+                          error: (error as Error).message,
+                        },
+                        null,
+                        2
+                      )
+                    );
                   } finally {
                     setIsTestingEndpoint(false);
                   }
@@ -782,4 +855,4 @@ export default function EndpointForm() {
       )}
     </form>
   );
-} 
+}

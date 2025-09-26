@@ -1,6 +1,14 @@
 'use client';
 
-import { Box, Typography, Paper, Button, Divider, Checkbox, FormControlLabel } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  Divider,
+  Checkbox,
+  FormControlLabel,
+} from '@mui/material';
 // Brand icons - keeping filled versions as outlined variants may not exist for all brands
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
@@ -28,7 +36,9 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
     }
   }, []);
 
-  const handleTermsAcceptance = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTermsAcceptance = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const accepted = event.target.checked;
     setTermsAccepted(accepted);
     if (accepted) {
@@ -44,20 +54,18 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
       // Don't proceed with login
       return;
     }
-    
+
     // Reset warning if previously shown
     setShowTermsWarning(false);
-    
-    const redirectUri = `${getClientApiBaseUrl()}/auth/login`;
-    
 
+    const redirectUri = `${getClientApiBaseUrl()}/auth/login`;
 
     // Create URL with search params
     const loginUrl = new URL(redirectUri);
     if (provider) {
       loginUrl.searchParams.set('connection', provider);
     }
-    
+
     // Get return_to from URL params or default to dashboard
     const searchParams = new URLSearchParams(window.location.search);
     const returnTo = searchParams.get('return_to') || '/dashboard';
@@ -69,13 +77,13 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Paper 
-        elevation={0} 
-        sx={{ 
+      <Paper
+        elevation={0}
+        sx={{
           p: 3,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2
+          gap: 2,
         }}
       >
         <Typography variant="h6" align="center">
@@ -104,8 +112,8 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<GoogleIcon />}
             onClick={() => handleLogin('google-oauth2')}
-            sx={{ 
-              color: (theme) => theme.palette.text.primary
+            sx={{
+              color: theme => theme.palette.text.primary,
             }}
           >
             Continue with Google
@@ -117,8 +125,8 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<GitHubIcon />}
             onClick={() => handleLogin('github')}
-            sx={{ 
-              color: (theme) => theme.palette.text.primary
+            sx={{
+              color: theme => theme.palette.text.primary,
             }}
           >
             Continue with GitHub
@@ -130,8 +138,8 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<AppleIcon />}
             onClick={() => handleLogin('apple')}
-            sx={{ 
-              color: (theme) => theme.palette.text.primary
+            sx={{
+              color: theme => theme.palette.text.primary,
             }}
           >
             Continue with Apple
@@ -143,8 +151,8 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
             size="medium"
             startIcon={<MicrosoftIcon />}
             onClick={() => handleLogin('windowslive')}
-            sx={{ 
-              color: (theme) => theme.palette.text.primary
+            sx={{
+              color: theme => theme.palette.text.primary,
             }}
           >
             Continue with Microsoft
@@ -157,15 +165,35 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
           )}
 
           {previouslyAccepted ? (
-            <Typography variant="body2" align="center" sx={{ mt: 1, color: 'text.secondary' }}>
+            <Typography
+              variant="body2"
+              align="center"
+              sx={{ mt: 1, color: 'text.secondary' }}
+            >
               By continuing, you confirm your agreement to our&nbsp;
-              <a href="https://www.rhesis.ai/terms-conditions" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>Terms and Conditions</a>&nbsp;&amp;&nbsp;
-              <a href="https://www.rhesis.ai/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>Privacy Policy</a>.
+              <a
+                href="https://www.rhesis.ai/terms-conditions"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'inherit' }}
+              >
+                Terms and Conditions
+              </a>
+              &nbsp;&amp;&nbsp;
+              <a
+                href="https://www.rhesis.ai/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'inherit' }}
+              >
+                Privacy Policy
+              </a>
+              .
             </Typography>
           ) : (
             <FormControlLabel
               control={
-                <Checkbox 
+                <Checkbox
                   checked={termsAccepted}
                   onChange={handleTermsAcceptance}
                   color="primary"
@@ -174,16 +202,31 @@ export default function CustomAuthForm({ clientId, domain }: Props) {
               label={
                 <Typography variant="body2">
                   By signing in you are agreeing to our&nbsp;
-                  <a href="https://www.rhesis.ai/terms-conditions" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>Terms and Conditions</a>&nbsp;&amp;&nbsp;
-                  <a href="https://www.rhesis.ai/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>Privacy Policy</a>.
+                  <a
+                    href="https://www.rhesis.ai/terms-conditions"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'inherit' }}
+                  >
+                    Terms and Conditions
+                  </a>
+                  &nbsp;&amp;&nbsp;
+                  <a
+                    href="https://www.rhesis.ai/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'inherit' }}
+                  >
+                    Privacy Policy
+                  </a>
+                  .
                 </Typography>
               }
               sx={{ mt: 1 }}
             />
           )}
-
         </Box>
       </Paper>
     </Box>
   );
-} 
+}

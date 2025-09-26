@@ -33,7 +33,10 @@ import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type { Behavior as ApiBehavior, BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type {
+  Behavior as ApiBehavior,
+  BehaviorWithMetrics,
+} from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
 
 interface FilterState {
@@ -54,7 +57,7 @@ interface BehaviorMetrics {
     metrics: MetricDetail[] | any[];
     isLoading: boolean;
     error: string | null;
-  }
+  };
 }
 
 interface AssignMetricDialogProps {
@@ -66,7 +69,14 @@ interface AssignMetricDialogProps {
   error: string | null;
 }
 
-function AssignMetricDialog({ open, onClose, onAssign, behaviors, isLoading, error }: AssignMetricDialogProps) {
+function AssignMetricDialog({
+  open,
+  onClose,
+  onAssign,
+  behaviors,
+  isLoading,
+  error,
+}: AssignMetricDialogProps) {
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Add to Behavior</DialogTitle>
@@ -76,7 +86,14 @@ function AssignMetricDialog({ open, onClose, onAssign, behaviors, isLoading, err
         </DialogContentText>
         {isLoading ? (
           <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+              }}
+            >
               <CircularProgress size={20} />
               <Typography>Loading behaviors...</Typography>
             </Box>
@@ -87,22 +104,24 @@ function AssignMetricDialog({ open, onClose, onAssign, behaviors, isLoading, err
           </Box>
         ) : behaviors.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Typography color="text.secondary">No behaviors available</Typography>
+            <Typography color="text.secondary">
+              No behaviors available
+            </Typography>
           </Box>
         ) : (
           <Stack spacing={2} sx={{ mt: 2 }}>
             {[...behaviors]
               .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-              .map((behavior) => (
-              <Button
-                key={behavior.id}
-                variant="outlined"
-                onClick={() => onAssign(behavior.id)}
-                fullWidth
-              >
-                {behavior.name || 'Unnamed Behavior'}
-              </Button>
-            ))}
+              .map(behavior => (
+                <Button
+                  key={behavior.id}
+                  variant="outlined"
+                  onClick={() => onAssign(behavior.id)}
+                  fullWidth
+                >
+                  {behavior.name || 'Unnamed Behavior'}
+                </Button>
+              ))}
           </Stack>
         )}
       </DialogContent>
@@ -126,13 +145,22 @@ interface MetricsDirectoryTabProps {
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
   setBehaviorMetrics: React.Dispatch<React.SetStateAction<BehaviorMetrics>>;
-  setBehaviorsWithMetrics: React.Dispatch<React.SetStateAction<BehaviorWithMetrics[]>>;
+  setBehaviorsWithMetrics: React.Dispatch<
+    React.SetStateAction<BehaviorWithMetrics[]>
+  >;
   onTabChange: () => void; // Function to switch to Selected Metrics tab
 }
 
 // Add type guard function
-function isValidMetricType(type: string | undefined): type is 'custom-prompt' | 'api-call' | 'custom-code' | 'grading' {
-  return type === 'custom-prompt' || type === 'api-call' || type === 'custom-code' || type === 'grading';
+function isValidMetricType(
+  type: string | undefined
+): type is 'custom-prompt' | 'api-call' | 'custom-code' | 'grading' {
+  return (
+    type === 'custom-prompt' ||
+    type === 'api-call' ||
+    type === 'custom-code' ||
+    type === 'grading'
+  );
 }
 
 export default function MetricsDirectoryTab({
@@ -149,7 +177,7 @@ export default function MetricsDirectoryTab({
   setMetrics,
   setBehaviorMetrics,
   setBehaviorsWithMetrics,
-  onTabChange
+  onTabChange,
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -157,17 +185,23 @@ export default function MetricsDirectoryTab({
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
-  const [selectedMetric, setSelectedMetric] = React.useState<MetricDetail | null>(null);
+  const [selectedMetric, setSelectedMetric] =
+    React.useState<MetricDetail | null>(null);
   const [createMetricOpen, setCreateMetricOpen] = React.useState(false);
-  const [deleteMetricDialogOpen, setDeleteMetricDialogOpen] = React.useState(false);
-  const [metricToDeleteCompletely, setMetricToDeleteCompletely] = React.useState<{ id: string; name: string } | null>(null);
+  const [deleteMetricDialogOpen, setDeleteMetricDialogOpen] =
+    React.useState(false);
+  const [metricToDeleteCompletely, setMetricToDeleteCompletely] =
+    React.useState<{ id: string; name: string } | null>(null);
   const [isDeletingMetric, setIsDeletingMetric] = React.useState(false);
 
   // Filter handlers
-  const handleFilterChange = (filterType: keyof FilterState, value: string | string[]) => {
+  const handleFilterChange = (
+    filterType: keyof FilterState,
+    value: string | string[]
+  ) => {
     setFilters(prev => ({
       ...prev,
-      [filterType]: value
+      [filterType]: value,
     }));
   };
 
@@ -175,21 +209,34 @@ export default function MetricsDirectoryTab({
   const getFilteredMetrics = () => {
     return metrics.filter(metric => {
       // Search filter
-      const searchMatch = !filters.search || 
+      const searchMatch =
+        !filters.search ||
         metric.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        metric.description.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (metric.metric_type?.type_value || '').toLowerCase().includes(filters.search.toLowerCase());
+        metric.description
+          .toLowerCase()
+          .includes(filters.search.toLowerCase()) ||
+        (metric.metric_type?.type_value || '')
+          .toLowerCase()
+          .includes(filters.search.toLowerCase());
 
       // Backend filter
-      const backendMatch = filters.backend.length === 0 || 
-        (metric.backend_type && filters.backend.includes(metric.backend_type.type_value.toLowerCase()));
+      const backendMatch =
+        filters.backend.length === 0 ||
+        (metric.backend_type &&
+          filters.backend.includes(
+            metric.backend_type.type_value.toLowerCase()
+          ));
 
       // Type filter
-      const typeMatch = filters.type.length === 0 ||
-        (metric.metric_type?.type_value && filters.type.includes(metric.metric_type.type_value));
+      const typeMatch =
+        filters.type.length === 0 ||
+        (metric.metric_type?.type_value &&
+          filters.type.includes(metric.metric_type.type_value));
 
       // Score type filter
-      const scoreTypeMatch = !filters.scoreType || filters.scoreType.length === 0 ||
+      const scoreTypeMatch =
+        !filters.scoreType ||
+        filters.scoreType.length === 0 ||
         (metric.score_type && filters.scoreType.includes(metric.score_type));
 
       return searchMatch && backendMatch && typeMatch && scoreTypeMatch;
@@ -198,10 +245,12 @@ export default function MetricsDirectoryTab({
 
   // Function to check if any filter is active
   const hasActiveFilters = () => {
-    return filters.search !== '' || 
-           filters.backend.length > 0 || 
-           filters.type.length > 0 ||
-           filters.scoreType.length > 0;
+    return (
+      filters.search !== '' ||
+      filters.backend.length > 0 ||
+      filters.type.length > 0 ||
+      filters.scoreType.length > 0
+    );
   };
 
   // Function to reset all filters
@@ -210,7 +259,7 @@ export default function MetricsDirectoryTab({
       search: '',
       backend: [],
       type: [],
-      scoreType: []
+      scoreType: [],
     });
   };
 
@@ -219,27 +268,44 @@ export default function MetricsDirectoryTab({
   };
 
   // Function to assign a metric to a behavior
-  const handleAssignMetricToBehavior = async (behaviorId: string, metricId: string) => {
+  const handleAssignMetricToBehavior = async (
+    behaviorId: string,
+    metricId: string
+  ) => {
     try {
       const metricClient = new MetricsClient(sessionToken);
 
       // Assign metric to behavior
-      await metricClient.addBehaviorToMetric(metricId as UUID, behaviorId as UUID);
+      await metricClient.addBehaviorToMetric(
+        metricId as UUID,
+        behaviorId as UUID
+      );
 
       // Update local state optimistically - add behavior to metric's behaviors list
-      setMetrics(prevMetrics => 
+      setMetrics(prevMetrics =>
         prevMetrics.map(metric => {
           if (metric.id === metricId) {
-            const currentBehaviors = Array.isArray(metric.behaviors) ? metric.behaviors : [];
+            const currentBehaviors = Array.isArray(metric.behaviors)
+              ? metric.behaviors
+              : [];
             // Add behavior ID if not already present
-            const behaviorIds = currentBehaviors.map(b => typeof b === 'string' ? b : b.id);
+            const behaviorIds = currentBehaviors.map(b =>
+              typeof b === 'string' ? b : b.id
+            );
             if (!behaviorIds.includes(behaviorId)) {
               // Maintain consistent type - if current behaviors are strings, add string; if objects, add object
-              const isStringArray = currentBehaviors.length === 0 || typeof currentBehaviors[0] === 'string';
-              const newBehavior = isStringArray ? behaviorId : { id: behaviorId as UUID, name: '', description: '' };
+              const isStringArray =
+                currentBehaviors.length === 0 ||
+                typeof currentBehaviors[0] === 'string';
+              const newBehavior = isStringArray
+                ? behaviorId
+                : { id: behaviorId as UUID, name: '', description: '' };
               return {
                 ...metric,
-                behaviors: [...currentBehaviors, newBehavior] as MetricDetail['behaviors']
+                behaviors: [
+                  ...currentBehaviors,
+                  newBehavior,
+                ] as MetricDetail['behaviors'],
               };
             }
           }
@@ -257,55 +323,63 @@ export default function MetricsDirectoryTab({
             ...prev[behaviorId],
             metrics: [...(prev[behaviorId]?.metrics || []), targetMetric],
             isLoading: false,
-            error: null
-          }
+            error: null,
+          },
         }));
 
         // Update behaviorsWithMetrics state
         setBehaviorsWithMetrics(prevBehaviors =>
           prevBehaviors.map(behavior =>
             behavior.id === behaviorId
-              ? { 
-                  ...behavior, 
-                  metrics: [...(behavior.metrics || []), targetMetric as any]
+              ? {
+                  ...behavior,
+                  metrics: [...(behavior.metrics || []), targetMetric as any],
                 }
               : behavior
           )
         );
       }
-      
+
       notifications.show('Successfully assigned metric to behavior', {
         severity: 'success',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     } catch (err) {
       console.error('Error assigning metric to behavior:', err);
       notifications.show('Failed to assign metric to behavior', {
         severity: 'error',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     }
   };
 
   // Function to remove a metric from a behavior
-  const handleRemoveMetricFromBehavior = async (behaviorId: string, metricId: string) => {
+  const handleRemoveMetricFromBehavior = async (
+    behaviorId: string,
+    metricId: string
+  ) => {
     try {
       const metricClient = new MetricsClient(sessionToken);
 
       // Remove metric from behavior
-      await metricClient.removeBehaviorFromMetric(metricId as UUID, behaviorId as UUID);
+      await metricClient.removeBehaviorFromMetric(
+        metricId as UUID,
+        behaviorId as UUID
+      );
 
       // Update local state optimistically - remove behavior from metric's behaviors list
-      setMetrics(prevMetrics => 
+      setMetrics(prevMetrics =>
         prevMetrics.map(metric => {
           if (metric.id === metricId) {
-            const currentBehaviors = Array.isArray(metric.behaviors) ? metric.behaviors : [];
+            const currentBehaviors = Array.isArray(metric.behaviors)
+              ? metric.behaviors
+              : [];
             return {
               ...metric,
               behaviors: currentBehaviors.filter(b => {
                 const behaviorId_str = typeof b === 'string' ? b : b.id;
                 return behaviorId_str !== behaviorId;
-              }) as MetricDetail['behaviors']
+              }) as MetricDetail['behaviors'],
             };
           }
           return metric;
@@ -317,33 +391,37 @@ export default function MetricsDirectoryTab({
         ...prev,
         [behaviorId]: {
           ...prev[behaviorId],
-          metrics: (prev[behaviorId]?.metrics || []).filter(m => m.id !== metricId),
+          metrics: (prev[behaviorId]?.metrics || []).filter(
+            m => m.id !== metricId
+          ),
           isLoading: false,
-          error: null
-        }
+          error: null,
+        },
       }));
 
       // Update behaviorsWithMetrics state - remove the metric
       setBehaviorsWithMetrics(prevBehaviors =>
         prevBehaviors.map(behavior =>
           behavior.id === behaviorId
-            ? { 
-                ...behavior, 
-                metrics: (behavior.metrics || []).filter(m => m.id !== metricId)
+            ? {
+                ...behavior,
+                metrics: (behavior.metrics || []).filter(
+                  m => m.id !== metricId
+                ),
               }
             : behavior
         )
       );
-      
+
       notifications.show('Successfully removed metric from behavior', {
         severity: 'success',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     } catch (err) {
       console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     }
   };
@@ -369,19 +447,21 @@ export default function MetricsDirectoryTab({
       setIsDeletingMetric(true);
       const metricClient = new MetricsClient(sessionToken);
       await metricClient.deleteMetric(metricToDeleteCompletely.id as UUID);
-      
+
       // Remove the metric from local state
-      setMetrics(prevMetrics => prevMetrics.filter(m => m.id !== metricToDeleteCompletely.id));
-      
+      setMetrics(prevMetrics =>
+        prevMetrics.filter(m => m.id !== metricToDeleteCompletely.id)
+      );
+
       notifications.show('Metric deleted successfully', {
         severity: 'success',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     } catch (err) {
       console.error('Error deleting metric:', err);
       notifications.show('Failed to delete metric', {
         severity: 'error',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     } finally {
       setIsDeletingMetric(false);
@@ -400,13 +480,15 @@ export default function MetricsDirectoryTab({
 
   if (isLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        p: 4, 
-        minHeight: '400px' 
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          p: 4,
+          minHeight: '400px',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <CircularProgress size={24} />
           <Typography>Loading metrics directory...</Typography>
@@ -424,7 +506,9 @@ export default function MetricsDirectoryTab({
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}
+    >
       {/* Search and Filters */}
       <Box sx={{ p: 3, bgcolor: 'background.paper' }}>
         <Stack spacing={3}>
@@ -434,7 +518,7 @@ export default function MetricsDirectoryTab({
               fullWidth
               placeholder="Search metrics..."
               value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
+              onChange={e => handleFilterChange('search', e.target.value)}
               variant="filled"
               hiddenLabel
               InputProps={{
@@ -449,9 +533,9 @@ export default function MetricsDirectoryTab({
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setCreateMetricOpen(true)}
-              sx={{ 
+              sx={{
                 whiteSpace: 'nowrap',
-                minWidth: 'auto'
+                minWidth: 'auto',
               }}
             >
               New Metric
@@ -478,19 +562,17 @@ export default function MetricsDirectoryTab({
                 id="backend-filter"
                 multiple
                 value={filters.backend}
-                onChange={(e) => handleFilterChange('backend', e.target.value as string[])}
+                onChange={e =>
+                  handleFilterChange('backend', e.target.value as string[])
+                }
                 label="Backend"
-                renderValue={(selected) => (
+                renderValue={selected => (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {selected.length === 0 ? (
                       <em>Select backend</em>
                     ) : (
-                      selected.map((value) => (
-                        <Chip 
-                          key={value} 
-                          label={value} 
-                          size="small"
-                        />
+                      selected.map(value => (
+                        <Chip key={value} label={value} size="small" />
                       ))
                     )}
                   </Box>
@@ -499,16 +581,19 @@ export default function MetricsDirectoryTab({
                   PaperProps: {
                     style: {
                       maxHeight: 224,
-                      width: 250
-                    }
-                  }
+                      width: 250,
+                    },
+                  },
                 }}
               >
                 <MenuItem disabled value="">
                   <em>Select backend</em>
                 </MenuItem>
-                {filterOptions.backend.map((option) => (
-                  <MenuItem key={option.type_value} value={option.type_value.toLowerCase()}>
+                {filterOptions.backend.map(option => (
+                  <MenuItem
+                    key={option.type_value}
+                    value={option.type_value.toLowerCase()}
+                  >
                     {option.type_value}
                   </MenuItem>
                 ))}
@@ -523,19 +608,26 @@ export default function MetricsDirectoryTab({
                 id="type-filter"
                 multiple
                 value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value as string[])}
+                onChange={e =>
+                  handleFilterChange('type', e.target.value as string[])
+                }
                 label="Metric Type"
-                renderValue={(selected) => (
+                renderValue={selected => (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {selected.length === 0 ? (
                       <em>Select metric type</em>
                     ) : (
-                      selected.map((value) => (
-                        <Chip 
-                          key={value} 
-                          label={value.replace(/-/g, ' ').split(' ').map(word => 
-                            word.charAt(0).toUpperCase() + word.slice(1)
-                          ).join(' ')} 
+                      selected.map(value => (
+                        <Chip
+                          key={value}
+                          label={value
+                            .replace(/-/g, ' ')
+                            .split(' ')
+                            .map(
+                              word =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            )
+                            .join(' ')}
                           size="small"
                         />
                       ))
@@ -546,24 +638,32 @@ export default function MetricsDirectoryTab({
                   PaperProps: {
                     style: {
                       maxHeight: 224,
-                      width: 250
-                    }
-                  }
+                      width: 250,
+                    },
+                  },
                 }}
               >
                 <MenuItem disabled value="">
                   <em>Select metric type</em>
                 </MenuItem>
-                {filterOptions.type.map((option) => (
+                {filterOptions.type.map(option => (
                   <MenuItem key={option.type_value} value={option.type_value}>
                     <Box>
                       <Typography>
-                        {option.type_value.replace(/-/g, ' ').split(' ').map(word => 
-                          word.charAt(0).toUpperCase() + word.slice(1)
-                        ).join(' ')}
+                        {option.type_value
+                          .replace(/-/g, ' ')
+                          .split(' ')
+                          .map(
+                            word => word.charAt(0).toUpperCase() + word.slice(1)
+                          )
+                          .join(' ')}
                       </Typography>
                       {option.description && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
                           {option.description}
                         </Typography>
                       )}
@@ -581,17 +681,23 @@ export default function MetricsDirectoryTab({
                 id="score-type-filter"
                 multiple
                 value={filters.scoreType}
-                onChange={(e) => handleFilterChange('scoreType', e.target.value as string[])}
+                onChange={e =>
+                  handleFilterChange('scoreType', e.target.value as string[])
+                }
                 label="Score Type"
-                renderValue={(selected) => (
+                renderValue={selected => (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {selected.length === 0 ? (
                       <em>Select score type</em>
                     ) : (
-                      selected.map((value) => (
-                        <Chip 
-                          key={value} 
-                          label={filterOptions.scoreType.find(opt => opt.value === value)?.label || value}
+                      selected.map(value => (
+                        <Chip
+                          key={value}
+                          label={
+                            filterOptions.scoreType.find(
+                              opt => opt.value === value
+                            )?.label || value
+                          }
                           size="small"
                         />
                       ))
@@ -602,15 +708,15 @@ export default function MetricsDirectoryTab({
                   PaperProps: {
                     style: {
                       maxHeight: 224,
-                      width: 250
-                    }
-                  }
+                      width: 250,
+                    },
+                  },
                 }}
               >
                 <MenuItem disabled value="">
                   <em>Select score type</em>
                 </MenuItem>
-                {filterOptions.scoreType.map((option) => (
+                {filterOptions.scoreType.map(option => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}
                   </MenuItem>
@@ -623,7 +729,7 @@ export default function MetricsDirectoryTab({
 
       {/* Metrics Stack */}
       <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
-        <Stack 
+        <Stack
           spacing={3}
           sx={{
             '& > *': {
@@ -632,35 +738,61 @@ export default function MetricsDirectoryTab({
               flexWrap: 'wrap',
               gap: 3,
               '& > *': {
-                flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(33.333% - 16px)' },
+                flex: {
+                  xs: '1 1 100%',
+                  sm: '1 1 calc(50% - 12px)',
+                  md: '1 1 calc(33.333% - 16px)',
+                },
                 minWidth: { xs: '100%', sm: '300px', md: '320px' },
-                maxWidth: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' }
-              }
-            }
+                maxWidth: {
+                  xs: '100%',
+                  sm: 'calc(50% - 12px)',
+                  md: 'calc(33.333% - 16px)',
+                },
+              },
+            },
           }}
         >
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-            {filteredMetrics.map((metric) => {
+            {filteredMetrics.map(metric => {
               const assignedBehaviors = activeBehaviors.filter(b => {
                 if (!Array.isArray(metric.behaviors)) return false;
                 // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-                const behaviorIds = metric.behaviors.map(behavior => 
+                const behaviorIds = metric.behaviors.map(behavior =>
                   typeof behavior === 'string' ? behavior : behavior.id
                 );
                 return behaviorIds.includes(b.id as string);
               });
-              const behaviorNames = assignedBehaviors.map(b => b.name || 'Unnamed Behavior');
-              
+              const behaviorNames = assignedBehaviors.map(
+                b => b.name || 'Unnamed Behavior'
+              );
+
               return (
-                <Box key={metric.id} sx={{ position: 'relative', flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 12px)', md: '1 1 calc(33.333% - 16px)' }, minWidth: { xs: '100%', sm: '300px', md: '320px' }, maxWidth: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' } }}>
-                  <Box 
-                    sx={{ 
+                <Box
+                  key={metric.id}
+                  sx={{
+                    position: 'relative',
+                    flex: {
+                      xs: '1 1 100%',
+                      sm: '1 1 calc(50% - 12px)',
+                      md: '1 1 calc(33.333% - 16px)',
+                    },
+                    minWidth: { xs: '100%', sm: '300px', md: '320px' },
+                    maxWidth: {
+                      xs: '100%',
+                      sm: 'calc(50% - 12px)',
+                      md: 'calc(33.333% - 16px)',
+                    },
+                  }}
+                >
+                  <Box
+                    sx={{
                       position: 'absolute',
                       top: 8,
                       right: 8,
                       display: 'flex',
                       gap: 1,
-                      zIndex: 1
+                      zIndex: 1,
                     }}
                   >
                     <IconButton
@@ -669,8 +801,10 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
-                        }
+                          fontSize:
+                            theme?.typography?.helperText?.fontSize ||
+                            '0.75rem',
+                        },
                       }}
                     >
                       <OpenInNewIcon fontSize="inherit" />
@@ -684,33 +818,43 @@ export default function MetricsDirectoryTab({
                       sx={{
                         padding: '2px',
                         '& .MuiSvgIcon-root': {
-                          fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
-                        }
+                          fontSize:
+                            theme?.typography?.helperText?.fontSize ||
+                            '0.75rem',
+                        },
                       }}
                     >
                       <AddIcon fontSize="inherit" />
                     </IconButton>
                     {/* Only show delete button for unassigned custom metrics */}
-                    {assignedBehaviors.length === 0 && metric.backend_type?.type_value?.toLowerCase() === 'custom' && (
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteMetric(metric.id, metric.name);
-                        }}
-                        sx={{
-                          padding: '2px',
-                          '& .MuiSvgIcon-root': {
-                            fontSize: theme?.typography?.helperText?.fontSize || '0.75rem'
-                          }
-                        }}
-                      >
-                        <DeleteIcon fontSize="inherit" />
-                      </IconButton>
-                    )}
+                    {assignedBehaviors.length === 0 &&
+                      metric.backend_type?.type_value?.toLowerCase() ===
+                        'custom' && (
+                        <IconButton
+                          size="small"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleDeleteMetric(metric.id, metric.name);
+                          }}
+                          sx={{
+                            padding: '2px',
+                            '& .MuiSvgIcon-root': {
+                              fontSize:
+                                theme?.typography?.helperText?.fontSize ||
+                                '0.75rem',
+                            },
+                          }}
+                        >
+                          <DeleteIcon fontSize="inherit" />
+                        </IconButton>
+                      )}
                   </Box>
-                  <MetricCard 
-                    type={isValidMetricType(metric.metric_type?.type_value) ? metric.metric_type.type_value : undefined}
+                  <MetricCard
+                    type={
+                      isValidMetricType(metric.metric_type?.type_value)
+                        ? metric.metric_type.type_value
+                        : undefined
+                    }
                     title={metric.name}
                     description={metric.description}
                     backend={metric.backend_type?.type_value}

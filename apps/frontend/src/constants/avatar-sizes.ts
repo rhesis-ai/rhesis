@@ -10,4 +10,4 @@ export const AVATAR_SIZES = {
   LARGE: 40,
 } as const;
 
-export type AvatarSize = typeof AVATAR_SIZES[keyof typeof AVATAR_SIZES];
+export type AvatarSize = (typeof AVATAR_SIZES)[keyof typeof AVATAR_SIZES];

@@ -8,4 +8,4 @@ export function joinUrl(...parts: string[]): string {
     .map(part => part.trim().replace(/^\/+|\/+$/g, '')) // Remove leading/trailing slashes
     .filter(part => part.length > 0) // Remove empty parts
     .join('/');
-} 
+}

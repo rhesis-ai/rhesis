@@ -33,4 +33,4 @@ export interface UserUpdate {
   picture?: string;
   is_active?: boolean;
   organization_id?: UUID;
-} 
+}

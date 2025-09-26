@@ -7,10 +7,11 @@ import { ColorModeContext } from '../providers/ThemeProvider';
 
 export default function ThemeAwareLogo() {
   const { mode } = React.useContext(ColorModeContext);
-  
-  const logoSrc = mode === 'dark' 
-    ? '/logos/rhesis-logo-platypus-dark-white.png'
-    : '/logos/rhesis-logo-platypus.png';
+
+  const logoSrc =
+    mode === 'dark'
+      ? '/logos/rhesis-logo-platypus-dark-white.png'
+      : '/logos/rhesis-logo-platypus.png';
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>

@@ -10,7 +10,10 @@ interface MetricTimelineChartProps {
   timelineData: TimelineDataItem[];
 }
 
-export default function MetricTimelineChart({ metricName, timelineData }: MetricTimelineChartProps) {
+export default function MetricTimelineChart({
+  metricName,
+  timelineData,
+}: MetricTimelineChartProps) {
   const theme = useTheme();
   const contextInfo = (data: any[]) => {
     if (data.length === 0) {

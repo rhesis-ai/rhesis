@@ -6,7 +6,11 @@ export const metadata: Metadata = {
   title: 'Onboarding',
 };
 
-export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
+export default function OnboardingLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <Box
       sx={{
@@ -19,4 +23,4 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
       {children}
     </Box>
   );
-} 
+}

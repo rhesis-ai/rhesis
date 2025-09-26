@@ -11,22 +11,33 @@ import type { UUID } from 'crypto';
 
 export default function MetricsPage() {
   const { data: session, status } = useSession();
-  
+
   // Use memoized values to prevent unnecessary re-renders from session object recreation
-  const sessionToken = React.useMemo(() => session?.session_token, [session?.session_token]);
-  const organizationId = React.useMemo(() => session?.user?.organization_id as UUID, [session?.user?.organization_id]);
-  
+  const sessionToken = React.useMemo(
+    () => session?.session_token,
+    [session?.session_token]
+  );
+  const organizationId = React.useMemo(
+    () => session?.user?.organization_id as UUID,
+    [session?.user?.organization_id]
+  );
+
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Metrics" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
-        <Box sx={{ 
-          p: 3, 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          minHeight: '200px' 
-        }}>
+      <PageContainer
+        title="Metrics"
+        breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}
+      >
+        <Box
+          sx={{
+            p: 3,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '200px',
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <CircularProgress size={24} />
             <Typography>Loading metrics...</Typography>
@@ -35,11 +46,14 @@ export default function MetricsPage() {
       </PageContainer>
     );
   }
-  
+
   // Handle no session state
   if (!sessionToken) {
     return (
-      <PageContainer title="Metrics" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
+      <PageContainer
+        title="Metrics"
+        breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}
+      >
         <Box sx={{ p: 3 }}>
           <Typography color="error">
             Authentication required. Please log in.
@@ -50,7 +64,10 @@ export default function MetricsPage() {
   }
 
   return (
-    <PageContainer title="Metrics" breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}>
+    <PageContainer
+      title="Metrics"
+      breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}
+    >
       <MetricsClientComponent
         sessionToken={sessionToken}
         organizationId={organizationId}

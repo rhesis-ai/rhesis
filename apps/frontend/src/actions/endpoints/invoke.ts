@@ -18,20 +18,24 @@ export async function invokeEndpoint(
     if (!session?.session_token) {
       throw new Error('No session token available');
     }
-    
+
     const apiFactory = new ApiClientFactory(session.session_token);
     const endpointsClient = apiFactory.getEndpointsClient();
-    const response = await endpointsClient.invokeEndpoint(endpointId, inputData);
-    
+    const response = await endpointsClient.invokeEndpoint(
+      endpointId,
+      inputData
+    );
+
     return {
       success: true,
-      data: response
+      data: response,
     };
   } catch (error) {
     console.error('Failed to invoke endpoint:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'An unknown error occurred'
+      error:
+        error instanceof Error ? error.message : 'An unknown error occurred',
     };
   }
-} 
+}

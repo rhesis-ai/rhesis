@@ -1,12 +1,12 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { 
+import {
   Metric,
   MetricCreate,
   MetricUpdate,
   MetricDetail,
   MetricQueryParams,
-  MetricsResponse
+  MetricsResponse,
 } from './interfaces/metric';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';
@@ -16,20 +16,22 @@ const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 10,
   sort_by: 'created_at',
-  sort_order: 'desc'
+  sort_order: 'desc',
 };
 
 export class MetricsClient extends BaseApiClient {
-  async getMetrics(params?: MetricQueryParams): Promise<PaginatedResponse<MetricDetail>> {
+  async getMetrics(
+    params?: MetricQueryParams
+  ): Promise<PaginatedResponse<MetricDetail>> {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
-    
+
     // The metrics endpoint now includes all relationships (behaviors, metric_type, backend_type)
     // using get_items_detail with joinedloads
     return this.fetchPaginated<MetricDetail>(
       API_ENDPOINTS.metrics,
       paginationParams,
       {
-        cache: 'no-store'
+        cache: 'no-store',
       }
     );
   }
@@ -59,15 +61,24 @@ export class MetricsClient extends BaseApiClient {
   }
 
   async addBehaviorToMetric(metricId: UUID, behaviorId: UUID): Promise<void> {
-    return this.fetch<void>(`${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`, {
-      method: 'POST'
-    });
+    return this.fetch<void>(
+      `${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`,
+      {
+        method: 'POST',
+      }
+    );
   }
 
-  async removeBehaviorFromMetric(metricId: UUID, behaviorId: UUID): Promise<void> {
-    return this.fetch<void>(`${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`, {
-      method: 'DELETE'
-    });
+  async removeBehaviorFromMetric(
+    metricId: UUID,
+    behaviorId: UUID
+  ): Promise<void> {
+    return this.fetch<void>(
+      `${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`,
+      {
+        method: 'DELETE',
+      }
+    );
   }
 
   async getMetricBehaviors(
@@ -75,13 +86,13 @@ export class MetricsClient extends BaseApiClient {
     params?: PaginationParams
   ): Promise<PaginatedResponse<MetricDetail>> {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
-    
+
     return this.fetchPaginated<MetricDetail>(
       `${API_ENDPOINTS.metrics}/${metricId}/behaviors`,
       paginationParams,
       {
-        cache: 'no-store'
+        cache: 'no-store',
       }
     );
   }
-} 
+}

@@ -8,7 +8,7 @@ import {
   FormControl,
   AutocompleteProps,
   Popper,
-  PopperProps
+  PopperProps,
 } from '@mui/material';
 import { UUID } from 'crypto';
 
@@ -33,64 +33,66 @@ interface CustomPopperProps extends PopperProps {
 }
 
 // Custom Popper component defined outside the render function
-const CustomPopper = React.forwardRef<HTMLDivElement, CustomPopperProps>((props, ref) => {
-  const { popperWidth, ...other } = props;
-  
-  return (
-    <Popper
-      {...other}
-      ref={ref}
-      placement="bottom-start"
-      modifiers={[
-        {
-          name: 'preventOverflow',
-          enabled: true,
-          options: {
-            altAxis: true,
-            tether: true,
-            padding: 8,
+const CustomPopper = React.forwardRef<HTMLDivElement, CustomPopperProps>(
+  (props, ref) => {
+    const { popperWidth, ...other } = props;
+
+    return (
+      <Popper
+        {...other}
+        ref={ref}
+        placement="bottom-start"
+        modifiers={[
+          {
+            name: 'preventOverflow',
+            enabled: true,
+            options: {
+              altAxis: true,
+              tether: true,
+              padding: 8,
+            },
           },
-        },
-        {
-          name: 'flip',
-          enabled: true,
-          options: {
-            padding: 8,
+          {
+            name: 'flip',
+            enabled: true,
+            options: {
+              padding: 8,
+            },
           },
-        },
-        {
-          name: 'offset',
-          options: {
-            offset: [0, 8],
+          {
+            name: 'offset',
+            options: {
+              offset: [0, 8],
+            },
           },
-        },
-        {
-          name: 'computeStyles',
-          options: {
-            adaptive: false,
-            gpuAcceleration: false,
+          {
+            name: 'computeStyles',
+            options: {
+              adaptive: false,
+              gpuAcceleration: false,
+            },
           },
-        },
-        {
-          name: 'setWidth',
-          enabled: true,
-          phase: 'beforeWrite',
-          fn: ({ state }) => {
-            const referenceWidth = state.rects.reference.width;
-            if (popperWidth === '100%') {
-              state.styles.popper.width = `${referenceWidth}px`;
-            } else if (typeof popperWidth === 'number') {
-              state.styles.popper.width = `${popperWidth}px`;
-            } else if (popperWidth) {
-              state.styles.popper.width = popperWidth;
-            }
-            return state;
+          {
+            name: 'setWidth',
+            enabled: true,
+            phase: 'beforeWrite',
+            fn: ({ state }) => {
+              const referenceWidth = state.rects.reference.width;
+              if (popperWidth === '100%') {
+                state.styles.popper.width = `${referenceWidth}px`;
+              } else if (typeof popperWidth === 'number') {
+                state.styles.popper.width = `${popperWidth}px`;
+              } else if (popperWidth) {
+                state.styles.popper.width = popperWidth;
+              }
+              return state;
+            },
           },
-        },
-      ]}
-    />
-  );
-});
+        ]}
+      />
+    );
+  }
+);
 
 CustomPopper.displayName = 'CustomPopper';
 
@@ -100,7 +102,7 @@ export default function BaseFreesoloAutocomplete({
   onChange,
   label,
   required = false,
-  popperWidth
+  popperWidth,
 }: BaseFreesoloAutocompleteProps) {
   // Create filter for autocomplete
   const filter = createFilterOptions<AutocompleteOption>();
@@ -110,10 +112,14 @@ export default function BaseFreesoloAutocomplete({
     if (value === undefined || value === null) {
       return null;
     }
-    
+
     if (typeof value === 'string') {
       // If it looks like a UUID, try to find the matching option
-      if (value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      if (
+        value.match(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        )
+      ) {
         const matchingOption = options.find(option => option.id === value);
         if (matchingOption) {
           return matchingOption;
@@ -122,7 +128,7 @@ export default function BaseFreesoloAutocomplete({
       // Otherwise, return the string as is
       return value;
     }
-    
+
     // If it's a UUID, find the matching option
     return options.find(option => option.id === value) || null;
   }, [value, options]);
@@ -132,7 +138,11 @@ export default function BaseFreesoloAutocomplete({
     // Value selected with enter, right from the input
     if (typeof option === 'string') {
       // If the string looks like a UUID, try to find the matching option
-      if (option.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      if (
+        option.match(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        )
+      ) {
         const matchingOption = options.find(o => o.id === option);
         if (matchingOption) {
           return matchingOption.name;
@@ -148,9 +158,11 @@ export default function BaseFreesoloAutocomplete({
     return option.name;
   };
 
-  const ForwardedPopper = React.forwardRef<HTMLDivElement, CustomPopperProps>((props, ref) => (
-    <CustomPopper {...props} ref={ref} popperWidth={popperWidth} />
-  ));
+  const ForwardedPopper = React.forwardRef<HTMLDivElement, CustomPopperProps>(
+    (props, ref) => (
+      <CustomPopper {...props} ref={ref} popperWidth={popperWidth} />
+    )
+  );
   ForwardedPopper.displayName = 'ForwardedPopper';
 
   return (
@@ -166,20 +178,22 @@ export default function BaseFreesoloAutocomplete({
         filterOptions={(options, params) => {
           // Cast to AutocompleteOption[] - since we know MUI provides valid options internally
           const filtered = filter(options as AutocompleteOption[], params);
-          
+
           const { inputValue } = params;
           // Suggest the creation of a new value
-          const isExisting = options.some((option) => 
-            typeof option === 'string' ? inputValue === option : inputValue === option.name
+          const isExisting = options.some(option =>
+            typeof option === 'string'
+              ? inputValue === option
+              : inputValue === option.name
           );
           if (inputValue !== '' && !isExisting) {
             filtered.push({
               inputValue,
               name: `Add "${inputValue}"`,
-              id: '' as UUID
+              id: '' as UUID,
             });
           }
-          
+
           return filtered;
         }}
         value={autocompleteValue}
@@ -198,15 +212,18 @@ export default function BaseFreesoloAutocomplete({
         renderOption={(props, option) => {
           const { key, ...otherProps } = props;
           return (
-            <li {...otherProps} key={typeof option === 'string' ? option : option.id}>
+            <li
+              {...otherProps}
+              key={typeof option === 'string' ? option : option.id}
+            >
               {typeof option === 'string' ? option : option.name}
             </li>
           );
         }}
-        renderInput={(params) => (
+        renderInput={params => (
           <TextField {...params} label={label} required={required} />
         )}
       />
     </FormControl>
   );
-} 
+}

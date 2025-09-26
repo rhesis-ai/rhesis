@@ -14,7 +14,10 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-import { ArrowForward as ArrowForwardIcon, CallSplit as CallSplitIcon } from '@mui/icons-material';
+import {
+  ArrowForward as ArrowForwardIcon,
+  CallSplit as CallSplitIcon,
+} from '@mui/icons-material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -41,17 +44,19 @@ interface ExecuteTestSetDrawerProps {
   sessionToken: string;
 }
 
-export default function ExecuteTestSetDrawer({ 
-  open, 
-  onClose, 
+export default function ExecuteTestSetDrawer({
+  open,
+  onClose,
   testSetId,
-  sessionToken 
+  sessionToken,
 }: ExecuteTestSetDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
-  const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>([]);
+  const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
+    []
+  );
   const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
@@ -61,22 +66,22 @@ export default function ExecuteTestSetDrawer({
   useEffect(() => {
     const fetchData = async () => {
       if (!sessionToken || !open) return;
-      
+
       try {
         setLoading(true);
         setError(undefined);
-        
+
         const clientFactory = new ApiClientFactory(sessionToken);
-        
+
         // Fetch projects
         try {
           const projectsClient = clientFactory.getProjectsClient();
-          const projectsData = await projectsClient.getProjects({ 
-            sort_by: 'name', 
+          const projectsData = await projectsClient.getProjects({
+            sort_by: 'name',
             sort_order: 'asc',
-            limit: 100
+            limit: 100,
           });
-          
+
           // Handle both response formats: direct array or {data: array}
           let projectsArray: Project[] = [];
           if (Array.isArray(projectsData)) {
@@ -84,36 +89,36 @@ export default function ExecuteTestSetDrawer({
           } else if (projectsData && Array.isArray(projectsData.data)) {
             projectsArray = projectsData.data;
           }
-          
+
           const processedProjects = projectsArray
             .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
             .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
-          
+
           setProjects(processedProjects);
         } catch (projectsError) {
           console.error('Error fetching projects:', projectsError);
           setProjects([]);
         }
-        
+
         // Fetch all endpoints
         try {
           const endpointsClient = clientFactory.getEndpointsClient();
           const endpointsResponse = await endpointsClient.getEndpoints({
             sort_by: 'name',
             sort_order: 'asc',
-            limit: 100
+            limit: 100,
           });
-          
+
           if (endpointsResponse && Array.isArray(endpointsResponse.data)) {
             const processedEndpoints = endpointsResponse.data
               .filter(e => e.id && e.name && e.name.trim() !== '')
-              .map(e => ({ 
-                id: e.id as UUID, 
+              .map(e => ({
+                id: e.id as UUID,
                 name: e.name,
                 environment: e.environment,
-                project_id: e.project_id
+                project_id: e.project_id,
               }));
-            
+
             setEndpoints(processedEndpoints);
           } else {
             setEndpoints([]);
@@ -122,15 +127,16 @@ export default function ExecuteTestSetDrawer({
           console.error('Error fetching endpoints:', endpointsError);
           setEndpoints([]);
         }
-        
       } catch (error) {
         console.error('Error fetching data:', error);
-        setError('Failed to load data. Please check your connection and try again.');
+        setError(
+          'Failed to load data. Please check your connection and try again.'
+        );
       } finally {
         setLoading(false);
       }
     };
-    
+
     if (open) {
       fetchData();
       // Reset selections when drawer opens
@@ -146,11 +152,13 @@ export default function ExecuteTestSetDrawer({
       setSelectedEndpoint(null);
       return;
     }
-    
+
     // Filter endpoints that belong to the selected project
-    const filtered = endpoints.filter(endpoint => endpoint.project_id === selectedProject);
+    const filtered = endpoints.filter(
+      endpoint => endpoint.project_id === selectedProject
+    );
     setFilteredEndpoints(filtered);
-    
+
     // Reset selected endpoint when project changes
     setSelectedEndpoint(null);
   }, [selectedProject, endpoints]);
@@ -160,7 +168,7 @@ export default function ExecuteTestSetDrawer({
       setSelectedEndpoint(null);
       return;
     }
-    
+
     setSelectedEndpoint(value.id);
   };
 
@@ -170,21 +178,25 @@ export default function ExecuteTestSetDrawer({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
-      
+
       // Prepare test configuration attributes
       const testConfigurationAttributes = {
-        execution_mode: executionMode
+        execution_mode: executionMode,
       };
-      
+
       // Execute test set against the selected endpoint with test configuration attributes
-      await testSetsClient.executeTestSet(testSetId, selectedEndpoint, testConfigurationAttributes);
-      
+      await testSetsClient.executeTestSet(
+        testSetId,
+        selectedEndpoint,
+        testConfigurationAttributes
+      );
+
       // Show success notification
-      notifications.show('Test set execution started successfully!', { 
+      notifications.show('Test set execution started successfully!', {
         severity: 'success',
-        autoHideDuration: 5000
+        autoHideDuration: 5000,
       });
-      
+
       // Close drawer on success
       onClose();
     } catch (err) {
@@ -227,12 +239,12 @@ export default function ExecuteTestSetDrawer({
                 setSelectedProject(newValue.id);
                 setSelectedEndpoint(null);
               }}
-              getOptionLabel={(option) => option.name}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Project" 
-                  required 
+              getOptionLabel={option => option.name}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Project"
+                  required
                   placeholder="Select a project"
                 />
               )}
@@ -242,20 +254,26 @@ export default function ExecuteTestSetDrawer({
               <FormHelperText>No projects available</FormHelperText>
             )}
           </FormControl>
-          
+
           <FormControl fullWidth>
             <Autocomplete
               options={filteredEndpoints}
-              value={filteredEndpoints.find(e => e.id === selectedEndpoint) || null}
+              value={
+                filteredEndpoints.find(e => e.id === selectedEndpoint) || null
+              }
               onChange={(_, newValue) => handleEndpointChange(newValue)}
-              getOptionLabel={(option) => option.name}
+              getOptionLabel={option => option.name}
               disabled={!selectedProject}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Endpoint" 
-                  required 
-                  placeholder={selectedProject ? "Select endpoint" : "Select a project first"}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Endpoint"
+                  required
+                  placeholder={
+                    selectedProject
+                      ? 'Select endpoint'
+                      : 'Select a project first'
+                  }
                 />
               )}
               renderOption={(props, option) => {
@@ -265,17 +283,23 @@ export default function ExecuteTestSetDrawer({
                     key={option.id}
                     {...otherProps}
                     component="li"
-                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
                   >
                     <span>{option.name}</span>
                     {option.environment && (
-                      <Chip 
-                        label={option.environment} 
+                      <Chip
+                        label={option.environment}
                         size="small"
                         color={
-                          option.environment === 'production' ? 'error' :
-                          option.environment === 'staging' ? 'warning' : 
-                          'success'
+                          option.environment === 'production'
+                            ? 'error'
+                            : option.environment === 'staging'
+                              ? 'warning'
+                              : 'success'
                         }
                         sx={{ ml: 1 }}
                       />
@@ -286,7 +310,9 @@ export default function ExecuteTestSetDrawer({
               isOptionEqualToValue={(option, value) => option.id === value.id}
             />
             {filteredEndpoints.length === 0 && selectedProject && !loading && (
-              <FormHelperText>No endpoints available for this project</FormHelperText>
+              <FormHelperText>
+                No endpoints available for this project
+              </FormHelperText>
             )}
           </FormControl>
 
@@ -294,13 +320,13 @@ export default function ExecuteTestSetDrawer({
 
           <Typography variant="subtitle2" color="text.secondary">
             Configuration Options
-          </Typography> 
+          </Typography>
 
           <FormControl fullWidth>
             <InputLabel>Execution Mode</InputLabel>
             <Select
               value={executionMode}
-              onChange={(e) => setExecutionMode(e.target.value)}
+              onChange={e => setExecutionMode(e.target.value)}
               label="Execution Mode"
             >
               <MenuItem value="Parallel">
@@ -320,7 +346,8 @@ export default function ExecuteTestSetDrawer({
                   <Box>
                     <Typography variant="body1">Sequential</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Tests run one after another, better for rate-limited endpoints
+                      Tests run one after another, better for rate-limited
+                      endpoints
                     </Typography>
                   </Box>
                 </Box>
@@ -331,4 +358,4 @@ export default function ExecuteTestSetDrawer({
       )}
     </BaseDrawer>
   );
-} 
+}

@@ -12,7 +12,7 @@ import TasksCharts from './components/TasksCharts';
 export default function TasksPage() {
   const { data: session, status } = useSession();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  
+
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
@@ -20,39 +20,46 @@ export default function TasksPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Tasks" breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}>
+      <PageContainer
+        title="Tasks"
+        breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}
+      >
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
       </PageContainer>
     );
   }
-  
+
   // Handle no session state
   if (!session?.session_token) {
     return (
-      <PageContainer title="Tasks" breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}>
+      <PageContainer
+        title="Tasks"
+        breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}
+      >
         <Box sx={{ p: 3 }}>
-          <Typography color="error">
-            No session token available
-          </Typography>
+          <Typography color="error">No session token available</Typography>
         </Box>
       </PageContainer>
     );
   }
 
   return (
-    <PageContainer title="Tasks" breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}>
+    <PageContainer
+      title="Tasks"
+      breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}
+    >
       {/* Charts Section */}
-      <TasksCharts 
-        sessionToken={session.session_token} 
+      <TasksCharts
+        sessionToken={session.session_token}
         key={`charts-${refreshKey}`}
       />
-      
+
       {/* Tasks Grid Section */}
       <Paper sx={{ p: 3 }}>
-        <TasksGrid 
-          sessionToken={session.session_token} 
+        <TasksGrid
+          sessionToken={session.session_token}
           onRefresh={handleRefresh}
           key={`grid-${refreshKey}`}
         />

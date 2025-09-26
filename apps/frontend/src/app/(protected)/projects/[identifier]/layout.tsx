@@ -5,9 +5,5 @@ export default function ProjectDetailLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      {children}
-    </>
-  );
-} 
+  return <>{children}</>;
+}

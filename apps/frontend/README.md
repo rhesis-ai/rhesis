@@ -32,46 +32,46 @@ The Rhesis frontend provides a modern, responsive user interface for the Rhesis 
 
 ## Tech Stack
 
-* **Framework:** [Next.js](https://nextjs.org/) 15.3.0 with App Router
-* **Language:** [TypeScript](https://www.typescriptlang.org/) 5.8.3
-* **UI:** [Material UI (MUI)](https://mui.com/) v6
-* **Authentication:** [NextAuth.js](https://next-auth.js.org/) 5.0.0-beta.25
-* **State Management:** React Context API
-* **Styling:** MUI theming with Emotion
-* **Data Visualization:** [Recharts](https://recharts.org/) 2.15.0
-* **Data Grid:** MUI X Data Grid
-* **Flow Visualization:** [React Flow](https://reactflow.dev/) 11.11.4
-* **Code Editor:** [Monaco Editor](https://microsoft.github.io/monaco-editor/)
-* **Icons:** MUI Icons, Lucide React
-* **Date Handling:** date-fns, dayjs
-* **React:** React 19
+- **Framework:** [Next.js](https://nextjs.org/) 15.3.0 with App Router
+- **Language:** [TypeScript](https://www.typescriptlang.org/) 5.8.3
+- **UI:** [Material UI (MUI)](https://mui.com/) v6
+- **Authentication:** [NextAuth.js](https://next-auth.js.org/) 5.0.0-beta.25
+- **State Management:** React Context API
+- **Styling:** MUI theming with Emotion
+- **Data Visualization:** [Recharts](https://recharts.org/) 2.15.0
+- **Data Grid:** MUI X Data Grid
+- **Flow Visualization:** [React Flow](https://reactflow.dev/) 11.11.4
+- **Code Editor:** [Monaco Editor](https://microsoft.github.io/monaco-editor/)
+- **Icons:** MUI Icons, Lucide React
+- **Date Handling:** date-fns, dayjs
+- **React:** React 19
 
 ## Project Structure
 
 A brief overview of the key directories:
 
-* `src/app/`: Next.js App Router with route groups and protected routes
-  * `(protected)/`: Authentication-protected routes (dashboard, projects, tests, etc.)
-  * `api/`: API routes
-  * `auth/`: Authentication pages
-* `src/components/`: Shared UI components
-  * `common/`: Reusable components (charts, tables, data grids)
-  * `layout/`: Layout components
-  * `navigation/`: Navigation components
-  * `providers/`: Context providers
-  * `auth/`: Authentication components
-* `src/utils/`: Utility functions and services
-  * `api-client/`: API client implementation with typed interfaces
-* `src/actions/`: Server actions
-* `src/types/`: TypeScript type definitions
-* `src/styles/`: Theme configuration
-* `src/constants/`: Application constants
-* `public/`: Static assets
+- `src/app/`: Next.js App Router with route groups and protected routes
+  - `(protected)/`: Authentication-protected routes (dashboard, projects, tests, etc.)
+  - `api/`: API routes
+  - `auth/`: Authentication pages
+- `src/components/`: Shared UI components
+  - `common/`: Reusable components (charts, tables, data grids)
+  - `layout/`: Layout components
+  - `navigation/`: Navigation components
+  - `providers/`: Context providers
+  - `auth/`: Authentication components
+- `src/utils/`: Utility functions and services
+  - `api-client/`: API client implementation with typed interfaces
+- `src/actions/`: Server actions
+- `src/types/`: TypeScript type definitions
+- `src/styles/`: Theme configuration
+- `src/constants/`: Application constants
+- `public/`: Static assets
 
 ## Prerequisites
 
-* [Node.js](https://nodejs.org/) >=18.x.x
-* [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
+- [Node.js](https://nodejs.org/) >=18.x.x
+- [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
 
 ## Getting Started
 
@@ -100,11 +100,11 @@ cp .env.example .env.local
 
 Update `.env.local` with the necessary configurations:
 
-* `NEXTAUTH_SECRET`: Generate one using `npx auth secret` or `openssl rand -hex 32`.
-* `NEXT_PUBLIC_API_BASE_URL`: The base URL for your backend API.
-* `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
-* `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
-* `AUTH_SECRET`: Should be the same as `NEXTAUTH_SECRET`.
+- `NEXTAUTH_SECRET`: Generate one using `npx auth secret` or `openssl rand -hex 32`.
+- `NEXT_PUBLIC_API_BASE_URL`: The base URL for your backend API.
+- `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
+- `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
+- `AUTH_SECRET`: Should be the same as `NEXTAUTH_SECRET`.
 
 ### 4. Run the Development Server
 
@@ -118,12 +118,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to see the a
 
 In the `apps/frontend` directory, you can run several commands:
 
-* `npm run dev`: Starts the development server with Turbo.
-* `npm run build`: Builds the application for production (runs type-check and lint first).
-* `npm run start`: Starts a production server (after building).
-* `npm run lint`: Lints the codebase using Next.js's built-in ESLint configuration.
-* `npm run type-check`: Validates TypeScript types.
-* `npm run clean`: Removes the .next directory.
+- `npm run dev`: Starts the development server with Turbo.
+- `npm run build`: Builds the application for production (runs type-check and lint first).
+- `npm run start`: Starts a production server (after building).
+- `npm run lint`: Lints the codebase using Next.js's built-in ESLint configuration.
+- `npm run type-check`: Validates TypeScript types.
+- `npm run clean`: Removes the .next directory.
 
 ## Deployment
 
@@ -159,6 +159,7 @@ This project is licensed under the MIT License - see the [LICENSE](../../LICENSE
 ## Support
 
 For questions, issues, or feature requests:
+
 - Visit our [documentation](https://docs.rhesis.ai)
 - Join our [Discord server](https://discord.rhesis.ai)
 - Contact us at hello@rhesis.ai

@@ -17,23 +17,25 @@ export async function handleProviderSignIn(
   try {
     // Redirect to home page for unified login experience
     // The callbackUrl can be passed as a URL parameter if needed
-    const redirectUrl = callbackUrl ? `/?return_to=${encodeURIComponent(callbackUrl)}` : '/';
+    const redirectUrl = callbackUrl
+      ? `/?return_to=${encodeURIComponent(callbackUrl)}`
+      : '/';
     redirect(redirectUrl);
   } catch (error) {
     if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
       throw error;
     }
-    
+
     if (error instanceof AuthError) {
       return {
         error: 'An error with Auth.js occurred.',
         type: error.type,
       };
     }
-    
+
     return {
       error: 'Something went wrong.',
       type: 'UnknownError',
     };
   }
-} 
+}

@@ -10,7 +10,7 @@ import {
   Divider,
   CircularProgress,
   Avatar,
-  ListItemIcon
+  ListItemIcon,
 } from '@mui/material';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useState, useEffect } from 'react';
@@ -60,7 +60,7 @@ const PROJECT_ICONS = {
   PhoneIphone: PhoneIphoneIcon,
   School: SchoolIcon,
   Science: ScienceIcon,
-  AccountTree: AccountTreeIcon
+  AccountTree: AccountTreeIcon,
 };
 
 // Map of icon names to labels
@@ -84,7 +84,7 @@ const ICON_LABELS = {
   PhoneIphone: 'Mobile App',
   School: 'Education',
   Science: 'Research',
-  AccountTree: 'Workflow'
+  AccountTree: 'Workflow',
 };
 
 interface FormData {
@@ -107,7 +107,7 @@ export default function FinishStep({
   onComplete,
   onBack,
   isSubmitting = false,
-  sessionToken
+  sessionToken,
 }: FinishStepProps) {
   const [owner, setOwner] = useState<User | null>(null);
   const [loadingOwner, setLoadingOwner] = useState(false);
@@ -132,7 +132,7 @@ export default function FinishStep({
             id: formData.owner_id as `${string}-${string}-${string}-${string}-${string}`,
             name: 'Unknown User',
             email: 'unknown@example.com',
-            picture: ''
+            picture: '',
           });
         }
       } finally {
@@ -146,7 +146,10 @@ export default function FinishStep({
   // Get the icon component with better error handling
   const getIconComponent = () => {
     // Make sure the icon name exists in our icons mapping
-    if (formData.icon && PROJECT_ICONS[formData.icon as keyof typeof PROJECT_ICONS]) {
+    if (
+      formData.icon &&
+      PROJECT_ICONS[formData.icon as keyof typeof PROJECT_ICONS]
+    ) {
       return PROJECT_ICONS[formData.icon as keyof typeof PROJECT_ICONS];
     }
     // Fallback to default icon if the selected one doesn't exist
@@ -166,12 +169,12 @@ export default function FinishStep({
           Please review your project information before completing
         </Typography>
       </Box>
-      
+
       <Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
         <Typography variant="subtitle1" gutterBottom fontWeight="bold">
           Project Information
         </Typography>
-        
+
         <List disablePadding>
           <ListItem sx={{ py: 1 }}>
             {loadingOwner ? (
@@ -182,7 +185,7 @@ export default function FinishStep({
             ) : owner ? (
               <>
                 <ListItemIcon>
-                  <Avatar 
+                  <Avatar
                     src={owner.picture}
                     alt={owner.name || owner.email}
                     sx={{ width: 32, height: 32 }}
@@ -190,16 +193,13 @@ export default function FinishStep({
                     <PersonIcon />
                   </Avatar>
                 </ListItemIcon>
-                <ListItemText 
+                <ListItemText
                   primary="Owner"
                   secondary={owner.name || owner.email}
                 />
               </>
             ) : (
-              <ListItemText 
-                primary="Owner"
-                secondary="Not specified"
-              />
+              <ListItemText primary="Owner" secondary="Not specified" />
             )}
           </ListItem>
           <Divider component="li" />
@@ -208,47 +208,43 @@ export default function FinishStep({
             <ListItemIcon>
               <IconComponent aria-hidden="true" />
             </ListItemIcon>
-            <ListItemText 
-              primary="Project Icon"
-            />
+            <ListItemText primary="Project Icon" />
           </ListItem>
           <Divider component="li" />
-          
+
           <ListItem sx={{ py: 1 }}>
-            <ListItemText 
+            <ListItemText
               primary="Project Name"
               secondary={formData.projectName}
             />
           </ListItem>
           <Divider component="li" />
-          
+
           <ListItem sx={{ py: 1 }}>
-            <ListItemText 
+            <ListItemText
               primary="Description"
               secondary={formData.description}
             />
           </ListItem>
         </List>
       </Paper>
-      
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-        <Button 
-          onClick={onBack}
-          disabled={isSubmitting}
-          variant="outlined"
-        >
+        <Button onClick={onBack} disabled={isSubmitting} variant="outlined">
           Back
         </Button>
-        <Button 
+        <Button
           variant="contained"
           color="primary"
           onClick={onComplete}
           disabled={isSubmitting}
-          startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
+          startIcon={
+            isSubmitting ? <CircularProgress size={20} color="inherit" /> : null
+          }
         >
           {isSubmitting ? 'Creating Project...' : 'Create Project'}
         </Button>
       </Box>
     </Box>
   );
-} 
+}

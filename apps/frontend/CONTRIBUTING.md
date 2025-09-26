@@ -48,6 +48,7 @@ npm --version   # Should output the corresponding npm version
 ```
 
 For macOS users, you can also install nvm via Homebrew:
+
 ```bash
 # Alternative installation via Homebrew
 brew install nvm
@@ -83,41 +84,48 @@ This ensures you're using the exact Node.js version that the project is designed
 ## 🚀 Getting Started
 
 1. ✅ **Ensure you have the correct Node.js version** (see [Node.js Version Requirements](#nodejs-version-requirements)):
+
    ```bash
    node --version  # Should output v18.20.5
    ```
+
    If you don't have the correct version, install it using nvm as described above.
 
 2. 🍴 **Fork the repository** on GitHub
 
 3. 📥 **Clone your fork** locally:
+
    ```bash
    git clone https://github.com/YOUR-USERNAME/rhesis.git
    cd rhesis
    ```
 
 4. 🔗 **Set up the upstream remote**:
+
    ```bash
    git remote add upstream https://github.com/rhesis-ai/rhesis.git
    ```
 
 5. 🛠️ **Install GitHub CLI** (required for automated PR creation):
+
    ```bash
    # Ubuntu/Debian
    sudo apt update && sudo apt install gh
-   
+
    # macOS
    brew install gh
-   
+
    # Or download from: https://cli.github.com/
    ```
 
 6. 🔐 **Authenticate with GitHub**:
+
    ```bash
    gh auth login
    ```
 
 7. 📦 **Navigate to frontend directory and install dependencies**:
+
    ```bash
    cd apps/frontend
    # Ensure you're using the correct Node.js version
@@ -128,14 +136,15 @@ This ensures you're using the exact Node.js version that the project is designed
 8. **Set up environment variables**:
 
    **Option A: Obtain from Google Cloud Secrets Manager (Recommended)**:
+
    ```bash
    # Authenticate with Google Cloud (if not already done)
    gcloud auth login
    gcloud config set project YOUR_PROJECT_ID
-   
+
    # Retrieve the .env.local file from Secrets Manager
    gcloud secrets versions access latest --secret="env-frontend" > .env.local
-   
+
    # Verify the file was created
    ls -la .env.local
    ```
@@ -146,26 +155,29 @@ This ensures you're using the exact Node.js version that the project is designed
    **Note**: Ensure your `.env.local` file is placed in the `apps/frontend/` directory and never commit it to version control.
 
 9. **Environment Configuration Requirements**:
-   
+
    **⚠️ Important**: Proper environment configuration is required for the frontend to connect to backend services and external APIs. The `.env.local` file contains essential configuration including API endpoints, authentication keys, and feature flags.
 
 10. **Start the development server** (choose one method):
 
-   **Option A: Use the unified CLI from repository root:**
-   ```bash
-   ./rh frontend start
-   ```
+    **Option A: Use the unified CLI from repository root:**
 
-   **Option B: Use the frontend start script directly:**
-   ```bash
-   cd apps/frontend
-   ./start.sh
-   ```
+```bash
+./rh frontend start
+```
 
-   **Option C: Run manually:**
-   ```bash
-   npm run dev --host
-   ```
+**Option B: Use the frontend start script directly:**
+
+```bash
+cd apps/frontend
+./start.sh
+```
+
+**Option C: Run manually:**
+
+```bash
+npm run dev --host
+```
 
 ## 🔒 Environment Security Notes
 
@@ -196,11 +208,13 @@ The repository includes an intelligent PR creation tool that streamlines the pul
 
 **🔍 Enhanced Features**
 The tool now prevents common PR creation failures and handles updates:
+
 - **Push Detection**: Detects unpushed branches and commits
 - **Interactive Prompting**: Clear options to push content before PR creation
 - **PR Updates**: Updates existing PRs instead of failing when PR already exists
 
 **Features:**
+
 - 🎯 **Smart title generation** - Automatically formats branch names into proper titles
 - 📝 **Detailed descriptions** - Includes commit summaries, changed files, and checklists
 - 🔤 **Proper capitalization** - Handles technical abbreviations (API, UI, DB, etc.)
@@ -210,10 +224,12 @@ The tool now prevents common PR creation failures and handles updates:
 - 🚀 **Auto-push option** - Can push changes for you with confirmation
 
 **Prerequisites:**
+
 - GitHub CLI (`gh`) must be installed and authenticated (see setup steps above)
 - Must be run from a feature branch (not main/master)
 
 **Examples:**
+
 ```bash
 .github/pr                  # Create PR against main branch (with push detection)
 .github/pr develop         # Create PR against develop branch
@@ -228,20 +244,25 @@ The tool now prevents common PR creation failures and handles updates:
 **📋 Prerequisites**: Before starting development, ensure you have completed the environment configuration by obtaining your `.env.local` file from Google Cloud Secrets Manager or configuring it manually.
 
 1. 🌿 **Create a new branch** for your feature or bugfix:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
+
    or
+
    ```bash
    git checkout -b fix/issue-you-are-fixing
    ```
 
 2. ✍️ **Make your changes** and commit them with descriptive messages:
+
    ```bash
    git commit -m "feat: add new component for test visualization"
    ```
 
 3. 📝 **Follow commit message conventions**:
+
    - `feat:` for new features
    - `fix:` for bug fixes
    - `docs:` for documentation changes
@@ -251,21 +272,26 @@ The tool now prevents common PR creation failures and handles updates:
    - `chore:` for maintenance tasks
 
 4. 🔄 **Keep your branch updated** with the upstream main branch:
+
    ```bash
    git fetch upstream
    git rebase upstream/main
    ```
 
 5. 📤 **Push your changes** to your fork:
+
    ```bash
    git push origin feature/your-feature-name
    ```
 
 6. 🔗 **Create a pull request** using the automated PR tool:
+
    ```bash
    .github/pr
    ```
+
    This tool will:
+
    - 🔍 **Check if your changes are pushed** to remote
    - 🤝 **Prompt you to push** if needed (with option to push automatically)
    - 📝 **Generate a professional PR** with proper title formatting, detailed description, commit summaries, and comprehensive checklist
@@ -299,13 +325,13 @@ import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import { type MyComponentProps } from './types';
 
-export function MyComponent({ 
-  title, 
-  description, 
-  children 
+export function MyComponent({
+  title,
+  description,
+  children,
 }: MyComponentProps): React.ReactElement {
   // Component logic here
-  
+
   return (
     <Box>
       <Typography variant="h2">{title}</Typography>
@@ -343,6 +369,7 @@ We encourage writing tests for your components:
 - 🔗 Integration tests for complex interactions
 
 Run tests with:
+
 ```bash
 npm run test
 ```
@@ -386,4 +413,4 @@ All components should be accessible:
 
 ---
 
-Thank you for contributing to Rhesis! If you have any questions, feel free to reach out to the maintainers or ask in our Discord community. 
+Thank you for contributing to Rhesis! If you have any questions, feel free to reach out to the maintainers or ask in our Discord community.

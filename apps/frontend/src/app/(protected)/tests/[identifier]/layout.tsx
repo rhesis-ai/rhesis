@@ -6,9 +6,5 @@ export default function TestDetailLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-    {children}
-    </>
-  );
-} 
+  return <>{children}</>;
+}

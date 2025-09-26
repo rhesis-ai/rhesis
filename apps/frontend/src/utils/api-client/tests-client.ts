@@ -1,14 +1,14 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { 
-  Test, 
-  TestCreate, 
-  TestUpdate, 
-  TestDetail, 
-  TestStats, 
-  TestBulkCreateRequest, 
+import {
+  Test,
+  TestCreate,
+  TestUpdate,
+  TestDetail,
+  TestStats,
+  TestBulkCreateRequest,
   TestBulkCreateResponse,
-  PriorityLevel
+  PriorityLevel,
 } from './interfaces/tests';
 import { StatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -18,7 +18,7 @@ const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 50,
   sort_by: 'created_at',
-  sort_order: 'desc'
+  sort_order: 'desc',
 };
 
 export interface TestsResponse {
@@ -28,7 +28,9 @@ export interface TestsResponse {
 
 export class TestsClient extends BaseApiClient {
   // Priority translation functions
-  private numericToPriorityString(priorityNum: number | undefined): PriorityLevel {
+  private numericToPriorityString(
+    priorityNum: number | undefined
+  ): PriorityLevel {
     switch (priorityNum) {
       case 0:
         return 'Low';
@@ -66,25 +68,27 @@ export class TestsClient extends BaseApiClient {
     return result;
   }
 
-  async getTests(params?: PaginationParams & { filter?: string }): Promise<PaginatedResponse<TestDetail>> {
+  async getTests(
+    params?: PaginationParams & { filter?: string }
+  ): Promise<PaginatedResponse<TestDetail>> {
     const { filter, ...paginationParams } = params || {};
     const finalParams = { ...DEFAULT_PAGINATION, ...paginationParams };
-    
+
     const response = await this.fetchPaginated<TestDetail>(
       API_ENDPOINTS.tests,
       {
         ...finalParams,
-        ...(filter && { $filter: filter })
+        ...(filter && { $filter: filter }),
       },
       {
-        cache: 'no-store'
+        cache: 'no-store',
       }
     );
 
     // Convert numeric priorities to string values
     return {
       ...response,
-      data: response.data.map(test => this.convertTestPriority(test))
+      data: response.data.map(test => this.convertTestPriority(test)),
     };
   }
 
@@ -92,10 +96,10 @@ export class TestsClient extends BaseApiClient {
     console.log('Fetching test with ID:', id);
     console.log('API URL:', `${this.baseUrl}${API_ENDPOINTS.tests}/${id}`);
     console.log('Headers:', this.getHeaders());
-    
+
     const test = await this.fetch<TestDetail>(`${API_ENDPOINTS.tests}/${id}`);
     console.log('Raw API response:', test);
-    
+
     // Convert numeric priority to string value
     return this.convertTestPriority(test);
   }
@@ -103,7 +107,7 @@ export class TestsClient extends BaseApiClient {
   async createTest(test: TestCreate): Promise<Test> {
     // Handle priority conversion if a string priority is provided
     const apiTest = { ...test };
-    
+
     // @ts-ignore - Check if priorityLevel exists and convert it
     if (apiTest.priorityLevel) {
       // @ts-ignore - Convert priorityLevel to numeric priority
@@ -111,7 +115,7 @@ export class TestsClient extends BaseApiClient {
       // @ts-ignore - Remove priorityLevel as it's not expected by the API
       delete apiTest.priorityLevel;
     }
-    
+
     return this.fetch<Test>(API_ENDPOINTS.tests, {
       method: 'POST',
       body: JSON.stringify(apiTest),
@@ -121,7 +125,7 @@ export class TestsClient extends BaseApiClient {
   async updateTest(id: string, test: TestUpdate): Promise<Test> {
     // Handle priority conversion if a string priority is provided
     const apiTest = { ...test };
-    
+
     // @ts-ignore - Check if priorityLevel exists and convert it
     if (apiTest.priorityLevel) {
       // @ts-ignore - Convert priorityLevel to numeric priority
@@ -129,7 +133,7 @@ export class TestsClient extends BaseApiClient {
       // @ts-ignore - Remove priorityLevel as it's not expected by the API
       delete apiTest.priorityLevel;
     }
-    
+
     return this.fetch<Test>(`${API_ENDPOINTS.tests}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(apiTest),
@@ -144,24 +148,28 @@ export class TestsClient extends BaseApiClient {
 
   async getTestStats(options: StatsOptions = {}): Promise<TestStats> {
     const queryParams = new URLSearchParams();
-    if (options.top !== undefined) queryParams.append('top', options.top.toString());
-    if (options.months !== undefined) queryParams.append('months', options.months.toString());
+    if (options.top !== undefined)
+      queryParams.append('top', options.top.toString());
+    if (options.months !== undefined)
+      queryParams.append('months', options.months.toString());
     if (options.mode !== undefined) queryParams.append('mode', options.mode);
 
     const queryString = queryParams.toString();
-    const url = queryString 
-      ? `${API_ENDPOINTS.tests}/stats?${queryString}` 
+    const url = queryString
+      ? `${API_ENDPOINTS.tests}/stats?${queryString}`
       : `${API_ENDPOINTS.tests}/stats`;
 
     return this.fetch<TestStats>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
-  async createTestsBulk(request: TestBulkCreateRequest): Promise<TestBulkCreateResponse> {
+  async createTestsBulk(
+    request: TestBulkCreateRequest
+  ): Promise<TestBulkCreateResponse> {
     return this.fetch<TestBulkCreateResponse>(`${API_ENDPOINTS.tests}/bulk`, {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
-} 
+}

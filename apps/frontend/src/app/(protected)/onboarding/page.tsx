@@ -8,15 +8,15 @@ export default async function OnboardingPage() {
   if (!session?.session_token) {
     throw new Error('No session token available');
   }
-  
+
   if (!session?.user?.id) {
     throw new Error('No user ID available in session');
   }
-  
+
   return (
-    <OnboardingPageClient 
-      sessionToken={session.session_token} 
+    <OnboardingPageClient
+      sessionToken={session.session_token}
       userId={session.user.id as UUID}
     />
   );
-} 
+}

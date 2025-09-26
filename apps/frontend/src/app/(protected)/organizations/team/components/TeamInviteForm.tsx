@@ -6,7 +6,7 @@ import {
   Typography,
   IconButton,
   CircularProgress,
-  Stack
+  Stack,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -28,39 +28,50 @@ interface TeamInviteFormProps {
 export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
   const { data: session } = useSession();
   const notifications = useNotifications();
-  
+
   const [formData, setFormData] = useState<FormData>({
-    invites: [{ email: '' }]
+    invites: [{ email: '' }],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ [key: number]: { hasError: boolean; message: string } }>({});
+  const [errors, setErrors] = useState<{
+    [key: number]: { hasError: boolean; message: string };
+  }>({});
 
   // Email validation regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  
+
   // Maximum number of team members that can be invited
   const MAX_TEAM_MEMBERS = 10;
 
   const validateForm = () => {
-    const newErrors: { [key: number]: { hasError: boolean; message: string } } = {};
+    const newErrors: { [key: number]: { hasError: boolean; message: string } } =
+      {};
     let hasError = false;
-    
+
     // Check maximum team size
-    const nonEmptyInvites = formData.invites.filter(invite => invite.email.trim());
+    const nonEmptyInvites = formData.invites.filter(invite =>
+      invite.email.trim()
+    );
     if (nonEmptyInvites.length > MAX_TEAM_MEMBERS) {
-      notifications.show(`You can invite a maximum of ${MAX_TEAM_MEMBERS} team members at once.`, { severity: 'error' });
+      notifications.show(
+        `You can invite a maximum of ${MAX_TEAM_MEMBERS} team members at once.`,
+        { severity: 'error' }
+      );
       return false;
     }
-    
+
     // Get all non-empty emails for duplicate checking
     const emailsToCheck = formData.invites
-      .map((invite, index) => ({ email: invite.email.trim().toLowerCase(), index }))
+      .map((invite, index) => ({
+        email: invite.email.trim().toLowerCase(),
+        index,
+      }))
       .filter(item => item.email);
-    
+
     // Check for duplicates
     const seenEmails = new Set<string>();
     const duplicateEmails = new Set<string>();
-    
+
     emailsToCheck.forEach(({ email, index }) => {
       if (seenEmails.has(email)) {
         duplicateEmails.add(email);
@@ -68,51 +79,61 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
         seenEmails.add(email);
       }
     });
-    
+
     // Validate each email
     formData.invites.forEach((invite, index) => {
       const trimmedEmail = invite.email.trim();
-      
+
       if (trimmedEmail) {
         // Check email format
         if (!emailRegex.test(trimmedEmail)) {
-          newErrors[index] = { hasError: true, message: 'Please enter a valid email address' };
+          newErrors[index] = {
+            hasError: true,
+            message: 'Please enter a valid email address',
+          };
           hasError = true;
         }
         // Check for duplicates
         else if (duplicateEmails.has(trimmedEmail.toLowerCase())) {
-          newErrors[index] = { hasError: true, message: 'This email address is already added' };
+          newErrors[index] = {
+            hasError: true,
+            message: 'This email address is already added',
+          };
           hasError = true;
         }
       }
     });
-    
+
     setErrors(newErrors);
     return !hasError;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     if (!session?.session_token) {
-      notifications.show('Session expired. Please refresh the page.', { severity: 'error' });
+      notifications.show('Session expired. Please refresh the page.', {
+        severity: 'error',
+      });
       return;
     }
 
     try {
       setIsSubmitting(true);
-      
+
       // Get valid emails
       const validEmails = formData.invites
         .map(invite => invite.email.trim())
         .filter(email => email);
 
       if (validEmails.length === 0) {
-        notifications.show('Please enter at least one email address', { severity: 'error' });
+        notifications.show('Please enter at least one email address', {
+          severity: 'error',
+        });
         return;
       }
 
@@ -121,23 +142,27 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
       const usersClient = clientFactory.getUsersClient();
 
       // Send invitations
-      const invitationResults: Array<{ email: string; success: boolean; error?: string }> = [];
-      
-      const createUserPromises = validEmails.map(async (email) => {
+      const invitationResults: Array<{
+        email: string;
+        success: boolean;
+        error?: string;
+      }> = [];
+
+      const createUserPromises = validEmails.map(async email => {
         const userData = {
           email: email,
           organization_id: session.user?.organization_id as UUID,
           is_active: true,
-          send_invite: true
+          send_invite: true,
         };
-        
+
         try {
           const user = await usersClient.createUser(userData);
           invitationResults.push({ email, success: true });
           return user;
         } catch (error: any) {
           let errorMessage = 'Unknown error';
-          
+
           // Extract meaningful error messages from different error formats
           if (error?.message) {
             // Handle API error messages that might contain JSON
@@ -164,22 +189,28 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           } else if (typeof error === 'string') {
             errorMessage = error;
           }
-          
+
           console.error(`Failed to create user with email ${email}:`, error);
-          invitationResults.push({ email, success: false, error: errorMessage });
+          invitationResults.push({
+            email,
+            success: false,
+            error: errorMessage,
+          });
           return null;
         }
       });
-      
+
       // Create all users in parallel
       await Promise.all(createUserPromises);
-      const successCount = invitationResults.filter(result => result.success).length;
+      const successCount = invitationResults.filter(
+        result => result.success
+      ).length;
       const failedCount = validEmails.length - successCount;
-      
+
       // Show results
       if (successCount > 0 && failedCount === 0) {
         notifications.show(
-          `Successfully sent ${successCount} invitation${successCount > 1 ? 's' : ''}!`, 
+          `Successfully sent ${successCount} invitation${successCount > 1 ? 's' : ''}!`,
           { severity: 'success' }
         );
       } else if (successCount > 0 && failedCount > 0) {
@@ -187,21 +218,24 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
         const failedEmails = invitationResults
           .filter(result => !result.success)
           .map(result => result.email);
-        
+
         const errorTypes = invitationResults
           .filter(result => !result.success)
           .map(result => result.error)
           .filter((error, index, arr) => arr.indexOf(error) === index); // Get unique errors
-        
+
         let errorSummary = '';
-        if (errorTypes.length === 1 && errorTypes[0]?.includes('already exists')) {
+        if (
+          errorTypes.length === 1 &&
+          errorTypes[0]?.includes('already exists')
+        ) {
           errorSummary = `${failedEmails.join(', ')} already exist${failedEmails.length === 1 ? 's' : ''}`;
         } else {
           errorSummary = `${failedEmails.join(', ')} failed`;
         }
-        
+
         notifications.show(
-          `Sent ${successCount} invitation${successCount > 1 ? 's' : ''}. ${errorSummary}.`, 
+          `Sent ${successCount} invitation${successCount > 1 ? 's' : ''}. ${errorSummary}.`,
           { severity: 'warning', autoHideDuration: 6000 }
         );
       } else {
@@ -209,14 +243,17 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
         const failedEmails = invitationResults
           .filter(result => !result.success)
           .map(result => result.email);
-        
+
         const errorTypes = invitationResults
           .filter(result => !result.success)
           .map(result => result.error)
           .filter((error, index, arr) => arr.indexOf(error) === index); // Get unique errors
-        
+
         let errorMessage = '';
-        if (errorTypes.length === 1 && errorTypes[0]?.includes('already exists')) {
+        if (
+          errorTypes.length === 1 &&
+          errorTypes[0]?.includes('already exists')
+        ) {
           if (failedEmails.length === 1) {
             errorMessage = `${failedEmails[0]} already exists.`;
           } else {
@@ -225,15 +262,18 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
         } else {
           errorMessage = `Failed to invite ${failedEmails.join(', ')}.`;
         }
-        
-        notifications.show(errorMessage, { severity: 'error', autoHideDuration: 6000 });
+
+        notifications.show(errorMessage, {
+          severity: 'error',
+          autoHideDuration: 6000,
+        });
       }
-      
+
       // Reset form only if some invitations succeeded
       if (successCount > 0) {
         setFormData({ invites: [{ email: '' }] });
         setErrors({});
-        
+
         // Notify parent component
         if (onInvitesSent) {
           const successfulEmails = invitationResults
@@ -242,10 +282,11 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           onInvitesSent(successfulEmails);
         }
       }
-      
     } catch (error) {
       console.error('Error during form submission:', error);
-      notifications.show('Failed to send invitations. Please try again.', { severity: 'error' });
+      notifications.show('Failed to send invitations. Please try again.', {
+        severity: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -255,7 +296,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
     const updatedInvites = [...formData.invites];
     updatedInvites[index] = { email: value };
     setFormData({ invites: updatedInvites });
-    
+
     // Clear error when user types
     if (errors[index]) {
       const newErrors = { ...errors };
@@ -266,12 +307,15 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
 
   const addEmailField = () => {
     if (formData.invites.length >= MAX_TEAM_MEMBERS) {
-      notifications.show(`You can invite a maximum of ${MAX_TEAM_MEMBERS} team members at once.`, { severity: 'error' });
+      notifications.show(
+        `You can invite a maximum of ${MAX_TEAM_MEMBERS} team members at once.`,
+        { severity: 'error' }
+      );
       return;
     }
-    
+
     setFormData({
-      invites: [...formData.invites, { email: '' }]
+      invites: [...formData.invites, { email: '' }],
     });
   };
 
@@ -279,7 +323,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
     const updatedInvites = [...formData.invites];
     updatedInvites.splice(index, 1);
     setFormData({ invites: updatedInvites });
-    
+
     // Remove error for this field if it exists
     if (errors[index]) {
       const newErrors = { ...errors };
@@ -287,8 +331,6 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
       setErrors(newErrors);
     }
   };
-
-
 
   return (
     <Box component="form" onSubmit={handleSubmit}>
@@ -298,7 +340,8 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           Invite Team Members
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Send invitations to colleagues to join your organization. You can invite up to {MAX_TEAM_MEMBERS} members at once.
+          Send invitations to colleagues to join your organization. You can
+          invite up to {MAX_TEAM_MEMBERS} members at once.
         </Typography>
       </Box>
 
@@ -310,7 +353,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               fullWidth
               label="Email Address"
               value={invite.email}
-              onChange={(e) => handleEmailChange(index, e.target.value)}
+              onChange={e => handleEmailChange(index, e.target.value)}
               error={Boolean(errors[index]?.hasError)}
               helperText={errors[index]?.message || ''}
               placeholder="colleague@company.com"
@@ -318,7 +361,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               size="small"
             />
             {formData.invites.length > 1 && (
-              <IconButton 
+              <IconButton
                 onClick={() => removeEmailField(index)}
                 color="error"
                 size="small"
@@ -328,7 +371,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
             )}
           </Box>
         ))}
-        
+
         <Box display="flex" justifyContent="flex-start">
           <Button
             startIcon={<AddIcon />}
@@ -337,8 +380,8 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
             size="small"
             disabled={formData.invites.length >= MAX_TEAM_MEMBERS}
           >
-            {formData.invites.length >= MAX_TEAM_MEMBERS 
-              ? `Maximum ${MAX_TEAM_MEMBERS} invites reached` 
+            {formData.invites.length >= MAX_TEAM_MEMBERS
+              ? `Maximum ${MAX_TEAM_MEMBERS} invites reached`
               : 'Add Another Email'}
           </Button>
         </Box>
@@ -346,18 +389,22 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
 
       {/* Submit Button */}
       <Box display="flex" justifyContent="flex-end">
-        <Button 
+        <Button
           type="submit"
           variant="contained"
           color="primary"
           disabled={isSubmitting}
-          startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+          startIcon={
+            isSubmitting ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              <SendIcon />
+            )
+          }
         >
           {isSubmitting ? 'Sending Invitations...' : 'Send Invitations'}
         </Button>
       </Box>
-
-
     </Box>
   );
-} 
+}

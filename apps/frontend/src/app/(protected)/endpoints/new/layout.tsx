@@ -10,4 +10,4 @@ export default function NewEndpointLayout({
   children: React.ReactNode;
 }) {
   return children;
-} 
+}

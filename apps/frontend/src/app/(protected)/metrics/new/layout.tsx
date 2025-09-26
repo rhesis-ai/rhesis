@@ -6,9 +6,5 @@ export default function NewMetricLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <Box sx={{ width: '100%', py: 3 }}>
-      {children}
-    </Box>
-  );
-} 
+  return <Box sx={{ width: '100%', py: 3 }}>{children}</Box>;
+}

@@ -12,7 +12,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Button
+  Button,
 } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -28,7 +28,9 @@ interface TeamMembersGridProps {
   refreshTrigger?: number; // Used to trigger refresh when new invites are sent
 }
 
-export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps) {
+export default function TeamMembersGrid({
+  refreshTrigger,
+}: TeamMembersGridProps) {
   const { data: session } = useSession();
   const notifications = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
@@ -43,36 +45,39 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchUsers = useCallback(async (skip = 0, limit = 25) => {
-    if (!session?.session_token) {
-      setError('Session expired. Please refresh the page.');
-      setLoading(false);
-      return;
-    }
+  const fetchUsers = useCallback(
+    async (skip = 0, limit = 25) => {
+      if (!session?.session_token) {
+        setError('Session expired. Please refresh the page.');
+        setLoading(false);
+        return;
+      }
 
-    try {
-      setLoading(true);
-      setError(null);
+      try {
+        setLoading(true);
+        setError(null);
 
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const usersClient = clientFactory.getUsersClient();
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const usersClient = clientFactory.getUsersClient();
 
-      // Fetch users for the current organization
-      const response = await usersClient.getUsers({
-        skip,
-        limit,
-      });
+        // Fetch users for the current organization
+        const response = await usersClient.getUsers({
+          skip,
+          limit,
+        });
 
-      console.log('Fetched users:', response);
-      setUsers(response.data || []);
-      setTotalCount(response.total || 0);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      setError('Failed to load team members. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [session?.session_token]);
+        console.log('Fetched users:', response);
+        setUsers(response.data || []);
+        setTotalCount(response.total || 0);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setError('Failed to load team members. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [session?.session_token]
+  );
 
   // Initial load
   useEffect(() => {
@@ -82,20 +87,27 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
   // Refresh when new invites are sent
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
-      fetchUsers(paginationModel.page * paginationModel.pageSize, paginationModel.pageSize);
+      fetchUsers(
+        paginationModel.page * paginationModel.pageSize,
+        paginationModel.pageSize
+      );
     }
   }, [refreshTrigger, fetchUsers, paginationModel]);
 
-  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-    const skip = newModel.page * newModel.pageSize;
-    fetchUsers(skip, newModel.pageSize);
-  }, [fetchUsers]);
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+      const skip = newModel.page * newModel.pageSize;
+      fetchUsers(skip, newModel.pageSize);
+    },
+    [fetchUsers]
+  );
 
   // Determine if user is active (has logged in) or just invited
   const getUserStatus = (user: User) => {
     // Active users have name, given_name, family_name, or auth0_id populated
-    const hasProfileData = user.name || user.given_name || user.family_name || user.auth0_id;
+    const hasProfileData =
+      user.name || user.given_name || user.family_name || user.auth0_id;
     return hasProfileData ? 'active' : 'invited';
   };
 
@@ -119,27 +131,25 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
 
     try {
       setDeleting(true);
-      
+
       const clientFactory = new ApiClientFactory(session.session_token);
       const usersClient = clientFactory.getUsersClient();
-      
+
       await usersClient.deleteUser(userToDelete.id);
-      
+
       notifications.show(
         `Successfully removed ${getDisplayName(userToDelete)} from the team.`,
         { severity: 'success' }
       );
-      
+
       // Refresh the users list
       const skip = paginationModel.page * paginationModel.pageSize;
       fetchUsers(skip, paginationModel.pageSize);
-      
     } catch (error) {
       console.error('Error deleting user:', error);
-      notifications.show(
-        'Failed to remove user. Please try again.',
-        { severity: 'error' }
-      );
+      notifications.show('Failed to remove user. Please try again.', {
+        severity: 'error',
+      });
     } finally {
       setDeleting(false);
       setDeleteDialogOpen(false);
@@ -152,25 +162,23 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
     setUserToDelete(null);
   };
 
-
-
   const columns: GridColDef[] = [
     {
       field: 'avatar',
       headerName: '',
       width: 60,
       sortable: false,
-      renderCell: (params) => {
+      renderCell: params => {
         const user = params.row as User;
         const status = getUserStatus(user);
-        
+
         return (
           <Avatar
             src={user.picture || undefined}
-            sx={{ 
-              width: 32, 
+            sx={{
+              width: 32,
               height: 32,
-              bgcolor: status === 'active' ? 'primary.main' : 'grey.400'
+              bgcolor: status === 'active' ? 'primary.main' : 'grey.400',
             }}
           >
             {user.picture ? null : <PersonIcon fontSize="small" />}
@@ -183,11 +191,11 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
       headerName: 'Name',
       flex: 1,
       minWidth: 200,
-      renderCell: (params) => {
+      renderCell: params => {
         const user = params.row as User;
         const displayName = getDisplayName(user);
         const status = getUserStatus(user);
-        
+
         return (
           <Typography variant="body2" fontWeight="medium">
             {displayName}
@@ -200,23 +208,19 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
       headerName: 'Email',
       flex: 1,
       minWidth: 250,
-      renderCell: (params) => {
+      renderCell: params => {
         const user = params.row as User;
-        return (
-          <Typography variant="body2">
-            {user.email}
-          </Typography>
-        );
+        return <Typography variant="body2">{user.email}</Typography>;
       },
     },
     {
       field: 'status',
       headerName: 'Status',
       width: 120,
-      renderCell: (params) => {
+      renderCell: params => {
         const user = params.row as User;
         const status = getUserStatus(user);
-        
+
         return (
           <Chip
             label={status === 'active' ? 'Active' : 'Invited'}
@@ -232,15 +236,15 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
       headerName: 'Actions',
       width: 100,
       sortable: false,
-      renderCell: (params) => {
+      renderCell: params => {
         const user = params.row as User;
         const currentUserId = session?.user?.id;
-        
+
         // Don't show actions for current user
         if (user.id === currentUserId) {
           return null;
         }
-        
+
         return (
           <IconButton
             onClick={() => handleDeleteUser(user)}
@@ -252,7 +256,6 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
         );
       },
     },
-
   ];
 
   if (error) {
@@ -278,7 +281,7 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
         rows={users}
         columns={columns}
         loading={loading}
-        getRowId={(row) => row.id}
+        getRowId={row => row.id}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         serverSidePagination={true}
@@ -309,4 +312,4 @@ export default function TeamMembersGrid({ refreshTrigger }: TeamMembersGridProps
       />
     </Box>
   );
-} 
+}

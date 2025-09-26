@@ -6,7 +6,7 @@ import {
   TestResultUpdate,
   TestResultDetail,
   TestResultStats,
-  TestResultsStats
+  TestResultsStats,
 } from './interfaces/test-results';
 import { StatsOptions, TestResultsStatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -15,19 +15,21 @@ const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 50,
   sort_by: 'created_at',
-  sort_order: 'desc'
+  sort_order: 'desc',
 };
 
 export class TestResultsClient extends BaseApiClient {
-  async getTestResults(params: Partial<PaginationParams> & { filter?: string } = {}): Promise<PaginatedResponse<TestResultDetail>> {
+  async getTestResults(
+    params: Partial<PaginationParams> & { filter?: string } = {}
+  ): Promise<PaginatedResponse<TestResultDetail>> {
     const { filter, ...paginationParams } = params;
-    
+
     return this.fetchPaginated<TestResultDetail>(
       API_ENDPOINTS.testResults,
-      { 
-        ...DEFAULT_PAGINATION, 
+      {
+        ...DEFAULT_PAGINATION,
         ...paginationParams,
-        $filter: filter
+        $filter: filter,
       },
       { cache: 'no-store' }
     );
@@ -35,9 +37,9 @@ export class TestResultsClient extends BaseApiClient {
 
   // For backwards compatibility
   async getTestResultsCount(): Promise<number> {
-    const response = await this.getTestResults({ 
+    const response = await this.getTestResults({
       skip: 0,
-      limit: 1
+      limit: 1,
     });
     return response.pagination.totalCount;
   }
@@ -53,7 +55,10 @@ export class TestResultsClient extends BaseApiClient {
     });
   }
 
-  async updateTestResult(id: string, testResult: TestResultUpdate): Promise<TestResult> {
+  async updateTestResult(
+    id: string,
+    testResult: TestResultUpdate
+  ): Promise<TestResult> {
     return this.fetch<TestResult>(`${API_ENDPOINTS.testResults}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(testResult),
@@ -67,43 +72,58 @@ export class TestResultsClient extends BaseApiClient {
   }
 
   // Legacy method for backward compatibility
-  async getTestResultStats(options: StatsOptions = {}): Promise<TestResultStats> {
+  async getTestResultStats(
+    options: StatsOptions = {}
+  ): Promise<TestResultStats> {
     const queryParams = new URLSearchParams();
-    if (options.top !== undefined) queryParams.append('top', options.top.toString());
-    if (options.months !== undefined) queryParams.append('months', options.months.toString());
+    if (options.top !== undefined)
+      queryParams.append('top', options.top.toString());
+    if (options.months !== undefined)
+      queryParams.append('months', options.months.toString());
     if (options.mode !== undefined) queryParams.append('mode', options.mode);
 
     const queryString = queryParams.toString();
-    const url = queryString 
-      ? `${API_ENDPOINTS.testResults}/stats?${queryString}` 
+    const url = queryString
+      ? `${API_ENDPOINTS.testResults}/stats?${queryString}`
       : `${API_ENDPOINTS.testResults}/stats`;
 
     return this.fetch<TestResultStats>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
   // Comprehensive stats method with full API support
-  async getComprehensiveTestResultsStats(options: TestResultsStatsOptions = {}): Promise<TestResultsStats> {
+  async getComprehensiveTestResultsStats(
+    options: TestResultsStatsOptions = {}
+  ): Promise<TestResultsStats> {
     const queryParams = new URLSearchParams();
-    
+
     // Data mode
     if (options.mode !== undefined) queryParams.append('mode', options.mode);
-    
+
     // Time range options
-    if (options.months !== undefined) queryParams.append('months', options.months.toString());
-    if (options.start_date !== undefined) queryParams.append('start_date', options.start_date);
-    if (options.end_date !== undefined) queryParams.append('end_date', options.end_date);
-    
+    if (options.months !== undefined)
+      queryParams.append('months', options.months.toString());
+    if (options.start_date !== undefined)
+      queryParams.append('start_date', options.start_date);
+    if (options.end_date !== undefined)
+      queryParams.append('end_date', options.end_date);
+
     // Test-level filters (multiple values support)
     if (options.test_set_ids) {
-      options.test_set_ids.forEach(id => queryParams.append('test_set_ids', id));
+      options.test_set_ids.forEach(id =>
+        queryParams.append('test_set_ids', id)
+      );
     }
     if (options.behavior_ids) {
-      options.behavior_ids.forEach(id => queryParams.append('behavior_ids', id));
+      options.behavior_ids.forEach(id =>
+        queryParams.append('behavior_ids', id)
+      );
     }
     if (options.category_ids) {
-      options.category_ids.forEach(id => queryParams.append('category_ids', id));
+      options.category_ids.forEach(id =>
+        queryParams.append('category_ids', id)
+      );
     }
     if (options.topic_ids) {
       options.topic_ids.forEach(id => queryParams.append('topic_ids', id));
@@ -115,43 +135,52 @@ export class TestResultsClient extends BaseApiClient {
       options.test_ids.forEach(id => queryParams.append('test_ids', id));
     }
     if (options.test_type_ids) {
-      options.test_type_ids.forEach(id => queryParams.append('test_type_ids', id));
+      options.test_type_ids.forEach(id =>
+        queryParams.append('test_type_ids', id)
+      );
     }
-    
+
     // Test run filters
-    if (options.test_run_id !== undefined) queryParams.append('test_run_id', options.test_run_id);
+    if (options.test_run_id !== undefined)
+      queryParams.append('test_run_id', options.test_run_id);
     if (options.test_run_ids) {
-      options.test_run_ids.forEach(id => queryParams.append('test_run_ids', id));
+      options.test_run_ids.forEach(id =>
+        queryParams.append('test_run_ids', id)
+      );
     }
-    
+
     // User-related filters
     if (options.user_ids) {
       options.user_ids.forEach(id => queryParams.append('user_ids', id));
     }
     if (options.assignee_ids) {
-      options.assignee_ids.forEach(id => queryParams.append('assignee_ids', id));
+      options.assignee_ids.forEach(id =>
+        queryParams.append('assignee_ids', id)
+      );
     }
     if (options.owner_ids) {
       options.owner_ids.forEach(id => queryParams.append('owner_ids', id));
     }
-    
+
     // Other filters
     if (options.prompt_ids) {
       options.prompt_ids.forEach(id => queryParams.append('prompt_ids', id));
     }
-    if (options.priority_min !== undefined) queryParams.append('priority_min', options.priority_min.toString());
-    if (options.priority_max !== undefined) queryParams.append('priority_max', options.priority_max.toString());
+    if (options.priority_min !== undefined)
+      queryParams.append('priority_min', options.priority_min.toString());
+    if (options.priority_max !== undefined)
+      queryParams.append('priority_max', options.priority_max.toString());
     if (options.tags) {
       options.tags.forEach(tag => queryParams.append('tags', tag));
     }
 
     const queryString = queryParams.toString();
-    const url = queryString 
-      ? `${API_ENDPOINTS.testResults}/stats?${queryString}` 
+    const url = queryString
+      ? `${API_ENDPOINTS.testResults}/stats?${queryString}`
       : `${API_ENDPOINTS.testResults}/stats`;
 
     return this.fetch<TestResultsStats>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
-} 
+}

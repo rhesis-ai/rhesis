@@ -14,16 +14,16 @@ interface TestDrawerProps {
   onSuccess?: () => void;
 }
 
-export default function TestDrawer({ 
-  open, 
-  onClose, 
+export default function TestDrawer({
+  open,
+  onClose,
   sessionToken,
   test,
-  onSuccess 
+  onSuccess,
 }: TestDrawerProps) {
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
-  const submitRef = useRef<(() => Promise<void>)>();
+  const submitRef = useRef<() => Promise<void>>();
 
   // Get current user from token
   const getCurrentUserId = () => {
@@ -33,8 +33,10 @@ export default function TestDrawer({
       const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
       const pad = base64.length % 4;
       const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
-      
-      const payload = JSON.parse(Buffer.from(paddedBase64, 'base64').toString('utf-8'));
+
+      const payload = JSON.parse(
+        Buffer.from(paddedBase64, 'base64').toString('utf-8')
+      );
       return payload.user?.id;
     } catch (err) {
       console.error('Error decoding JWT token:', err);
@@ -82,4 +84,4 @@ export default function TestDrawer({
       )}
     </BaseDrawer>
   );
-} 
+}

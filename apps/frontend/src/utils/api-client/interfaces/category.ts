@@ -23,4 +23,4 @@ export interface CategoriesQueryParams {
   sort_order?: string;
   $filter?: string;
   entity_type?: string;
-} 
+}

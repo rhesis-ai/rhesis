@@ -15,7 +15,7 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
     open: 0,
     inProgress: 0,
     completed: 0,
-    cancelled: 0
+    cancelled: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -25,17 +25,20 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
         setLoading(true);
         const clientFactory = new ApiClientFactory(sessionToken);
         const tasksClient = clientFactory.getTasksClient();
-        
+
         const tasks = await tasksClient.getTasks({ limit: 1000 }); // Get all tasks for stats
-        
+
         const stats = {
           total: tasks.length,
           open: tasks.filter(task => task.status?.name === 'Open').length,
-          inProgress: tasks.filter(task => task.status?.name === 'In Progress').length,
-          completed: tasks.filter(task => task.status?.name === 'Completed').length,
-          cancelled: tasks.filter(task => task.status?.name === 'Cancelled').length
+          inProgress: tasks.filter(task => task.status?.name === 'In Progress')
+            .length,
+          completed: tasks.filter(task => task.status?.name === 'Completed')
+            .length,
+          cancelled: tasks.filter(task => task.status?.name === 'Cancelled')
+            .length,
         };
-        
+
         setStats(stats);
       } catch (error) {
         console.error('Error fetching task stats:', error);
@@ -47,7 +50,15 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
     fetchStats();
   }, [sessionToken]);
 
-  const StatCard = ({ title, value, color = 'primary' }: { title: string; value: number; color?: string }) => (
+  const StatCard = ({
+    title,
+    value,
+    color = 'primary',
+  }: {
+    title: string;
+    value: number;
+    color?: string;
+  }) => (
     <Card>
       <CardContent>
         <Typography color="textSecondary" gutterBottom variant="h6">
@@ -70,7 +81,11 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
           <StatCard title="Open" value={stats.open} color="warning" />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard title="In Progress" value={stats.inProgress} color="primary" />
+          <StatCard
+            title="In Progress"
+            value={stats.inProgress}
+            color="primary"
+          />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <StatCard title="Completed" value={stats.completed} color="success" />

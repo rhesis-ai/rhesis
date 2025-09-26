@@ -1,19 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  Box, 
-  Button, 
-  TextField, 
-  Typography, 
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
   IconButton,
   Paper,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CelebrationIcon from '@mui/icons-material/Celebration';
 import { TokenResponse } from '@/utils/api-client/interfaces/token';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -23,23 +24,34 @@ interface TokenDisplayProps {
   token: TokenResponse | null;
 }
 
-export default function TokenDisplay({ open, onClose, token }: TokenDisplayProps) {
+export default function TokenDisplay({
+  open,
+  onClose,
+  token,
+}: TokenDisplayProps) {
   const notifications = useNotifications();
 
   const handleCopyToken = async () => {
     try {
       if (token) {
         await navigator.clipboard.writeText(token.access_token);
-        notifications.show('Token copied to clipboard!', { severity: 'success' });
+        notifications.show('Token copied to clipboard!', {
+          severity: 'success',
+        });
       }
     } catch (err) {
-      notifications.show('Failed to copy token to clipboard', { severity: 'error' });
+      notifications.show('Failed to copy token to clipboard', {
+        severity: 'error',
+      });
     }
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>🎉 Your New API Token </DialogTitle>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CelebrationIcon color="primary" />
+        Your New API Token
+      </DialogTitle>
       <DialogContent>
         {token && (
           <>
@@ -47,10 +59,14 @@ export default function TokenDisplay({ open, onClose, token }: TokenDisplayProps
               Token Name: {token.name}
             </Typography>
             <Typography variant="subtitle2" sx={{ mb: 2 }}>
-              Expires: {token.expires_at ? new Date(token.expires_at).toLocaleDateString() : 'Never'}
+              Expires:{' '}
+              {token.expires_at
+                ? new Date(token.expires_at).toLocaleDateString()
+                : 'Never'}
             </Typography>
             <Typography color="warning.main" sx={{ mb: 2 }}>
-              Store this token securely - it won&apos;t be shown again. If you lose it, you&apos;ll need to generate a new one.
+              Store this token securely - it won&apos;t be shown again. If you
+              lose it, you&apos;ll need to generate a new one.
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TextField
@@ -73,4 +89,4 @@ export default function TokenDisplay({ open, onClose, token }: TokenDisplayProps
       </DialogActions>
     </Dialog>
   );
-} 
+}

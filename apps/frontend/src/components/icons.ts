@@ -68,4 +68,4 @@ export { default as VerifiedUserIcon } from '@mui/icons-material/VerifiedUserOut
 export { default as FactCheckIcon } from '@mui/icons-material/FactCheckOutlined';
 export { default as NumbersIcon } from '@mui/icons-material/NumbersOutlined';
 export { default as ToggleOnIcon } from '@mui/icons-material/ToggleOnOutlined';
-export { default as GradingIcon } from '@mui/icons-material/GradingOutlined'; 
+export { default as GradingIcon } from '@mui/icons-material/GradingOutlined';

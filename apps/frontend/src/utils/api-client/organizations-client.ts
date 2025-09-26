@@ -15,17 +15,21 @@ export class OrganizationsClient extends BaseApiClient {
 
   async getOrganizations(): Promise<Organization[]> {
     return this.fetch<Organization[]>(API_ENDPOINTS.organizations, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
   async getOrganization(identifier: UUID | string): Promise<Organization> {
-    return this.fetch<Organization>(`${API_ENDPOINTS.organizations}/${identifier}`);
+    return this.fetch<Organization>(
+      `${API_ENDPOINTS.organizations}/${identifier}`
+    );
   }
 
-  async createOrganization(organization: OrganizationCreate): Promise<Organization> {
+  async createOrganization(
+    organization: OrganizationCreate
+  ): Promise<Organization> {
     console.log('Creating organization with data:', organization);
-    
+
     try {
       return await this.fetch<Organization>(API_ENDPOINTS.organizations, {
         method: 'POST',
@@ -34,17 +38,23 @@ export class OrganizationsClient extends BaseApiClient {
     } catch (error: any) {
       console.error('Failed to create organization:', error);
       // Extract useful error message or use a default
-      const errorMessage = error.data?.detail || 
-                          error.data?.message || 
-                          (error.message ? error.message.replace(/^API error: \d+ - /, '') : 'Failed to create organization');
-      
+      const errorMessage =
+        error.data?.detail ||
+        error.data?.message ||
+        (error.message
+          ? error.message.replace(/^API error: \d+ - /, '')
+          : 'Failed to create organization');
+
       throw new Error(errorMessage);
     }
   }
 
-  async updateOrganization(id: UUID | string, data: Partial<Organization>): Promise<Organization> {
+  async updateOrganization(
+    id: UUID | string,
+    data: Partial<Organization>
+  ): Promise<Organization> {
     console.log('Updating organization with data:', data);
-    
+
     return this.fetch<Organization>(`${API_ENDPOINTS.organizations}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -57,9 +67,14 @@ export class OrganizationsClient extends BaseApiClient {
     });
   }
 
-  async loadInitialData(id: UUID | string): Promise<{ status: string; message: string }> {
-    return this.fetch(`${API_ENDPOINTS.organizations}/${id}/load-initial-data`, {
-      method: 'POST',
-    });
+  async loadInitialData(
+    id: UUID | string
+  ): Promise<{ status: string; message: string }> {
+    return this.fetch(
+      `${API_ENDPOINTS.organizations}/${id}/load-initial-data`,
+      {
+        method: 'POST',
+      }
+    );
   }
 }

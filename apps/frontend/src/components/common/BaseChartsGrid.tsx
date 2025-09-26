@@ -19,11 +19,11 @@ export default function BaseChartsGrid({
   children,
   spacing = 3,
   columns = { xs: 12, md: 3 },
-  marginBottom = 4
+  marginBottom = 4,
 }: BaseChartsGridProps) {
   // Set the CSS variable for grid margin
   const gridStyle = {
-    '--grid-margin': `${marginBottom * 8}px`
+    '--grid-margin': `${marginBottom * 8}px`,
   } as React.CSSProperties;
 
   return (
@@ -35,4 +35,4 @@ export default function BaseChartsGrid({
       ))}
     </Grid>
   );
-} 
+}

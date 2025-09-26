@@ -1,16 +1,22 @@
-import NextAuth from 'next-auth';
+import NextAuth, {
+  type NextAuthConfig,
+  type User,
+  type Session,
+} from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { JWTCallbackParams, SessionCallbackParams } from './types/next-auth.d';
-import type { NextAuthConfig } from 'next-auth';
-import type { User } from 'next-auth';
-import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { AdapterSession } from 'next-auth/adapters';
-import { SESSION_DURATION_MS, SESSION_DURATION_SECONDS } from './constants/auth';
+import {
+  SESSION_DURATION_MS,
+  SESSION_DURATION_SECONDS,
+} from './constants/auth';
 import { getClientApiBaseUrl } from './utils/url-resolver';
 
 if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error('NEXTAUTH_SECRET environment variable is not set. Please check your environment configuration.');
+  throw new Error(
+    'NEXTAUTH_SECRET environment variable is not set. Please check your environment configuration.'
+  );
 }
 
 const BACKEND_URL = getClientApiBaseUrl();
@@ -21,7 +27,7 @@ export const authConfig: NextAuthConfig = {
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
-        session_token: { type: "text" }
+        session_token: { type: 'text' },
       },
       async authorize(credentials, request): Promise<User | null> {
         try {
@@ -44,7 +50,7 @@ export const authConfig: NextAuthConfig = {
           }
 
           const data = await response.json();
-          
+
           if (!data.authenticated || !data.user) {
             return null;
           }
@@ -64,29 +70,29 @@ export const authConfig: NextAuthConfig = {
             image: imageUrl || null,
             picture: imageUrl || null,
             organization_id: data.user.organization_id,
-            session_token: sessionToken
+            session_token: sessionToken,
           };
         } catch (error) {
           console.error('Auth error:', error);
           return null;
         }
-      }
+      },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
     maxAge: SESSION_DURATION_SECONDS,
   },
   jwt: {
     encode: async ({ secret, token }) => {
-      if (!token) return "";
+      if (!token) return '';
       try {
         // If token has a session_token field, use it directly (it's already a JWT)
         if (token.session_token && typeof token.session_token === 'string') {
           return token.session_token;
         }
-        
+
         // Otherwise, encode as JSON for backward compatibility
         if (typeof token === 'string') {
           return token;
@@ -95,7 +101,7 @@ export const authConfig: NextAuthConfig = {
         return stringified;
       } catch (error) {
         console.error('JWT encode error:', error);
-        return "";
+        return '';
       }
     },
     decode: async ({ secret, token }) => {
@@ -109,12 +115,14 @@ export const authConfig: NextAuthConfig = {
         if (token.includes('.') && token.split('.').length === 3) {
           const [, payloadBase64] = token.split('.');
           try {
-            const payload = Buffer.from(payloadBase64, 'base64url').toString('utf-8');
+            const payload = Buffer.from(payloadBase64, 'base64url').toString(
+              'utf-8'
+            );
             const decoded = JSON.parse(payload);
-            
+
             return {
               ...decoded,
-              session_token: token
+              session_token: token,
             };
           } catch (jwtError) {
             console.error('JWT parsing error:', jwtError);
@@ -133,14 +141,14 @@ export const authConfig: NextAuthConfig = {
         console.error('Failed token:', token);
         return null;
       }
-    }
+    },
   },
   callbacks: {
     async jwt({ token, user }: JWTCallbackParams) {
       if (user) {
         token.user = {
           ...user,
-          image: user.picture || user.image || null
+          image: user.picture || user.image || null,
         };
         token.session_token = user.session_token;
       }
@@ -149,17 +157,17 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }: SessionCallbackParams) {
       const updatedSession = {
         ...session,
-        expires: new Date(Date.now() + SESSION_DURATION_MS).toISOString()
+        expires: new Date(Date.now() + SESSION_DURATION_MS).toISOString(),
       };
-      
+
       if (token.user) {
         updatedSession.user = {
           ...token.user,
-          image: token.user.picture || token.user.image || null
+          image: token.user.picture || token.user.image || null,
         };
         updatedSession.session_token = token.session_token;
       }
-      
+
       return updatedSession;
     },
     async redirect({ url, baseUrl }) {
@@ -167,19 +175,18 @@ export const authConfig: NextAuthConfig = {
         // Redirect directly to home page after signout
         return `${baseUrl}/`;
       }
-      
+
       return url.startsWith(baseUrl) ? url : baseUrl;
-    }
+    },
   },
   events: {
-    async signOut() {
-    }
+    async signOut() {},
   },
   pages: {
     signIn: '/',
   },
   debug: process.env.FRONTEND_ENV === 'development',
-  basePath: "/api/auth",
+  basePath: '/api/auth',
   cookies: {
     sessionToken: {
       name: `next-auth.session-token`,
@@ -189,12 +196,11 @@ export const authConfig: NextAuthConfig = {
         path: '/',
         secure: process.env.FRONTEND_ENV === 'production',
         maxAge: SESSION_DURATION_SECONDS,
-        domain: process.env.FRONTEND_ENV === 'production' ? 'rhesis.ai' : undefined
-      }
-    }
-  }
+        domain:
+          process.env.FRONTEND_ENV === 'production' ? 'rhesis.ai' : undefined,
+      },
+    },
+  },
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
-  
-  

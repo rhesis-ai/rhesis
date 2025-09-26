@@ -23,12 +23,16 @@ interface PageProps {
 }
 
 // Generate metadata for the page
-export async function generateMetadata({ params }: { params: Promise<{ identifier: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ identifier: string }>;
+}): Promise<Metadata> {
   try {
     const resolvedParams = await params;
     const identifier = resolvedParams.identifier;
-    const session = await auth() as { session_token: string } | null;
-    
+    const session = (await auth()) as { session_token: string } | null;
+
     // If no session (like during warmup), return basic metadata
     if (!session?.session_token) {
       return {
@@ -36,18 +40,18 @@ export async function generateMetadata({ params }: { params: Promise<{ identifie
         description: `Details for Test Set ${identifier}`,
       };
     }
-    
+
     const apiFactory = new ApiClientFactory(session.session_token);
     const testSetsClient = apiFactory.getTestSetsClient();
-    const response = await testSetsClient.getTestSets({ 
+    const response = await testSetsClient.getTestSets({
       limit: 1,
-      $filter: `id eq ${resolvedParams.identifier}`
+      $filter: `id eq ${resolvedParams.identifier}`,
     } as TestSetsQueryParams);
     const testSet = response.data[0];
     if (!testSet) {
       throw new Error('Test set not found');
     }
-    
+
     return {
       title: testSet.name,
       description: testSet.description || 'Test Set Details',
@@ -68,19 +72,19 @@ export default async function TestSetPage({ params }: { params: any }) {
   // Ensure params is properly awaited
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;
-  
+
   const session = await auth();
-  
+
   // If no session (like during warmup), redirect to login
   if (!session?.session_token) {
     throw new Error('Authentication required');
   }
-  
+
   const apiFactory = new ApiClientFactory(session.session_token);
   const testSetsClient = apiFactory.getTestSetsClient();
-  const response = await testSetsClient.getTestSets({ 
+  const response = await testSetsClient.getTestSets({
     limit: 1,
-    $filter: `id eq ${identifier}`
+    $filter: `id eq ${identifier}`,
   } as TestSetsQueryParams);
   const testSet = response.data[0];
   if (!testSet) {
@@ -97,7 +101,7 @@ export default async function TestSetPage({ params }: { params: any }) {
   const title = testSet.name || `Test Set ${identifier}`;
   const breadcrumbs = [
     { title: 'Test Sets', path: '/test-sets' },
-    { title, path: `/test-sets/${identifier}` }
+    { title, path: `/test-sets/${identifier}` },
   ];
 
   return (
@@ -105,9 +109,9 @@ export default async function TestSetPage({ params }: { params: any }) {
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         {/* Charts Section */}
         <Box sx={{ mb: 4 }}>
-          <TestSetDetailCharts 
-            testSetId={identifier} 
-            sessionToken={session.session_token} 
+          <TestSetDetailCharts
+            testSetId={identifier}
+            sessionToken={session.session_token}
           />
         </Box>
 
@@ -115,8 +119,8 @@ export default async function TestSetPage({ params }: { params: any }) {
           {/* Main Content Column */}
           <Grid item xs={12}>
             <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-              <TestSetDetailsSection 
-                testSet={serializedTestSet} 
+              <TestSetDetailsSection
+                testSet={serializedTestSet}
                 sessionToken={session.session_token}
               />
             </Paper>
@@ -139,9 +143,8 @@ export default async function TestSetPage({ params }: { params: any }) {
               currentUserPicture={session.user?.picture || undefined}
             />
           </Grid>
-
         </Grid>
       </Box>
     </PageContainer>
   );
-} 
+}

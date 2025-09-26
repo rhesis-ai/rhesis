@@ -37,9 +37,9 @@ export default function EndpointsPage() {
         skip,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
-        sort_order: 'desc'
+        sort_order: 'desc',
       });
-      
+
       setEndpoints(response.data);
       setTotalCount(response.pagination.totalCount);
       setError(null);
@@ -65,21 +65,14 @@ export default function EndpointsPage() {
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography color="error">
-          Error loading endpoints: {error}
-        </Typography>
+        <Typography color="error">Error loading endpoints: {error}</Typography>
       </Box>
     );
   }
 
   return (
-    <PageContainer
-      title="Endpoints"
-      breadcrumbs={[
-        { title: 'Endpoints' }
-      ]}
-    >
-      <EndpointsGrid 
+    <PageContainer title="Endpoints" breadcrumbs={[{ title: 'Endpoints' }]}>
+      <EndpointsGrid
         endpoints={endpoints}
         loading={loading}
         totalCount={totalCount}

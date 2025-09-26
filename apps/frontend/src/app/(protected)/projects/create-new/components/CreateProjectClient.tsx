@@ -11,7 +11,8 @@ import {
   Typography,
   Container,
   Snackbar,
-  Alert
+  Alert,
+  useTheme,
 } from '@mui/material';
 import ProjectDetailsStep from './ProjectDetailsStep';
 import FinishStep from './FinishStep';
@@ -26,10 +27,7 @@ interface FormData {
   owner_id?: string;
 }
 
-const steps = [
-  'Project Details',
-  'Finish'
-];
+const steps = ['Project Details', 'Finish'];
 
 interface CreateProjectClientProps {
   sessionToken: string;
@@ -39,14 +37,15 @@ interface CreateProjectClientProps {
   userImage: string;
 }
 
-export default function CreateProjectClient({ 
-  sessionToken, 
+export default function CreateProjectClient({
+  sessionToken,
   userId,
   organizationId,
   userName,
-  userImage
+  userImage,
 }: CreateProjectClientProps) {
   const router = useRouter();
+  const theme = useTheme();
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -54,17 +53,17 @@ export default function CreateProjectClient({
     projectName: '',
     description: '',
     icon: 'SmartToy', // Default icon
-    owner_id: userId
+    owner_id: userId,
   });
 
   const projectsClient = new ApiClientFactory(sessionToken).getProjectsClient();
 
   const handleNext = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    setActiveStep(prevActiveStep => prevActiveStep + 1);
   };
 
   const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
   const handleComplete = async () => {
@@ -80,7 +79,9 @@ export default function CreateProjectClient({
       // Check for organization ID
       if (!organizationId) {
         // Show a specific error for missing organization ID
-        setError('Organization ID is required. Please complete the onboarding process to create an organization first.');
+        setError(
+          'Organization ID is required. Please complete the onboarding process to create an organization first.'
+        );
         setIsSubmitting(false);
         return;
       }
@@ -100,27 +101,31 @@ export default function CreateProjectClient({
         owner_id: formData.owner_id ? (formData.owner_id as UUID) : userId,
         organization_id: organizationId,
         is_active: true,
-        icon: formData.icon
+        icon: formData.icon,
       };
 
       console.log('Creating project with data:', projectData);
-      
+
       try {
         const project = await projectsClient.createProject(projectData);
         console.log('Project created:', project);
-        
+
         // Navigate to the projects page
         router.push('/projects');
       } catch (projectError) {
         console.error('Error creating project:', projectError);
-        
+
         if (projectError instanceof Error) {
           if (projectError.message.includes('Failed to fetch')) {
-            setError('Network error: Could not reach the API server. Please check your connection or try again later.');
+            setError(
+              'Network error: Could not reach the API server. Please check your connection or try again later.'
+            );
           } else if (projectError.message.includes('API error')) {
             setError(`API Error: ${projectError.message}`);
           } else if (projectError.message.includes('already exists')) {
-            setError('A project with this name already exists. Please choose a different name.');
+            setError(
+              'A project with this name already exists. Please choose a different name.'
+            );
           } else {
             setError(`Error creating project: ${projectError.message}`);
           }
@@ -137,9 +142,9 @@ export default function CreateProjectClient({
   };
 
   const updateFormData = (data: Partial<FormData>) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      ...data
+      ...data,
     }));
   };
 
@@ -177,54 +182,58 @@ export default function CreateProjectClient({
   };
 
   return (
-    <Container 
-      maxWidth="lg" 
-      sx={{ 
+    <Container
+      maxWidth="lg"
+      sx={{
         p: 0,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center'
+        alignItems: 'center',
       }}
     >
-      <Paper 
-        elevation={0} 
-        sx={{ 
+      <Paper
+        elevation={0}
+        sx={{
           pt: 2,
           pb: 3,
-          px: 3, 
-          borderRadius: 2,
+          px: 3,
+          borderRadius: theme.shape.borderRadius,
           width: '100%',
           maxWidth: 800,
-          minWidth: 800
+          minWidth: 800,
         }}
       >
         <Typography variant="h4" align="center" sx={{ mb: 3 }}>
           Create New Project
         </Typography>
-        
+
         <Box sx={{ width: '100%', mb: 4 }}>
           <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((label) => (
+            {steps.map(label => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
               </Step>
             ))}
           </Stepper>
         </Box>
-        
+
         {renderStep()}
       </Paper>
-      
-      <Snackbar 
-        open={!!error} 
-        autoHideDuration={6000} 
+
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
         onClose={handleCloseError}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+        <Alert
+          onClose={handleCloseError}
+          severity="error"
+          sx={{ width: '100%' }}
+        >
           {error}
         </Alert>
       </Snackbar>
     </Container>
   );
-} 
+}

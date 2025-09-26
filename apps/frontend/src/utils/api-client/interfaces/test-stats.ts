@@ -17,4 +17,4 @@ export interface TestStats {
     name: string;
     count: number;
   }[];
-} 
+}

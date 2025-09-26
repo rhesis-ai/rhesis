@@ -42,7 +42,8 @@
 
 @font-face {
   font-family: 'Be Vietnam Pro';
-  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-regular.ttf') format('truetype');
+  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-regular.ttf')
+    format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -58,7 +59,8 @@
 
 @font-face {
   font-family: 'Be Vietnam Pro';
-  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-semibold.ttf') format('truetype');
+  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-semibold.ttf')
+    format('truetype');
   font-weight: 600;
   font-style: normal;
   font-display: swap;

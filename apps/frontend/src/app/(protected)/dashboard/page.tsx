@@ -14,7 +14,11 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { UUID } from 'crypto';
-import { ScienceIcon, HorizontalSplitIcon, PlayArrowIcon } from '@/components/icons';
+import {
+  ScienceIcon,
+  HorizontalSplitIcon,
+  PlayArrowIcon,
+} from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 
 // Extended User interface with organization_id
@@ -37,7 +41,7 @@ interface SessionUser {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  
+
   // Check if user has organization_id
   useEffect(() => {
     const user = session?.user as ExtendedUser | undefined;
@@ -45,13 +49,12 @@ export default function DashboardPage() {
     // Removed organization_id check - now handled by middleware
   }, [session, router]);
 
-  return (    
+  return (
     <PageContainer>
-
       {/* Charts Section */}
       <DashboardCharts />
 
-      {/* DataGrids Section */}  
+      {/* DataGrids Section */}
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
         {/* First row of DataGrids */}
@@ -86,7 +89,7 @@ export default function DashboardPage() {
             <RecentTestSetsGrid sessionToken={session?.session_token || ''} />
           </Paper>
         </Grid>
-        
+
         <Grid item xs={12} md={6}>
           <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
@@ -96,10 +99,6 @@ export default function DashboardPage() {
             <LatestTestRunsGrid sessionToken={session?.session_token || ''} />
           </Paper>
         </Grid>
-
- 
-        
-        
       </Grid>
     </PageContainer>
   );

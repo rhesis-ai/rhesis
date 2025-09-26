@@ -175,12 +175,15 @@ export interface TimelineDataPoint {
     failed: number;
     pass_rate: number;
   };
-  metrics?: Record<string, {
-    total: number;
-    passed: number;
-    failed: number;
-    pass_rate: number;
-  }>;
+  metrics?: Record<
+    string,
+    {
+      total: number;
+      passed: number;
+      failed: number;
+      pass_rate: number;
+    }
+  >;
 }
 
 export interface TestRunSummaryItem {
@@ -199,12 +202,15 @@ export interface TestRunSummaryItem {
     failed: number;
     pass_rate: number;
   };
-  metrics?: Record<string, {
-    total: number;
-    passed: number;
-    failed: number;
-    pass_rate: number;
-  }>;
+  metrics?: Record<
+    string,
+    {
+      total: number;
+      passed: number;
+      failed: number;
+      pass_rate: number;
+    }
+  >;
 }
 
 export interface TestResultsStatsMetadata {
@@ -226,21 +232,21 @@ export interface TestResultsStatsMetadata {
 export interface TestResultsStats {
   // Core pass/fail statistics
   overall_pass_rates?: PassFailStats;
-  
+
   // Metric-level analysis
   metric_pass_rates?: MetricPassRates;
-  
+
   // Dimensional analysis
   behavior_pass_rates?: BehaviorPassRates;
   category_pass_rates?: CategoryPassRates;
   topic_pass_rates?: TopicPassRates;
-  
+
   // Time-based analysis
   timeline?: TimelineDataPoint[];
-  
+
   // Test run comparison
   test_run_summary?: TestRunSummaryItem[];
-  
+
   // Metadata
   metadata: TestResultsStatsMetadata;
 }
@@ -273,4 +279,4 @@ export interface TestResultStats {
     entity_type: string;
   };
   history?: TestResultStatsHistorical;
-} 
+}

@@ -16,4 +16,4 @@ export interface StatusesQueryParams {
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
   $filter?: string;
-} 
+}

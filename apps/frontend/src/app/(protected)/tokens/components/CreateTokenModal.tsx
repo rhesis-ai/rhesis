@@ -23,13 +23,24 @@ import dayjs from 'dayjs';
 interface CreateTokenModalProps {
   open: boolean;
   onClose: () => void;
-  onCreateToken: (name: string, expiresInDays: number | null) => Promise<TokenResponse>;
+  onCreateToken: (
+    name: string,
+    expiresInDays: number | null
+  ) => Promise<TokenResponse>;
 }
 
-export default function CreateTokenModal({ open, onClose, onCreateToken }: CreateTokenModalProps) {
+export default function CreateTokenModal({
+  open,
+  onClose,
+  onCreateToken,
+}: CreateTokenModalProps) {
   const [name, setName] = useState('');
-  const [expiryOption, setExpiryOption] = useState<'30'|'60'|'90'|'custom'|'never'>('30');
-  const [customDate, setCustomDate] = useState<dayjs.Dayjs | null>(dayjs().add(1, 'day'));
+  const [expiryOption, setExpiryOption] = useState<
+    '30' | '60' | '90' | 'custom' | 'never'
+  >('30');
+  const [customDate, setCustomDate] = useState<dayjs.Dayjs | null>(
+    dayjs().add(1, 'day')
+  );
 
   useEffect(() => {
     if (open) {
@@ -43,14 +54,14 @@ export default function CreateTokenModal({ open, onClose, onCreateToken }: Creat
     e.preventDefault();
     try {
       let expiresInDays: number | null = null;
-      
+
       if (expiryOption === 'custom' && customDate) {
         const diffDays = customDate.diff(dayjs(), 'day');
         expiresInDays = Math.max(1, diffDays);
       } else if (expiryOption !== 'never') {
         expiresInDays = parseInt(expiryOption);
       }
-      
+
       await onCreateToken(name, expiresInDays);
       handleClose();
     } catch (error) {
@@ -76,7 +87,7 @@ export default function CreateTokenModal({ open, onClose, onCreateToken }: Creat
               label="Token Name"
               fullWidth
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               required
             />
             <FormControl fullWidth>
@@ -84,7 +95,9 @@ export default function CreateTokenModal({ open, onClose, onCreateToken }: Creat
               <Select
                 value={expiryOption}
                 label="Token Expiration"
-                onChange={(e) => setExpiryOption(e.target.value as typeof expiryOption)}
+                onChange={e =>
+                  setExpiryOption(e.target.value as typeof expiryOption)
+                }
               >
                 <MenuItem value="30">30 days</MenuItem>
                 <MenuItem value="60">60 days</MenuItem>
@@ -98,13 +111,13 @@ export default function CreateTokenModal({ open, onClose, onCreateToken }: Creat
                 <DatePicker
                   label="Expiration Date"
                   value={customDate}
-                  onChange={(newValue) => setCustomDate(newValue)}
+                  onChange={newValue => setCustomDate(newValue)}
                   minDate={dayjs().add(1, 'day')}
                   slotProps={{
                     textField: {
                       required: true,
-                      fullWidth: true
-                    }
+                      fullWidth: true,
+                    },
                   }}
                 />
               </LocalizationProvider>
@@ -113,9 +126,11 @@ export default function CreateTokenModal({ open, onClose, onCreateToken }: Creat
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button type="submit" variant="contained">Create</Button>
+          <Button type="submit" variant="contained">
+            Create
+          </Button>
         </DialogActions>
       </form>
     </Dialog>
   );
-} 
+}

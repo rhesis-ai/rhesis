@@ -7,7 +7,11 @@ interface StepHeaderProps {
   subtitle?: string;
 }
 
-export default function StepHeader({ title, description, subtitle }: StepHeaderProps) {
+export default function StepHeader({
+  title,
+  description,
+  subtitle,
+}: StepHeaderProps) {
   return (
     <Box textAlign="center" mb={4}>
       <Typography variant="h5" component="h2" gutterBottom color="primary">

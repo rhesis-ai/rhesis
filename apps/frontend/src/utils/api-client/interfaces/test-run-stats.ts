@@ -95,7 +95,7 @@ export interface TestRunStatsTimeline {
 }
 
 // Union type for all possible responses
-export type TestRunStatsResponse = 
+export type TestRunStatsResponse =
   | TestRunStatsAll
   | TestRunStatsSummary
   | TestRunStatsStatus
@@ -106,7 +106,14 @@ export type TestRunStatsResponse =
 
 // Stats query parameters
 export interface TestRunStatsParams {
-  mode?: 'all' | 'summary' | 'status' | 'results' | 'test_sets' | 'executors' | 'timeline';
+  mode?:
+    | 'all'
+    | 'summary'
+    | 'status'
+    | 'results'
+    | 'test_sets'
+    | 'executors'
+    | 'timeline';
   top?: number;
   months?: number;
   // Test run filters

@@ -3,7 +3,16 @@
 import React, { useRef, useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Autocomplete, TextField, Box, Avatar, MenuItem, Typography, Divider, Stack } from '@mui/material';
+import {
+  Autocomplete,
+  TextField,
+  Box,
+  Avatar,
+  MenuItem,
+  Typography,
+  Divider,
+  Stack,
+} from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -14,7 +23,7 @@ const PRIORITY_LEVELS = [
   { value: 0, label: 'Low' },
   { value: 1, label: 'Medium' },
   { value: 2, label: 'High' },
-  { value: 3, label: 'Urgent' }
+  { value: 3, label: 'Urgent' },
 ];
 
 interface TestSetDrawerProps {
@@ -25,22 +34,28 @@ interface TestSetDrawerProps {
   onSuccess?: () => void;
 }
 
-export default function TestSetDrawer({ 
-  open, 
-  onClose, 
+export default function TestSetDrawer({
+  open,
+  onClose,
   sessionToken,
   testSet,
-  onSuccess 
+  onSuccess,
 }: TestSetDrawerProps) {
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
   const [name, setName] = React.useState(testSet?.name || '');
-  const [description, setDescription] = React.useState(testSet?.description || '');
-  const [shortDescription, setShortDescription] = React.useState(testSet?.short_description || '');
+  const [description, setDescription] = React.useState(
+    testSet?.description || ''
+  );
+  const [shortDescription, setShortDescription] = React.useState(
+    testSet?.short_description || ''
+  );
   const [status, setStatus] = React.useState<Status | null>(null);
   const [assignee, setAssignee] = React.useState<User | null>(null);
   const [owner, setOwner] = React.useState<User | null>(null);
-  const [priority, setPriority] = React.useState<number>(testSet?.priority || 1); // Default to Medium (1)
+  const [priority, setPriority] = React.useState<number>(
+    testSet?.priority || 1
+  ); // Default to Medium (1)
   const [statuses, setStatuses] = React.useState<Status[]>([]);
   const [users, setUsers] = React.useState<User[]>([]);
 
@@ -55,12 +70,12 @@ export default function TestSetDrawer({
 
       try {
         const [fetchedStatuses, fetchedUsers] = await Promise.all([
-          statusClient.getStatuses({ 
+          statusClient.getStatuses({
             entity_type: 'TestSet',
             sort_by: 'name',
-            sort_order: 'asc'
+            sort_order: 'asc',
           }),
-          usersClient.getUsers()
+          usersClient.getUsers(),
         ]);
 
         setStatuses(fetchedStatuses);
@@ -74,8 +89,10 @@ export default function TestSetDrawer({
             const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
             const pad = base64.length % 4;
             const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
-            
-            const payload = JSON.parse(Buffer.from(paddedBase64, 'base64').toString('utf-8'));
+
+            const payload = JSON.parse(
+              Buffer.from(paddedBase64, 'base64').toString('utf-8')
+            );
             return payload.user?.id;
           } catch (err) {
             console.error('Error decoding JWT token:', err);
@@ -88,21 +105,29 @@ export default function TestSetDrawer({
         // Set initial values if editing
         if (testSet) {
           if (testSet.status_id) {
-            const currentStatus = fetchedStatuses.find(s => s.id === testSet.status_id);
+            const currentStatus = fetchedStatuses.find(
+              s => s.id === testSet.status_id
+            );
             setStatus(currentStatus || null);
           }
           if (testSet.assignee_id) {
-            const currentAssignee = fetchedUsers.data.find(u => u.id === testSet.assignee_id);
+            const currentAssignee = fetchedUsers.data.find(
+              u => u.id === testSet.assignee_id
+            );
             setAssignee(currentAssignee || null);
           }
           if (testSet.owner_id) {
-            const currentOwner = fetchedUsers.data.find(u => u.id === testSet.owner_id);
+            const currentOwner = fetchedUsers.data.find(
+              u => u.id === testSet.owner_id
+            );
             setOwner(currentOwner || null);
           }
         } else {
           // Set default owner as current user for new test sets
           if (currentUserId) {
-            const currentUser = fetchedUsers.data.find(u => u.id === currentUserId);
+            const currentUser = fetchedUsers.data.find(
+              u => u.id === currentUserId
+            );
             setOwner(currentUser || null);
           }
         }
@@ -135,7 +160,7 @@ export default function TestSetDrawer({
         priority,
         visibility: 'organization' as const,
         is_published: false,
-        attributes: {}
+        attributes: {},
       };
 
       if (testSet) {
@@ -155,20 +180,22 @@ export default function TestSetDrawer({
   };
 
   const getUserDisplayName = (user: User) => {
-    return user.name || 
-      `${user.given_name || ''} ${user.family_name || ''}`.trim() || 
-      user.email;
+    return (
+      user.name ||
+      `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+      user.email
+    );
   };
 
-  const renderUserOption = (props: React.HTMLAttributes<HTMLLIElement> & { key?: string }, option: User) => {
+  const renderUserOption = (
+    props: React.HTMLAttributes<HTMLLIElement> & { key?: string },
+    option: User
+  ) => {
     const { key, ...otherProps } = props;
     return (
       <Box component="li" key={key} {...otherProps}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar
-            src={option.picture}
-            sx={{ width: 24, height: 24 }}
-          >
+          <Avatar src={option.picture} sx={{ width: 24, height: 24 }}>
             <PersonIcon />
           </Avatar>
           {getUserDisplayName(option)}
@@ -198,9 +225,9 @@ export default function TestSetDrawer({
               options={statuses}
               value={status}
               onChange={(_, newValue) => setStatus(newValue)}
-              getOptionLabel={(option) => option.name}
+              getOptionLabel={option => option.name}
               fullWidth
-              renderInput={(params) => (
+              renderInput={params => (
                 <TextField {...params} label="Status" required />
               )}
             />
@@ -209,11 +236,11 @@ export default function TestSetDrawer({
               select
               label="Priority"
               value={priority}
-              onChange={(e) => setPriority(Number(e.target.value))}
+              onChange={e => setPriority(Number(e.target.value))}
               fullWidth
               required
             >
-              {PRIORITY_LEVELS.map((option) => (
+              {PRIORITY_LEVELS.map(option => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>
@@ -227,12 +254,7 @@ export default function TestSetDrawer({
               getOptionLabel={getUserDisplayName}
               renderOption={renderUserOption}
               fullWidth
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Assignee"
-                />
-              )}
+              renderInput={params => <TextField {...params} label="Assignee" />}
             />
 
             <Autocomplete
@@ -242,12 +264,8 @@ export default function TestSetDrawer({
               getOptionLabel={getUserDisplayName}
               renderOption={renderUserOption}
               fullWidth
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Owner" 
-                  required
-                />
+              renderInput={params => (
+                <TextField {...params} label="Owner" required />
               )}
             />
           </Stack>
@@ -265,7 +283,7 @@ export default function TestSetDrawer({
             <TextField
               label="Name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               required
               fullWidth
             />
@@ -273,14 +291,14 @@ export default function TestSetDrawer({
             <TextField
               label="Short Description"
               value={shortDescription}
-              onChange={(e) => setShortDescription(e.target.value)}
+              onChange={e => setShortDescription(e.target.value)}
               fullWidth
             />
 
             <TextField
               label="Description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={e => setDescription(e.target.value)}
               multiline
               rows={4}
               fullWidth
@@ -290,4 +308,4 @@ export default function TestSetDrawer({
       </Stack>
     </BaseDrawer>
   );
-} 
+}

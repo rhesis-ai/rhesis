@@ -76,7 +76,7 @@ export function TasksSection({
       field: 'title',
       headerName: 'Title',
       width: 300,
-      renderCell: (params) => (
+      renderCell: params => (
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {params.row.title}
         </Typography>
@@ -86,13 +86,16 @@ export function TasksSection({
       field: 'description',
       headerName: 'Description',
       width: 400,
-      renderCell: (params) => (
-        <Typography variant="body2" sx={{ 
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          maxWidth: '100%'
-        }}>
+      renderCell: params => (
+        <Typography
+          variant="body2"
+          sx={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+          }}
+        >
           {params.row.description || '-'}
         </Typography>
       ),
@@ -101,20 +104,25 @@ export function TasksSection({
       field: 'status',
       headerName: 'Status',
       width: 120,
-      renderCell: (params) => {
+      renderCell: params => {
         const getStatusColor = (status?: string) => {
           switch (status) {
-            case 'Open': return 'warning';
-            case 'In Progress': return 'primary';
-            case 'Completed': return 'success';
-            case 'Cancelled': return 'error';
-            default: return 'default';
+            case 'Open':
+              return 'warning';
+            case 'In Progress':
+              return 'primary';
+            case 'Completed':
+              return 'success';
+            case 'Cancelled':
+              return 'error';
+            default:
+              return 'default';
           }
         };
-        
+
         return (
-          <Chip 
-            label={params.row.status?.name || 'Unknown'} 
+          <Chip
+            label={params.row.status?.name || 'Unknown'}
             color={getStatusColor(params.row.status?.name) as any}
             size="small"
           />
@@ -125,12 +133,16 @@ export function TasksSection({
       field: 'assignee',
       headerName: 'Assignee',
       width: 150,
-      renderCell: (params) => (
+      renderCell: params => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar 
-            src={params.row.assignee?.picture} 
+          <Avatar
+            src={params.row.assignee?.picture}
             alt={params.row.assignee?.name || 'Unassigned'}
-            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+            sx={{
+              width: AVATAR_SIZES.SMALL,
+              height: AVATAR_SIZES.SMALL,
+              bgcolor: 'primary.main',
+            }}
           >
             {params.row.assignee?.name?.charAt(0) || 'U'}
           </Avatar>
@@ -146,7 +158,14 @@ export function TasksSection({
     <TaskErrorBoundary>
       <Box>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+          }}
+        >
           <Typography variant="h6" component="h2">
             Tasks ({tasks.length})
           </Typography>
@@ -165,8 +184,13 @@ export function TasksSection({
             <CircularProgress />
           </Box>
         ) : tasks.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-            No tasks yet. Create the first task for this {getEntityDisplayName(entityType).toLowerCase()}.
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ textAlign: 'center', py: 3 }}
+          >
+            No tasks yet. Create the first task for this{' '}
+            {getEntityDisplayName(entityType).toLowerCase()}.
           </Typography>
         ) : (
           <BaseDataGrid
@@ -177,7 +201,7 @@ export function TasksSection({
             disableRowSelectionOnClick
             pageSizeOptions={[5, 10, 25]}
             paginationModel={{ page: 0, pageSize: 10 }}
-            getRowId={(row) => row.id}
+            getRowId={row => row.id}
             showToolbar={true}
             disablePaperWrapper={true}
             sx={{

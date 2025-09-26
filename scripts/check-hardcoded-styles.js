@@ -6,7 +6,7 @@ const { execSync } = require('child_process');
 
 /**
  * GitHub Action script to check for hardcoded styles that should use theme values
- * 
+ *
  * This script checks for:
  * - Hardcoded hex colors that should use theme.palette.*
  * - Hardcoded font sizes that should use typography variants
@@ -40,21 +40,21 @@ const THEME_VALUES = {
     // Chart colors
     chart: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803', '#97D5EE']
   },
-  
+
   spacing: {
     // MUI default spacing multipliers (8px base)
     mui: [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96],
     // Custom spacing values from theme
     custom: [16, 24, 32] // small, medium, large
   },
-  
+
   typography: {
     // Font sizes that should use typography variants
     fontSizes: ['0.625rem', '0.75rem', '0.875rem', '1rem', '1.25rem', '1.5rem', '1.75rem', '2rem', '2.125rem'],
-    // Font weights that should use typography variants  
+    // Font weights that should use typography variants
     fontWeights: [300, 400, 500, 600, 700, 800]
   },
-  
+
   elevation: {
     // Box shadow values that should use theme.elevation
     boxShadows: [
@@ -72,22 +72,22 @@ const THEME_VALUES = {
 const PATTERNS = {
   // Hex colors (3, 4, 6, or 8 digit hex codes)
   hexColors: /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g,
-  
+
   // RGB/RGBA colors
   rgbColors: /rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+)?\s*\)/g,
-  
+
   // Font sizes in px, rem, em
   fontSizes: /fontSize:\s*['"`](\d+(?:\.\d+)?(?:px|rem|em))['"`]/g,
-  
+
   // Hardcoded spacing values (px, rem, em) in margin/padding
   spacing: /(?:margin|padding)(?:[TRBL]|Top|Right|Bottom|Left)?:\s*['"`]?(\d+(?:\.\d+)?(?:px|rem|em))['"`]?/g,
-  
+
   // Box shadows
   boxShadows: /boxShadow:\s*['"`]([^'"`]+)['"`]/g,
-  
+
   // Border radius values
   borderRadius: /borderRadius:\s*['"`]?(\d+(?:\.\d+)?(?:px|rem|em)?)['"`]?/g,
-  
+
   // Emoji characters (Unicode emoji ranges)
   emojis: /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu
 };
@@ -119,27 +119,27 @@ const IGNORE_PATTERNS = [
   /theme\.elevation\./,
   /theme\.customSpacing\./,
   /theme\.iconSizes\./,
-  
+
   // MUI system props
   /\b(?:color|bgcolor|m|mt|mr|mb|ml|mx|my|p|pt|pr|pb|pl|px|py):\s*['"`]?\w+['"`]?/,
-  
+
   // Common acceptable patterns
   /transparent|inherit|initial|unset|auto|none/,
-  
+
   // SVG and image related colors (often need to be hardcoded)
   /fill:\s*['"`]#/,
   /stroke:\s*['"`]#/,
   /<path[^>]*fill=['"`]#[^'"`]*['"`][^>]*>/,
   /<svg[^>]*>/,
-  
+
   // CSS custom properties (CSS variables)
   /var\(/,
-  
+
   // Specific acceptable values
   /#fff\b|#ffffff\b|#000\b|#000000\b/, // Pure black/white are often acceptable
   /rgba?\(0\s*,\s*0\s*,\s*0\s*,/, // Transparent black overlays
   /rgba?\(255\s*,\s*255\s*,\s*255\s*,/, // Transparent white overlays
-  
+
   // Small spacing values that might be acceptable for fine-tuning
   /['"`][1-4]px['"`]/, // 1-4px values are often acceptable for micro-adjustments
 ];
@@ -165,7 +165,7 @@ class StyleChecker {
     if (/<(?:svg|path|circle|rect|ellipse|line|polyline|polygon|g|defs|use|image|text)[\s>]/i.test(line)) {
       return true;
     }
-    
+
     return IGNORE_PATTERNS.some(pattern => pattern.test(line));
   }
 
@@ -198,25 +198,25 @@ class StyleChecker {
           return `Use theme.palette.* instead of hardcoded color ${value}`;
         }
         return `Consider using theme.palette.* instead of hardcoded color ${value}`;
-      
+
       case 'fontSize':
         return `Use Typography variant or theme.typography.* instead of hardcoded fontSize ${value}`;
-      
+
       case 'spacing':
         return `Use theme.spacing() or theme.customSpacing.* instead of hardcoded spacing ${value}`;
-      
+
       case 'boxShadow':
         return `Use theme.elevation.* instead of hardcoded boxShadow`;
-      
+
       case 'borderRadius':
         if (value === '12px' || value === '12') {
           return `This matches theme card borderRadius, consider using a theme value`;
         }
         return `Consider using consistent borderRadius values from theme`;
-      
+
       case 'emoji':
         return `Use MUI icons instead of emoji characters for better accessibility and theme consistency`;
-      
+
       default:
         return `Consider using theme values instead of hardcoded ${type}`;
     }
@@ -233,10 +233,10 @@ class StyleChecker {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
       const lines = content.split('\n');
-      
+
       lines.forEach((line, lineIndex) => {
         const lineNumber = lineIndex + 1;
-        
+
         // Skip lines that should be ignored
         if (this.shouldIgnoreLine(line)) {
           return;
@@ -358,10 +358,10 @@ class StyleChecker {
   checkDirectory(dirPath) {
     try {
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
-        
+
         if (entry.isDirectory()) {
           this.checkDirectory(fullPath);
         } else if (entry.isFile()) {
@@ -383,7 +383,7 @@ class StyleChecker {
     try {
       // Get files changed in this PR/commit
       const gitDiff = execSync('git diff --name-only HEAD~1 HEAD', { encoding: 'utf8' });
-      return gitDiff.split('\n').filter(file => 
+      return gitDiff.split('\n').filter(file =>
         file.trim() && /\.(ts|tsx|js|jsx)$/.test(file)
       );
     } catch (error) {
@@ -465,7 +465,7 @@ class StyleChecker {
     } else {
       // Check if we're in a PR context (only check changed files)
       const changedFiles = this.getChangedFiles();
-      
+
       if (changedFiles && changedFiles.length > 0) {
         console.log(`Checking ${changedFiles.length} changed files...`);
         changedFiles.forEach(file => {

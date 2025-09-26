@@ -24,7 +24,7 @@ jobs:
       with:
         version: latest
         enable-cache: true
-      
+
     - name: Run SDK linting
       run: |
         cd sdk
@@ -37,14 +37,43 @@ jobs:
     #     make lint
     #   continue-on-error: false
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: apps/frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: |
+        cd apps/frontend
+        npm ci
+
+    - name: Run frontend validation (format, lint, type-check, build)
+      run: |
+        cd apps/frontend
+        ./scripts/validate.sh
+      continue-on-error: false
+      env:
+        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'dummy-secret-for-ci-build' }}
+        NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL || 'http://localhost:3000' }}
+        NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:8080' }}
+        NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
+        BACKEND_URL: ${{ secrets.BACKEND_URL || 'http://localhost:8080' }}
+        FRONTEND_ENV: 'production'
+        APP_VERSION: '0.2.4'
+        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID || 'dummy-client-id' }}
+        NEXT_PUBLIC_AUTH0_DOMAIN: ${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN || 'dummy-domain.auth0.com' }}
+
     - name: Lint Summary
       run: |
         echo "## Lint Check Results ✅" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Scope**: SDK and Backend Python files" >> $GITHUB_STEP_SUMMARY
+        echo "- **Scope**: SDK, Backend Python files, and Frontend TypeScript/React files" >> $GITHUB_STEP_SUMMARY
         echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: All checks passed successfully!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### What was checked:" >> $GITHUB_STEP_SUMMARY
         echo "- **SDK**: Code formatting and linting with ruff" >> $GITHUB_STEP_SUMMARY
         echo "- **Backend**: Code formatting and linting with ruff" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation" >> $GITHUB_STEP_SUMMARY

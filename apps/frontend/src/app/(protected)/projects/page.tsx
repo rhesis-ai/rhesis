@@ -12,7 +12,7 @@ import { Box, Typography, Alert, Paper } from '@mui/material';
 export default async function ProjectsPage() {
   try {
     const session = await auth();
-    
+
     if (!session?.session_token) {
       return (
         <Paper sx={{ p: 3 }}>
@@ -22,14 +22,14 @@ export default async function ProjectsPage() {
         </Paper>
       );
     }
-    
+
     const apiFactory = new ApiClientFactory(session.session_token);
     const projectsClient = apiFactory.getProjectsClient();
     const response = await projectsClient.getProjects();
-    
+
     // Handle both array and paginated response formats
     const projects = Array.isArray(response) ? response : response?.data || [];
-    
+
     return (
       <ProjectsClientWrapper
         initialProjects={projects}
@@ -38,12 +38,14 @@ export default async function ProjectsPage() {
     );
   } catch (error) {
     console.error('Error loading projects:', error);
-    
+
     // Show error state instead of empty projects
     return (
       <Paper sx={{ p: 3 }}>
         <Alert severity="error">
-          {error instanceof Error ? error.message : 'Failed to load projects. Please try again.'}
+          {error instanceof Error
+            ? error.message
+            : 'Failed to load projects. Please try again.'}
         </Alert>
       </Paper>
     );

@@ -4,7 +4,10 @@ import { Token, TokenResponse } from './interfaces/token';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 export class TokensClient extends BaseApiClient {
-  async createToken(name: string, expiresInDays: number | null): Promise<TokenResponse> {
+  async createToken(
+    name: string,
+    expiresInDays: number | null
+  ): Promise<TokenResponse> {
     return this.fetch<TokenResponse>(API_ENDPOINTS.tokens, {
       method: 'POST',
       headers: {
@@ -14,17 +17,16 @@ export class TokensClient extends BaseApiClient {
     });
   }
 
-  async listTokens(params?: PaginationParams): Promise<PaginatedResponse<Token>> {
+  async listTokens(
+    params?: PaginationParams
+  ): Promise<PaginatedResponse<Token>> {
     try {
-      return this.fetchPaginated<Token>(
-        API_ENDPOINTS.tokens,
-        {
-          skip: params?.skip || 0,
-          limit: params?.limit || 10,
-              sort_by: params?.sort_by || 'created_at',
-    sort_order: params?.sort_order || 'desc'
-        }
-      );
+      return this.fetchPaginated<Token>(API_ENDPOINTS.tokens, {
+        skip: params?.skip || 0,
+        limit: params?.limit || 10,
+        sort_by: params?.sort_by || 'created_at',
+        sort_order: params?.sort_order || 'desc',
+      });
     } catch (error) {
       return {
         data: [],
@@ -34,8 +36,8 @@ export class TokensClient extends BaseApiClient {
           limit: params?.limit || 10,
           currentPage: 0,
           pageSize: params?.limit || 10,
-          totalPages: 0
-        }
+          totalPages: 0,
+        },
       };
     }
   }
@@ -46,13 +48,19 @@ export class TokensClient extends BaseApiClient {
     });
   }
 
-  async refreshToken(tokenId: string, expiresInDays: number | null): Promise<TokenResponse> {
-    return this.fetch<TokenResponse>(`${API_ENDPOINTS.tokens}/${tokenId}/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ expires_in_days: expiresInDays }),
-    });
+  async refreshToken(
+    tokenId: string,
+    expiresInDays: number | null
+  ): Promise<TokenResponse> {
+    return this.fetch<TokenResponse>(
+      `${API_ENDPOINTS.tokens}/${tokenId}/refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ expires_in_days: expiresInDays }),
+      }
+    );
   }
-} 
+}

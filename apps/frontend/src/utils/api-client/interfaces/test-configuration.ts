@@ -20,7 +20,8 @@ export interface TestConfigurationBase {
 
 export interface TestConfigurationCreate extends TestConfigurationBase {}
 
-export interface TestConfigurationUpdate extends Partial<TestConfigurationBase> {}
+export interface TestConfigurationUpdate
+  extends Partial<TestConfigurationBase> {}
 
 export interface TestConfiguration extends TestConfigurationBase {
   id: UUID;
@@ -53,4 +54,4 @@ export interface TestConfigurationExecuteResponse {
   endpoint_id: string;
   test_set_id: string;
   user_id: string;
-} 
+}

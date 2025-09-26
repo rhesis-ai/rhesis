@@ -1,15 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
-import { createTheme, Theme } from '@mui/material/styles';
+import {
+  ThemeProvider as MuiThemeProvider,
+  createTheme,
+} from '@mui/material/styles';
 import { getDesignTokens } from '../../styles/theme';
 import CssBaseline from '@mui/material/CssBaseline';
 
 // Create a context for theme mode
 export const ColorModeContext = React.createContext({
   toggleColorMode: () => {},
-  mode: 'light' as 'light' | 'dark'
+  mode: 'light' as 'light' | 'dark',
 });
 
 interface ThemeContextProviderProps {
@@ -19,15 +21,18 @@ interface ThemeContextProviderProps {
 
 const THEME_MODE_KEY = 'theme-mode';
 
-export default function ThemeContextProvider({ 
+export default function ThemeContextProvider({
   children,
-  disableTransitionOnChange = false 
+  disableTransitionOnChange = false,
 }: ThemeContextProviderProps) {
   const [mode, setMode] = React.useState<'light' | 'dark'>('light');
-  
+
   React.useEffect(() => {
     // First check localStorage
-    const storedMode = localStorage.getItem(THEME_MODE_KEY) as 'light' | 'dark' | null;
+    const storedMode = localStorage.getItem(THEME_MODE_KEY) as
+      | 'light'
+      | 'dark'
+      | null;
     if (storedMode) {
       setMode(storedMode);
       return;
@@ -54,7 +59,7 @@ export default function ThemeContextProvider({
           document.body.style.setProperty('transition', 'none');
         }
 
-        setMode((prevMode) => {
+        setMode(prevMode => {
           const newMode = prevMode === 'light' ? 'dark' : 'light';
           localStorage.setItem(THEME_MODE_KEY, newMode);
           return newMode;
@@ -73,17 +78,17 @@ export default function ThemeContextProvider({
     [mode, disableTransitionOnChange]
   );
 
-  const theme = React.useMemo(
-    () => createTheme(getDesignTokens(mode)),
-    [mode]
-  );
+  const theme = React.useMemo(() => createTheme(getDesignTokens(mode)), [mode]);
 
   return (
     <ColorModeContext.Provider value={colorMode}>
-      <MuiThemeProvider theme={theme} disableTransitionOnChange={disableTransitionOnChange}>
+      <MuiThemeProvider
+        theme={theme}
+        disableTransitionOnChange={disableTransitionOnChange}
+      >
         {/* <CssBaseline /> */}
         {children}
       </MuiThemeProvider>
     </ColorModeContext.Provider>
   );
-} 
+}

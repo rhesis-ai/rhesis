@@ -46,40 +46,49 @@ export function useTestRunData({
     try {
       setLoading(true);
       setError(null);
-      
+
       const apiFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = apiFactory.getTestResultsClient();
       const promptsClient = apiFactory.getPromptsClient();
       const testRunsClient = apiFactory.getTestRunsClient();
-      
+
       // Calculate skip based on pagination model
       const skip = paginationModel.page * paginationModel.pageSize;
-      
+
       // Fetch test results with pagination parameters
       const response = await testResultsClient.getTestResults({
         filter: `test_run_id eq '${testRunId}'`,
         skip: skip,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
-        sort_order: 'desc'
+        sort_order: 'desc',
       });
-      
+
       const results = response.data;
       setTotalCount(response.pagination.totalCount);
-      
+
       // Get unique prompt IDs
-      const promptIds = [...new Set(results.filter((r: TestResultDetail) => r.prompt_id).map((r: TestResultDetail) => r.prompt_id!))];
-      
+      const promptIds = [
+        ...new Set(
+          results
+            .filter((r: TestResultDetail) => r.prompt_id)
+            .map((r: TestResultDetail) => r.prompt_id!)
+        ),
+      ];
+
       // Fetch all prompts in parallel
       const promptsData = await Promise.all(
         promptIds.map((id: string) => promptsClient.getPrompt(id))
       );
-      
+
       // Create a map of prompt ID to prompt data
-      const promptsMap = promptsData.reduce((acc, prompt) => {
-        acc[prompt.id] = prompt;
-        return acc;
-      }, {} as Record<string, Prompt>);
+      const promptsMap = promptsData.reduce(
+        (acc, prompt) => {
+          acc[prompt.id] = prompt;
+          return acc;
+        },
+        {} as Record<string, Prompt>
+      );
 
       // Fetch only behaviors that have test results for this test run
       const behaviorsData = await testRunsClient.getTestRunBehaviors(testRunId);
@@ -87,27 +96,34 @@ export function useTestRunData({
       // Fetch metrics for each behavior
       const behaviorClient = apiFactory.getBehaviorClient();
       const behaviorsWithMetrics = await Promise.all(
-        behaviorsData.map(async (behavior) => {
+        behaviorsData.map(async behavior => {
           try {
             // Type assertion needed due to type definition mismatch
-            const behaviorMetrics = await (behaviorClient as any).getBehaviorMetrics(behavior.id as UUID);
+            const behaviorMetrics = await (
+              behaviorClient as any
+            ).getBehaviorMetrics(behavior.id as UUID);
             return {
               ...behavior,
-              metrics: behaviorMetrics
+              metrics: behaviorMetrics,
             };
           } catch (error) {
-            console.error(`Error fetching metrics for behavior ${behavior.id}:`, error);
+            console.error(
+              `Error fetching metrics for behavior ${behavior.id}:`,
+              error
+            );
             return {
               ...behavior,
-              metrics: []
+              metrics: [],
             };
           }
         })
       );
 
       // Filter out behaviors that have no metrics (though this should be rare now)
-      const behaviorsWithMetricsFiltered = behaviorsWithMetrics.filter(behavior => behavior.metrics.length > 0);
-      
+      const behaviorsWithMetricsFiltered = behaviorsWithMetrics.filter(
+        behavior => behavior.metrics.length > 0
+      );
+
       setBehaviors(behaviorsWithMetricsFiltered);
       setPrompts(promptsMap);
       setTestResults(results);
@@ -136,4 +152,4 @@ export function useTestRunData({
   };
 }
 
-export type { BehaviorWithMetrics }; 
+export type { BehaviorWithMetrics };

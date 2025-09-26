@@ -13,7 +13,8 @@
   font-weight: bold !important;
 }
 
-.detailedGrid :global(.MuiDataGrid-columnGroupHeader .MuiDataGrid-columnHeaderTitle) {
+.detailedGrid
+  :global(.MuiDataGrid-columnGroupHeader .MuiDataGrid-columnHeaderTitle) {
   font-weight: bold !important;
 }
 
@@ -21,11 +22,17 @@
   font-weight: bold;
 }
 
-.detailedGrid :global(.MuiDataGrid-columnHeader.bold-header .MuiDataGrid-columnHeaderTitle) {
+.detailedGrid
+  :global(
+    .MuiDataGrid-columnHeader.bold-header .MuiDataGrid-columnHeaderTitle
+  ) {
   font-weight: bold;
 }
 
-.detailedGrid :global(.MuiDataGrid-columnHeader--filledGroup .MuiDataGrid-columnHeaderTitle) {
+.detailedGrid
+  :global(
+    .MuiDataGrid-columnHeader--filledGroup .MuiDataGrid-columnHeaderTitle
+  ) {
   font-weight: bold;
 }
 
@@ -83,4 +90,4 @@
   width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-} 
+}

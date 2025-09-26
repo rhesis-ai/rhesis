@@ -5,11 +5,14 @@ import { Box, Button, Typography, Paper } from '@mui/material';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-class ErrorBoundary extends React.Component<{
-  children: React.ReactNode;
-}, {
-  hasError: boolean;
-}> {
+class ErrorBoundary extends React.Component<
+  {
+    children: React.ReactNode;
+  },
+  {
+    hasError: boolean;
+  }
+> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -17,9 +20,11 @@ class ErrorBoundary extends React.Component<{
 
   static getDerivedStateFromError(error: Error) {
     // Only set error state for authentication errors
-    if (error.message.includes('auth') || 
-        error.message.includes('session') || 
-        error.message.includes('unauthorized')) {
+    if (
+      error.message.includes('auth') ||
+      error.message.includes('session') ||
+      error.message.includes('unauthorized')
+    ) {
       return { hasError: true };
     }
     // Ignore other errors
@@ -54,10 +59,7 @@ function AuthErrorFallback() {
         <Typography variant="body1" sx={{ mb: 3 }}>
           Please sign in again to continue. Redirecting to login page...
         </Typography>
-        <Button 
-          variant="contained" 
-          onClick={() => router.push('/')}
-        >
+        <Button variant="contained" onClick={() => router.push('/')}>
           Sign In Now
         </Button>
       </Paper>
@@ -65,10 +67,10 @@ function AuthErrorFallback() {
   );
 }
 
-export default function AuthErrorBoundary({ children }: { children: React.ReactNode }) {
-  return (
-    <ErrorBoundary>
-      {children}
-    </ErrorBoundary>
-  );
-} 
+export default function AuthErrorBoundary({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <ErrorBoundary>{children}</ErrorBoundary>;
+}

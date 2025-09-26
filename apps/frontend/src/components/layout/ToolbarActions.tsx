@@ -12,16 +12,20 @@ export default function ToolbarActions() {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
       {showVersionInfo && (
-        <AppVersion 
+        <AppVersion
           variant="caption"
-          sx={{ 
-            fontSize: (theme) => `calc(${theme.typography.caption.fontSize || '0.75rem'} * 0.93)`, // ~0.7rem
+          sx={{
+            fontSize: theme =>
+              `calc(${theme.typography.caption.fontSize || '0.75rem'} * 0.93)`, // ~0.7rem
             fontFamily: 'monospace',
-            color: (theme) => theme.palette.mode === 'dark' ? theme.palette.text.primary : theme.palette.primary.contrastText
+            color: theme =>
+              theme.palette.mode === 'dark'
+                ? theme.palette.text.primary
+                : theme.palette.primary.contrastText,
           }}
         />
       )}
       <ThemeToggle />
     </Box>
   );
-} 
+}

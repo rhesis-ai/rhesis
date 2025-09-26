@@ -7,11 +7,11 @@ import { EntityType } from '@/types/tasks';
  */
 export const getEntityDisplayName = (entityType: EntityType): string => {
   const entityMap: Record<EntityType, string> = {
-    'Test': 'Test',
-    'TestSet': 'Test Set', 
-    'TestRun': 'Test Run',
-    'TestResult': 'Test Result',
-    'Task': 'Task'
+    Test: 'Test',
+    TestSet: 'Test Set',
+    TestRun: 'Test Run',
+    TestResult: 'Test Result',
+    Task: 'Task',
   };
   return entityMap[entityType] || entityType;
 };
@@ -23,11 +23,11 @@ export const getEntityDisplayName = (entityType: EntityType): string => {
  */
 export const getEntityPath = (entityType: EntityType): string => {
   const pathMap: Record<EntityType, string> = {
-    'Test': 'tests',
-    'TestSet': 'test-sets',
-    'TestRun': 'test-runs', 
-    'TestResult': 'test-results',
-    'Task': 'tasks'
+    Test: 'tests',
+    TestSet: 'test-sets',
+    TestRun: 'test-runs',
+    TestResult: 'test-results',
+    Task: 'tasks',
   };
   return pathMap[entityType] || entityType.toLowerCase();
 };
@@ -38,11 +38,11 @@ export const getEntityPath = (entityType: EntityType): string => {
  */
 export const getEntityUrlMap = (): Record<string, string> => {
   return {
-    'Test': 'tests',
-    'TestSet': 'test-sets',
-    'TestRun': 'test-runs',
-    'TestResult': 'test-results',
-    'Task': 'tasks'
+    Test: 'tests',
+    TestSet: 'test-sets',
+    TestRun: 'test-runs',
+    TestResult: 'test-results',
+    Task: 'tasks',
   };
 };
 
@@ -53,11 +53,11 @@ export const getEntityUrlMap = (): Record<string, string> => {
  */
 export const getEntityIconName = (entityType: EntityType): string => {
   const iconMap: Record<EntityType, string> = {
-    'Test': 'Science',
-    'TestSet': 'Category',
-    'TestRun': 'PlayArrow',
-    'TestResult': 'Assignment',
-    'Task': 'Assignment'
+    Test: 'Science',
+    TestSet: 'Category',
+    TestRun: 'PlayArrow',
+    TestResult: 'Assignment',
+    Task: 'Assignment',
   };
   return iconMap[entityType] || 'Assignment';
 };
@@ -67,7 +67,15 @@ export const getEntityIconName = (entityType: EntityType): string => {
  * @param entityType The entity type to validate
  * @returns True if the entity type is valid
  */
-export const isValidEntityType = (entityType: string): entityType is EntityType => {
-  const validTypes: EntityType[] = ['Test', 'TestSet', 'TestRun', 'TestResult', 'Task'];
+export const isValidEntityType = (
+  entityType: string
+): entityType is EntityType => {
+  const validTypes: EntityType[] = [
+    'Test',
+    'TestSet',
+    'TestRun',
+    'TestResult',
+    'Task',
+  ];
   return validTypes.includes(entityType as EntityType);
 };

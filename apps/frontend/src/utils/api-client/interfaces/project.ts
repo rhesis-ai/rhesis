@@ -122,13 +122,13 @@ export interface ProjectFrontendFields {
  */
 export interface Project extends ProjectBase, ProjectFrontendFields {
   id: UUID | string; // Allow string for mock data compatibility
-  
+
   // Include standard timestamps if they exist in the API response
   created_at?: string;
   updated_at?: string;
-  
+
   // Nested objects from API response
   user: ProjectUser;
   owner: ProjectUser;
   organization: ProjectOrganization;
-} 
+}

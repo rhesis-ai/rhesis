@@ -10,7 +10,7 @@ export default function SwaggerEndpointPage() {
       title="New Swagger Endpoint"
       breadcrumbs={[
         { title: 'Endpoints', path: '/endpoints' },
-        { title: 'Add Swagger Endpoint' }
+        { title: 'Add Swagger Endpoint' },
       ]}
     >
       <SwaggerEndpointForm />

@@ -13,7 +13,13 @@ import {
   useTheme,
   Chip,
 } from '@mui/material';
-import { EditIcon, DeleteIcon, EmojiIcon, AssignmentIcon, AddTaskIcon } from '@/components/icons';
+import {
+  EditIcon,
+  DeleteIcon,
+  EmojiIcon,
+  AssignmentIcon,
+  AddTaskIcon,
+} from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
@@ -34,15 +40,15 @@ interface CommentItemProps {
   isHighlighted?: boolean; // Add highlighting prop
 }
 
-export function CommentItem({ 
-  comment, 
-  onEdit, 
-  onDelete, 
-  onReact, 
+export function CommentItem({
+  comment,
+  onEdit,
+  onDelete,
+  onReact,
   onCreateTask,
   currentUserId,
   entityType,
-  isHighlighted = false
+  isHighlighted = false,
 }: CommentItemProps) {
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -79,7 +85,7 @@ export function CommentItem({
 
   const handleSaveEdit = async () => {
     if (!editText.trim()) return;
-    
+
     setIsSubmitting(true);
     try {
       await onEdit(comment.id, editText.trim());
@@ -135,7 +141,7 @@ export function CommentItem({
     const date = new Date(dateString + 'Z');
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     // If less than 24 hours, use relative time
     if (diffInHours < 24) {
       return formatDistanceToNow(date, { addSuffix: true }).toUpperCase();
@@ -150,11 +156,11 @@ export function CommentItem({
 
   return (
     <>
-      <Box 
+      <Box
         id={`comment-${comment.id}`}
-        sx={{ 
-          display: 'flex', 
-          gap: 2, 
+        sx={{
+          display: 'flex',
+          gap: 2,
           mb: 3,
           alignItems: 'flex-start',
           // Highlighting styles
@@ -165,11 +171,11 @@ export function CommentItem({
             borderRadius: theme.shape.borderRadius,
             p: 2,
             mb: 3,
-          })
+          }),
         }}
       >
         {/* User Avatar */}
-        <UserAvatar 
+        <UserAvatar
           userName={comment.user?.name}
           userPicture={comment.user?.picture}
           size={40}
@@ -178,15 +184,30 @@ export function CommentItem({
         {/* Comment Content */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* Header with user info and action buttons */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              mb: 1,
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                sx={{ lineHeight: 1.2 }}
+              >
                 {comment.user?.name || 'UNKNOWN USER'}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ 
-                lineHeight: 1.2,
-                fontSize: theme.typography.chartLabel.fontSize
-              }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  lineHeight: 1.2,
+                  fontSize: theme.typography.chartLabel.fontSize,
+                }}
+              >
                 {formatDate(comment.created_at)}
               </Typography>
             </Box>
@@ -195,19 +216,21 @@ export function CommentItem({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {/* Task Counter */}
               {taskCount > 0 && (
-                <Tooltip title={`${taskCount} task${taskCount === 1 ? '' : 's'} created from this comment`}>
+                <Tooltip
+                  title={`${taskCount} task${taskCount === 1 ? '' : 's'} created from this comment`}
+                >
                   <Chip
                     icon={<AddTaskIcon />}
                     label={taskCount}
                     size="small"
                     color="primary"
                     variant="outlined"
-                    sx={{ 
+                    sx={{
                       height: 24,
                       fontSize: theme.typography.caption.fontSize,
                       '& .MuiChip-icon': {
-                        fontSize: theme.typography.helperText.fontSize
-                      }
+                        fontSize: theme.typography.helperText.fontSize,
+                      },
                     }}
                   />
                 </Tooltip>
@@ -219,9 +242,9 @@ export function CommentItem({
                   <IconButton
                     size="small"
                     onClick={() => onCreateTask(comment.id)}
-                    sx={{ 
+                    sx={{
                       color: 'text.secondary',
-                      '&:hover': { color: 'warning.main' }
+                      '&:hover': { color: 'warning.main' },
                     }}
                   >
                     <AssignmentIcon fontSize="small" />
@@ -235,24 +258,24 @@ export function CommentItem({
                   <IconButton
                     size="small"
                     onClick={() => setIsEditing(true)}
-                    sx={{ 
+                    sx={{
                       color: 'text.secondary',
-                      '&:hover': { color: 'primary.main' }
+                      '&:hover': { color: 'primary.main' },
                     }}
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               )}
-              
+
               {canDelete && (
                 <Tooltip title="Delete comment">
                   <IconButton
                     size="small"
                     onClick={handleDeleteClick}
-                    sx={{ 
+                    sx={{
                       color: 'text.secondary',
-                      '&:hover': { color: 'error.main' }
+                      '&:hover': { color: 'error.main' },
                     }}
                   >
                     <DeleteIcon fontSize="small" />
@@ -266,7 +289,7 @@ export function CommentItem({
             <Box sx={{ mt: 1 }}>
               <TextField
                 value={editText}
-                onChange={(e) => setEditText(e.target.value)}
+                onChange={e => setEditText(e.target.value)}
                 multiline
                 rows={3}
                 fullWidth
@@ -275,17 +298,17 @@ export function CommentItem({
                 sx={{ mb: 1 }}
               />
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <Button 
-                  size="small" 
+                <Button
+                  size="small"
                   onClick={handleCancelEdit}
                   sx={{ textTransform: 'none', borderRadius: '16px' }}
                 >
                   Cancel
                 </Button>
-                <Button 
-                  size="small" 
-                  variant="contained" 
-                  onClick={handleSaveEdit} 
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleSaveEdit}
                   disabled={isSubmitting || !editText.trim()}
                   sx={{ textTransform: 'none', borderRadius: '16px' }}
                 >
@@ -294,127 +317,153 @@ export function CommentItem({
               </Box>
             </Box>
           ) : (
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                mt: 1, 
-                mb: 2, 
+            <Typography
+              variant="body2"
+              sx={{
+                mt: 1,
+                mb: 2,
                 lineHeight: 1.6,
                 whiteSpace: 'pre-wrap',
-                color: 'text.primary'
+                color: 'text.primary',
               }}
             >
               {comment.content}
             </Typography>
-                      )}
+          )}
 
-                        {/* Emoji Picker Button and Reactions */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-              {/* Emoji Reactions Display */}
-              {Object.keys(comment.emojis || {}).length > 0 && (
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {Object.entries(comment.emojis).map(([emoji, reactions]) => {
-                    const hasReacted = reactions.some(reaction => 
-                      reaction.user_id === currentUserId
-                    );
-                    const reactionCount = reactions.length;
-                    const tooltipText = createReactionTooltipText(reactions, emoji);
-                    
-                    return (
-                      <Tooltip
-                        key={emoji}
-                        title={tooltipText}
-                        arrow
-                        placement="top"
-                      >
-                        <Box
-                          onClick={() => onReact(comment.id, emoji)}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            bgcolor: 'background.default',
+          {/* Emoji Picker Button and Reactions */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            {/* Emoji Reactions Display */}
+            {Object.keys(comment.emojis || {}).length > 0 && (
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {Object.entries(comment.emojis).map(([emoji, reactions]) => {
+                  const hasReacted = reactions.some(
+                    reaction => reaction.user_id === currentUserId
+                  );
+                  const reactionCount = reactions.length;
+                  const tooltipText = createReactionTooltipText(
+                    reactions,
+                    emoji
+                  );
+
+                  return (
+                    <Tooltip
+                      key={emoji}
+                      title={tooltipText}
+                      arrow
+                      placement="top"
+                    >
+                      <Box
+                        onClick={() => onReact(comment.id, emoji)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          bgcolor: 'background.default',
+                          color: 'text.primary',
+                          border: '1px solid',
+                          borderColor: hasReacted ? 'primary.main' : 'divider',
+                          borderRadius: theme => theme.shape.borderRadius * 4,
+                          px: 1.5,
+                          py: 0.75,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: 'action.hover',
                             color: 'text.primary',
-                            border: '1px solid',
-                            borderColor: hasReacted ? 'primary.main' : 'divider',
-                            borderRadius: (theme) => theme.shape.borderRadius * 4,
-                            px: 1.5,
-                            py: 0.75,
-                            cursor: 'pointer',
-                            '&:hover': {
-                              bgcolor: 'action.hover',
-                              color: 'text.primary',
-                              borderColor: hasReacted ? 'primary.main' : 'text.primary'
-                            }
+                            borderColor: hasReacted
+                              ? 'primary.main'
+                              : 'text.primary',
+                          },
+                        }}
+                      >
+                        <Typography variant="subtitle1">{emoji}</Typography>
+                        <Typography
+                          variant="body2"
+                          fontWeight={600}
+                          sx={{
+                            color: 'text.primary',
                           }}
                         >
-                          <Typography variant="subtitle1">{emoji}</Typography>
-                          <Typography variant="body2" fontWeight={600} sx={{ 
-                            color: 'text.primary'
-                          }}>
-                            {reactionCount}
-                          </Typography>
-                        </Box>
-                      </Tooltip>
-                    );
-                  })}
-                </Box>
-              )}
-
-              <IconButton
-                size="small"
-                onClick={openEmojiPicker}
-                sx={{ 
-                  color: 'text.secondary',
-                  '&:hover': { color: 'primary.main' }
-                }}
-              >
-                <EmojiIcon fontSize="small" />
-              </IconButton>
-            </Box>
-
-            {/* Associated Tasks */}
-            {associatedTasks.length > 0 && (
-              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                  Associated Tasks:
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {associatedTasks.map((task) => (
-                    <Box
-                      key={task.id}
-                      onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        bgcolor: 'background.default',
-                        color: 'text.primary',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: theme.shape.borderRadius,
-                        px: 1.5,
-                        py: 0.75,
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                          color: 'text.primary',
-                          borderColor: 'text.primary'
-                        }
-                      }}
-                    >
-                      <AddTaskIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
-                      <Typography variant="body2" fontWeight={600} sx={{ 
-                        color: 'text.primary',
-                        fontSize: theme.typography.caption.fontSize
-                      }}>
-                        {task.title}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
+                          {reactionCount}
+                        </Typography>
+                      </Box>
+                    </Tooltip>
+                  );
+                })}
               </Box>
             )}
+
+            <IconButton
+              size="small"
+              onClick={openEmojiPicker}
+              sx={{
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main' },
+              }}
+            >
+              <EmojiIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          {/* Associated Tasks */}
+          {associatedTasks.length > 0 && (
+            <Box
+              sx={{
+                mt: 2,
+                pt: 2,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mb: 1, display: 'block' }}
+              >
+                Associated Tasks:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {associatedTasks.map(task => (
+                  <Box
+                    key={task.id}
+                    onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      bgcolor: 'background.default',
+                      color: 'text.primary',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: theme.shape.borderRadius,
+                      px: 1.5,
+                      py: 0.75,
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                        color: 'text.primary',
+                        borderColor: 'text.primary',
+                      },
+                    }}
+                  >
+                    <AddTaskIcon
+                      sx={{ fontSize: '1rem', color: 'text.secondary' }}
+                    />
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      sx={{
+                        color: 'text.primary',
+                        fontSize: theme.typography.caption.fontSize,
+                      }}
+                    >
+                      {task.title}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
 
         {/* Emoji Picker Popover */}

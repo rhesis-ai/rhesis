@@ -10,4 +10,4 @@ export default function MetricsLayout({
   children: React.ReactNode;
 }) {
   return children;
-} 
+}

@@ -3,52 +3,58 @@
 ## Color Palette Usage
 
 ### Primary Colors
+
 ```tsx
 import { useTheme } from '@mui/material/styles';
 
 const theme = useTheme();
 
 // Primary Blue: #50B9E0
-theme.palette.primary.main
+theme.palette.primary.main;
 
-// Primary Light Blue: #97D5EE  
-theme.palette.primary.light
+// Primary Light Blue: #97D5EE
+theme.palette.primary.light;
 
 // Primary CTA Blue: #2AA1CE
-theme.palette.primary.dark
+theme.palette.primary.dark;
 ```
 
 ### Background Colors
+
 ```tsx
 // Light backgrounds (light mode)
-theme.palette.background.default    // #F2F9FD - Light Background 1
-theme.palette.background.paper      // #FFFFFF - White Background
-theme.palette.background.light1     // #F2F9FD
-theme.palette.background.light2     // #E4F2FA
-theme.palette.background.light3     // #C2E5F5
-theme.palette.background.light4     // #97D5EE
+theme.palette.background.default; // #F2F9FD - Light Background 1
+theme.palette.background.paper; // #FFFFFF - White Background
+theme.palette.background.light1; // #F2F9FD
+theme.palette.background.light2; // #E4F2FA
+theme.palette.background.light3; // #C2E5F5
+theme.palette.background.light4; // #97D5EE
 ```
 
 ### Text Colors
+
 ```tsx
-theme.palette.text.primary          // #3D3D3D - Dark Text
-theme.palette.text.secondary        // #1A1A1A - Dark Black
+theme.palette.text.primary; // #3D3D3D - Dark Text
+theme.palette.text.secondary; // #1A1A1A - Dark Black
 ```
 
 ### CTA Colors
+
 ```tsx
-theme.palette.secondary.main        // #FD6E12 - Secondary CTA Orange
-theme.palette.secondary.light       // #FDD803 - Accent Yellow
-theme.palette.secondary.dark        // #1A1A1A - Dark Black
+theme.palette.secondary.main; // #FD6E12 - Secondary CTA Orange
+theme.palette.secondary.light; // #FDD803 - Accent Yellow
+theme.palette.secondary.dark; // #1A1A1A - Dark Black
 ```
 
 ## Typography Usage
 
 ### Font Families
+
 - **Sora**: Used for major headings (h1, h2, h3)
 - **Be Vietnam Pro**: Used for body text, UI elements, and secondary headings (h4, h5, h6)
 
 ### Typography Variants
+
 ```tsx
 <Typography variant="h1">Major Title (Sora Semibold)</Typography>
 <Typography variant="h2">Section Heading (Sora Medium)</Typography>
@@ -62,6 +68,7 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 ## Button Usage
 
 ### Primary Buttons (Main Actions)
+
 ```tsx
 <Button variant="contained" color="primary">
   Primary Action (CTA Blue #2AA1CE background, white text)
@@ -69,6 +76,7 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 ```
 
 ### Secondary Buttons (Alternative Actions)
+
 ```tsx
 <Button variant="contained" color="secondary">
   Secondary Action (Orange #FD6E12 background, white text)
@@ -76,6 +84,7 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 ```
 
 ### Outlined Buttons (Tertiary Actions)
+
 ```tsx
 <Button variant="outlined" color="primary">
   Tertiary Action (CTA Blue #2AA1CE border/text, transparent background)
@@ -87,6 +96,7 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 ```
 
 ### Text Buttons (Subtle Actions)
+
 ```tsx
 <Button variant="text" color="primary">
   Subtle Action (Blue text, no background/border)
@@ -94,6 +104,7 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 ```
 
 ### Button Hierarchy Guidelines
+
 - **Contained Primary**: Most important actions (Submit, Save, Execute)
 - **Contained Secondary**: Important alternative actions (Alternative CTAs)
 - **Outlined Primary**: Secondary actions (Cancel, Download, Edit)
@@ -101,12 +112,13 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 - **Text**: Subtle actions (Links, minor actions)
 
 ### Example Usage Patterns
+
 ```tsx
 // Form actions
 <Button variant="contained" color="primary">Save Changes</Button>
 <Button variant="outlined" color="primary">Cancel</Button>
 
-// Data actions  
+// Data actions
 <Button variant="contained" color="primary">Execute Test</Button>
 <Button variant="outlined" color="primary">Download Results</Button>
 <Button variant="text" color="primary">View Details</Button>
@@ -118,19 +130,22 @@ theme.palette.secondary.dark        // #1A1A1A - Dark Black
 ## Chart Colors
 
 ### Line Charts
+
 ```tsx
 const theme = useTheme();
-const lineColors = theme.chartPalettes.line; 
+const lineColors = theme.chartPalettes.line;
 // ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803']
 ```
 
 ### Pie Charts
+
 ```tsx
 const pieColors = theme.chartPalettes.pie;
 // ['#97D5EE', '#50B9E0', '#2AA1CE']
 ```
 
 ### Status Colors
+
 ```tsx
 const statusColors = theme.chartPalettes.status;
 // ['#2AA1CE', '#FDD803', '#FD6E12'] - success, warning, error
@@ -139,11 +154,14 @@ const statusColors = theme.chartPalettes.status;
 ## Custom Components
 
 ### Cards with Rhesis AI Styling
+
 ```tsx
-<Card sx={{ 
-  backgroundColor: theme.palette.background.paper,
-  boxShadow: '0 2px 8px rgba(80, 185, 224, 0.08)'
-}}>
+<Card
+  sx={{
+    backgroundColor: theme.palette.background.paper,
+    boxShadow: '0 2px 8px rgba(80, 185, 224, 0.08)',
+  }}
+>
   <CardContent>
     <Typography variant="h5" color="text.primary">
       Card Title
@@ -153,12 +171,15 @@ const statusColors = theme.chartPalettes.status;
 ```
 
 ### Background Sections
+
 ```tsx
-<Box sx={{ 
-  backgroundColor: theme.palette.background.light2,
-  padding: 3,
-  borderRadius: 2
-}}>
+<Box
+  sx={{
+    backgroundColor: theme.palette.background.light2,
+    padding: 3,
+    borderRadius: 2,
+  }}
+>
   Content with light blue background
 </Box>
 ```

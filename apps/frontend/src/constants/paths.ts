@@ -2,11 +2,11 @@
 export const ONBOARDING_PATH = '/onboarding';
 
 export const PUBLIC_PATHS = [
-  '/',                    // Root path is public
+  '/', // Root path is public
   '/public',
   '/auth',
   '/api/auth',
-  '/api/warmup',          // Allow warmup endpoint
+  '/api/warmup', // Allow warmup endpoint
   '/_next',
   '/rhesis-favicon.ico',
   '/rhesis-logo.png',
@@ -31,22 +31,36 @@ export function isPublicPath(path: string): boolean {
   if (PUBLIC_PATHS.includes(path as any)) {
     return true;
   }
-  
+
   // Check static asset paths
   const staticPaths = ['/_next/', '/images/', '/assets/', '/fonts/'];
   if (staticPaths.some(prefix => path.startsWith(prefix))) {
     return true;
   }
-  
+
   // Check file extensions for common static files
-  const staticExtensions = ['.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.css', '.js', '.ttf', '.woff', '.woff2', '.eot', '.otf'];
+  const staticExtensions = [
+    '.ico',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.svg',
+    '.css',
+    '.js',
+    '.ttf',
+    '.woff',
+    '.woff2',
+    '.eot',
+    '.otf',
+  ];
   if (staticExtensions.some(ext => path.endsWith(ext))) {
     return true;
   }
-  
+
   return false;
 }
 
 // Check if path is the onboarding path
 export const isOnboardingPath = (pathname: string): boolean =>
-  pathname === ONBOARDING_PATH || pathname.startsWith(`${ONBOARDING_PATH}/`); 
+  pathname === ONBOARDING_PATH || pathname.startsWith(`${ONBOARDING_PATH}/`);

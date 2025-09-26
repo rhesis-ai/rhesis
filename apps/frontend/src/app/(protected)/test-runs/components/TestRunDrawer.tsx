@@ -3,7 +3,15 @@
 import React, { useRef, useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import { Autocomplete, TextField, Box, Avatar, Typography, Divider, Stack } from '@mui/material';
+import {
+  Autocomplete,
+  TextField,
+  Box,
+  Avatar,
+  Typography,
+  Divider,
+  Stack,
+} from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -22,12 +30,12 @@ interface TestRunDrawerProps {
   onSuccess?: () => void;
 }
 
-export default function TestRunDrawer({ 
-  open, 
-  onClose, 
+export default function TestRunDrawer({
+  open,
+  onClose,
   sessionToken,
   testRun,
-  onSuccess 
+  onSuccess,
 }: TestRunDrawerProps) {
   const notifications = useNotifications();
   const [error, setError] = React.useState<string>();
@@ -37,12 +45,14 @@ export default function TestRunDrawer({
   const [testSet, setTestSet] = React.useState<TestSet | null>(null);
   const [project, setProject] = React.useState<Project | null>(null);
   const [endpoint, setEndpoint] = React.useState<Endpoint | null>(null);
-  
+
   const [users, setUsers] = React.useState<User[]>([]);
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
-  const [filteredEndpoints, setFilteredEndpoints] = React.useState<Endpoint[]>([]);
+  const [filteredEndpoints, setFilteredEndpoints] = React.useState<Endpoint[]>(
+    []
+  );
 
   const getCurrentUserId = useCallback(() => {
     try {
@@ -50,8 +60,10 @@ export default function TestRunDrawer({
       const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
       const pad = base64.length % 4;
       const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
-      
-      const payload = JSON.parse(Buffer.from(paddedBase64, 'base64').toString('utf-8'));
+
+      const payload = JSON.parse(
+        Buffer.from(paddedBase64, 'base64').toString('utf-8')
+      );
       return payload.user?.id;
     } catch (err) {
       console.error('Error decoding JWT token:', err);
@@ -75,21 +87,28 @@ export default function TestRunDrawer({
         const endpointsClient = clientFactory.getEndpointsClient();
 
         const currentUserId = getCurrentUserId();
-        
+
         try {
-          const [fetchedUsers, fetchedTestSets, fetchedProjects, fetchedEndpoints] = await Promise.all([
+          const [
+            fetchedUsers,
+            fetchedTestSets,
+            fetchedProjects,
+            fetchedEndpoints,
+          ] = await Promise.all([
             usersClient.getUsers(),
             testSetsClient.getTestSets({ limit: 100 }),
             projectsClient.getProjects(),
-            endpointsClient.getEndpoints()
+            endpointsClient.getEndpoints(),
           ]);
 
           console.log('Projects API response:', fetchedProjects);
-          
+
           // Ensure we always set arrays, never undefined
           setUsers(Array.isArray(fetchedUsers) ? fetchedUsers : []);
-          setTestSets(Array.isArray(fetchedTestSets?.data) ? fetchedTestSets.data : []);
-          
+          setTestSets(
+            Array.isArray(fetchedTestSets?.data) ? fetchedTestSets.data : []
+          );
+
           // Handle both response formats for projects: direct array or {data: array}
           let projectsArray: Project[] = [];
           if (Array.isArray(fetchedProjects)) {
@@ -101,29 +120,40 @@ export default function TestRunDrawer({
             projectsArray = fetchedProjects.data;
             console.log('Using paginated response data for projects');
           } else {
-            console.warn('Invalid projects response structure:', fetchedProjects);
+            console.warn(
+              'Invalid projects response structure:',
+              fetchedProjects
+            );
           }
-          
+
           setProjects(projectsArray);
-          setEndpoints(Array.isArray(fetchedEndpoints?.data) ? fetchedEndpoints.data : []);
+          setEndpoints(
+            Array.isArray(fetchedEndpoints?.data) ? fetchedEndpoints.data : []
+          );
 
           console.log('Final processed projects:', projectsArray);
 
           // Set initial values if editing
           if (testRun) {
             if (testRun.assignee_id) {
-              const currentAssignee = fetchedUsers.data.find(u => u.id === testRun.assignee_id);
+              const currentAssignee = fetchedUsers.data.find(
+                u => u.id === testRun.assignee_id
+              );
               setAssignee(currentAssignee || null);
             }
             if (testRun.owner_id) {
-              const currentOwner = fetchedUsers.data.find(u => u.id === testRun.owner_id);
+              const currentOwner = fetchedUsers.data.find(
+                u => u.id === testRun.owner_id
+              );
               setOwner(currentOwner || null);
             }
             // Add test set, project and endpoint initialization if available in testRun
           } else {
             // Set default owner as current user for new test runs
             if (currentUserId) {
-              const currentUser = fetchedUsers.data.find(u => u.id === currentUserId);
+              const currentUser = fetchedUsers.data.find(
+                u => u.id === currentUserId
+              );
               setOwner(currentUser || null);
             }
           }
@@ -153,7 +183,9 @@ export default function TestRunDrawer({
   // Filter endpoints when project changes
   React.useEffect(() => {
     if (project && Array.isArray(endpoints)) {
-      const filtered = endpoints.filter(endpoint => endpoint.project_id === project.id);
+      const filtered = endpoints.filter(
+        endpoint => endpoint.project_id === project.id
+      );
       setFilteredEndpoints(filtered);
       // Clear endpoint selection if current selection is not in filtered list
       if (endpoint && !filtered.find(e => e.id === endpoint.id)) {
@@ -176,24 +208,32 @@ export default function TestRunDrawer({
       setError(undefined);
 
       const clientFactory = new ApiClientFactory(sessionToken);
-      const testConfigurationsClient = clientFactory.getTestConfigurationsClient();
+      const testConfigurationsClient =
+        clientFactory.getTestConfigurationsClient();
 
       // Create test configuration
       const testConfigurationData: TestConfigurationCreate = {
         endpoint_id: endpoint.id as UUID,
         test_set_id: testSet.id as UUID,
         user_id: owner?.id as UUID,
-        organization_id: endpoint.organization_id as UUID
+        organization_id: endpoint.organization_id as UUID,
       };
 
       // Create the test configuration
-      const testConfiguration = await testConfigurationsClient.createTestConfiguration(testConfigurationData);
+      const testConfiguration =
+        await testConfigurationsClient.createTestConfiguration(
+          testConfigurationData
+        );
 
       // Execute the test configuration (this automatically creates a test run)
-      await testConfigurationsClient.executeTestConfiguration(testConfiguration.id);
+      await testConfigurationsClient.executeTestConfiguration(
+        testConfiguration.id
+      );
 
       // Show success notification
-      notifications.show('Test execution started successfully', { severity: 'success' });
+      notifications.show('Test execution started successfully', {
+        severity: 'success',
+      });
 
       onSuccess?.();
       onClose();
@@ -206,20 +246,22 @@ export default function TestRunDrawer({
   };
 
   const getUserDisplayName = (user: User) => {
-    return user.name || 
-      `${user.given_name || ''} ${user.family_name || ''}`.trim() || 
-      user.email;
+    return (
+      user.name ||
+      `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+      user.email
+    );
   };
 
-  const renderUserOption = (props: React.HTMLAttributes<HTMLLIElement> & { key?: string }, option: User) => {
+  const renderUserOption = (
+    props: React.HTMLAttributes<HTMLLIElement> & { key?: string },
+    option: User
+  ) => {
     const { key, ...otherProps } = props;
     return (
       <Box component="li" key={key} {...otherProps}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar
-            src={option.picture}
-            sx={{ width: 24, height: 24 }}
-          >
+          <Avatar src={option.picture} sx={{ width: 24, height: 24 }}>
             <PersonIcon />
           </Avatar>
           {getUserDisplayName(option)}
@@ -253,9 +295,9 @@ export default function TestRunDrawer({
               getOptionLabel={getUserDisplayName}
               renderOption={renderUserOption}
               fullWidth
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
+              renderInput={params => (
+                <TextField
+                  {...params}
                   label="Assignee"
                   InputProps={{
                     ...params.InputProps,
@@ -266,7 +308,7 @@ export default function TestRunDrawer({
                       >
                         <PersonIcon />
                       </Avatar>
-                    )
+                    ),
                   }}
                 />
               )}
@@ -279,10 +321,10 @@ export default function TestRunDrawer({
               getOptionLabel={getUserDisplayName}
               renderOption={renderUserOption}
               fullWidth
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Owner" 
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Owner"
                   required
                   InputProps={{
                     ...params.InputProps,
@@ -293,7 +335,7 @@ export default function TestRunDrawer({
                       >
                         <PersonIcon />
                       </Avatar>
-                    )
+                    ),
                   }}
                 />
               )}
@@ -314,7 +356,7 @@ export default function TestRunDrawer({
               options={Array.isArray(testSets) ? testSets : []}
               value={testSet}
               onChange={(_, newValue) => setTestSet(newValue)}
-              getOptionLabel={(option) => option.name || 'Unnamed Test Set'}
+              getOptionLabel={option => option.name || 'Unnamed Test Set'}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               renderOption={(props, option) => {
                 const { key, ...otherProps } = props;
@@ -325,7 +367,7 @@ export default function TestRunDrawer({
                 );
               }}
               fullWidth
-              renderInput={(params) => (
+              renderInput={params => (
                 <TextField {...params} label="Test Set" required />
               )}
             />
@@ -334,26 +376,32 @@ export default function TestRunDrawer({
               options={Array.isArray(projects) ? projects : []}
               value={project}
               onChange={(_, newValue) => setProject(newValue)}
-              getOptionLabel={(option) => option.name}
+              getOptionLabel={option => option.name}
               fullWidth
-              renderInput={(params) => (
+              renderInput={params => (
                 <TextField {...params} label="Application" required />
               )}
             />
 
             <Autocomplete
-              options={Array.isArray(filteredEndpoints) ? filteredEndpoints : []}
+              options={
+                Array.isArray(filteredEndpoints) ? filteredEndpoints : []
+              }
               value={endpoint}
               onChange={(_, newValue) => setEndpoint(newValue)}
-              getOptionLabel={(option) => `${option.name} (${option.environment})`}
+              getOptionLabel={option =>
+                `${option.name} (${option.environment})`
+              }
               disabled={!project}
               fullWidth
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Endpoint" 
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Endpoint"
                   required
-                  helperText={!project ? "Select an application first" : undefined}
+                  helperText={
+                    !project ? 'Select an application first' : undefined
+                  }
                 />
               )}
             />
@@ -362,4 +410,4 @@ export default function TestRunDrawer({
       </Stack>
     </BaseDrawer>
   );
-} 
+}
