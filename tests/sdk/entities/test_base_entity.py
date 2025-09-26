@@ -88,3 +88,24 @@ def test_fetch(mock_request):
         params=None,
     )
     assert entity.fields == {"id": 2, "name": "Test2", "description": "Test2"}
+
+
+@patch("requests.request")
+def test_from_id(mock_request):
+    mock_request.return_value.json.return_value = {
+        "id": 1,
+        "name": "Test",
+        "description": "Test",
+    }
+    entity = TestEntity.from_id(1)
+    assert entity.fields == {"id": 1, "name": "Test", "description": "Test"}
+    mock_request.assert_called_once_with(
+        method="GET",
+        url="http://test:8000/test/1",
+        headers={
+            "Authorization": "Bearer test_api_key",
+            "Content-Type": "application/json",
+        },
+        json=None,
+        params=None,
+    )
