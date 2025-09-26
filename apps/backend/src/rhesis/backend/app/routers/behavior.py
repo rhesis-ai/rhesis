@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_db_with_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -33,19 +33,18 @@ router = APIRouter(
 )
 def create_behavior(
     behavior: schemas.BehaviorCreate,
-    db: Session = Depends(get_db_session),  # ← Uses regular database session
-    tenant_context=Depends(get_tenant_context),  # ← Gets tenant context directly
+    db_context=Depends(get_db_with_tenant_context),  # ← Uses enhanced dependency with automatic session variables
     current_user: User = Depends(require_current_user_or_token)):
     """
-    Create behavior with optimized approach - no session variables needed.
+    Create behavior with dual approach - both session variables AND explicit parameters.
 
     Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
+    - Automatically sets PostgreSQL session variables for RLS policies
+    - Provides explicit tenant context parameters for CRUD functions
+    - Session variables persist for the entire database session
+    - No additional setup required in routes
     """
-    organization_id, user_id = tenant_context
+    db, organization_id, user_id = db_context
 
     print(f"🚀 [OPTIMIZED] Creating behavior with direct tenant context")
     print(f"🔍 [OPTIMIZED] Organization: {organization_id}, User: {user_id}")
@@ -65,19 +64,18 @@ def read_behaviors(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
-    tenant_context=Depends(get_tenant_context),
+    db_context=Depends(get_db_with_tenant_context),  # ← Uses enhanced dependency
     current_user: User = Depends(require_current_user_or_token)):
     """
-    Get all behaviors with optimized approach - no session variables needed.
+    Get all behaviors with dual approach - both session variables AND explicit parameters.
 
     Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
+    - Automatically sets PostgreSQL session variables for RLS policies
+    - Provides explicit tenant context parameters for CRUD functions
+    - Session variables persist for the entire database session
+    - RLS policies can now work automatically
     """
-    organization_id, user_id = tenant_context
+    db, organization_id, user_id = db_context
 
     print(
         f"🔍 [OPTIMIZED] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}"
@@ -166,19 +164,18 @@ def delete_behavior(
 def update_behavior(
     behavior_id: uuid.UUID,
     behavior: schemas.BehaviorUpdate,
-    db: Session = Depends(get_db_session),
-    tenant_context=Depends(get_tenant_context),
+    db_context=Depends(get_db_with_tenant_context),  # ← Uses enhanced dependency
     current_user: User = Depends(require_current_user_or_token)):
     """
-    Update behavior with optimized approach - no session variables needed.
+    Update behavior with dual approach - both session variables AND explicit parameters.
 
     Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
+    - Automatically sets PostgreSQL session variables for RLS policies
+    - Provides explicit tenant context parameters for CRUD functions
+    - Session variables persist for the entire database session
+    - RLS policies can now work automatically
     """
-    organization_id, user_id = tenant_context
+    db, organization_id, user_id = db_context
     db_behavior = crud.update_behavior(
         db,
         behavior_id=behavior_id,
