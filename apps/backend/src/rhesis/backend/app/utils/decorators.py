@@ -22,40 +22,56 @@ def with_count_header(model: Type):
             response: Response = kwargs["response"]
             filter_expr = kwargs.get("filter")
             
-            # Handle both old and new dependency patterns
+            # Handle multiple dependency patterns for maximum compatibility
             db_context = kwargs.get("db_context")
+            db = kwargs.get("db")
+            tenant_context = kwargs.get("tenant_context")
+            
             if db_context:
-                # New pattern: db_context contains (db, organization_id, user_id)
-                # REUSE the same database session - no new connection needed!
-                logger.info("🔄 [DECORATOR] Using NEW pattern - reusing existing database session")
+                # Pattern 1: Combined db_context (db, organization_id, user_id)
+                logger.info("🔄 [DECORATOR] Using COMBINED pattern - db_context tuple")
                 db, organization_id, user_id = db_context
                 logger.info(f"📊 [DECORATOR] Executing count query for {model.__name__}")
                 count = count_items(db, model, filter_expr, organization_id, user_id)
                 response.headers["X-Total-Count"] = str(count)
                 logger.info(f"✅ [DECORATOR] Count completed: {count} items")
-            else:
-                # Old pattern: separate db and tenant_context parameters
-                logger.info("🔄 [DECORATOR] Using OLD pattern - separate db and tenant_context")
-                db = kwargs.get("db")
-                tenant_context = kwargs.get("tenant_context")
-                organization_id = None
-                user_id = None
+                
+            elif db and tenant_context:
+                # Pattern 2: Separate db (with session variables) + tenant_context
+                logger.info("🔄 [DECORATOR] Using SEPARATE pattern - db + tenant_context")
+                organization_id, user_id = tenant_context
+                logger.info(f"📊 [DECORATOR] Executing count query for {model.__name__}")
+                count = count_items(db, model, filter_expr, organization_id, user_id)
+                response.headers["X-Total-Count"] = str(count)
+                logger.info(f"✅ [DECORATOR] Count completed: {count} items")
+                
+            elif db:
+                # Pattern 3: Just db session (legacy or tenant_db_session with RLS only)
+                logger.info("🔄 [DECORATOR] Using DB-ONLY pattern - checking for session variables")
+                
+                # Check if we have tenant_context available for fallback
                 if tenant_context:
                     organization_id, user_id = tenant_context
-
-                # For old pattern, db should already be a Session object (no context manager)
-                if hasattr(db, 'query') or hasattr(db, 'execute'):
-                    # Already a Session object - REUSE it!
-                    logger.info("📊 [DECORATOR] Executing count query (old pattern)")
+                    logger.info(f"📊 [DECORATOR] Using explicit parameters as fallback for {model.__name__}")
                     count = count_items(db, model, filter_expr, organization_id, user_id)
-                    response.headers["X-Total-Count"] = str(count)
-                    logger.info(f"✅ [DECORATOR] Count completed: {count} items")
                 else:
-                    # Fallback: if it's somehow a context manager, handle it
-                    logger.warning("⚠️ [DECORATOR] Fallback: creating new connection for count")
-                    with db as session:
-                        count = count_items(session, model, filter_expr, organization_id, user_id)
-                        response.headers["X-Total-Count"] = str(count)
+                    # Try RLS-only approach, but handle gracefully if session variables aren't set
+                    try:
+                        logger.info(f"📊 [DECORATOR] Attempting RLS-only count for {model.__name__}")
+                        count = count_items(db, model, filter_expr, None, None)
+                    except Exception as e:
+                        if "unrecognized configuration parameter" in str(e):
+                            logger.warning("⚠️ [DECORATOR] Session variables not set, returning 0 count")
+                            count = 0
+                        else:
+                            raise
+                
+                response.headers["X-Total-Count"] = str(count)
+                logger.info(f"✅ [DECORATOR] Count completed: {count} items")
+                
+            else:
+                logger.error("❌ [DECORATOR] No valid database session found in parameters")
+                response.headers["X-Total-Count"] = "0"
 
             # Call original route function (await if async)
             logger.info("🎯 [DECORATOR] Calling original route function")
