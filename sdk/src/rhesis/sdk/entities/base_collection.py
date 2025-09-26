@@ -28,8 +28,10 @@ class BaseCollection:
             )
             return True
         except requests.exceptions.HTTPError as e:
-            raise e
-            return False
+            if e.response.status_code == HTTPStatus.NOT_FOUND:
+                return False
+            else:
+                raise e
 
     @classmethod
     def all(cls) -> Optional[list[Any]]:
@@ -61,7 +63,7 @@ class BaseCollection:
             return response is not None
         except HTTPError as e:
             # Get the HTTP status code
-            if e.response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
+            if e.response.status_code == HTTPStatus.NOT_FOUND:
                 return False
             else:
                 raise e

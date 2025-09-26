@@ -34,6 +34,19 @@ def test_delete(mock_request):
         params=None,
     )
 
+    # Mock not found error response
+    mock_response = MagicMock()
+    mock_response.status_code = HTTPStatus.NOT_FOUND
+
+    http_error = HTTPError("404 Not Found")
+    http_error.response = mock_response
+    mock_request.side_effect = http_error
+
+    record_id = 1
+    entity = TestBaseCollection()
+    result = entity.delete(record_id)
+    assert result is False
+
 
 @patch("requests.request")
 def test_all(mock_request):
@@ -66,15 +79,12 @@ def test_exists(mock_request):
         params=None,
     )
 
-
-@patch("requests.request")
-def test_exists_when_nonexistent(mock_request):
     """Test exists method returns False for nonexistent entity."""
     # Mock unprocessable entity error response
     mock_response = MagicMock()
-    mock_response.status_code = HTTPStatus.UNPROCESSABLE_ENTITY
+    mock_response.status_code = HTTPStatus.NOT_FOUND
 
-    http_error = HTTPError("422 Client Error")
+    http_error = HTTPError("404 Not Found")
     http_error.response = mock_response
     mock_request.side_effect = http_error
 
