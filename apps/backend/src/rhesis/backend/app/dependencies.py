@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db, _set_session_variables
+from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
 from rhesis.backend.logging import logger
 
@@ -74,73 +74,31 @@ def get_tenant_db_session(tenant_context: tuple = Depends(get_tenant_context)):
     FastAPI dependency that provides a database session with automatic session variables.
     
     This is a drop-in replacement for get_db_session that automatically sets
-    PostgreSQL session variables for RLS policies. Routes can use this without
-    changing their function signatures - they still get just a Session object.
-    
-    Benefits:
-    - Drop-in replacement for get_db_session
-    - Automatically sets app.current_organization and app.current_user session variables
-    - Supports RLS policies without code changes in routes
-    - Maintains existing route parameter patterns
+    PostgreSQL session variables for RLS policies.
     
     Returns:
         Session: The database session with session variables set
     """
     organization_id, user_id = tenant_context
-    logger.info(f"🚀 [TENANT_DB] get_tenant_db_session called for org={organization_id[:8]}..., user={user_id[:8]}...")
     
-    with get_db() as db:
-        try:
-            # Automatically set session variables for RLS policies
-            logger.info("🔧 [TENANT_DB] Setting session variables automatically")
-            _set_session_variables(db, organization_id, user_id)
-            logger.info(f"✅ [TENANT_DB] Session variables set successfully")
-            
-        except Exception as e:
-            # Log but don't fail - explicit parameters in routes still work
-            logger.error(f"❌ [TENANT_DB] Failed to set session variables: {e}")
-        
-        logger.info("🎯 [TENANT_DB] Yielding database session")
+    with get_db_with_tenant_variables(organization_id, user_id) as db:
         yield db
-        logger.info("🏁 [TENANT_DB] get_tenant_db_session completed")
 
 
 def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
     """
     FastAPI dependency that provides both a database session and tenant context.
     
-    This is the recommended approach for endpoints that need database access
-    with tenant context. It automatically sets PostgreSQL session variables
-    for Row-Level Security (RLS) policies while also providing explicit
-    tenant context parameters.
-    
-    Benefits:
-    - Automatically sets app.current_organization and app.current_user session variables
-    - Supports both RLS policies and explicit parameter passing
-    - Session variables persist for the entire database session
-    - No additional setup required in individual routes
+    Automatically sets PostgreSQL session variables for RLS policies while
+    also providing explicit tenant context parameters.
     
     Returns:
         tuple: (db_session, organization_id, user_id)
     """
     organization_id, user_id = tenant_context
-    logger.info(f"🚀 [DEPENDENCY] get_db_with_tenant_context called for org={organization_id[:8]}..., user={user_id[:8]}...")
     
-    with get_db() as db:
-        try:
-            # Automatically set session variables for RLS policies
-            # These will persist for the entire database session
-            logger.info("🔧 [DEPENDENCY] About to set session variables")
-            _set_session_variables(db, organization_id, user_id)
-            logger.info(f"✅ [DEPENDENCY] Session variables set successfully")
-            
-        except Exception as e:
-            # Log but don't fail - explicit parameters still work
-            logger.error(f"❌ [DEPENDENCY] Failed to set session variables: {e}")
-        
-        logger.info("🎯 [DEPENDENCY] Yielding database session and tenant context")
+    with get_db_with_tenant_variables(organization_id, user_id) as db:
         yield db, organization_id, user_id
-        logger.info("🏁 [DEPENDENCY] get_db_with_tenant_context completed")
 
 
 # Backward compatibility alias for behavior endpoints
