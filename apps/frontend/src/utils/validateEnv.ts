@@ -3,8 +3,7 @@ export function validateEnv() {
     'NEXT_PUBLIC_API_BASE_URL',
     'AUTH_SECRET',
     'GOOGLE_CLIENT_ID',
-    'GOOGLE_CLIENT_SECRET'
-
+    'GOOGLE_CLIENT_SECRET',
   ] as const;
 
   for (const envVar of requiredEnvVars) {
@@ -12,4 +11,4 @@ export function validateEnv() {
       throw new Error(`Missing required environment variable: ${envVar}`);
     }
   }
-} 
+}

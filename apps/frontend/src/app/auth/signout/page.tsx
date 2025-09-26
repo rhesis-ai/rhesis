@@ -9,23 +9,25 @@ export default function SignOut() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    console.log('🔴 [DEBUG] SignOut page loaded, calling handleClientSignOut');
+    console.log(
+      '[ERROR] [DEBUG] SignOut page loaded, calling handleClientSignOut'
+    );
     handleClientSignOut();
   }, []);
 
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        gap: 2
+        gap: 2,
       }}
     >
       <CircularProgress />
       <Typography variant="body1">Signing out...</Typography>
     </Box>
   );
-} 
+}

@@ -73,7 +73,7 @@ export interface TestSet {
       topics?: string[];
       sample?: string;
       license_type?: string;
-      sources?: Array<{document: string, name: string, description: string}>;
+      sources?: Array<{ document: string; name: string; description: string }>;
     };
     topics?: string[];
     behaviors?: string[];

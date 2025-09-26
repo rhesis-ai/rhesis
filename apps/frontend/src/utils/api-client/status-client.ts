@@ -4,8 +4,15 @@ import { Status, StatusesQueryParams } from './interfaces/status';
 
 export class StatusClient extends BaseApiClient {
   async getStatuses(params: StatusesQueryParams = {}): Promise<Status[]> {
-    const { skip = 0, limit = 100, entity_type, sort_by, sort_order, $filter } = params;
-    
+    const {
+      skip = 0,
+      limit = 100,
+      entity_type,
+      sort_by,
+      sort_order,
+      $filter,
+    } = params;
+
     // Build query string
     const queryParams = new URLSearchParams();
     queryParams.append('skip', skip.toString());
@@ -22,15 +29,15 @@ export class StatusClient extends BaseApiClient {
     if ($filter) {
       queryParams.append('$filter', $filter);
     }
-    
+
     const url = `${API_ENDPOINTS.statuses}?${queryParams.toString()}`;
-    
+
     return this.fetch<Status[]>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
   async getStatus(id: string): Promise<Status> {
     return this.fetch<Status>(`${API_ENDPOINTS.statuses}/${id}`);
   }
-} 
+}

@@ -14,7 +14,7 @@ export interface Task {
   total_comments?: number;
   organization_id?: string;
   tags?: Tag[];
-  
+
   // Relationships
   user?: User;
   assignee?: User;

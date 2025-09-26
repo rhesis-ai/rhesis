@@ -16,7 +16,7 @@ import {
   MenuItem,
   ListItemAvatar,
   ListItemText,
-  SelectChangeEvent
+  SelectChangeEvent,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -49,7 +49,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
 // Standardized error messages
 const ERROR_MESSAGES = {
-  required: (field: string) => `${field} is required`
+  required: (field: string) => `${field} is required`,
 };
 
 // Standardized spacing values for consistent UI
@@ -57,7 +57,7 @@ const SPACING = {
   sectionTop: 3,
   betweenSections: 4,
   betweenFields: 2,
-  buttonGap: 2
+  buttonGap: 2,
 };
 
 // Type for form errors to ensure type safety
@@ -101,20 +101,26 @@ const PROJECT_ICONS = [
   { name: 'PhoneIphone', component: PhoneIphoneIcon, label: 'Mobile App' },
   { name: 'School', component: SchoolIcon, label: 'Education' },
   { name: 'Science', component: ScienceIcon, label: 'Research' },
-  { name: 'AccountTree', component: AccountTreeIcon, label: 'Workflow' }
+  { name: 'AccountTree', component: AccountTreeIcon, label: 'Workflow' },
 ];
 
 // IconSelector component
-const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChange: (icon: string) => void }) => {
+const IconSelector = ({
+  selectedIcon,
+  onChange,
+}: {
+  selectedIcon: string;
+  onChange: (icon: string) => void;
+}) => {
   return (
     <FormControl fullWidth className={styles.iconSelector}>
       <InputLabel>Project Icon</InputLabel>
       <Select
         value={selectedIcon || 'SmartToy'}
         label="Project Icon"
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onChange(e.target.value)}
       >
-        {PROJECT_ICONS.map((icon) => {
+        {PROJECT_ICONS.map(icon => {
           const IconComponent = icon.component;
           return (
             <MenuItem key={icon.name} value={icon.name}>
@@ -137,7 +143,7 @@ export default function ProjectDetailsStep({
   userName,
   userImage,
   sessionToken,
-  userId
+  userId,
 }: ProjectDetailsStepProps) {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
@@ -145,7 +151,7 @@ export default function ProjectDetailsStep({
   const [errors, setErrors] = useState<FormErrors>({
     projectName: false,
     description: false,
-    owner_id: false
+    owner_id: false,
   });
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
@@ -170,7 +176,7 @@ export default function ProjectDetailsStep({
         setLoadingUsers(false);
       }
     };
-    
+
     fetchUsers();
   }, [sessionToken]);
 
@@ -178,9 +184,9 @@ export default function ProjectDetailsStep({
     const newErrors: FormErrors = {
       projectName: !formData.projectName,
       description: !formData.description,
-      owner_id: !formData.owner_id
+      owner_id: !formData.owner_id,
     };
-    
+
     setErrors(newErrors);
     return !Object.values(newErrors).some(Boolean);
   };
@@ -188,7 +194,7 @@ export default function ProjectDetailsStep({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAttemptedSubmit(true);
-    
+
     if (validateForm()) {
       try {
         setLoading(true);
@@ -205,7 +211,7 @@ export default function ProjectDetailsStep({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     updateFormData({ [name]: value });
-    
+
     // Only clear errors after attempted submit
     if (attemptedSubmit && errors[name]) {
       setErrors(prev => ({ ...prev, [name]: false }));
@@ -214,7 +220,7 @@ export default function ProjectDetailsStep({
 
   const handleSelectChange = (event: SelectChangeEvent<string>) => {
     updateFormData({ owner_id: event.target.value });
-    
+
     // Clear error when user selects
     if (attemptedSubmit && errors.owner_id) {
       setErrors(prev => ({ ...prev, owner_id: false }));
@@ -227,22 +233,38 @@ export default function ProjectDetailsStep({
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '200px',
+        }}
+      >
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ mt: SPACING.sectionTop, width: '100%' }}>
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+      sx={{ mt: SPACING.sectionTop, width: '100%' }}
+    >
       <Typography variant="h6" gutterBottom align="center">
         Enter Project Details
       </Typography>
-      
-      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: SPACING.betweenFields * 2 }}>
+
+      <Typography
+        variant="body1"
+        color="text.secondary"
+        align="center"
+        sx={{ mb: SPACING.betweenFields * 2 }}
+      >
         Please provide basic information about this project
       </Typography>
-      
+
       <Grid container spacing={SPACING.betweenFields} sx={{ width: '100%' }}>
         {/* Owner Dropdown */}
         <Grid item xs={12}>
@@ -253,18 +275,20 @@ export default function ProjectDetailsStep({
               label="Owner"
               onChange={handleSelectChange}
               disabled={loadingUsers}
-              renderValue={(selected) => {
+              renderValue={selected => {
                 const selectedUser = users.find(u => u.id === selected);
                 return selectedUser ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar 
-                      src={selectedUser.picture} 
+                    <Avatar
+                      src={selectedUser.picture}
                       alt={selectedUser.name || selectedUser.email}
                       sx={{ width: 24, height: 24 }}
                     >
                       <PersonIcon />
                     </Avatar>
-                    <Typography>{selectedUser.name || selectedUser.email}</Typography>
+                    <Typography>
+                      {selectedUser.name || selectedUser.email}
+                    </Typography>
                   </Box>
                 ) : loadingUsers ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -274,18 +298,18 @@ export default function ProjectDetailsStep({
                 ) : null;
               }}
             >
-              {users.map((user) => (
+              {users.map(user => (
                 <MenuItem key={user.id} value={user.id}>
                   <ListItemAvatar>
-                    <Avatar 
-                      src={user.picture} 
+                    <Avatar
+                      src={user.picture}
                       alt={user.name || user.email}
                       sx={{ width: 32, height: 32 }}
                     >
                       <PersonIcon />
                     </Avatar>
                   </ListItemAvatar>
-                  <ListItemText 
+                  <ListItemText
                     primary={user.name || user.email}
                     secondary={user.email}
                   />
@@ -299,15 +323,15 @@ export default function ProjectDetailsStep({
             )}
           </FormControl>
         </Grid>
-        
+
         {/* Icon Selector */}
         <Grid item xs={12}>
-          <IconSelector 
-            selectedIcon={formData.icon} 
+          <IconSelector
+            selectedIcon={formData.icon}
             onChange={handleIconChange}
           />
         </Grid>
-        
+
         <Grid item xs={12}>
           <TextField
             fullWidth
@@ -317,10 +341,14 @@ export default function ProjectDetailsStep({
             onChange={handleChange}
             required
             error={attemptedSubmit && errors.projectName}
-            helperText={attemptedSubmit && errors.projectName ? ERROR_MESSAGES.required('Project name') : ''}
+            helperText={
+              attemptedSubmit && errors.projectName
+                ? ERROR_MESSAGES.required('Project name')
+                : ''
+            }
           />
         </Grid>
-        
+
         <Grid item xs={12}>
           <TextField
             fullWidth
@@ -332,13 +360,24 @@ export default function ProjectDetailsStep({
             multiline
             rows={4}
             error={attemptedSubmit && errors.description}
-            helperText={attemptedSubmit && errors.description ? ERROR_MESSAGES.required('Description') : ''}
+            helperText={
+              attemptedSubmit && errors.description
+                ? ERROR_MESSAGES.required('Description')
+                : ''
+            }
           />
         </Grid>
       </Grid>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: SPACING.betweenSections, width: '100%' }}>
-        <Button 
+
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          mt: SPACING.betweenSections,
+          width: '100%',
+        }}
+      >
+        <Button
           variant="outlined"
           color="inherit"
           component={Link}
@@ -346,7 +385,7 @@ export default function ProjectDetailsStep({
         >
           Cancel
         </Button>
-        <Button 
+        <Button
           type="submit"
           variant="contained"
           color="primary"
@@ -357,4 +396,4 @@ export default function ProjectDetailsStep({
       </Box>
     </Box>
   );
-} 
+}

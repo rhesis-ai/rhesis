@@ -22,16 +22,17 @@ export async function createEndpoint(
     const apiFactory = new ApiClientFactory(session.session_token);
     const endpointsClient = apiFactory.getEndpointsClient();
     const endpoint = await endpointsClient.createEndpoint(data);
-    
+
     return {
       success: true,
-      data: endpoint
+      data: endpoint,
     };
   } catch (error) {
     console.error('Failed to create endpoint:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'An unknown error occurred'
+      error:
+        error instanceof Error ? error.message : 'An unknown error occurred',
     };
   }
-} 
+}

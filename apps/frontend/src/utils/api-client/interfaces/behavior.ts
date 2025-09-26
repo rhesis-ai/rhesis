@@ -75,7 +75,7 @@ export interface MetricWithBehaviors {
   tags: Tag[];
   user_id?: UUID | null;
   organization_id: UUID;
-  
+
   // Related entities
   metric_type: TypeLookup;
   status?: Status | null;
@@ -135,11 +135,11 @@ export interface MetricWithRelationships {
   organization_id?: UUID | null;
   status_id?: UUID | null;
   tags?: Tag[];
-  
+
   // Required relationship objects (now always included from backend)
   metric_type: TypeLookup;
   backend_type: TypeLookup;
-  
+
   // Optional relationship objects
   status?: Status | null;
   assignee?: User | null;
@@ -154,4 +154,4 @@ export interface BehaviorsQueryParams {
   sort_order?: string;
   $filter?: string;
   include?: string; // New: for including relationships like 'metrics'
-} 
+}

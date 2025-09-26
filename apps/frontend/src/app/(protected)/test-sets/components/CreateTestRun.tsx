@@ -7,7 +7,7 @@ import {
   Select,
   MenuItem,
   Divider,
-  Chip
+  Chip,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -35,7 +35,7 @@ import {
   PhoneIphoneIcon,
   SchoolIcon,
   ScienceIcon,
-  AccountTreeIcon
+  AccountTreeIcon,
 } from '@/components/icons';
 
 // Import execution mode icons directly from Material-UI
@@ -63,7 +63,7 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   PhoneIphone: PhoneIphoneIcon,
   School: SchoolIcon,
   Science: ScienceIcon,
-  AccountTree: AccountTreeIcon
+  AccountTree: AccountTreeIcon,
 };
 
 // Get appropriate icon based on project type or use case
@@ -73,7 +73,7 @@ const getProjectIcon = (project: Project) => {
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
-  
+
   // Fall back to useCase-based icons if no specific icon is set
   if (project.useCase) {
     switch (project.useCase.toLowerCase()) {
@@ -87,7 +87,7 @@ const getProjectIcon = (project: Project) => {
         return <SmartToyIcon />;
     }
   }
-  
+
   // Default icon
   return <SmartToyIcon />;
 };
@@ -117,7 +117,7 @@ export default function CreateTestRun({
   selectedTestSetIds,
   onSuccess,
   onError,
-  submitRef
+  submitRef,
 }: CreateTestRunProps) {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -130,11 +130,11 @@ export default function CreateTestRun({
     const fetchInitialData = async () => {
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
-        
+
         // Fetch projects
         const projectsClient = clientFactory.getProjectsClient();
         const projectsData = await projectsClient.getProjects({
-          sort_order: 'asc'
+          sort_order: 'asc',
         });
         setProjects(projectsData.data || []);
       } catch (error) {
@@ -183,19 +183,23 @@ export default function CreateTestRun({
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
-      
+
       // Prepare test configuration attributes
       const testConfigurationAttributes = {
-        execution_mode: executionMode
+        execution_mode: executionMode,
       };
-      
+
       // Execute each test set individually with test configuration attributes
-      const promises = selectedTestSetIds.map(testSetId => 
-        testSetsClient.executeTestSet(testSetId, selectedEndpoint, testConfigurationAttributes)
+      const promises = selectedTestSetIds.map(testSetId =>
+        testSetsClient.executeTestSet(
+          testSetId,
+          selectedEndpoint,
+          testConfigurationAttributes
+        )
       );
-      
+
       await Promise.all(promises);
-      
+
       onSuccess?.();
     } catch (error) {
       console.error('Error executing test sets:', error);
@@ -220,13 +224,13 @@ export default function CreateTestRun({
         <InputLabel>Project</InputLabel>
         <Select
           value={selectedProject}
-          onChange={(e) => {
+          onChange={e => {
             setSelectedProject(e.target.value);
             setSelectedEndpoint('');
           }}
           label="Project"
         >
-          {(projects || []).map((project) => (
+          {(projects || []).map(project => (
             <MenuItem key={project.id} value={project.id}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {getProjectIcon(project)}
@@ -241,20 +245,29 @@ export default function CreateTestRun({
         <InputLabel>Endpoint</InputLabel>
         <Select
           value={selectedEndpoint}
-          onChange={(e) => setSelectedEndpoint(e.target.value)}
+          onChange={e => setSelectedEndpoint(e.target.value)}
           label="Endpoint"
           disabled={!selectedProject}
         >
-          {(!endpoints || endpoints.length === 0) ? (
+          {!endpoints || endpoints.length === 0 ? (
             <MenuItem disabled>
               <Typography color="text.secondary">
-                {selectedProject ? 'No endpoints available for this project' : 'Select a project first'}
+                {selectedProject
+                  ? 'No endpoints available for this project'
+                  : 'Select a project first'}
               </Typography>
             </MenuItem>
           ) : (
-            endpoints.map((endpoint) => (
+            endpoints.map(endpoint => (
               <MenuItem key={endpoint.id} value={endpoint.id}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                  }}
+                >
                   <Typography>{endpoint.name}</Typography>
                   <Chip
                     label={endpoint.environment}
@@ -279,7 +292,7 @@ export default function CreateTestRun({
         <InputLabel>Execution Mode</InputLabel>
         <Select
           value={executionMode}
-          onChange={(e) => setExecutionMode(e.target.value)}
+          onChange={e => setExecutionMode(e.target.value)}
           label="Execution Mode"
         >
           <MenuItem value="Parallel">
@@ -308,4 +321,4 @@ export default function CreateTestRun({
       </FormControl>
     </>
   );
-} 
+}

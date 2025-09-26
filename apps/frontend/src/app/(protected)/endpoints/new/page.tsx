@@ -12,7 +12,7 @@ export default function NewEndpointPage() {
       title="Create New Endpoint"
       breadcrumbs={[
         { title: 'Endpoints', path: '/endpoints' },
-        { title: 'Create New Endpoint' }
+        { title: 'Create New Endpoint' },
       ]}
     >
       <EndpointForm />

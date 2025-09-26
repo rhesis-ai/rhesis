@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, CircularProgress, Typography, Paper, Button, useTheme, Fade, Grow } from '@mui/material';
+import {
+  Box,
+  CircularProgress,
+  Typography,
+  Paper,
+  Button,
+  useTheme,
+  Fade,
+  Grow,
+} from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Image from 'next/image';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
@@ -17,12 +26,12 @@ export default function DemoPage() {
     const timer = setTimeout(() => {
       setShowCredentials(true);
     }, 800);
-    
+
     // Show background element
     const backgroundTimer = setTimeout(() => {
       setShowBackground(true);
     }, 500);
-    
+
     return () => {
       clearTimeout(timer);
       clearTimeout(backgroundTimer);
@@ -30,9 +39,11 @@ export default function DemoPage() {
   }, []);
 
   const handleContinue = () => {
-    console.log('🟢 [DEBUG] Demo page - redirecting to Auth0 with demo user pre-filled');
+    console.log(
+      '🟢 [DEBUG] Demo page - redirecting to Auth0 with demo user pre-filled'
+    );
     setIsRedirecting(true);
-    
+
     // Redirect to backend demo endpoint which will redirect to Auth0 with login_hint
     window.location.href = `${getClientApiBaseUrl()}/auth/demo`;
   };
@@ -107,10 +118,17 @@ export default function DemoPage() {
               }}
             />
           </Box>
-        
+
           {!showCredentials && (
             <Fade in={true} timeout={1500}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                }}
+              >
                 <CircularProgress size={48} sx={{ color: 'primary.main' }} />
                 <Typography variant="body1" color="textSecondary">
                   Preparing your demo experience...
@@ -120,58 +138,87 @@ export default function DemoPage() {
           )}
 
           <Fade in={showCredentials && !isRedirecting} timeout={1000}>
-            <Box sx={{ textAlign: 'center', width: '100%', display: showCredentials && !isRedirecting ? 'block' : 'none' }}>
-              <Typography variant="body1" color="textSecondary" gutterBottom sx={{ mb: 3 }}>
+            <Box
+              sx={{
+                textAlign: 'center',
+                width: '100%',
+                display: showCredentials && !isRedirecting ? 'block' : 'none',
+              }}
+            >
+              <Typography
+                variant="body1"
+                color="textSecondary"
+                gutterBottom
+                sx={{ mb: 3 }}
+              >
                 Ready to explore? Here are your demo credentials:
               </Typography>
-              
-              <Paper 
-                elevation={2} 
-                sx={{ 
-                  p: 4, 
-                  mt: 2, 
+
+              <Paper
+                elevation={2}
+                sx={{
+                  p: 4,
+                  mt: 2,
                   bgcolor: 'background.paper',
                   border: `1px solid ${theme.palette.divider}`,
                   borderRadius: theme.shape.borderRadius,
                 }}
               >
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: 'text.primary' }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 'bold', mb: 2, color: 'text.primary' }}
+                >
                   Demo login credentials
                 </Typography>
-                <Box sx={{ 
-                  bgcolor: 'background.paper', 
-                  p: 3, 
-                  borderRadius: theme.shape.borderRadius * 0.5,
-                  border: `1px solid ${theme.palette.divider}`,
-                }}>
-                  <Typography variant="body1" sx={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
-                    <strong>Email:</strong> demo@rhesis.ai<br/>
+                <Box
+                  sx={{
+                    bgcolor: 'background.paper',
+                    p: 3,
+                    borderRadius: theme.shape.borderRadius * 0.5,
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography
+                    variant="body1"
+                    sx={{ fontFamily: 'monospace', lineHeight: 1.8 }}
+                  >
+                    <strong>Email:</strong> demo@rhesis.ai
+                    <br />
                     <strong>Password:</strong> PlatypusDemo!
                   </Typography>
                 </Box>
               </Paper>
-              
-              <Typography variant="body2" sx={{ 
-                mt: 4,
-                mb: 4, 
-                p: 2, 
-                bgcolor: 'background.light2',
-                color: 'text.primary',
-                borderRadius: theme.shape.borderRadius * 0.5, 
-                border: `1px solid ${theme.palette.divider}`,
-                fontWeight: 'medium'
-              }}>
+
+              <Typography
+                variant="body2"
+                sx={{
+                  mt: 4,
+                  mb: 4,
+                  p: 2,
+                  bgcolor: 'background.light2',
+                  color: 'text.primary',
+                  borderRadius: theme.shape.borderRadius * 0.5,
+                  border: `1px solid ${theme.palette.divider}`,
+                  fontWeight: 'medium',
+                }}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                  <WarningAmberIcon sx={{ color: 'warning.main', mt: 0.2, flexShrink: 0 }} />
-                  <span>Demo Account Notice: Please do not add any real or sensitive data to this demo account. All data may be visible to other users and will be regularly reset.</span>
+                  <WarningAmberIcon
+                    sx={{ color: 'warning.main', mt: 0.2, flexShrink: 0 }}
+                  />
+                  <span>
+                    Demo Account Notice: Please do not add any real or sensitive
+                    data to this demo account. All data may be visible to other
+                    users and will be regularly reset.
+                  </span>
                 </Box>
               </Typography>
 
-              <Button 
-                variant="contained" 
-                size="large" 
+              <Button
+                variant="contained"
+                size="large"
                 onClick={handleContinue}
-                sx={{ 
+                sx={{
                   minWidth: 220,
                   py: 1.5,
                   px: 3,
@@ -183,7 +230,14 @@ export default function DemoPage() {
           </Fade>
 
           <Fade in={isRedirecting} timeout={500}>
-            <Box sx={{ display: isRedirecting ? 'flex' : 'none', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                display: isRedirecting ? 'flex' : 'none',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+              }}
+            >
               <CircularProgress size={48} sx={{ color: 'primary.main' }} />
               <Typography variant="body1" color="textSecondary">
                 Redirecting to secure login...

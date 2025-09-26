@@ -6,7 +6,11 @@ export const metadata: Metadata = {
   title: 'Create New Project',
 };
 
-export default function CreateProjectLayout({ children }: { children: React.ReactNode }) {
+export default function CreateProjectLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <Box
       sx={{
@@ -20,4 +24,4 @@ export default function CreateProjectLayout({ children }: { children: React.Reac
       {children}
     </Box>
   );
-} 
+}

@@ -60,7 +60,7 @@ export class ApiClientFactory {
   getUsersClient(): UsersClient {
     return new UsersClient(this.sessionToken);
   }
-  
+
   getProjectsClient(): ProjectsClient {
     return new ProjectsClient(this.sessionToken);
   }
@@ -72,11 +72,11 @@ export class ApiClientFactory {
   getTestConfigurationsClient(): TestConfigurationsClient {
     return new TestConfigurationsClient(this.sessionToken);
   }
-  
+
   getPromptsClient(): PromptsClient {
     return new PromptsClient(this.sessionToken);
   }
-  
+
   getStatusClient(): StatusClient {
     return new StatusClient(this.sessionToken);
   }
@@ -135,4 +135,4 @@ export class ApiClientFactory {
     }
     return this.tasksClient;
   }
-} 
+}

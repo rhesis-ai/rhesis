@@ -8,7 +8,11 @@ type NavigationProviderProps = NavigationContextProps & {
   children: React.ReactNode;
 };
 
-export function NavigationProvider({ navigation, children, ...props }: NavigationProviderProps) {
+export function NavigationProvider({
+  navigation,
+  children,
+  ...props
+}: NavigationProviderProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -18,21 +22,15 @@ export function NavigationProvider({ navigation, children, ...props }: Navigatio
   // Prevent hydration mismatch by not rendering navigation until client-side
   if (!mounted) {
     return (
-      <NextAppProvider
-        navigation={[]}
-        {...props}
-      >
+      <NextAppProvider navigation={[]} {...props}>
         {children}
       </NextAppProvider>
     );
   }
-  
+
   return (
-    <NextAppProvider
-      navigation={navigation}
-      {...props}
-    >
+    <NextAppProvider navigation={navigation} {...props}>
       {children}
     </NextAppProvider>
   );
-} 
+}

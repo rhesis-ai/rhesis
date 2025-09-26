@@ -26,31 +26,30 @@ export default function TestSetSelectionDialog({
 }: TestSetSelectionDialogProps) {
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const [selectedTestSet, setSelectedTestSet] = React.useState<TestSet | null>(null);
+  const [selectedTestSet, setSelectedTestSet] = React.useState<TestSet | null>(
+    null
+  );
   const notifications = useNotifications();
 
   React.useEffect(() => {
     const fetchTestSets = async () => {
       if (!open) return;
-      
+
       setLoading(true);
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
         const testSetsClient = clientFactory.getTestSetsClient();
         const sets = await testSetsClient.getTestSets({
           sort_by: 'name',
-          sort_order: 'asc'
+          sort_order: 'asc',
         });
         setTestSets(sets.data);
       } catch (error) {
         console.error('Error fetching test sets:', error);
-        notifications.show(
-          'Failed to load test sets',
-          {
-            severity: 'error',
-            autoHideDuration: 6000
-          }
-        );
+        notifications.show('Failed to load test sets', {
+          severity: 'error',
+          autoHideDuration: 6000,
+        });
       } finally {
         setLoading(false);
       }
@@ -68,46 +67,47 @@ export default function TestSetSelectionDialog({
     if (selectedTestSet) {
       try {
         await onSelect(selectedTestSet);
-        
+
         // Show success notification
         notifications.show(
           `Test successfully added to "${selectedTestSet.name}"`,
           {
             severity: 'success',
-            autoHideDuration: 4000
+            autoHideDuration: 4000,
           }
         );
-        
+
         handleClose();
       } catch (error) {
         console.error('Error associating test with test set:', error);
-        
+
         // Check if the error message contains our target string
         const errorMessage = error instanceof Error ? error.message : '';
-        if (errorMessage.includes('One or more tests are already associated with this test set')) {
+        if (
+          errorMessage.includes(
+            'One or more tests are already associated with this test set'
+          )
+        ) {
           notifications.show(
             'One or more tests are already associated with this test set',
             {
               severity: 'warning',
-              autoHideDuration: 6000
+              autoHideDuration: 6000,
             }
           );
         } else {
-          notifications.show(
-            'Failed to associate test with test set',
-            {
-              severity: 'error',
-              autoHideDuration: 6000
-            }
-          );
+          notifications.show('Failed to associate test with test set', {
+            severity: 'error',
+            autoHideDuration: 6000,
+          });
         }
       }
     }
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
@@ -119,15 +119,15 @@ export default function TestSetSelectionDialog({
           transform: 'translate(-50%, -50%)',
           width: '100%',
           maxWidth: '500px',
-          m: 0
-        }
+          m: 0,
+        },
       }}
     >
       <DialogTitle>Select Test Set</DialogTitle>
       <DialogContent>
         <Autocomplete
           options={testSets}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={option => option.name}
           loading={loading}
           value={selectedTestSet}
           onChange={(_, newValue) => setSelectedTestSet(newValue)}
@@ -137,7 +137,7 @@ export default function TestSetSelectionDialog({
               {option.name}
             </li>
           )}
-          renderInput={(params) => (
+          renderInput={params => (
             <TextField
               {...params}
               label="Test Set"
@@ -148,7 +148,9 @@ export default function TestSetSelectionDialog({
                 ...params.InputProps,
                 endAdornment: (
                   <React.Fragment>
-                    {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                    {loading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
                     {params.InputProps.endAdornment}
                   </React.Fragment>
                 ),
@@ -159,9 +161,9 @@ export default function TestSetSelectionDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button 
-          onClick={handleConfirm} 
-          variant="contained" 
+        <Button
+          onClick={handleConfirm}
+          variant="contained"
           disabled={!selectedTestSet}
         >
           Confirm
@@ -169,4 +171,4 @@ export default function TestSetSelectionDialog({
       </DialogActions>
     </Dialog>
   );
-} 
+}

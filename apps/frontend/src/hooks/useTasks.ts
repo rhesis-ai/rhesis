@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Task, TaskCreate, TaskUpdate, TasksQueryParams } from '@/utils/api-client/interfaces/task';
+import {
+  Task,
+  TaskCreate,
+  TaskUpdate,
+  TasksQueryParams,
+} from '@/utils/api-client/interfaces/task';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 interface UseTasksOptions {
@@ -18,167 +23,216 @@ export function useTasks(options: UseTasksOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const { show } = useNotifications();
 
-  const fetchTasks = useCallback(async (params: TasksQueryParams = {}) => {
-    if (status === 'loading') {
-      return; // Wait for session to load
-    }
-    
-    if (!session?.session_token) {
-      setError('No session token available');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log('🔄 Fetching tasks...', { entityType, entityId, params });
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const tasksClient = clientFactory.getTasksClient();
-
-      let fetchedTasks: Task[];
-      if (entityType && entityId) {
-        console.log('🔄 Fetching tasks by entity:', entityType, entityId);
-        fetchedTasks = await tasksClient.getTasksByEntity(entityType, entityId, params);
-      } else {
-        console.log('🔄 Fetching all tasks');
-        fetchedTasks = await tasksClient.getTasks(params);
+  const fetchTasks = useCallback(
+    async (params: TasksQueryParams = {}) => {
+      if (status === 'loading') {
+        return; // Wait for session to load
       }
 
-      console.log('✅ Tasks fetched successfully:', fetchedTasks.length, 'tasks');
-      setTasks(fetchedTasks);
-    } catch (err) {
-      console.error('❌ Error fetching tasks:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch tasks';
-      setError(errorMessage);
-      show(errorMessage, { severity: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [entityType, entityId, session?.session_token, status, show]);
+      if (!session?.session_token) {
+        setError('No session token available');
+        return;
+      }
 
-  const createTask = useCallback(async (taskData: TaskCreate): Promise<Task | null> => {
-    if (!session?.session_token) {
-      setError('No session token available');
-      return null;
-    }
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      console.log('🔄 Creating task...', taskData);
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const tasksClient = clientFactory.getTasksClient();
+      try {
+        console.log('[DEBUG] Fetching tasks...', {
+          entityType,
+          entityId,
+          params,
+        });
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const tasksClient = clientFactory.getTasksClient();
 
-      const newTask = await tasksClient.createTask(taskData);
-      
-      console.log('✅ Task created successfully:', newTask);
-      // Add the new task to the current list
-      setTasks(prev => [newTask, ...prev]);
-      
-      show('Task created successfully', { severity: 'success' });
-      return newTask;
-    } catch (err) {
-      console.error('❌ Error creating task:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create task';
-      setError(errorMessage);
-      show(errorMessage, { severity: 'error' });
-      return null;
-    }
-  }, [session?.session_token, show]);
+        let fetchedTasks: Task[];
+        if (entityType && entityId) {
+          console.log(
+            '[DEBUG] Fetching tasks by entity:',
+            entityType,
+            entityId
+          );
+          fetchedTasks = await tasksClient.getTasksByEntity(
+            entityType,
+            entityId,
+            params
+          );
+        } else {
+          console.log('[DEBUG] Fetching all tasks');
+          fetchedTasks = await tasksClient.getTasks(params);
+        }
 
-  const updateTask = useCallback(async (taskId: string, taskData: TaskUpdate): Promise<Task | null> => {
-    if (!session?.session_token) {
-      setError('No session token available');
-      return null;
-    }
+        console.log(
+          '[SUCCESS] Tasks fetched successfully:',
+          fetchedTasks.length,
+          'tasks'
+        );
+        setTasks(fetchedTasks);
+      } catch (err) {
+        console.error('[ERROR] Error fetching tasks:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to fetch tasks';
+        setError(errorMessage);
+        show(errorMessage, { severity: 'error' });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [entityType, entityId, session?.session_token, status, show]
+  );
 
-    try {
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const tasksClient = clientFactory.getTasksClient();
+  const createTask = useCallback(
+    async (taskData: TaskCreate): Promise<Task | null> => {
+      if (!session?.session_token) {
+        setError('No session token available');
+        return null;
+      }
 
-      const updatedTask = await tasksClient.updateTask(taskId, taskData);
-      
-      // Update the task in the current list
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? updatedTask : task
-      ));
-      
-      show('Task updated successfully', { severity: 'success' });
-      return updatedTask;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update task';
-      setError(errorMessage);
-      show(errorMessage, { severity: 'error' });
-      return null;
-    }
-  }, [session?.session_token, show]);
+      try {
+        console.log('[DEBUG] Creating task...', taskData);
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const tasksClient = clientFactory.getTasksClient();
 
-  const deleteTask = useCallback(async (taskId: string): Promise<boolean> => {
-    if (!session?.session_token) {
-      setError('No session token available');
-      return false;
-    }
+        const newTask = await tasksClient.createTask(taskData);
 
-    try {
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const tasksClient = clientFactory.getTasksClient();
+        console.log('[SUCCESS] Task created successfully:', newTask);
+        // Add the new task to the current list
+        setTasks(prev => [newTask, ...prev]);
 
-      await tasksClient.deleteTask(taskId);
-      
-      // Remove the task from the current list
-      setTasks(prev => prev.filter(task => task.id !== taskId));
-      
-      show('Task deleted successfully', { severity: 'success' });
-      return true;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete task';
-      setError(errorMessage);
-      show(errorMessage, { severity: 'error' });
-      return false;
-    }
-  }, [session?.session_token, show]);
+        show('Task created successfully', { severity: 'success' });
+        return newTask;
+      } catch (err) {
+        console.error('[ERROR] Error creating task:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to create task';
+        setError(errorMessage);
+        show(errorMessage, { severity: 'error' });
+        return null;
+      }
+    },
+    [session?.session_token, show]
+  );
 
-  const getTask = useCallback(async (taskId: string): Promise<Task | null> => {
-    if (!session?.session_token) {
-      setError('No session token available');
-      return null;
-    }
+  const updateTask = useCallback(
+    async (taskId: string, taskData: TaskUpdate): Promise<Task | null> => {
+      if (!session?.session_token) {
+        setError('No session token available');
+        return null;
+      }
 
-    try {
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const tasksClient = clientFactory.getTasksClient();
+      try {
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const tasksClient = clientFactory.getTasksClient();
 
-      return await tasksClient.getTask(taskId);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch task';
-      setError(errorMessage);
-      show(errorMessage, { severity: 'error' });
-      return null;
-    }
-  }, [session?.session_token, show]);
+        const updatedTask = await tasksClient.updateTask(taskId, taskData);
 
-  const fetchTasksByCommentId = useCallback(async (commentId: string, params: TasksQueryParams = {}): Promise<Task[]> => {
-    if (status === 'loading') {
-      return []; // Wait for session to load
-    }
-    
-    if (!session?.session_token) {
-      setError('No session token available');
-      return [];
-    }
+        // Update the task in the current list
+        setTasks(prev =>
+          prev.map(task => (task.id === taskId ? updatedTask : task))
+        );
 
-    try {
-      console.log('🔄 Fetching tasks by comment ID:', commentId);
-      const clientFactory = new ApiClientFactory(session.session_token);
-      const tasksClient = clientFactory.getTasksClient();
+        show('Task updated successfully', { severity: 'success' });
+        return updatedTask;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to update task';
+        setError(errorMessage);
+        show(errorMessage, { severity: 'error' });
+        return null;
+      }
+    },
+    [session?.session_token, show]
+  );
 
-      const fetchedTasks = await tasksClient.getTasksByCommentId(commentId, params);
-      console.log('✅ Tasks fetched by comment ID:', fetchedTasks.length, 'tasks');
-      return fetchedTasks;
-    } catch (err) {
-      console.error('❌ Failed to fetch tasks by comment ID:', err);
-      return [];
-    }
-  }, [session?.session_token, status]);
+  const deleteTask = useCallback(
+    async (taskId: string): Promise<boolean> => {
+      if (!session?.session_token) {
+        setError('No session token available');
+        return false;
+      }
+
+      try {
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const tasksClient = clientFactory.getTasksClient();
+
+        await tasksClient.deleteTask(taskId);
+
+        // Remove the task from the current list
+        setTasks(prev => prev.filter(task => task.id !== taskId));
+
+        show('Task deleted successfully', { severity: 'success' });
+        return true;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to delete task';
+        setError(errorMessage);
+        show(errorMessage, { severity: 'error' });
+        return false;
+      }
+    },
+    [session?.session_token, show]
+  );
+
+  const getTask = useCallback(
+    async (taskId: string): Promise<Task | null> => {
+      if (!session?.session_token) {
+        setError('No session token available');
+        return null;
+      }
+
+      try {
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const tasksClient = clientFactory.getTasksClient();
+
+        return await tasksClient.getTask(taskId);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to fetch task';
+        setError(errorMessage);
+        show(errorMessage, { severity: 'error' });
+        return null;
+      }
+    },
+    [session?.session_token, show]
+  );
+
+  const fetchTasksByCommentId = useCallback(
+    async (
+      commentId: string,
+      params: TasksQueryParams = {}
+    ): Promise<Task[]> => {
+      if (status === 'loading') {
+        return []; // Wait for session to load
+      }
+
+      if (!session?.session_token) {
+        setError('No session token available');
+        return [];
+      }
+
+      try {
+        console.log('[DEBUG] Fetching tasks by comment ID:', commentId);
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const tasksClient = clientFactory.getTasksClient();
+
+        const fetchedTasks = await tasksClient.getTasksByCommentId(
+          commentId,
+          params
+        );
+        console.log(
+          '[SUCCESS] Tasks fetched by comment ID:',
+          fetchedTasks.length,
+          'tasks'
+        );
+        return fetchedTasks;
+      } catch (err) {
+        console.error('[ERROR] Failed to fetch tasks by comment ID:', err);
+        return [];
+      }
+    },
+    [session?.session_token, status]
+  );
 
   // Auto-fetch tasks when component mounts or dependencies change
   useEffect(() => {
@@ -196,6 +250,6 @@ export function useTasks(options: UseTasksOptions = {}) {
     updateTask,
     deleteTask,
     getTask,
-    fetchTasksByCommentId
+    fetchTasksByCommentId,
   };
 }

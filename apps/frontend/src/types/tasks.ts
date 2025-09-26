@@ -1,13 +1,13 @@
-export type { 
-  Task, 
-  TaskCreate, 
-  TaskUpdate, 
+export type {
+  Task,
+  TaskCreate,
+  TaskUpdate,
   TasksQueryParams,
   EntityType,
   TaskStats,
   User,
   Status,
-  Priority
+  Priority,
 } from '@/utils/api-client/interfaces/task';
 
 // Legacy types for backward compatibility (will be removed)

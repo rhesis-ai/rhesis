@@ -1,6 +1,14 @@
 'use client';
 
-import { Typography, Grid, Box, TextField, Chip, Button, useTheme } from '@mui/material';
+import {
+  Typography,
+  Grid,
+  Box,
+  TextField,
+  Chip,
+  Button,
+  useTheme,
+} from '@mui/material';
 import { useState, useMemo, useEffect } from 'react';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
@@ -32,12 +40,15 @@ interface TestRunDetailsSectionProps {
   sessionToken: string;
 }
 
-export default function TestRunDetailsSection({ testRun, sessionToken }: TestRunDetailsSectionProps) {
+export default function TestRunDetailsSection({
+  testRun,
+  sessionToken,
+}: TestRunDetailsSectionProps) {
   const theme = useTheme();
   const [isRetrying, setIsRetrying] = useState(false);
   const [endpointName, setEndpointName] = useState<string | null>(null);
   const notifications = useNotifications();
-  
+
   const startedAt = testRun.attributes?.started_at;
   const metadata = testRun.test_configuration?.test_set?.attributes?.metadata;
 
@@ -46,8 +57,12 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
     async function fetchTestConfiguration() {
       if (testRun.test_configuration_id) {
         try {
-          const testConfigClient = new ApiClientFactory(sessionToken).getTestConfigurationsClient();
-          const testConfig = await testConfigClient.getTestConfiguration(testRun.test_configuration_id);
+          const testConfigClient = new ApiClientFactory(
+            sessionToken
+          ).getTestConfigurationsClient();
+          const testConfig = await testConfigClient.getTestConfiguration(
+            testRun.test_configuration_id
+          );
           setEndpointName(testConfig.endpoint?.name || null);
         } catch (error) {
           console.error('Error fetching test configuration:', error);
@@ -56,32 +71,42 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
         }
       }
     }
-    
+
     fetchTestConfiguration();
-  }, [testRun.test_configuration_id, sessionToken, testRun.test_configuration?.endpoint?.name]);
+  }, [
+    testRun.test_configuration_id,
+    sessionToken,
+    testRun.test_configuration?.endpoint?.name,
+  ]);
 
   // Ensure consistent empty arrays to prevent hydration mismatches
   const behaviorsList = useMemo(() => {
     return Array.isArray(metadata?.behaviors) ? metadata.behaviors : [];
   }, [metadata?.behaviors]);
-  
+
   const topicsList = useMemo(() => {
     return Array.isArray(metadata?.topics) ? metadata.topics : [];
   }, [metadata?.topics]);
-  
+
   const categoriesList = useMemo(() => {
     return Array.isArray(metadata?.categories) ? metadata.categories : [];
   }, [metadata?.categories]);
 
   const handleRetry = async () => {
     if (!testRun.test_configuration_id) return;
-    
+
     setIsRetrying(true);
     try {
-      const testConfigClient = new ApiClientFactory(sessionToken).getTestConfigurationsClient();
-      await testConfigClient.executeTestConfiguration(testRun.test_configuration_id);
-      
-      notifications.show('Test run retry initiated successfully', { severity: 'success' });
+      const testConfigClient = new ApiClientFactory(
+        sessionToken
+      ).getTestConfigurationsClient();
+      await testConfigClient.executeTestConfiguration(
+        testRun.test_configuration_id
+      );
+
+      notifications.show('Test run retry initiated successfully', {
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Error retrying test run:', error);
       notifications.show('Failed to retry test run', { severity: 'error' });
@@ -90,19 +115,19 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
     }
   };
 
-  const renderSingleChip = (value: string | undefined | null, color: "info" | "default" = "default") => {
+  const renderSingleChip = (
+    value: string | undefined | null,
+    color: 'info' | 'default' = 'default'
+  ) => {
     if (!value) return 'N/A';
-    return (
-      <Chip
-        label={value}
-        size="small"
-        color={color}
-        variant="outlined"
-      />
-    );
+    return <Chip label={value} size="small" color={color} variant="outlined" />;
   };
 
-  const renderChipArray = (items: string[], label: string, maxChips?: number) => {
+  const renderChipArray = (
+    items: string[],
+    label: string,
+    maxChips?: number
+  ) => {
     const shouldTruncate = maxChips && items.length > maxChips;
     const displayItems = shouldTruncate ? items.slice(0, maxChips) : items;
     const remainingCount = shouldTruncate ? items.length - maxChips : 0;
@@ -116,16 +141,22 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
         InputProps={{
           readOnly: true,
           startAdornment: (
-            <Box sx={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: 0.5,
-              py: 0.5,
-              pr: 1,
-              width: '100%'
-            }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 0.5,
+                py: 0.5,
+                pr: 1,
+                width: '100%',
+              }}
+            >
               {items.length === 0 ? (
-                <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic', py: 0.5 }}>
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  sx={{ fontStyle: 'italic', py: 0.5 }}
+                >
                   No {label.toLowerCase()} specified
                 </Typography>
               ) : (
@@ -149,7 +180,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
                 </>
               )}
             </Box>
-          )
+          ),
         }}
         sx={{
           '& .MuiInputBase-root': {
@@ -159,8 +190,8 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
             paddingBottom: theme.spacing(1.75),
           },
           '& .MuiInputBase-input': {
-            display: 'none'
-          }
+            display: 'none',
+          },
         }}
       />
     );
@@ -169,10 +200,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
   return (
     <Box>
       <Box className={styles.header}>
-        <Typography 
-          variant="h6" 
-          className={styles.title}
-        >
+        <Typography variant="h6" className={styles.title}>
           Test Run Details
         </Typography>
         {testRun.test_configuration_id && (
@@ -204,7 +232,11 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
             <TextField
               fullWidth
               label="Completed"
-              value={testRun.attributes?.completed_at ? formatDate(testRun.attributes.completed_at) : 'Not Completed'}
+              value={
+                testRun.attributes?.completed_at
+                  ? formatDate(testRun.attributes.completed_at)
+                  : 'Not Completed'
+              }
               margin="normal"
               InputProps={{
                 readOnly: true,
@@ -218,7 +250,9 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
               margin="normal"
               InputProps={{
                 readOnly: true,
-                startAdornment: renderSingleChip(testRun.test_configuration?.test_set?.name)
+                startAdornment: renderSingleChip(
+                  testRun.test_configuration?.test_set?.name
+                ),
               }}
             />
 
@@ -234,7 +268,7 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
               margin="normal"
               InputProps={{
                 readOnly: true,
-                startAdornment: renderSingleChip(endpointName)
+                startAdornment: renderSingleChip(endpointName),
               }}
             />
             <TextField
@@ -244,7 +278,9 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
               margin="normal"
               InputProps={{
                 readOnly: true,
-                startAdornment: renderSingleChip(testRun.attributes?.environment || 'development')
+                startAdornment: renderSingleChip(
+                  testRun.attributes?.environment || 'development'
+                ),
               }}
             />
 
@@ -255,13 +291,10 @@ export default function TestRunDetailsSection({ testRun, sessionToken }: TestRun
         </Grid>
         <Grid item xs={12}>
           <Box>
-            <TestRunTags
-              testRun={testRun}
-              sessionToken={sessionToken}
-            />
+            <TestRunTags testRun={testRun} sessionToken={sessionToken} />
           </Box>
         </Grid>
       </Grid>
     </Box>
   );
-} 
+}

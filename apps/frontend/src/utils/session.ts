@@ -27,12 +27,18 @@ export async function getSession(): Promise<Session | null> {
   let token = cookieValue;
   try {
     const sessionData = JSON.parse(decodeURIComponent(cookieValue));
-    if (sessionData && typeof sessionData === 'object' && sessionData.session_token) {
+    if (
+      sessionData &&
+      typeof sessionData === 'object' &&
+      sessionData.session_token
+    ) {
       token = sessionData.session_token;
     }
   } catch (error) {
     // If JSON parsing fails, treat as direct token
-    console.log('⚠️ [DEBUG] Session cookie is not JSON, treating as direct token');
+    console.log(
+      '[WARNING] [DEBUG] Session cookie is not JSON, treating as direct token'
+    );
   }
 
   try {
@@ -55,7 +61,7 @@ export async function getSession(): Promise<Session | null> {
     }
 
     return {
-      user: data.user
+      user: data.user,
     };
   } catch (error) {
     console.error('Session error:', error);
@@ -64,8 +70,10 @@ export async function getSession(): Promise<Session | null> {
 }
 
 export async function clearAllSessionData() {
-  console.log('🟡 [DEBUG] clearAllSessionData called - starting session cleanup');
-  
+  console.log(
+    '🟡 [DEBUG] clearAllSessionData called - starting session cleanup'
+  );
+
   // Step 1: Call backend logout endpoint to clear server-side session
   try {
     console.log('🟡 [DEBUG] Calling backend logout endpoint');
@@ -73,15 +81,18 @@ export async function clearAllSessionData() {
       method: 'GET',
       credentials: 'include',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
     console.log('🟡 [DEBUG] Backend logout response status:', response.status);
   } catch (error) {
-    console.warn('🟡 [DEBUG] Backend logout failed (continuing with frontend cleanup):', error);
+    console.warn(
+      '🟡 [DEBUG] Backend logout failed (continuing with frontend cleanup):',
+      error
+    );
     // Continue with frontend cleanup even if backend fails
   }
-  
+
   // Step 2: Clear all frontend cookies
   const cookiesToClear = [
     'next-auth.session-token',
@@ -109,7 +120,7 @@ export async function clearAllSessionData() {
   cookiesToClear.forEach(name => {
     // Clear without domain (for development)
     document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
-    
+
     // Clear with domain (for production)
     if (process.env.FRONTEND_ENV === 'production') {
       document.cookie = `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
@@ -122,15 +133,17 @@ export async function clearAllSessionData() {
   // Step 3: Clear any local storage items
   localStorage.removeItem('next-auth.message');
   localStorage.removeItem('next-auth.callback-url');
-  
+
   // Step 4: Clear any session storage items
   sessionStorage.clear();
-  
-  console.log('🟡 [DEBUG] Adding 800ms delay before redirect to ensure cleanup completion');
+
+  console.log(
+    '🟡 [DEBUG] Adding 800ms delay before redirect to ensure cleanup completion'
+  );
   // Add a longer delay before redirecting to ensure all cleanup is completed
   await new Promise(resolve => setTimeout(resolve, 800));
-  
+
   console.log('🟡 [DEBUG] Redirecting to home page /');
   // Force reload to clear any in-memory state and redirect to home page
   window.location.href = '/';
-} 
+}

@@ -1,8 +1,18 @@
 'use client';
 
 import React from 'react';
-import { BasePieChart, BaseLineChart, BaseChartsGrid } from '@/components/common/BaseCharts';
-import { Box, CircularProgress, Typography, Alert, useTheme } from '@mui/material';
+import {
+  BasePieChart,
+  BaseLineChart,
+  BaseChartsGrid,
+} from '@/components/common/BaseCharts';
+import {
+  Box,
+  CircularProgress,
+  Typography,
+  Alert,
+  useTheme,
+} from '@mui/material';
 
 // Fallback mock data in case the API fails
 const fallbackData = [
@@ -10,20 +20,21 @@ const fallbackData = [
 ];
 
 // Fallback data for line chart
-const fallbackLineData = [
-  { name: 'Current', count: 0 },
-];
+const fallbackLineData = [{ name: 'Current', count: 0 }];
 
 interface TestDetailChartsProps {
   testId: string;
   sessionToken: string;
 }
 
-export default function TestDetailCharts({ testId, sessionToken }: TestDetailChartsProps) {
+export default function TestDetailCharts({
+  testId,
+  sessionToken,
+}: TestDetailChartsProps) {
   const theme = useTheme();
   // This is a placeholder component with empty charts
   // The actual implementation will be added later
-  
+
   return (
     <BaseChartsGrid>
       {/* Total Executions Line Chart */}
@@ -34,19 +45,23 @@ export default function TestDetailCharts({ testId, sessionToken }: TestDetailCha
           {
             dataKey: 'count',
             name: 'Executions',
-            strokeWidth: 2
-          }
+            strokeWidth: 2,
+          },
         ]}
         useThemeColors={true}
         colorPalette="line"
         height={180}
-        legendProps={{ wrapperStyle: { fontSize: theme.typography.chartTick.fontSize }, iconSize: 8, layout: 'horizontal' }}
+        legendProps={{
+          wrapperStyle: { fontSize: theme.typography.chartTick.fontSize },
+          iconSize: 8,
+          layout: 'horizontal',
+        }}
         yAxisConfig={{
           domain: [0, 100],
-          allowDataOverflow: true
+          allowDataOverflow: true,
         }}
       />
-      
+
       {/* Success Rate Chart */}
       <BasePieChart
         title="Success Rate"
@@ -56,7 +71,7 @@ export default function TestDetailCharts({ testId, sessionToken }: TestDetailCha
         height={180}
         showPercentage={true}
       />
-      
+
       {/* Execution Time Chart */}
       <BasePieChart
         title="Average Execution Time"
@@ -66,7 +81,7 @@ export default function TestDetailCharts({ testId, sessionToken }: TestDetailCha
         height={180}
         showPercentage={true}
       />
-      
+
       {/* Failure Reasons Chart */}
       <BasePieChart
         title="Failure Reasons"
@@ -78,4 +93,4 @@ export default function TestDetailCharts({ testId, sessionToken }: TestDetailCha
       />
     </BaseChartsGrid>
   );
-} 
+}
