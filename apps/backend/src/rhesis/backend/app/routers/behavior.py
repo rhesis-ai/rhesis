@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_db_with_tenant_context
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_db_with_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -33,18 +33,19 @@ router = APIRouter(
 )
 def create_behavior(
     behavior: schemas.BehaviorCreate,
-    db_context=Depends(get_db_with_tenant_context),  # ← Uses enhanced dependency with automatic session variables
+    db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement with automatic session variables
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
-    Create behavior with dual approach - both session variables AND explicit parameters.
+    Create behavior with optimized approach - automatic session variables + explicit parameters.
 
     Performance improvements:
-    - Automatically sets PostgreSQL session variables for RLS policies
-    - Provides explicit tenant context parameters for CRUD functions
-    - Session variables persist for the entire database session
-    - No additional setup required in routes
+    - Drop-in replacement for get_db_session with automatic RLS session variables
+    - Maintains existing route parameter patterns for minimal code changes
+    - Single database connection with optimized session variable caching
+    - Supports both RLS policies and explicit parameter passing
     """
-    db, organization_id, user_id = db_context
+    organization_id, user_id = tenant_context
 
     print(f"🚀 [OPTIMIZED] Creating behavior with direct tenant context")
     print(f"🔍 [OPTIMIZED] Organization: {organization_id}, User: {user_id}")
@@ -64,18 +65,19 @@ def read_behaviors(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db_context=Depends(get_db_with_tenant_context),  # ← Uses enhanced dependency
+    db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
-    Get all behaviors with dual approach - both session variables AND explicit parameters.
+    Get all behaviors with optimized approach - automatic session variables + explicit parameters.
 
     Performance improvements:
-    - Automatically sets PostgreSQL session variables for RLS policies
-    - Provides explicit tenant context parameters for CRUD functions
-    - Session variables persist for the entire database session
-    - RLS policies can now work automatically
+    - Drop-in replacement for get_db_session with automatic RLS session variables
+    - Maintains existing route parameter patterns for minimal code changes
+    - Single database connection with optimized session variable caching
+    - Decorator reuses same session for count operations
     """
-    db, organization_id, user_id = db_context
+    organization_id, user_id = tenant_context
 
     print(
         f"🔍 [OPTIMIZED] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}"
@@ -116,7 +118,7 @@ def read_behaviors(
 @router.get("/{behavior_id}")
 def read_behavior(
     behavior_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -138,7 +140,7 @@ def read_behavior(
 @router.delete("/{behavior_id}")
 def delete_behavior(
     behavior_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -164,18 +166,19 @@ def delete_behavior(
 def update_behavior(
     behavior_id: uuid.UUID,
     behavior: schemas.BehaviorUpdate,
-    db_context=Depends(get_db_with_tenant_context),  # ← Uses enhanced dependency
+    db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
-    Update behavior with dual approach - both session variables AND explicit parameters.
+    Update behavior with optimized approach - automatic session variables + explicit parameters.
 
     Performance improvements:
-    - Automatically sets PostgreSQL session variables for RLS policies
-    - Provides explicit tenant context parameters for CRUD functions
-    - Session variables persist for the entire database session
-    - RLS policies can now work automatically
+    - Drop-in replacement for get_db_session with automatic RLS session variables
+    - Maintains existing route parameter patterns for minimal code changes
+    - Single database connection with optimized session variable caching
+    - Supports both RLS policies and explicit parameter passing
     """
-    db, organization_id, user_id = db_context
+    organization_id, user_id = tenant_context
     db_behavior = crud.update_behavior(
         db,
         behavior_id=behavior_id,
@@ -197,7 +200,7 @@ def read_behavior_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
     organization_id: str = None,  # For with_count_header decorator
@@ -224,7 +227,7 @@ def read_behavior_metrics(
 def add_metric_to_behavior(
     behavior_id: uuid.UUID,
     metric_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Add a metric to a behavior"""
     try:
@@ -245,7 +248,7 @@ def add_metric_to_behavior(
 def remove_metric_from_behavior(
     behavior_id: uuid.UUID,
     metric_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Remove a metric from a behavior"""
     try:
