@@ -9,14 +9,14 @@ from celery import Task
 from rhesis.backend.app.database import (
     SessionLocal,
     get_db,
+    get_db_with_tenant_variables,
 )
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 
 
-# Removed with_tenant_context decorator - no longer needed
-# Tenant context (organization_id, user_id) is now passed directly to CRUD functions
-# Tasks should get database session via self.get_db_session() and pass tenant context explicitly
+# Task database sessions automatically set PostgreSQL session variables for RLS
+# Use self.get_db_session() for tenant-aware database operations
 
 
 def email_notification(template=None, subject_template=None):
@@ -123,12 +123,14 @@ class BaseTask(Task):
     @contextmanager
     def get_db_session(self):
         """
-        Get a simple database session.
+        Get a database session with tenant context automatically set.
         
-        Tenant context should be retrieved via get_tenant_context() and passed
-        directly to CRUD operations for optimal performance.
+        Automatically sets PostgreSQL session variables for RLS using the same
+        centralized logic as the router dependencies.
         """
-        with get_db() as db:
+        organization_id, user_id = self.get_tenant_context()
+        
+        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
             yield db
 
     def validate_params(self, args, kwargs):
@@ -264,6 +266,7 @@ class BaseTask(Task):
             from rhesis.backend.app import crud
 
             with self.get_db_session() as db:
+                # Session variables are automatically set by get_db_session()
                 user = crud.get_user(db, user_id)
                 if user:
                     display_name = (
