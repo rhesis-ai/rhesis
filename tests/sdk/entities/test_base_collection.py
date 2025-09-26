@@ -19,6 +19,23 @@ class TestBaseCollection(BaseCollection):
 
 
 @patch("requests.request")
+def test_delete(mock_request):
+    record_id = 1
+    entity = TestBaseCollection()
+    entity.delete(record_id)
+    mock_request.assert_called_once_with(
+        method="DELETE",
+        url="http://test:8000/test/1",
+        headers={
+            "Authorization": "Bearer test_api_key",
+            "Content-Type": "application/json",
+        },
+        json=None,
+        params=None,
+    )
+
+
+@patch("requests.request")
 def test_all(mock_request):
     TestBaseCollection.all()
 
