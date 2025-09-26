@@ -22,7 +22,7 @@ class TestEntity(BaseEntity):
 def test_delete_by_id(mock_request):
     record_id = 1
     entity = TestEntity()
-    entity.delete_by_id(record_id)
+    entity._delete_by_id(record_id)
     mock_request.assert_called_once_with(
         method="DELETE",
         url="http://test:8000/test/1",
@@ -44,15 +44,15 @@ def test_delete_by_id(mock_request):
 
     record_id = 1
     entity = TestEntity()
-    result = entity.delete_by_id(record_id)
+    result = entity._delete_by_id(record_id)
     assert result is False
 
 
 @patch("requests.request")
-def test_save_with_id(mock_request):
+def test_push_with_id(mock_request):
     entity = TestEntity()
     entity.fields = {"id": 1, "name": "Test", "description": "Test"}
-    entity.save()
+    entity.push()
     mock_request.assert_called_once_with(
         method="PUT",
         url="http://test:8000/test/1",
@@ -66,10 +66,10 @@ def test_save_with_id(mock_request):
 
 
 @patch("requests.request")
-def test_save_without_id(mock_request):
+def test_push_without_id(mock_request):
     entity = TestEntity()
     entity.fields = {"name": "Test", "description": "Test"}
-    entity.save()
+    entity.push()
     mock_request.assert_called_once_with(
         method="POST",
         url="http://test:8000/test",
@@ -106,13 +106,13 @@ def test_fetch(mock_request):
 
 
 @patch("requests.request")
-def test_from_id(mock_request):
+def test_pull_by_id(mock_request):
     mock_request.return_value.json.return_value = {
         "id": 1,
         "name": "Test",
         "description": "Test",
     }
-    entity = TestEntity.from_id(1)
+    entity = TestEntity._pull_by_id(1)
     assert entity.fields == {"id": 1, "name": "Test", "description": "Test"}
     mock_request.assert_called_once_with(
         method="GET",
