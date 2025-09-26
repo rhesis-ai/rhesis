@@ -10,7 +10,7 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.schemas.token import (
     TokenCreate,
     TokenCreateResponse,
@@ -32,7 +32,7 @@ router = APIRouter(
 def create_token(
     request: Request,
     data: dict = Body(...),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -90,7 +90,7 @@ async def read_tokens(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """List all active API tokens for the current user"""
     return crud.get_user_tokens(
@@ -106,7 +106,7 @@ async def read_tokens(
 @router.get("/{token_id}", response_model=TokenRead)
 def read_token(
     token_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -130,7 +130,7 @@ def read_token(
 @router.delete("/{token_id}", response_model=TokenRead)
 def delete_token(
     token_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -155,7 +155,7 @@ def delete_token(
 def update_token(
     token_id: uuid.UUID,
     token: TokenUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -183,7 +183,7 @@ def update_token(
 def refresh_token(
     token_id: uuid.UUID,
     data: dict = Body(...),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Refresh token with new value and expiration"""

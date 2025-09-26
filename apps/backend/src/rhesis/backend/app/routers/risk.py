@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
@@ -24,7 +24,7 @@ router = APIRouter(
 )
 def create_risk(
     risk: schemas.RiskCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -49,7 +49,7 @@ def read_risks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all risks with their related objects"""
@@ -60,7 +60,7 @@ def read_risks(
 
 
 @router.get("/{risk_id}", response_model=schemas.Risk)
-def read_risk(risk_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def read_risk(risk_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     db_risk = crud.get_risk(db, risk_id=risk_id)
     if db_risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
@@ -68,7 +68,7 @@ def read_risk(risk_id: uuid.UUID, db: Session = Depends(get_db_session)):
 
 
 @router.delete("/{risk_id}", response_model=schemas.Risk)
-def delete_risk(risk_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def delete_risk(risk_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     db_risk = crud.delete_risk(db, risk_id=risk_id)
     if db_risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
@@ -79,7 +79,7 @@ def delete_risk(risk_id: uuid.UUID, db: Session = Depends(get_db_session)):
 def update_risk(
     risk_id: uuid.UUID,
     risk: schemas.RiskUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -33,7 +33,7 @@ router = APIRouter(
     custom_unique_message="test configuration with this name already exists")
 def create_test_configuration(
     test_configuration: schemas.TestConfigurationCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -71,7 +71,7 @@ def read_test_configurations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all test configurations with their related objects"""
     test_configurations = crud.get_test_configurations(
@@ -83,7 +83,7 @@ def read_test_configurations(
 @router.get("/{test_configuration_id}", response_model=TestConfigurationDetailSchema)
 def read_test_configuration(
     test_configuration_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test configuration by ID with its related objects"""
     db_test_configuration = crud.get_test_configuration(
@@ -98,7 +98,7 @@ def read_test_configuration(
 def update_test_configuration(
     test_configuration_id: UUID,
     test_configuration: schemas.TestConfigurationUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -134,7 +134,7 @@ def update_test_configuration(
 @router.delete("/{test_configuration_id}", response_model=schemas.TestConfiguration)
 def delete_test_configuration(
     test_configuration_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test configuration"""
     db_test_configuration = crud.get_test_configuration(
@@ -155,7 +155,7 @@ def delete_test_configuration(
 @router.post("/{test_configuration_id}/execute")
 def execute_test_configuration_endpoint(
     test_configuration_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """
     Execute a test configuration by running its test set.

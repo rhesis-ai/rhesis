@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -29,7 +29,7 @@ router = APIRouter(
 )
 def create_model(
     model: schemas.ModelCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -54,7 +54,7 @@ def read_models(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all models with their related objects"""
@@ -65,7 +65,7 @@ def read_models(
 
 
 @router.get("/{model_id}", response_model=ModelDetailSchema)
-def read_model(model_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def read_model(model_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     """Get a specific model by ID"""
     db_model = crud.get_model(db, model_id=model_id)
     if db_model is None:
@@ -77,7 +77,7 @@ def read_model(model_id: uuid.UUID, db: Session = Depends(get_db_session)):
 def update_model(
     model_id: uuid.UUID,
     model: schemas.ModelUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -99,7 +99,7 @@ def update_model(
 
 
 @router.delete("/{model_id}", response_model=schemas.Model)
-def delete_model(model_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def delete_model(model_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     """Delete a model"""
     db_model = crud.delete_model(db, model_id=model_id)
     if db_model is None:
@@ -108,7 +108,7 @@ def delete_model(model_id: uuid.UUID, db: Session = Depends(get_db_session)):
 
 
 @router.post("/{model_id}/test", response_model=dict)
-async def test_model_connection(model_id: uuid.UUID, db: Session = Depends(get_db_session)):
+async def test_model_connection(model_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     """Test the connection to the model's endpoint"""
     db_model = crud.get_model(db, model_id=model_id)
     if db_model is None:

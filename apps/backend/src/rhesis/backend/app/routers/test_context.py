@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
@@ -24,7 +24,7 @@ router = APIRouter(
 )
 def create_test_context(
     test_context: schemas.TestContextCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -54,7 +54,7 @@ def read_test_contexts(
     skip: int = 0,
     limit: int = 100,
     test_id: Optional[UUID] = None,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all test contexts or filter by test_id"""
@@ -69,7 +69,7 @@ def read_test_contexts(
 @router.get("/{test_context_id}", response_model=schemas.TestContext)
 def read_test_context(
     test_context_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test context by ID"""
     db_test_context = crud.get_test_context(db, test_context_id=test_context_id)
@@ -82,7 +82,7 @@ def read_test_context(
 def update_test_context(
     test_context_id: UUID,
     test_context: schemas.TestContextUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -120,7 +120,7 @@ def update_test_context(
 @router.delete("/{test_context_id}", response_model=schemas.TestContext)
 def delete_test_context(
     test_context_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test context"""
     db_test_context = crud.get_test_context(db, test_context_id=test_context_id)
