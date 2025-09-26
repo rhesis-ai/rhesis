@@ -1,4 +1,5 @@
 import inspect
+from contextlib import contextmanager
 from functools import wraps
 from typing import Callable, Type, TypeVar
 
@@ -17,7 +18,7 @@ def with_count_header(model: Type):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             response: Response = kwargs["response"]
-            db: Session = kwargs["db"]
+            db_context = kwargs["db"]
             filter_expr = kwargs.get("filter")
             
             # Extract tenant context if available
@@ -27,9 +28,17 @@ def with_count_header(model: Type):
             if tenant_context:
                 organization_id, user_id = tenant_context
 
-            # Perform count with tenant context
-            count = count_items(db, model, filter_expr, organization_id, user_id)
-            response.headers["X-Total-Count"] = str(count)
+            # Handle both Session objects and context managers
+            if hasattr(db_context, 'query'):
+                # Already a Session object
+                db = db_context
+                count = count_items(db, model, filter_expr, organization_id, user_id)
+                response.headers["X-Total-Count"] = str(count)
+            else:
+                # It's a context manager, need to enter it to get the Session
+                with db_context as db:
+                    count = count_items(db, model, filter_expr, organization_id, user_id)
+                    response.headers["X-Total-Count"] = str(count)
 
             # Call original route function (await if async)
             result = await func(*args, **kwargs) if is_async else func(*args, **kwargs)
