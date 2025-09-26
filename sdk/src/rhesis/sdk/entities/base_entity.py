@@ -59,11 +59,6 @@ class BaseEntity:
             **fields: Arbitrary keyword arguments representing entity fields.
         """
         self.fields = fields
-        self.client = Client()
-        self.headers = {
-            "Authorization": f"Bearer {self.client.api_key}",
-            "Content-Type": "application/json",
-        }
 
     def __repr__(self) -> str:
         field_strings = []
