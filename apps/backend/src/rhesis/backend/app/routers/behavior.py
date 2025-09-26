@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_db_with_tenant_context, get_tenant_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session, get_db_with_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -36,24 +36,12 @@ def create_behavior(
     db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement with automatic session variables
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    """
-    Create behavior with optimized approach - automatic session variables + explicit parameters.
-
-    Performance improvements:
-    - Drop-in replacement for get_db_session with automatic RLS session variables
-    - Maintains existing route parameter patterns for minimal code changes
-    - Single database connection with optimized session variable caching
-    - Supports both RLS policies and explicit parameter passing
-    """
+    """Create behavior with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    print(f"🚀 [OPTIMIZED] Creating behavior with direct tenant context")
-    print(f"🔍 [OPTIMIZED] Organization: {organization_id}, User: {user_id}")
-    result = crud.create_behavior(
+    return crud.create_behavior(
         db=db, behavior=behavior, organization_id=organization_id, user_id=user_id
     )
-    print(f"✅ [OPTIMIZED] Successfully created behavior: {result.id}")
-    return result
 
 
 @router.get("/", response_model=List[BehaviorWithMetricsSchema])
@@ -68,51 +56,20 @@ def read_behaviors(
     db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    """
-    Get all behaviors with optimized approach - automatic session variables + explicit parameters.
-
-    Performance improvements:
-    - Drop-in replacement for get_db_session with automatic RLS session variables
-    - Maintains existing route parameter patterns for minimal code changes
-    - Single database connection with optimized session variable caching
-    - Decorator reuses same session for count operations
-    """
+    """Get all behaviors with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    print(
-        f"🔍 [OPTIMIZED] Behaviors endpoint called with params: skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}, filter={filter}"
-    )
-    print(f"🔍 [OPTIMIZED] Direct tenant context: org={organization_id}, user={user_id}")
-
-    try:
-        print(f"🔍 [OPTIMIZED] Using optimized relationship loading with direct tenant context...")
-        # Use get_items_detail with optimized loading and direct tenant context
-        result = crud.get_items_detail(
-            db=db,
-            model=models.Behavior,
-            skip=skip,
-            limit=limit,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            filter=filter,
-            nested_relationships={"metrics": ["metric_type", "backend_type"]},
-            organization_id=organization_id,
-            user_id=user_id)
-        print(f"✅ [DEBUG] get_items_detail returned {len(result)} behaviors")
-        if result:
-            print(
-                f"🔍 [DEBUG] First item: id={result[0].id}, name={result[0].name}, metrics_count={len(result[0].metrics) if hasattr(result[0], 'metrics') else 'N/A'}"
-            )
-            if hasattr(result[0], "metrics") and result[0].metrics:
-                first_metric = result[0].metrics[0]
-                print(
-                    f"🔍 [DEBUG] First metric: id={first_metric.id}, name={first_metric.name}, has_metric_type={hasattr(first_metric, 'metric_type')}, has_backend_type={hasattr(first_metric, 'backend_type')}"
-                )
-        return result
-    except Exception as e:
-        print(f"❌ [DEBUG] Error in read_behaviors: {type(e).__name__}: {str(e)}")
-        print(f"❌ [DEBUG] Error traceback: {e.__class__.__module__}.{e.__class__.__name__}")
-        raise
+    return crud.get_items_detail(
+        db=db,
+        model=models.Behavior,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        nested_relationships={"metrics": ["metric_type", "backend_type"]},
+        organization_id=organization_id,
+        user_id=user_id)
 
 
 @router.get("/{behavior_id}")
@@ -121,15 +78,7 @@ def read_behavior(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    """
-    Get behavior with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get behavior by ID with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
     db_behavior = crud.get_behavior(db, behavior_id=behavior_id)
     if db_behavior is None:
@@ -143,15 +92,7 @@ def delete_behavior(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    """
-    Delete behavior with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete behavior with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
     db_behavior = crud.delete_behavior(db, behavior_id=behavior_id)
     if db_behavior is None:
@@ -169,15 +110,7 @@ def update_behavior(
     db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    """
-    Update behavior with optimized approach - automatic session variables + explicit parameters.
-
-    Performance improvements:
-    - Drop-in replacement for get_db_session with automatic RLS session variables
-    - Maintains existing route parameter patterns for minimal code changes
-    - Single database connection with optimized session variable caching
-    - Supports both RLS policies and explicit parameter passing
-    """
+    """Update behavior with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
     db_behavior = crud.update_behavior(
         db,

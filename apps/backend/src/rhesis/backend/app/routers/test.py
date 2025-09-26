@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.test import bulk_create_tests, get_test_stats
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -30,7 +30,7 @@ router = APIRouter(
 )
 def create_test(
     test: schemas.TestCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -49,7 +49,7 @@ def create_test(
 @router.post("/bulk", response_model=schemas.TestBulkCreateResponse)
 def create_tests_bulk(
     test_data: schemas.TestBulkCreateRequest,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """
     Create multiple tests in a single operation.
@@ -125,7 +125,7 @@ def create_tests_bulk(
 def generate_test_stats(
     top: Optional[int] = None,
     months: Optional[int] = 6,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get statistics about tests"""
     return get_test_stats(db, current_user.organization_id, top, months)
@@ -140,7 +140,7 @@ def read_tests(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all tests with their related objects"""
@@ -154,7 +154,7 @@ def read_tests(
 @router.get("/{test_id}", response_model=TestDetailSchema)
 def read_test(
     test_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test by ID with its related objects"""
     db_test = crud.get_test(db, test_id=test_id)
@@ -167,7 +167,7 @@ def read_test(
 def update_test(
     test_id: UUID,
     test: schemas.TestUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -196,7 +196,7 @@ def update_test(
 @router.delete("/{test_id}", response_model=schemas.Test)
 def delete_test(
     test_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test"""
     db_test = crud.get_test(db, test_id=test_id)

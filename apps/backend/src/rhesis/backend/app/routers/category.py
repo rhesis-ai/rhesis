@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.odata import combine_entity_type_filter

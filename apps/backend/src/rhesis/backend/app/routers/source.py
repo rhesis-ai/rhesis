@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
@@ -24,7 +24,7 @@ router = APIRouter(
 )
 def create_source(
     source: schemas.SourceCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -51,7 +51,7 @@ def read_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all sources with their related objects"""
@@ -64,7 +64,7 @@ def read_sources(
 @router.get("/{source_id}")
 def read_source(
     source_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -86,7 +86,7 @@ def read_source(
 @router.delete("/{source_id}")
 def delete_source(
     source_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -109,7 +109,7 @@ def delete_source(
 def update_source(
     source_id: uuid.UUID,
     source: schemas.SourceUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """

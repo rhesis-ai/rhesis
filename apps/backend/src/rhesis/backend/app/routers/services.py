@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
@@ -157,7 +157,7 @@ async def generate_content_endpoint(request: dict):
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """
     Generate test cases using the prompt synthesizer.

@@ -13,7 +13,7 @@ from rhesis.backend.app.auth.token_utils import (
 from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.auth.user_utils import find_or_create_user
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.logging import logger
 
 router = APIRouter(
@@ -70,7 +70,7 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
 
 
 @router.get("/callback")
-async def auth_callback(request: Request, db: Session = Depends(get_db_session)):
+async def auth_callback(request: Request, db: Session = Depends(get_tenant_db_session)):
     """Handle the Auth0 callback after successful authentication"""
     try:
         # Step 1: Get token and user info from Auth0
@@ -101,7 +101,7 @@ async def logout(
     request: Request,
     post_logout: bool = False,
     session_token: str = None,
-    db: Session = Depends(get_db_session)):
+    db: Session = Depends(get_tenant_db_session)):
     """Log out the user and clear their session"""
     # Clear session data
     request.session.clear()
@@ -146,7 +146,7 @@ async def verify_auth(
     request: Request,
     session_token: str,
     return_to: str = "/home",
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     secret_key: str = Depends(get_secret_key)):
     """Verify JWT session token and return user info"""
     logger.info(f"Verify request received. Token: {session_token[:8]}...")

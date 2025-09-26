@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.services.stats import get_test_result_stats
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -42,7 +42,7 @@ router = APIRouter(
 )
 def create_test_result(
     test_result: schemas.TestResultCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -74,7 +74,7 @@ def read_test_results(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all test results"""
@@ -128,7 +128,7 @@ def generate_test_result_stats(
     end_date: Optional[str] = Query(
         None, description="End date (ISO format, overrides months parameter)"
     ),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get test result statistics with configurable data modes for optimal performance
 
@@ -342,7 +342,7 @@ def generate_test_result_stats(
 @router.get("/{test_result_id}", response_model=TestResultDetailSchema)
 def read_test_result(
     test_result_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test result by ID"""
     db_test_result = crud.get_test_result(db, test_result_id=test_result_id)
@@ -355,7 +355,7 @@ def read_test_result(
 def update_test_result(
     test_result_id: UUID,
     test_result: schemas.TestResultUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -389,7 +389,7 @@ def update_test_result(
 @router.delete("/{test_result_id}", response_model=schemas.TestResult)
 def delete_test_result(
     test_result_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test result"""
     db_test_result = crud.get_test_result(db, test_result_id=test_result_id)

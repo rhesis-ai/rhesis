@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.example_task import email_notification_test
 from rhesis.backend.worker import app as celery_app
@@ -55,7 +55,7 @@ async def get_stats(current_user: schemas.User = Depends(require_current_user_or
 # @router.post("/email-notification-test", response_model=TaskResponse)
 async def test_email_notifications(
     message: str = "Test email notification",
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: schemas.User = Depends(require_current_user_or_token)):
     """
     Test the email notification system by running a simple task that will send
@@ -90,7 +90,7 @@ async def test_email_notifications(
 async def create_task(
     task_name: str,
     payload: Dict[Any, Any],
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: schemas.User = Depends(require_current_user_or_token)):
     """
     Submit a new task to Celery.

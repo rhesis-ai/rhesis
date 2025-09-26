@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
@@ -24,7 +24,7 @@ router = APIRouter(
 @router.post("/", response_model=schemas.ResponsePattern)
 def create_response_pattern(
     response_pattern: schemas.ResponsePatternCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -51,7 +51,7 @@ def read_response_patterns(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all response patterns with their related objects"""
@@ -62,7 +62,7 @@ def read_response_patterns(
 
 
 @router.get("/{response_pattern_id}", response_model=schemas.ResponsePattern)
-def read_response_pattern(response_pattern_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def read_response_pattern(response_pattern_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     db_response_pattern = crud.get_response_pattern(db, response_pattern_id=response_pattern_id)
     if db_response_pattern is None:
         raise HTTPException(status_code=404, detail="Response Pattern not found")
@@ -73,7 +73,7 @@ def read_response_pattern(response_pattern_id: uuid.UUID, db: Session = Depends(
 def update_response_pattern(
     response_pattern_id: uuid.UUID,
     response_pattern: schemas.ResponsePatternUpdate,
-    db: Session = Depends(get_db_session)):
+    db: Session = Depends(get_tenant_db_session)):
     db_response_pattern = crud.update_response_pattern(
         db, response_pattern_id=response_pattern_id, response_pattern=response_pattern
     )
@@ -83,7 +83,7 @@ def update_response_pattern(
 
 
 @router.delete("/{response_pattern_id}", response_model=schemas.ResponsePattern)
-def delete_response_pattern(response_pattern_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def delete_response_pattern(response_pattern_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     db_response_pattern = crud.delete_response_pattern(db, response_pattern_id=response_pattern_id)
     if db_response_pattern is None:
         raise HTTPException(status_code=404, detail="Response Pattern not found")

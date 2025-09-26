@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -31,7 +31,7 @@ router = APIRouter(
 )
 def create_metric(
     metric: schemas.MetricCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -58,7 +58,7 @@ def read_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all metrics with their related objects"""
     metrics = crud.get_metrics(
@@ -70,7 +70,7 @@ def read_metrics(
 @router.get("/{metric_id}", response_model=MetricDetailSchema)
 def read_metric(
     metric_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific metric by ID with its related objects"""
     db_metric = crud.get_metric(db, metric_id=metric_id)
@@ -86,7 +86,7 @@ def read_metric(
 def update_metric(
     metric_id: UUID,
     metric: schemas.MetricUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Update a metric"""
@@ -107,7 +107,7 @@ def update_metric(
 @router.delete("/{metric_id}", response_model=schemas.Metric)
 def delete_metric(
     metric_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a metric"""
     db_metric = crud.get_metric(db, metric_id=metric_id)
@@ -125,7 +125,7 @@ def delete_metric(
 def add_behavior_to_metric(
     metric_id: UUID,
     behavior_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Add a behavior to a metric"""
     # Check if the metric exists and user has permission
@@ -154,7 +154,7 @@ def add_behavior_to_metric(
 def remove_behavior_from_metric(
     metric_id: UUID,
     behavior_id: UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Remove a behavior from a metric"""
     # Check if the metric exists and user has permission
@@ -188,7 +188,7 @@ def read_metric_behaviors(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
     organization_id: str = None,  # For with_count_header decorator

@@ -9,7 +9,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
@@ -68,7 +68,7 @@ The structure is: {emoji_character: [list_of_user_reactions]}
 @handle_database_exceptions(entity_name="comment", custom_unique_message="Comment already exists")
 def create_comment(
     comment: schemas.CommentCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -93,7 +93,7 @@ def read_comments(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -118,7 +118,7 @@ def read_comments(
 @router.get("/{comment_id}")
 def read_comment(
     comment_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -142,7 +142,7 @@ def read_comment(
 def update_comment(
     comment_id: uuid.UUID,
     comment: schemas.CommentUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -171,7 +171,7 @@ def update_comment(
 @router.delete("/{comment_id}", response_model=schemas.Comment)
 def delete_comment(
     comment_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -205,7 +205,7 @@ def read_comments_by_entity(
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -243,7 +243,7 @@ def read_comments_by_entity(
 def add_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -305,7 +305,7 @@ def add_emoji_reaction(
 def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """

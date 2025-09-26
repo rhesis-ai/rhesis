@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -30,7 +30,7 @@ router = APIRouter(
 @router.post("/", response_model=schemas.Task)
 def create_task(
     task: schemas.TaskCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user=Depends(require_current_user_or_token)):
     """Create a new task"""
     try:
@@ -73,7 +73,7 @@ def list_tasks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     response: Response = None):
     """List tasks with filtering, sorting, and comment counts"""
     try:
@@ -86,7 +86,7 @@ def list_tasks(
 
 
 @router.get("/{task_id}", response_model=TaskDetailSchema)
-def get_task(task_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def get_task(task_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     """Get a single task by ID"""
     task = crud.get_task_with_comment_count(db=db, task_id=task_id)
     if task is None:
@@ -103,7 +103,7 @@ def get_tasks_by_entity(
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     response: Response = None):
     """Get tasks by entity type and entity ID"""
     try:
@@ -126,7 +126,7 @@ def get_tasks_by_entity(
 def update_task(
     task_id: uuid.UUID,
     task: schemas.TaskUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user=Depends(require_current_user_or_token)):
     """Update a task"""
     try:
@@ -166,7 +166,7 @@ def update_task(
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: uuid.UUID, db: Session = Depends(get_db_session)):
+def delete_task(task_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     """Delete a task"""
     try:
         success = crud.delete_task(db=db, task_id=task_id)
