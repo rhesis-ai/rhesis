@@ -54,11 +54,7 @@ class BaseEntity:
     entity_schema: BaseModel
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Initialize the entity with given fields.
-
-        Args:
-            **fields: Arbitrary keyword arguments representing entity fields.
-        """
+        pass
 
     def __repr__(self) -> str:
         field_strings = []
@@ -120,6 +116,7 @@ class BaseEntity:
 
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
+        self._set_fields()
         data = {k: v for k, v in self.fields.items() if k != "id"}
 
         if "id" in self.fields and self.fields["id"] is not None:
