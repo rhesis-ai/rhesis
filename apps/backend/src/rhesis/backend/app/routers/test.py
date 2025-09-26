@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.test import bulk_create_tests, get_test_stats
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -21,8 +21,7 @@ TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 router = APIRouter(
     prefix="/tests",
     tags=["tests"],
-    responses={404: {"description": "Not found"}},
-)
+    responses={404: {"description": "Not found"}})
 
 
 @router.post("/", response_model=schemas.Test)
@@ -31,10 +30,9 @@ router = APIRouter(
 )
 def create_test(
     test: schemas.TestCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create test with super optimized approach - no session variables needed.
 
@@ -51,9 +49,8 @@ def create_test(
 @router.post("/bulk", response_model=schemas.TestBulkCreateResponse)
 def create_tests_bulk(
     test_data: schemas.TestBulkCreateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create multiple tests in a single operation.
 
@@ -96,8 +93,7 @@ def create_tests_bulk(
             tests_data=test_data.tests,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
-            test_set_id=str(test_data.test_set_id) if test_data.test_set_id else None,
-        )
+            test_set_id=str(test_data.test_set_id) if test_data.test_set_id else None)
 
         return schemas.TestBulkCreateResponse(
             success=True, total_tests=len(tests), message=f"Successfully created {len(tests)} tests"
@@ -112,8 +108,7 @@ def create_tests_bulk(
         # Handle database integrity errors (e.g., duplicate unique values)
         raise HTTPException(
             status_code=409,
-            detail="Database integrity error: A record with the same unique values already exists",
-        )
+            detail="Database integrity error: A record with the same unique values already exists")
     except Exception as e:
         error_message = str(e)
         if "not found" in error_message.lower():
@@ -130,9 +125,8 @@ def create_tests_bulk(
 def generate_test_stats(
     top: Optional[int] = None,
     months: Optional[int] = 6,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get statistics about tests"""
     return get_test_stats(db, current_user.organization_id, top, months)
 
@@ -146,12 +140,13 @@ def read_tests(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get all tests with their related objects"""
+    organization_id, user_id = tenant_context
     tests = crud.get_tests(
-        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
     )
     return tests
 
@@ -159,9 +154,8 @@ def read_tests(
 @router.get("/{test_id}", response_model=TestDetailSchema)
 def read_test(
     test_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test by ID with its related objects"""
     db_test = crud.get_test(db, test_id=test_id)
     if db_test is None:
@@ -173,10 +167,9 @@ def read_test(
 def update_test(
     test_id: UUID,
     test: schemas.TestUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update test with optimized approach - no session variables needed.
 
@@ -203,9 +196,8 @@ def update_test(
 @router.delete("/{test_id}", response_model=schemas.Test)
 def delete_test(
     test_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Delete a test"""
     db_test = crud.get_test(db, test_id=test_id)
     if db_test is None:

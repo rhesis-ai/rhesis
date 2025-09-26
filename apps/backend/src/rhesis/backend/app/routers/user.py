@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
-    require_current_user_or_token_without_context,
-)
+    require_current_user_or_token_without_context)
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.auth import create_session_token
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -23,8 +23,7 @@ router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token_without_context)],
-)
+    dependencies=[Depends(require_current_user_or_token_without_context)])
 
 
 @router.post("/", response_model=schemas.User)
@@ -35,9 +34,8 @@ router = APIRouter(
 async def create_user(
     request: Request,
     user: schemas.UserCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token_without_context),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context)):
     # Set the organization_id from the current user
     user.organization_id = current_user.organization_id
 
@@ -88,8 +86,7 @@ async def create_user(
                 organization_name=organization_name,
                 organization_website=organization_website,
                 inviter_name=inviter_name,
-                inviter_email=current_user.email,
-            )
+                inviter_email=current_user.email)
 
             if success:
                 logger.info(f"Successfully sent invitation email to {created_user.email}")
@@ -112,9 +109,8 @@ async def read_users(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get all users with their related objects"""
     return crud.get_users(
         db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
@@ -124,9 +120,8 @@ async def read_users(
 @router.get("/{user_id}", response_model=schemas.User)
 def read_user(
     user_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     db_user = crud.get_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -140,9 +135,8 @@ def read_user(
 @router.delete("/{user_id}", response_model=schemas.Behavior)
 def delete_user(
     user_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete users")
 
@@ -168,9 +162,8 @@ def update_user(
     user_id: uuid.UUID,
     user: schemas.UserUpdate,
     request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token_without_context),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context)):
     # Get user with organization filtering (SECURITY CRITICAL)
     user_query = db.query(User).filter(User.id == user_id)
     

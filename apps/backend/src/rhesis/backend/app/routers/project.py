@@ -1,3 +1,4 @@
+from rhesis.backend.app.models.user import User
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -6,8 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
-from rhesis.backend.app.models.user import User
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -19,8 +19,7 @@ router = APIRouter(
     prefix="/projects",
     tags=["projects"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
-)
+    dependencies=[Depends(require_current_user_or_token)])
 
 
 @router.post("/", response_model=schemas.Project)
@@ -29,10 +28,9 @@ router = APIRouter(
 )
 async def create_project(
     project: schemas.ProjectCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create project with optimized approach - no session variables needed.
 
@@ -66,9 +64,8 @@ async def read_projects(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get all projects with their related objects"""
     return crud.get_projects(
         db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
@@ -78,10 +75,9 @@ async def read_projects(
 @router.get("/{project_id}")
 def read_project(
     project_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get project with optimized approach - no session variables needed.
 
@@ -111,10 +107,9 @@ def read_project(
 def update_project(
     project_id: uuid.UUID,
     project: schemas.ProjectUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update project with optimized approach - no session variables needed.
 
@@ -139,10 +134,9 @@ def update_project(
 @router.delete("/{project_id}")
 def delete_project(
     project_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Delete project with optimized approach - no session variables needed.
 

@@ -1,3 +1,4 @@
+from rhesis.backend.app.models.user import User
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -6,8 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
-from rhesis.backend.app.models.user import User
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.odata import combine_entity_type_filter
@@ -20,22 +20,19 @@ router = APIRouter(
     prefix="/topics",
     tags=["topics"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
-)
+    dependencies=[Depends(require_current_user_or_token)])
 
 
 @router.post("/", response_model=schemas.Topic)
 @handle_database_exceptions(
     entity_name="topic",
     custom_field_messages={"parent_id": "Invalid parent topic reference"},
-    custom_unique_message="Topic with this name already exists",
-)
+    custom_unique_message="Topic with this name already exists")
 def create_topic(
     topic: schemas.TopicCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create topic with optimized approach - no session variables needed.
 
@@ -59,24 +56,24 @@ def read_topics(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     entity_type: str | None = Query(None, description="Filter topics by entity type"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get all topics with their related objects"""
+    organization_id, user_id = tenant_context
     filter = combine_entity_type_filter(filter, entity_type)
 
     return crud.get_topics(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
     )
 
 
 @router.get("/{topic_id}")
 def read_topic(
     topic_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get topic with optimized approach - no session variables needed.
 
@@ -96,10 +93,9 @@ def read_topic(
 @router.delete("/{topic_id}")
 def delete_topic(
     topic_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Delete topic with optimized approach - no session variables needed.
 
@@ -120,15 +116,13 @@ def delete_topic(
 @handle_database_exceptions(
     entity_name="topic",
     custom_field_messages={"parent_id": "Invalid parent topic reference"},
-    custom_unique_message="Topic with this name already exists",
-)
+    custom_unique_message="Topic with this name already exists")
 def update_topic(
     topic_id: uuid.UUID,
     topic: schemas.TopicUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update topic with optimized approach - no session variables needed.
 

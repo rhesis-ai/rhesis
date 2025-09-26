@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_context
-from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -18,16 +17,14 @@ BehaviorWithMetricsSchema = create_detailed_schema(
     schemas.Behavior,
     models.Behavior,
     include_many_to_many=True,
-    include_nested_relationships={"metrics": ["metric_type", "backend_type"]},
-)
+    include_nested_relationships={"metrics": ["metric_type", "backend_type"]})
 MetricDetailSchema = create_detailed_schema(schemas.Metric, models.Metric)
 
 router = APIRouter(
     prefix="/behaviors",
     tags=["behaviors"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
-)
+    dependencies=[Depends(require_current_user_or_token)])
 
 
 @router.post("/", response_model=BehaviorWithMetricsSchema)
@@ -36,10 +33,9 @@ router = APIRouter(
 )
 def create_behavior(
     behavior: schemas.BehaviorCreate,
-    db: Session = Depends(get_db),  # ← Uses regular database session
+    db: Session = Depends(get_db_session),  # ← Uses regular database session
     tenant_context=Depends(get_tenant_context),  # ← Gets tenant context directly
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create behavior with optimized approach - no session variables needed.
 
@@ -69,10 +65,9 @@ def read_behaviors(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get all behaviors with optimized approach - no session variables needed.
 
@@ -102,8 +97,7 @@ def read_behaviors(
             filter=filter,
             nested_relationships={"metrics": ["metric_type", "backend_type"]},
             organization_id=organization_id,
-            user_id=user_id,
-        )
+            user_id=user_id)
         print(f"✅ [DEBUG] get_items_detail returned {len(result)} behaviors")
         if result:
             print(
@@ -124,10 +118,9 @@ def read_behaviors(
 @router.get("/{behavior_id}")
 def read_behavior(
     behavior_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get behavior with optimized approach - no session variables needed.
 
@@ -147,10 +140,9 @@ def read_behavior(
 @router.delete("/{behavior_id}")
 def delete_behavior(
     behavior_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Delete behavior with optimized approach - no session variables needed.
 
@@ -174,10 +166,9 @@ def delete_behavior(
 def update_behavior(
     behavior_id: uuid.UUID,
     behavior: schemas.BehaviorUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update behavior with optimized approach - no session variables needed.
 
@@ -193,8 +184,7 @@ def update_behavior(
         behavior_id=behavior_id,
         behavior=behavior,
         organization_id=organization_id,
-        user_id=user_id,
-    )
+        user_id=user_id)
     if db_behavior is None:
         raise HTTPException(status_code=404, detail="Behavior not found")
     return db_behavior
@@ -210,7 +200,7 @@ def read_behavior_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
     organization_id: str = None,  # For with_count_header decorator
@@ -227,8 +217,7 @@ def read_behavior_metrics(
             limit=limit,
             sort_by=sort_by,
             sort_order=sort_order,
-            filter=filter,
-        )
+            filter=filter)
         return metrics
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -238,9 +227,8 @@ def read_behavior_metrics(
 def add_metric_to_behavior(
     behavior_id: uuid.UUID,
     metric_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Add a metric to a behavior"""
     try:
         added = crud.add_behavior_to_metric(
@@ -248,8 +236,7 @@ def add_metric_to_behavior(
             metric_id=metric_id,
             behavior_id=behavior_id,
             user_id=current_user.id,
-            organization_id=current_user.organization_id,
-        )
+            organization_id=current_user.organization_id)
         if added:
             return {"status": "success", "message": "Metric added to behavior"}
         return {"status": "success", "message": "Metric was already associated with behavior"}
@@ -261,17 +248,15 @@ def add_metric_to_behavior(
 def remove_metric_from_behavior(
     behavior_id: uuid.UUID,
     metric_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Remove a metric from a behavior"""
     try:
         removed = crud.remove_behavior_from_metric(
             db=db,
             metric_id=metric_id,
             behavior_id=behavior_id,
-            organization_id=current_user.organization_id,
-        )
+            organization_id=current_user.organization_id)
         if removed:
             return {"status": "success", "message": "Metric removed from behavior"}
         return {"status": "success", "message": "Metric was not associated with behavior"}

@@ -1,3 +1,4 @@
+from rhesis.backend.app.models.user import User
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID
@@ -8,8 +9,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
-from rhesis.backend.app.models.user import User
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
 from rhesis.backend.app.services.stats import get_test_result_stats
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -33,8 +33,7 @@ class TestResultStatsMode(str, Enum):
 router = APIRouter(
     prefix="/test_results",
     tags=["test_results"],
-    responses={404: {"description": "Not found"}},
-)
+    responses={404: {"description": "Not found"}})
 
 
 @router.post("/", response_model=schemas.TestResult)
@@ -43,10 +42,9 @@ router = APIRouter(
 )
 def create_test_result(
     test_result: schemas.TestResultCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create test result with optimized approach - no session variables needed.
 
@@ -76,12 +74,13 @@ def read_test_results(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get all test results"""
+    organization_id, user_id = tenant_context
     test_results = crud.get_test_results(
-        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
     )
     return test_results
 
@@ -92,8 +91,7 @@ def generate_test_result_stats(
         TestResultStatsMode.ALL,
         description="Data mode: 'summary' (lightweight), 'metrics' (individual metrics), "
         "'behavior/category/topic' (dimensional), 'timeline' (trends), "
-        "'test_runs' (by run), 'overall' (aggregate), 'all' (complete)",
-    ),
+        "'test_runs' (by run), 'overall' (aggregate), 'all' (complete)"),
     top: Optional[int] = Query(
         None, description="Max items per dimension (e.g., top 10 behaviors)"
     ),
@@ -130,9 +128,8 @@ def generate_test_result_stats(
     end_date: Optional[str] = Query(
         None, description="End date (ISO format, overrides months parameter)"
     ),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get test result statistics with configurable data modes for optimal performance
 
     ## Available Modes
@@ -339,16 +336,14 @@ def generate_test_result_stats(
         tags=tags,
         # Date range filters
         start_date=start_date,
-        end_date=end_date,
-    )
+        end_date=end_date)
 
 
 @router.get("/{test_result_id}", response_model=TestResultDetailSchema)
 def read_test_result(
     test_result_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test result by ID"""
     db_test_result = crud.get_test_result(db, test_result_id=test_result_id)
     if db_test_result is None:
@@ -360,10 +355,9 @@ def read_test_result(
 def update_test_result(
     test_result_id: UUID,
     test_result: schemas.TestResultUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update test_result with optimized approach - no session variables needed.
 
@@ -389,16 +383,14 @@ def update_test_result(
         test_result_id=test_result_id,
         test_result=test_result,
         organization_id=organization_id,
-        user_id=user_id,
-    )
+        user_id=user_id)
 
 
 @router.delete("/{test_result_id}", response_model=schemas.TestResult)
 def delete_test_result(
     test_result_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """Delete a test result"""
     db_test_result = crud.get_test_result(db, test_result_id=test_result_id)
     if db_test_result is None:
