@@ -17,7 +17,7 @@ class Comment(Base, OrganizationAndUserMixin):
 
     # Entity relationship (polymorphic)
     entity_id = Column(GUID(), nullable=False)
-    entity_type = Column(String, nullable=False)  # "Test", "TestSet", "TestRun"
+    entity_type = Column(String, nullable=False)  # "Test", "TestSet", "TestRun", "Source"
 
     # Relationships
     user = relationship("User", back_populates="comments")
