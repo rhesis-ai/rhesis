@@ -1,6 +1,5 @@
 import functools
 import logging
-from datetime import datetime
 from typing import Any, Callable, Dict, Optional, TypeVar
 
 import requests
@@ -176,14 +175,3 @@ class BaseEntity:
                 f"entity with id {id} does not exist in database"
             )
         return dict(entity_dict)
-
-    def _validate_update(self) -> None:
-        """Validate entity before update."""
-        if not (
-            isinstance(self.fields.get("created_at"), datetime)
-            and isinstance(self.fields.get("updated_at"), datetime)
-        ):
-            raise ValueError(
-                f"Cannot update {self.__class__.__name__}: "
-                f"created_at and updated_at must be datetime objects"
-            )
