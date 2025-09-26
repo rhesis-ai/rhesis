@@ -132,15 +132,6 @@ class BaseEntity:
         )
         self.fields.update(response)
 
-    @handle_http_errors
-    def to_record(self) -> Dict[str, Any]:
-        """Convert the entity to a dictionary representation.
-
-        Returns:
-            Dict[str, Any]: The entity's fields as a dictionary.
-        """
-        return self.fields
-
     @classmethod
     def from_id(cls, record_id: str) -> Optional["BaseEntity"]:
         """Create an entity instance from a record ID."""
