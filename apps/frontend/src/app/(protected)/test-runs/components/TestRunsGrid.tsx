@@ -8,6 +8,7 @@ import { GridColDef, GridRowSelectionModel, GridPaginationModel } from '@mui/x-d
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Typography, Box, CircularProgress, Alert, Avatar, Button, Chip } from '@mui/material';
+import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -42,24 +43,24 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
 
   const fetchTestRuns = useCallback(async (skip: number, limit: number) => {
     if (!sessionToken) return;
-    
+
     try {
       if (isMounted.current) {
         setLoading(true);
       }
-      
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testRunsClient = clientFactory.getTestRunsClient();
-      
+
       const apiParams = {
         skip,
         limit,
         sort_by: 'created_at',
         sort_order: 'desc' as const,
       };
-      
+
       const response = await testRunsClient.getTestRuns(apiParams);
-      
+
       if (isMounted.current) {
         setTestRuns(response.data);
         setTotalCount(response.pagination.totalCount);
@@ -71,10 +72,10 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
           .filter((id): id is string => !!id);
 
         const uniqueProjectIds = [...new Set(projectIds)];
-        
+
         // Check which projects we don't have cached yet
         const uncachedProjectIds = uniqueProjectIds.filter(id => !projectNames[id]);
-        
+
         if (uncachedProjectIds.length > 0) {
           // Fetch all project names in parallel and update state once
           Promise.all(
@@ -97,7 +98,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
                   acc[projectId] = name;
                   return acc;
                 }, {} as Record<string, string>);
-              
+
               if (Object.keys(newProjects).length > 0) {
                 setProjectNames(prev => ({ ...prev, ...newProjects }));
               }
@@ -123,7 +124,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
 
     const loadData = async () => {
       if (!sessionToken) return;
-      
+
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
     };
@@ -138,7 +139,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
   // Memoized helper function to format execution time in a user-friendly way
   const formatExecutionTime = useMemo(() => (timeMs: number): string => {
     const seconds = timeMs / 1000;
-    
+
     if (seconds < 60) {
       return `${Math.round(seconds)}s`;
     } else if (seconds < 3600) { // Less than 1 hour
@@ -151,13 +152,13 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
   }, []);
 
   const columns: GridColDef[] = useMemo(() => [
-    { 
+    {
       field: 'name',
-      headerName: 'Name', 
+      headerName: 'Name',
       flex: 1,
       valueGetter: (_, row) => row.name || ''
     },
-    { 
+    {
       field: 'test_sets',
       headerName: 'Test Sets',
       flex: 1,
@@ -166,7 +167,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         return testSet?.name || '';
       }
     },
-    { 
+    {
       field: 'total_tests',
       headerName: 'Total Tests',
       flex: 1,
@@ -177,58 +178,58 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         return attributes?.total_tests || 0;
       }
     },
-    { 
+    {
       field: 'execution_time',
-      headerName: 'Execution Time', 
+      headerName: 'Execution Time',
       flex: 1,
       align: 'right',
       headerAlign: 'right',
       renderCell: (params) => {
         const status = params.row.status?.name || params.row.attributes?.status;
-        
+
         // If status is Progress, show "In Progress" instead of elapsed time
         if (status?.toLowerCase() === 'progress') {
           return 'In Progress';
         }
-        
+
         // If status is completed, show total execution time
         if (status?.toLowerCase() === 'completed') {
           const timeMs = params.row.attributes?.total_execution_time_ms;
           if (!timeMs) return '';
           return formatExecutionTime(timeMs);
         }
-        
+
         // For other statuses, return empty
         return '';
       }
     },
-    { 
-      field: 'status', 
-      headerName: 'Status', 
+    {
+      field: 'status',
+      headerName: 'Status',
       flex: 1,
       renderCell: (params) => {
         const status = params.row.status?.name;
         if (!status) return null;
 
         return (
-          <Chip 
-            label={status} 
-            size="small" 
+          <Chip
+            label={status}
+            size="small"
             variant="outlined"
           />
         );
       }
     },
-    { 
-      field: 'executor', 
-      headerName: 'Executor', 
+    {
+      field: 'executor',
+      headerName: 'Executor',
       flex: 1,
       renderCell: (params) => {
         const executor = params.row.user;
         if (!executor) return null;
 
-        const displayName = executor.name || 
-          `${executor.given_name || ''} ${executor.family_name || ''}`.trim() || 
+        const displayName = executor.name ||
+          `${executor.given_name || ''} ${executor.family_name || ''}`.trim() ||
           executor.email;
 
         return (
@@ -240,6 +241,40 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
               <PersonIcon />
             </Avatar>
             <Typography variant="body2">{displayName}</Typography>
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'counts.comments',
+      headerName: 'Comments',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const count = params.row.counts?.comments || 0;
+        if (count === 0) return null;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'counts.tasks',
+      headerName: 'Tasks',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const count = params.row.counts?.tasks || 0;
+        if (count === 0) return null;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
           </Box>
         );
       }
@@ -287,27 +322,27 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
         const statusClient = clientFactory.getStatusClient();
-        
+
         // Get the "Deleted" status
         const statuses = await statusClient.getStatuses({ entity_type: 'TestRun' });
         const deletedStatus = statuses.find(s => s.name.toLowerCase() === 'deleted');
-        
+
         if (!deletedStatus) {
           throw new Error('Could not find Deleted status');
         }
-        
+
         await Promise.all(
-          validSelectedRows.map(id => testRunsClient.updateTestRun(id.toString(), { 
-            status_id: deletedStatus.id 
+          validSelectedRows.map(id => testRunsClient.updateTestRun(id.toString(), {
+            status_id: deletedStatus.id
           }))
         );
-        
+
         notifications.show(`Successfully deleted ${validSelectedRows.length} test runs`, { severity: 'success' });
-        
+
         // Refresh the data
         const skip = paginationModel.page * paginationModel.pageSize;
         await fetchTestRuns(skip, paginationModel.pageSize);
-        
+
         // Clear selection
         setSelectedRows([]);
       } catch (error) {
@@ -357,7 +392,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
           </Typography>
         </Box>
       )}
-      
+
       <BaseDataGrid
         rows={testRuns}
         columns={columns}
@@ -388,4 +423,4 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
 }
 
 // Export memoized component to prevent unnecessary re-renders
-export default React.memo(TestRunsTable); 
+export default React.memo(TestRunsTable);

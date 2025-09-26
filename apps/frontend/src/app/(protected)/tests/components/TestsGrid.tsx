@@ -4,9 +4,9 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { 
-  GridColDef, 
-  GridRowSelectionModel, 
+import {
+  GridColDef,
+  GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel
 } from '@mui/x-data-grid';
@@ -14,6 +14,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
+import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
 import PersonIcon from '@mui/icons-material/Person';
@@ -34,7 +35,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
-  
+
   // Component state
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [tests, setTests] = useState<TestDetail[]>([]);
@@ -65,16 +66,16 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
   // Data fetching function
   const fetchTests = useCallback(async () => {
     if (!sessionToken) return;
-    
+
     try {
       setLoading(true);
-      
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testsClient = clientFactory.getTestsClient();
-      
+
       // Convert filter model to OData filter string
       const filterString = convertGridFilterModelToOData(filterModel);
-      
+
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
@@ -82,13 +83,13 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         sort_order: 'desc',
         ...(filterString && { filter: filterString })
       };
-      
+
       const response = await testsClient.getTests(apiParams);
-      
+
       console.log('API response:', response);
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
-      
+
       setError(null);
     } catch (error) {
       console.error('Error fetching tests:', error);
@@ -118,9 +119,9 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
 
   // Column definitions
   const columns: GridColDef[] = React.useMemo(() => [
-    { 
-      field: 'prompt.content', 
-      headerName: 'Content', 
+    {
+      field: 'prompt.content',
+      headerName: 'Content',
       flex: 3,
       filterable: true,
       valueGetter: (value, row) => row.prompt?.content || '',
@@ -129,10 +130,10 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         if (!content) return null;
 
         return (
-          <Typography 
-            variant="body2" 
+          <Typography
+            variant="body2"
             title={content}
-            sx={{ 
+            sx={{
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
@@ -143,9 +144,9 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         );
       }
     },
-    { 
+    {
       field: 'behavior.name',
-      headerName: 'Behavior', 
+      headerName: 'Behavior',
       flex: 1,
       filterable: true,
       valueGetter: (value, row) => row.behavior?.name || '',
@@ -154,17 +155,17 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         if (!behaviorName) return null;
 
         return (
-          <Chip 
-            label={behaviorName} 
-            size="small" 
+          <Chip
+            label={behaviorName}
+            size="small"
             variant="outlined"
           />
         );
       }
     },
-    { 
-      field: 'topic.name', 
-      headerName: 'Topic', 
+    {
+      field: 'topic.name',
+      headerName: 'Topic',
       flex: 1,
       filterable: true,
       valueGetter: (value, row) => row.topic?.name || '',
@@ -173,17 +174,17 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         if (!topicName) return null;
 
         return (
-          <Chip 
-            label={topicName} 
-            size="small" 
+          <Chip
+            label={topicName}
+            size="small"
             variant="outlined"
           />
         );
       }
     },
-    { 
-      field: 'category.name', 
-      headerName: 'Category', 
+    {
+      field: 'category.name',
+      headerName: 'Category',
       flex: 1,
       filterable: true,
       valueGetter: (value, row) => row.category?.name || '',
@@ -192,32 +193,32 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         if (!categoryName) return null;
 
         return (
-          <Chip 
-            label={categoryName} 
-            size="small" 
+          <Chip
+            label={categoryName}
+            size="small"
             variant="outlined"
           />
         );
       }
     },
-    { 
-      field: 'assignee.name', 
-      headerName: 'Assignee', 
+    {
+      field: 'assignee.name',
+      headerName: 'Assignee',
       flex: 1,
       filterable: true,
       valueGetter: (value, row) => {
         const assignee = row.assignee;
         if (!assignee) return '';
-        return assignee.name || 
-          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
+        return assignee.name ||
+          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
           assignee.email || '';
       },
       renderCell: (params) => {
         const assignee = params.row.assignee;
         if (!assignee) return null;
 
-        const displayName = assignee.name || 
-          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
+        const displayName = assignee.name ||
+          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
           assignee.email;
 
         return (
@@ -229,6 +230,40 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
               <PersonIcon />
             </Avatar>
             <Typography variant="body2">{displayName}</Typography>
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'counts.comments',
+      headerName: 'Comments',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const count = params.row.counts?.comments || 0;
+        if (count === 0) return null;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'counts.tasks',
+      headerName: 'Tasks',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const count = params.row.counts?.tasks || 0;
+        if (count === 0) return null;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
           </Box>
         );
       }
@@ -253,11 +288,11 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
 
   const handleTestSetSelect = useCallback(async (testSet: TestSet) => {
     if (!sessionToken) return;
-    
+
     try {
       const testSetsClient = new TestSetsClient(sessionToken);
       await testSetsClient.associateTestsWithTestSet(testSet.id, selectedRows as string[]);
-      
+
       if (isMounted.current) {
         notifications.show(
           `Successfully associated ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'} with test set "${testSet.name}"`,
@@ -266,7 +301,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
             autoHideDuration: 6000
           }
         );
-        
+
         setTestSetDialogOpen(false);
       }
     } catch (error) {
@@ -383,7 +418,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         variant: 'contained' as const,
         onClick: handleCreateTestSet
       });
-      
+
       buttons.push({
         label: 'Delete Tests',
         icon: <DeleteIcon />,
@@ -411,7 +446,7 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
           </Typography>
         </Box>
       )}
-      
+
       <BaseDataGrid
         rows={tests}
         columns={columns}

@@ -6,6 +6,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Box, Chip, Tooltip, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Typography, Avatar } from '@mui/material';
+import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import AddIcon from '@mui/icons-material/Add';
@@ -26,10 +27,10 @@ interface StatusInfo {
 const getStatusInfo = (testSet: TestSet & { status?: string | { name: string } }): StatusInfo => {
   // Only use actual status from API
   return {
-    label: typeof testSet.status === "string" 
-      ? testSet.status 
-      : testSet.status && typeof testSet.status === "object" && 'name' in testSet.status 
-        ? testSet.status.name 
+    label: typeof testSet.status === "string"
+      ? testSet.status
+      : testSet.status && typeof testSet.status === "object" && 'name' in testSet.status
+        ? testSet.status.name
         : "Unknown",
     borderColor: 'primary.light',
     color: 'primary.main'
@@ -61,7 +62,7 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 
       let totalWidth = 0;
       let visibleCount = 0;
-      
+
       // Account for potential overflow chip width
       const overflowChip = document.createElement('div');
       overflowChip.innerHTML = '<span class="MuiChip-root" style="padding: 0 8px;">+99</span>';
@@ -74,7 +75,7 @@ const ChipContainer = ({ items }: { items: string[] }) => {
         chip.innerHTML = `<span class="MuiChip-root" style="padding: 0 8px;">${items[i]}</span>`;
         tempDiv.appendChild(chip);
         const chipWidth = (chip.firstChild as HTMLElement)?.getBoundingClientRect().width || 0;
-        
+
         if (totalWidth + chipWidth + (i < items.length - 1 ? overflowChipWidth : 0) <= containerWidth - 16) { // 16px for safety margin
           totalWidth += chipWidth + 8; // 8px for gap
           visibleCount++;
@@ -109,11 +110,11 @@ const ChipContainer = ({ items }: { items: string[] }) => {
   );
 };
 
-export default function TestSetsGrid({ 
-  testSets: initialTestSets, 
-  loading: initialLoading, 
+export default function TestSetsGrid({
+  testSets: initialTestSets,
+  loading: initialLoading,
   sessionToken,
-  initialTotalCount 
+  initialTotalCount
 }: TestSetsGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -142,26 +143,26 @@ export default function TestSetsGrid({
 
   const fetchTestSets = useCallback(async () => {
     if (!sessionToken && !session?.session_token) return;
-    
+
     try {
       setLoading(true);
-      
+
       const token = sessionToken || session?.session_token;
       const clientFactory = new ApiClientFactory(token!);
       const testSetsClient = clientFactory.getTestSetsClient();
-      
+
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
-      
+
       const apiParams = {
-        skip, 
+        skip,
         limit,
         sort_by: 'created_at',
         sort_order: 'desc' as const,
       };
-      
+
       const response = await testSetsClient.getTestSets(apiParams);
-      
+
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
     } catch (error) {
@@ -196,33 +197,33 @@ export default function TestSetsGrid({
   });
 
   const columns: GridColDef[] = [
-    { 
+    {
       field: 'name',
-      headerName: 'Name', 
+      headerName: 'Name',
       flex: 1.5,
       renderCell: (params) => <span style={{ fontWeight: 'medium' }}>{params.value}</span>
     },
-    { 
-      field: 'behaviors', 
-      headerName: 'Behaviors', 
+    {
+      field: 'behaviors',
+      headerName: 'Behaviors',
       flex: 1.0,
       renderCell: (params) => <ChipContainer items={params.row.behaviors || []} />
     },
-    { 
-      field: 'categories', 
-      headerName: 'Categories', 
+    {
+      field: 'categories',
+      headerName: 'Categories',
       flex: 1.0,
       renderCell: (params) => <ChipContainer items={params.row.categories || []} />
     },
-    { 
-      field: 'totalTests', 
-      headerName: 'Tests', 
+    {
+      field: 'totalTests',
+      headerName: 'Tests',
       flex: 0.5,
       valueGetter: (_, row) => row.totalTests
     },
-    { 
-      field: 'status', 
-      headerName: 'Status', 
+    {
+      field: 'status',
+      headerName: 'Status',
       flex: 0.5,
       renderCell: (params) => <Chip label={params.row.status} size="small" variant="outlined" />
     },
@@ -233,9 +234,9 @@ export default function TestSetsGrid({
       renderCell: (params) => {
         const assignee = params.row.assignee;
         if (!assignee) return '-';
-        
-        const displayName = assignee.name || 
-          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
+
+        const displayName = assignee.name ||
+          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
           assignee.email;
 
         return (
@@ -247,6 +248,40 @@ export default function TestSetsGrid({
               <PersonIcon />
             </Avatar>
             <Typography variant="body2">{displayName}</Typography>
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'counts.comments',
+      headerName: 'Comments',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const count = params.row.counts?.comments || 0;
+        if (count === 0) return null;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'counts.tasks',
+      headerName: 'Tasks',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const count = params.row.counts?.tasks || 0;
+        if (count === 0) return null;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
           </Box>
         );
       }
