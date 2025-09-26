@@ -46,20 +46,15 @@ def _set_session_variables(db: Session, organization_id: str = '', user_id: str 
         organization_id: Organization ID (defaults to empty string)
         user_id: User ID (defaults to empty string)
     """
-    logger.info(f"🔧 [DB] Setting session variables: org={organization_id[:8]}..., user={user_id[:8]}...")
-    
-    # OPTIMIZATION: Check cache to avoid unnecessary DB operations
-    # SECURITY: Include tenant context in cache key to prevent cross-user contamination
+    # Security: Use connection ID + org + user as cache key to prevent cross-tenant leaks
     connection_id = id(db.connection())
     cache_key = (connection_id, organization_id, user_id)
     
     if cache_key in _session_variable_cache:
-        logger.info("⚡ [DB] Session variables already set for this user/org - SKIPPING (cached)")
         return
     
     try:
-        # OPTIMIZATION: Set both variables in a single SQL statement
-        logger.info("📝 [DB] Executing BATCHED set_config for both variables")
+        # Set both variables in a single SQL statement for efficiency
         db.execute(
             text("""
                 SELECT 
@@ -71,12 +66,10 @@ def _set_session_variables(db: Session, organization_id: str = '', user_id: str 
         
         # Cache the values for this specific connection + user/org combination
         _session_variable_cache[cache_key] = True
-        logger.info("✅ [DB] Session variables set successfully (BATCHED + CACHED)")
         
     except Exception as e:
-        # If variables don't exist, this will create them automatically
-        # PostgreSQL set_config creates the variable if it doesn't exist
-        logger.warning(f"⚠️ [DB] Session variables set with potential creation: {e}")
+        # Handle case where session variables don't exist yet
+        logger.debug(f"Session variables set with potential creation: {e}")
         # Re-raise only if it's a serious error, not just "variable doesn't exist"
         if "unrecognized configuration parameter" not in str(e).lower():
             raise
@@ -230,57 +223,54 @@ def init_db():
 @contextmanager
 def get_db() -> Generator[Session, None, None]:
     """
-    Get a simple database session with transparent transaction management.
+    Get a database session with transparent transaction management.
     
-    For operations requiring tenant context, use get_db() and pass organization_id/user_id to CRUD functions.
+    For operations requiring tenant context, use get_db_with_tenant_variables().
     This function provides a basic session for operations like user lookup,
     token validation, and other non-tenant-specific queries.
-    
-    Uses transparent transaction management - transactions are handled automatically
-    by SQLAlchemy based on the session configuration (autocommit=False, autoflush=False).
-    Clients don't need to explicitly manage transactions.
     """
-    logger.info("🔌 [DB] Creating new database session")
     db = SessionLocal()
     try:
         yield db
-        # Commit any pending transactions automatically
         if db.in_transaction():
-            logger.info("💾 [DB] Committing transaction")
             db.commit()
-        else:
-            logger.info("✅ [DB] No transaction to commit")
     except Exception as e:
-        # Rollback on exception
         if db.in_transaction():
-            logger.error(f"🔄 [DB] Rolling back transaction due to error: {e}")
             db.rollback()
         raise
     finally:
         # Clean up session variable cache for this connection
-        # SECURITY: Remove all cache entries for this connection to prevent leaks
         try:
             connection_id = id(db.connection()) if hasattr(db, 'connection') else None
             if connection_id:
-                # Remove all cache entries for this connection (regardless of user/org)
                 keys_to_remove = [key for key in _session_variable_cache.keys() 
                                 if key[0] == connection_id]
                 for key in keys_to_remove:
                     del _session_variable_cache[key]
-                if keys_to_remove:
-                    logger.info(f"🧹 [DB] Cleaned up {len(keys_to_remove)} session variable cache entries")
         except Exception as e:
             logger.debug(f"Cache cleanup error (non-critical): {e}")
         
-        # Close the session
-        logger.info("🔐 [DB] Closing database session")
         db.close()
 
 
-# get_org_aware_db function has been completely removed
-# Use get_db() and pass organization_id/user_id directly to CRUD functions
-# Example: crud.create_item(db, model, data, organization_id=organization_id, user_id=user_id)
+@contextmanager
+def get_db_with_tenant_variables(organization_id: str = '', user_id: str = '') -> Generator[Session, None, None]:
+    """
+    Get a database session with tenant context automatically set.
+    
+    This is the centralized function used by both FastAPI dependencies and task system.
+    
+    Args:
+        organization_id: Organization ID for session variables
+        user_id: User ID for session variables
+        
+    Yields:
+        Session: Database session with tenant context set
+    """
+    with get_db() as db:
+        _set_session_variables(db, organization_id, user_id)
+        yield db
 
 
-# Removed legacy get_current_*_cached functions
-# These are no longer needed - use direct parameter passing to CRUD functions
+# For tenant-aware operations, use get_db_with_tenant_variables()
+# For basic operations, use get_db() and pass tenant context to CRUD functions
