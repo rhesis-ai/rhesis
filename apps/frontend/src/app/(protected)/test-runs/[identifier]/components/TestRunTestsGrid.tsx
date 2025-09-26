@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Box, Tooltip, Button } from '@mui/material';
-import { formatDate } from '@/utils/date';
+import { Box, Tooltip, Button, Typography } from '@mui/material';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { GridColDef, GridPaginationModel, GridRenderCellParams, GridRowParams } from '@mui/x-data-grid';
@@ -53,7 +52,7 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
     try {
       const testRunsClient = new ApiClientFactory(sessionToken).getTestRunsClient();
       const blob = await testRunsClient.downloadTestRun(testRunId);
-      
+
       // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -63,7 +62,7 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       notifications.show('Test run results downloaded successfully', { severity: 'success' });
     } catch (error) {
       console.error('Error downloading test run:', error);
@@ -76,19 +75,19 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
   const renderBehaviorCell = useCallback((params: GridRenderCellParams) => {
     const value = params.value;
     if (value === 'N/A') return value;
-    
-    const { status, passedMetrics, totalMetrics, failedMetrics } = value as { 
-      status: string; 
-      passedMetrics: number; 
-      totalMetrics: number; 
+
+    const { status, passedMetrics, totalMetrics, failedMetrics } = value as {
+      status: string;
+      passedMetrics: number;
+      totalMetrics: number;
       failedMetrics: string[];
     };
     const color = status === 'Passed' ? 'success.main' : 'error.main';
-    
-    const tooltipContent = status === 'Passed' 
+
+    const tooltipContent = status === 'Passed'
       ? `All ${totalMetrics} metrics passed`
       : `${passedMetrics}/${totalMetrics} metrics passed. Failed: ${failedMetrics.join(', ')}`;
-    
+
     return (
       <Box
         sx={{
@@ -100,8 +99,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
           color
         }}
       >
-        <Tooltip 
-          title={tooltipContent} 
+        <Tooltip
+          title={tooltipContent}
           enterDelay={1000}
           leaveDelay={0}
           enterNextDelay={1000}
@@ -130,8 +129,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
           ? prompts[params.row.prompt_id].content
           : 'N/A';
         return (
-          <Tooltip 
-            title={content} 
+          <Tooltip
+            title={content}
             enterDelay={1500}
             leaveDelay={0}
             enterNextDelay={1500}
@@ -151,8 +150,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
       renderCell: (params) => {
         const content = params.row.test_output?.output ?? 'N/A';
         return (
-          <Tooltip 
-            title={content} 
+          <Tooltip
+            title={content}
             enterDelay={1500}
             leaveDelay={0}
             enterNextDelay={1500}
@@ -175,8 +174,8 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
         <span>
           {behavior.name}
         </span>
-        <Tooltip 
-          title={behavior.description ?? 'No description available'} 
+        <Tooltip
+          title={behavior.description ?? 'No description available'}
           enterDelay={1000}
           leaveDelay={0}
           enterNextDelay={1000}
@@ -189,11 +188,11 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
     valueGetter: (_, row) => {
       const testMetrics = row.test_metrics?.metrics;
       if (!testMetrics || behavior.metrics.length === 0) return 'N/A';
-      
+
       // Check each metric associated with this behavior
       let passedMetrics = 0;
       const failedMetrics: string[] = [];
-      
+
       behavior.metrics.forEach((metric) => {
         const metricResult = testMetrics[metric.name];
         if (metricResult) {
@@ -204,10 +203,10 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
           }
         }
       });
-      
+
       const totalMetrics = behavior.metrics.length;
       const allPassed = passedMetrics === totalMetrics && failedMetrics.length === 0;
-      
+
       return {
         status: allPassed ? 'Passed' : 'Failed',
         passedMetrics,
@@ -278,7 +277,7 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
           },
         }}
       />
-      
+
       <DetailedTestRunGrid
         testRunId={testRunId}
         sessionToken={sessionToken}
@@ -287,4 +286,4 @@ export default function TestRunTestsGrid({ testRunId, sessionToken }: TestRunTes
       />
     </Box>
   );
-} 
+}
