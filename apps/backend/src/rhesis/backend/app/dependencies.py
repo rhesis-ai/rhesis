@@ -69,6 +69,42 @@ def get_db_session():
         yield db
 
 
+def get_tenant_db_session(tenant_context: tuple = Depends(get_tenant_context)):
+    """
+    FastAPI dependency that provides a database session with automatic session variables.
+    
+    This is a drop-in replacement for get_db_session that automatically sets
+    PostgreSQL session variables for RLS policies. Routes can use this without
+    changing their function signatures - they still get just a Session object.
+    
+    Benefits:
+    - Drop-in replacement for get_db_session
+    - Automatically sets app.current_organization and app.current_user session variables
+    - Supports RLS policies without code changes in routes
+    - Maintains existing route parameter patterns
+    
+    Returns:
+        Session: The database session with session variables set
+    """
+    organization_id, user_id = tenant_context
+    logger.info(f"🚀 [TENANT_DB] get_tenant_db_session called for org={organization_id[:8]}..., user={user_id[:8]}...")
+    
+    with get_db() as db:
+        try:
+            # Automatically set session variables for RLS policies
+            logger.info("🔧 [TENANT_DB] Setting session variables automatically")
+            _set_session_variables(db, organization_id, user_id)
+            logger.info(f"✅ [TENANT_DB] Session variables set successfully")
+            
+        except Exception as e:
+            # Log but don't fail - explicit parameters in routes still work
+            logger.error(f"❌ [TENANT_DB] Failed to set session variables: {e}")
+        
+        logger.info("🎯 [TENANT_DB] Yielding database session")
+        yield db
+        logger.info("🏁 [TENANT_DB] get_tenant_db_session completed")
+
+
 def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
     """
     FastAPI dependency that provides both a database session and tenant context.
