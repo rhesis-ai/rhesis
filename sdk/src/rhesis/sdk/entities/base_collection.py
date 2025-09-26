@@ -17,17 +17,18 @@ class BaseCollection:
     endpoint: str
 
     @classmethod
-    def delete(cls, nano_id: str) -> bool:
+    def delete(cls, id: str) -> bool:
         """Delete the entity from the database."""
         client = Client()
         try:
             client.send_request(
                 endpoint=cls.endpoint,
                 method=Methods.DELETE,
-                url_params=nano_id,
+                url_params=id,
             )
             return True
-        except requests.exceptions.HTTPError:
+        except requests.exceptions.HTTPError as e:
+            raise e
             return False
 
     @classmethod
