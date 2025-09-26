@@ -38,9 +38,16 @@ export default function SidebarFooter() {
             textTransform: 'none',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              width: '100%',
+            }}
+          >
             <Typography variant="body2">Provide Feedback</Typography>
-            <Typography 
+            <Typography
               variant="caption"
               color="text.disabled"
               sx={{ opacity: 0.6, marginLeft: 'auto' }}
@@ -50,11 +57,11 @@ export default function SidebarFooter() {
           </Box>
         </Button>
       </Box>
-      
-      <FeedbackModal 
-        open={feedbackModalOpen} 
-        onClose={handleCloseFeedbackModal} 
+
+      <FeedbackModal
+        open={feedbackModalOpen}
+        onClose={handleCloseFeedbackModal}
       />
     </>
   );
-} 
+}

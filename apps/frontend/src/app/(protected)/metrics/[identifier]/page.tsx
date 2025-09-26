@@ -1,8 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '@mui/material/styles';
-import { Box, Stack, Paper, Typography, Button, TextField, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
+import {
+  Box,
+  Stack,
+  Paper,
+  Typography,
+  Button,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
+} from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -21,7 +33,6 @@ import { Model } from '@/utils/api-client/interfaces/model';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
-import React from 'react';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { User } from '@/utils/api-client/interfaces/user';
 
@@ -67,7 +78,7 @@ export default function MetricDetailPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
-  
+
   // Refs for uncontrolled text fields
   const nameRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -79,26 +90,30 @@ export default function MetricDetailPage() {
   useEffect(() => {
     const fetchData = async () => {
       if (!session?.session_token || dataFetchedRef.current) return;
-      
+
       dataFetchedRef.current = true;
-      
+
       try {
         const clientFactory = new ApiClientFactory(session.session_token);
         const metricsClient = clientFactory.getMetricsClient();
         const statusClient = clientFactory.getStatusClient();
         const usersClient = clientFactory.getUsersClient();
-        
+
         // Fetch all data in parallel
         const [metricData, statusesData, usersData] = await Promise.all([
           metricsClient.getMetric(identifier as UUID),
-          statusClient.getStatuses({ entity_type: 'Metric', sort_by: 'name', sort_order: 'asc' }),
-          usersClient.getUsers({ limit: 100 })
+          statusClient.getStatuses({
+            entity_type: 'Metric',
+            sort_by: 'name',
+            sort_order: 'asc',
+          }),
+          usersClient.getUsers({ limit: 100 }),
         ]);
-        
+
         setMetric(metricData);
         setStatuses(statusesData || []);
         setUsers(usersData.data || []);
-        
+
         // Model data is already included in the metric response
         if (metricData.model) {
           setModels([metricData.model]);
@@ -107,7 +122,9 @@ export default function MetricDetailPage() {
         console.error('Error fetching data:', error);
         // Use notifications without depending on it
         const notificationsContext = notifications;
-        notificationsContext.show('Failed to load metric details', { severity: 'error' });
+        notificationsContext.show('Failed to load metric details', {
+          severity: 'error',
+        });
       } finally {
         setLoading(false);
       }
@@ -119,13 +136,16 @@ export default function MetricDetailPage() {
   // Helper function to collect current field values without triggering re-renders
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
     const values: Partial<EditData> = {};
-    
+
     if (nameRef.current) values.name = nameRef.current.value;
-    if (descriptionRef.current) values.description = descriptionRef.current.value;
-    if (evaluationPromptRef.current) values.evaluation_prompt = evaluationPromptRef.current.value;
+    if (descriptionRef.current)
+      values.description = descriptionRef.current.value;
+    if (evaluationPromptRef.current)
+      values.evaluation_prompt = evaluationPromptRef.current.value;
     if (reasoningRef.current) values.reasoning = reasoningRef.current.value;
-    if (explanationRef.current) values.explanation = explanationRef.current.value;
-    
+    if (explanationRef.current)
+      values.explanation = explanationRef.current.value;
+
     // Collect step values
     const stepValues: string[] = [];
     stepsWithIds.forEach(step => {
@@ -137,113 +157,134 @@ export default function MetricDetailPage() {
     if (stepValues.length > 0) {
       values.evaluation_steps = stepValues;
     }
-    
+
     return values;
   }, [stepsWithIds]);
 
   // Helper function to populate refs with initial values when entering edit mode
-  const populateFieldRefs = React.useCallback((section: EditableSectionType, currentMetric: MetricDetail) => {
-    if (section === 'general') {
-      if (nameRef.current) nameRef.current.value = currentMetric.name || '';
-      if (descriptionRef.current) descriptionRef.current.value = currentMetric.description || '';
-    } else if (section === 'evaluation') {
-      if (evaluationPromptRef.current) evaluationPromptRef.current.value = currentMetric.evaluation_prompt || '';
-      if (reasoningRef.current) reasoningRef.current.value = currentMetric.reasoning || '';
-      
-      // Populate step refs
-      const steps = currentMetric.evaluation_steps?.split('\n---\n') || [''];
-      const stepsWithIds = steps.map((step, index) => ({
-        id: `step-${Date.now()}-${index}`,
-        content: step
-      }));
-      setStepsWithIds(stepsWithIds);
-      
-      // Populate step refs after a brief delay to ensure DOM elements exist
-      setTimeout(() => {
-        stepsWithIds.forEach(step => {
-          const stepElement = stepRefs.current.get(step.id);
-          if (stepElement) {
-            stepElement.value = step.content;
-          }
-        });
-      }, 0);
-    } else if (section === 'configuration') {
-      if (explanationRef.current) explanationRef.current.value = currentMetric.explanation || '';
-    }
-  }, []);
+  const populateFieldRefs = React.useCallback(
+    (section: EditableSectionType, currentMetric: MetricDetail) => {
+      if (section === 'general') {
+        if (nameRef.current) nameRef.current.value = currentMetric.name || '';
+        if (descriptionRef.current)
+          descriptionRef.current.value = currentMetric.description || '';
+      } else if (section === 'evaluation') {
+        if (evaluationPromptRef.current)
+          evaluationPromptRef.current.value =
+            currentMetric.evaluation_prompt || '';
+        if (reasoningRef.current)
+          reasoningRef.current.value = currentMetric.reasoning || '';
 
-  const handleTagsChange = React.useCallback(async (newTags: string[]) => {
-    if (!session?.session_token) return;
+        // Populate step refs
+        const steps = currentMetric.evaluation_steps?.split('\n---\n') || [''];
+        const stepsWithIds = steps.map((step, index) => ({
+          id: `step-${Date.now()}-${index}`,
+          content: step,
+        }));
+        setStepsWithIds(stepsWithIds);
 
-    // Use functional state update to avoid depending on metric
-    setMetric(currentMetric => {
-      if (!currentMetric) return currentMetric;
-      
-      (async () => {
-        try {
-          const clientFactory = new ApiClientFactory(session.session_token!);
-          const metricsClient = clientFactory.getMetricsClient();
-          const updatedMetric = await metricsClient.getMetric(currentMetric.id);
-          setMetric(updatedMetric);
-        } catch (error) {
-          console.error('Error refreshing metric:', error);
-          notifications.show('Failed to refresh metric data', { severity: 'error' });
-        }
-      })();
-      
-      return currentMetric;
-    });
-  }, [session?.session_token, notifications]);
-
-
-
-  const handleEdit = React.useCallback(async (section: EditableSectionType) => {
-    if (!metric) return;
-    
-    setIsEditing(section);
-    
-    // Populate refs with initial values (no re-renders)
-    populateFieldRefs(section, metric);
-    
-    // Only set editData for select fields (model, score_type, etc.)
-    let sectionData: Partial<EditData> = {};
-    
-    if (section === 'evaluation') {
-      sectionData = {
-        model_id: metric.model_id
-      };
-      
-      // For editing, we need all available models, not just the current one
-      setModels(currentModels => {
-        if (currentModels.length <= 1 && session?.session_token) {
-          // Fetch models asynchronously without blocking
-          (async () => {
-            try {
-              const clientFactory = new ApiClientFactory(session.session_token!);
-              const modelsClient = clientFactory.getModelsClient();
-              const modelsData = await modelsClient.getModels({ limit: 100, skip: 0 });
-              setModels(modelsData.data || []);
-            } catch (error) {
-              console.error('Error fetching models for editing:', error);
-              notifications.show('Failed to load models for editing', { severity: 'error' });
+        // Populate step refs after a brief delay to ensure DOM elements exist
+        setTimeout(() => {
+          stepsWithIds.forEach(step => {
+            const stepElement = stepRefs.current.get(step.id);
+            if (stepElement) {
+              stepElement.value = step.content;
             }
-          })();
-        }
-        return currentModels;
+          });
+        }, 0);
+      } else if (section === 'configuration') {
+        if (explanationRef.current)
+          explanationRef.current.value = currentMetric.explanation || '';
+      }
+    },
+    []
+  );
+
+  const handleTagsChange = React.useCallback(
+    async (newTags: string[]) => {
+      if (!session?.session_token) return;
+
+      // Use functional state update to avoid depending on metric
+      setMetric(currentMetric => {
+        if (!currentMetric) return currentMetric;
+
+        (async () => {
+          try {
+            const clientFactory = new ApiClientFactory(session.session_token!);
+            const metricsClient = clientFactory.getMetricsClient();
+            const updatedMetric = await metricsClient.getMetric(
+              currentMetric.id
+            );
+            setMetric(updatedMetric);
+          } catch (error) {
+            console.error('Error refreshing metric:', error);
+            notifications.show('Failed to refresh metric data', {
+              severity: 'error',
+            });
+          }
+        })();
+
+        return currentMetric;
       });
-    } else if (section === 'configuration') {
-      sectionData = {
-        score_type: metric.score_type || 'binary',
-        min_score: metric.min_score,
-        max_score: metric.max_score,
-        threshold: metric.threshold
-      };
-    }
+    },
+    [session?.session_token, notifications]
+  );
 
-    setEditData(sectionData);
-  }, [metric, session?.session_token, populateFieldRefs, notifications]);
+  const handleEdit = React.useCallback(
+    async (section: EditableSectionType) => {
+      if (!metric) return;
 
+      setIsEditing(section);
 
+      // Populate refs with initial values (no re-renders)
+      populateFieldRefs(section, metric);
+
+      // Only set editData for select fields (model, score_type, etc.)
+      let sectionData: Partial<EditData> = {};
+
+      if (section === 'evaluation') {
+        sectionData = {
+          model_id: metric.model_id,
+        };
+
+        // For editing, we need all available models, not just the current one
+        setModels(currentModels => {
+          if (currentModels.length <= 1 && session?.session_token) {
+            // Fetch models asynchronously without blocking
+            (async () => {
+              try {
+                const clientFactory = new ApiClientFactory(
+                  session.session_token!
+                );
+                const modelsClient = clientFactory.getModelsClient();
+                const modelsData = await modelsClient.getModels({
+                  limit: 100,
+                  skip: 0,
+                });
+                setModels(modelsData.data || []);
+              } catch (error) {
+                console.error('Error fetching models for editing:', error);
+                notifications.show('Failed to load models for editing', {
+                  severity: 'error',
+                });
+              }
+            })();
+          }
+          return currentModels;
+        });
+      } else if (section === 'configuration') {
+        sectionData = {
+          score_type: metric.score_type || 'binary',
+          min_score: metric.min_score,
+          max_score: metric.max_score,
+          threshold: metric.threshold,
+        };
+      }
+
+      setEditData(sectionData);
+    },
+    [metric, session?.session_token, populateFieldRefs, notifications]
+  );
 
   const handleCancelEdit = React.useCallback(() => {
     setIsEditing(null);
@@ -253,8 +294,6 @@ export default function MetricDetailPage() {
     stepRefs.current.clear();
   }, []);
 
-
-
   const handleConfirmEdit = React.useCallback(async () => {
     if (!session?.session_token || !metric) return;
 
@@ -262,25 +301,32 @@ export default function MetricDetailPage() {
     try {
       // Collect current field values without triggering re-renders
       const fieldValues = collectFieldValues();
-      
+
       // Also collect select field values from editData
       const dataToSend: any = {
         ...fieldValues,
         ...(editData.model_id && { model_id: editData.model_id }),
         ...(editData.score_type && { score_type: editData.score_type }),
-        ...(editData.min_score !== undefined && { min_score: editData.min_score }),
-        ...(editData.max_score !== undefined && { max_score: editData.max_score }),
-        ...(editData.threshold !== undefined && { threshold: editData.threshold })
+        ...(editData.min_score !== undefined && {
+          min_score: editData.min_score,
+        }),
+        ...(editData.max_score !== undefined && {
+          max_score: editData.max_score,
+        }),
+        ...(editData.threshold !== undefined && {
+          threshold: editData.threshold,
+        }),
       };
-      
+
       // Handle evaluation steps
       if (Array.isArray(dataToSend.evaluation_steps)) {
-        dataToSend.evaluation_steps = dataToSend.evaluation_steps.join('\n---\n');
+        dataToSend.evaluation_steps =
+          dataToSend.evaluation_steps.join('\n---\n');
       }
 
       // Remove tags from the update data as they're handled separately
       delete dataToSend.tags;
-      
+
       // Remove any undefined or null values
       Object.keys(dataToSend).forEach(key => {
         if (dataToSend[key] === undefined || dataToSend[key] === null) {
@@ -296,16 +342,25 @@ export default function MetricDetailPage() {
       setIsEditing(null);
       setEditData({});
       setStepsWithIds([]);
-      
-      notifications.show('Metric updated successfully', { severity: 'success' });
+
+      notifications.show('Metric updated successfully', {
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Error updating metric:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update metric';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to update metric';
       notifications.show(errorMessage, { severity: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [session?.session_token, metric, collectFieldValues, editData, notifications]);
+  }, [
+    session?.session_token,
+    metric,
+    collectFieldValues,
+    editData,
+    notifications,
+  ]);
 
   const addStep = React.useCallback(() => {
     setStepsWithIds(prev => {
@@ -321,202 +376,227 @@ export default function MetricDetailPage() {
   }, []);
 
   // Move EditableSection completely outside the main component
-  const EditableSection = React.memo(({ 
-  title,
-  icon,
-  section,
-  children,
-  isEditing,
-  onEdit,
-  onCancel,
-  onConfirm,
-  isSaving
-}: { 
-  title: string;
-  icon: React.ReactNode;
-  section: EditableSectionType;
-  children: React.ReactNode;
-  isEditing: EditableSectionType | null;
-  onEdit: (section: EditableSectionType) => void;
-  onCancel: () => void;
-  onConfirm: () => void;
-  isSaving?: boolean;
-}) => {
-
-  
-  return (
-    <Paper sx={{ 
-        p: theme.spacing(3), 
-        position: 'relative',
-        borderRadius: theme.shape.borderRadius,
-        bgcolor: theme.palette.background.paper,
-        boxShadow: theme.shadows[1]
-      }}>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: theme.spacing(3),
-        pb: theme.spacing(2),
-        borderBottom: `1px solid ${theme.palette.divider}`
-      }}>
-        <SectionHeader icon={icon} title={title} />
-        {!isEditing && (
-          <Button
-            startIcon={<EditIcon />}
-            onClick={() => onEdit(section)}
-            variant="outlined"
-            size="small"
+  const EditableSection = React.memo(
+    ({
+      title,
+      icon,
+      section,
+      children,
+      isEditing,
+      onEdit,
+      onCancel,
+      onConfirm,
+      isSaving,
+    }: {
+      title: string;
+      icon: React.ReactNode;
+      section: EditableSectionType;
+      children: React.ReactNode;
+      isEditing: EditableSectionType | null;
+      onEdit: (section: EditableSectionType) => void;
+      onCancel: () => void;
+      onConfirm: () => void;
+      isSaving?: boolean;
+    }) => {
+      return (
+        <Paper
+          sx={{
+            p: theme.spacing(3),
+            position: 'relative',
+            borderRadius: theme.shape.borderRadius,
+            bgcolor: theme.palette.background.paper,
+            boxShadow: theme.shadows[1],
+          }}
+        >
+          <Box
             sx={{
-              color: theme.palette.primary.main,
-              borderColor: theme.palette.primary.main,
-              '&:hover': {
-                backgroundColor: theme.palette.primary.light,
-                borderColor: theme.palette.primary.main
-              }
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: theme.spacing(3),
+              pb: theme.spacing(2),
+              borderBottom: `1px solid ${theme.palette.divider}`,
             }}
           >
-            Edit Section
-          </Button>
-        )}
-      </Box>
-      
-      {isEditing === section ? (
-        <Box>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: theme.spacing(3),
-            p: theme.spacing(2),
-            bgcolor: theme.palette.action.hover,
-            borderRadius: theme.shape.borderRadius,
-            mb: theme.spacing(3),
-            border: `1px solid ${theme.palette.divider}`
-          }}>
+            <SectionHeader icon={icon} title={title} />
+            {!isEditing && (
+              <Button
+                startIcon={<EditIcon />}
+                onClick={() => onEdit(section)}
+                variant="outlined"
+                size="small"
+                sx={{
+                  color: theme.palette.primary.main,
+                  borderColor: theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.light,
+                    borderColor: theme.palette.primary.main,
+                  },
+                }}
+              >
+                Edit Section
+              </Button>
+            )}
+          </Box>
+
+          {isEditing === section ? (
+            <Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.spacing(3),
+                  p: theme.spacing(2),
+                  bgcolor: theme.palette.action.hover,
+                  borderRadius: theme.shape.borderRadius,
+                  mb: theme.spacing(3),
+                  border: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                {children}
+              </Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: theme.spacing(1),
+                  mt: theme.spacing(2),
+                }}
+              >
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<CancelIcon />}
+                  onClick={onCancel}
+                  disabled={isSaving}
+                  sx={{
+                    borderColor: theme.palette.error.main,
+                    '&:hover': {
+                      backgroundColor: theme.palette.error.light,
+                      borderColor: theme.palette.error.main,
+                    },
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<CheckIcon />}
+                  onClick={onConfirm}
+                  disabled={isSaving}
+                  sx={{
+                    bgcolor: theme.palette.primary.main,
+                    '&:hover': {
+                      bgcolor: theme.palette.primary.dark,
+                    },
+                  }}
+                >
+                  {isSaving ? 'Saving...' : 'Save Section'}
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {children}
+            </Box>
+          )}
+        </Paper>
+      );
+    }
+  );
+
+  EditableSection.displayName = 'EditableSection';
+
+  const SectionHeader = React.memo(
+    ({ icon, title }: { icon: React.ReactNode; title: string }) => {
+      const theme = useTheme();
+      return (
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}
+        >
+          <Box
+            sx={{
+              color: theme.palette.primary.main,
+              display: 'flex',
+              alignItems: 'center',
+              '& > svg': {
+                fontSize: theme.typography.h6.fontSize,
+              },
+            }}
+          >
+            {icon}
+          </Box>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: theme.typography.fontWeightMedium,
+              color: theme.palette.text.primary,
+            }}
+          >
+            {title}
+          </Typography>
+        </Box>
+      );
+    }
+  );
+
+  SectionHeader.displayName = 'SectionHeader';
+
+  const InfoRow = React.memo(
+    ({ label, children }: { label: string; children: React.ReactNode }) => {
+      const theme = useTheme();
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing(1),
+            py: theme.spacing(1),
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              color: theme.palette.text.secondary,
+              fontWeight: theme.typography.fontWeightMedium,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {label}
+          </Typography>
+          <Box
+            sx={{
+              '& .MuiTypography-root': {
+                color: theme.palette.text.primary,
+              },
+            }}
+          >
             {children}
           </Box>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'flex-end', 
-            gap: theme.spacing(1),
-            mt: theme.spacing(2)
-          }}>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<CancelIcon />}
-              onClick={onCancel}
-              disabled={isSaving}
-              sx={{
-                borderColor: theme.palette.error.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.error.light,
-                  borderColor: theme.palette.error.main
-                }
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<CheckIcon />}
-              onClick={onConfirm}
-              disabled={isSaving}
-              sx={{
-                bgcolor: theme.palette.primary.main,
-                '&:hover': {
-                  bgcolor: theme.palette.primary.dark
-                }
-              }}
-            >
-              {isSaving ? 'Saving...' : 'Save Section'}
-            </Button>
-          </Box>
         </Box>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {children}
-        </Box>
-      )}
-    </Paper>
+      );
+    }
   );
-});
 
-EditableSection.displayName = 'EditableSection';
+  InfoRow.displayName = 'InfoRow';
 
-const SectionHeader = React.memo(({ icon, title }: { icon: React.ReactNode; title: string }) => {
-  const theme = useTheme();
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}>
-      <Box sx={{ 
-        color: theme.palette.primary.main,
-        display: 'flex',
-        alignItems: 'center',
-        '& > svg': {
-          fontSize: theme.typography.h6.fontSize
-        }
-      }}>
-        {icon}
-      </Box>
-      <Typography 
-        variant="h6" 
-        sx={{ 
-          fontWeight: theme.typography.fontWeightMedium,
-          color: theme.palette.text.primary
-        }}
-      >
-        {title}
-      </Typography>
-    </Box>
-  );
-});
-
-SectionHeader.displayName = 'SectionHeader';
-
-const InfoRow = React.memo(({ label, children }: { label: string; children: React.ReactNode }) => {
-  const theme = useTheme();
-  return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: theme.spacing(1),
-      py: theme.spacing(1)
-    }}>
-      <Typography 
-        variant="subtitle2" 
-        sx={{ 
-          color: theme.palette.text.secondary,
-          fontWeight: theme.typography.fontWeightMedium,
-          letterSpacing: '0.02em'
-        }}
-      >
-        {label}
-      </Typography>
-      <Box sx={{ 
-        '& .MuiTypography-root': {
-          color: theme.palette.text.primary
-        }
-      }}>
-        {children}
-      </Box>
-    </Box>
-  );
-});
-
-InfoRow.displayName = 'InfoRow';
-
-// Memoize icons to prevent recreation
-const infoIcon = <InfoIcon />;
-const assessmentIcon = <AssessmentIcon />;
-const settingsIcon = <SettingsIcon />;
-
-
+  // Memoize icons to prevent recreation
+  const infoIcon = <InfoIcon />;
+  const assessmentIcon = <AssessmentIcon />;
+  const settingsIcon = <SettingsIcon />;
 
   if (loading) {
     return (
       <PageContainer title="Loading...">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100%',
+          }}
+        >
           <Typography>Loading metric details...</Typography>
         </Box>
       </PageContainer>
@@ -526,7 +606,14 @@ const settingsIcon = <SettingsIcon />;
   if (!metric) {
     return (
       <PageContainer title="Error">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100%',
+          }}
+        >
           <Typography color="error">Failed to load metric details</Typography>
         </Box>
       </PageContainer>
@@ -534,18 +621,21 @@ const settingsIcon = <SettingsIcon />;
   }
 
   return (
-    <PageContainer title={metric.name} breadcrumbs={[
-      { title: 'Metrics', path: '/metrics' },
-      { title: metric.name, path: `/metrics/${identifier}` }
-    ]}>
+    <PageContainer
+      title={metric.name}
+      breadcrumbs={[
+        { title: 'Metrics', path: '/metrics' },
+        { title: metric.name, path: `/metrics/${identifier}` },
+      ]}
+    >
       {/* Memoize the entire content to prevent unnecessary re-renders */}
-    <Stack direction="column" spacing={3}>
-      {/* Main content */}
-      <Box sx={{ flex: 1 }}>
-        <Stack spacing={3}>
+      <Stack direction="column" spacing={3}>
+        {/* Main content */}
+        <Box sx={{ flex: 1 }}>
+          <Stack spacing={3}>
             {/* General Information Section */}
-            <EditableSection 
-              title="General Information" 
+            <EditableSection
+              title="General Information"
               icon={infoIcon}
               section="general"
               isEditing={isEditing}
@@ -600,8 +690,8 @@ const settingsIcon = <SettingsIcon />;
             </EditableSection>
 
             {/* Evaluation Process Section */}
-            <EditableSection 
-              title="Evaluation Process" 
+            <EditableSection
+              title="Evaluation Process"
               icon={assessmentIcon}
               section="evaluation"
               isEditing={isEditing}
@@ -616,16 +706,25 @@ const settingsIcon = <SettingsIcon />;
                     <InputLabel>Model</InputLabel>
                     <Select
                       value={editData.model_id || ''}
-                      onChange={(e) => setEditData(prev => ({ ...prev, model_id: e.target.value as UUID }))}
+                      onChange={e =>
+                        setEditData(prev => ({
+                          ...prev,
+                          model_id: e.target.value as UUID,
+                        }))
+                      }
                       label="Model"
                     >
-                      {models.map((model) => (
+                      {models.map(model => (
                         <MenuItem key={model.id} value={model.id}>
                           <Box>
                             <Typography variant="subtitle2">
                               {model.name}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                            >
                               {model.description}
                             </Typography>
                           </Box>
@@ -636,14 +735,17 @@ const settingsIcon = <SettingsIcon />;
                 ) : (
                   <>
                     <Typography>
-                      {models.length > 0 
-                        ? models.find(model => model.id === metric.model_id)?.name || '-'
-                        : metric.model_id ? 'Loading model...' : '-'
-                      }
+                      {models.length > 0
+                        ? models.find(model => model.id === metric.model_id)
+                            ?.name || '-'
+                        : metric.model_id
+                          ? 'Loading model...'
+                          : '-'}
                     </Typography>
                     {models.length > 0 && metric.model_id && (
                       <Typography variant="body2" color="text.secondary">
-                        {models.find(model => model.id === metric.model_id)?.description || ''}
+                        {models.find(model => model.id === metric.model_id)
+                          ?.description || ''}
                       </Typography>
                     )}
                   </>
@@ -669,7 +771,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -682,14 +784,16 @@ const settingsIcon = <SettingsIcon />;
 
               <InfoRow label="Evaluation Steps">
                 {isEditing === 'evaluation' ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+                  >
                     {stepsWithIds.map((step, index) => (
                       <Box key={step.id} sx={{ display: 'flex', gap: 1 }}>
                         <TextField
                           fullWidth
                           multiline
                           rows={2}
-                          inputRef={(el) => {
+                          inputRef={el => {
                             if (el) {
                               stepRefs.current.set(step.id, el);
                             }
@@ -697,7 +801,7 @@ const settingsIcon = <SettingsIcon />;
                           defaultValue={step.content}
                           placeholder={`Step ${index + 1}: Describe this evaluation step...`}
                         />
-                        <IconButton 
+                        <IconButton
                           onClick={() => removeStep(step.id)}
                           disabled={stepsWithIds.length === 1}
                           sx={{ mt: 1 }}
@@ -716,34 +820,38 @@ const settingsIcon = <SettingsIcon />;
                     </Button>
                   </Box>
                 ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+                  >
                     {metric.evaluation_steps ? (
-                      metric.evaluation_steps.split('\n---\n').map((step, index) => (
-                        <Paper 
-                          key={index} 
-                          variant="outlined" 
-                          sx={{ 
-                            p: 2,
-                            bgcolor: 'background.paper',
-                            position: 'relative',
-                            pl: 6
-                          }}
-                        >
-                          <Typography
+                      metric.evaluation_steps
+                        .split('\n---\n')
+                        .map((step, index) => (
+                          <Paper
+                            key={index}
+                            variant="outlined"
                             sx={{
-                              position: 'absolute',
-                              left: 16,
-                              color: 'primary.main',
-                              fontWeight: 'bold'
+                              p: 2,
+                              bgcolor: 'background.paper',
+                              position: 'relative',
+                              pl: 6,
                             }}
                           >
-                            {index + 1}
-                          </Typography>
-                          <Typography sx={{ whiteSpace: 'pre-wrap' }}>
-                            {step.replace(/^Step \d+:\n/, '')}
-                          </Typography>
-                        </Paper>
-                      ))
+                            <Typography
+                              sx={{
+                                position: 'absolute',
+                                left: 16,
+                                color: 'primary.main',
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              {index + 1}
+                            </Typography>
+                            <Typography sx={{ whiteSpace: 'pre-wrap' }}>
+                              {step.replace(/^Step \d+:\n/, '')}
+                            </Typography>
+                          </Paper>
+                        ))
                     ) : (
                       <Typography>-</Typography>
                     )}
@@ -770,7 +878,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -783,8 +891,8 @@ const settingsIcon = <SettingsIcon />;
             </EditableSection>
 
             {/* Result Configuration Section */}
-            <EditableSection 
-              title="Result Configuration" 
+            <EditableSection
+              title="Result Configuration"
               icon={settingsIcon}
               section="configuration"
               isEditing={isEditing}
@@ -799,7 +907,12 @@ const settingsIcon = <SettingsIcon />;
                     <InputLabel>Score Type</InputLabel>
                     <Select
                       value={editData.score_type || 'binary'}
-                      onChange={(e) => setEditData(prev => ({ ...prev, score_type: e.target.value as ScoreType }))}
+                      onChange={e =>
+                        setEditData(prev => ({
+                          ...prev,
+                          score_type: e.target.value as ScoreType,
+                        }))
+                      }
                       label="Score Type"
                     >
                       <MenuItem value="binary">Binary (Pass/Fail)</MenuItem>
@@ -814,18 +927,22 @@ const settingsIcon = <SettingsIcon />;
                         color: 'primary.contrastText',
                         px: 1.5,
                         py: 0.5,
-                        borderRadius: (theme) => theme.shape.borderRadius * 0.25,
-                        fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
-                        fontWeight: 'medium'
+                        borderRadius: theme => theme.shape.borderRadius * 0.25,
+                        fontSize:
+                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        fontWeight: 'medium',
                       }}
                     >
-                      {metric.score_type === 'binary' ? 'Binary (Pass/Fail)' : 'Numeric'}
+                      {metric.score_type === 'binary'
+                        ? 'Binary (Pass/Fail)'
+                        : 'Numeric'}
                     </Typography>
                   </Box>
                 )}
               </InfoRow>
 
-              {(metric.score_type === 'numeric' || editData.score_type === 'numeric') && (
+              {(metric.score_type === 'numeric' ||
+                editData.score_type === 'numeric') && (
                 <>
                   <Box sx={{ display: 'flex', gap: 4 }}>
                     <InfoRow label="Minimum Score">
@@ -834,7 +951,12 @@ const settingsIcon = <SettingsIcon />;
                           key={`min-score-field-${metric.id}`}
                           type="number"
                           value={editData.min_score || ''}
-                          onChange={(e) => setEditData(prev => ({ ...prev, min_score: Number(e.target.value) }))}
+                          onChange={e =>
+                            setEditData(prev => ({
+                              ...prev,
+                              min_score: Number(e.target.value),
+                            }))
+                          }
                           fullWidth
                           placeholder="Enter minimum score"
                         />
@@ -851,7 +973,12 @@ const settingsIcon = <SettingsIcon />;
                           key={`max-score-field-${metric.id}`}
                           type="number"
                           value={editData.max_score || ''}
-                          onChange={(e) => setEditData(prev => ({ ...prev, max_score: Number(e.target.value) }))}
+                          onChange={e =>
+                            setEditData(prev => ({
+                              ...prev,
+                              max_score: Number(e.target.value),
+                            }))
+                          }
                           fullWidth
                           placeholder="Enter maximum score"
                         />
@@ -869,22 +996,32 @@ const settingsIcon = <SettingsIcon />;
                         key={`threshold-field-${metric.id}`}
                         type="number"
                         value={editData.threshold || ''}
-                        onChange={(e) => setEditData(prev => ({ ...prev, threshold: Number(e.target.value) }))}
+                        onChange={e =>
+                          setEditData(prev => ({
+                            ...prev,
+                            threshold: Number(e.target.value),
+                          }))
+                        }
                         fullWidth
                         placeholder="Enter threshold score"
                         helperText="Minimum score required to pass"
                       />
                     ) : (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
+                      >
                         <Typography
                           sx={{
                             bgcolor: 'success.main',
                             color: 'success.contrastText',
                             px: 2,
                             py: 0.5,
-                            borderRadius: (theme) => theme.shape.borderRadius * 0.25,
-                            fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
-                            fontWeight: 'medium'
+                            borderRadius: theme =>
+                              theme.shape.borderRadius * 0.25,
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
+                            fontWeight: 'medium',
                           }}
                         >
                           ≥ {metric.threshold}
@@ -917,7 +1054,7 @@ const settingsIcon = <SettingsIcon />;
                       whiteSpace: 'pre-wrap',
                       fontFamily: 'monospace',
                       bgcolor: 'action.hover',
-                      borderRadius: (theme) => theme.shape.borderRadius * 0.25,
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
                       padding: 1,
                       minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
                       wordBreak: 'break-word',
@@ -930,8 +1067,7 @@ const settingsIcon = <SettingsIcon />;
             </EditableSection>
           </Stack>
         </Box>
-
       </Stack>
     </PageContainer>
   );
-} 
+}

@@ -1,4 +1,5 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -9,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.4] - 2025-09-18
 
 ### Added
+
 - Added "Source Documents" section to individual Test Detail page, displaying associated documents.
 - Added "Source Documents" section to Test Set Details page, displaying associated documents.
 - Added document, name, and description fields to the Test Set interface.
@@ -16,24 +18,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a send button to the comment text box.
 
 ### Changed
+
 - Updated project title and description to update reactively upon editing, without requiring a page reload.
 - Updated breadcrumb and title in the test header to display content instead of UUID.
 - Improved test coverage.
 
 ### Fixed
+
 - Ensured compatibility between comment and token frontend interfaces and the backend.
 - Fixed test stepper return behavior.
-
 
 ## [0.2.3] - 2025-09-04
 
 ### Added
+
 - Added dynamic charts for test run details.
 - Added comments feature for collaboration on tests, test sets, and test runs.
 - Added error boundary for improved application stability.
 - Added loading spinners to metrics creation and deletion processes.
 
 ### Changed
+
 - Improved performance of the test run stats endpoint.
 - Optimized API client interfaces and behavior client methods.
 - Refactored metrics functionality into separate components for better maintainability.
@@ -41,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated Dockerfile for enhanced build process and environment configuration.
 
 ### Fixed
+
 - Fixed tooltip visibility issues across different themes.
 - Fixed display issues with tooltips for test runs.
 - Fixed TypeScript warnings.
@@ -52,15 +58,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed issue where metrics not associated with behaviors were not displayed.
 - Fixed macOS IPv6 localhost connection issues.
 
-
 ## [0.2.2] - 2025-08-22
 
 ### Added
+
 - Added document upload step with automatic metadata generation.
 - Added support for Central European, Nordic, and Eastern European characters in BaseTag validation.
 - Updated frontend supported file extensions to match SDK.
 
 ### Changed
+
 - Refactored docker-compose and environment configuration.
 - Improved migration and start up scripts for docker backend.
 - Adjusted frontend Dockerfile to production mode.
@@ -69,43 +76,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated supported file extensions for document upload.
 
 ### Fixed
+
 - Fixed issue where projects were not automatically refreshing after new project creation.
 - Fixed issue where long project names were truncated.
 - Fixed various issues in the document generation configuration flow, including:
-    - State persistence.
-    - Inconsistent button behavior.
-    - Test coverage labels.
-    - Button label and description.
-    - Field label naming.
-    - Behaviors and topics display in the final step.
-    - File size validation.
-    - Next button validation on the first step.
+  - State persistence.
+  - Inconsistent button behavior.
+  - Test coverage labels.
+  - Button label and description.
+  - Field label naming.
+  - Behaviors and topics display in the final step.
+  - File size validation.
+  - Next button validation on the first step.
 - Fixed `handleNext` double step increment bug.
 - Improved document metadata extraction using a structured prompt format.
 - Fixed document upload state updates.
 
 ### Removed
+
 - Removed projects-legacy and unnecessary navigation items.
 - Removed unnecessary refresh button.
 - Removed unsupported file extensions (.url, .youtube).
 
-
 ## [0.2.1] - 2025-08-08
 
 ### Added
+
 - Introduced Test Results functionality, allowing users to view and analyze test outcomes.
 - Added interfaces for handling test results statistics.
 
 ### Fixed
+
 - Resolved an issue causing infinite loading for test sets.
 
 ### Changed
-- Updated contributing guides to reflect new PR creation and update features.
 
+- Updated contributing guides to reflect new PR creation and update features.
 
 ## [0.2.0] - 2025-07-25
 
 ### Added
+
 - Display of frontend version information in the application.
 - Environment variables are now accessible to the client-side application.
 - Functionality to add users outside of the onboarding flow.
@@ -114,6 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added snack bar notification to test set execution.
 
 ### Changed
+
 - Improved team invitation security and validation.
 - Enhanced error handling and duplicate detection in team invitation.
 - Improved BasePieChart legend position.
@@ -125,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved contrast in dark mode.
 
 ### Fixed
+
 - Prevented email addresses from being used as first names during onboarding.
 - Fixed duplicate identifier issues in BaseDataGrid.
 - Fixed contrast issues in dark mode.
@@ -153,10 +166,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed unescaped strings.
 - Fixed Windows-type authentication.
 
-
 ## [0.1.0] - 2025-05-15
 
 ### Added
+
 - Initial release of the frontend application
 - Next.js 15 with App Router implementation
 - Material UI v6 component library integration
@@ -173,8 +186,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Organization management
 
 ### Note
+
 - This component is part of the repository-wide v0.1.0 release
 - After this initial release, the frontend will follow its own versioning lifecycle with frontend-vX.Y.Z tags
 
 [Unreleased]: https://github.com/rhesis-ai/rhesis/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/rhesis-ai/rhesis/releases/tag/v0.1.0 
+[0.1.0]: https://github.com/rhesis-ai/rhesis/releases/tag/v0.1.0

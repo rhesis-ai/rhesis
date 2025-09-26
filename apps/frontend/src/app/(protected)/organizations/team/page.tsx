@@ -1,12 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Box,
-  Typography,
-  Paper,
-  Container
-} from '@mui/material';
+import { Box, Typography, Paper, Container } from '@mui/material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
@@ -25,15 +20,15 @@ export default function TeamPage() {
 
   return (
     <PageContainer>
-          {/* Invitation Section */}
-          <Paper sx={{ p: 3, mb: 4 }}>
-            <TeamInviteForm onInvitesSent={handleInvitesSent} />
-          </Paper>
+      {/* Invitation Section */}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <TeamInviteForm onInvitesSent={handleInvitesSent} />
+      </Paper>
 
-          {/* Team Members Grid */}
-          <Paper sx={{ p: 3 }}>
-            <TeamMembersGrid refreshTrigger={refreshTrigger} />
-          </Paper>
+      {/* Team Members Grid */}
+      <Paper sx={{ p: 3 }}>
+        <TeamMembersGrid refreshTrigger={refreshTrigger} />
+      </Paper>
     </PageContainer>
   );
-} 
+}

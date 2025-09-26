@@ -21,12 +21,9 @@ import {
   useTheme,
   IconButton,
   Divider,
-  Tooltip
+  Tooltip,
 } from '@mui/material';
-import { 
-  ArrowOutwardIcon, 
-  EditIcon
-} from '@/components/icons';
+import { ArrowOutwardIcon, EditIcon } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
@@ -47,12 +44,12 @@ export default function TaskDetailPage({ params }: PageProps) {
   const { data: session } = useSession();
   const { getTask, updateTask } = useTasks({ autoFetch: false });
   const { show } = useNotifications();
-  
+
   const theme = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [statuses, setStatuses] = useState<any[]>([]);
   const [priorities, setPriorities] = useState<any[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -76,36 +73,43 @@ export default function TaskDetailPage({ params }: PageProps) {
   useEffect(() => {
     const loadInitialData = async () => {
       // Skip if already loaded
-      if (statuses.length > 0 && priorities.length > 0 && users.length > 0 && editedTask) {
+      if (
+        statuses.length > 0 &&
+        priorities.length > 0 &&
+        users.length > 0 &&
+        editedTask
+      ) {
         return;
       }
-      
+
       try {
         setIsLoading(true);
         setError(null);
 
         // Load task data first to get existing status/priority IDs
         const taskData = taskId ? await getTask(taskId) : null;
-        
+
         // Load statuses, priorities, and users in parallel, including existing task's status/priority
-        const [fetchedStatuses, fetchedPriorities, fetchedUsers] = await Promise.all([
-          getStatusesForTask(session?.session_token, taskData?.status_id),
-          getPrioritiesForTask(session?.session_token, taskData?.priority_id),
-          (async () => {
-            if (!session?.session_token) return [];
-            const clientFactory = new ApiClientFactory(session.session_token);
-            const usersClient = clientFactory.getUsersClient();
-            const response = await usersClient.getUsers();
-            return response.data;
-          })(),
-        ]);
+        const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
+          await Promise.all([
+            getStatusesForTask(session?.session_token, taskData?.status_id),
+            getPrioritiesForTask(session?.session_token, taskData?.priority_id),
+            (async () => {
+              if (!session?.session_token) return [];
+              const clientFactory = new ApiClientFactory(session.session_token);
+              const usersClient = clientFactory.getUsersClient();
+              const response = await usersClient.getUsers();
+              return response.data;
+            })(),
+          ]);
 
         setStatuses(fetchedStatuses);
         setPriorities(fetchedPriorities);
         setUsers(fetchedUsers);
         setEditedTask(taskData);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load task data';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to load task data';
         setError(errorMessage);
         show(errorMessage, { severity: 'error' });
       } finally {
@@ -116,13 +120,35 @@ export default function TaskDetailPage({ params }: PageProps) {
     if (taskId) {
       loadInitialData();
     }
-  }, [taskId, getTask, show, session?.session_token, editedTask, priorities.length, statuses.length, users.length]);
+  }, [
+    taskId,
+    getTask,
+    show,
+    session?.session_token,
+    editedTask,
+    priorities.length,
+    statuses.length,
+    users.length,
+  ]);
 
   // Show loading state while taskId is being set
   if (isLoading) {
     return (
-      <PageContainer title="Loading..." breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: 'Loading...', path: `/tasks/${taskId}` }]}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <PageContainer
+        title="Loading..."
+        breadcrumbs={[
+          { title: 'Tasks', path: '/tasks' },
+          { title: 'Loading...', path: `/tasks/${taskId}` },
+        ]}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '50vh',
+          }}
+        >
           <CircularProgress />
         </Box>
       </PageContainer>
@@ -131,7 +157,13 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   if (error) {
     return (
-      <PageContainer title="Error" breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: 'Error', path: `/tasks/${taskId}` }]}>
+      <PageContainer
+        title="Error"
+        breadcrumbs={[
+          { title: 'Tasks', path: '/tasks' },
+          { title: 'Error', path: `/tasks/${taskId}` },
+        ]}
+      >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -143,7 +175,13 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   if (!editedTask) {
     return (
-      <PageContainer title="Task Not Found" breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: 'Not Found', path: `/tasks/${taskId}` }]}>
+      <PageContainer
+        title="Task Not Found"
+        breadcrumbs={[
+          { title: 'Tasks', path: '/tasks' },
+          { title: 'Not Found', path: `/tasks/${taskId}` },
+        ]}
+      >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
           <Alert severity="warning" sx={{ mb: 2 }}>
             Task not found
@@ -157,23 +195,24 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   const handleSaveDescription = async () => {
     if (!taskId) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       const updateData: TaskUpdate = {
         title: task.title,
         description: editDescription,
         status_id: task.status_id,
         priority_id: task.priority_id,
-        assignee_id: task.assignee_id || undefined
+        assignee_id: task.assignee_id || undefined,
       };
 
       await updateTask(taskId, updateData);
       show('Description updated successfully', { severity: 'success' });
       setIsEditingDescription(false);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update description';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to update description';
       show(errorMessage, { severity: 'error' });
     } finally {
       setIsSaving(false);
@@ -182,57 +221,58 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   const handleSave = async (taskToSave?: Task) => {
     if (!taskId) return;
-    
+
     const taskData = taskToSave || task;
     setIsSaving(true);
-    
+
     try {
       const updateData: TaskUpdate = {
         title: taskData.title,
         description: taskData.description,
         status_id: taskData.status_id,
         priority_id: taskData.priority_id,
-        assignee_id: taskData.assignee_id || undefined
+        assignee_id: taskData.assignee_id || undefined,
       };
 
       await updateTask(taskId, updateData);
       show('Task updated successfully', { severity: 'success' });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update task';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to update task';
       show(errorMessage, { severity: 'error' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleChange = (field: keyof Task) => (
-    event: React.ChangeEvent<HTMLInputElement> | any
-  ) => {
-    if (!editedTask) return;
-    
-    const value = event.target.value;
-    const updatedTask = { ...editedTask, [field]: value };
-    setEditedTask(updatedTask);
-    
-    // Auto-save for non-description fields
-    if (field !== 'description') {
-      handleSave(updatedTask);
-    }
-  };
+  const handleChange =
+    (field: keyof Task) =>
+    (event: React.ChangeEvent<HTMLInputElement> | any) => {
+      if (!editedTask) return;
+
+      const value = event.target.value;
+      const updatedTask = { ...editedTask, [field]: value };
+      setEditedTask(updatedTask);
+
+      // Auto-save for non-description fields
+      if (field !== 'description') {
+        handleSave(updatedTask);
+      }
+    };
 
   const handleSaveTitle = async () => {
     if (!editTitle.trim()) {
       show('Task title cannot be empty', { severity: 'error' });
       return;
     }
-    
+
     if (!editedTask) return;
-    
+
     setIsSaving(true);
     const updatedTask = { ...editedTask, title: editTitle.trim() };
     setEditedTask(updatedTask);
     setIsEditingTitle(false);
-    
+
     try {
       await handleSave(updatedTask);
     } catch (error) {
@@ -245,15 +285,18 @@ export default function TaskDetailPage({ params }: PageProps) {
   };
 
   return (
-    <PageContainer 
-      breadcrumbs={[{ title: 'Tasks', path: '/tasks' }, { title: editedTask?.title || task.title, path: `/tasks/${taskId}` }]}
+    <PageContainer
+      breadcrumbs={[
+        { title: 'Tasks', path: '/tasks' },
+        { title: editedTask?.title || task.title, path: `/tasks/${taskId}` },
+      ]}
     >
       {/* Title and Navigation Button in same row */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 500 }}>
           {editedTask?.title || task.title}
         </Typography>
-        {(task.entity_type && task.entity_id) && (
+        {task.entity_type && task.entity_id && (
           <Button
             variant="outlined"
             size="small"
@@ -263,9 +306,13 @@ export default function TaskDetailPage({ params }: PageProps) {
                 try {
                   // Map entity types to correct URL paths (plural)
                   const entityUrlMap = getEntityUrlMap();
-                  const entityPath = entityUrlMap[task.entity_type] || task.entity_type.toLowerCase();
+                  const entityPath =
+                    entityUrlMap[task.entity_type] ||
+                    task.entity_type.toLowerCase();
                   const baseUrl = `/${entityPath}/${task.entity_id}`;
-                  const commentHash = task.task_metadata?.comment_id ? `#comment-${task.task_metadata.comment_id}` : '';
+                  const commentHash = task.task_metadata?.comment_id
+                    ? `#comment-${task.task_metadata.comment_id}`
+                    : '';
                   router.push(`${baseUrl}${commentHash}`);
                 } catch (error) {
                   console.error('Navigation error:', error);
@@ -283,8 +330,8 @@ export default function TaskDetailPage({ params }: PageProps) {
               '&:hover': {
                 backgroundColor: 'action.hover',
                 color: 'text.primary',
-                borderColor: 'primary.main'
-              }
+                borderColor: 'primary.main',
+              },
             }}
             endIcon={
               <Box
@@ -295,14 +342,18 @@ export default function TaskDetailPage({ params }: PageProps) {
                   backgroundColor: 'text.secondary',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
                 }}
               >
-                <ArrowOutwardIcon sx={{ fontSize: '12px', color: 'background.paper' }} />
+                <ArrowOutwardIcon
+                  sx={{ fontSize: '12px', color: 'background.paper' }}
+                />
               </Box>
             }
           >
-            {task.task_metadata?.comment_id ? 'Go to associated comment' : `Go to ${task.entity_type}`}
+            {task.task_metadata?.comment_id
+              ? 'Go to associated comment'
+              : `Go to ${task.entity_type}`}
           </Button>
         )}
       </Box>
@@ -323,7 +374,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                       onChange={handleChange('status_id')}
                       label="Status"
                     >
-                      {statuses.map((status) => (
+                      {statuses.map(status => (
                         <MenuItem key={status.id} value={status.id}>
                           {status.name}
                         </MenuItem>
@@ -339,7 +390,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                       onChange={handleChange('priority_id')}
                       label="Priority"
                     >
-                      {priorities.map((priority) => (
+                      {priorities.map(priority => (
                         <MenuItem key={priority.id} value={priority.id}>
                           {priority.type_value}
                         </MenuItem>
@@ -362,16 +413,26 @@ export default function TaskDetailPage({ params }: PageProps) {
                         '& .MuiSelect-select': {
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 1
-                        }
+                          gap: 1,
+                        },
                       }}
-                      renderValue={(value) => {
+                      renderValue={value => {
                         return (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar 
-                              src={task.user?.picture} 
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                            }}
+                          >
+                            <Avatar
+                              src={task.user?.picture}
                               alt={task.user?.name || 'Unknown'}
-                              sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                              sx={{
+                                width: AVATAR_SIZES.SMALL,
+                                height: AVATAR_SIZES.SMALL,
+                                bgcolor: 'primary.main',
+                              }}
                             >
                               {task.user?.name?.charAt(0) || 'U'}
                             </Avatar>
@@ -383,11 +444,17 @@ export default function TaskDetailPage({ params }: PageProps) {
                       }}
                     >
                       <MenuItem value={task.user?.id || ''}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar 
-                            src={task.user?.picture} 
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        >
+                          <Avatar
+                            src={task.user?.picture}
                             alt={task.user?.name || 'Unknown'}
-                            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                            sx={{
+                              width: AVATAR_SIZES.SMALL,
+                              height: AVATAR_SIZES.SMALL,
+                              bgcolor: 'primary.main',
+                            }}
                           >
                             {task.user?.name?.charAt(0) || 'U'}
                           </Avatar>
@@ -413,28 +480,54 @@ export default function TaskDetailPage({ params }: PageProps) {
                           alignItems: 'center',
                           gap: 1,
                           paddingTop: theme.spacing(2),
-                          paddingBottom: theme.spacing(2)
-                        }
+                          paddingBottom: theme.spacing(2),
+                        },
                       }}
-                      renderValue={(value) => {
-                        const selectedUser = users.find(user => user.id === value);
+                      renderValue={value => {
+                        const selectedUser = users.find(
+                          user => user.id === value
+                        );
                         if (!selectedUser) {
                           // Handle "Unassigned" case
                           return (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Avatar sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'grey.300' }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                              }}
+                            >
+                              <Avatar
+                                sx={{
+                                  width: AVATAR_SIZES.SMALL,
+                                  height: AVATAR_SIZES.SMALL,
+                                  bgcolor: 'grey.300',
+                                }}
+                              >
                                 U
                               </Avatar>
-                              <Typography variant="body1">Unassigned</Typography>
+                              <Typography variant="body1">
+                                Unassigned
+                              </Typography>
                             </Box>
                           );
                         }
                         return (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar 
-                              src={selectedUser.picture} 
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                            }}
+                          >
+                            <Avatar
+                              src={selectedUser.picture}
                               alt={selectedUser.name || 'User'}
-                              sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                              sx={{
+                                width: AVATAR_SIZES.SMALL,
+                                height: AVATAR_SIZES.SMALL,
+                                bgcolor: 'primary.main',
+                              }}
                             >
                               {selectedUser.name?.charAt(0) || 'U'}
                             </Avatar>
@@ -446,27 +539,49 @@ export default function TaskDetailPage({ params }: PageProps) {
                       }}
                     >
                       <MenuItem value="">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'grey.300' }}>
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        >
+                          <Avatar
+                            sx={{
+                              width: AVATAR_SIZES.SMALL,
+                              height: AVATAR_SIZES.SMALL,
+                              bgcolor: 'grey.300',
+                            }}
+                          >
                             U
                           </Avatar>
                           <Typography variant="body1">Unassigned</Typography>
                         </Box>
                       </MenuItem>
-                      {users.filter(user => user.id && user.name).map((user) => (
-                        <MenuItem key={user.id} value={user.id}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar 
-                              src={user.picture} 
-                              alt={user.name || 'User'}
-                              sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL, bgcolor: 'primary.main' }}
+                      {users
+                        .filter(user => user.id && user.name)
+                        .map(user => (
+                          <MenuItem key={user.id} value={user.id}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                              }}
                             >
-                              {user.name?.charAt(0) || 'U'}
-                            </Avatar>
-                            <Typography variant="body1">{user.name}</Typography>
-                          </Box>
-                        </MenuItem>
-                      ))}
+                              <Avatar
+                                src={user.picture}
+                                alt={user.name || 'User'}
+                                sx={{
+                                  width: AVATAR_SIZES.SMALL,
+                                  height: AVATAR_SIZES.SMALL,
+                                  bgcolor: 'primary.main',
+                                }}
+                              >
+                                {user.name?.charAt(0) || 'U'}
+                              </Avatar>
+                              <Typography variant="body1">
+                                {user.name}
+                              </Typography>
+                            </Box>
+                          </MenuItem>
+                        ))}
                     </Select>
                   </FormControl>
                 </Grid>
@@ -474,17 +589,32 @@ export default function TaskDetailPage({ params }: PageProps) {
 
               {/* Task Details Section */}
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                <Typography
+                  variant="h6"
+                  component="h2"
+                  sx={{ fontWeight: 'bold', mb: 1 }}
+                >
                   Task Details
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 3 }}
+                >
                   Key information about this task.
                 </Typography>
               </Box>
 
               {/* Title */}
               <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 1,
+                  }}
+                >
                   <Typography variant="body2" color="text.secondary">
                     Title
                   </Typography>
@@ -493,11 +623,11 @@ export default function TaskDetailPage({ params }: PageProps) {
                       <IconButton
                         onClick={() => setIsEditingTitle(true)}
                         size="small"
-                        sx={{ 
+                        sx={{
                           color: 'text.secondary',
                           '&:hover': {
                             color: 'primary.main',
-                          }
+                          },
                         }}
                       >
                         <EditIcon fontSize="small" />
@@ -509,18 +639,26 @@ export default function TaskDetailPage({ params }: PageProps) {
                   <Box sx={{ mb: 2 }}>
                     <TextField
                       value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
+                      onChange={e => setEditTitle(e.target.value)}
                       fullWidth
                       variant="outlined"
                       size="small"
                       placeholder="Enter task title..."
                       error={!editTitle.trim()}
-                      helperText={!editTitle.trim() ? 'Title cannot be empty' : ''}
+                      helperText={
+                        !editTitle.trim() ? 'Title cannot be empty' : ''
+                      }
                       sx={{ mb: 1 }}
                     />
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                      <Button 
-                        size="small" 
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 1,
+                      }}
+                    >
+                      <Button
+                        size="small"
                         onClick={() => {
                           setIsEditingTitle(false);
                           setEditTitle(task.title || '');
@@ -530,9 +668,9 @@ export default function TaskDetailPage({ params }: PageProps) {
                       >
                         Cancel
                       </Button>
-                      <Button 
-                        size="small" 
-                        variant="contained" 
+                      <Button
+                        size="small"
+                        variant="contained"
                         onClick={handleSaveTitle}
                         disabled={isSaving || !editTitle.trim()}
                         sx={{ textTransform: 'none', borderRadius: '16px' }}
@@ -542,11 +680,18 @@ export default function TaskDetailPage({ params }: PageProps) {
                     </Box>
                   </Box>
                 ) : (
-                  <Typography variant="body1" sx={{ 
-                    minHeight: '24px',
-                    color: (editedTask?.title || task.title) ? 'text.primary' : 'text.secondary',
-                    fontStyle: (editedTask?.title || task.title) ? 'normal' : 'italic'
-                  }}>
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      minHeight: '24px',
+                      color:
+                        editedTask?.title || task.title
+                          ? 'text.primary'
+                          : 'text.secondary',
+                      fontStyle:
+                        editedTask?.title || task.title ? 'normal' : 'italic',
+                    }}
+                  >
                     {editedTask?.title || task.title || 'No title set'}
                   </Typography>
                 )}
@@ -554,7 +699,14 @@ export default function TaskDetailPage({ params }: PageProps) {
 
               {/* Description */}
               <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 1,
+                  }}
+                >
                   <Typography variant="body2" color="text.secondary">
                     Description
                   </Typography>
@@ -563,11 +715,11 @@ export default function TaskDetailPage({ params }: PageProps) {
                       <IconButton
                         onClick={() => setIsEditingDescription(true)}
                         size="small"
-                        sx={{ 
+                        sx={{
                           color: 'text.secondary',
                           '&:hover': {
                             color: 'primary.main',
-                          }
+                          },
                         }}
                       >
                         <EditIcon fontSize="small" />
@@ -579,7 +731,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                   <Box sx={{ mb: 2 }}>
                     <TextField
                       value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
+                      onChange={e => setEditDescription(e.target.value)}
                       multiline
                       rows={3}
                       fullWidth
@@ -587,9 +739,15 @@ export default function TaskDetailPage({ params }: PageProps) {
                       size="small"
                       sx={{ mb: 1 }}
                     />
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                      <Button 
-                        size="small" 
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 1,
+                      }}
+                    >
+                      <Button
+                        size="small"
                         onClick={() => {
                           setIsEditingDescription(false);
                           setEditDescription(task.description || '');
@@ -598,10 +756,10 @@ export default function TaskDetailPage({ params }: PageProps) {
                       >
                         Cancel
                       </Button>
-                      <Button 
-                        size="small" 
-                        variant="contained" 
-                        onClick={handleSaveDescription} 
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={handleSaveDescription}
                         disabled={isSaving || !editDescription.trim()}
                         sx={{ textTransform: 'none', borderRadius: '16px' }}
                       >
@@ -610,13 +768,13 @@ export default function TaskDetailPage({ params }: PageProps) {
                     </Box>
                   </Box>
                 ) : (
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      mb: 2, 
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mb: 2,
                       lineHeight: 1.6,
                       whiteSpace: 'pre-wrap',
-                      color: 'text.primary'
+                      color: 'text.primary',
                     }}
                   >
                     {task.description || 'No description provided'}
@@ -639,10 +797,10 @@ export default function TaskDetailPage({ params }: PageProps) {
                   onCreateTask={undefined} // No task creation from task comments
                 />
               </Box>
-        </Paper>
-      </Grid>
-    </Grid>
-  </Box>
-</PageContainer>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Box>
+    </PageContainer>
   );
 }

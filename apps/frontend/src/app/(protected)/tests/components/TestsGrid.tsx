@@ -4,11 +4,11 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { 
-  GridColDef, 
-  GridRowSelectionModel, 
+import {
+  GridColDef,
+  GridRowSelectionModel,
   GridPaginationModel,
-  GridFilterModel
+  GridFilterModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -24,17 +24,19 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
 
-
 interface TestsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
 }
 
-export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps) {
+export default function TestsTable({
+  sessionToken,
+  onRefresh,
+}: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
-  
+
   // Component state
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [tests, setTests] = useState<TestDetail[]>([]);
@@ -60,35 +62,33 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     };
   }, []);
 
-
-
   // Data fetching function
   const fetchTests = useCallback(async () => {
     if (!sessionToken) return;
-    
+
     try {
       setLoading(true);
-      
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testsClient = clientFactory.getTestsClient();
-      
+
       // Convert filter model to OData filter string
       const filterString = convertGridFilterModelToOData(filterModel);
-      
+
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
         sort_order: 'desc',
-        ...(filterString && { filter: filterString })
+        ...(filterString && { filter: filterString }),
       };
-      
+
       const response = await testsClient.getTests(apiParams);
-      
+
       console.log('API response:', response);
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
-      
+
       setError(null);
     } catch (error) {
       console.error('Error fetching tests:', error);
@@ -97,7 +97,12 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, paginationModel.page, paginationModel.pageSize, filterModel]);
+  }, [
+    sessionToken,
+    paginationModel.page,
+    paginationModel.pageSize,
+    filterModel,
+  ]);
 
   // Initial data fetch
   useEffect(() => {
@@ -105,9 +110,12 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
   }, [fetchTests]);
 
   // Handle pagination change
-  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-  }, []);
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+    },
+    []
+  );
 
   // Handle filter change
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
@@ -117,133 +125,125 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
   }, []);
 
   // Column definitions
-  const columns: GridColDef[] = React.useMemo(() => [
-    { 
-      field: 'prompt.content', 
-      headerName: 'Content', 
-      flex: 3,
-      filterable: true,
-      valueGetter: (value, row) => row.prompt?.content || '',
-      renderCell: (params) => {
-        const content = params.row.prompt?.content || params.row.content;
-        if (!content) return null;
+  const columns: GridColDef[] = React.useMemo(
+    () => [
+      {
+        field: 'prompt.content',
+        headerName: 'Content',
+        flex: 3,
+        filterable: true,
+        valueGetter: (value, row) => row.prompt?.content || '',
+        renderCell: params => {
+          const content = params.row.prompt?.content || params.row.content;
+          if (!content) return null;
 
-        return (
-          <Typography 
-            variant="body2" 
-            title={content}
-            sx={{ 
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {content}
-          </Typography>
-        );
-      }
-    },
-    { 
-      field: 'behavior.name',
-      headerName: 'Behavior', 
-      flex: 1,
-      filterable: true,
-      valueGetter: (value, row) => row.behavior?.name || '',
-      renderCell: (params) => {
-        const behaviorName = params.row.behavior?.name;
-        if (!behaviorName) return null;
-
-        return (
-          <Chip 
-            label={behaviorName} 
-            size="small" 
-            variant="outlined"
-          />
-        );
-      }
-    },
-    { 
-      field: 'topic.name', 
-      headerName: 'Topic', 
-      flex: 1,
-      filterable: true,
-      valueGetter: (value, row) => row.topic?.name || '',
-      renderCell: (params) => {
-        const topicName = params.row.topic?.name;
-        if (!topicName) return null;
-
-        return (
-          <Chip 
-            label={topicName} 
-            size="small" 
-            variant="outlined"
-          />
-        );
-      }
-    },
-    { 
-      field: 'category.name', 
-      headerName: 'Category', 
-      flex: 1,
-      filterable: true,
-      valueGetter: (value, row) => row.category?.name || '',
-      renderCell: (params) => {
-        const categoryName = params.row.category?.name;
-        if (!categoryName) return null;
-
-        return (
-          <Chip 
-            label={categoryName} 
-            size="small" 
-            variant="outlined"
-          />
-        );
-      }
-    },
-    { 
-      field: 'assignee.name', 
-      headerName: 'Assignee', 
-      flex: 1,
-      filterable: true,
-      valueGetter: (value, row) => {
-        const assignee = row.assignee;
-        if (!assignee) return '';
-        return assignee.name || 
-          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
-          assignee.email || '';
-      },
-      renderCell: (params) => {
-        const assignee = params.row.assignee;
-        if (!assignee) return null;
-
-        const displayName = assignee.name || 
-          `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() || 
-          assignee.email;
-
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar
-              src={assignee.picture}
-              sx={{ width: 24, height: 24 }}
+          return (
+            <Typography
+              variant="body2"
+              title={content}
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
             >
-              <PersonIcon />
-            </Avatar>
-            <Typography variant="body2">{displayName}</Typography>
-          </Box>
-        );
-      }
-    }
-  ], []);
+              {content}
+            </Typography>
+          );
+        },
+      },
+      {
+        field: 'behavior.name',
+        headerName: 'Behavior',
+        flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.behavior?.name || '',
+        renderCell: params => {
+          const behaviorName = params.row.behavior?.name;
+          if (!behaviorName) return null;
+
+          return <Chip label={behaviorName} size="small" variant="outlined" />;
+        },
+      },
+      {
+        field: 'topic.name',
+        headerName: 'Topic',
+        flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.topic?.name || '',
+        renderCell: params => {
+          const topicName = params.row.topic?.name;
+          if (!topicName) return null;
+
+          return <Chip label={topicName} size="small" variant="outlined" />;
+        },
+      },
+      {
+        field: 'category.name',
+        headerName: 'Category',
+        flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.category?.name || '',
+        renderCell: params => {
+          const categoryName = params.row.category?.name;
+          if (!categoryName) return null;
+
+          return <Chip label={categoryName} size="small" variant="outlined" />;
+        },
+      },
+      {
+        field: 'assignee.name',
+        headerName: 'Assignee',
+        flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => {
+          const assignee = row.assignee;
+          if (!assignee) return '';
+          return (
+            assignee.name ||
+            `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
+            assignee.email ||
+            ''
+          );
+        },
+        renderCell: params => {
+          const assignee = params.row.assignee;
+          if (!assignee) return null;
+
+          const displayName =
+            assignee.name ||
+            `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
+            assignee.email;
+
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar src={assignee.picture} sx={{ width: 24, height: 24 }}>
+                <PersonIcon />
+              </Avatar>
+              <Typography variant="body2">{displayName}</Typography>
+            </Box>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   // Event handlers
-  const handleRowClick = useCallback((params: any) => {
-    const testId = params.id;
-    router.push(`/tests/${testId}`);
-  }, [router]);
+  const handleRowClick = useCallback(
+    (params: any) => {
+      const testId = params.id;
+      router.push(`/tests/${testId}`);
+    },
+    [router]
+  );
 
-  const handleSelectionChange = useCallback((newSelection: GridRowSelectionModel) => {
-    setSelectedRows(newSelection);
-  }, []);
+  const handleSelectionChange = useCallback(
+    (newSelection: GridRowSelectionModel) => {
+      setSelectedRows(newSelection);
+    },
+    []
+  );
 
   const handleCreateTestSet = useCallback(() => {
     if (selectedRows.length > 0) {
@@ -251,34 +251,37 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
     }
   }, [selectedRows]);
 
-  const handleTestSetSelect = useCallback(async (testSet: TestSet) => {
-    if (!sessionToken) return;
-    
-    try {
-      const testSetsClient = new TestSetsClient(sessionToken);
-      await testSetsClient.associateTestsWithTestSet(testSet.id, selectedRows as string[]);
-      
-      if (isMounted.current) {
-        notifications.show(
-          `Successfully associated ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'} with test set "${testSet.name}"`,
-          {
-            severity: 'success',
-            autoHideDuration: 6000
-          }
+  const handleTestSetSelect = useCallback(
+    async (testSet: TestSet) => {
+      if (!sessionToken) return;
+
+      try {
+        const testSetsClient = new TestSetsClient(sessionToken);
+        await testSetsClient.associateTestsWithTestSet(
+          testSet.id,
+          selectedRows as string[]
         );
-        
-        setTestSetDialogOpen(false);
-      }
-    } catch (error) {
-      notifications.show(
-        'Failed to associate tests with test set',
-        {
-          severity: 'error',
-          autoHideDuration: 6000
+
+        if (isMounted.current) {
+          notifications.show(
+            `Successfully associated ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'} with test set "${testSet.name}"`,
+            {
+              severity: 'success',
+              autoHideDuration: 6000,
+            }
+          );
+
+          setTestSetDialogOpen(false);
         }
-      );
-    }
-  }, [sessionToken, selectedRows, notifications]);
+      } catch (error) {
+        notifications.show('Failed to associate tests with test set', {
+          severity: 'error',
+          autoHideDuration: 6000,
+        });
+      }
+    },
+    [sessionToken, selectedRows, notifications]
+  );
 
   const handleDeleteTests = useCallback(() => {
     if (selectedRows.length > 0) {
@@ -311,10 +314,10 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       onRefresh?.();
     } catch (error) {
       console.error('Error deleting tests:', error);
-      notifications.show(
-        'Failed to delete tests',
-        { severity: 'error', autoHideDuration: 6000 }
-      );
+      notifications.show('Failed to delete tests', {
+        severity: 'error',
+        autoHideDuration: 6000,
+      });
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
@@ -363,10 +366,10 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         options: [
           {
             label: 'Write Multiple Tests',
-            onClick: () => router.push('/tests/new?multiple=true')
-          }
-        ]
-      }
+            onClick: () => router.push('/tests/new?multiple=true'),
+          },
+        ],
+      },
     });
 
     buttons.push({
@@ -381,20 +384,27 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
         label: 'Assign to Test Set',
         icon: <ListIcon />,
         variant: 'contained' as const,
-        onClick: handleCreateTestSet
+        onClick: handleCreateTestSet,
       });
-      
+
       buttons.push({
         label: 'Delete Tests',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
-        onClick: handleDeleteTests
+        onClick: handleDeleteTests,
       });
     }
 
     return buttons;
-  }, [selectedRows.length, handleNewTest, handleCreateTestSet, handleDeleteTests, router, handleGenerateTests]);
+  }, [
+    selectedRows.length,
+    handleNewTest,
+    handleCreateTestSet,
+    handleDeleteTests,
+    router,
+    handleGenerateTests,
+  ]);
 
   return (
     <>
@@ -405,18 +415,25 @@ export default function TestsTable({ sessionToken, onRefresh }: TestsTableProps)
       )}
 
       {selectedRows.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box
+          sx={{
+            mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <Typography variant="subtitle1" color="primary">
             {selectedRows.length} tests selected
           </Typography>
         </Box>
       )}
-      
+
       <BaseDataGrid
         rows={tests}
         columns={columns}
         loading={loading}
-        getRowId={(row) => row.id}
+        getRowId={row => row.id}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}

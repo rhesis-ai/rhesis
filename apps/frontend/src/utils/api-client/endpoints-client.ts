@@ -8,15 +8,17 @@ const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 10,
   sort_by: 'created_at',
-  sort_order: 'desc'
+  sort_order: 'desc',
 };
 
 export type EndpointCreate = Omit<Endpoint, 'id'>;
 
 export class EndpointsClient extends BaseApiClient {
-  async getEndpoints(params: Partial<PaginationParams> = {}): Promise<PaginatedResponse<Endpoint>> {
+  async getEndpoints(
+    params: Partial<PaginationParams> = {}
+  ): Promise<PaginatedResponse<Endpoint>> {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
-    
+
     return this.fetchPaginated<Endpoint>(
       API_ENDPOINTS.endpoints,
       paginationParams,
@@ -70,7 +72,7 @@ export class EndpointsClient extends BaseApiClient {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.sessionToken}`,
+          Authorization: `Bearer ${this.sessionToken}`,
           'Content-Type': 'application/json',
         },
       }
@@ -92,4 +94,4 @@ export class EndpointsClient extends BaseApiClient {
       body: JSON.stringify({ test_set_ids }),
     });
   }
-} 
+}

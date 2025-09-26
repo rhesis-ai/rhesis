@@ -36,4 +36,4 @@ export interface Prompt extends PromptBase {
   id: UUID;
   created_at: string;
   updated_at: string;
-} 
+}

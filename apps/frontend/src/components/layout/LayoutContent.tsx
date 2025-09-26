@@ -21,23 +21,27 @@ function getAllSegments(items: NavigationItem[]): string[] {
   }, []);
 }
 
-export function LayoutContent({ 
-  children, 
-  session, 
-  navigation, 
-  branding, 
-  authentication
+export function LayoutContent({
+  children,
+  session,
+  navigation,
+  branding,
+  authentication,
 }: Omit<LayoutProps, 'theme'>) {
   const theme = useTheme();
   const pathname = usePathname();
-  const protectedSegments = React.useMemo(() => getAllSegments(navigation), [navigation]);
-  
+  const protectedSegments = React.useMemo(
+    () => getAllSegments(navigation),
+    [navigation]
+  );
+
   const isProtectedRoute = React.useMemo(() => {
     if (!pathname) return false;
     // Remove leading slash for comparison
     const currentPath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
-    return protectedSegments.some(segment => 
-      currentPath === segment || currentPath.startsWith(`${segment}/`)
+    return protectedSegments.some(
+      segment =>
+        currentPath === segment || currentPath.startsWith(`${segment}/`)
     );
   }, [pathname, protectedSegments]);
 
@@ -45,7 +49,13 @@ export function LayoutContent({
     <SessionProvider session={session}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
         <NotificationProvider>
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '100vh',
+            }}
+          >
             <Box sx={{ flex: 1 }}>
               <NavigationProvider
                 navigation={navigation}
@@ -62,4 +72,4 @@ export function LayoutContent({
       </AppRouterCacheProvider>
     </SessionProvider>
   );
-} 
+}
