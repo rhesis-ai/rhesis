@@ -78,17 +78,10 @@ def get_test_set_count(self, db=None):
     """
     Count test sets for the current organization.
 
-    This task demonstrates using the tenant context system for database operations.
-    The # with_tenant_context decorator removed - tenant context now passed directly decorator automatically:
-    1. Creates a database session
-    2. Sets the tenant context from the task
-    3. Passes the session to the task function
-    4. Closes the session when done
-
-    All database operations will have the correct tenant context automatically.
+    Demonstrates using the tenant context system for database operations.
+    The self.get_db_session() method automatically sets PostgreSQL session variables
+    for RLS from the task context.
     """
-    # The db session is obtained via get_db_session() method
-    # and already has the correct tenant context set
 
     # Use the crud utility which will respect the tenant context
     test_sets = crud.get_test_sets(db)
@@ -113,8 +106,7 @@ def get_test_configuration(self, test_configuration_id: str, db=None):
     """
     Get details of a specific test configuration.
 
-    This task demonstrates using the tenant context system with parameters.
-    The database session is automatically configured with the correct tenant.
+    Demonstrates using the tenant context system with parameters.
     """
     # Convert string ID to UUID
     config_id = UUID(test_configuration_id)
