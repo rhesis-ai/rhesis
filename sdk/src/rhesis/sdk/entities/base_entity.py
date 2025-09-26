@@ -142,14 +142,3 @@ class BaseEntity:
             url_params=record_id,
         )
         return cls(**response)
-
-    @handle_http_errors
-    def get_by_id(cls, id: str) -> Dict[str, Any]:
-        """Get entity by id."""
-        entity_dict = cls.fields.get(id)
-        if entity_dict is None:
-            raise ValueError(
-                f"Cannot get {cls.__class__.__name__}: "
-                f"entity with id {id} does not exist in database"
-            )
-        return dict(entity_dict)
