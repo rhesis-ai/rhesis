@@ -1,7 +1,9 @@
 import os
 from enum import Enum
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+from requests.exceptions import HTTPError
+from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_entity import BaseEntity
 
 os.environ["RHESIS_API_KEY"] = "test_api_key"
@@ -14,6 +16,36 @@ class TestEndpoint(Enum):
 
 class TestEntity(BaseEntity):
     endpoint = TestEndpoint.TEST
+
+
+@patch("requests.request")
+def test_delete_by_id(mock_request):
+    record_id = 1
+    entity = TestEntity()
+    entity.delete_by_id(record_id)
+    mock_request.assert_called_once_with(
+        method="DELETE",
+        url="http://test:8000/test/1",
+        headers={
+            "Authorization": "Bearer test_api_key",
+            "Content-Type": "application/json",
+        },
+        json=None,
+        params=None,
+    )
+
+    # Mock not found error response
+    mock_response = MagicMock()
+    mock_response.status_code = HTTPStatus.NOT_FOUND
+
+    http_error = HTTPError("404 Not Found")
+    http_error.response = mock_response
+    mock_request.side_effect = http_error
+
+    record_id = 1
+    entity = TestEntity()
+    result = entity.delete_by_id(record_id)
+    assert result is False
 
 
 @patch("requests.request")

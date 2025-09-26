@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 
 import requests
 
-from rhesis.sdk.client import Client, Methods
+from rhesis.sdk.client import Client, HTTPStatus, Methods
 
 T = TypeVar("T")
 
@@ -107,3 +107,20 @@ class BaseEntity:
             url_params=record_id,
         )
         return cls(**response)
+
+    @classmethod
+    def delete_by_id(cls, id: str) -> bool:
+        """Delete the entity from the database."""
+        client = Client()
+        try:
+            client.send_request(
+                endpoint=cls.endpoint,
+                method=Methods.DELETE,
+                url_params=id,
+            )
+            return True
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == HTTPStatus.NOT_FOUND:
+                return False
+            else:
+                raise e
