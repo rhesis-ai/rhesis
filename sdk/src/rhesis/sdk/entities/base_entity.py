@@ -87,19 +87,6 @@ class BaseEntity:
             )
             return response
 
-    def delete(self, nano_id: str) -> bool:
-        """Delete the entity from the database."""
-        client = Client()
-        try:
-            client.send_request(
-                endpoint=self.endpoint,
-                method=Methods.DELETE,
-                url_params=nano_id,
-            )
-            return True
-        except requests.exceptions.HTTPError:
-            return False
-
     def fetch(self) -> None:
         """Fetch the current entity's data from the API and update local fields."""
         client = Client()
