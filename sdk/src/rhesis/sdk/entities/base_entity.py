@@ -66,6 +66,12 @@ class BaseEntity:
             "Content-Type": "application/json",
         }
 
+    def __repr__(self) -> str:
+        field_strings = []
+        for key, value in self.fields.items():
+            field_strings.append(f"{key}: {value}\n")
+        return f"class_name: {self.__class__.__name__}\n{''.join(field_strings)}"
+
     @property
     def id(self) -> Optional[str]:
         """Get the entity's ID.
