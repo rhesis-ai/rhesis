@@ -143,14 +143,6 @@ class BaseEntity:
         )
         return cls(**response)
 
-    def update(self) -> None:
-        """Update entity in database."""
-        if not self.exists(self.fields["id"]):
-            raise ValueError(
-                f"Cannot update {self.__class__.__name__}: "
-                f"entity with id {self.fields['id']} does not exist"
-            )
-
     @handle_http_errors
     def get_by_id(cls, id: str) -> Dict[str, Any]:
         """Get entity by id."""
