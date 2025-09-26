@@ -3,6 +3,7 @@ import logging
 from typing import Any, Callable, Dict, Optional, TypeVar
 
 import requests
+from pydantic import BaseModel
 
 from rhesis.sdk.client import Client, HTTPStatus, Methods
 
@@ -50,15 +51,14 @@ class BaseEntity:
     """
 
     endpoint: str
-    fields: Dict[str, Any]
+    entity_schema: BaseModel
 
-    def __init__(self, **fields: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize the entity with given fields.
 
         Args:
             **fields: Arbitrary keyword arguments representing entity fields.
         """
-        self.fields = fields
 
     def __repr__(self) -> str:
         field_strings = []
@@ -66,50 +66,11 @@ class BaseEntity:
             field_strings.append(f"{key}: {value}\n")
         return f"class_name: {self.__class__.__name__}\n{''.join(field_strings)}"
 
-    def save(self) -> Optional[Dict[str, Any]]:
-        """Save the entity to the database."""
-        client = Client()
-        data = {k: v for k, v in self.fields.items() if k != "id"}
-
-        if "id" in self.fields:
-            response = client.send_request(
-                endpoint=self.endpoint,
-                method=Methods.PUT,
-                url_params=self.fields["id"],
-                data=data,
-            )
-            return response
-        else:
-            response = client.send_request(
-                endpoint=self.endpoint,
-                method=Methods.POST,
-                data=data,
-            )
-            return response
-
-    def fetch(self) -> None:
-        """Fetch the current entity's data from the API and update local fields."""
-        client = Client()
-        response = client.send_request(
-            endpoint=self.endpoint,
-            method=Methods.GET,
-            url_params=self.fields["id"],
-        )
-        self.fields.update(response)
+    def _set_fields(self) -> None:
+        self.fields = self.entity_schema(**vars(self)).model_dump()
 
     @classmethod
-    def from_id(cls, record_id: str) -> Optional["BaseEntity"]:
-        """Create an entity instance from a record ID."""
-        client = Client()
-        response = client.send_request(
-            endpoint=cls.endpoint,
-            method=Methods.GET,
-            url_params=record_id,
-        )
-        return cls(**response)
-
-    @classmethod
-    def delete_by_id(cls, id: str) -> bool:
+    def _delete_by_id(cls, id: str) -> bool:
         """Delete the entity from the database."""
         client = Client()
         try:
@@ -124,3 +85,63 @@ class BaseEntity:
                 return False
             else:
                 raise e
+
+    @classmethod
+    def _push_by_id(cls, id: str, data: Dict[str, Any]) -> None:
+        """Push the entity to the database."""
+        client = Client()
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.PUT,
+            url_params=id,
+            data=data,
+        )
+        return response
+
+    @classmethod
+    def _push_without_id(cls, data: Dict[str, Any]) -> None:
+        client = Client()
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.POST,
+            data=data,
+        )
+        return response
+
+    @classmethod
+    def _pull_by_id(cls, id: str) -> None:
+        client = Client()
+        response = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.GET,
+            url_params=id,
+        )
+        return cls(**response)
+
+    def push(self) -> Optional[Dict[str, Any]]:
+        """Save the entity to the database."""
+        data = {k: v for k, v in self.fields.items() if k != "id"}
+
+        if "id" in self.fields and self.fields["id"] is not None:
+            response = self._push_by_id(self.fields["id"], data)
+
+            return response
+        else:
+            response = self._push_without_id(data)
+            self.fields["id"] = response["id"]
+
+            return response
+
+    def pull(self) -> None:
+        """Pull the entity from the database."""
+        if "id" not in self.fields or self.fields["id"] is None:
+            raise ValueError("Entity has no ID")
+
+        return self._pull_by_id(self.fields["id"])
+
+    def delete(self) -> bool:
+        """Delete the entity from the database."""
+        if "id" not in self.fields or self.fields["id"] is None:
+            raise ValueError("Entity has no ID")
+
+        return self._delete_by_id(self.fields["id"])
