@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context, get_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.odata import combine_entity_type_filter
@@ -30,17 +30,17 @@ router = APIRouter(
     custom_unique_message="Category with this name already exists")
 def create_category(
     category: schemas.CategoryCreate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),  # ← ONLY CHANGE: get_tenant_db_session instead of get_db_session
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
-    Create category with super optimized approach - no session variables needed.
+    Create category with optimized approach supporting both RLS and explicit parameters.
 
     Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
+    - Automatically sets PostgreSQL session variables for RLS policies
+    - Maintains explicit parameter passing for maximum compatibility
+    - Single database connection with optimized session variable caching
+    - Drop-in replacement requiring minimal code changes
     """
     organization_id, user_id = tenant_context
     return crud.create_category(
@@ -58,7 +58,7 @@ def read_categories(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     entity_type: str | None = Query(None, description="Filter categories by entity type"),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all categories with their related objects"""
@@ -73,7 +73,7 @@ def read_categories(
 @router.get("/{category_id}")
 def read_category(
     category_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -102,7 +102,7 @@ def read_category(
 def update_category(
     category_id: uuid.UUID,
     category: schemas.CategoryUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
@@ -129,7 +129,7 @@ def update_category(
 @router.delete("/{category_id}")
 def delete_category(
     category_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
