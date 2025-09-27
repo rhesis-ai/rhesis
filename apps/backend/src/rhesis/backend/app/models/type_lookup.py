@@ -29,3 +29,4 @@ class TypeLookup(Base, OrganizationAndUserMixin):
         "Metric", foreign_keys="[Metric.backend_type_id]", back_populates="backend_type"
     )
     task_priorities = relationship("Task", back_populates="priority")
+    sources = relationship("Source", back_populates="source_type")

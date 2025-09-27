@@ -10,8 +10,8 @@ from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
+from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for Comment
 CommentDetailSchema = create_detailed_schema(schemas.Comment, models.Comment)
@@ -28,7 +28,7 @@ router = APIRouter(
 
 ## Emoji Reactions Structure
 
-Emoji reactions are stored as JSON in the `emojis` field of each comment. 
+Emoji reactions are stored as JSON in the `emojis` field of each comment.
 The structure is: {emoji_character: [list_of_user_reactions]}
 
 ### Example Comment Response:
@@ -61,7 +61,7 @@ The structure is: {emoji_character: [list_of_user_reactions]}
 - **No Duplicates**: A user can only react once per emoji per comment
 
 ### Supported Entity Types:
-- Test, TestSet, TestRun, TestResult, Metric, Model, Prompt, Behavior, Category
+- Test, TestSet, TestRun, TestResult, Metric, Model, Prompt, Behavior, Category, Source
 """
 
 
@@ -101,7 +101,7 @@ def read_comments(
 ):
     """
     Get all comments with filtering and pagination - optimized approach.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -137,7 +137,9 @@ def read_comment(
     """
     organization_id, user_id = tenant_context
     """Get a specific comment by ID"""
-    comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
+    comment = crud.get_comment(
+        db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
+    )
     if comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
     return comment
@@ -163,7 +165,9 @@ def update_comment(
     organization_id, user_id = tenant_context
     """Update a comment"""
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
+    db_comment = crud.get_comment(
+        db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
+    )
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
@@ -171,7 +175,13 @@ def update_comment(
     if db_comment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to update this comment")
 
-    return crud.update_comment(db=db, comment_id=comment_id, comment=comment, organization_id=organization_id, user_id=user_id)
+    return crud.update_comment(
+        db=db,
+        comment_id=comment_id,
+        comment=comment,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 @router.delete("/{comment_id}", response_model=schemas.Comment)
@@ -193,7 +203,9 @@ def delete_comment(
     organization_id, user_id = tenant_context
     """Delete a comment"""
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
+    db_comment = crud.get_comment(
+        db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
+    )
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
@@ -201,7 +213,9 @@ def delete_comment(
     if db_comment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
 
-    return crud.delete_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
+    return crud.delete_comment(
+        db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.get("/entity/{entity_type}/{entity_id}", response_model=List[CommentDetailSchema])
@@ -218,13 +232,14 @@ def read_comments_by_entity(
 ):
     """
     Get all comments for a specific entity - optimized approach.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - Direct tenant context injection
-    
-    Supported entities: Test, TestSet, TestRun, TestResult, Metric, Model, Prompt, Behavior, Category
+
+    Supported entities: Test, TestSet, TestRun, TestResult, PromptTemplate,
+    Metric, Model, Prompt, Behavior, Category, Source
     """
     organization_id, user_id = tenant_context
     # Validate entity type
@@ -294,7 +309,9 @@ def add_emoji_reaction(
     """
     organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
+    db_comment = crud.get_comment(
+        db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
+    )
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
@@ -323,7 +340,7 @@ def remove_emoji_reaction(
 ):
     """
     Remove an emoji reaction from a comment - optimized approach.
-    
+
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
@@ -331,7 +348,9 @@ def remove_emoji_reaction(
     """
     organization_id, user_id = tenant_context
     # Check if comment exists
-    db_comment = crud.get_comment(db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id)
+    db_comment = crud.get_comment(
+        db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
+    )
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
