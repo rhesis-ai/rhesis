@@ -211,3 +211,22 @@ def test_entity_type(test_db, test_org_id, authenticated_user_id):
     test_db.commit()
     test_db.refresh(entity_type)
     return entity_type
+
+
+@pytest.fixture
+def project_entity_type(test_db, test_org_id, authenticated_user_id):
+    """Create a project EntityType TypeLookup for testing Project Status relationships."""
+    from rhesis.backend.app import models
+    from rhesis.backend.app.constants import EntityType
+    
+    # Create a TypeLookup for EntityType.PROJECT
+    entity_type = models.TypeLookup(
+        type_name="EntityType",
+        type_value=EntityType.PROJECT.value,
+        organization_id=test_org_id,
+        user_id=authenticated_user_id
+    )
+    test_db.add(entity_type)
+    test_db.commit()
+    test_db.refresh(entity_type)
+    return entity_type

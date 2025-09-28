@@ -59,7 +59,7 @@ __all__ = [
     "sample_user", "mock_user", "admin_user", "inactive_user", "db_authenticated_user", "db_admin_user",
     
     # Status fixtures
-    "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status",
+    "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status", "db_project_status",
     
     # Project fixtures
     "db_project", "db_inactive_project", "db_draft_project",
