@@ -26,7 +26,18 @@ class TestTokenOperations:
     
     def test_revoke_user_tokens_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test successful token revocation for user"""
-        user_uuid = uuid.UUID(authenticated_user_id)
+        # Create a separate test user to avoid revoking session tokens
+        # that other tests depend on
+        test_user_id = uuid.uuid4()
+        test_user = models.User(
+            email=f"test-token-user-{test_user_id}@example.com",
+            name="Test Token User",
+            auth0_id=f"test-token-user-auth0-{test_user_id}",
+            organization_id=uuid.UUID(test_org_id)
+        )
+        test_db.add(test_user)
+        test_db.flush()
+        user_uuid = test_user.id
         
         # Create test tokens with proper Token model fields
         db_token_1 = models.Token(
