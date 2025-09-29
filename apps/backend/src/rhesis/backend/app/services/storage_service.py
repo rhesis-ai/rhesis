@@ -46,7 +46,7 @@ class StorageService:
             logger.info("Local environment detected - using local file storage")
             return None
 
-        bucket_name = f"sources-{env_suffix}-rhesis"
+        bucket_name = f"sources-rhesis-{env_suffix}"
         logger.info(f"Using environment-specific bucket: {bucket_name}")
         return bucket_name
 
