@@ -33,6 +33,7 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
     behavior_id = Column(GUID(), ForeignKey("behavior.id"))
     category_id = Column(GUID(), ForeignKey("category.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
+    source_id = Column(GUID(), ForeignKey("source.id"))
     # Test source info (origin, inputs, context)
     # Named 'test_metadata' to avoid SQLAlchemy's reserved 'metadata' attribute
     test_metadata = Column(JSONB)
@@ -54,3 +55,4 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
     test_sets = relationship(
         "TestSet", secondary=test_test_set_association, back_populates="tests", viewonly=True
     )
+    source = relationship("Source", back_populates="tests")
