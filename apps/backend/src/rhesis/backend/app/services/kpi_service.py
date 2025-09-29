@@ -23,33 +23,32 @@ class KPIService:
         Returns:
             Dict containing platform-wide metrics including users, tests,
             test runs, and test results with pass/fail rates.
+
+        Raises:
+            Exception: If any database query fails or data processing error occurs
         """
-        try:
-            # Get all metrics using direct SQL queries (following your patterns)
-            users_metrics = self._get_users_metrics()
-            tests_metrics = self._get_tests_metrics()
-            test_runs_metrics = self._get_test_runs_metrics()
-            test_results_metrics = self._get_test_results_metrics()
+        # Get all metrics using direct SQL queries
+        users_metrics = self._get_users_metrics()
+        tests_metrics = self._get_tests_metrics()
+        test_runs_metrics = self._get_test_runs_metrics()
+        test_results_metrics = self._get_test_results_metrics()
 
-            # Calculate derived metrics
-            pass_rate = self._calculate_pass_rate(
-                test_results_metrics["passed"], test_results_metrics["total"]
-            )
+        # Calculate derived metrics
+        pass_rate = self._calculate_pass_rate(
+            test_results_metrics["passed"], test_results_metrics["total"]
+        )
 
-            return {
-                "scope": "platform_wide",
-                "users": users_metrics,
-                "tests": tests_metrics,
-                "test_runs": test_runs_metrics,
-                "test_results": {
-                    **test_results_metrics,
-                    "pass_rate": pass_rate,
-                },
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-
-        except Exception as e:
-            return self._create_error_response(str(e))
+        return {
+            "scope": "platform_wide",
+            "users": users_metrics,
+            "tests": tests_metrics,
+            "test_runs": test_runs_metrics,
+            "test_results": {
+                **test_results_metrics,
+                "pass_rate": pass_rate,
+            },
+            "timestamp": datetime.utcnow().isoformat(),
+        }
 
     def _get_users_metrics(self) -> Dict[str, int]:
         """Get user-related metrics."""
@@ -145,15 +144,3 @@ class KPIService:
     def _calculate_pass_rate(self, passed: int, total: int) -> float:
         """Calculate pass rate percentage."""
         return round((passed / total * 100) if total > 0 else 0, 2)
-
-    def _create_error_response(self, error_message: str) -> Dict[str, Any]:
-        """Create standardized error response."""
-        return {
-            "error": error_message,
-            "scope": "platform_wide",
-            "timestamp": datetime.utcnow().isoformat(),
-            "users": {"total": 0, "active_users_30d": 0},
-            "tests": {"total": 0},
-            "test_runs": {"total": 0, "by_status": [], "timeline": []},
-            "test_results": {"total": 0, "passed": 0, "failed": 0, "pass_rate": 0},
-        }
