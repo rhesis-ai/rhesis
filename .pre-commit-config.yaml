@@ -22,6 +22,20 @@ repos:
           files: ^apps/backend/
           pass_filenames: false
 
+        - id: frontend-validate
+          name: validate frontend (format, lint, type-check, build)
+          language: system
+          entry: cd apps/frontend && ./scripts/validate.sh
+          files: ^apps/frontend/
+          pass_filenames: false
+
+        - id: frontend-hardcoded-styles
+          name: check hardcoded styles in frontend
+          language: system
+          entry: node scripts/check-hardcoded-styles.js
+          files: ^apps/frontend/
+          pass_filenames: false
+
 
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.8.0

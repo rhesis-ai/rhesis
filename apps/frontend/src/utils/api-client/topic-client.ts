@@ -1,12 +1,24 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Topic, TopicCreate, TopicUpdate, TopicsQueryParams } from './interfaces/topic';
+import {
+  Topic,
+  TopicCreate,
+  TopicUpdate,
+  TopicsQueryParams,
+} from './interfaces/topic';
 import { UUID } from 'crypto';
 
 export class TopicClient extends BaseApiClient {
   async getTopics(params: TopicsQueryParams = {}): Promise<Topic[]> {
-    const { skip = 0, limit = 100, sort_by = 'created_at', sort_order = 'desc', $filter, entity_type } = params;
-    
+    const {
+      skip = 0,
+      limit = 100,
+      sort_by = 'created_at',
+      sort_order = 'desc',
+      $filter,
+      entity_type,
+    } = params;
+
     // Build query string
     const queryParams = new URLSearchParams();
     queryParams.append('skip', skip.toString());
@@ -19,11 +31,11 @@ export class TopicClient extends BaseApiClient {
     if (entity_type) {
       queryParams.append('entity_type', entity_type);
     }
-    
+
     const url = `${API_ENDPOINTS.topics}?${queryParams.toString()}`;
-    
+
     return this.fetch<Topic[]>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
@@ -50,4 +62,4 @@ export class TopicClient extends BaseApiClient {
       method: 'DELETE',
     });
   }
-} 
+}

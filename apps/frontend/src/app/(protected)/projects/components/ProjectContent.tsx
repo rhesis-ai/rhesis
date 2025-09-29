@@ -1,15 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { 
-  Typography, 
-  Box, 
-  Paper, 
-  Grid, 
+import {
+  Typography,
+  Box,
+  Paper,
+  Grid,
   Chip,
   Divider,
   useTheme,
-  Avatar
+  Avatar,
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
@@ -21,7 +21,7 @@ import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
-// Import additional icons 
+// Import additional icons
 import WebIcon from '@mui/icons-material/Web';
 import StorageIcon from '@mui/icons-material/Storage';
 import CodeIcon from '@mui/icons-material/Code';
@@ -62,7 +62,7 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   PhoneIphone: PhoneIphoneIcon,
   School: SchoolIcon,
   Science: ScienceIcon,
-  AccountTree: AccountTreeIcon
+  AccountTree: AccountTreeIcon,
 };
 
 // Function to get project icon based on project icon or use case
@@ -72,7 +72,7 @@ const getProjectIcon = (project: Project) => {
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
-  
+
   // Fall back to useCase-based icons if no specific icon is set
   if (project.useCase) {
     switch (project.useCase.toLowerCase()) {
@@ -86,7 +86,7 @@ const getProjectIcon = (project: Project) => {
         return <SmartToyIcon />;
     }
   }
-  
+
   // Default icon
   return <SmartToyIcon />;
 };
@@ -94,7 +94,7 @@ const getProjectIcon = (project: Project) => {
 // Function to get environment color
 const getEnvironmentColor = (environment?: string) => {
   if (!environment) return 'default';
-  
+
   switch (environment.toLowerCase()) {
     case 'production':
       return 'success';
@@ -118,46 +118,59 @@ export default function ProjectContent({ project }: { project: Project }) {
             <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
               {getProjectIcon(project)}
             </Avatar>
-            <Typography variant="h5">
-              {project.name}
-            </Typography>
+            <Typography variant="h5">{project.name}</Typography>
             {project.is_active !== undefined && (
               <Chip
-                icon={project.is_active ? <CheckCircleIcon fontSize="small" /> : <DoNotDisturbAltIcon fontSize="small" />}
-                label={project.is_active ? "Active" : "Inactive"}
+                icon={
+                  project.is_active ? (
+                    <CheckCircleIcon fontSize="small" />
+                  ) : (
+                    <DoNotDisturbAltIcon fontSize="small" />
+                  )
+                }
+                label={project.is_active ? 'Active' : 'Inactive'}
                 size="small"
-                color={project.is_active ? "success" : "error"}
+                color={project.is_active ? 'success' : 'error'}
                 variant="outlined"
                 sx={{ ml: 2 }}
               />
             )}
           </Box>
           <Divider sx={{ mb: 3 }} />
-          
+
           {/* Project Info */}
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               {/* Project Description */}
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 'bold', mb: 1 }}
+                >
                   Description
                 </Typography>
                 <Typography variant="body1">
                   {project.description || 'No description provided'}
                 </Typography>
               </Box>
-              
+
               {/* Project Owner */}
               {project.owner && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 'bold', mb: 1 }}
+                  >
                     Owner
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar 
-                      src={project.owner.picture} 
+                    <Avatar
+                      src={project.owner.picture}
                       alt={project.owner.name || project.owner.email}
-                      sx={{ width: AVATAR_SIZES.MEDIUM, height: AVATAR_SIZES.MEDIUM }}
+                      sx={{
+                        width: AVATAR_SIZES.MEDIUM,
+                        height: AVATAR_SIZES.MEDIUM,
+                      }}
                     >
                       <PersonIcon />
                     </Avatar>
@@ -168,12 +181,15 @@ export default function ProjectContent({ project }: { project: Project }) {
                 </Box>
               )}
             </Grid>
-            
+
             <Grid item xs={12} md={6}>
               {/* Project Environment & Use Case */}
               {(project.environment || project.useCase) && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 'bold', mb: 1 }}
+                  >
                     Environment & Type
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -196,32 +212,53 @@ export default function ProjectContent({ project }: { project: Project }) {
                   </Box>
                 </Box>
               )}
-              
+
               {/* Created Date */}
               {project.createdAt && (
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3 }}>
-                  <CalendarTodayIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 2, mt: 0.5 }} />
+                  <CalendarTodayIcon
+                    sx={{
+                      fontSize: theme => theme.iconSizes.medium,
+                      color: 'text.secondary',
+                      mr: 2,
+                      mt: 0.5,
+                    }}
+                  />
                   <Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: 'bold', mb: 1 }}
+                    >
                       Created At
                     </Typography>
                     <Typography variant="body1">
-                      {new Date(project.createdAt).toLocaleDateString()} {new Date(project.createdAt).toLocaleTimeString()}
+                      {new Date(project.createdAt).toLocaleDateString()}{' '}
+                      {new Date(project.createdAt).toLocaleTimeString()}
                     </Typography>
                   </Box>
                 </Box>
               )}
             </Grid>
           </Grid>
-          
+
           {/* Tags Section */}
           {project.tags && project.tags.length > 0 && (
             <Box sx={{ mt: 3 }}>
               <Divider sx={{ mb: 3 }} />
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <LocalOfferIcon sx={{ fontSize: (theme) => theme.iconSizes.medium, color: 'text.secondary', mr: 2, mt: 0.5 }} />
+                <LocalOfferIcon
+                  sx={{
+                    fontSize: theme => theme.iconSizes.medium,
+                    color: 'text.secondary',
+                    mr: 2,
+                    mt: 0.5,
+                  }}
+                />
                 <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 'bold', mb: 1 }}
+                  >
                     Tags
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -243,4 +280,4 @@ export default function ProjectContent({ project }: { project: Project }) {
       </Grid>
     </Paper>
   );
-} 
+}

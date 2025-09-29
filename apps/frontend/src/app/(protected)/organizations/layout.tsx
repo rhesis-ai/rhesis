@@ -10,4 +10,4 @@ export default function OrganizationsLayout({
   children: React.ReactNode;
 }) {
   return children;
-} 
+}

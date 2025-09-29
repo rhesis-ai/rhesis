@@ -1,12 +1,12 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { 
+import {
   Model,
   ModelCreate,
   ModelUpdate,
   ModelDetail,
   ModelQueryParams,
-  ModelsResponse
+  ModelsResponse,
 } from './interfaces/model';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';
@@ -16,18 +16,20 @@ const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 50,
   sort_by: 'created_at',
-  sort_order: 'desc'
+  sort_order: 'desc',
 };
 
 export class ModelsClient extends BaseApiClient {
-  async getModels(params?: ModelQueryParams): Promise<PaginatedResponse<ModelDetail>> {
+  async getModels(
+    params?: ModelQueryParams
+  ): Promise<PaginatedResponse<ModelDetail>> {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
-    
+
     return this.fetchPaginated<ModelDetail>(
       API_ENDPOINTS.models,
       paginationParams,
       {
-        cache: 'no-store'
+        cache: 'no-store',
       }
     );
   }
@@ -56,12 +58,14 @@ export class ModelsClient extends BaseApiClient {
     });
   }
 
-  async testModelConnection(id: UUID): Promise<{ status: string; message: string }> {
+  async testModelConnection(
+    id: UUID
+  ): Promise<{ status: string; message: string }> {
     return this.fetch<{ status: string; message: string }>(
       `${API_ENDPOINTS.models}/${id}/test`,
       {
-        method: 'POST'
+        method: 'POST',
       }
     );
   }
-} 
+}

@@ -20,7 +20,7 @@ interface TestWorkflowSectionProps {
   onOwnerChange?: (newOwner: User | null) => void;
 }
 
-export default function TestWorkflowSection({ 
+export default function TestWorkflowSection({
   status = 'In Review',
   priority = 1,
   assignee,
@@ -30,18 +30,18 @@ export default function TestWorkflowSection({
   onStatusChange,
   onPriorityChange,
   onAssigneeChange,
-  onOwnerChange
+  onOwnerChange,
 }: TestWorkflowSectionProps) {
   const notifications = useNotifications();
-  
+
   // Create API clients exactly once
   const apiClients = useMemo(() => {
     if (!sessionToken) return null;
-    
+
     const clientFactory = new ApiClientFactory(sessionToken);
     return {
       clientFactory,
-      testsClient: clientFactory.getTestsClient()
+      testsClient: clientFactory.getTestsClient(),
     };
   }, [sessionToken]);
 
@@ -50,13 +50,17 @@ export default function TestWorkflowSection({
       notifications.show('Client not initialized', { severity: 'error' });
       return;
     }
-    
+
     try {
       await apiClients.testsClient.updateTest(testId, updateData);
-      notifications.show(`${fieldName} updated successfully`, { severity: 'success' });
+      notifications.show(`${fieldName} updated successfully`, {
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Error updating test:', error);
-      notifications.show(`Failed to update ${fieldName}`, { severity: 'error' });
+      notifications.show(`Failed to update ${fieldName}`, {
+        severity: 'error',
+      });
       throw error;
     }
   };
@@ -78,4 +82,4 @@ export default function TestWorkflowSection({
       onUpdateEntity={updateTest}
     />
   );
-} 
+}

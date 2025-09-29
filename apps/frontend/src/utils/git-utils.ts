@@ -20,7 +20,7 @@ export interface VersionInfo {
 export function shouldShowGitInfo(): boolean {
   const frontendEnv = process.env.FRONTEND_ENV?.toLowerCase();
   const nodeEnv = process.env.NODE_ENV?.toLowerCase();
-  
+
   // Don't show git info in production
   return frontendEnv !== 'production' && nodeEnv !== 'production';
 }
@@ -42,7 +42,7 @@ export function getGitInfo(): GitInfo {
 export function getVersionInfo(): VersionInfo {
   const version = process.env.APP_VERSION || '0.0.0';
   const versionInfo: VersionInfo = { version };
-  
+
   if (shouldShowGitInfo()) {
     const gitInfo = getGitInfo();
     if (gitInfo.branch) {
@@ -52,16 +52,19 @@ export function getVersionInfo(): VersionInfo {
       versionInfo.commit = gitInfo.commit;
     }
   }
-  
+
   return versionInfo;
 }
 
 /**
  * Format version information for display.
  */
-export function formatVersionDisplay(versionInfo: VersionInfo, prefix: string = 'v'): string {
+export function formatVersionDisplay(
+  versionInfo: VersionInfo,
+  prefix: string = 'v'
+): string {
   let display = `${prefix}${versionInfo.version}`;
-  
+
   if (versionInfo.branch || versionInfo.commit) {
     const gitParts: string[] = [];
     if (versionInfo.branch) {
@@ -72,6 +75,6 @@ export function formatVersionDisplay(versionInfo: VersionInfo, prefix: string = 
     }
     display += ` (${gitParts.join('@')})`;
   }
-  
+
   return display;
 }

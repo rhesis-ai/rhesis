@@ -10,4 +10,4 @@ export default function TestRunsLayout({
   children: React.ReactNode;
 }) {
   return children;
-} 
+}

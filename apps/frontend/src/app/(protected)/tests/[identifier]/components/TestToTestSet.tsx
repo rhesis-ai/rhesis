@@ -17,48 +17,53 @@ interface TestToTestSetProps {
   parentButton?: React.ReactNode;
 }
 
-export default function TestToTestSet({ sessionToken, testId, parentButton }: TestToTestSetProps) {
+export default function TestToTestSet({
+  sessionToken,
+  testId,
+  parentButton,
+}: TestToTestSetProps) {
   const [testSetDialogOpen, setTestSetDialogOpen] = React.useState(false);
   const [trialDrawerOpen, setTrialDrawerOpen] = React.useState(false);
   const notifications = useNotifications();
 
   const handleTestSetSelect = async (testSet: TestSet) => {
     if (!sessionToken) return;
-    
+
     try {
       const testSetsClient = new TestSetsClient(sessionToken);
       await testSetsClient.associateTestsWithTestSet(testSet.id, [testId]);
-      
+
       notifications.show(
         `Successfully associated test with test set "${testSet.name}"`,
         {
           severity: 'success',
-          autoHideDuration: 6000
+          autoHideDuration: 6000,
         }
       );
-      
+
       setTestSetDialogOpen(false);
     } catch (error) {
       console.error('Error associating test with test set:', error);
-      
+
       // Check if the error message contains our target string
       const errorMessage = error instanceof Error ? error.message : '';
-      if (errorMessage.includes('One or more tests are already associated with this test set')) {
+      if (
+        errorMessage.includes(
+          'One or more tests are already associated with this test set'
+        )
+      ) {
         notifications.show(
           'One or more tests are already associated with this test set',
           {
             severity: 'warning',
-            autoHideDuration: 6000
+            autoHideDuration: 6000,
           }
         );
       } else {
-        notifications.show(
-          'Failed to associate test with test set',
-          {
-            severity: 'error',
-            autoHideDuration: 6000
-          }
-        );
+        notifications.show('Failed to associate test with test set', {
+          severity: 'error',
+          autoHideDuration: 6000,
+        });
       }
     }
   };
@@ -71,8 +76,8 @@ export default function TestToTestSet({ sessionToken, testId, parentButton }: Te
     <>
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         {parentButton}
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           color="primary"
           startIcon={<AddToPhotosIcon />}
           onClick={() => setTestSetDialogOpen(true)}
@@ -95,7 +100,7 @@ export default function TestToTestSet({ sessionToken, testId, parentButton }: Te
         onSelect={handleTestSetSelect}
         sessionToken={sessionToken}
       />
-      
+
       <TrialDrawer
         open={trialDrawerOpen}
         onClose={() => setTrialDrawerOpen(false)}
@@ -105,4 +110,4 @@ export default function TestToTestSet({ sessionToken, testId, parentButton }: Te
       />
     </>
   );
-} 
+}

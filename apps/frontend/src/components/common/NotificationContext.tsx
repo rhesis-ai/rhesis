@@ -1,7 +1,12 @@
 import * as React from 'react';
 import { Snackbar, Alert, useTheme } from '@mui/material';
 
-export type NotificationSeverity = 'success' | 'info' | 'warning' | 'error' | 'neutral';
+export type NotificationSeverity =
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'error'
+  | 'neutral';
 
 interface NotificationOptions {
   severity?: NotificationSeverity;
@@ -20,22 +25,26 @@ interface NotificationContextType {
   close: (key: string) => void;
 }
 
-const NotificationContext = React.createContext<NotificationContextType | undefined>(undefined);
+const NotificationContext = React.createContext<
+  NotificationContextType | undefined
+>(undefined);
 
 let notificationCount = 0;
 
-export function NotificationProvider({ 
+export function NotificationProvider({
   children,
-  anchorOrigin = { vertical: 'bottom', horizontal: 'right' }
-}: { 
+  anchorOrigin = { vertical: 'bottom', horizontal: 'right' },
+}: {
   children: React.ReactNode;
   anchorOrigin?: { vertical: 'top' | 'bottom'; horizontal: 'left' | 'right' };
 }) {
-  const [notifications, setNotifications] = React.useState<NotificationItem[]>([]);
-  const [open, setOpen] = React.useState(false);
-  const [currentNotification, setCurrentNotification] = React.useState<NotificationItem | undefined>(
-    undefined,
+  const [notifications, setNotifications] = React.useState<NotificationItem[]>(
+    []
   );
+  const [open, setOpen] = React.useState(false);
+  const [currentNotification, setCurrentNotification] = React.useState<
+    NotificationItem | undefined
+  >(undefined);
   const theme = useTheme();
 
   React.useEffect(() => {
@@ -50,25 +59,33 @@ export function NotificationProvider({
     }
   }, [notifications, currentNotification, open]);
 
-  const show = React.useCallback((message: string, options: NotificationOptions = {}) => {
-    const key = options.key || `notification-${++notificationCount}`;
-    
-    // Check for duplicate if key is provided
-    if (options.key && notifications.some(n => n.key === options.key)) {
+  const show = React.useCallback(
+    (message: string, options: NotificationOptions = {}) => {
+      const key = options.key || `notification-${++notificationCount}`;
+
+      // Check for duplicate if key is provided
+      if (options.key && notifications.some(n => n.key === options.key)) {
+        return key;
+      }
+
+      setNotifications(prev => [...prev, { message, options, key }]);
       return key;
-    }
+    },
+    [notifications]
+  );
 
-    setNotifications(prev => [...prev, { message, options, key }]);
-    return key;
-  }, [notifications]);
-
-  const close = React.useCallback((key: string) => {
-    if (currentNotification?.key === key) {
-      setOpen(false);
-    } else {
-      setNotifications(prev => prev.filter(notification => notification.key !== key));
-    }
-  }, [currentNotification]);
+  const close = React.useCallback(
+    (key: string) => {
+      if (currentNotification?.key === key) {
+        setOpen(false);
+      } else {
+        setNotifications(prev =>
+          prev.filter(notification => notification.key !== key)
+        );
+      }
+    },
+    [currentNotification]
+  );
 
   const handleClose = (_event?: any, reason?: string) => {
     if (reason === 'clickaway') {
@@ -88,7 +105,9 @@ export function NotificationProvider({
   const getNeutralAlertSx = () => {
     const isDark = theme.palette.mode === 'dark';
     return {
-      backgroundColor: isDark ? theme.palette.grey[700] : theme.palette.grey[100],
+      backgroundColor: isDark
+        ? theme.palette.grey[700]
+        : theme.palette.grey[100],
       color: isDark ? theme.palette.grey[100] : theme.palette.grey[800],
       '& .MuiAlert-icon': {
         color: isDark ? theme.palette.grey[300] : theme.palette.grey[600],
@@ -106,18 +125,26 @@ export function NotificationProvider({
         <Snackbar
           key={currentNotification.key}
           open={open}
-          autoHideDuration={currentNotification.options.autoHideDuration || 6000}
+          autoHideDuration={
+            currentNotification.options.autoHideDuration || 6000
+          }
           onClose={handleClose}
           anchorOrigin={anchorOrigin}
           TransitionProps={{ onExited: handleExited }}
         >
           <Alert
             onClose={handleClose}
-            severity={currentNotification.options.severity === 'neutral' ? 'info' : currentNotification.options.severity || 'info'}
+            severity={
+              currentNotification.options.severity === 'neutral'
+                ? 'info'
+                : currentNotification.options.severity || 'info'
+            }
             variant="filled"
-            sx={{ 
+            sx={{
               width: '100%',
-              ...(currentNotification.options.severity === 'neutral' ? getNeutralAlertSx() : {})
+              ...(currentNotification.options.severity === 'neutral'
+                ? getNeutralAlertSx()
+                : {}),
             }}
             elevation={6}
           >
@@ -132,7 +159,9 @@ export function NotificationProvider({
 export function useNotifications() {
   const context = React.useContext(NotificationContext);
   if (context === undefined) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
+    throw new Error(
+      'useNotifications must be used within a NotificationProvider'
+    );
   }
   return context;
-} 
+}

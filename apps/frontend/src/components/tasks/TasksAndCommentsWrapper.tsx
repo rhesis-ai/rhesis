@@ -26,42 +26,51 @@ export function TasksAndCommentsWrapper({
   currentUserPicture,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
-  const { tasks, isLoading, createTask, deleteTask } = useTasks({ 
-    entityType, 
-    entityId, 
-    autoFetch: true 
+  const { tasks, isLoading, createTask, deleteTask } = useTasks({
+    entityType,
+    entityId,
+    autoFetch: true,
   });
 
-  const handleCreateTask = useCallback(async (taskData: any) => {
-    try {
-      await createTask(taskData);
-    } catch (error) {
-      console.error('Failed to create task:', error);
-    }
-  }, [createTask]);
+  const handleCreateTask = useCallback(
+    async (taskData: any) => {
+      try {
+        await createTask(taskData);
+      } catch (error) {
+        console.error('Failed to create task:', error);
+      }
+    },
+    [createTask]
+  );
 
   const handleEditTask = useCallback((taskId: string) => {
     // Navigate to the task detail page
     window.open(`/tasks/${taskId}`, '_blank');
   }, []);
 
-  const handleDeleteTask = useCallback(async (taskId: string) => {
-    try {
-      await deleteTask(taskId);
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-    }
-  }, [deleteTask]);
+  const handleDeleteTask = useCallback(
+    async (taskId: string) => {
+      try {
+        await deleteTask(taskId);
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+      }
+    },
+    [deleteTask]
+  );
 
-  const handleCreateTaskFromComment = useCallback((commentId: string) => {
-    // Navigate to create task page with entity and comment info
-    const params = new URLSearchParams({
-      entityType,
-      entityId,
-      commentId,
-    });
-    router.push(`/tasks/create?${params.toString()}`);
-  }, [router, entityType, entityId]);
+  const handleCreateTaskFromComment = useCallback(
+    (commentId: string) => {
+      // Navigate to create task page with entity and comment info
+      const params = new URLSearchParams({
+        entityType,
+        entityId,
+        commentId,
+      });
+      router.push(`/tasks/create?${params.toString()}`);
+    },
+    [router, entityType, entityId]
+  );
 
   const handleCreateTaskFromEntity = useCallback(() => {
     // Navigate to create task page with entity info

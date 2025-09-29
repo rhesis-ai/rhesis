@@ -12,7 +12,10 @@ interface TestSetTagsProps {
   testSet: TestSet;
 }
 
-export default function TestSetTags({ sessionToken, testSet }: TestSetTagsProps) {
+export default function TestSetTags({
+  sessionToken,
+  testSet,
+}: TestSetTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
   const theme = useTheme();
 
@@ -28,7 +31,7 @@ export default function TestSetTags({ sessionToken, testSet }: TestSetTagsProps)
       <BaseTag
         value={tagNames}
         onChange={setTagNames}
-        label="Tags" 
+        label="Tags"
         placeholder="Add tags (press Enter or comma to add)"
         helperText="These tags help categorize and find this test set"
         chipColor="primary"
@@ -43,10 +46,10 @@ export default function TestSetTags({ sessionToken, testSet }: TestSetTagsProps)
         className="test-set-tags"
         sx={{
           '&.test-set-tags .MuiInputBase-root': {
-            padding: theme => theme.spacing(2)
-          }
+            padding: theme => theme.spacing(2),
+          },
         }}
       />
     </Box>
   );
-} 
+}
