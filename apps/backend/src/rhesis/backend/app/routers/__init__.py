@@ -11,6 +11,7 @@ from .home import router as home_router
 # ... other imports
 # Import new routers
 from .job import router as task_router
+from .kpi import router as kpi_router
 from .metric import router as metric_router
 from .model import router as model_router
 from .organization import router as organization_router
@@ -70,6 +71,7 @@ __all__ = [
     "model",
     "task",
     "task_management",
+    "kpi",
 ]
 
 # Export all routers for use in main.py
@@ -108,6 +110,7 @@ routers = sorted(
         model_router,
         task_router,
         task_management_router,
+        kpi_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )
