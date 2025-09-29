@@ -141,6 +141,10 @@ export interface TestResultDetail extends TestResult {
   test_configuration?: TestConfiguration;
   test_run?: TestRun;
   test?: TestReference;
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
 }
 
 // Comprehensive stats interfaces based on API documentation

@@ -95,6 +95,10 @@ export interface TestDetail extends Test {
   status?: Status;
   organization?: Organization;
   priorityLevel?: PriorityLevel;
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
 }
 
 // Test Stats interfaces
