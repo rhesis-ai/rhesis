@@ -138,15 +138,15 @@ def _prepare_update_data(db: Session, model: Type[T], item_data: Union[Dict[str,
 def _create_db_item_with_transaction(
     db: Session, model: Type[T], item_data: Dict[str, Any], commit: bool = True
 ) -> T:
-    """Create database item within a transaction."""
+    """Create database item. Transaction management is handled by the session context manager."""
     db_item = model(**item_data)
 
     db.add(db_item)
     db.flush()  # Flush to get the ID and other generated values
     db.refresh(db_item)  # Refresh to ensure we have all generated values
 
-    if commit:
-        db.commit()
+    # Note: commit parameter is kept for backward compatibility but transaction 
+    # management is now handled by get_db_with_tenant_variables() context manager
 
     return db_item
 
@@ -351,10 +351,10 @@ def update_item(
         if hasattr(db_item, key):
             setattr(db_item, key, value)
 
-    # Commit changes
+    # Flush and refresh to ensure we have updated values
+    # Transaction commit is handled by the session context manager
     db.flush()
     db.refresh(db_item)
-    db.commit()
     
     return db_item
 
@@ -387,9 +387,8 @@ def delete_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id
     # Store reference before deletion
     deleted_item = db_item
 
-    # Delete and commit
+    # Delete item - transaction commit is handled by the session context manager
     db.delete(db_item)
-    db.commit()
     
     return deleted_item
 

@@ -537,11 +537,10 @@ def bulk_create_tests(
                     user_id=user_id,
                 )
 
-        db.commit()
+        # Transaction commit/rollback is handled by the session context manager
         return created_tests
 
     except Exception as e:
-        db.rollback()
         error_msg = str(e)
         logger.error(f"Failed to create tests: {error_msg}", exc_info=True)
 
@@ -580,9 +579,7 @@ def create_test_set_associations(
     """
     from rhesis.backend.app.models import TestSet
 
-    # Check if there's an existing transaction and roll it back
-    if db.in_transaction():
-        db.rollback()
+    # Transaction management is handled by the session context manager
 
     try:
         # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
@@ -620,13 +617,11 @@ def create_test_set_associations(
 
             update_test_set_attributes(db=db, test_set_id=test_set_id)
 
-        # Commit the transaction
-        db.commit()
+        # Transaction commit/rollback is handled by the session context manager
 
         return result
 
     except IntegrityError as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": 0,
@@ -640,7 +635,6 @@ def create_test_set_associations(
             },
         }
     except Exception as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": 0,
@@ -677,9 +671,7 @@ def remove_test_set_associations(
     """
     from rhesis.backend.app.models import TestSet
 
-    # Check if there's an existing transaction and roll it back
-    if db.in_transaction():
-        db.rollback()
+    # Transaction management is handled by the session context manager
 
     try:
         # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
@@ -733,8 +725,7 @@ def remove_test_set_associations(
 
             update_test_set_attributes(db=db, test_set_id=test_set_id)
 
-        # Commit the transaction
-        db.commit()
+        # Transaction commit/rollback is handled by the session context manager
 
         return {
             "success": True,
@@ -744,7 +735,6 @@ def remove_test_set_associations(
         }
 
     except Exception as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": len(test_ids),

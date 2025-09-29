@@ -131,7 +131,7 @@ async def initialize_organization_data(
 
         # Mark onboarding as completed
         org.is_onboarding_complete = True
-        db.commit()
+        # Transaction commit is handled by the session context manager
 
         return {"status": "success", "message": "Initial data loaded successfully"}
     except HTTPException:
@@ -164,7 +164,7 @@ async def rollback_organization_data(
 
         # Mark onboarding as incomplete
         org.is_onboarding_complete = False
-        db.commit()
+        # Transaction commit is handled by the session context manager
 
         return {"status": "success", "message": "Initial data rolled back successfully"}
     except HTTPException:

@@ -133,7 +133,7 @@ def execute_single_test(
         logger.error(f"🚨 DEBUG: Exception type: {type(e).__name__}")
         logger.error(f"🚨 DEBUG: Exception args: {e.args}")
 
-        db.rollback()
+        # Transaction rollback is handled by the session context manager
 
         # Create a failure result to prevent None in chord results
         failure_result = {

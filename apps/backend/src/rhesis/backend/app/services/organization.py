@@ -764,11 +764,9 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
             org.is_onboarding_complete = False
             db.flush()
 
-        # Final commit
-        db.commit()
+        # Transaction commit/rollback is handled by the session context manager
 
     except Exception as e:
-        db.rollback()
-        print(f"\nError during rollback: {str(e)}")
+        print(f"\nError during operation: {str(e)}")
         print(f"Error type: {type(e)}")
         raise

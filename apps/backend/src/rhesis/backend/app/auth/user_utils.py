@@ -32,7 +32,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
             user.picture = user_profile["picture"]
             user.auth0_id = auth0_id
             user.last_login_at = current_time
-            db.commit()
+            # Transaction commit is handled by the session context manager
             return user
 
     # If not found by email, try auth0_id as fallback
@@ -49,7 +49,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
                 user.family_name = user_profile["family_name"]
                 user.picture = user_profile["picture"]
                 user.last_login_at = current_time
-                db.commit()
+                # Transaction commit is handled by the session context manager
                 return user
 
     # If no user found or emails don't match, create new user
