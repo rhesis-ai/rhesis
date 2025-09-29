@@ -11,14 +11,14 @@ export default function GenerateTestsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <PageContainer 
-      title="Generate Tests" 
+    <PageContainer
+      title="Generate Tests"
       breadcrumbs={[
         { title: 'Tests', path: '/tests' },
-        { title: 'Generate Tests', path: '/tests/new-generated' }
+        { title: 'Generate Tests', path: '/tests/new-generated' },
       ]}
     >
       {children}
     </PageContainer>
   );
-} 
+}

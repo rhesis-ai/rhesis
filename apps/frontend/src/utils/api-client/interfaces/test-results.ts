@@ -179,12 +179,15 @@ export interface TimelineDataPoint {
     failed: number;
     pass_rate: number;
   };
-  metrics?: Record<string, {
-    total: number;
-    passed: number;
-    failed: number;
-    pass_rate: number;
-  }>;
+  metrics?: Record<
+    string,
+    {
+      total: number;
+      passed: number;
+      failed: number;
+      pass_rate: number;
+    }
+  >;
 }
 
 export interface TestRunSummaryItem {
@@ -203,12 +206,15 @@ export interface TestRunSummaryItem {
     failed: number;
     pass_rate: number;
   };
-  metrics?: Record<string, {
-    total: number;
-    passed: number;
-    failed: number;
-    pass_rate: number;
-  }>;
+  metrics?: Record<
+    string,
+    {
+      total: number;
+      passed: number;
+      failed: number;
+      pass_rate: number;
+    }
+  >;
 }
 
 export interface TestResultsStatsMetadata {

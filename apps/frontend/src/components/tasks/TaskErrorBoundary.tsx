@@ -40,12 +40,12 @@ export class TaskErrorBoundary extends Component<Props, State> {
 
       return (
         <Box sx={{ p: 2 }}>
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             action={
-              <Button 
-                color="inherit" 
-                size="small" 
+              <Button
+                color="inherit"
+                size="small"
                 onClick={this.handleRetry}
                 startIcon={<RefreshIcon />}
               >
@@ -54,7 +54,8 @@ export class TaskErrorBoundary extends Component<Props, State> {
             }
           >
             <AlertTitle>Something went wrong</AlertTitle>
-            There was an error with the task component. Please try refreshing or contact support if the problem persists.
+            There was an error with the task component. Please try refreshing or
+            contact support if the problem persists.
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <Box sx={{ mt: 1, fontSize: '0.75rem', fontFamily: 'monospace' }}>
                 {this.state.error.message}

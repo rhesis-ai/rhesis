@@ -11,4 +11,4 @@ export default function SwaggerEndpointLayout({
   children: React.ReactNode;
 }) {
   return children;
-} 
+}

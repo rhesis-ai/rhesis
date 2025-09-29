@@ -35,7 +35,7 @@ export interface Metric {
   priority?: number;
   organization_id?: UUID;
   user_id?: UUID;
-  
+
   // References (now always included from backend)
   metric_type: TypeLookup;
   backend_type: TypeLookup;
@@ -115,4 +115,4 @@ export interface MetricsResponse {
 export interface MetricQueryParams extends PaginationParams {
   status?: string;
   type?: string;
-} 
+}

@@ -1,22 +1,42 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Chip, Paper, Box, Button, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, useTheme } from '@mui/material';
+import {
+  Chip,
+  Paper,
+  Box,
+  Button,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  useTheme,
+} from '@mui/material';
 import { useRouter } from 'next/navigation';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { AddIcon } from '@/components/icons';
+import {
+  AddIcon,
+  DeleteIcon,
+  SmartToyIcon,
+  DevicesIcon,
+  WebIcon,
+  StorageIcon,
+  CodeIcon,
+} from '@/components/icons';
 import UploadIcon from '@mui/icons-material/UploadOutlined';
-import { DeleteIcon } from '@/components/icons';
-import { GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowSelectionModel,
+} from '@mui/x-data-grid';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
-
-// Import icons for dynamic project icon rendering
-import { SmartToyIcon, DevicesIcon, WebIcon, StorageIcon, CodeIcon } from '@/components/icons';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import CloudIcon from '@mui/icons-material/Cloud';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -54,7 +74,7 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   PhoneIphone: PhoneIphoneIcon,
   School: SchoolIcon,
   Science: ScienceIcon,
-  AccountTree: AccountTreeIcon
+  AccountTree: AccountTreeIcon,
 };
 
 // Get appropriate icon based on project type or use case
@@ -63,17 +83,17 @@ const getProjectIcon = (project: Project | undefined) => {
     console.log('No project provided to getProjectIcon');
     return <SmartToyIcon />;
   }
-  
+
   console.log('Project in getProjectIcon:', project);
   console.log('Project icon:', project.icon);
-  
+
   // Check if a specific project icon was selected during creation
   if (project.icon && ICON_MAP[project.icon]) {
     console.log('Found matching icon in ICON_MAP:', project.icon);
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
-  
+
   console.log('No matching icon found, using default');
   // Fall back to a default icon
   return <SmartToyIcon />;
@@ -88,8 +108,7 @@ interface EndpointGridProps {
   onEndpointDeleted?: () => void;
 }
 
-
-export default function EndpointGrid({ 
+export default function EndpointGrid({
   endpoints,
   loading = false,
   totalCount = 0,
@@ -98,7 +117,7 @@ export default function EndpointGrid({
     page: 0,
     pageSize: 10,
   },
-  onEndpointDeleted
+  onEndpointDeleted,
 }: EndpointGridProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -115,20 +134,22 @@ export default function EndpointGrid({
       try {
         setLoadingProjects(true);
         const sessionToken = session?.session_token || '';
-        
+
         if (sessionToken) {
           const client = new ApiClientFactory(sessionToken).getProjectsClient();
           const response = await client.getProjects();
-          
+
           // Create a map for faster lookups
           const projectMap: Record<string, Project> = {};
-          
+
           // Handle both paginated response and direct array
-          const projectsArray = Array.isArray(response) ? response : response?.data;
-          
+          const projectsArray = Array.isArray(response)
+            ? response
+            : response?.data;
+
           console.log('Fetched projects response:', response);
           console.log('Projects array:', projectsArray);
-          
+
           if (Array.isArray(projectsArray)) {
             projectsArray.forEach((project: Project) => {
               if (project && project.id) {
@@ -139,7 +160,7 @@ export default function EndpointGrid({
           } else {
             console.warn('Projects response is not an array:', response);
           }
-          
+
           console.log('Final project map:', projectMap);
           setProjects(projectMap);
         }
@@ -156,7 +177,9 @@ export default function EndpointGrid({
   }, [session]);
 
   // Handle row selection
-  const handleRowSelectionModelChange = (newSelection: GridRowSelectionModel) => {
+  const handleRowSelectionModelChange = (
+    newSelection: GridRowSelectionModel
+  ) => {
     setSelectedRows(newSelection);
   };
 
@@ -192,7 +215,14 @@ export default function EndpointGrid({
 
   // Custom toolbar with right-aligned buttons
   const customToolbar = (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: 2 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        width: '100%',
+        gap: 2,
+      }}
+    >
       {/* Delete button - shown when rows are selected */}
       {selectedRows.length > 0 && (
         <Button
@@ -202,26 +232,27 @@ export default function EndpointGrid({
           onClick={() => setDeleteDialogOpen(true)}
           disabled={deleting}
         >
-          Delete {selectedRows.length} endpoint{selectedRows.length > 1 ? 's' : ''}
+          Delete {selectedRows.length} endpoint
+          {selectedRows.length > 1 ? 's' : ''}
         </Button>
       )}
-      
+
       {/* Spacer to push buttons to the right when no selection */}
       <Box sx={{ flexGrow: 1 }} />
-      
+
       <Box sx={{ display: 'flex', gap: 2 }}>
-        <Button 
-          component={Link} 
-          href="/endpoints/new" 
-          variant="outlined" 
+        <Button
+          component={Link}
+          href="/endpoints/new"
+          variant="outlined"
           startIcon={<AddIcon />}
         >
           New Endpoint
         </Button>
-        <Button 
-          component={Link} 
-          href="/endpoints/swagger" 
-          variant="contained" 
+        <Button
+          component={Link}
+          href="/endpoints/swagger"
+          variant="contained"
           startIcon={<UploadIcon />}
         >
           Import Swagger
@@ -235,20 +266,22 @@ export default function EndpointGrid({
       field: 'project',
       headerName: 'Project',
       flex: 1.2,
-      renderCell: (params) => {
+      renderCell: params => {
         const endpoint = params.row as Endpoint;
-        const project = endpoint.project_id ? projects[endpoint.project_id] : undefined;
-        
+        const project = endpoint.project_id
+          ? projects[endpoint.project_id]
+          : undefined;
+
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box 
-              sx={{ 
-                display: 'flex', 
+            <Box
+              sx={{
+                display: 'flex',
                 alignItems: 'center',
                 color: 'primary.main',
                 '& svg': {
-                  fontSize: theme.typography.h5.fontSize
-                }
+                  fontSize: theme.typography.h5.fontSize,
+                },
               }}
             >
               {getProjectIcon(project)}
@@ -269,24 +302,16 @@ export default function EndpointGrid({
       field: 'protocol',
       headerName: 'Protocol',
       flex: 0.7,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          variant="outlined"
-        />
+      renderCell: params => (
+        <Chip label={params.value} size="small" variant="outlined" />
       ),
     },
     {
       field: 'environment',
       headerName: 'Environment',
       flex: 0.8,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          variant="outlined"
-        />
+      renderCell: params => (
+        <Chip label={params.value} size="small" variant="outlined" />
       ),
     },
   ];
@@ -327,4 +352,4 @@ export default function EndpointGrid({
       />
     </>
   );
-} 
+}

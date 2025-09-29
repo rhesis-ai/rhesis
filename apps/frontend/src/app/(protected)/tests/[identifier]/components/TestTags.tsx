@@ -26,7 +26,7 @@ export default function TestTags({ sessionToken, test }: TestTagsProps) {
       <BaseTag
         value={tagNames}
         onChange={setTagNames}
-        label="Tags" 
+        label="Tags"
         placeholder="Add tags (press Enter or comma to add)"
         helperText="These tags help categorize and find this test"
         chipColor="primary"
@@ -41,4 +41,4 @@ export default function TestTags({ sessionToken, test }: TestTagsProps) {
       />
     </Box>
   );
-} 
+}

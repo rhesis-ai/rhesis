@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { 
-  TextField, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
+import {
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Avatar,
   ListItemAvatar,
   ListItemText,
@@ -15,7 +15,7 @@ import {
   SelectChangeEvent,
   Paper,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -67,14 +67,24 @@ const PROJECT_ICONS = [
   { name: 'PhoneIphone', component: PhoneIphoneIcon, label: 'Mobile App' },
   { name: 'School', component: SchoolIcon, label: 'Education' },
   { name: 'Science', component: ScienceIcon, label: 'Research' },
-  { name: 'AccountTree', component: AccountTreeIcon, label: 'Workflow' }
+  { name: 'AccountTree', component: AccountTreeIcon, label: 'Workflow' },
 ];
 
 // IconSelector component
-const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChange: (icon: string) => void }) => {
+const IconSelector = ({
+  selectedIcon,
+  onChange,
+}: {
+  selectedIcon: string;
+  onChange: (icon: string) => void;
+}) => {
   return (
     <Box className={styles.iconSelectorContainer}>
-      <Typography variant="subtitle1" gutterBottom className={styles.iconSelectorTitle}>
+      <Typography
+        variant="subtitle1"
+        gutterBottom
+        className={styles.iconSelectorTitle}
+      >
         Project Icon
       </Typography>
       <Paper variant="outlined" className={styles.iconSelectorPaper}>
@@ -87,7 +97,7 @@ const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChan
           aria-label="project icon"
           className={styles.toggleButtonGroup}
         >
-          {PROJECT_ICONS.map((icon) => {
+          {PROJECT_ICONS.map(icon => {
             const IconComponent = icon.component;
             return (
               <ToggleButton
@@ -97,7 +107,11 @@ const IconSelector = ({ selectedIcon, onChange }: { selectedIcon: string; onChan
                 className={styles.toggleButton}
               >
                 <IconComponent fontSize="medium" />
-                <Typography variant="caption" noWrap className={styles.toggleButtonLabel}>
+                <Typography
+                  variant="caption"
+                  noWrap
+                  className={styles.toggleButtonLabel}
+                >
                   {icon.label}
                 </Typography>
               </ToggleButton>
@@ -117,7 +131,13 @@ interface ProjectEditDrawerProps {
   sessionToken: string;
 }
 
-export default function ProjectEditDrawer({ open, onClose, project, onSave, sessionToken }: ProjectEditDrawerProps) {
+export default function ProjectEditDrawer({
+  open,
+  onClose,
+  project,
+  onSave,
+  sessionToken,
+}: ProjectEditDrawerProps) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [formData, setFormData] = React.useState({
@@ -127,7 +147,7 @@ export default function ProjectEditDrawer({ open, onClose, project, onSave, sess
     useCase: project.useCase,
     owner_id: project.owner?.id,
     tags: project.tags || [],
-    icon: project.icon || 'SmartToy' // Default icon if not set
+    icon: project.icon || 'SmartToy', // Default icon if not set
   });
 
   React.useEffect(() => {
@@ -146,24 +166,27 @@ export default function ProjectEditDrawer({ open, onClose, project, onSave, sess
     }
   }, [open, sessionToken]);
 
-  const handleTextChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
+  const handleTextChange =
+    (field: string) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: event.target.value,
+      }));
+    };
 
-  const handleSelectChange = (field: string) => (event: SelectChangeEvent<string>) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
+  const handleSelectChange =
+    (field: string) => (event: SelectChangeEvent<string>) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: event.target.value,
+      }));
+    };
 
   const handleIconChange = (icon: string) => {
     setFormData(prev => ({
       ...prev,
-      icon: icon
+      icon: icon,
     }));
   };
 
@@ -193,34 +216,36 @@ export default function ProjectEditDrawer({ open, onClose, project, onSave, sess
           value={formData.owner_id}
           label="Owner"
           onChange={handleSelectChange('owner_id')}
-          renderValue={(selected) => {
+          renderValue={selected => {
             const selectedUser = users.find(u => u.id === selected);
             return selectedUser ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Avatar 
-                  src={selectedUser.picture} 
+                <Avatar
+                  src={selectedUser.picture}
                   alt={selectedUser.name || selectedUser.email}
                   sx={{ width: 24, height: 24 }}
                 >
                   <PersonIcon />
                 </Avatar>
-                <Typography>{selectedUser.name || selectedUser.email}</Typography>
+                <Typography>
+                  {selectedUser.name || selectedUser.email}
+                </Typography>
               </Box>
             ) : null;
           }}
         >
-          {users.map((user) => (
+          {users.map(user => (
             <MenuItem key={user.id} value={user.id}>
               <ListItemAvatar>
-                <Avatar 
-                  src={user.picture} 
+                <Avatar
+                  src={user.picture}
                   alt={user.name || user.email}
                   sx={{ width: 32, height: 32 }}
                 >
                   <PersonIcon />
                 </Avatar>
               </ListItemAvatar>
-              <ListItemText 
+              <ListItemText
                 primary={user.name || user.email}
                 secondary={user.email}
               />
@@ -229,10 +254,7 @@ export default function ProjectEditDrawer({ open, onClose, project, onSave, sess
         </Select>
       </FormControl>
 
-      <IconSelector 
-        selectedIcon={formData.icon} 
-        onChange={handleIconChange} 
-      />
+      <IconSelector selectedIcon={formData.icon} onChange={handleIconChange} />
 
       <TextField
         fullWidth
@@ -281,12 +303,15 @@ export default function ProjectEditDrawer({ open, onClose, project, onSave, sess
         fullWidth
         label="Tags"
         value={formData.tags.join(', ')}
-        onChange={(e) => {
-          const tags = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
+        onChange={e => {
+          const tags = e.target.value
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean);
           setFormData(prev => ({ ...prev, tags }));
         }}
         helperText="Separate tags with commas"
       />
     </BaseDrawer>
   );
-} 
+}

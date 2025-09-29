@@ -10,4 +10,4 @@ export default function EndpointsLayout({
   children: React.ReactNode;
 }) {
   return children;
-} 
+}

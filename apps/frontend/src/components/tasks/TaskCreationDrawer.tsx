@@ -57,7 +57,7 @@ export function TaskCreationDrawer({
   useEffect(() => {
     const loadData = async () => {
       if (!open || !session?.session_token) return;
-      
+
       setIsLoadingData(true);
       try {
         const [fetchedPriorities, fetchedUsers] = await Promise.all([
@@ -67,7 +67,7 @@ export function TaskCreationDrawer({
             const usersClient = clientFactory.getUsersClient();
             const response = await usersClient.getUsers();
             return response.data;
-          })()
+          })(),
         ]);
 
         setPriorities(fetchedPriorities);
@@ -78,7 +78,7 @@ export function TaskCreationDrawer({
         setIsLoadingData(false);
       }
     };
-    
+
     loadData();
   }, [open, session?.session_token]);
 
@@ -127,7 +127,8 @@ export function TaskCreationDrawer({
         {commentId && (
           <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              <strong>From comment on:</strong> {getEntityDisplayName(entityType)}
+              <strong>From comment on:</strong>{' '}
+              {getEntityDisplayName(entityType)}
             </Typography>
           </Box>
         )}
@@ -136,7 +137,7 @@ export function TaskCreationDrawer({
         <TextField
           label="Task Title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={e => setTitle(e.target.value)}
           fullWidth
           required
           variant="outlined"
@@ -148,7 +149,7 @@ export function TaskCreationDrawer({
         <TextField
           label="Description"
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={e => setDescription(e.target.value)}
           fullWidth
           multiline
           rows={4}
@@ -164,11 +165,11 @@ export function TaskCreationDrawer({
             <InputLabel>Priority</InputLabel>
             <Select
               value={priorityId}
-              onChange={(e) => setPriorityId(e.target.value)}
+              onChange={e => setPriorityId(e.target.value)}
               label="Priority"
               disabled={isLoadingData || isLoading}
             >
-              {priorities.map((priorityOption) => (
+              {priorities.map(priorityOption => (
                 <MenuItem key={priorityOption.id} value={priorityOption.id}>
                   {priorityOption.type_value || priorityOption.id}
                 </MenuItem>
@@ -181,14 +182,14 @@ export function TaskCreationDrawer({
             <InputLabel>Assignee</InputLabel>
             <Select
               value={assigneeId}
-              onChange={(e) => setAssigneeId(e.target.value)}
+              onChange={e => setAssigneeId(e.target.value)}
               label="Assignee"
               disabled={isLoadingData || isLoading}
             >
               <MenuItem value="">
                 <em>Unassigned</em>
               </MenuItem>
-              {users.map((user) => (
+              {users.map(user => (
                 <MenuItem key={user.id} value={user.id}>
                   {user.name}
                 </MenuItem>
@@ -204,7 +205,8 @@ export function TaskCreationDrawer({
           </Typography>
           {commentId && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              <strong>From comment:</strong> This task was created from a comment
+              <strong>From comment:</strong> This task was created from a
+              comment
             </Typography>
           )}
         </Box>

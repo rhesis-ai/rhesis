@@ -46,8 +46,4 @@ export interface TestRunDetail extends TestRun {
   priority?: number;
   assignee?: UserReference;
   owner?: UserReference;
-  counts?: {
-    comments: number;
-    tasks: number;
-  };
 }

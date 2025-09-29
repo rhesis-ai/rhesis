@@ -8,12 +8,12 @@ interface UserAvatarProps extends Omit<AvatarProps, 'src' | 'alt'> {
   size?: AvatarSize;
 }
 
-export function UserAvatar({ 
-  userName, 
-  userPicture, 
-  size = AVATAR_SIZES.LARGE, 
-  sx, 
-  ...props 
+export function UserAvatar({
+  userName,
+  userPicture,
+  size = AVATAR_SIZES.LARGE,
+  sx,
+  ...props
 }: UserAvatarProps) {
   return (
     <Avatar
@@ -24,7 +24,7 @@ export function UserAvatar({
         height: size,
         bgcolor: 'primary.main',
         flexShrink: 0,
-        ...sx
+        ...sx,
       }}
       {...props}
     >

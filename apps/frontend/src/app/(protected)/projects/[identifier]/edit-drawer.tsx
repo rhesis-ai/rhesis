@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { 
-  TextField, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
+import {
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Avatar,
   ListItemAvatar,
   ListItemText,
@@ -19,7 +19,7 @@ import {
   Switch,
   ToggleButton,
   ToggleButtonGroup,
-  Paper
+  Paper,
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -70,11 +70,19 @@ const PROJECT_ICONS = [
   { name: 'PhoneIphone', component: PhoneIphoneIcon, label: 'Mobile App' },
   { name: 'School', component: SchoolIcon, label: 'Education' },
   { name: 'Science', component: ScienceIcon, label: 'Research' },
-  { name: 'AccountTree', component: AccountTreeIcon, label: 'Workflow' }
+  { name: 'AccountTree', component: AccountTreeIcon, label: 'Workflow' },
 ];
 
 // IconSelector component for drawer
-const IconSelector = ({ selectedIcon, onChange, error }: { selectedIcon: string; onChange: (icon: string) => void; error?: string }) => {
+const IconSelector = ({
+  selectedIcon,
+  onChange,
+  error,
+}: {
+  selectedIcon: string;
+  onChange: (icon: string) => void;
+  error?: string;
+}) => {
   return (
     <FormControl fullWidth sx={{ mt: 2, mb: 2 }} error={!!error}>
       <InputLabel id="project-icon-label">Project Icon</InputLabel>
@@ -82,10 +90,10 @@ const IconSelector = ({ selectedIcon, onChange, error }: { selectedIcon: string;
         labelId="project-icon-label"
         value={selectedIcon || 'SmartToy'}
         label="Project Icon"
-        onChange={(e) => onChange(e.target.value)}
-        aria-describedby={error ? "project-icon-error" : undefined}
+        onChange={e => onChange(e.target.value)}
+        aria-describedby={error ? 'project-icon-error' : undefined}
       >
-        {PROJECT_ICONS.map((icon) => {
+        {PROJECT_ICONS.map(icon => {
           const IconComponent = icon.component;
           return (
             <MenuItem key={icon.name} value={icon.name}>
@@ -97,7 +105,9 @@ const IconSelector = ({ selectedIcon, onChange, error }: { selectedIcon: string;
           );
         })}
       </Select>
-      {error && <FormHelperText id="project-icon-error">{error}</FormHelperText>}
+      {error && (
+        <FormHelperText id="project-icon-error">{error}</FormHelperText>
+      )}
     </FormControl>
   );
 };
@@ -119,7 +129,13 @@ interface FormErrors {
   form?: string;
 }
 
-export default function EditDrawer({ open, onClose, project, onSave, sessionToken }: EditDrawerProps) {
+export default function EditDrawer({
+  open,
+  onClose,
+  project,
+  onSave,
+  sessionToken,
+}: EditDrawerProps) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [errors, setErrors] = React.useState<FormErrors>({});
@@ -128,7 +144,7 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
     description: project.description || '',
     owner_id: project.owner?.id,
     is_active: project.is_active,
-    icon: project.icon || 'SmartToy'
+    icon: project.icon || 'SmartToy',
   });
 
   // Reset form data when project changes
@@ -139,7 +155,7 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
         description: project.description || '',
         owner_id: project.owner?.id,
         is_active: project.is_active,
-        icon: project.icon || 'SmartToy'
+        icon: project.icon || 'SmartToy',
       });
       setErrors({});
     }
@@ -148,7 +164,7 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
   // Fetch users only when drawer opens
   React.useEffect(() => {
     let isMounted = true;
-    
+
     const fetchUsers = async () => {
       try {
         const usersClient = new UsersClient(sessionToken);
@@ -164,86 +180,94 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
     if (open) {
       fetchUsers();
     }
-    
+
     return () => {
       isMounted = false;
     };
   }, [open, sessionToken]);
 
   // Memoize event handlers
-  const handleTextChange = React.useCallback((field: string) => 
-    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setFormData(prev => ({
-        ...prev,
-        [field]: event.target.value
-      }));
-      // Clear error when user types
-      if (errors[field as keyof FormErrors]) {
-        setErrors(prev => ({
+  const handleTextChange = React.useCallback(
+    (field: string) =>
+      (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setFormData(prev => ({
           ...prev,
-          [field]: undefined
+          [field]: event.target.value,
         }));
-      }
-    }, [errors]);
+        // Clear error when user types
+        if (errors[field as keyof FormErrors]) {
+          setErrors(prev => ({
+            ...prev,
+            [field]: undefined,
+          }));
+        }
+      },
+    [errors]
+  );
 
-  const handleSelectChange = React.useCallback((field: string) => 
-    (event: SelectChangeEvent<string>) => {
+  const handleSelectChange = React.useCallback(
+    (field: string) => (event: SelectChangeEvent<string>) => {
       setFormData(prev => ({
         ...prev,
-        [field]: event.target.value
+        [field]: event.target.value,
       }));
       // Clear error when user selects
       if (errors[field as keyof FormErrors]) {
         setErrors(prev => ({
           ...prev,
-          [field]: undefined
+          [field]: undefined,
         }));
       }
-    }, [errors]);
+    },
+    [errors]
+  );
 
-  const handleToggleChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      is_active: event.target.checked
-    }));
-    // Clear error when user selects
-    if (errors.is_active) {
-      setErrors(prev => ({
+  const handleToggleChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData(prev => ({
         ...prev,
-        is_active: undefined
+        is_active: event.target.checked,
       }));
-    }
-  }, [errors]);
+      // Clear error when user selects
+      if (errors.is_active) {
+        setErrors(prev => ({
+          ...prev,
+          is_active: undefined,
+        }));
+      }
+    },
+    [errors]
+  );
 
   const handleIconChange = React.useCallback((icon: string) => {
     setFormData(prev => ({
       ...prev,
-      icon: icon
+      icon: icon,
     }));
   }, []);
 
   // Validate form before submission
   const validateForm = React.useCallback(() => {
     const newErrors: FormErrors = {};
-    
+
     if (!formData.name?.trim()) {
       newErrors.name = 'Project name is required';
     } else if (formData.name.length > 100) {
       newErrors.name = 'Project name must be less than 100 characters';
     }
-    
+
     if (formData.description && formData.description.length > 500) {
       newErrors.description = 'Description must be less than 500 characters';
     }
-    
+
     if (!formData.owner_id) {
       newErrors.owner_id = 'Owner is required';
     }
-    
+
     if (!formData.icon) {
       newErrors.icon = 'Project icon is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData]);
@@ -252,40 +276,40 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
     try {
       // Create a clean update object with only explicitly set fields
       const projectUpdate: Partial<Project> = {};
-      
+
       if (formData.name) {
         projectUpdate.name = formData.name;
       }
-      
+
       if (formData.description !== undefined) {
         projectUpdate.description = formData.description;
       }
-      
+
       if (formData.owner_id) {
         projectUpdate.owner_id = formData.owner_id;
       }
-      
+
       if (formData.is_active !== undefined) {
         projectUpdate.is_active = formData.is_active;
       }
-      
+
       if (formData.icon) {
         projectUpdate.icon = formData.icon;
       }
-      
+
       await onSave(projectUpdate);
       onClose();
     } catch (error) {
       console.error('Failed to save project:', error);
       // Show generic error if backend doesn't provide specific ones
-      setErrors(prev => ({ 
-        ...prev, 
-        form: 'Failed to save. Please try again.' 
+      setErrors(prev => ({
+        ...prev,
+        form: 'Failed to save. Please try again.',
       }));
     } finally {
       setLoading(false);
@@ -293,50 +317,55 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
   }, [formData, validateForm, onSave, onClose]);
 
   // Memoize select rendering for performance
-  const renderUserSelect = React.useMemo(() => (
-    <FormControl fullWidth error={!!errors.owner_id}>
-      <InputLabel>Owner</InputLabel>
-      <Select
-        value={formData.owner_id || ''}
-        label="Owner"
-        onChange={handleSelectChange('owner_id')}
-        renderValue={(selected) => {
-          const selectedUser = users.find(u => u.id === selected);
-          return selectedUser ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar 
-                src={selectedUser.picture} 
-                alt={selectedUser.name || selectedUser.email}
-                sx={{ width: 24, height: 24 }}
-              >
-                <PersonIcon />
-              </Avatar>
-              <Typography>{selectedUser.name || selectedUser.email}</Typography>
-            </Box>
-          ) : null;
-        }}
-      >
-        {users.map((user) => (
-          <MenuItem key={user.id} value={user.id}>
-            <ListItemAvatar>
-              <Avatar 
-                src={user.picture} 
-                alt={user.name || user.email}
-                sx={{ width: 32, height: 32 }}
-              >
-                <PersonIcon />
-              </Avatar>
-            </ListItemAvatar>
-            <ListItemText 
-              primary={user.name || user.email}
-              secondary={user.email}
-            />
-          </MenuItem>
-        ))}
-      </Select>
-      {errors.owner_id && <FormHelperText>{errors.owner_id}</FormHelperText>}
-    </FormControl>
-  ), [users, formData.owner_id, errors.owner_id, handleSelectChange]);
+  const renderUserSelect = React.useMemo(
+    () => (
+      <FormControl fullWidth error={!!errors.owner_id}>
+        <InputLabel>Owner</InputLabel>
+        <Select
+          value={formData.owner_id || ''}
+          label="Owner"
+          onChange={handleSelectChange('owner_id')}
+          renderValue={selected => {
+            const selectedUser = users.find(u => u.id === selected);
+            return selectedUser ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Avatar
+                  src={selectedUser.picture}
+                  alt={selectedUser.name || selectedUser.email}
+                  sx={{ width: 24, height: 24 }}
+                >
+                  <PersonIcon />
+                </Avatar>
+                <Typography>
+                  {selectedUser.name || selectedUser.email}
+                </Typography>
+              </Box>
+            ) : null;
+          }}
+        >
+          {users.map(user => (
+            <MenuItem key={user.id} value={user.id}>
+              <ListItemAvatar>
+                <Avatar
+                  src={user.picture}
+                  alt={user.name || user.email}
+                  sx={{ width: 32, height: 32 }}
+                >
+                  <PersonIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText
+                primary={user.name || user.email}
+                secondary={user.email}
+              />
+            </MenuItem>
+          ))}
+        </Select>
+        {errors.owner_id && <FormHelperText>{errors.owner_id}</FormHelperText>}
+      </FormControl>
+    ),
+    [users, formData.owner_id, errors.owner_id, handleSelectChange]
+  );
 
   return (
     <BaseDrawer
@@ -349,13 +378,13 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
     >
       <Stack spacing={3}>
         {renderUserSelect}
-        
-        <IconSelector 
+
+        <IconSelector
           selectedIcon={formData.icon}
           onChange={handleIconChange}
           error={errors.icon}
         />
-        
+
         <TextField
           label="Project Name"
           value={formData.name}
@@ -365,7 +394,7 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
           fullWidth
           required
         />
-        
+
         <TextField
           label="Description"
           value={formData.description}
@@ -379,8 +408,8 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
 
         <FormControlLabel
           control={
-            <Switch 
-              checked={!!formData.is_active} 
+            <Switch
+              checked={!!formData.is_active}
               onChange={handleToggleChange}
               color="primary"
             />
@@ -390,4 +419,4 @@ export default function EditDrawer({ open, onClose, project, onSave, sessionToke
       </Stack>
     </BaseDrawer>
   );
-} 
+}

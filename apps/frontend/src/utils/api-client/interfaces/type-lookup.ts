@@ -23,4 +23,4 @@ export interface TypeLookupsQueryParams {
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
   $filter?: string;
-} 
+}

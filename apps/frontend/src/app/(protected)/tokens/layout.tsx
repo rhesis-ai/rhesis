@@ -10,4 +10,4 @@ export default function TokensLayout({
   children: React.ReactNode;
 }) {
   return children;
-} 
+}

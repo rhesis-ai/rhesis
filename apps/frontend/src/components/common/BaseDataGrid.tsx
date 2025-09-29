@@ -17,9 +17,9 @@ import {
   Grow,
   ClickAwayListener,
   MenuList,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
-import { 
+import {
   DataGrid,
   GridPaginationModel,
   GridRowModel,
@@ -30,7 +30,7 @@ import {
   GridToolbar,
   GridToolbarQuickFilter,
   useGridApiRef,
-  GridFilterModel
+  GridFilterModel,
 } from '@mui/x-data-grid';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -66,7 +66,14 @@ interface BaseDataGridProps {
     onClick?: () => void;
     icon?: React.ReactNode;
     variant?: 'text' | 'outlined' | 'contained';
-    color?: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+    color?:
+      | 'inherit'
+      | 'primary'
+      | 'secondary'
+      | 'success'
+      | 'error'
+      | 'info'
+      | 'warning';
     splitButton?: {
       options: {
         label: string;
@@ -78,7 +85,10 @@ interface BaseDataGridProps {
   // CRUD related props
   enableEditing?: boolean;
   editMode?: GridEditMode;
-  processRowUpdate?: (newRow: GridRowModel, oldRow: GridRowModel) => Promise<GridRowModel> | GridRowModel;
+  processRowUpdate?: (
+    newRow: GridRowModel,
+    oldRow: GridRowModel
+  ) => Promise<GridRowModel> | GridRowModel;
   onProcessRowUpdateError?: (error: any) => void;
   isCellEditable?: (params: any) => boolean;
   // Selection related props
@@ -169,16 +179,16 @@ export default function BaseDataGrid({
   onPaginationModelChange,
   pageSizeOptions = [10, 25, 50],
   enableQuickFilter = false,
-  disablePaperWrapper = false
+  disablePaperWrapper = false,
 }: BaseDataGridProps) {
   const theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
-  
+
   // Safe mounting implementation internal to the component
   const isMountedRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  
+
   // Initialization effect
   useEffect(() => {
     isMountedRef.current = true;
@@ -188,19 +198,21 @@ export default function BaseDataGrid({
         setIsInitialized(true);
       }
     }, 0);
-    
+
     return () => {
       clearTimeout(initTimer);
       isMountedRef.current = false;
     };
   }, []);
-  
+
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [filteredRows, setFilteredRows] = useState<any[]>(rows);
-  
+
   // Create refs and state for action buttons
   const buttonRefs = React.useRef<Array<React.RefObject<HTMLDivElement>>>(
-    Array(actionButtons?.length || 0).fill(null).map(() => React.createRef())
+    Array(actionButtons?.length || 0)
+      .fill(null)
+      .map(() => React.createRef())
   );
   const [openStates, setOpenStates] = React.useState<boolean[]>(
     Array(actionButtons?.length || 0).fill(false)
@@ -234,35 +246,36 @@ export default function BaseDataGrid({
       return filters.every(filter => {
         const currentValue = filterValues[filter.name];
         if (currentValue === 'all') return true;
-        
+
         const rowValue = filter.filterField.split('.').reduce((obj, key) => {
           return obj && obj[key] !== undefined ? obj[key] : undefined;
         }, row);
-        
+
         return rowValue === currentValue;
       });
     });
 
     setFilteredRows(result);
-    
+
     if (filterHandler) {
       filterHandler(result);
     }
   }, [rows, filterValues, filters, filterHandler, serverSidePagination]);
 
-  const handleFilterChange = (filterName: string) => (event: SelectChangeEvent<string>) => {
-    setFilterValues(prev => ({
-      ...prev,
-      [filterName]: event.target.value
-    }));
-  };
+  const handleFilterChange =
+    (filterName: string) => (event: SelectChangeEvent<string>) => {
+      setFilterValues(prev => ({
+        ...prev,
+        [filterName]: event.target.value,
+      }));
+    };
 
   const handleRowClickWithLink = (params: any) => {
     if (onRowClick) {
       onRowClick(params);
       return;
     }
-    
+
     if (linkPath) {
       const fieldValue = params.row[linkField];
       if (fieldValue) {
@@ -293,10 +306,7 @@ export default function BaseDataGrid({
     });
   };
 
-  const handleMenuItemClick = (
-    onClick: () => void,
-    index: number,
-  ) => {
+  const handleMenuItemClick = (onClick: () => void, index: number) => {
     onClick();
     setOpenStates(prev => {
       const newStates = [...prev];
@@ -315,7 +325,14 @@ export default function BaseDataGrid({
 
   const CustomToolbarWithFilters = () => {
     return (
-      <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box
+        sx={{
+          p: 1,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <GridToolbar />
         <GridToolbarQuickFilter debounceMs={300} />
       </Box>
@@ -324,7 +341,9 @@ export default function BaseDataGrid({
 
   if (!isInitialized) {
     return (
-      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box
+        sx={{ width: '100%', display: 'flex', justifyContent: 'center', p: 4 }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -332,18 +351,33 @@ export default function BaseDataGrid({
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', mb: 2, gap: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'flex-start',
+          alignItems: 'center',
+          mb: 2,
+          gap: 2,
+        }}
+      >
         {title && (
           <Typography variant="h6" component="h1">
             {title}
           </Typography>
         )}
-        
+
         {filters && filters.length > 0 && (
           <Box sx={{ display: 'flex', gap: 2 }}>
             {filters.map((filter, index) => (
-              <FormControl key={index} variant="outlined" size="small" sx={{ minWidth: 150 }}>
-                <InputLabel id={`${filter.name}-label`}>{filter.label}</InputLabel>
+              <FormControl
+                key={index}
+                variant="outlined"
+                size="small"
+                sx={{ minWidth: 150 }}
+              >
+                <InputLabel id={`${filter.name}-label`}>
+                  {filter.label}
+                </InputLabel>
                 <Select
                   labelId={`${filter.name}-label`}
                   id={filter.name}
@@ -352,19 +386,21 @@ export default function BaseDataGrid({
                   label={filter.label}
                 >
                   {filter.options.map((option, idx) => (
-                    <MenuItem key={idx} value={option.value}>{option.label}</MenuItem>
+                    <MenuItem key={idx} value={option.value}>
+                      {option.label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             ))}
           </Box>
         )}
-        
+
         {actionButtons && actionButtons.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1 }}>
             {actionButtons.map((button, index) => {
               if (button.splitButton) {
-                const options = button.splitButton.options;  // Extract options to satisfy TypeScript
+                const options = button.splitButton.options; // Extract options to satisfy TypeScript
                 return (
                   <React.Fragment key={index}>
                     <ButtonGroup
@@ -373,15 +409,14 @@ export default function BaseDataGrid({
                       ref={buttonRefs.current[index]}
                       aria-label="split button"
                     >
-                      <Button
-                        onClick={button.onClick}
-                        startIcon={button.icon}
-                      >
+                      <Button onClick={button.onClick} startIcon={button.icon}>
                         {button.label}
                       </Button>
                       <Button
                         size="small"
-                        aria-controls={openStates[index] ? 'split-button-menu' : undefined}
+                        aria-controls={
+                          openStates[index] ? 'split-button-menu' : undefined
+                        }
                         aria-expanded={openStates[index] ? 'true' : undefined}
                         aria-label="select option"
                         aria-haspopup="menu"
@@ -405,17 +440,23 @@ export default function BaseDataGrid({
                           {...TransitionProps}
                           style={{
                             transformOrigin:
-                              placement === 'bottom' ? 'center top' : 'center bottom',
+                              placement === 'bottom'
+                                ? 'center top'
+                                : 'center bottom',
                           }}
                         >
                           <Paper>
-                            <ClickAwayListener onClickAway={(event) => handleClose(event, index)}>
+                            <ClickAwayListener
+                              onClickAway={event => handleClose(event, index)}
+                            >
                               <MenuList id="split-button-menu" autoFocusItem>
                                 {options.map((option, optionIndex) => (
                                   <MenuItem
                                     key={optionIndex}
                                     disabled={option.disabled}
-                                    onClick={() => handleMenuItemClick(option.onClick, index)}
+                                    onClick={() =>
+                                      handleMenuItemClick(option.onClick, index)
+                                    }
                                   >
                                     {option.label}
                                   </MenuItem>
@@ -431,7 +472,11 @@ export default function BaseDataGrid({
               }
 
               return button.href ? (
-                <Link key={index} href={button.href} style={{ textDecoration: 'none' }}>
+                <Link
+                  key={index}
+                  href={button.href}
+                  style={{ textDecoration: 'none' }}
+                >
                   <Button
                     variant={button.variant || 'contained'}
                     color={button.color || 'primary'}
@@ -465,7 +510,7 @@ export default function BaseDataGrid({
           getRowId={getRowId}
           autoHeight
           pagination
-          paginationMode={serverSidePagination ? "server" : "client"}
+          paginationMode={serverSidePagination ? 'server' : 'client'}
           rowCount={serverSidePagination ? totalRows : undefined}
           paginationModel={paginationModel}
           onPaginationModelChange={onPaginationModelChange}
@@ -473,17 +518,24 @@ export default function BaseDataGrid({
           checkboxSelection={checkboxSelection}
           disableVirtualization={false}
           loading={loading}
-          onRowClick={enableEditing ? undefined : (linkPath || onRowClick) ? handleRowClickWithLink : undefined}
+          onRowClick={
+            enableEditing
+              ? undefined
+              : linkPath || onRowClick
+                ? handleRowClickWithLink
+                : undefined
+          }
           disableMultipleRowSelection={disableMultipleRowSelection}
           {...(density && { density })}
           {...(serverSideFiltering && {
-            filterMode: "server",
+            filterMode: 'server',
             onFilterModelChange,
-            slots: { toolbar: CustomToolbarWithFilters }
+            slots: { toolbar: CustomToolbarWithFilters },
           })}
-          {...(enableQuickFilter && !serverSideFiltering && {
-            slots: { toolbar: CustomToolbar }
-          })}
+          {...(enableQuickFilter &&
+            !serverSideFiltering && {
+              slots: { toolbar: CustomToolbar },
+            })}
           {...(enableEditing && {
             editMode,
             processRowUpdate,
@@ -501,13 +553,14 @@ export default function BaseDataGrid({
           })}
         />
       ) : (
-        <Paper 
+        <Paper
           elevation={1}
-          sx={{ 
-            width: '100%', 
-            borderRadius: (theme) => theme.shape.borderRadius * 0.5, 
-            overflow: 'hidden'
-          }}>
+          sx={{
+            width: '100%',
+            borderRadius: theme => theme.shape.borderRadius * 0.5,
+            overflow: 'hidden',
+          }}
+        >
           <StyledDataGrid
             apiRef={apiRef}
             rows={serverSidePagination ? rows : filteredRows}
@@ -515,7 +568,7 @@ export default function BaseDataGrid({
             getRowId={getRowId}
             autoHeight
             pagination
-            paginationMode={serverSidePagination ? "server" : "client"}
+            paginationMode={serverSidePagination ? 'server' : 'client'}
             rowCount={serverSidePagination ? totalRows : undefined}
             paginationModel={paginationModel}
             onPaginationModelChange={onPaginationModelChange}
@@ -523,17 +576,24 @@ export default function BaseDataGrid({
             checkboxSelection={checkboxSelection}
             disableVirtualization={false}
             loading={loading}
-            onRowClick={enableEditing ? undefined : (linkPath || onRowClick) ? handleRowClickWithLink : undefined}
+            onRowClick={
+              enableEditing
+                ? undefined
+                : linkPath || onRowClick
+                  ? handleRowClickWithLink
+                  : undefined
+            }
             disableMultipleRowSelection={disableMultipleRowSelection}
             {...(density && { density })}
             {...(serverSideFiltering && {
-              filterMode: "server",
+              filterMode: 'server',
               onFilterModelChange,
-              slots: { toolbar: CustomToolbarWithFilters }
+              slots: { toolbar: CustomToolbarWithFilters },
             })}
-            {...(enableQuickFilter && !serverSideFiltering && {
-              slots: { toolbar: CustomToolbar }
-            })}
+            {...(enableQuickFilter &&
+              !serverSideFiltering && {
+                slots: { toolbar: CustomToolbar },
+              })}
             {...(enableEditing && {
               editMode,
               processRowUpdate,
@@ -554,6 +614,6 @@ export default function BaseDataGrid({
       )}
     </>
   );
-} 
+}
 
-export type { FilterOption, FilterConfig }; 
+export type { FilterOption, FilterConfig };

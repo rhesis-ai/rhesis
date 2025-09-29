@@ -33,11 +33,7 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`charts-tab-${index}`}
       {...other}
     >
-      {value === index && (
-        <Box>
-          {children}
-        </Box>
-      )}
+      {value === index && <Box>{children}</Box>}
     </div>
   );
 }
@@ -49,7 +45,10 @@ function a11yProps(index: number) {
   };
 }
 
-export default function TestResultsCharts({ sessionToken, filters }: TestResultsChartsProps) {
+export default function TestResultsCharts({
+  sessionToken,
+  filters,
+}: TestResultsChartsProps) {
   const theme = useTheme();
   const [value, setValue] = useState(0);
 
@@ -59,14 +58,14 @@ export default function TestResultsCharts({ sessionToken, filters }: TestResults
 
   return (
     <Box>
-      <Tabs 
-        value={value} 
-        onChange={handleChange} 
+      <Tabs
+        value={value}
+        onChange={handleChange}
         aria-label="test results charts tabs"
-        sx={{ 
-          borderBottom: 1, 
+        sx={{
+          borderBottom: 1,
           borderColor: 'divider',
-          mb: theme.customSpacing.section.small
+          mb: theme.customSpacing.section.small,
         }}
       >
         <Tab label="Overview" {...a11yProps(0)} />
@@ -77,72 +76,72 @@ export default function TestResultsCharts({ sessionToken, filters }: TestResults
 
       <TabPanel value={value} index={0}>
         {/* Summary Tab - Test Run Summary and Metadata */}
-        <TestResultsSummary 
-          sessionToken={sessionToken} 
-          filters={filters} 
-        />
+        <TestResultsSummary sessionToken={sessionToken} filters={filters} />
       </TabPanel>
 
       <TabPanel value={value} index={1}>
         {/* At a Glance Tab - Timeline, Test Runs, and Overall Results */}
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }, 
-          gap: theme.customSpacing.section.medium 
-        }}>
-         {/* Overall Results - Independent API call with 'summary' mode */}
-         <LatestResultsPieChart 
-            sessionToken={sessionToken} 
-            filters={filters} 
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: '1fr 1fr',
+              lg: '1fr 1fr 1fr',
+            },
+            gap: theme.customSpacing.section.medium,
+          }}
+        >
+          {/* Overall Results - Independent API call with 'summary' mode */}
+          <LatestResultsPieChart
+            sessionToken={sessionToken}
+            filters={filters}
           />
           {/* Pass Rate Timeline - Independent API call with 'timeline' mode */}
-          <PassRateTimelineChart 
-            sessionToken={sessionToken} 
-            filters={filters} 
+          <PassRateTimelineChart
+            sessionToken={sessionToken}
+            filters={filters}
           />
           {/* Latest Test Runs - Independent API call with 'test_runs' mode */}
-          <LatestTestRunsChart 
-            sessionToken={sessionToken} 
-            filters={filters} 
-          />
-
-
+          <LatestTestRunsChart sessionToken={sessionToken} filters={filters} />
         </Box>
       </TabPanel>
 
       <TabPanel value={value} index={2}>
         {/* In Detail Tab - Radar Charts */}
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr 1fr' }, 
-          gap: theme.customSpacing.section.medium 
-        }}>
-          <DimensionRadarChart 
-            sessionToken={sessionToken} 
-            filters={filters} 
-            dimension="behavior" 
-            title="Behavior" 
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr 1fr' },
+            gap: theme.customSpacing.section.medium,
+          }}
+        >
+          <DimensionRadarChart
+            sessionToken={sessionToken}
+            filters={filters}
+            dimension="behavior"
+            title="Behavior"
           />
-          <DimensionRadarChart 
-            sessionToken={sessionToken} 
-            filters={filters} 
-            dimension="category" 
-            title="Category" 
+          <DimensionRadarChart
+            sessionToken={sessionToken}
+            filters={filters}
+            dimension="category"
+            title="Category"
           />
-          <DimensionRadarChart 
-            sessionToken={sessionToken} 
-            filters={filters} 
-            dimension="topic" 
-            title="Topic" 
+          <DimensionRadarChart
+            sessionToken={sessionToken}
+            filters={filters}
+            dimension="topic"
+            title="Topic"
           />
         </Box>
       </TabPanel>
 
       <TabPanel value={value} index={3}>
         {/* Metrics Over Time Tab - Dynamic Metric Timeline Charts */}
-        <MetricTimelineChartsGrid 
-          sessionToken={sessionToken} 
-          filters={filters} 
+        <MetricTimelineChartsGrid
+          sessionToken={sessionToken}
+          filters={filters}
         />
       </TabPanel>
     </Box>
