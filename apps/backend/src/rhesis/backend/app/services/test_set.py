@@ -212,12 +212,10 @@ def bulk_create_test_set(
                 db=db, test_set=test_set, defaults=defaults, license_type=license_type
             )
 
-            # Commit the entire transaction
-            db.commit()
+            # Transaction commit/rollback is handled by the session context manager
             return test_set
 
     except Exception as e:
-        db.rollback()
         raise Exception(f"Failed to create test set: {str(e)}")
 
 
@@ -333,13 +331,12 @@ def create_test_set_associations(
                     defaults=load_defaults(),
                     license_type=test_set.license_type,
                 )
-                db.commit()
+                # Transaction commit is handled by the session context manager
 
             logger.info(f"Returning final result: {bulk_result}")
             return bulk_result
 
     except Exception as e:
-        db.rollback()
         error_response = {
             "success": False,
             "total_tests": len(test_ids),
@@ -409,7 +406,7 @@ def remove_test_set_associations(
                 license_type=test_set.license_type,
             )
 
-            db.commit()
+            # Transaction commit is handled by the session context manager
 
             return {
                 "success": True,
@@ -419,7 +416,6 @@ def remove_test_set_associations(
             }
 
     except Exception as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": len(test_ids),
@@ -470,7 +466,7 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
         db=db, test_set=test_set, defaults=defaults, license_type=license_type
     )
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
 
 
 def execute_test_set_on_endpoint(

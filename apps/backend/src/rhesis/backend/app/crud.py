@@ -870,30 +870,25 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     user_data = user.model_dump(exclude={"send_invite"})
     db_user = models.User(**user_data)
     db.add(db_user)
-    db.commit()
+    # Transaction commit is handled by the session context manager
     db.refresh(db_user)
     return db_user
 
 
 def update_user(db: Session, user_id: uuid.UUID, user: schemas.UserUpdate) -> Optional[models.User]:
     """Update user with special handling for onboarding (no organization)"""
-    try:
-        # Direct query without RLS filters for user updates
-        db_user = db.query(models.User).filter(models.User.id == user_id).first()
-        if not db_user:
-            return None
+    # Direct query without RLS filters for user updates
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        return None
 
-        # Update user attributes
-        user_data = user.model_dump(exclude_unset=True)
-        for key, value in user_data.items():
-            setattr(db_user, key, value)
+    # Update user attributes
+    user_data = user.model_dump(exclude_unset=True)
+    for key, value in user_data.items():
+        setattr(db_user, key, value)
 
-        db.commit()
-        return db_user
-    except Exception as e:
-        db.rollback()
-        logger.debug(f"Error updating user: {e}")
-        raise
+    # Transaction commit/rollback is handled by the session context manager
+    return db_user
 
 
 def delete_user(db: Session, user_id: uuid.UUID) -> Optional[models.User]:
@@ -1020,7 +1015,7 @@ def assign_tag(
         user_id=tag.user_id,
     )
     db.add(tagged_item)
-    db.commit()
+    # Transaction commit is handled by the session context manager
     db.refresh(db_tag)
 
     return db_tag
@@ -1061,7 +1056,7 @@ def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityTy
         .delete()
     )
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     return result > 0
 
 
@@ -1164,7 +1159,7 @@ def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = N
         query = query.filter(models.Token.organization_id == UUID(organization_id))
     
     result = query.delete()
-    db.commit()
+    # Transaction commit is handled by the session context manager
     return result
 
 
@@ -1205,37 +1200,31 @@ def create_organization(
     db: Session, organization: schemas.OrganizationCreate
 ) -> models.Organization:
     """Create a new organization without RLS checks, because we're creating a new organization"""
-    try:
-        # Print session variables before reset
-        before_vars = get_session_variables(db)
-        logger.info(f"Session variables BEFORE reset: {before_vars}")
+    # Print session variables before reset
+    before_vars = get_session_variables(db)
+    logger.info(f"Session variables BEFORE reset: {before_vars}")
 
-        # Reset session context to ensure the new organization is created correctly
-        reset_session_context(db)
+    # Reset session context to ensure the new organization is created correctly
+    reset_session_context(db)
 
-        # Verify variables are cleared
-        after_vars = get_session_variables(db)
-        logger.info(f"Session variables AFTER reset: {after_vars}")
+    # Verify variables are cleared
+    after_vars = get_session_variables(db)
+    logger.info(f"Session variables AFTER reset: {after_vars}")
 
-        # Make sure session is clean to avoid RLS issues
-        db.expire_all()
+    # Make sure session is clean to avoid RLS issues
+    db.expire_all()
 
-        # Convert Pydantic model to dict
-        org_data = organization.model_dump()
-        db_org = models.Organization(**org_data)
+    # Convert Pydantic model to dict
+    org_data = organization.model_dump()
+    db_org = models.Organization(**org_data)
 
-        # Add and commit in a simple transaction
-        db.add(db_org)
-        db.commit()
+    # Add to session - transaction management is handled by context manager
+    db.add(db_org)
 
-        # Simply return the object without refreshing
-        # The refresh operation is what often triggers RLS issues
-        logger.info(f"Organization created successfully: {db_org.id}")
-        return db_org
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error creating organization: {str(e)}")
-        raise ValueError(f"Failed to create organization: {str(e)}")
+    # Simply return the object without refreshing
+    # The refresh operation is what often triggers RLS issues
+    logger.info(f"Organization created successfully: {db_org.id}")
+    return db_org
 
 
 def update_organization(
@@ -1348,7 +1337,7 @@ def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
     for test_set_id in affected_test_set_ids:
         update_test_set_attributes(db=db, test_set_id=str(test_set_id))
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     return deleted_test
 
 
@@ -1752,7 +1741,7 @@ def add_behavior_to_metric(
         )
     )
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     return True
 
 
@@ -1796,7 +1785,7 @@ def remove_behavior_from_metric(
         .delete()
     )
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     return result > 0
 
 
@@ -2086,7 +2075,7 @@ def add_emoji_reaction(
     update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
     db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     db.refresh(comment)
 
     return comment
@@ -2118,7 +2107,7 @@ def remove_emoji_reaction(
     update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
     db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     db.refresh(comment)
 
     return comment

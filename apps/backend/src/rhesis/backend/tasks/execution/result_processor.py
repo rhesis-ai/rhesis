@@ -258,8 +258,7 @@ def update_test_run_status(
     else:
         logger_func("warning", "Test run status update may have failed - no status returned")
 
-    # Commit the transaction explicitly
-    db.commit()
+    # Transaction commit is handled by the session context manager
 
 
 def format_status_details(tests_passed: int, tests_failed: int) -> str:
