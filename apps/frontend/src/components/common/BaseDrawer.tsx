@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { 
+import {
   Drawer,
   Box,
   Typography,
@@ -23,13 +23,16 @@ interface BaseDrawerProps {
 }
 
 // Utility function to filter out duplicates and invalid entries
-export function filterUniqueValidOptions<T extends { id: string | number; name: string }>(options: T[]): T[] {
+export function filterUniqueValidOptions<
+  T extends { id: string | number; name: string },
+>(options: T[]): T[] {
   // First, filter out entries with empty or invalid names
-  const validOptions = options.filter(option => 
-    option && 
-    option.name && 
-    typeof option.name === 'string' && 
-    option.name.trim() !== ''
+  const validOptions = options.filter(
+    option =>
+      option &&
+      option.name &&
+      typeof option.name === 'string' &&
+      option.name.trim() !== ''
   );
 
   // Then remove duplicates based on both id and name
@@ -44,16 +47,16 @@ export function filterUniqueValidOptions<T extends { id: string | number; name: 
   });
 }
 
-export default function BaseDrawer({ 
-  open, 
-  onClose, 
-  title, 
-  children, 
+export default function BaseDrawer({
+  open,
+  onClose,
+  title,
+  children,
   loading = false,
   onSave,
   error,
   saveButtonText = 'Save Changes',
-  width = 600 // Default width
+  width = 600, // Default width
 }: BaseDrawerProps) {
   return (
     <Drawer
@@ -63,36 +66,38 @@ export default function BaseDrawer({
       variant="temporary"
       ModalProps={{
         keepMounted: true, // Or false, depending on preference
-        slotProps: {        
+        slotProps: {
           backdrop: {
             sx: {
-              backgroundColor: 'rgba(0, 0, 0, 0.5)'
-            }
-          }
-        }
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            },
+          },
+        },
       }}
-      slotProps={{ 
+      slotProps={{
         backdrop: {
           sx: {
             // Ensure backdrop is below drawer paper but above other content if necessary
-            zIndex: (theme) => theme.zIndex.drawer - 1 
-          }
-        }
+            zIndex: theme => theme.zIndex.drawer - 1,
+          },
+        },
       }}
       PaperProps={{
         sx: {
           width: width,
-          zIndex: (theme) => theme.zIndex.drawer + 1, // Ensure Paper is above AppBar and its own backdrop
+          zIndex: theme => theme.zIndex.drawer + 1, // Ensure Paper is above AppBar and its own backdrop
           display: 'flex', // Added for flex structure if header/content/footer are direct children of Paper
           flexDirection: 'column',
-          justifyContent: 'space-between' // If header/content/footer structure is used
-        }
+          justifyContent: 'space-between', // If header/content/footer structure is used
+        },
       }}
-      sx={{ // Sx for the Drawer root
-        zIndex: (theme) => theme.zIndex.drawer + 1, // Match PaperProps or slightly higher for the root container
-        '& .MuiDrawer-paper': { // Already present in your old BaseDrawer for boxSizing
-          boxSizing: 'border-box'
-        }
+      sx={{
+        // Sx for the Drawer root
+        zIndex: theme => theme.zIndex.drawer + 1, // Match PaperProps or slightly higher for the root container
+        '& .MuiDrawer-paper': {
+          // Already present in your old BaseDrawer for boxSizing
+          boxSizing: 'border-box',
+        },
       }}
     >
       {/* Optional: Re-introduce explicit Header/Content/Footer Box structure if desired */}
@@ -102,18 +107,25 @@ export default function BaseDrawer({
       </Box>
 
       {/* Content */}
-      <Box 
-        sx={{ 
-          p: 3, 
-          flex: 1, 
-          overflowY: 'auto'
+      <Box
+        sx={{
+          p: 3,
+          flex: 1,
+          overflowY: 'auto',
         }}
       >
         {children}
       </Box>
 
       {/* Footer */}
-      <Box sx={{ p: 3, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <Box
+        sx={{
+          p: 3,
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
         {error && (
           <Typography color="error" variant="body2" sx={{ mb: 2 }}>
             {error}
@@ -124,11 +136,7 @@ export default function BaseDrawer({
             Cancel
           </Button>
           {onSave && (
-            <Button 
-              variant="contained" 
-              onClick={onSave}
-              disabled={loading}
-            >
+            <Button variant="contained" onClick={onSave} disabled={loading}>
               {saveButtonText}
             </Button>
           )}
@@ -136,4 +144,4 @@ export default function BaseDrawer({
       </Box>
     </Drawer>
   );
-} 
+}

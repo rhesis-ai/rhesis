@@ -4,31 +4,35 @@ import Image from 'next/image';
 import { Box } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
-import { 
-  DashboardIcon, 
-  ScienceIcon, 
-  AppsIcon, 
-  VpnKeyIcon, 
-  BusinessIcon, 
-  GroupIcon, 
-  PlayArrowIcon, 
-  AssessmentIcon, 
-  DescriptionIcon, 
-  AutoFixHighIcon, 
-  CategoryIcon, 
-  AutoGraphIcon, 
-  IntegrationInstructionsIcon, 
-  SmartToyIcon, 
-  GridViewIcon, 
-  ApiIcon, 
+import {
+  DashboardIcon,
+  ScienceIcon,
+  AppsIcon,
+  VpnKeyIcon,
+  BusinessIcon,
+  GroupIcon,
+  PlayArrowIcon,
+  AssessmentIcon,
+  DescriptionIcon,
+  AutoFixHighIcon,
+  CategoryIcon,
+  AutoGraphIcon,
+  IntegrationInstructionsIcon,
+  SmartToyIcon,
+  GridViewIcon,
+  ApiIcon,
   TerminalIcon,
-  AssignmentIcon
+  AssignmentIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
 import { ApiClientFactory } from '../utils/api-client/client-factory';
-import { type NavigationItem, type BrandingProps, type AuthenticationProps } from '../types/navigation';
+import {
+  type NavigationItem,
+  type BrandingProps,
+  type AuthenticationProps,
+} from '../types/navigation';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 
@@ -36,34 +40,40 @@ import ThemeContextProvider from '../components/providers/ThemeProvider';
 export const dynamic = 'force-dynamic';
 
 // This function will be used to get navigation items with dynamic data
-async function getNavigationItems(session: Session | null): Promise<NavigationItem[]> {
+async function getNavigationItems(
+  session: Session | null
+): Promise<NavigationItem[]> {
   'use server';
-  
+
   // Default organization name if no org found
   let organizationName = 'Organization';
-  
+
   // Fetch organization name if user has an organization_id
   if (session?.user?.organization_id && session?.session_token) {
     try {
       const clientFactory = new ApiClientFactory(session.session_token);
       const organizationsClient = clientFactory.getOrganizationsClient();
-      const organization = await organizationsClient.getOrganization(session.user.organization_id);
+      const organization = await organizationsClient.getOrganization(
+        session.user.organization_id
+      );
       if (organization?.name) {
         organizationName = organization.name;
       }
     } catch (error) {
       console.error('Error fetching organization:', error);
-      
+
       // If this is an Unauthorized error (expired JWT), the session is invalid
       // Log it but continue with default navigation to allow the client-side
       // session handling to take over
       if (error instanceof Error && error.message.includes('Unauthorized')) {
-        console.warn('Backend JWT appears to be expired, using default navigation');
+        console.warn(
+          'Backend JWT appears to be expired, using default navigation'
+        );
       }
       // Continue with default organization name
     }
   }
-  
+
   return [
     {
       kind: 'page',
@@ -77,7 +87,6 @@ async function getNavigationItems(session: Session | null): Promise<NavigationIt
           title: 'Team',
           icon: <GroupIcon />,
         },
-
       ],
     },
     {
@@ -190,7 +199,7 @@ export const metadata: Metadata = {
 };
 
 const BRANDING: BrandingProps = {
-  title: "",
+  title: '',
   logo: <ThemeAwareLogo />,
 };
 
@@ -201,7 +210,7 @@ const AUTHENTICATION: AuthenticationProps = {
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
-  
+
   // Get navigation with dynamic organization name
   const navigation = await getNavigationItems(session);
 
@@ -209,7 +218,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeContextProvider disableTransitionOnChange>
-          <LayoutContent 
+          <LayoutContent
             session={session}
             navigation={navigation}
             branding={BRANDING}

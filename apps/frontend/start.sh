@@ -33,4 +33,4 @@ echo ""
 echo -e "${BLUE}▶️  Launching frontend...${NC}"
 echo ""
 
-npm run dev --host 
+npm run dev --host

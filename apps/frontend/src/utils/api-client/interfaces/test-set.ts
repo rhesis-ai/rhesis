@@ -73,7 +73,7 @@ export interface TestSet {
       topics?: string[];
       sample?: string;
       license_type?: string;
-      sources?: Array<{document: string, name: string, description: string}>;
+      sources?: Array<{ document: string; name: string; description: string }>;
     };
     topics?: string[];
     behaviors?: string[];
@@ -91,6 +91,10 @@ export interface TestSet {
   organization?: Organization;
   is_published: boolean;
   visibility?: 'public' | 'organization' | 'user';
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
 }
 
 export interface TestSetCreate {

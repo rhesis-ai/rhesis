@@ -7,31 +7,40 @@ export class PromptsClient extends BaseApiClient {
    * Get a list of prompts with optional filtering and pagination
    * @param options.filter - OData filter expression for filtering prompts
    */
-  async getPrompts(options: {
-    skip?: number;
-    limit?: number;
-    sort_by?: string;
-    sort_order?: string;
-    topic_id?: string;
-    behavior_id?: string;
-    category_id?: string;
-    filter?: string;
-  } = {}): Promise<Prompt[]> {
+  async getPrompts(
+    options: {
+      skip?: number;
+      limit?: number;
+      sort_by?: string;
+      sort_order?: string;
+      topic_id?: string;
+      behavior_id?: string;
+      category_id?: string;
+      filter?: string;
+    } = {}
+  ): Promise<Prompt[]> {
     const queryParams = new URLSearchParams();
-    if (options.skip !== undefined) queryParams.append('skip', options.skip.toString());
-    if (options.limit !== undefined) queryParams.append('limit', options.limit.toString());
+    if (options.skip !== undefined)
+      queryParams.append('skip', options.skip.toString());
+    if (options.limit !== undefined)
+      queryParams.append('limit', options.limit.toString());
     if (options.sort_by) queryParams.append('sort_by', options.sort_by);
-    if (options.sort_order) queryParams.append('sort_order', options.sort_order);
+    if (options.sort_order)
+      queryParams.append('sort_order', options.sort_order);
     if (options.topic_id) queryParams.append('topic_id', options.topic_id);
-    if (options.behavior_id) queryParams.append('behavior_id', options.behavior_id);
-    if (options.category_id) queryParams.append('category_id', options.category_id);
+    if (options.behavior_id)
+      queryParams.append('behavior_id', options.behavior_id);
+    if (options.category_id)
+      queryParams.append('category_id', options.category_id);
     if (options.filter) queryParams.append('$filter', options.filter);
 
     const queryString = queryParams.toString();
-    const url = queryString ? `${API_ENDPOINTS.prompts}?${queryString}` : API_ENDPOINTS.prompts;
+    const url = queryString
+      ? `${API_ENDPOINTS.prompts}?${queryString}`
+      : API_ENDPOINTS.prompts;
 
     return this.fetch<Prompt[]>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
@@ -73,4 +82,4 @@ export class PromptsClient extends BaseApiClient {
       method: 'DELETE',
     });
   }
-} 
+}

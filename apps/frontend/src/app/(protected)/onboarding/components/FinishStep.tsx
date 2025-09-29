@@ -9,7 +9,7 @@ import {
   ListItemText,
   Divider,
   CircularProgress,
-  Stack
+  Stack,
 } from '@mui/material';
 import StepHeader from './StepHeader';
 
@@ -21,7 +21,11 @@ interface FormData {
   invites: { email: string }[];
 }
 
-type OnboardingStatus = 'idle' | 'creating_organization' | 'updating_user' | 'loading_initial_data';
+type OnboardingStatus =
+  | 'idle'
+  | 'creating_organization'
+  | 'updating_user'
+  | 'loading_initial_data';
 
 interface FinishStepProps {
   formData: FormData;
@@ -36,10 +40,12 @@ export default function FinishStep({
   onComplete,
   onBack,
   isSubmitting = false,
-  onboardingStatus
+  onboardingStatus,
 }: FinishStepProps) {
   // Filter out empty email invites
-  const validInvites = formData.invites.filter(invite => invite.email.trim() !== '');
+  const validInvites = formData.invites.filter(
+    invite => invite.email.trim() !== ''
+  );
 
   const getButtonText = () => {
     switch (onboardingStatus) {
@@ -60,7 +66,7 @@ export default function FinishStep({
         title="You're almost done!"
         description="Please review your information below before completing setup"
       />
-      
+
       {/* Review Section */}
       <Stack spacing={3} mb={4}>
         <Paper variant="outlined" elevation={0}>
@@ -68,10 +74,10 @@ export default function FinishStep({
             <Typography variant="h6" gutterBottom color="primary">
               Your Information
             </Typography>
-            
+
             <List disablePadding>
               <ListItem>
-                <ListItemText 
+                <ListItemText
                   primary={
                     <Typography variant="subtitle2">
                       Organization Name
@@ -84,15 +90,13 @@ export default function FinishStep({
                   }
                 />
               </ListItem>
-              
+
               <Divider component="li" />
-              
+
               <ListItem>
-                <ListItemText 
+                <ListItemText
                   primary={
-                    <Typography variant="subtitle2">
-                      Your Name
-                    </Typography>
+                    <Typography variant="subtitle2">Your Name</Typography>
                   }
                   secondary={
                     <Typography variant="body1" color="text.primary">
@@ -101,16 +105,14 @@ export default function FinishStep({
                   }
                 />
               </ListItem>
-              
+
               {formData.website && (
                 <>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText 
+                    <ListItemText
                       primary={
-                        <Typography variant="subtitle2">
-                          Website
-                        </Typography>
+                        <Typography variant="subtitle2">Website</Typography>
                       }
                       secondary={
                         <Typography variant="body1" color="text.primary">
@@ -124,20 +126,20 @@ export default function FinishStep({
             </List>
           </Box>
         </Paper>
-        
+
         {validInvites.length > 0 && (
           <Paper variant="outlined" elevation={0}>
             <Box p={3}>
               <Typography variant="h6" gutterBottom color="primary">
                 Team Members Invited ({validInvites.length})
               </Typography>
-              
+
               <List disablePadding>
                 {validInvites.map((invite, index) => (
                   <React.Fragment key={index}>
                     {index > 0 && <Divider component="li" />}
                     <ListItem>
-                      <ListItemText 
+                      <ListItemText
                         primary={
                           <Typography variant="body1" color="text.primary">
                             {invite.email}
@@ -152,22 +154,20 @@ export default function FinishStep({
           </Paper>
         )}
       </Stack>
-      
+
       {/* Action Buttons */}
       <Box display="flex" justifyContent="space-between" mt={4}>
-        <Button 
-          onClick={onBack}
-          disabled={isSubmitting}
-          size="large"
-        >
+        <Button onClick={onBack} disabled={isSubmitting} size="large">
           Back
         </Button>
-        <Button 
+        <Button
           variant="contained"
           color="primary"
           onClick={onComplete}
           disabled={isSubmitting}
-          startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
+          startIcon={
+            isSubmitting ? <CircularProgress size={20} color="inherit" /> : null
+          }
           size="large"
         >
           {isSubmitting ? getButtonText() : 'Complete Setup'}
@@ -175,4 +175,4 @@ export default function FinishStep({
       </Box>
     </Box>
   );
-} 
+}

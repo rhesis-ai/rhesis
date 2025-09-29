@@ -10,11 +10,7 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import {
-  EditIcon,
-  DeleteIcon,
-  AssignmentIcon,
-} from '@/components/icons';
+import { EditIcon, DeleteIcon, AssignmentIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Task, TaskStatus, TaskPriority, EntityType } from '@/types/tasks';
@@ -29,12 +25,12 @@ interface TaskItemProps {
   showEntityLink?: boolean;
 }
 
-export function TaskItem({ 
-  task, 
-  onEdit, 
-  onDelete, 
+export function TaskItem({
+  task,
+  onEdit,
+  onDelete,
   currentUserId,
-  showEntityLink = false 
+  showEntityLink = false,
 }: TaskItemProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -77,7 +73,7 @@ export function TaskItem({
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
-    
+
     try {
       router.push(`/tasks/${task.id}`);
     } catch (error) {
@@ -107,20 +103,35 @@ export function TaskItem({
       onClick={handleTaskClick}
     >
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          mb: 1,
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
           <Tooltip title="Task">
             <AssignmentIcon fontSize="small" color="action" />
           </Tooltip>
-          <Typography 
-            variant="subtitle2" 
+          <Typography
+            variant="subtitle2"
             fontWeight={600}
-            sx={{ 
+            sx={{
               flex: 1,
               minWidth: 0,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
             }}
           >
             {task.title}
@@ -129,15 +140,22 @@ export function TaskItem({
 
         {/* Action Buttons */}
         {(canEdit || canDelete) && (
-          <Box sx={{ display: 'flex', gap: 0.5, opacity: isHovered ? 1 : 0, transition: 'opacity 0.2s' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 0.5,
+              opacity: isHovered ? 1 : 0,
+              transition: 'opacity 0.2s',
+            }}
+          >
             {canEdit && (
               <Tooltip title="Edit Task">
                 <IconButton
                   size="small"
                   onClick={() => onEdit?.(task.id)}
-                  sx={{ 
+                  sx={{
                     color: 'text.secondary',
-                    '&:hover': { color: 'primary.main' }
+                    '&:hover': { color: 'primary.main' },
                   }}
                 >
                   <EditIcon fontSize="small" />
@@ -149,9 +167,9 @@ export function TaskItem({
                 <IconButton
                   size="small"
                   onClick={() => onDelete?.(task.id)}
-                  sx={{ 
+                  sx={{
                     color: 'text.secondary',
-                    '&:hover': { color: 'error.main' }
+                    '&:hover': { color: 'error.main' },
                   }}
                 >
                   <DeleteIcon fontSize="small" />
@@ -164,9 +182,9 @@ export function TaskItem({
 
       {/* Description */}
       {task.description && (
-        <Typography 
-          variant="body2" 
-          color="text.secondary" 
+        <Typography
+          variant="body2"
+          color="text.secondary"
           sx={{ mb: 2, lineHeight: 1.4 }}
         >
           {task.description}
@@ -175,31 +193,39 @@ export function TaskItem({
 
       {/* Status and Priority */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          <Chip
-            label={task.status?.name || 'Unknown'}
-            size="small"
-            color={getStatusColor(task.status?.name)}
-            variant="outlined"
-          />
-          <Chip
-            label={task.priority?.type_value || 'Unknown'}
-            size="small"
-            color={getPriorityColor(task.priority?.type_value)}
-            variant="outlined"
-          />
+        <Chip
+          label={task.status?.name || 'Unknown'}
+          size="small"
+          color={getStatusColor(task.status?.name)}
+          variant="outlined"
+        />
+        <Chip
+          label={task.priority?.type_value || 'Unknown'}
+          size="small"
+          color={getPriorityColor(task.priority?.type_value)}
+          variant="outlined"
+        />
       </Box>
 
       {/* Footer */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         {/* Assignee */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <UserAvatar
-          userName={task.assignee?.name || task.user?.name || 'Unknown'}
-          size={24}
-        />
-        <Typography variant="caption" color="text.secondary">
-          {task.assignee?.name ? `Assigned to ${task.assignee.name}` : `Created by ${task.user?.name}`}
-        </Typography>
+          <UserAvatar
+            userName={task.assignee?.name || task.user?.name || 'Unknown'}
+            size={24}
+          />
+          <Typography variant="caption" color="text.secondary">
+            {task.assignee?.name
+              ? `Assigned to ${task.assignee.name}`
+              : `Created by ${task.user?.name}`}
+          </Typography>
         </Box>
 
         {/* Timestamp */}
@@ -210,9 +236,12 @@ export function TaskItem({
 
       {/* Entity Link */}
       {showEntityLink && (
-        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box
+          sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}
+        >
           <Typography variant="caption" color="text.secondary">
-            Related to: {getEntityDisplayName(task.entity_type as EntityType || 'Task')}
+            Related to:{' '}
+            {getEntityDisplayName((task.entity_type as EntityType) || 'Task')}
           </Typography>
         </Box>
       )}
