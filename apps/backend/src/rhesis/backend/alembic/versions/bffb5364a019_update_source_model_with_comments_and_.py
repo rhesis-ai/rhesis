@@ -8,7 +8,7 @@ from rhesis.backend.alembic.utils.template_loader import load_type_lookup_templa
 
 # revision identifiers, used by Alembic.
 revision: str = "bffb5364a019"
-down_revision: Union[str, None] = "4df7965dfdfb"
+down_revision: Union[str, None] = "de50496b2a9c"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -22,6 +22,7 @@ def upgrade() -> None:
     - Rename entity_type to source_type_id with foreign key to type_lookup
     - Add content field for raw text content from source
     - Add source_metadata JSONB field for file metadata
+     (file_path, file_type, file_size, file_hash, uploaded_at)
     - Add citation and language_code fields
     - Add source_id foreign key to test table
     - Update comment and task models to support 'Source' entity_type
