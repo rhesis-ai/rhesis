@@ -18,14 +18,20 @@ Run with: python -m pytest tests/backend/tasks/test_transaction_management.py -v
 
 import pytest
 import uuid
-from unittest.mock import patch, MagicMock
+from datetime import datetime
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.tasks.execution import result_processor
+from rhesis.backend.tasks.enums import RunStatus
 from tests.backend.routes.fixtures.data_factories import (
     TestDataFactory
 )
+from tests.backend.routes.fixtures.entities.test_sets import db_test_set, db_test_set_with_tests
+from tests.backend.routes.fixtures.entities.test_runs import db_test_run, db_test_run_running
+from tests.backend.routes.fixtures.entities.tests import db_test
+from tests.backend.routes.fixtures.entities.users import db_user
+from tests.backend.routes.fixtures.entities.statuses import db_status
 
 
 @pytest.mark.unit
@@ -35,22 +41,13 @@ class TestTaskTransactionManagement:
     """🔄 Test automatic transaction management in task execution"""
 
     def test_result_processor_update_test_run_status_commits_on_success(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_test_run_running, db_status
     ):
         """Test that update_test_run_status commits automatically on success"""
-        # Create a test run
-        test_run_data = {
-            "name": f"Test Run {uuid.uuid4()}",
-            "description": "Test run for transaction testing"
-        }
-        test_run = models.TestRun(**test_run_data)
-        test_run.organization_id = uuid.UUID(test_org_id)
-        test_run.user_id = uuid.UUID(authenticated_user_id)
-        test_run.status = models.TestRunStatus.RUNNING
-        test_db.add(test_run)
-        test_db.flush()
+        # Use the fixture test run
+        test_run = db_test_run_running
         
-        original_status = test_run.status
+        original_status = test_run.status.name if test_run.status else None
         
         # Mock logger function
         def mock_logger_func(level, message):
@@ -59,10 +56,10 @@ class TestTaskTransactionManagement:
         # Update test run status
         result_processor.update_test_run_status(
             test_db, 
-            str(test_run.id), 
-            models.TestRunStatus.COMPLETED,
-            tests_passed=5,
-            tests_failed=2,
+            test_run, 
+            RunStatus.COMPLETED,
+            completion_time=datetime.utcnow(),
+            execution_time="00:01:30",
             logger_func=mock_logger_func
         )
         
@@ -71,10 +68,8 @@ class TestTaskTransactionManagement:
             models.TestRun.id == test_run.id
         ).first()
         assert db_test_run is not None
-        assert db_test_run.status == models.TestRunStatus.COMPLETED
-        assert db_test_run.status != original_status
-        assert db_test_run.tests_passed == 5
-        assert db_test_run.tests_failed == 2
+        assert db_test_run.status.name == RunStatus.COMPLETED.value
+        assert db_test_run.status.name != original_status
 
     def test_result_processor_update_test_run_status_with_invalid_id(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
@@ -88,13 +83,18 @@ class TestTaskTransactionManagement:
         # Try to update non-existent test run
         non_existent_id = str(uuid.uuid4())
         
+        # Create a mock test run object for testing
+        mock_test_run = models.TestRun()
+        mock_test_run.id = uuid.UUID(non_existent_id)
+        mock_test_run.status = None  # Simulate non-existent status
+        
         # This should not raise an exception
         result_processor.update_test_run_status(
             test_db,
-            non_existent_id,
-            models.TestRunStatus.COMPLETED,
-            tests_passed=0,
-            tests_failed=0,
+            mock_test_run,
+            RunStatus.COMPLETED,
+            completion_time=datetime.utcnow(),
+            execution_time="00:01:30",
             logger_func=mock_logger_func
         )
         
@@ -107,16 +107,15 @@ class TestTaskTransactionManagement:
         """Test that format_status_details works correctly"""
         # Test various combinations
         result1 = result_processor.format_status_details(5, 0)
-        assert "5 passed" in result1
-        assert "0 failed" in result1
+        assert "5 tests passed" in result1
         
         result2 = result_processor.format_status_details(3, 2)
-        assert "3 passed" in result2
-        assert "2 failed" in result2
+        assert "3 tests passed" in result2
+        assert "2 tests failed" in result2
         
         result3 = result_processor.format_status_details(0, 5)
-        assert "0 passed" in result3
-        assert "5 failed" in result3
+        assert "5 tests failed" in result3
+        assert "0 tests passed" not in result3  # Function doesn't include 0 counts
 
     def test_task_execution_error_handling_without_manual_rollback(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
@@ -125,8 +124,14 @@ class TestTaskTransactionManagement:
         # This test simulates the behavior after our refactoring where manual rollback is removed
         
         # Create test data
-        test_data = TestDataFactory.sample_data()
-        test = models.Test(**test_data)
+        test = models.Test(
+            priority=1,
+            test_metadata={
+                "source": "manual",
+                "tags": ["test"],
+                "notes": "Test for error handling"
+            }
+        )
         test.organization_id = uuid.UUID(test_org_id)
         test.user_id = uuid.UUID(authenticated_user_id)
         test_db.add(test)
@@ -159,27 +164,28 @@ class TestTaskTransactionManagement:
             # so we don't need to manually rollback here
 
     def test_multiple_task_operations_transaction_isolation(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_status, db_test_configuration
     ):
         """Test that multiple task operations maintain proper transaction isolation"""
         # Create multiple test runs
         test_run_data1 = {
-            "name": f"Test Run 1 {uuid.uuid4()}",
-            "description": "First test run for transaction testing"
+            "name": f"Test Run 1 {uuid.uuid4()}"
         }
         test_run1 = models.TestRun(**test_run_data1)
         test_run1.organization_id = uuid.UUID(test_org_id)
         test_run1.user_id = uuid.UUID(authenticated_user_id)
-        test_run1.status = models.TestRunStatus.RUNNING
+        test_run1.status_id = db_status.id
+        test_run1.test_configuration_id = db_test_configuration.id
+        test_run1.test_configuration_id = db_test_configuration.id
         
         test_run_data2 = {
             "name": f"Test Run 2 {uuid.uuid4()}",
-            "description": "Second test run for transaction testing"
         }
         test_run2 = models.TestRun(**test_run_data2)
         test_run2.organization_id = uuid.UUID(test_org_id)
         test_run2.user_id = uuid.UUID(authenticated_user_id)
-        test_run2.status = models.TestRunStatus.RUNNING
+        test_run2.status_id = db_status.id
+        test_run2.test_configuration_id = db_test_configuration.id
         
         test_db.add_all([test_run1, test_run2])
         test_db.flush()
@@ -191,19 +197,19 @@ class TestTaskTransactionManagement:
         # Update both test runs with different statuses
         result_processor.update_test_run_status(
             test_db,
-            str(test_run1.id),
-            models.TestRunStatus.COMPLETED,
-            tests_passed=3,
-            tests_failed=1,
+            test_run1,
+            RunStatus.COMPLETED,
+            completion_time=datetime.utcnow(),
+            execution_time="00:02:00",
             logger_func=mock_logger_func
         )
         
         result_processor.update_test_run_status(
             test_db,
-            str(test_run2.id),
-            models.TestRunStatus.FAILED,
-            tests_passed=0,
-            tests_failed=5,
+            test_run2,
+            RunStatus.FAILED,
+            completion_time=datetime.utcnow(),
+            execution_time="00:01:45",
             logger_func=mock_logger_func
         )
         
@@ -217,12 +223,8 @@ class TestTaskTransactionManagement:
         
         assert db_test_run1 is not None
         assert db_test_run2 is not None
-        assert db_test_run1.status == models.TestRunStatus.COMPLETED
-        assert db_test_run2.status == models.TestRunStatus.FAILED
-        assert db_test_run1.tests_passed == 3
-        assert db_test_run1.tests_failed == 1
-        assert db_test_run2.tests_passed == 0
-        assert db_test_run2.tests_failed == 5
+        assert db_test_run1.status.name == RunStatus.COMPLETED.value
+        assert db_test_run2.status.name == RunStatus.FAILED.value
 
     def test_task_execution_with_base_task_session_management(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
@@ -243,8 +245,14 @@ class TestTaskTransactionManagement:
         # Test using the task's database session context manager
         with mock_task.get_db_session() as task_db:
             # Create a test within the task context
-            test_data = TestDataFactory.sample_data()
-            test = models.Test(**test_data)
+            test = models.Test(
+                priority=1,
+                test_metadata={
+                    "source": "manual",
+                    "tags": ["test"],
+                    "notes": "Test for task session management"
+                }
+            )
             test.organization_id = uuid.UUID(test_org_id)
             test.user_id = uuid.UUID(authenticated_user_id)
             task_db.add(test)
@@ -299,27 +307,27 @@ class TestTaskTransactionManagement:
         assert final_count == initial_count
 
     def test_concurrent_task_operations_do_not_interfere(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_status, db_test_configuration
     ):
         """Test that concurrent task operations do not interfere with each other"""
         # Create test runs for concurrent operations
         test_run_data1 = {
             "name": f"Test Run 1 {uuid.uuid4()}",
-            "description": "First test run for transaction testing"
         }
         test_run1 = models.TestRun(**test_run_data1)
         test_run1.organization_id = uuid.UUID(test_org_id)
         test_run1.user_id = uuid.UUID(authenticated_user_id)
-        test_run1.status = models.TestRunStatus.RUNNING
+        test_run1.status_id = db_status.id
+        test_run1.test_configuration_id = db_test_configuration.id
         
         test_run_data2 = {
             "name": f"Test Run 2 {uuid.uuid4()}",
-            "description": "Second test run for transaction testing"
         }
         test_run2 = models.TestRun(**test_run_data2)
         test_run2.organization_id = uuid.UUID(test_org_id)
         test_run2.user_id = uuid.UUID(authenticated_user_id)
-        test_run2.status = models.TestRunStatus.RUNNING
+        test_run2.status_id = db_status.id
+        test_run2.test_configuration_id = db_test_configuration.id
         
         test_db.add_all([test_run1, test_run2])
         test_db.flush()
@@ -335,20 +343,20 @@ class TestTaskTransactionManagement:
         # First operation succeeds
         result_processor.update_test_run_status(
             test_db,
-            str(test_run1.id),
-            models.TestRunStatus.COMPLETED,
-            tests_passed=10,
-            tests_failed=0,
+            test_run1,
+            RunStatus.COMPLETED,
+            completion_time=datetime.utcnow(),
+            execution_time="00:03:00",
             logger_func=mock_logger_func1
         )
         
         # Second operation also succeeds independently
         result_processor.update_test_run_status(
             test_db,
-            str(test_run2.id),
-            models.TestRunStatus.COMPLETED,
-            tests_passed=8,
-            tests_failed=2,
+            test_run2,
+            RunStatus.COMPLETED,
+            completion_time=datetime.utcnow(),
+            execution_time="00:02:45",
             logger_func=mock_logger_func2
         )
         
@@ -362,10 +370,6 @@ class TestTaskTransactionManagement:
         
         assert db_test_run1 is not None
         assert db_test_run2 is not None
-        assert db_test_run1.status == models.TestRunStatus.COMPLETED
-        assert db_test_run2.status == models.TestRunStatus.COMPLETED
-        assert db_test_run1.tests_passed == 10
-        assert db_test_run1.tests_failed == 0
-        assert db_test_run2.tests_passed == 8
-        assert db_test_run2.tests_failed == 2
+        assert db_test_run1.status.name == RunStatus.COMPLETED.value
+        assert db_test_run2.status.name == RunStatus.COMPLETED.value
 
