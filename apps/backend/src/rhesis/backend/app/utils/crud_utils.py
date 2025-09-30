@@ -85,7 +85,11 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
     # Auto-populate organization_id (direct - no DB queries, no session variables!)
     if "organization_id" in columns and not populated_data.get("organization_id") and organization_id:
         try:
-            org_uuid = UUID(organization_id)
+            # Handle both UUID objects and string IDs
+            if isinstance(organization_id, uuid.UUID):
+                org_uuid = organization_id
+            else:
+                org_uuid = UUID(organization_id)
             populated_data["organization_id"] = org_uuid
             logger.debug(f"_auto_populate_tenant_fields - Auto-populating organization_id: '{org_uuid}' (direct)")
         except (ValueError, TypeError) as e:
@@ -94,7 +98,11 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
     # Auto-populate user_id (direct - no DB queries, no session variables!)
     if "user_id" in columns and not populated_data.get("user_id") and user_id:
         try:
-            user_uuid = UUID(user_id)
+            # Handle both UUID objects and string IDs
+            if isinstance(user_id, uuid.UUID):
+                user_uuid = user_id
+            else:
+                user_uuid = UUID(user_id)
             populated_data["user_id"] = user_uuid
             logger.debug(f"_auto_populate_tenant_fields - Auto-populating user_id: '{user_uuid}' (direct)")
         except (ValueError, TypeError) as e:
@@ -332,7 +340,11 @@ def update_item(
         columns = inspect(model).columns.keys()
         if "organization_id" in columns:
             try:
-                update_data["organization_id"] = UUID(organization_id)
+                # Handle both UUID objects and string IDs
+                if isinstance(organization_id, uuid.UUID):
+                    update_data["organization_id"] = organization_id
+                else:
+                    update_data["organization_id"] = UUID(organization_id)
                 logger.debug(f"update_item - Auto-populating organization_id: '{organization_id}' for update")
             except (ValueError, TypeError) as e:
                 logger.debug(f"update_item - Invalid organization_id: {organization_id}, error: {e}")
@@ -341,7 +353,11 @@ def update_item(
         columns = inspect(model).columns.keys()
         if "user_id" in columns:
             try:
-                update_data["user_id"] = UUID(user_id)
+                # Handle both UUID objects and string IDs
+                if isinstance(user_id, uuid.UUID):
+                    update_data["user_id"] = user_id
+                else:
+                    update_data["user_id"] = UUID(user_id)
                 logger.debug(f"update_item - Auto-populating user_id: '{user_id}' for update")
             except (ValueError, TypeError) as e:
                 logger.debug(f"update_item - Invalid user_id: {user_id}, error: {e}")
@@ -389,6 +405,7 @@ def delete_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id
 
     # Delete item - transaction commit is handled by the session context manager
     db.delete(db_item)
+    db.flush()  # Flush to ensure delete is applied within the transaction
     
     return deleted_item
 
