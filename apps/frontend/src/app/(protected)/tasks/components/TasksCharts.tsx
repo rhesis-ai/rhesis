@@ -26,16 +26,32 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
         const clientFactory = new ApiClientFactory(sessionToken);
         const tasksClient = clientFactory.getTasksClient();
 
-        const tasks = await tasksClient.getTasks({ limit: 1000 }); // Get all tasks for stats
+        // Fetch all tasks in batches to get accurate statistics
+        const allTasks: Task[] = [];
+        let skip = 0;
+        const limit = 100; // Backend maximum limit
+
+        while (true) {
+          const response = await tasksClient.getTasks({ skip, limit });
+          allTasks.push(...response.data);
+
+          // If we got fewer tasks than the limit, we've reached the end
+          if (response.data.length < limit) {
+            break;
+          }
+
+          skip += limit;
+        }
 
         const stats = {
-          total: tasks.length,
-          open: tasks.filter(task => task.status?.name === 'Open').length,
-          inProgress: tasks.filter(task => task.status?.name === 'In Progress')
+          total: allTasks.length,
+          open: allTasks.filter(task => task.status?.name === 'Open').length,
+          inProgress: allTasks.filter(
+            task => task.status?.name === 'In Progress'
+          ).length,
+          completed: allTasks.filter(task => task.status?.name === 'Completed')
             .length,
-          completed: tasks.filter(task => task.status?.name === 'Completed')
-            .length,
-          cancelled: tasks.filter(task => task.status?.name === 'Cancelled')
+          cancelled: allTasks.filter(task => task.status?.name === 'Cancelled')
             .length,
         };
 

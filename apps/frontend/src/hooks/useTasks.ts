@@ -53,14 +53,16 @@ export function useTasks(options: UseTasksOptions = {}) {
             entityType,
             entityId
           );
-          fetchedTasks = await tasksClient.getTasksByEntity(
+          const response = await tasksClient.getTasksByEntity(
             entityType,
             entityId,
             params
           );
+          fetchedTasks = response.data;
         } else {
           console.log('[DEBUG] Fetching all tasks');
-          fetchedTasks = await tasksClient.getTasks(params);
+          const response = await tasksClient.getTasks(params);
+          fetchedTasks = response.data;
         }
 
         console.log(

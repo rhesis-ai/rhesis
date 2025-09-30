@@ -75,13 +75,9 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       });
 
       if (isMounted.current) {
-        setTasks(response);
-        // Note: Backend should return total count in headers, but for now we'll estimate
-        setTotalCount(
-          response.length < limit
-            ? skip + response.length
-            : skip + response.length + 1
-        );
+        setTasks(response.data);
+        // Use the actual total count from backend
+        setTotalCount(response.totalCount);
       }
     } catch (err) {
       if (isMounted.current) {

@@ -26,10 +26,10 @@ export function TasksAndCommentsWrapper({
   currentUserPicture,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
-  const { tasks, isLoading, createTask, deleteTask } = useTasks({
+  const { createTask, deleteTask } = useTasks({
     entityType,
     entityId,
-    autoFetch: true,
+    autoFetch: false, // TasksSection will handle fetching
   });
 
   const handleCreateTask = useCallback(
@@ -87,13 +87,12 @@ export function TasksAndCommentsWrapper({
       <TasksSection
         entityType={entityType}
         entityId={entityId}
-        tasks={tasks}
+        sessionToken={sessionToken}
         onCreateTask={handleCreateTask}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
-        isLoading={isLoading}
       />
 
       {/* Divider between Tasks and Comments */}
