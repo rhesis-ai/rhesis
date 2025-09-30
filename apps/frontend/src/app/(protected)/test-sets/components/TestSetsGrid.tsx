@@ -1,11 +1,26 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { GridColDef, GridRowSelectionModel, GridPaginationModel } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridRowSelectionModel,
+  GridPaginationModel,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Box, Chip, Tooltip, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Typography, Avatar } from '@mui/material';
+import {
+  Box,
+  Chip,
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
+  Typography,
+  Avatar,
+} from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
@@ -24,16 +39,21 @@ interface StatusInfo {
   color: string;
 }
 
-const getStatusInfo = (testSet: TestSet & { status?: string | { name: string } }): StatusInfo => {
+const getStatusInfo = (
+  testSet: TestSet & { status?: string | { name: string } }
+): StatusInfo => {
   // Only use actual status from API
   return {
-    label: typeof testSet.status === "string"
-      ? testSet.status
-      : testSet.status && typeof testSet.status === "object" && 'name' in testSet.status
-        ? testSet.status.name
-        : "Unknown",
+    label:
+      typeof testSet.status === 'string'
+        ? testSet.status
+        : testSet.status &&
+            typeof testSet.status === 'object' &&
+            'name' in testSet.status
+          ? testSet.status.name
+          : 'Unknown',
     borderColor: 'primary.light',
-    color: 'primary.main'
+    color: 'primary.main',
   };
 };
 
@@ -65,18 +85,28 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 
       // Account for potential overflow chip width
       const overflowChip = document.createElement('div');
-      overflowChip.innerHTML = '<span class="MuiChip-root" style="padding: 0 8px;">+99</span>';
+      overflowChip.innerHTML =
+        '<span class="MuiChip-root" style="padding: 0 8px;">+99</span>';
       document.body.appendChild(overflowChip);
-      const overflowChipWidth = (overflowChip.firstChild as HTMLElement)?.getBoundingClientRect().width || 0;
+      const overflowChipWidth =
+        (overflowChip.firstChild as HTMLElement)?.getBoundingClientRect()
+          .width || 0;
       overflowChip.remove();
 
       for (let i = 0; i < items.length; i++) {
         const chip = document.createElement('div');
         chip.innerHTML = `<span class="MuiChip-root" style="padding: 0 8px;">${items[i]}</span>`;
         tempDiv.appendChild(chip);
-        const chipWidth = (chip.firstChild as HTMLElement)?.getBoundingClientRect().width || 0;
+        const chipWidth =
+          (chip.firstChild as HTMLElement)?.getBoundingClientRect().width || 0;
 
-        if (totalWidth + chipWidth + (i < items.length - 1 ? overflowChipWidth : 0) <= containerWidth - 16) { // 16px for safety margin
+        if (
+          totalWidth +
+            chipWidth +
+            (i < items.length - 1 ? overflowChipWidth : 0) <=
+          containerWidth - 16
+        ) {
+          // 16px for safety margin
           totalWidth += chipWidth + 8; // 8px for gap
           visibleCount++;
         } else {
@@ -97,7 +127,16 @@ const ChipContainer = ({ items }: { items: string[] }) => {
   if (items.length === 0) return '-';
 
   return (
-    <Box ref={containerRef} sx={{ display: 'flex', gap: 0.5, alignItems: 'center', width: '100%', overflow: 'hidden' }}>
+    <Box
+      ref={containerRef}
+      sx={{
+        display: 'flex',
+        gap: 0.5,
+        alignItems: 'center',
+        width: '100%',
+        overflow: 'hidden',
+      }}
+    >
       {visibleItems.map((item: string) => (
         <Chip key={item} label={item} size="small" variant="outlined" />
       ))}
@@ -114,14 +153,17 @@ export default function TestSetsGrid({
   testSets: initialTestSets,
   loading: initialLoading,
   sessionToken,
-  initialTotalCount
+  initialTotalCount,
 }: TestSetsGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const [filteredTestSets, setFilteredTestSets] = useState<TestSet[]>(initialTestSets);
+  const [filteredTestSets, setFilteredTestSets] =
+    useState<TestSet[]>(initialTestSets);
   const [loading, setLoading] = useState(initialLoading);
   const [testSets, setTestSets] = useState<TestSet[]>(initialTestSets);
-  const [totalCount, setTotalCount] = useState<number>(initialTotalCount || initialTestSets.length);
+  const [totalCount, setTotalCount] = useState<number>(
+    initialTotalCount || initialTestSets.length
+  );
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -177,13 +219,18 @@ export default function TestSetsGrid({
     fetchTestSets();
   }, [fetchTestSets, paginationModel.page, paginationModel.pageSize]);
 
-  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-  }, []);
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+    },
+    []
+  );
 
   // Process test sets for display
   const processedTestSets = testSets.map(testSet => {
-    const statusInfo = getStatusInfo(testSet as TestSet & { status?: string | { name: string } });
+    const statusInfo = getStatusInfo(
+      testSet as TestSet & { status?: string | { name: string } }
+    );
 
     return {
       id: testSet.id,
@@ -192,7 +239,7 @@ export default function TestSetsGrid({
       categories: testSet.attributes?.metadata?.categories || [],
       totalTests: testSet.attributes?.metadata?.total_tests || 0,
       status: statusInfo.label,
-      assignee: testSet.assignee
+      assignee: testSet.assignee,
     };
   });
 
@@ -201,56 +248,62 @@ export default function TestSetsGrid({
       field: 'name',
       headerName: 'Name',
       flex: 1.5,
-      renderCell: (params) => <span style={{ fontWeight: 'medium' }}>{params.value}</span>
+      renderCell: params => (
+        <span style={{ fontWeight: 'medium' }}>{params.value}</span>
+      ),
     },
     {
       field: 'behaviors',
       headerName: 'Behaviors',
       flex: 1.0,
-      renderCell: (params) => <ChipContainer items={params.row.behaviors || []} />
+      renderCell: params => (
+        <ChipContainer items={params.row.behaviors || []} />
+      ),
     },
     {
       field: 'categories',
       headerName: 'Categories',
       flex: 1.0,
-      renderCell: (params) => <ChipContainer items={params.row.categories || []} />
+      renderCell: params => (
+        <ChipContainer items={params.row.categories || []} />
+      ),
     },
     {
       field: 'totalTests',
       headerName: 'Tests',
       flex: 0.5,
-      valueGetter: (_, row) => row.totalTests
+      valueGetter: (_, row) => row.totalTests,
     },
     {
       field: 'status',
       headerName: 'Status',
       flex: 0.5,
-      renderCell: (params) => <Chip label={params.row.status} size="small" variant="outlined" />
+      renderCell: params => (
+        <Chip label={params.row.status} size="small" variant="outlined" />
+      ),
     },
     {
       field: 'assignee',
       headerName: 'Assignee',
       flex: 0.75,
-      renderCell: (params) => {
+      renderCell: params => {
         const assignee = params.row.assignee;
         if (!assignee) return '-';
 
-        const displayName = assignee.name ||
+        const displayName =
+          assignee.name ||
           `${assignee.given_name || ''} ${assignee.family_name || ''}`.trim() ||
           assignee.email;
 
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar
-              src={assignee.picture}
-              sx={{ width: 24, height: 24 }}
-            >
+            <Avatar src={assignee.picture} sx={{ width: 24, height: 24 }}>
               <PersonIcon />
             </Avatar>
             <Typography variant="body2">{displayName}</Typography>
           </Box>
         );
-      }
+      },
     },
     {
       field: 'counts.comments',
@@ -258,7 +311,7 @@ export default function TestSetsGrid({
       width: 100,
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
+      renderCell: params => {
         const count = params.row.counts?.comments || 0;
         if (count === 0) return null;
         return (
@@ -267,7 +320,7 @@ export default function TestSetsGrid({
             <Typography variant="body2">{count}</Typography>
           </Box>
         );
-      }
+      },
     },
     {
       field: 'counts.tasks',
@@ -275,7 +328,7 @@ export default function TestSetsGrid({
       width: 100,
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
+      renderCell: params => {
         const count = params.row.counts?.tasks || 0;
         if (count === 0) return null;
         return (
@@ -284,8 +337,8 @@ export default function TestSetsGrid({
             <Typography variant="body2">{count}</Typography>
           </Box>
         );
-      }
-    }
+      },
+    },
   ];
 
   const handleRowClick = (params: any) => {
@@ -346,10 +399,10 @@ export default function TestSetsGrid({
       fetchTestSets();
     } catch (error) {
       console.error('Error deleting test sets:', error);
-      notifications.show(
-        'Failed to delete test sets',
-        { severity: 'error', autoHideDuration: 6000 }
-      );
+      notifications.show('Failed to delete test sets', {
+        severity: 'error',
+        autoHideDuration: 6000,
+      });
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
@@ -365,15 +418,22 @@ export default function TestSetsGrid({
       label: string;
       icon: React.ReactNode;
       variant: 'text' | 'outlined' | 'contained';
-      color?: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+      color?:
+        | 'inherit'
+        | 'primary'
+        | 'secondary'
+        | 'success'
+        | 'error'
+        | 'info'
+        | 'warning';
       onClick: () => void;
     }[] = [
       {
         label: 'New Test Set',
         icon: <AddIcon />,
         variant: 'contained' as const,
-        onClick: handleNewTestSet
-      }
+        onClick: handleNewTestSet,
+      },
     ];
 
     if (selectedRows.length > 0) {
@@ -381,7 +441,7 @@ export default function TestSetsGrid({
         label: 'Run Test Set',
         icon: <PlayArrowIcon />,
         variant: 'contained' as const,
-        onClick: handleRunTestSets
+        onClick: handleRunTestSets,
       });
 
       buttons.push({
@@ -389,7 +449,7 @@ export default function TestSetsGrid({
         icon: <DeleteIcon />,
         variant: 'contained' as const,
         color: 'error' as const,
-        onClick: handleDeleteTestSets
+        onClick: handleDeleteTestSets,
       });
     }
 
@@ -399,7 +459,14 @@ export default function TestSetsGrid({
   return (
     <>
       {selectedRows.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box
+          sx={{
+            mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <Typography variant="subtitle1" color="primary">
             {selectedRows.length} test sets selected
           </Typography>
@@ -410,7 +477,7 @@ export default function TestSetsGrid({
         columns={columns}
         rows={processedTestSets}
         loading={loading}
-        getRowId={(row) => row.id}
+        getRowId={row => row.id}
         showToolbar={false}
         onRowClick={handleRowClick}
         paginationModel={paginationModel}
@@ -431,13 +498,13 @@ export default function TestSetsGrid({
           <TestSetDrawer
             open={drawerOpen}
             onClose={handleDrawerClose}
-            sessionToken={sessionToken || session?.session_token!}
+            sessionToken={sessionToken || session?.session_token || ''}
             onSuccess={handleTestSetSaved}
           />
           <TestRunDrawer
             open={testRunDrawerOpen}
             onClose={() => setTestRunDrawerOpen(false)}
-            sessionToken={sessionToken || session?.session_token!}
+            sessionToken={sessionToken || session?.session_token || ''}
             selectedTestSetIds={selectedRows as string[]}
             onSuccess={handleTestRunSuccess}
           />
