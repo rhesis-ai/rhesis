@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -14,35 +14,117 @@ import { AddIcon } from '@/components/icons';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { GridColDef } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowSelectionModel,
+} from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TasksSectionProps {
   entityType: EntityType;
   entityId: string;
-  tasks: Task[];
+  sessionToken: string;
   onCreateTask: (taskData: any) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
   currentUserId: string;
   currentUserName: string;
-  isLoading?: boolean;
 }
 
 export function TasksSection({
   entityType,
   entityId,
-  tasks,
+  sessionToken,
   onCreateTask,
   onEditTask,
   onDeleteTask,
   currentUserId,
   currentUserName,
-  isLoading = false,
 }: TasksSectionProps) {
   const router = useRouter();
+  const notifications = useNotifications();
+  const isMounted = useRef(true);
+
+  // Component state
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 10,
+  });
+
+  // Fetch tasks with pagination
+  const fetchTasks = useCallback(
+    async (pagination: GridPaginationModel) => {
+      if (!sessionToken) {
+        setError('No session token available');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const tasksClient = clientFactory.getTasksClient();
+
+        const skip = pagination.page * pagination.pageSize;
+        // Use the main tasks endpoint with OData filter for entity-specific tasks
+        const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
+        const response = await tasksClient.getTasks({
+          skip,
+          limit: pagination.pageSize,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+          $filter: filter,
+        });
+
+        if (isMounted.current) {
+          setTasks(response.data);
+          setTotalCount(response.totalCount);
+        }
+      } catch (err) {
+        if (isMounted.current) {
+          const errorMessage =
+            err instanceof Error ? err.message : 'Failed to fetch tasks';
+          setError(errorMessage);
+          notifications.show(errorMessage, { severity: 'error' });
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [entityType, entityId, sessionToken, notifications]
+  );
+
+  // Handle pagination changes
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+      fetchTasks(newModel);
+    },
+    [fetchTasks]
+  );
+
+  // Initial fetch
+  React.useEffect(() => {
+    fetchTasks(paginationModel);
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, [fetchTasks, paginationModel]);
 
   const handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {
@@ -179,11 +261,15 @@ export function TasksSection({
         </Box>
 
         {/* Tasks Table */}
-        {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <CircularProgress />
-          </Box>
-        ) : tasks.length === 0 ? (
+        {error ? (
+          <Typography
+            variant="body2"
+            color="error"
+            sx={{ textAlign: 'center', py: 3 }}
+          >
+            {error}
+          </Typography>
+        ) : !loading && tasks.length === 0 ? (
           <Typography
             variant="body2"
             color="text.secondary"
@@ -196,14 +282,17 @@ export function TasksSection({
           <BaseDataGrid
             rows={tasks}
             columns={columns}
-            loading={isLoading}
+            loading={loading}
             onRowClick={handleRowClick}
             disableRowSelectionOnClick
             pageSizeOptions={[5, 10, 25]}
-            paginationModel={{ page: 0, pageSize: 10 }}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
             getRowId={row => row.id}
             showToolbar={true}
             disablePaperWrapper={true}
+            serverSidePagination={true}
+            totalRows={totalCount}
             sx={{
               '& .MuiDataGrid-row': {
                 cursor: 'pointer',

@@ -4,16 +4,32 @@ import {
   Comment,
   CreateCommentRequest,
   UpdateCommentRequest,
-  CommentReactionRequest,
 } from '@/types/comments';
 
 export class CommentsClient extends BaseApiClient {
   async getComments(entityType: string, entityId: string): Promise<Comment[]> {
-    // Use the correct endpoint for getting comments by entity
-    const response = await this.fetch<Comment[]>(
-      `${API_ENDPOINTS.comments}/entity/${entityType}/${entityId}`
-    );
-    return response;
+    // Fetch all comments by paginating through all pages
+    // Backend has a 100 limit, so we need to fetch in batches
+    const allComments: Comment[] = [];
+    let skip = 0;
+    const limit = 100; // Backend maximum limit
+
+    while (true) {
+      const response = await this.fetch<Comment[]>(
+        `${API_ENDPOINTS.comments}/entity/${entityType}/${entityId}?skip=${skip}&limit=${limit}`
+      );
+
+      allComments.push(...response);
+
+      // If we got fewer comments than the limit, we've reached the end
+      if (response.length < limit) {
+        break;
+      }
+
+      skip += limit;
+    }
+
+    return allComments;
   }
 
   async createComment(data: CreateCommentRequest): Promise<Comment> {
