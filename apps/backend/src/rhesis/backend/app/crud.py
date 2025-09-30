@@ -870,6 +870,8 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     user_data = user.model_dump(exclude={"send_invite"})
     db_user = models.User(**user_data)
     db.add(db_user)
+    # Flush to get ID and other generated values before refresh
+    db.flush()
     # Transaction commit is handled by the session context manager
     db.refresh(db_user)
     return db_user
