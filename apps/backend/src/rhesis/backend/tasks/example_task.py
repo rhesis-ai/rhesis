@@ -14,7 +14,7 @@ from typing import Any, Dict
 from uuid import UUID
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.database import SessionLocal
+from rhesis.backend.app.database import get_db
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import (
@@ -312,11 +312,11 @@ def example_set_execution_mode(test_config_id: str, execution_mode: str) -> bool
     Returns:
         bool: True if successful, False otherwise
     """
-    with SessionLocal() as db:
-        try:
-            # Validate execution mode
-            ExecutionMode(execution_mode)
+    try:
+        # Validate execution mode
+        ExecutionMode(execution_mode)
 
+        with get_db() as db:
             # Set the execution mode
             success = set_execution_mode(db, test_config_id, ExecutionMode(execution_mode))
 
@@ -329,12 +329,12 @@ def example_set_execution_mode(test_config_id: str, execution_mode: str) -> bool
                 logger.error(f"Failed to set execution mode for test config {test_config_id}")
                 return False
 
-        except ValueError as e:
-            logger.error(f"Invalid execution mode '{execution_mode}': {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"Error setting execution mode: {str(e)}")
-            return False
+    except ValueError as e:
+        logger.error(f"Invalid execution mode '{execution_mode}': {str(e)}")
+        return False
+    except Exception as e:
+        logger.error(f"Error setting execution mode: {str(e)}")
+        return False
 
 
 # Example usage documentation

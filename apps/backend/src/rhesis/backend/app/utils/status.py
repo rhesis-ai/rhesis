@@ -66,5 +66,5 @@ def get_or_create_status(session: Session, status_name: str, entity_type: str, o
             
         status = Status(**status_data)
         session.add(status)
-        session.commit()
+        session.flush()  # Flush to get the ID, commit handled by session context manager
     return status
