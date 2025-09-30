@@ -67,7 +67,7 @@ __all__ = [
     "db_project", "db_inactive_project", "db_draft_project",
     
     # Prompt fixtures
-    "db_prompt",
+    "db_prompt", "db_parent_prompt",
     
     # Test fixtures
     "db_test", "db_test_with_prompt",

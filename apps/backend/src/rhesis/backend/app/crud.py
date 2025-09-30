@@ -1017,6 +1017,7 @@ def assign_tag(
         user_id=tag.user_id,
     )
     db.add(tagged_item)
+    db.flush()  # Force flush to ensure the TaggedItem is persisted
     # Transaction commit is handled by the session context manager
     db.refresh(db_tag)
 
@@ -1222,6 +1223,7 @@ def create_organization(
 
     # Add to session - transaction management is handled by context manager
     db.add(db_org)
+    db.flush()  # Flush to get the ID
 
     # Simply return the object without refreshing
     # The refresh operation is what often triggers RLS issues
