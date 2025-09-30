@@ -26,6 +26,7 @@ import {
   Button,
   Chip,
 } from '@mui/material';
+import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -268,6 +269,40 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
                 <PersonIcon />
               </Avatar>
               <Typography variant="body2">{displayName}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'counts.comments',
+        headerName: 'Comments',
+        width: 100,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const count = params.row.counts?.comments || 0;
+          if (count === 0) return null;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'counts.tasks',
+        headerName: 'Tasks',
+        width: 100,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const count = params.row.counts?.tasks || 0;
+          if (count === 0) return null;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2">{count}</Typography>
             </Box>
           );
         },
