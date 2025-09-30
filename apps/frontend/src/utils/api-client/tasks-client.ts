@@ -12,7 +12,9 @@ export class TasksClient extends BaseApiClient {
     super(sessionToken);
   }
 
-  async getTasks(params: TasksQueryParams = {}): Promise<Task[]> {
+  async getTasks(
+    params: TasksQueryParams = {}
+  ): Promise<{ data: Task[]; totalCount: number }> {
     const queryParams = new URLSearchParams();
 
     if (params.skip !== undefined)
@@ -23,10 +25,23 @@ export class TasksClient extends BaseApiClient {
     if (params.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params.$filter) queryParams.append('$filter', params.$filter);
 
-    const response = await this.fetch<Task[]>(
-      `${API_ENDPOINTS.tasks}?${queryParams.toString()}`
-    );
-    return response;
+    const path = `${API_ENDPOINTS.tasks}?${queryParams.toString()}`;
+    const url = this.baseUrl + path;
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} - ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const totalCount = parseInt(response.headers.get('X-Total-Count') || '0');
+
+    return { data, totalCount };
   }
 
   async getTask(taskId: string): Promise<Task> {
@@ -63,7 +78,7 @@ export class TasksClient extends BaseApiClient {
     entityType: string,
     entityId: string,
     params: TasksQueryParams = {}
-  ): Promise<Task[]> {
+  ): Promise<{ data: Task[]; totalCount: number }> {
     const queryParams = new URLSearchParams();
 
     if (params.skip !== undefined)
@@ -73,10 +88,23 @@ export class TasksClient extends BaseApiClient {
     if (params.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params.sort_order) queryParams.append('sort_order', params.sort_order);
 
-    const response = await this.fetch<Task[]>(
-      `${API_ENDPOINTS.tasks}/${entityType}/${entityId}?${queryParams.toString()}`
-    );
-    return response;
+    const path = `${API_ENDPOINTS.tasks}/${entityType}/${entityId}?${queryParams.toString()}`;
+    const url = this.baseUrl + path;
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} - ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const totalCount = parseInt(response.headers.get('X-Total-Count') || '0');
+
+    return { data, totalCount };
   }
 
   async getTasksByCommentId(
@@ -88,13 +116,15 @@ export class TasksClient extends BaseApiClient {
     const queryParams = new URLSearchParams();
 
     // Set a reasonable limit to avoid fetching too many tasks
-    queryParams.append('limit', '1000');
+    queryParams.append('limit', '100');
     if (params.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params.sort_order) queryParams.append('sort_order', params.sort_order);
 
-    const allTasks = await this.fetch<Task[]>(
-      `${API_ENDPOINTS.tasks}?${queryParams.toString()}`
-    );
+    const { data: allTasks } = await this.getTasks({
+      limit: 100,
+      sort_by: params.sort_by,
+      sort_order: params.sort_order,
+    });
 
     // Filter tasks on the frontend by checking task_metadata.comment_id
     const filteredTasks = allTasks.filter(
