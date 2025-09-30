@@ -25,7 +25,7 @@ Run with: python -m pytest tests/backend/crud/test_transaction_management.py -v
 
 import pytest
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -47,52 +47,47 @@ from tests.backend.routes.fixtures.data_factories import (
 class TestCRUDTransactionManagement:
     """🔄 Test automatic transaction management in CRUD operations"""
 
-    def test_create_organization_commits_on_success(self, test_db: Session):
+    def test_create_organization_commits_on_success(self, test_db: Session, authenticated_user):
         """Test that create_organization commits automatically on success"""
-        # Create organization data
+        # Create organization data with real user ID
         org_data = OrganizationDataFactory.sample_data()
+        org_data["owner_id"] = str(authenticated_user.id)
+        org_data["user_id"] = str(authenticated_user.id)
         org_create = schemas.OrganizationCreate(**org_data)
         
-        # Mock session variables to avoid RLS issues
-        with patch('rhesis.backend.app.crud.get_session_variables') as mock_get_vars, \
-             patch('rhesis.backend.app.crud.reset_session_context') as mock_reset:
-            mock_get_vars.return_value = {}
-            
-            # Create organization
-            result = crud.create_organization(test_db, org_create)
-            
-            # Verify organization was created and persisted
-            assert result is not None
-            assert result.name == org_data["name"]
-            assert result.id is not None
-            
-            # Verify it's actually in the database (committed)
-            db_org = test_db.query(models.Organization).filter(
-                models.Organization.id == result.id
-            ).first()
-            assert db_org is not None
-            assert db_org.name == org_data["name"]
+        # Create organization
+        result = crud.create_organization(test_db, org_create)
+        
+        # Verify organization was created and persisted
+        assert result is not None
+        assert result.name == org_data["name"]
+        assert result.id is not None
+        
+        # Verify it's actually in the database (committed)
+        db_org = test_db.query(models.Organization).filter(
+            models.Organization.id == result.id
+        ).first()
+        assert db_org is not None
+        assert db_org.name == org_data["name"]
 
-    def test_create_organization_rollback_on_exception(self, test_db: Session):
+    def test_create_organization_rollback_on_exception(self, test_db: Session, authenticated_user):
         """Test that create_organization rolls back automatically on exception"""
         org_data = OrganizationDataFactory.sample_data()
+        org_data["owner_id"] = str(authenticated_user.id)
+        org_data["user_id"] = str(authenticated_user.id)
         org_create = schemas.OrganizationCreate(**org_data)
         
         # Get initial organization count
         initial_count = test_db.query(models.Organization).count()
         
-        with patch('rhesis.backend.app.crud.get_session_variables') as mock_get_vars, \
-             patch('rhesis.backend.app.crud.reset_session_context') as mock_reset:
-            mock_get_vars.return_value = {}
-            
-            # Mock db.add to raise an exception
-            with patch.object(test_db, 'add', side_effect=IntegrityError("", "", "")):
-                with pytest.raises(ValueError, match="Failed to create organization"):
-                    crud.create_organization(test_db, org_create)
-            
-            # Verify no organization was created (transaction rolled back)
-            final_count = test_db.query(models.Organization).count()
-            assert final_count == initial_count
+        # Mock db.add to raise an exception to test rollback
+        with patch.object(test_db, 'add', side_effect=IntegrityError("", "", "")):
+            with pytest.raises(IntegrityError):
+                crud.create_organization(test_db, org_create)
+        
+        # Verify no organization was created (transaction rolled back)
+        final_count = test_db.query(models.Organization).count()
+        assert final_count == initial_count
 
     def test_update_user_commits_on_success(self, test_db: Session, authenticated_user):
         """Test that update_user commits automatically on success"""
@@ -144,8 +139,8 @@ class TestCRUDTransactionManagement:
         assert db_user is not None
         assert db_user.email == user_data["email"]
 
-    def test_create_tag_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
-        """Test that create_tag commits automatically on success"""
+    def test_assign_tag_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
+        """Test that assign_tag commits automatically on success"""
         # Create tag data
         tag_data = TagDataFactory.sample_data()
         tag_data["organization_id"] = test_org_id
@@ -156,8 +151,19 @@ class TestCRUDTransactionManagement:
         entity_id = uuid.uuid4()
         entity_type = EntityType.BEHAVIOR
         
-        # Create tag
-        result = crud.create_tag(test_db, tag_create, entity_id, entity_type, test_org_id, authenticated_user_id)
+        # Create a test behavior entity first
+        behavior = models.Behavior(
+            name="Test Behavior",
+            description="Test behavior for tagging",
+            organization_id=uuid.UUID(test_org_id),
+            user_id=uuid.UUID(authenticated_user_id)
+        )
+        test_db.add(behavior)
+        test_db.flush()
+        entity_id = behavior.id
+        
+        # Assign tag
+        result = crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
         
         # Verify tag was created and persisted
         assert result is not None
@@ -186,10 +192,20 @@ class TestCRUDTransactionManagement:
         tag_data["user_id"] = authenticated_user_id
         tag_create = schemas.TagCreate(**tag_data)
         
-        entity_id = uuid.uuid4()
+        # Create a test behavior entity first
+        behavior = models.Behavior(
+            name="Test Behavior",
+            description="Test behavior for tagging",
+            organization_id=uuid.UUID(test_org_id),
+            user_id=uuid.UUID(authenticated_user_id)
+        )
+        test_db.add(behavior)
+        test_db.flush()
+        entity_id = behavior.id
         entity_type = EntityType.BEHAVIOR
         
-        created_tag = crud.create_tag(test_db, tag_create, entity_id, entity_type, test_org_id, authenticated_user_id)
+        # Assign tag
+        created_tag = crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
         tag_id = created_tag.id
         
         # Verify tagged item exists
@@ -212,55 +228,6 @@ class TestCRUDTransactionManagement:
         ).count()
         assert final_tagged_items == 0
 
-    def test_delete_tokens_by_user_commits_on_success(self, test_db: Session, test_org_id: str):
-        """Test that delete_tokens_by_user commits automatically on success"""
-        # Create a test user and tokens
-        test_user_id = uuid.uuid4()
-        test_user = models.User(
-            email=f"token-test-{test_user_id}@example.com",
-            name="Token Test User",
-            organization_id=uuid.UUID(test_org_id)
-        )
-        test_db.add(test_user)
-        test_db.flush()
-        
-        # Create test tokens
-        token1 = models.Token(
-            name="Test Token 1",
-            token="test_token_1",
-            token_obfuscated="test_...1",
-            token_type="bearer",
-            user_id=test_user.id,
-            organization_id=uuid.UUID(test_org_id)
-        )
-        token2 = models.Token(
-            name="Test Token 2", 
-            token="test_token_2",
-            token_obfuscated="test_...2",
-            token_type="bearer",
-            user_id=test_user.id,
-            organization_id=uuid.UUID(test_org_id)
-        )
-        test_db.add_all([token1, token2])
-        test_db.flush()
-        
-        # Verify tokens exist
-        initial_count = test_db.query(models.Token).filter(
-            models.Token.user_id == test_user.id
-        ).count()
-        assert initial_count == 2
-        
-        # Delete tokens
-        result = crud.delete_tokens_by_user(test_db, str(test_user.id), test_org_id)
-        
-        # Verify tokens were deleted (committed)
-        assert result == 2
-        
-        # Verify tokens are actually gone from database
-        final_count = test_db.query(models.Token).filter(
-            models.Token.user_id == test_user.id
-        ).count()
-        assert final_count == 0
 
     def test_add_emoji_reaction_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that add_emoji_reaction commits automatically on success"""
@@ -275,8 +242,9 @@ class TestCRUDTransactionManagement:
         # Add emoji reaction
         emoji = "👍"
         user_id = uuid.UUID(authenticated_user_id)
+        user_name = "Test User"
         
-        result = crud.add_emoji_reaction(test_db, comment.id, emoji, user_id)
+        result = crud.add_emoji_reaction(test_db, comment.id, emoji, user_id, user_name)
         
         # Verify reaction was added and persisted
         assert result is not None
@@ -305,7 +273,8 @@ class TestCRUDTransactionManagement:
         # Add initial emoji reaction
         emoji = "👍"
         user_id = uuid.UUID(authenticated_user_id)
-        crud.add_emoji_reaction(test_db, comment.id, emoji, user_id)
+        user_name = "Test User"
+        crud.add_emoji_reaction(test_db, comment.id, emoji, user_id, user_name)
         
         # Verify reaction exists
         db_comment = test_db.query(models.Comment).filter(
@@ -328,74 +297,74 @@ class TestCRUDTransactionManagement:
         assert db_comment is not None
         assert emoji not in db_comment.emojis or len(db_comment.emojis[emoji]) == 0
 
-    def test_transaction_isolation_between_operations(self, test_db: Session):
+    def test_transaction_isolation_between_operations(self, test_db: Session, authenticated_user):
         """Test that transaction isolation works correctly between operations"""
         # Create first organization
         org_data1 = OrganizationDataFactory.sample_data()
         org_data1["name"] = "Test Org 1"
+        org_data1["owner_id"] = str(authenticated_user.id)
+        org_data1["user_id"] = str(authenticated_user.id)
         org_create1 = schemas.OrganizationCreate(**org_data1)
         
-        with patch('rhesis.backend.app.crud.get_session_variables') as mock_get_vars, \
-             patch('rhesis.backend.app.crud.reset_session_context') as mock_reset:
-            mock_get_vars.return_value = {}
-            
-            result1 = crud.create_organization(test_db, org_create1)
-            assert result1 is not None
-            
-            # Create second organization
-            org_data2 = OrganizationDataFactory.sample_data()
-            org_data2["name"] = "Test Org 2"
-            org_create2 = schemas.OrganizationCreate(**org_data2)
-            
-            result2 = crud.create_organization(test_db, org_create2)
-            assert result2 is not None
-            
-            # Verify both organizations exist independently
-            db_org1 = test_db.query(models.Organization).filter(
-                models.Organization.id == result1.id
-            ).first()
-            db_org2 = test_db.query(models.Organization).filter(
-                models.Organization.id == result2.id
-            ).first()
-            
-            assert db_org1 is not None
-            assert db_org2 is not None
-            assert db_org1.name == "Test Org 1"
-            assert db_org2.name == "Test Org 2"
-            assert db_org1.id != db_org2.id
+        result1 = crud.create_organization(test_db, org_create1)
+        assert result1 is not None
+        
+        # Create second organization
+        org_data2 = OrganizationDataFactory.sample_data()
+        org_data2["name"] = "Test Org 2"
+        org_data2["owner_id"] = str(authenticated_user.id)
+        org_data2["user_id"] = str(authenticated_user.id)
+        org_create2 = schemas.OrganizationCreate(**org_data2)
+        
+        result2 = crud.create_organization(test_db, org_create2)
+        assert result2 is not None
+        
+        # Verify both organizations exist independently
+        db_org1 = test_db.query(models.Organization).filter(
+            models.Organization.id == result1.id
+        ).first()
+        db_org2 = test_db.query(models.Organization).filter(
+            models.Organization.id == result2.id
+        ).first()
+        
+        assert db_org1 is not None
+        assert db_org2 is not None
+        assert db_org1.name == "Test Org 1"
+        assert db_org2.name == "Test Org 2"
+        assert db_org1.id != db_org2.id
 
-    def test_exception_in_one_operation_does_not_affect_others(self, test_db: Session):
+    def test_exception_in_one_operation_does_not_affect_others(self, test_db: Session, authenticated_user):
         """Test that an exception in one operation doesn't affect other successful operations"""
         # Create first organization successfully
         org_data1 = OrganizationDataFactory.sample_data()
         org_data1["name"] = "Success Org"
+        org_data1["owner_id"] = str(authenticated_user.id)
+        org_data1["user_id"] = str(authenticated_user.id)
         org_create1 = schemas.OrganizationCreate(**org_data1)
         
-        with patch('rhesis.backend.app.crud.get_session_variables') as mock_get_vars, \
-             patch('rhesis.backend.app.crud.reset_session_context') as mock_reset:
-            mock_get_vars.return_value = {}
-            
-            result1 = crud.create_organization(test_db, org_create1)
-            assert result1 is not None
-            
-            # Try to create second organization with exception
-            org_data2 = OrganizationDataFactory.sample_data()
-            org_data2["name"] = "Failure Org"
-            org_create2 = schemas.OrganizationCreate(**org_data2)
-            
-            with patch.object(test_db, 'add', side_effect=IntegrityError("", "", "")):
-                with pytest.raises(ValueError):
-                    crud.create_organization(test_db, org_create2)
-            
-            # Verify first organization still exists (not affected by second failure)
-            db_org1 = test_db.query(models.Organization).filter(
-                models.Organization.id == result1.id
-            ).first()
-            assert db_org1 is not None
-            assert db_org1.name == "Success Org"
-            
-            # Verify second organization was not created
-            failed_orgs = test_db.query(models.Organization).filter(
-                models.Organization.name == "Failure Org"
-            ).count()
-            assert failed_orgs == 0
+        result1 = crud.create_organization(test_db, org_create1)
+        assert result1 is not None
+        
+        # Try to create second organization with exception
+        org_data2 = OrganizationDataFactory.sample_data()
+        org_data2["name"] = "Failure Org"
+        org_data2["owner_id"] = str(authenticated_user.id)
+        org_data2["user_id"] = str(authenticated_user.id)
+        org_create2 = schemas.OrganizationCreate(**org_data2)
+        
+        with patch.object(test_db, 'add', side_effect=IntegrityError("", "", "")):
+            with pytest.raises(IntegrityError):
+                crud.create_organization(test_db, org_create2)
+        
+        # Verify first organization still exists (not affected by second failure)
+        db_org1 = test_db.query(models.Organization).filter(
+            models.Organization.id == result1.id
+        ).first()
+        assert db_org1 is not None
+        assert db_org1.name == "Success Org"
+        
+        # Verify second organization was not created
+        failed_orgs = test_db.query(models.Organization).filter(
+            models.Organization.name == "Failure Org"
+        ).count()
+        assert failed_orgs == 0

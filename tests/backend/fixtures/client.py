@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from rhesis.backend.app.main import app
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_db_session
 
 
 @pytest.fixture
@@ -24,8 +25,9 @@ def client(test_db):
         """Override the get_db dependency to use the same session as fixtures."""
         yield test_db
     
-    # Override the database dependency
+    # Override the database dependencies
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_tenant_db_session] = override_get_db
     
     with TestClient(app) as test_client:
         yield test_client

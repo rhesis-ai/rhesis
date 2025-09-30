@@ -90,6 +90,9 @@ def create_session_authentication() -> Tuple[str, str, str]:
             session, test_org_name, test_user_email, test_user_name
         )
         
+        # Commit the session to make the organization and user available to other sessions
+        session.commit()
+        
         # Cache the session auth data
         _session_auth_cache = (str(organization.id), str(user.id), token.token)
         

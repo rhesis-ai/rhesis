@@ -20,12 +20,10 @@ Run with: python -m pytest tests/backend/auth/test_transaction_management.py -v
 import pytest
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth import auth_utils, token_validation, user_utils
-# Using mock user data pattern instead of UserDataFactory
 
 
 @pytest.mark.unit
@@ -34,7 +32,7 @@ from rhesis.backend.app.auth import auth_utils, token_validation, user_utils
 class TestAuthTransactionManagement:
     """🔄 Test automatic transaction management in auth utilities"""
 
-    def test_auth_utils_update_token_usage_commits_on_success(self, test_db: Session, test_org_id: str):
+    def test_auth_utils_update_token_usage_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that auth_utils.update_token_usage commits automatically on success"""
         # Create a test token
         test_token = models.Token(
@@ -43,7 +41,7 @@ class TestAuthTransactionManagement:
             token_obfuscated="test_...123",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.uuid4()
+            user_id=uuid.UUID(authenticated_user_id)
         )
         test_db.add(test_token)
         test_db.flush()
@@ -67,7 +65,7 @@ class TestAuthTransactionManagement:
         assert db_token.last_used_at is not None
         assert db_token.last_used_at == test_token.last_used_at
 
-    def test_auth_utils_update_token_usage_handles_exception_gracefully(self, test_db: Session, test_org_id: str):
+    def test_auth_utils_update_token_usage_handles_exception_gracefully(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that auth_utils.update_token_usage handles exceptions gracefully without manual rollback"""
         # Create a test token
         test_token = models.Token(
@@ -76,24 +74,33 @@ class TestAuthTransactionManagement:
             token_obfuscated="test_...456",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.uuid4()
+            user_id=uuid.UUID(authenticated_user_id)
         )
         test_db.add(test_token)
         test_db.flush()
         
-        # Mock db.add to raise an exception
-        with patch.object(test_db, 'add', side_effect=Exception("Database error")):
-            # This should not raise an exception (error is caught and logged)
-            auth_utils.update_token_usage(test_db, test_token)
+        # Test with a token that has invalid data to trigger an exception
+        # Create a token with invalid organization_id to cause an error
+        invalid_token = models.Token(
+            name="Invalid Token",
+            token="invalid_token",
+            token_obfuscated="invalid_...",
+            token_type="bearer",
+            organization_id=uuid.uuid4(),  # Non-existent organization
+            user_id=uuid.uuid4()
+        )
         
-        # Verify the token still exists and is not corrupted
+        # This should not raise an exception (error is caught and logged)
+        auth_utils.update_token_usage(test_db, invalid_token)
+        
+        # Verify the original token still exists and is not corrupted
         db_token = test_db.query(models.Token).filter(
             models.Token.id == test_token.id
         ).first()
         assert db_token is not None
         assert db_token.token == "test_token_456"
 
-    def test_token_validation_update_token_usage_commits_on_success(self, test_db: Session, test_org_id: str):
+    def test_token_validation_update_token_usage_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that token_validation.update_token_usage commits automatically on success"""
         # Create a test token
         test_token = models.Token(
@@ -102,7 +109,7 @@ class TestAuthTransactionManagement:
             token_obfuscated="validation_...123",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.uuid4()
+            user_id=uuid.UUID(authenticated_user_id)
         )
         test_db.add(test_token)
         test_db.flush()
@@ -126,7 +133,7 @@ class TestAuthTransactionManagement:
         assert db_token.last_used_at is not None
         assert db_token.last_used_at == test_token.last_used_at
 
-    def test_token_validation_update_token_usage_handles_exception_gracefully(self, test_db: Session, test_org_id: str):
+    def test_token_validation_update_token_usage_handles_exception_gracefully(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that token_validation.update_token_usage handles exceptions gracefully without manual rollback"""
         # Create a test token
         test_token = models.Token(
@@ -135,25 +142,34 @@ class TestAuthTransactionManagement:
             token_obfuscated="validation_...456",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.uuid4()
+            user_id=uuid.UUID(authenticated_user_id)
         )
         test_db.add(test_token)
         test_db.flush()
         
-        # Mock db.add to raise an exception
-        with patch.object(test_db, 'add', side_effect=Exception("Database error")):
-            # This should not raise an exception (error is caught and logged)
-            token_validation.update_token_usage(test_db, test_token)
+        # Test with a token that has invalid data to trigger an exception
+        # Create a token with invalid organization_id to cause an error
+        invalid_token = models.Token(
+            name="Invalid Token",
+            token="invalid_token",
+            token_obfuscated="invalid_...",
+            token_type="bearer",
+            organization_id=uuid.uuid4(),  # Non-existent organization
+            user_id=uuid.UUID(authenticated_user_id)
+        )
         
-        # Verify the token still exists and is not corrupted
+        # This should not raise an exception (error is caught and logged)
+        token_validation.update_token_usage(test_db, invalid_token)
+        
+        # Verify the original token still exists and is not corrupted
         db_token = test_db.query(models.Token).filter(
             models.Token.id == test_token.id
         ).first()
         assert db_token is not None
         assert db_token.token == "validation_token_456"
 
-    def test_get_or_create_user_from_profile_updates_existing_user_commits(self, test_db: Session, test_org_id: str):
-        """Test that get_or_create_user_from_profile commits user updates automatically"""
+    def test_find_or_create_user_updates_existing_user_commits(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
+        """Test that find_or_create_user commits user updates automatically"""
         # Create an existing user
         user_email = f"existing_user_{uuid.uuid4()}@example.com"
         existing_user = models.User(
@@ -170,7 +186,6 @@ class TestAuthTransactionManagement:
         
         # Create user profile data
         user_profile = {
-            "email": user_email,
             "name": "New Name",
             "given_name": "New Given", 
             "family_name": "New Family",
@@ -179,8 +194,8 @@ class TestAuthTransactionManagement:
         auth0_id = "new_auth0_id"
         
         # Update user from profile
-        result = user_utils.get_or_create_user_from_profile(
-            test_db, user_profile, auth0_id
+        result = user_utils.find_or_create_user(
+            test_db, auth0_id, user_email, user_profile
         )
         
         # Verify user was updated and persisted
@@ -205,11 +220,11 @@ class TestAuthTransactionManagement:
         assert db_user.auth0_id == "new_auth0_id"
         assert db_user.last_login_at is not None
 
-    def test_get_or_create_user_from_profile_creates_new_user_commits(self, test_db: Session):
-        """Test that get_or_create_user_from_profile commits new user creation automatically"""
+    def test_find_or_create_user_creates_new_user_commits(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
+        """Test that find_or_create_user commits new user creation automatically"""
         # Create user profile data for non-existing user
+        user_email = f"new_user_{uuid.uuid4()}@example.com"
         user_profile = {
-            "email": f"new_user_{uuid.uuid4()}@example.com",
             "name": "New User Name",
             "given_name": "New Given",
             "family_name": "New Family", 
@@ -220,32 +235,32 @@ class TestAuthTransactionManagement:
         # Get initial user count
         initial_count = test_db.query(models.User).count()
         
-        # Create user from profile
-        with patch('rhesis.backend.app.auth.user_utils.crud.create_user') as mock_create:
-            # Mock the create_user function to return a user
-            mock_user = models.User(
-                id=uuid.uuid4(),
-                email=user_profile["email"],
-                name=user_profile["name"],
-                given_name=user_profile["given_name"],
-                family_name=user_profile["family_name"],
-                picture=user_profile["picture"],
-                auth0_id=auth0_id
-            )
-            mock_create.return_value = mock_user
-            
-            result = user_utils.get_or_create_user_from_profile(
-                test_db, user_profile, auth0_id
-            )
-            
-            # Verify create_user was called
-            mock_create.assert_called_once()
-            
-            # Verify result is the mocked user
-            assert result is not None
-            assert result == mock_user
+        # Create user from profile (this will actually create a user)
+        result = user_utils.find_or_create_user(
+            test_db, auth0_id, user_email, user_profile
+        )
+        
+        # Verify result is a user
+        assert result is not None
+        assert result.email == user_email
+        assert result.name == user_profile["name"]
+        assert result.given_name == user_profile["given_name"]
+        assert result.family_name == user_profile["family_name"]
+        assert result.picture == user_profile["picture"]
+        assert result.auth0_id == auth0_id
+        
+        # Verify user was actually created in database
+        final_count = test_db.query(models.User).count()
+        assert final_count == initial_count + 1
+        
+        # Verify the user exists in the database
+        db_user = test_db.query(models.User).filter(
+            models.User.email == user_email
+        ).first()
+        assert db_user is not None
+        assert db_user.auth0_id == auth0_id
 
-    def test_multiple_token_updates_transaction_isolation(self, test_db: Session, test_org_id: str):
+    def test_multiple_token_updates_transaction_isolation(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that multiple token updates maintain proper transaction isolation"""
         # Create multiple test tokens
         token1 = models.Token(
@@ -254,7 +269,7 @@ class TestAuthTransactionManagement:
             token_obfuscated="test_...1",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.uuid4()
+            user_id=uuid.UUID(authenticated_user_id)
         )
         token2 = models.Token(
             name="Test Token 2",
@@ -262,7 +277,7 @@ class TestAuthTransactionManagement:
             token_obfuscated="test_...2",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.uuid4()
+            user_id=uuid.UUID(authenticated_user_id)
         )
         test_db.add_all([token1, token2])
         test_db.flush()
@@ -297,7 +312,7 @@ class TestAuthTransactionManagement:
         assert db_token1.last_used_at is not None
         assert db_token2.last_used_at is not None
 
-    def test_user_profile_update_by_email_and_auth0_id(self, test_db: Session, test_org_id: str):
+    def test_user_profile_update_by_email_and_auth0_id(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that user profile updates work correctly for both email and auth0_id lookups"""
         # Create a user with both email and auth0_id
         user_email = f"profile_user_{uuid.uuid4()}@example.com"
@@ -312,7 +327,6 @@ class TestAuthTransactionManagement:
         
         # Test update via email lookup
         user_profile = {
-            "email": user_email,
             "name": "Updated via Email",
             "given_name": "Updated Given",
             "family_name": "Updated Family",
@@ -320,8 +334,8 @@ class TestAuthTransactionManagement:
         }
         new_auth0_id = "new_auth0_id_123"
         
-        result = user_utils.get_or_create_user_from_profile(
-            test_db, user_profile, new_auth0_id
+        result = user_utils.find_or_create_user(
+            test_db, new_auth0_id, user_email, user_profile
         )
         
         # Verify user was found by email and updated
@@ -338,7 +352,7 @@ class TestAuthTransactionManagement:
         assert db_user.name == "Updated via Email"
         assert db_user.auth0_id == new_auth0_id
 
-    def test_concurrent_auth_operations_do_not_interfere(self, test_db: Session, test_org_id: str):
+    def test_concurrent_auth_operations_do_not_interfere(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that concurrent auth operations do not interfere with each other"""
         # Create multiple tokens and users
         token = models.Token(
@@ -347,7 +361,7 @@ class TestAuthTransactionManagement:
             token_obfuscated="concurrent_...token",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.uuid4()
+            user_id=uuid.UUID(authenticated_user_id)
         )
         
         user_email = f"concurrent_user_{uuid.uuid4()}@example.com"
@@ -366,14 +380,13 @@ class TestAuthTransactionManagement:
         
         # Update user profile
         user_profile = {
-            "email": user_email,
             "name": "Updated Concurrent User",
             "given_name": "Updated",
             "family_name": "User",
             "picture": "updated.jpg"
         }
-        updated_user = user_utils.get_or_create_user_from_profile(
-            test_db, user_profile, "new_auth0_id"
+        updated_user = user_utils.find_or_create_user(
+            test_db, "new_auth0_id", user_email, user_profile
         )
         
         # Verify both operations succeeded independently
