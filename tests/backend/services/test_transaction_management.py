@@ -29,7 +29,6 @@ from rhesis.backend.app.services import test_set as test_set_service
 from rhesis.backend.app.services import test as test_service
 from rhesis.backend.app.services import organization as organization_service
 from tests.backend.routes.fixtures.data_factories import (
-    TestSetDataFactory,
     TestDataFactory,
     generate_test_data
 )
@@ -44,7 +43,10 @@ class TestServiceTransactionManagement:
     def test_bulk_create_test_set_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that bulk_create_test_set commits automatically on success"""
         # Create test set data with tests
-        test_set_data = TestSetDataFactory.bulk_create_data()
+        test_set_data = {
+            "name": f"Test Set {uuid.uuid4()}",
+            "description": "Test set for transaction testing"
+        }
         test_set_data["name"] = f"Bulk Test Set {uuid.uuid4()}"
         
         # Create the test set with bulk creation
@@ -77,7 +79,10 @@ class TestServiceTransactionManagement:
         initial_count = test_db.query(models.TestSet).count()
         
         # Create test set data
-        test_set_data = TestSetDataFactory.bulk_create_data()
+        test_set_data = {
+            "name": f"Test Set {uuid.uuid4()}",
+            "description": "Test set for transaction testing"
+        }
         test_set_data["name"] = f"Failing Test Set {uuid.uuid4()}"
         
         # Mock an exception during creation
@@ -147,7 +152,10 @@ class TestServiceTransactionManagement:
     def test_associate_tests_with_test_set_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that associate_tests_with_test_set commits automatically on success"""
         # First create a test set
-        test_set_data = TestSetDataFactory.sample_data()
+        test_set_data = {
+            "name": f"Test Set {uuid.uuid4()}",
+            "description": "Test set for transaction testing"
+        }
         test_set_data["name"] = f"Association Test Set {uuid.uuid4()}"
         test_set = models.TestSet(**test_set_data)
         test_set.organization_id = uuid.UUID(test_org_id)
@@ -194,7 +202,10 @@ class TestServiceTransactionManagement:
     def test_disassociate_tests_from_test_set_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that disassociate_tests_from_test_set commits automatically on success"""
         # First create a test set with associated tests
-        test_set_data = TestSetDataFactory.sample_data()
+        test_set_data = {
+            "name": f"Test Set {uuid.uuid4()}",
+            "description": "Test set for transaction testing"
+        }
         test_set_data["name"] = f"Disassociation Test Set {uuid.uuid4()}"
         test_set = models.TestSet(**test_set_data)
         test_set.organization_id = uuid.UUID(test_org_id)
@@ -295,7 +306,10 @@ class TestServiceTransactionManagement:
     def test_service_operations_transaction_isolation(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that multiple service operations maintain proper transaction isolation"""
         # Create first test set
-        test_set_data1 = TestSetDataFactory.sample_data()
+        test_set_data1 = {
+            "name": f"Test Set 1 {uuid.uuid4()}",
+            "description": "First test set for transaction testing"
+        }
         test_set_data1["name"] = f"Service Test Set 1 {uuid.uuid4()}"
         
         result1 = test_set_service.bulk_create_test_set(
@@ -303,7 +317,10 @@ class TestServiceTransactionManagement:
         )
         
         # Create second test set
-        test_set_data2 = TestSetDataFactory.sample_data()
+        test_set_data2 = {
+            "name": f"Test Set 2 {uuid.uuid4()}",
+            "description": "Second test set for transaction testing"
+        }
         test_set_data2["name"] = f"Service Test Set 2 {uuid.uuid4()}"
         
         result2 = test_set_service.bulk_create_test_set(
@@ -331,7 +348,10 @@ class TestServiceTransactionManagement:
     def test_exception_in_service_does_not_affect_other_operations(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that an exception in one service operation doesn't affect other successful operations"""
         # Create first test set successfully
-        test_set_data1 = TestSetDataFactory.sample_data()
+        test_set_data1 = {
+            "name": f"Test Set 1 {uuid.uuid4()}",
+            "description": "First test set for transaction testing"
+        }
         test_set_data1["name"] = f"Success Service Test Set {uuid.uuid4()}"
         
         result1 = test_set_service.bulk_create_test_set(
@@ -340,7 +360,10 @@ class TestServiceTransactionManagement:
         assert result1 is not None
         
         # Try to create second test set with exception
-        test_set_data2 = TestSetDataFactory.sample_data()
+        test_set_data2 = {
+            "name": f"Test Set 2 {uuid.uuid4()}",
+            "description": "Second test set for transaction testing"
+        }
         test_set_data2["name"] = f"Failure Service Test Set {uuid.uuid4()}"
         
         with patch('rhesis.backend.app.services.test_set.crud.create_test_set') as mock_create:
@@ -367,7 +390,10 @@ class TestServiceTransactionManagement:
     def test_complex_service_operation_atomicity(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that complex service operations are atomic (all or nothing)"""
         # Create test set data with multiple tests
-        test_set_data = TestSetDataFactory.bulk_create_data()
+        test_set_data = {
+            "name": f"Test Set {uuid.uuid4()}",
+            "description": "Test set for transaction testing"
+        }
         test_set_data["name"] = f"Complex Atomic Test Set {uuid.uuid4()}"
         test_set_data["tests"] = [
             TestDataFactory.sample_data(),
