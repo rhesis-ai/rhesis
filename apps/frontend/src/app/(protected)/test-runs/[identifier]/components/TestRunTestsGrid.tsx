@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Box, Tooltip, Button } from '@mui/material';
-import { formatDate } from '@/utils/date';
+import { Box, Tooltip, Button, Typography } from '@mui/material';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import {
