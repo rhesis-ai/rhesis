@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.tasks.execution import result_processor
 from tests.backend.routes.fixtures.data_factories import (
-    TestRunDataFactory,
     TestDataFactory
 )
 
@@ -40,7 +39,10 @@ class TestTaskTransactionManagement:
     ):
         """Test that update_test_run_status commits automatically on success"""
         # Create a test run
-        test_run_data = TestRunDataFactory.sample_data()
+        test_run_data = {
+            "name": f"Test Run {uuid.uuid4()}",
+            "description": "Test run for transaction testing"
+        }
         test_run = models.TestRun(**test_run_data)
         test_run.organization_id = uuid.UUID(test_org_id)
         test_run.user_id = uuid.UUID(authenticated_user_id)
@@ -161,13 +163,19 @@ class TestTaskTransactionManagement:
     ):
         """Test that multiple task operations maintain proper transaction isolation"""
         # Create multiple test runs
-        test_run_data1 = TestRunDataFactory.sample_data()
+        test_run_data1 = {
+            "name": f"Test Run 1 {uuid.uuid4()}",
+            "description": "First test run for transaction testing"
+        }
         test_run1 = models.TestRun(**test_run_data1)
         test_run1.organization_id = uuid.UUID(test_org_id)
         test_run1.user_id = uuid.UUID(authenticated_user_id)
         test_run1.status = models.TestRunStatus.RUNNING
         
-        test_run_data2 = TestRunDataFactory.sample_data()
+        test_run_data2 = {
+            "name": f"Test Run 2 {uuid.uuid4()}",
+            "description": "Second test run for transaction testing"
+        }
         test_run2 = models.TestRun(**test_run_data2)
         test_run2.organization_id = uuid.UUID(test_org_id)
         test_run2.user_id = uuid.UUID(authenticated_user_id)
@@ -295,13 +303,19 @@ class TestTaskTransactionManagement:
     ):
         """Test that concurrent task operations do not interfere with each other"""
         # Create test runs for concurrent operations
-        test_run_data1 = TestRunDataFactory.sample_data()
+        test_run_data1 = {
+            "name": f"Test Run 1 {uuid.uuid4()}",
+            "description": "First test run for transaction testing"
+        }
         test_run1 = models.TestRun(**test_run_data1)
         test_run1.organization_id = uuid.UUID(test_org_id)
         test_run1.user_id = uuid.UUID(authenticated_user_id)
         test_run1.status = models.TestRunStatus.RUNNING
         
-        test_run_data2 = TestRunDataFactory.sample_data()
+        test_run_data2 = {
+            "name": f"Test Run 2 {uuid.uuid4()}",
+            "description": "Second test run for transaction testing"
+        }
         test_run2 = models.TestRun(**test_run_data2)
         test_run2.organization_id = uuid.UUID(test_org_id)
         test_run2.user_id = uuid.UUID(authenticated_user_id)
