@@ -10,6 +10,7 @@ This module tests user utility functions including:
 """
 
 import pytest
+import uuid
 from unittest.mock import Mock, patch, MagicMock
 from fastapi import Request, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -30,7 +31,7 @@ from rhesis.backend.app.schemas import UserCreate
 class TestFindOrCreateUser:
     """Test find_or_create_user function"""
     
-    def test_find_user_by_email_existing(self):
+    def test_find_user_by_email_existing(self, test_db: Session):
         """Test finding existing user by email"""
         auth0_id = "auth0|123456"
         email = "test@example.com"
@@ -41,30 +42,34 @@ class TestFindOrCreateUser:
             "picture": "https://example.com/pic.jpg"
         }
         
-        # Mock existing user
-        existing_user = Mock(spec=User)
-        existing_user.id = "user123"
-        existing_user.email = email
-        existing_user.auth0_id = "old_auth0_id"
+        # Create existing user in the database
+        existing_user = User(
+            id=uuid.uuid4(),
+            email=email,
+            name="Old Name",
+            given_name="Old",
+            family_name="Name",
+            picture="old_picture.jpg",
+            auth0_id="old_auth0_id"
+        )
+        test_db.add(existing_user)
+        test_db.flush()
         
-        db = Mock(spec=Session)
+        # Call the function with real database
+        result = find_or_create_user(test_db, auth0_id, email, user_profile)
         
-        with patch('rhesis.backend.app.auth.user_utils.crud.get_user_by_email', return_value=existing_user) as mock_get_by_email:
-            result = find_or_create_user(db, auth0_id, email, user_profile)
-            
-            assert result == existing_user
-            mock_get_by_email.assert_called_once_with(db, email)
-            
-            # Verify user profile was updated
-            assert existing_user.name == user_profile["name"]
-            assert existing_user.given_name == user_profile["given_name"]
-            assert existing_user.family_name == user_profile["family_name"]
-            assert existing_user.picture == user_profile["picture"]
-            assert existing_user.auth0_id == auth0_id
-            
-            db.commit.assert_called_once()
+        assert result == existing_user
+        
+        # Verify user profile was updated
+        assert existing_user.name == user_profile["name"]
+        assert existing_user.given_name == user_profile["given_name"]
+        assert existing_user.family_name == user_profile["family_name"]
+        assert existing_user.picture == user_profile["picture"]
+        assert existing_user.auth0_id == auth0_id
+        
+        # Note: db.commit is not called for existing users - transaction is handled by session context
     
-    def test_find_user_by_auth0_id_matching_email(self):
+    def test_find_user_by_auth0_id_matching_email(self, test_db: Session):
         """Test finding user by auth0_id with matching email"""
         auth0_id = "auth0|123456"
         email = "test@example.com"
@@ -75,24 +80,32 @@ class TestFindOrCreateUser:
             "picture": "https://example.com/pic.jpg"
         }
         
-        # Mock user found by auth0_id with matching email
-        existing_user = Mock(spec=User)
-        existing_user.id = "user123"
-        existing_user.email = email
-        existing_user.auth0_id = auth0_id
+        # Create existing user in the database with matching auth0_id
+        existing_user = User(
+            id=uuid.uuid4(),
+            email=email,
+            name="Old Name",
+            given_name="Old",
+            family_name="Name",
+            picture="old_picture.jpg",
+            auth0_id=auth0_id
+        )
+        test_db.add(existing_user)
+        test_db.flush()
         
-        db = Mock(spec=Session)
+        # Call the function with real database
+        result = find_or_create_user(test_db, auth0_id, email, user_profile)
         
-        with patch('rhesis.backend.app.auth.user_utils.crud.get_user_by_email', return_value=None):
-            with patch('rhesis.backend.app.auth.user_utils.crud.get_user_by_auth0_id', return_value=existing_user) as mock_get_by_auth0:
-                result = find_or_create_user(db, auth0_id, email, user_profile)
-                
-                assert result == existing_user
-                mock_get_by_auth0.assert_called_once_with(db, auth0_id)
-                
-                # Verify user profile was updated
-                assert existing_user.name == user_profile["name"]
-                db.commit.assert_called_once()
+        assert result == existing_user
+        
+        # Verify user profile was updated
+        assert existing_user.name == user_profile["name"]
+        assert existing_user.given_name == user_profile["given_name"]
+        assert existing_user.family_name == user_profile["family_name"]
+        assert existing_user.picture == user_profile["picture"]
+        assert existing_user.auth0_id == auth0_id
+        
+        # Note: db.commit is not called for existing users - transaction is handled by session context
     
     def test_find_user_by_auth0_id_different_email_creates_new(self):
         """Test finding user by auth0_id with different email creates new user"""
