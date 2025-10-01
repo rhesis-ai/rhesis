@@ -509,14 +509,14 @@ def execute_test_set_on_endpoint(
 
     # Resolve test set
     logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-    db_test_set = crud.resolve_test_set(test_set_identifier, db)
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=str(current_user.organization_id))
     if db_test_set is None:
         raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
     logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
 
     # Verify endpoint exists
     logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id)
+    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id, organization_id=str(current_user.organization_id))
     if not db_endpoint:
         raise ValueError(f"Endpoint not found: {endpoint_id}")
     logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
