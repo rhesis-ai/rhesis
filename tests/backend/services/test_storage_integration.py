@@ -20,6 +20,10 @@ from .base import BaseStorageIntegrationTests, StorageIntegrationTestMixin
 from .fixtures.storage_fixtures import (
     MockUploadFile,
     StorageServiceDataFactory,
+    document_handler_with_local_storage,  # noqa: F401
+    environment_configurations,  # noqa: F401
+    local_storage_service,  # noqa: F401
+    various_file_types,  # noqa: F401
 )
 
 
@@ -63,6 +67,7 @@ class TestStorageServiceIntegration(
 ):
     """Integration tests for StorageService with real file operations."""
 
+    @pytest.mark.asyncio
     async def test_complete_file_lifecycle_local_storage(self, local_storage_service):
         """Test complete file lifecycle with local storage."""
         storage_service = local_storage_service
@@ -102,6 +107,7 @@ class TestStorageServiceIntegration(
         # Test file no longer exists
         assert storage_service.file_exists(file_path) is False
 
+    @pytest.mark.asyncio
     async def test_multiple_files_same_organization(self, local_storage_service):
         """Test handling multiple files for the same organization."""
         storage_service = local_storage_service
@@ -136,6 +142,7 @@ class TestStorageServiceIntegration(
             assert delete_result is True
             assert storage_service.file_exists(file_path) is False
 
+    @pytest.mark.asyncio
     async def test_file_path_isolation_between_organizations(
         self, local_storage_service
     ):
@@ -172,6 +179,7 @@ class TestStorageServiceIntegration(
         await storage_service.delete_file(org1_path)
         await storage_service.delete_file(org2_path)
 
+    @pytest.mark.asyncio
     async def test_large_file_handling(self, local_storage_service):
         """Test handling of large files."""
         storage_service = local_storage_service
@@ -199,6 +207,7 @@ class TestStorageServiceIntegration(
         # Clean up
         await storage_service.delete_file(file_path)
 
+    @pytest.mark.asyncio
     async def test_concurrent_file_operations(self, local_storage_service):
         """Test concurrent file operations."""
         storage_service = local_storage_service
@@ -234,6 +243,7 @@ class TestDocumentHandlerIntegration(
 ):
     """Integration tests for DocumentHandler with real storage operations."""
 
+    @pytest.mark.asyncio
     async def test_complete_document_workflow(
         self, document_handler_with_local_storage
     ):
@@ -268,6 +278,7 @@ class TestDocumentHandlerIntegration(
         delete_result = await handler.delete_document(file_path)
         assert delete_result is True
 
+    @pytest.mark.asyncio
     async def test_document_with_various_file_types(
         self, document_handler_with_local_storage, various_file_types
     ):
@@ -296,6 +307,7 @@ class TestDocumentHandlerIntegration(
             # Clean up
             await handler.delete_document(file_path)
 
+    @pytest.mark.asyncio
     async def test_document_size_validation(self, document_handler_with_local_storage):
         """Test document size validation with real storage."""
         handler = document_handler_with_local_storage
@@ -328,6 +340,7 @@ class TestDocumentHandlerIntegration(
                 source_id="source-large",
             )
 
+    @pytest.mark.asyncio
     async def test_document_error_handling(self, document_handler_with_local_storage):
         """Test document error handling scenarios."""
         handler = document_handler_with_local_storage
@@ -360,6 +373,7 @@ class TestDocumentHandlerIntegration(
                 source_id="source-no-name",
             )
 
+    @pytest.mark.asyncio
     async def test_concurrent_document_operations(
         self, document_handler_with_local_storage
     ):
