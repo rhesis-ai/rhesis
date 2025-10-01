@@ -60,4 +60,5 @@ class Test(Base, TagsMixin, OrganizationMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(Test.id), Comment.entity_type == 'Test')",
         viewonly=True,
+        uselist=True,
     )

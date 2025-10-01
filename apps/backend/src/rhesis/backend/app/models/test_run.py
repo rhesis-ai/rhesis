@@ -37,4 +37,5 @@ class TestRun(Base, TagsMixin, OrganizationMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(TestRun.id), Comment.entity_type == 'TestRun')",
         viewonly=True,
+        uselist=True,
     )
