@@ -77,7 +77,7 @@ def read_type_lookup(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_type_lookup = crud.get_type_lookup(db, type_lookup_id=type_lookup_id)
+    db_type_lookup = crud.get_type_lookup(db, type_lookup_id=type_lookup_id, organization_id=organization_id, user_id=user_id)
     if db_type_lookup is None:
         raise HTTPException(status_code=404, detail="TypeLookup not found")
     return db_type_lookup
@@ -99,7 +99,7 @@ def delete_type_lookup(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_type_lookup = crud.delete_type_lookup(db, type_lookup_id=type_lookup_id)
+    db_type_lookup = crud.delete_type_lookup(db, type_lookup_id=type_lookup_id, organization_id=organization_id, user_id=user_id)
     if db_type_lookup is None:
         raise HTTPException(status_code=404, detail="Type Lookup not found")
     return db_type_lookup

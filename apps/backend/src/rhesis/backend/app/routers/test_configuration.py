@@ -112,7 +112,7 @@ def update_test_configuration(
     """
     organization_id, user_id = tenant_context
     db_test_configuration = crud.get_test_configuration(
-        db, test_configuration_id=test_configuration_id
+        db, test_configuration_id=test_configuration_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
@@ -149,7 +149,7 @@ def delete_test_configuration(
             status_code=403, detail="Not authorized to delete this test configuration"
         )
 
-    return crud.delete_test_configuration(db=db, test_configuration_id=test_configuration_id)
+    return crud.delete_test_configuration(db=db, test_configuration_id=test_configuration_id, organization_id=organization_id, user_id=user_id)
 
 
 @router.post("/{test_configuration_id}/execute")
@@ -162,7 +162,7 @@ def execute_test_configuration_endpoint(
     """
     # Verify the test configuration exists
     db_test_configuration = crud.get_test_configuration(
-        db, test_configuration_id=test_configuration_id
+        db, test_configuration_id=test_configuration_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")

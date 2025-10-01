@@ -38,7 +38,7 @@ def create_test_context(
     """
     organization_id, user_id = tenant_context
     # Verify that the test exists
-    test = crud.get_test(db, test_id=test_context.test_id)
+    test = crud.get_test(db, test_id=test_context.test_id, organization_id=organization_id, user_id=user_id)
     if test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
@@ -72,7 +72,7 @@ def read_test_context(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test context by ID"""
-    db_test_context = crud.get_test_context(db, test_context_id=test_context_id)
+    db_test_context = crud.get_test_context(db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id)
     if db_test_context is None:
         raise HTTPException(status_code=404, detail="Test context not found")
     return db_test_context
@@ -123,8 +123,8 @@ def delete_test_context(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test context"""
-    db_test_context = crud.get_test_context(db, test_context_id=test_context_id)
+    db_test_context = crud.get_test_context(db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id)
     if db_test_context is None:
         raise HTTPException(status_code=404, detail="Test context not found")
 
-    return crud.delete_test_context(db=db, test_context_id=test_context_id)
+    return crud.delete_test_context(db=db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id)

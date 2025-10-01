@@ -84,7 +84,7 @@ def read_topic(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_topic = crud.get_topic(db, topic_id=topic_id)
+    db_topic = crud.get_topic(db, topic_id=topic_id, organization_id=organization_id, user_id=user_id)
     if db_topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
     return db_topic
@@ -106,7 +106,7 @@ def delete_topic(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_topic = crud.delete_topic(db, topic_id=topic_id)
+    db_topic = crud.delete_topic(db, topic_id=topic_id, organization_id=organization_id, user_id=user_id)
     if db_topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
     return db_topic

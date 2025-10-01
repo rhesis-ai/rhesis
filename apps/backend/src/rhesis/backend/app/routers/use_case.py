@@ -99,7 +99,7 @@ def delete_use_case(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_use_case = crud.delete_use_case(db, use_case_id=use_case_id)
+    db_use_case = crud.delete_use_case(db, use_case_id=use_case_id, organization_id=organization_id, user_id=user_id)
     if db_use_case is None:
         raise HTTPException(status_code=404, detail="Use case not found")
     return db_use_case
