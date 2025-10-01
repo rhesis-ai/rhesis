@@ -162,4 +162,43 @@ def various_file_types():
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ),
     ]
- 
+
+
+@pytest.fixture
+def environment_configurations():
+    """Provide different environment configurations for testing."""
+    return {
+        "local": {
+            "BACKEND_ENV": "local",
+            "LOCAL_STORAGE_PATH": "/tmp/local-test",
+        },
+        "development": {
+            "BACKEND_ENV": "development",
+            "GCS_PROJECT_ID": "test-project-dev",
+            "GCS_CREDENTIALS_PATH": "/path/to/dev/credentials.json",
+            "LOCAL_STORAGE_PATH": "/tmp/dev-storage",
+        },
+        "staging": {
+            "BACKEND_ENV": "staging",
+            "GCS_PROJECT_ID": "test-project-stg",
+            "GCS_CREDENTIALS_PATH": "/path/to/stg/credentials.json",
+            "LOCAL_STORAGE_PATH": "/tmp/stg-storage",
+        },
+        "production": {
+            "BACKEND_ENV": "production",
+            "GCS_PROJECT_ID": "test-project-prd",
+            "GCS_CREDENTIALS_PATH": "/path/to/prd/credentials.json",
+            "LOCAL_STORAGE_PATH": "/tmp/prd-storage",
+        },
+        "partial_gcs": {
+            "BACKEND_ENV": "development",
+            "GCS_PROJECT_ID": "test-project",
+            # Missing GCS_CREDENTIALS_PATH to test fallback
+            "LOCAL_STORAGE_PATH": "/tmp/fallback-storage",
+        },
+        "no_gcs": {
+            "BACKEND_ENV": "development",
+            # Missing both GCS_PROJECT_ID and GCS_CREDENTIALS_PATH
+            "LOCAL_STORAGE_PATH": "/tmp/no-gcs-storage",
+        },
+    }
