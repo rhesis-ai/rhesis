@@ -445,13 +445,14 @@ def delete_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = 
     return delete_item(db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id)
 
 
-def get_test_set_by_nano_id_or_slug(db: Session, identifier: str) -> Optional[models.TestSet]:
+def get_test_set_by_nano_id_or_slug(db: Session, identifier: str, organization_id: str = None) -> Optional[models.TestSet]:
     """
     Get a test set by its nano_id or slug, applying proper visibility filtering.
     """
     return (
         QueryBuilder(db, models.TestSet)
         .with_joinedloads()
+        .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.filter(
@@ -462,7 +463,7 @@ def get_test_set_by_nano_id_or_slug(db: Session, identifier: str) -> Optional[mo
     )
 
 
-def resolve_test_set(identifier: str, db: Session) -> Optional[models.TestSet]:
+def resolve_test_set(identifier: str, db: Session, organization_id: str = None) -> Optional[models.TestSet]:
     """
     Resolve a test set from any valid identifier (UUID, nano_id, or slug).
     Returns None if not found or if there's an error parsing the identifier.
@@ -471,10 +472,10 @@ def resolve_test_set(identifier: str, db: Session) -> Optional[models.TestSet]:
         # First try UUID
         try:
             identifier_uuid = uuid.UUID(identifier)
-            db_test_set = get_test_set(db, test_set_id=identifier_uuid)
+            db_test_set = get_test_set(db, test_set_id=identifier_uuid, organization_id=organization_id)
         except ValueError:
             # If not UUID, try nano_id or slug
-            db_test_set = get_test_set_by_nano_id_or_slug(db, identifier)
+            db_test_set = get_test_set_by_nano_id_or_slug(db, identifier, organization_id=organization_id)
 
         return db_test_set
     except ValueError:
