@@ -135,8 +135,11 @@ def assign_tag_to_entity(
     entity_id: uuid.UUID,
     tag: schemas.TagCreate,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Assign a tag to a specific entity"""
+    organization_id, user_id = tenant_context
+    
     # Set the user_id and organization_id from the current user
     if not tag.user_id:
         tag.user_id = current_user.id
@@ -144,7 +147,7 @@ def assign_tag_to_entity(
         tag.organization_id = current_user.organization_id
 
     try:
-        return crud.assign_tag(db=db, tag=tag, entity_id=entity_id, entity_type=entity_type)
+        return crud.assign_tag(db=db, tag=tag, entity_id=entity_id, entity_type=entity_type, organization_id=organization_id, user_id=user_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -155,11 +158,14 @@ def remove_tag_from_entity(
     entity_id: uuid.UUID,
     tag_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Remove a tag from a specific entity"""
+    organization_id, user_id = tenant_context
+    
     try:
         success = crud.remove_tag(
-            db=db, tag_id=tag_id, entity_id=entity_id, entity_type=entity_type
+            db=db, tag_id=tag_id, entity_id=entity_id, entity_type=entity_type, organization_id=organization_id
         )
         if not success:
             raise HTTPException(status_code=404, detail="Tag assignment not found")

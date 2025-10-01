@@ -964,7 +964,7 @@ def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str, user_id: st
 
 
 def assign_tag(
-    db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType, organization_id: str = None
+    db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType, organization_id: str = None, user_id: str = None
 ) -> models.Tag:
     """Create a tag if it doesn't exist and link it to an entity with organization filtering"""
     from rhesis.backend.logging.rhesis_logger import logger
@@ -998,7 +998,7 @@ def assign_tag(
     # If tag doesn't exist, create it
     if not db_tag:
         logger.info(f"Creating new tag: {tag.name}")
-        db_tag = create_tag(db=db, tag=tag)
+        db_tag = create_tag(db=db, tag=tag, organization_id=organization_id, user_id=user_id)
         logger.info(f"Tag created successfully: tag_id={db_tag.id}")
 
     # Check if the tag is already assigned

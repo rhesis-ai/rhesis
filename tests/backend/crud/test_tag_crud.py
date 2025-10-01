@@ -45,7 +45,8 @@ class TestTagOperations:
             tag=tag_create_schema,
             entity_id=db_entity.id,
             entity_type=EntityType.PROMPT,
-            organization_id=test_org_id
+            organization_id=test_org_id,
+            user_id=authenticated_user_id
         )
         
         # Verify the result
@@ -82,7 +83,8 @@ class TestTagOperations:
                 tag=tag_create_schema,
                 entity_id=fake_entity_id,
                 entity_type=EntityType.PROMPT,
-                organization_id=test_org_id
+                organization_id=test_org_id,
+                user_id=authenticated_user_id
             )
     
     def test_remove_tag_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_prompt):
