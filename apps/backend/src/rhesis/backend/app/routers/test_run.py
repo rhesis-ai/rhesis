@@ -87,7 +87,8 @@ def read_test_runs(
     current_user: User = Depends(require_current_user_or_token)):
     """Get all test runs with their related objects"""
     test_runs = crud.get_test_runs(
-        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter,
+        organization_id=str(current_user.organization_id), user_id=str(current_user.id)
     )
     return test_runs
 

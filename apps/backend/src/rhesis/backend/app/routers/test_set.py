@@ -437,7 +437,8 @@ async def read_test_sets(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
-        has_runs=has_runs)
+        has_runs=has_runs,
+        organization_id=str(current_user.organization_id))
 
 
 @router.get("/stats", response_model=schemas.EntityStats)
