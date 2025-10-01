@@ -24,14 +24,14 @@ from rhesis.backend.app import crud, models
 class TestTestOperations:
     """🧪 Test test operations"""
     
-    def test_delete_test_success(self, test_db: Session, db_test_minimal):
+    def test_delete_test_success(self, test_db: Session, db_test_minimal, test_org_id: str, authenticated_user_id: str):
         """Test successful test deletion"""
         # Use existing database fixture for a minimal test entity
         db_test = db_test_minimal
         test_id = db_test.id
         
         # Test deletion - no mocking needed, test real behavior
-        result = crud.delete_test(db=test_db, test_id=test_id)
+        result = crud.delete_test(db=test_db, test_id=test_id, organization_id=test_org_id, user_id=authenticated_user_id)
         
         # Verify test was deleted
         assert result is not None
@@ -41,11 +41,11 @@ class TestTestOperations:
         deleted_test = test_db.query(models.Test).filter(models.Test.id == test_id).first()
         assert deleted_test is None
     
-    def test_delete_test_not_found(self, test_db: Session):
+    def test_delete_test_not_found(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test deletion of non-existent test"""
         fake_test_id = uuid.uuid4()
         
-        result = crud.delete_test(db=test_db, test_id=fake_test_id)
+        result = crud.delete_test(db=test_db, test_id=fake_test_id, organization_id=test_org_id, user_id=authenticated_user_id)
         
         # Should return None for non-existent test
         assert result is None
