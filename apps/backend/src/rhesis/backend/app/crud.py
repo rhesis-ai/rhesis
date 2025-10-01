@@ -1343,7 +1343,7 @@ def delete_test(db: Session, test_id: uuid.UUID, organization_id: str, user_id: 
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
     # Get the test to be deleted
-    db_test = get_item(db, models.Test, test_id)
+    db_test = get_item(db, models.Test, test_id, organization_id, user_id)
     if db_test is None:
         return None
 
