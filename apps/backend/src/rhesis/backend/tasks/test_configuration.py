@@ -5,6 +5,7 @@ with detailed implementation in the execution/ directory modules.
 
 
 
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.config import get_test_configuration
 from rhesis.backend.tasks.execution.orchestration import execute_test_cases
@@ -28,7 +29,7 @@ from rhesis.backend.worker import app
     display_name="Test Configuration Execution",
 )
 # with_tenant_context decorator removed - tenant context now passed directly
-def execute_test_configuration(self, test_configuration_id: str, db=None):
+def execute_test_configuration(self, test_configuration_id: str):
     """
     Execute a test configuration by running all associated test cases.
 
@@ -54,34 +55,36 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
     self.log_with_context("debug", "Task context retrieved", retries=retries)
 
     try:
-        # Get test configuration with tenant context
-        test_config = get_test_configuration(db, test_configuration_id)
+        # Use tenant-aware database session with explicit organization_id and user_id
+        with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+            # Get test configuration with tenant context
+            test_config = get_test_configuration(db, test_configuration_id)
 
-        # CRITICAL: Check for existing test run by TASK ID (not config ID)
-        # This allows multiple test runs per configuration but prevents task retries
-        # from creating multiple test runs for the same task
-        existing_test_run = get_test_run_by_task_id(db, self.request.id)
-        if existing_test_run:
-            self.log_with_context(
-                "info",
-                f"Found existing test run for task {self.request.id}",
-                existing_test_run_id=str(existing_test_run.id),
-                task_retry=True,
-            )
+            # CRITICAL: Check for existing test run by TASK ID (not config ID)
+            # This allows multiple test runs per configuration but prevents task retries
+            # from creating multiple test runs for the same task
+            existing_test_run = get_test_run_by_task_id(db, self.request.id)
+            if existing_test_run:
+                self.log_with_context(
+                    "info",
+                    f"Found existing test run for task {self.request.id}",
+                    existing_test_run_id=str(existing_test_run.id),
+                    task_retry=True,
+                )
 
-            # Use the existing test run (this handles task retries)
-            test_run = existing_test_run
-        else:
-            # Create a new test run for this task execution
-            self.log_with_context(
-                "info",
-                f"Creating new test run for task {self.request.id}",
-                test_configuration_id=test_configuration_id,
-            )
-            test_run = create_test_run(db, test_config, {"id": self.request.id})
+                # Use the existing test run (this handles task retries)
+                test_run = existing_test_run
+            else:
+                # Create a new test run for this task execution
+                self.log_with_context(
+                    "info",
+                    f"Creating new test run for task {self.request.id}",
+                    test_configuration_id=test_configuration_id,
+                )
+                test_run = create_test_run(db, test_config, {"id": self.request.id})
 
-        # Execute test cases in parallel
-        result = execute_test_cases(db, test_config, test_run)
+            # Execute test cases in parallel
+            result = execute_test_cases(db, test_config, test_run)
 
         # Use utility to create standardized result
         # Remove test_run_id from result if present to avoid duplicate parameter
@@ -116,11 +119,12 @@ def execute_test_configuration(self, test_configuration_id: str, db=None):
 
         # Attempt to update test run status to failed using utility
         # Use task ID to find the specific test run created by this task
-        test_run = get_test_run_by_task_id(db, self.request.id)
-        if test_run:
-            success = update_test_run_with_error(db, test_run, str(e))
-            if not success:
-                self.log_with_context("error", "Failed to update test run status")
+        with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+            test_run = get_test_run_by_task_id(db, self.request.id)
+            if test_run:
+                success = update_test_run_with_error(db, test_run, str(e))
+                if not success:
+                    self.log_with_context("error", "Failed to update test run status")
 
         # Check if we've exceeded max_retries (from BaseTask)
         if retries >= self.max_retries:
