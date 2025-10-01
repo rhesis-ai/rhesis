@@ -44,8 +44,8 @@ def collect_results(self, results, test_run_id: str) -> Dict[str, Any]:
     try:
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
-            # Get test run
-            test_run = crud.get_test_run(db, UUID(test_run_id))
+            # Get test run with tenant context
+            test_run = crud.get_test_run(db, UUID(test_run_id), organization_id=org_id, user_id=user_id)
             if not test_run:
                 raise ValueError(f"Test run not found: {test_run_id}")
 
