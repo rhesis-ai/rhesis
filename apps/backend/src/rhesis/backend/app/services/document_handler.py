@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -94,7 +94,7 @@ class DocumentHandler:
         return {
             "file_size": len(content),
             "file_hash": self._calculate_file_hash(content),
-            "uploaded_at": datetime.now(datetime.timezone.utc),
+            "uploaded_at": datetime.now(timezone.utc),
             "original_filename": filename,
             "file_type": self._get_mime_type(filename),
         }
