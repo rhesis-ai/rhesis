@@ -1656,7 +1656,7 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-def get_metric(db: Session, metric_id: uuid.UUID, organization_id: str) -> Optional[models.Metric]:
+def get_metric(db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str = None) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
@@ -1914,7 +1914,7 @@ def get_behavior_metrics(
 
 
 # Model CRUD
-def get_model(db: Session, model_id: uuid.UUID, organization_id: str = None) -> Optional[models.Model]:
+def get_model(db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Model]:
     """Get a specific model by ID with its related objects and organization filtering"""
     query = db.query(models.Model).filter(models.Model.id == model_id)
     
@@ -2144,7 +2144,7 @@ def remove_emoji_reaction(
 
 
 # Task CRUD
-def get_task(db: Session, task_id: uuid.UUID, organization_id: str = None) -> Optional[models.Task]:
+def get_task(db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Task]:
     """Get a single task by ID with organization filtering"""
     query = db.query(models.Task).filter(models.Task.id == task_id)
     
