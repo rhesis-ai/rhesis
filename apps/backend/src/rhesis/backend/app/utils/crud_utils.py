@@ -80,7 +80,6 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
     columns = inspect(model).columns.keys()
     populated_data = item_data.copy()
 
-    logger.debug(f"_auto_populate_tenant_fields - model: {model.__name__}, input data: {item_data}")
     
     # Auto-populate organization_id (direct - no DB queries, no session variables!)
     if "organization_id" in columns and not populated_data.get("organization_id") and organization_id:
@@ -91,9 +90,7 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
             else:
                 org_uuid = UUID(organization_id)
             populated_data["organization_id"] = org_uuid
-            logger.debug(f"_auto_populate_tenant_fields - Auto-populating organization_id: '{org_uuid}' (direct)")
         except (ValueError, TypeError) as e:
-            logger.debug(f"_auto_populate_tenant_fields - Invalid organization_id: {organization_id}, error: {e}")
     
     # Auto-populate user_id (direct - no DB queries, no session variables!)
     if "user_id" in columns and not populated_data.get("user_id") and user_id:
@@ -104,11 +101,8 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
             else:
                 user_uuid = UUID(user_id)
             populated_data["user_id"] = user_uuid
-            logger.debug(f"_auto_populate_tenant_fields - Auto-populating user_id: '{user_uuid}' (direct)")
         except (ValueError, TypeError) as e:
-            logger.debug(f"_auto_populate_tenant_fields - Invalid user_id: {user_id}, error: {e}")
     
-    logger.debug(f"_auto_populate_tenant_fields - Final populated data: {populated_data}")
     return populated_data
 
 
