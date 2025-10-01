@@ -181,9 +181,9 @@ def delete_prompt(db: Session, prompt_id: uuid.UUID, organization_id: str, user_
 
 # Prompt Template CRUD
 def get_prompt_template(
-    db: Session, prompt_template_id: uuid.UUID
+    db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return get_item(db, models.PromptTemplate, prompt_template_id)
+    return get_item(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
 
 
 def get_prompt_templates(
@@ -312,9 +312,9 @@ def delete_behavior(
 
 # ResponsePattern CRUD
 def get_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID
+    db: Session, response_pattern_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.ResponsePattern]:
-    return get_item(db, models.ResponsePattern, response_pattern_id)
+    return get_item(db, models.ResponsePattern, response_pattern_id, organization_id, user_id)
 
 
 def get_response_patterns(
