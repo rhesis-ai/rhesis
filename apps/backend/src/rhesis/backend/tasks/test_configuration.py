@@ -81,7 +81,7 @@ def execute_test_configuration(self, test_configuration_id: str):
                     f"Creating new test run for task {self.request.id}",
                     test_configuration_id=test_configuration_id,
                 )
-                test_run = create_test_run(db, test_config, {"id": self.request.id})
+                test_run = create_test_run(db, test_config, {"id": self.request.id}, current_user_id=user_id)
 
             # Execute test cases in parallel
             result = execute_test_cases(db, test_config, test_run)
