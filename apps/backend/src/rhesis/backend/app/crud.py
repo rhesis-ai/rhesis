@@ -350,7 +350,7 @@ def delete_response_pattern(
 
 
 # TestSet CRUD
-def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str) -> Optional[models.TestSet]:
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TestSet]:
     """
     Get a test set by its UUID, applying proper visibility filtering and organization scoping.
     """
@@ -445,7 +445,7 @@ def delete_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str, u
     return delete_item(db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id)
 
 
-def get_test_set_by_nano_id_or_slug(db: Session, identifier: str, organization_id: str) -> Optional[models.TestSet]:
+def get_test_set_by_nano_id_or_slug(db: Session, identifier: str, organization_id: str = None, user_id: str = None) -> Optional[models.TestSet]:
     """
     Get a test set by its nano_id or slug, applying proper visibility filtering.
     """

@@ -140,13 +140,13 @@ class TestTestSetOrganizationSecurity:
         test_db.commit()
         
         # User from org1 should be able to access the test set
-        result_org1 = crud.get_test_set(test_db, test_set.id, organization_id=str(org1.id))
+        result_org1 = crud.get_test_set(test_db, test_set.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == test_set.id
         assert str(result_org1.organization_id) == str(org1.id)
         
         # User from org2 should NOT be able to access the test set
-        result_org2 = crud.get_test_set(test_db, test_set.id, organization_id=str(org2.id))
+        result_org2 = crud.get_test_set(test_db, test_set.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
         
         # Without organization filtering, should still work (finds the test set)
