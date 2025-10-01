@@ -111,7 +111,9 @@ def read_comments(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
-        filter=filter)
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id)
     return comments
 
 

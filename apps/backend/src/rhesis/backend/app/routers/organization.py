@@ -44,11 +44,13 @@ async def read_organizations(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all organizations with their related objects"""
     try:
+        organization_id, user_id = tenant_context
         return crud.get_organizations(
-            db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+            db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
         )
     except HTTPException:
         raise
@@ -62,9 +64,11 @@ async def read_organizations(
 def read_organization(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     try:
-        db_organization = crud.get_organization(db, organization_id=organization_id)
+        tenant_organization_id, user_id = tenant_context
+        db_organization = crud.get_organization(db, organization_id=organization_id, tenant_organization_id=tenant_organization_id, user_id=user_id)
         if db_organization is None:
             raise HTTPException(status_code=404, detail="Organization not found")
         return db_organization
