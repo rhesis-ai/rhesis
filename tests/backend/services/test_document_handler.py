@@ -92,6 +92,7 @@ class TestDocumentHandlerInitialization(
 class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test document validation methods."""
 
+    @pytest.mark.asyncio
     async def test_save_document_no_filename(self):
         """Test save_document with UploadFile that has no filename."""
         handler = DocumentHandler()
@@ -105,6 +106,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
 
+    @pytest.mark.asyncio
     async def test_save_document_empty_content(self):
         """Test save_document with empty file content."""
         handler = DocumentHandler()
@@ -119,6 +121,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
 
+    @pytest.mark.asyncio
     async def test_save_document_exceeds_size_limit(self):
         """Test save_document with file exceeding size limit."""
         handler = DocumentHandler(max_size=100)  # 100 bytes limit
@@ -136,6 +139,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
 
+    @pytest.mark.asyncio
     async def test_save_document_valid_size(self):
         """Test save_document with valid file size."""
         handler = DocumentHandler(max_size=1000)  # 1KB limit
@@ -180,6 +184,7 @@ class TestDocumentHandlerFileOperations(
 ):
     """Test document file operations."""
 
+    @pytest.mark.asyncio
     async def test_get_document_content_success(self):
         """Test successful document content retrieval."""
         handler = DocumentHandler()
@@ -194,6 +199,7 @@ class TestDocumentHandlerFileOperations(
         assert result == b"file content"
         mock_storage.get_file.assert_called_once_with(file_path)
 
+    @pytest.mark.asyncio
     async def test_delete_document_success(self):
         """Test successful document deletion."""
         handler = DocumentHandler()
@@ -208,6 +214,7 @@ class TestDocumentHandlerFileOperations(
         assert result is True
         mock_storage.delete_file.assert_called_once_with(file_path)
 
+    @pytest.mark.asyncio
     async def test_delete_document_failure(self):
         """Test document deletion failure."""
         handler = DocumentHandler()
@@ -336,6 +343,7 @@ class TestDocumentHandlerIntegration(
 ):
     """Integration tests for DocumentHandler with real file operations."""
 
+    @pytest.mark.asyncio
     async def test_complete_document_workflow(self):
         """Test complete document save/retrieve/delete workflow."""
         import os
@@ -386,6 +394,7 @@ class TestDocumentHandlerIntegration(
                 # Verify file no longer exists
                 assert not storage_service.file_exists(file_path)
 
+    @pytest.mark.asyncio
     async def test_document_with_various_file_types(self):
         """Test document handling with various file types."""
         import os
@@ -450,6 +459,7 @@ class TestDocumentHandlerIntegration(
 class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test edge cases and error scenarios for DocumentHandler."""
 
+    @pytest.mark.asyncio
     async def test_document_with_very_long_filename(self):
         """Test document handling with very long filename."""
         handler = DocumentHandler()
@@ -474,6 +484,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         assert metadata["original_filename"] == long_filename
         assert metadata["file_size"] == len(content)
 
+    @pytest.mark.asyncio
     async def test_document_with_empty_filename(self):
         """Test document handling with empty filename."""
         handler = DocumentHandler()
@@ -487,6 +498,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
 
+    @pytest.mark.asyncio
     async def test_document_with_whitespace_only_filename(self):
         """Test document handling with whitespace-only filename."""
         handler = DocumentHandler()
@@ -530,6 +542,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         assert len(metadata["file_hash"]) == 64
         assert metadata["original_filename"] == filename
 
+    @pytest.mark.asyncio
     async def test_document_size_at_exact_limit(self):
         """Test document handling at exact size limit."""
         handler = DocumentHandler(max_size=100)  # 100 bytes limit
@@ -551,6 +564,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
 
         assert metadata["file_size"] == 100
 
+    @pytest.mark.asyncio
     async def test_document_size_one_byte_over_limit(self):
         """Test document handling one byte over size limit."""
         handler = DocumentHandler(max_size=100)  # 100 bytes limit

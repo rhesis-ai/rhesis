@@ -155,6 +155,7 @@ class TestStorageServiceFileOperations(
 ):
     """Test file operations with mocked file system."""
 
+    @pytest.mark.asyncio
     async def test_save_file_success(self):
         """Test successful file save operation."""
         mock_fs = MagicMock()
@@ -173,6 +174,7 @@ class TestStorageServiceFileOperations(
         mock_fs.open.assert_called_once_with(file_path, "wb")
         mock_file.write.assert_called_once_with(content)
 
+    @pytest.mark.asyncio
     async def test_get_file_success(self):
         """Test successful file retrieval operation."""
         mock_fs = MagicMock()
@@ -191,6 +193,7 @@ class TestStorageServiceFileOperations(
         mock_fs.open.assert_called_once_with(file_path, "rb")
         mock_file.read.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_delete_file_success(self):
         """Test successful file deletion."""
         mock_fs = MagicMock()
@@ -204,6 +207,7 @@ class TestStorageServiceFileOperations(
         assert result is True
         mock_fs.rm.assert_called_once_with(file_path)
 
+    @pytest.mark.asyncio
     async def test_delete_file_failure(self):
         """Test file deletion failure handling."""
         mock_fs = MagicMock()
@@ -356,6 +360,7 @@ class TestStorageServiceEdgeCases(StorageServiceTestMixin, BaseStorageServiceTes
             assert file_path is not None
             assert len(file_path) > 300  # Should be reasonably long
 
+    @pytest.mark.asyncio
     async def test_concurrent_access_same_file(self, local_storage_service):
         """Test concurrent access to the same file."""
         storage_service = local_storage_service
