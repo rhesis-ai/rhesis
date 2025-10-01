@@ -74,15 +74,23 @@ class QueryBuilder:
             ValueError: If organization_id is required but not provided
         """
         if has_organization_id(self.model):
-            if organization_id:
-                # Use direct organization_id filtering (optimized)
-                self.query = self.query.filter(self.model.organization_id == organization_id)
+            # Check if model is exempt from organization filtering
+            exempt_models = ['User', 'Organization', 'Token']
+            if self.model.__name__ in exempt_models:
+                # For exempt models, apply organization filter if provided, but don't require it
+                if organization_id:
+                    self.query = self.query.filter(self.model.organization_id == organization_id)
             else:
-                # SECURITY: organization_id must be provided for models that have it
-                raise ValueError(
-                    f"organization_id is required for {self.model.__name__} but was not provided. "
-                    "This is a security requirement to prevent data leakage across organizations."
-                )
+                # For non-exempt models, organization_id is required
+                if organization_id:
+                    # Use direct organization_id filtering (optimized)
+                    self.query = self.query.filter(self.model.organization_id == organization_id)
+                else:
+                    # SECURITY: organization_id must be provided for models that have it
+                    raise ValueError(
+                        f"organization_id is required for {self.model.__name__} but was not provided. "
+                        "This is a security requirement to prevent data leakage across organizations."
+                    )
         return self
 
     def with_visibility_filter(self) -> "QueryBuilder":
