@@ -39,10 +39,9 @@ class TestTagOrganizationSecurity:
             result_with_org = crud.get_tag(test_db, tag_id, organization_id=org_id)
             assert result_with_org == mock_tag
             
-            # Test without organization filtering (should work but may return tags from any org)
-            mock_query.return_value.filter.return_value.first.return_value = mock_tag
-            result_without_org = crud.get_tag(test_db, tag_id)
-            assert result_without_org == mock_tag
+        # Test without organization filtering (should fail due to security requirements)
+        with pytest.raises(ValueError, match="organization_id is required for Tag but was not provided"):
+            crud.get_tag(test_db, tag_id)
 
     def test_create_tag_organization_scoping(self, test_db: Session):
         """🔒 SECURITY: Test that create_tag properly scopes tags to organizations"""
@@ -149,10 +148,9 @@ class TestTestSetOrganizationSecurity:
         result_org2 = crud.get_test_set(test_db, test_set.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
         
-        # Without organization filtering, should still work (finds the test set)
-        result_no_filter = crud.get_test_set(test_db, test_set.id)
-        assert result_no_filter is not None
-        assert result_no_filter.id == test_set.id
+        # Without organization filtering, should fail due to security requirements
+        with pytest.raises(ValueError, match="organization_id is required for TestSet but was not provided"):
+            crud.get_test_set(test_db, test_set.id)
 
     def test_create_test_set_organization_scoping(self, test_db: Session):
         """🔒 SECURITY: Test that create_test_set properly scopes test sets to organizations"""
@@ -321,9 +319,9 @@ class TestTestSetCrudSecurity:
         test_set_names_org2 = {ts.name for ts in result_org2}
         assert f"Test Set 1 Org 2 {unique_id}" in test_set_names_org2
         
-        # Get test sets without organization filtering - should return all test sets (at least 3)
-        result_all = crud.get_test_sets(test_db)
-        assert len(result_all) >= 3  # At least the 3 we created, could be more from other tests
+        # Get test sets without organization filtering - should fail due to security requirements
+        with pytest.raises(ValueError, match="organization_id is required for TestSet but was not provided"):
+            crud.get_test_sets(test_db)
 
     # Note: get_test_set_by_name function doesn't exist in crud.py, so this test is removed
 
