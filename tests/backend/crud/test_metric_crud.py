@@ -86,7 +86,7 @@ class TestMetricOperations:
         test_db.flush()
         
         # Test metrics listing
-        result = crud.get_metrics(db=test_db, skip=0, limit=10)
+        result = crud.get_metrics(db=test_db, skip=0, limit=10, organization_id=test_org_id)
         
         # Verify results
         assert len(result) >= 2  # May include other metrics from fixtures
