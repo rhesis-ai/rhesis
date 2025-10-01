@@ -190,10 +190,11 @@ def get_item_detail(db: Session, model: Type[T], item_id: uuid.UUID, organizatio
     - No SET LOCAL commands needed
     - No SHOW queries during retrieval
     - Direct tenant context injection
+    - Uses selectinload for many-to-many relationships to avoid cartesian products
     """
     return (
         QueryBuilder(db, model)
-        .with_joinedloads()
+        .with_optimized_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
