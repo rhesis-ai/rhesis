@@ -531,9 +531,9 @@ def get_test_set_tests(
 
 # TestConfiguration CRUD
 def get_test_configuration(
-    db: Session, test_configuration_id: uuid.UUID
+    db: Session, test_configuration_id: uuid.UUID, organization_id: str = None
 ) -> Optional[models.TestConfiguration]:
-    return get_item_detail(db, models.TestConfiguration, test_configuration_id)
+    return get_item_detail(db, models.TestConfiguration, test_configuration_id, organization_id=organization_id)
 
 
 def get_test_configurations(
@@ -1107,6 +1107,7 @@ def get_user_tokens(
     sort_order: str = "desc",
     filter: str | None = None,
     valid_only: bool = False,
+    organization_id: str = None,
 ) -> List[models.Token]:
     """Get all active bearer tokens for a user with pagination and sorting
 
@@ -1125,7 +1126,7 @@ def get_user_tokens(
     """
     query_builder = (
         QueryBuilder(db, models.Token)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
         )
@@ -1681,7 +1682,7 @@ def get_metrics(
     return (
         QueryBuilder(db, models.Metric)
         .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_visibility_filter()
             .with_odata_filter(filter)
             .with_pagination(skip, limit)
