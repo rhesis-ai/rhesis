@@ -84,11 +84,13 @@ def read_organization(
 def delete_organization(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     try:
         if not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Not authorized to delete organizations")
-        db_organization = crud.delete_organization(db, organization_id=organization_id)
+        organization_id_param, user_id = tenant_context
+        db_organization = crud.delete_organization(db, organization_id=organization_id, organization_id_param=organization_id_param, user_id=user_id)
         if db_organization is None:
             raise HTTPException(status_code=404, detail="Organization not found")
         return db_organization
