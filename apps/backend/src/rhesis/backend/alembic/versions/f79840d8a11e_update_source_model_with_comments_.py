@@ -15,7 +15,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-
     # Step 1: Add EntityType "Source" to type_lookup table
     entity_type_values = "('EntityType', 'Source', 'Entity type for sources')"
     op.execute(load_type_lookup_template(entity_type_values))
@@ -34,8 +33,6 @@ def upgrade() -> None:
 
     op.execute(load_type_lookup_template(source_type_values))
 
-    op.alter_column("demographic", "name", existing_type=sa.VARCHAR(), nullable=False)
-    op.alter_column("dimension", "name", existing_type=sa.VARCHAR(), nullable=False)
     op.add_column("source", sa.Column("content", sa.Text(), nullable=True))
     op.add_column(
         "source", sa.Column("source_type_id", rhesis.backend.app.models.guid.GUID(), nullable=True)
@@ -64,8 +61,6 @@ def downgrade() -> None:
     op.drop_column("source", "source_metadata")
     op.drop_column("source", "source_type_id")
     op.drop_column("source", "content")
-    op.alter_column("dimension", "name", existing_type=sa.VARCHAR(), nullable=True)
-    op.alter_column("demographic", "name", existing_type=sa.VARCHAR(), nullable=True)
 
     # ### end Alembic commands ###
 
