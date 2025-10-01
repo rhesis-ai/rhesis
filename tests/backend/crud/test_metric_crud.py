@@ -43,7 +43,7 @@ class TestMetricOperations:
         test_db.flush()
         
         # Test metric retrieval
-        result = crud.get_metric(db=test_db, metric_id=db_metric.id)
+        result = crud.get_metric(db=test_db, metric_id=db_metric.id, organization_id=test_org_id)
         
         # Verify result
         assert result is not None
@@ -51,11 +51,11 @@ class TestMetricOperations:
         assert result.name == metric_data["name"]
         assert result.organization_id == uuid.UUID(test_org_id)
     
-    def test_get_metric_not_found(self, test_db: Session):
+    def test_get_metric_not_found(self, test_db: Session, test_org_id: str):
         """Test metric retrieval with non-existent ID"""
         fake_metric_id = uuid.uuid4()
         
-        result = crud.get_metric(db=test_db, metric_id=fake_metric_id)
+        result = crud.get_metric(db=test_db, metric_id=fake_metric_id, organization_id=test_org_id)
         
         # Should return None for non-existent metric
         assert result is None
