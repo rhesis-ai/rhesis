@@ -1,4 +1,5 @@
 
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.test_execution import execute_test
@@ -21,7 +22,6 @@ def execute_single_test(
     endpoint_id: str,
     organization_id: str = None,  # Make this explicit so it's preserved on retries
     user_id: str = None,  # Make this explicit so it's preserved on retries
-    db=None,
 ):
     """
     Execute a single test and return its results.
@@ -44,21 +44,21 @@ def execute_single_test(
         f"🔍 DEBUG: Parameters - test_config_id={test_config_id}, test_run_id={test_run_id}, endpoint_id={endpoint_id}"
     )
     logger.debug(f"🔍 DEBUG: Context - user_id={user_id}, organization_id={organization_id}")
-    logger.debug(f"🔍 DEBUG: DB session provided: {db is not None}")
-
     try:
         logger.debug(f"🔍 DEBUG: About to call execute_test for test {test_id}")
 
-        # Call the main execution function from the dedicated module
-        result = execute_test(
-            db=db,
-            test_config_id=test_config_id,
-            test_run_id=test_run_id,
-            test_id=test_id,
-            endpoint_id=endpoint_id,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
+        # Use tenant-aware database session with explicit organization_id and user_id
+        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
+            # Call the main execution function from the dedicated module
+            result = execute_test(
+                db=db,
+                test_config_id=test_config_id,
+                test_run_id=test_run_id,
+                test_id=test_id,
+                endpoint_id=endpoint_id,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
         logger.debug(f"🔍 DEBUG: execute_test returned for test {test_id}: {type(result)}")
 
@@ -109,9 +109,10 @@ def execute_single_test(
         )
 
         # Increment the progress counter
-        progress_updated = increment_test_run_progress(
-            db=db, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful
-        )
+        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
+            progress_updated = increment_test_run_progress(
+                db=db, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful
+            )
 
         if progress_updated:
             logger.debug(
