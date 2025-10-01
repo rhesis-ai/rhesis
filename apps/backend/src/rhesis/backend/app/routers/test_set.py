@@ -83,13 +83,14 @@ class TestSetGenerationResponse(BaseModel):
     estimated_tests: int
 
 
-def resolve_test_set_or_raise(identifier: str, db: Session) -> TestSet:
+def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str = None) -> TestSet:
     """
     Helper function to resolve a test set by identifier and raise 404 if not found.
 
     Args:
         identifier: The test set identifier (UUID, nano_id, or slug)
         db: The database session
+        organization_id: Organization ID for filtering
 
     Returns:
         The resolved TestSet
@@ -97,7 +98,7 @@ def resolve_test_set_or_raise(identifier: str, db: Session) -> TestSet:
     Raises:
         HTTPException: 404 error if test set is not found
     """
-    db_test_set = crud.resolve_test_set(identifier, db)
+    db_test_set = crud.resolve_test_set(identifier, db, organization_id)
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found with provided identifier")
     return db_test_set
@@ -475,8 +476,10 @@ def generate_test_set_stats(
 async def read_test_set(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    return resolve_test_set_or_raise(test_set_identifier, db)
+    organization_id, user_id = tenant_context
+    return resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
 
 @router.delete("/{test_set_id}", response_model=schemas.TestSet)
@@ -484,8 +487,10 @@ async def read_test_set(
 async def delete_test_set(
     test_set_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    db_test_set = crud.delete_test_set(db, test_set_id=test_set_id)
+    organization_id, user_id = tenant_context
+    db_test_set = crud.delete_test_set(db, test_set_id=test_set_id, organization_id=organization_id, user_id=user_id)
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found")
     return db_test_set

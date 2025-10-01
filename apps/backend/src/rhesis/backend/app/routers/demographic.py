@@ -62,16 +62,26 @@ def read_demographics(
 
 
 @router.get("/{demographic_id}", response_model=schemas.Demographic)
-def read_demographic(demographic_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
-    db_demographic = crud.get_demographic(db, demographic_id=demographic_id)
+def read_demographic(
+    demographic_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_demographic = crud.get_demographic(db, demographic_id=demographic_id, organization_id=organization_id, user_id=user_id)
     if db_demographic is None:
         raise HTTPException(status_code=404, detail="Demographic not found")
     return db_demographic
 
 
 @router.delete("/{demographic_id}", response_model=schemas.Demographic)
-def delete_demographic(demographic_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
-    db_demographic = crud.delete_demographic(db, demographic_id=demographic_id)
+def delete_demographic(
+    demographic_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_demographic = crud.delete_demographic(db, demographic_id=demographic_id, organization_id=organization_id, user_id=user_id)
     if db_demographic is None:
         raise HTTPException(status_code=404, detail="Demographic not found")
     return db_demographic
