@@ -60,10 +60,10 @@ class DocumentHandler:
         # Save to storage
         await self.storage_service.save_file(content, file_path)
 
-        # Get metadata
-        metadata = self._extract_metadata(content, document.filename)
+        # Get metadata including file_path
+        metadata = self._extract_metadata(content, document.filename, file_path)
 
-        return file_path, metadata
+        return metadata
 
     async def get_document_content(self, file_path: str) -> bytes:
         """
@@ -89,14 +89,15 @@ class DocumentHandler:
         """
         return await self.storage_service.delete_file(file_path)
 
-    def _extract_metadata(self, content: bytes, filename: str) -> dict:
-        """Extract file metadata."""
+    def _extract_metadata(self, content: bytes, filename: str, file_path: str) -> dict:
+        """Extract file metadata including file path."""
         return {
             "file_size": len(content),
             "file_hash": self._calculate_file_hash(content),
-            "uploaded_at": datetime.now(timezone.utc),
+            "uploaded_at": str(datetime.now(timezone.utc)),
             "original_filename": filename,
             "file_type": self._get_mime_type(filename),
+            "file_path": file_path,
         }
 
     def _calculate_file_hash(self, content: bytes) -> str:
