@@ -88,8 +88,8 @@ def update_endpoint(
     return update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
 
 
-def delete_endpoint(db: Session, endpoint_id: uuid.UUID) -> Optional[models.Endpoint]:
-    return delete_item(db, models.Endpoint, endpoint_id)
+def delete_endpoint(db: Session, endpoint_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Endpoint]:
+    return delete_item(db, models.Endpoint, endpoint_id, organization_id=organization_id, user_id=user_id)
 
 
 # UseCase CRUD
@@ -131,7 +131,7 @@ def update_use_case(
     return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
 
 
-def delete_use_case(db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.UseCase]:
+def delete_use_case(db: Session, use_case_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.UseCase]:
     """Delete use case with optimized approach - no session variables needed."""
     return delete_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
@@ -175,8 +175,8 @@ def update_prompt(
     return update_item(db, models.Prompt, prompt_id, prompt, organization_id, user_id)
 
 
-def delete_prompt(db: Session, prompt_id: uuid.UUID) -> Optional[models.Prompt]:
-    return delete_item(db, models.Prompt, prompt_id)
+def delete_prompt(db: Session, prompt_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Prompt]:
+    return delete_item(db, models.Prompt, prompt_id, organization_id=organization_id, user_id=user_id)
 
 
 # Prompt Template CRUD
@@ -257,8 +257,8 @@ def update_category(
     return update_item(db, models.Category, category_id, category, organization_id, user_id)
 
 
-def delete_category(db: Session, category_id: uuid.UUID) -> Optional[models.Category]:
-    return delete_item(db, models.Category, category_id)
+def delete_category(db: Session, category_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Category]:
+    return delete_item(db, models.Category, category_id, organization_id=organization_id, user_id=user_id)
 
 
 # Behavior CRUD
@@ -441,7 +441,7 @@ def update_test_set(
     return update_item(db, models.TestSet, test_set_id, test_set, organization_id, user_id)
 
 
-def delete_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TestSet]:
+def delete_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestSet]:
     return delete_item(db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id)
 
 
@@ -612,7 +612,7 @@ def update_risk(
     return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
 
 
-def delete_risk(db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Risk]:
+def delete_risk(db: Session, risk_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Risk]:
     """Delete risk with optimized approach - no session variables needed."""
     return delete_item(db, models.Risk, risk_id, organization_id, user_id)
 
@@ -656,7 +656,7 @@ def update_status(
     return update_item(db, models.Status, status_id, status, organization_id, user_id)
 
 
-def delete_status(db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Status]:
+def delete_status(db: Session, status_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Status]:
     """Delete status with optimized approach - no session variables needed."""
     return delete_item(db, models.Status, status_id, organization_id, user_id)
 
@@ -700,7 +700,7 @@ def update_source(
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
 
 
-def delete_source(db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Source]:
+def delete_source(db: Session, source_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Source]:
     """Delete source with optimized approach - no session variables needed."""
     return delete_item(db, models.Source, source_id, organization_id, user_id)
 
@@ -744,7 +744,7 @@ def update_topic(
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)
 
 
-def delete_topic(db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Topic]:
+def delete_topic(db: Session, topic_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Topic]:
     """Delete topic with optimized approach - no session variables needed."""
     return delete_item(db, models.Topic, topic_id, organization_id, user_id)
 
@@ -793,8 +793,8 @@ def update_demographic(
     )
 
 
-def delete_demographic(db: Session, demographic_id: uuid.UUID) -> Optional[models.Demographic]:
-    return delete_item(db, models.Demographic, demographic_id)
+def delete_demographic(db: Session, demographic_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Demographic]:
+    return delete_item(db, models.Demographic, demographic_id, organization_id=organization_id, user_id=user_id)
 
 
 # Dimension CRUD
@@ -839,8 +839,8 @@ def update_dimension(
     return update_item(db, models.Dimension, dimension_id, dimension, organization_id, user_id)
 
 
-def delete_dimension(db: Session, dimension_id: uuid.UUID) -> Optional[models.Dimension]:
-    return delete_item(db, models.Dimension, dimension_id)
+def delete_dimension(db: Session, dimension_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Dimension]:
+    return delete_item(db, models.Dimension, dimension_id, organization_id=organization_id, user_id=user_id)
 
 
 # User CRUD
@@ -894,8 +894,8 @@ def update_user(db: Session, user_id: uuid.UUID, user: schemas.UserUpdate) -> Op
     return db_user
 
 
-def delete_user(db: Session, user_id: uuid.UUID) -> Optional[models.User]:
-    return delete_item(db, models.User, user_id)
+def delete_user(db: Session, user_id: uuid.UUID, organization_id: str, user_id_param: str) -> Optional[models.User]:
+    return delete_item(db, models.User, user_id, organization_id=organization_id, user_id=user_id_param)
 
 
 def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
@@ -958,7 +958,7 @@ def update_tag(
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
 
 
-def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Tag]:
+def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Tag]:
     """Delete tag with optimized approach - no session variables needed."""
     return delete_item(db, models.Tag, tag_id, organization_id, user_id)
 
@@ -1254,9 +1254,9 @@ def update_organization(
     return update_item(db, models.Organization, organization_id, organization)
 
 
-def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[models.Organization]:
+def delete_organization(db: Session, organization_id: uuid.UUID, organization_id_param: str, user_id: str) -> Optional[models.Organization]:
     """Delete organization - requires superuser permissions (handled in router)"""
-    return delete_item(db, models.Organization, organization_id)
+    return delete_item(db, models.Organization, organization_id, organization_id=organization_id_param, user_id=user_id)
 
 
 # Project CRUD
@@ -1338,7 +1338,7 @@ def update_test(
     return update_item(db, models.Test, test_id, test, organization_id, user_id)
 
 
-def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
+def delete_test(db: Session, test_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Test]:
     """Delete a test and update any associated test sets' attributes"""
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
@@ -1422,8 +1422,8 @@ def update_test_context(
     )
 
 
-def delete_test_context(db: Session, test_context_id: uuid.UUID) -> Optional[models.TestContext]:
-    return delete_item(db, models.TestContext, test_context_id)
+def delete_test_context(db: Session, test_context_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestContext]:
+    return delete_item(db, models.TestContext, test_context_id, organization_id=organization_id, user_id=user_id)
 
 
 # Test Run CRUD
@@ -1538,8 +1538,8 @@ def update_test_run(
     return update_item(db, models.TestRun, test_run_id, test_run, organization_id, user_id)
 
 
-def delete_test_run(db: Session, test_run_id: uuid.UUID) -> Optional[models.TestRun]:
-    return delete_item(db, models.TestRun, test_run_id)
+def delete_test_run(db: Session, test_run_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestRun]:
+    return delete_item(db, models.TestRun, test_run_id, organization_id=organization_id, user_id=user_id)
 
 
 # Test Result CRUD
@@ -1584,12 +1584,12 @@ def update_test_result(
     return update_item(db, models.TestResult, test_result_id, test_result, organization_id, user_id)
 
 
-def delete_test_result(db: Session, test_result_id: uuid.UUID) -> Optional[models.TestResult]:
-    return delete_item(db, models.TestResult, test_result_id)
+def delete_test_result(db: Session, test_result_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestResult]:
+    return delete_item(db, models.TestResult, test_result_id, organization_id=organization_id, user_id=user_id)
 
 
-def delete_project(db: Session, project_id: uuid.UUID) -> Optional[models.Project]:
-    return delete_item(db, models.Project, project_id)
+def delete_project(db: Session, project_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Project]:
+    return delete_item(db, models.Project, project_id, organization_id=organization_id, user_id=user_id)
 
 
 # TypeLookup CRUD
@@ -1634,7 +1634,7 @@ def update_type_lookup(
     return update_item(db, models.TypeLookup, type_lookup_id, type_lookup, organization_id, user_id)
 
 
-def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TypeLookup]:
+def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TypeLookup]:
     """Delete type lookup with optimized approach - no session variables needed."""
     return delete_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
@@ -1709,9 +1709,9 @@ def update_metric(
     return update_item(db, models.Metric, metric_id, metric, organization_id, user_id)
 
 
-def delete_metric(db: Session, metric_id: uuid.UUID) -> Optional[models.Metric]:
+def delete_metric(db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Metric]:
     """Delete a metric"""
-    return delete_item(db, models.Metric, metric_id)
+    return delete_item(db, models.Metric, metric_id, organization_id=organization_id, user_id=user_id)
 
 
 def add_behavior_to_metric(
@@ -1958,9 +1958,9 @@ def update_model(
     return update_item(db, models.Model, model_id, model, organization_id, user_id)
 
 
-def delete_model(db: Session, model_id: uuid.UUID) -> Optional[models.Model]:
+def delete_model(db: Session, model_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Model]:
     """Delete a model"""
-    return delete_item(db, models.Model, model_id)
+    return delete_item(db, models.Model, model_id, organization_id=organization_id, user_id=user_id)
 
 
 def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
@@ -2060,7 +2060,7 @@ def update_comment(
     return update_item(db, models.Comment, comment_id, comment, organization_id, user_id)
 
 
-def delete_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+def delete_comment(db: Session, comment_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Comment]:
     """Delete a comment with optimized tenant context"""
     return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
@@ -2237,9 +2237,9 @@ def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate, organ
     return update_item(db, models.Task, task_id, task)
 
 
-def delete_task(db: Session, task_id: uuid.UUID) -> bool:
+def delete_task(db: Session, task_id: uuid.UUID, organization_id: str, user_id: str) -> bool:
     """Delete a task"""
-    result = delete_item(db, models.Task, task_id)
+    result = delete_item(db, models.Task, task_id, organization_id=organization_id, user_id=user_id)
     return result is not None
 
 

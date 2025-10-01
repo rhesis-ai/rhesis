@@ -267,6 +267,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "user_id": uuid.UUID(user_id),
                         "organization_id": uuid.UUID(organization_id),
                     },
+                    organization_id=organization_id,
+                    user_id=user_id,
                     commit=False,
                 )
 

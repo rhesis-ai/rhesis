@@ -287,7 +287,20 @@ def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], Ba
 
     Returns:
         Created database item
+        
+    Raises:
+        ValueError: If organization_id or user_id is required but not provided
     """
+    # Check if model has organization_id field and it's required
+    columns = inspect(model).columns.keys()
+    model_name = model.__name__
+    
+    # Skip validation for models that don't require organization context
+    exempt_models = ['User', 'Organization', 'Token', 'Endpoint']
+    if model_name not in exempt_models:
+        if "organization_id" in columns and not organization_id:
+            raise ValueError(f"organization_id is required for creating {model_name}")
+    
     # Prepare data for creation using direct tenant context
     prepared_data = _prepare_item_data(model, item_data, organization_id, user_id)
     
@@ -323,7 +336,19 @@ def update_item(
         
     Returns:
         Updated database item or None if not found
+        
+    Raises:
+        ValueError: If organization_id or user_id is required but not provided
     """
+    # Check if model has organization_id field and it's required
+    columns = inspect(model).columns.keys()
+    model_name = model.__name__
+    
+    # Skip validation for models that don't require organization context
+    exempt_models = ['User', 'Organization', 'Token', 'Endpoint']
+    if model_name not in exempt_models:
+        if "organization_id" in columns and not organization_id:
+            raise ValueError(f"organization_id is required for updating {model_name}")
     # Get existing item with direct tenant context
     db_item = get_item(db, model, item_id, organization_id, user_id)
     if db_item is None:
@@ -391,7 +416,19 @@ def delete_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id
         
     Returns:
         Deleted database item or None if not found
+        
+    Raises:
+        ValueError: If organization_id or user_id is required but not provided
     """
+    # Check if model has organization_id field and it's required
+    columns = inspect(model).columns.keys()
+    model_name = model.__name__
+    
+    # Skip validation for models that don't require organization context
+    exempt_models = ['User', 'Organization', 'Token', 'Endpoint']
+    if model_name not in exempt_models:
+        if "organization_id" in columns and not organization_id:
+            raise ValueError(f"organization_id is required for deleting {model_name}")
     # Get existing item with direct tenant context
     db_item = get_item(db, model, item_id, organization_id, user_id)
     if db_item is None:
