@@ -39,16 +39,10 @@ def execute_single_test(
     user_id = user_id or request_user_id
     organization_id = organization_id or request_org_id
 
-    logger.info(f"🔍 DEBUG: Starting execute_single_test for test {test_id}")
-    logger.debug(
-        f"🔍 DEBUG: Parameters - test_config_id={test_config_id}, test_run_id={test_run_id}, endpoint_id={endpoint_id}"
-    )
-    logger.debug(f"🔍 DEBUG: Context - user_id={user_id}, organization_id={organization_id}")
     try:
-        logger.debug(f"🔍 DEBUG: About to call execute_test for test {test_id}")
 
         # Use tenant-aware database session with explicit organization_id and user_id
-        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
+        with get_db_with_tenant_variables(organization_id, user_id) as db:
             # Call the main execution function from the dedicated module
             result = execute_test(
                 db=db,
@@ -60,7 +54,6 @@ def execute_single_test(
                 user_id=user_id,
             )
 
-        logger.debug(f"🔍 DEBUG: execute_test returned for test {test_id}: {type(result)}")
 
         # Add detailed debugging about the result
         if result is None:
@@ -109,7 +102,7 @@ def execute_single_test(
         )
 
         # Increment the progress counter
-        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
+        with get_db_with_tenant_variables(organization_id, user_id) as db:
             progress_updated = increment_test_run_progress(
                 db=db, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful, organization_id=organization_id, user_id=user_id
             )

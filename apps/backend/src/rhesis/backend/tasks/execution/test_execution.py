@@ -176,21 +176,14 @@ def process_endpoint_result(result: Dict) -> Dict:
     if not result:
         return {}
 
-    # Debug: Log the input structure
-    logger.info(f"🔍 INPUT RESULT: {result}")
 
     # Create a DEEP copy of the result to avoid modifying the original or sharing references
     processed_result = copy.deepcopy(result)
 
-    # Debug: Log key fields before processing
-    logger.info(f"🔍 BEFORE - output: '{processed_result.get('output', 'NOT_FOUND')}'")
-    logger.info(f"🔍 BEFORE - metadata: '{processed_result.get('metadata', 'NOT_FOUND')}'")
-    logger.info(f"🔍 BEFORE - error: '{processed_result.get('error', 'NOT_FOUND')}'")
 
     # Use the existing fallback logic to get the processed output
     processed_output = extract_response_with_fallback(processed_result)
 
-    logger.info(f"⚠️ PROCESSED OUTPUT: '{processed_output}' (type: {type(processed_output)})")
 
     # Set the output field to the processed response
     processed_result["output"] = processed_output
