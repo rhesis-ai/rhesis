@@ -51,7 +51,7 @@ def get_session_variables(db: Session):
 
 # Endpoint CRUD
 def get_endpoint(
-    db: Session, endpoint_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, endpoint_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Endpoint]:
     """Get endpoint with optimized approach - no session variables needed."""
     return get_item(db, models.Endpoint, endpoint_id, organization_id, user_id)
@@ -71,7 +71,7 @@ def get_endpoints(
 
 
 def create_endpoint(
-    db: Session, endpoint: schemas.EndpointCreate, organization_id: str = None, user_id: str = None
+    db: Session, endpoint: schemas.EndpointCreate, organization_id: str, user_id: str
 ) -> models.Endpoint:
     """Create endpoint with optimized approach - no session variables needed."""
     return create_item(db, models.Endpoint, endpoint, organization_id, user_id)
@@ -81,8 +81,8 @@ def update_endpoint(
     db: Session,
     endpoint_id: uuid.UUID,
     endpoint: schemas.EndpointUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str,
+    user_id: str,
 ) -> Optional[models.Endpoint]:
     """Update endpoint with optimized approach - no session variables needed."""
     return update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
@@ -350,7 +350,7 @@ def delete_response_pattern(
 
 
 # TestSet CRUD
-def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None) -> Optional[models.TestSet]:
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str) -> Optional[models.TestSet]:
     """
     Get a test set by its UUID, applying proper visibility filtering and organization scoping.
     """
@@ -445,7 +445,7 @@ def delete_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str, u
     return delete_item(db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id)
 
 
-def get_test_set_by_nano_id_or_slug(db: Session, identifier: str, organization_id: str = None) -> Optional[models.TestSet]:
+def get_test_set_by_nano_id_or_slug(db: Session, identifier: str, organization_id: str) -> Optional[models.TestSet]:
     """
     Get a test set by its nano_id or slug, applying proper visibility filtering.
     """
@@ -941,7 +941,7 @@ def get_tags(
 
 
 def create_tag(
-    db: Session, tag: schemas.TagCreate, organization_id: str = None, user_id: str = None
+    db: Session, tag: schemas.TagCreate, organization_id: str, user_id: str
 ) -> models.Tag:
     """Create tag with optimized approach - no session variables needed."""
     return create_item(db, models.Tag, tag, organization_id, user_id)
@@ -1656,7 +1656,7 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-def get_metric(db: Session, metric_id: uuid.UUID, organization_id: str = None) -> Optional[models.Metric]:
+def get_metric(db: Session, metric_id: uuid.UUID, organization_id: str) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)

@@ -91,7 +91,7 @@ def delete_endpoint(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     organization_id, user_id = tenant_context
-    db_endpoint = crud.delete_endpoint(db, endpoint_id=endpoint_id)
+    db_endpoint = crud.delete_endpoint(db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id)
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail="Endpoint not found")
     return db_endpoint
