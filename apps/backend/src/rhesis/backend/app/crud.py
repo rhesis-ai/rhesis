@@ -1254,9 +1254,9 @@ def update_organization(
     return update_item(db, models.Organization, organization_id, organization)
 
 
-def delete_organization(db: Session, organization_id: uuid.UUID, organization_id_param: str, user_id: str) -> Optional[models.Organization]:
+def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[models.Organization]:
     """Delete organization - requires superuser permissions (handled in router)"""
-    return delete_item(db, models.Organization, organization_id, organization_id=organization_id_param, user_id=user_id)
+    return delete_item(db, models.Organization, organization_id)
 
 
 # Project CRUD
