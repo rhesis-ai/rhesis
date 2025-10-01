@@ -207,9 +207,9 @@ def create_prompt_template(
 
 
 def update_prompt_template(
-    db: Session, prompt_template_id: uuid.UUID, prompt_template: schemas.PromptTemplateUpdate
+    db: Session, prompt_template_id: uuid.UUID, prompt_template: schemas.PromptTemplateUpdate, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return update_item(db, models.PromptTemplate, prompt_template_id, prompt_template)
+    return update_item(db, models.PromptTemplate, prompt_template_id, prompt_template, organization_id, user_id)
 
 
 def delete_prompt_template(
@@ -338,9 +338,9 @@ def create_response_pattern(
 
 
 def update_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID, response_pattern: schemas.ResponsePatternUpdate
+    db: Session, response_pattern_id: uuid.UUID, response_pattern: schemas.ResponsePatternUpdate, organization_id: str, user_id: str
 ) -> Optional[models.ResponsePattern]:
-    return update_item(db, models.ResponsePattern, response_pattern_id, response_pattern)
+    return update_item(db, models.ResponsePattern, response_pattern_id, response_pattern, organization_id, user_id)
 
 
 def delete_response_pattern(
@@ -1288,9 +1288,9 @@ def create_project(
 
 
 def update_project(
-    db: Session, project_id: uuid.UUID, project: schemas.ProjectUpdate
+    db: Session, project_id: uuid.UUID, project: schemas.ProjectUpdate, organization_id: str, user_id: str
 ) -> Optional[models.Project]:
-    return update_item(db, models.Project, project_id, project)
+    return update_item(db, models.Project, project_id, project, organization_id, user_id)
 
 
 def get_test(
