@@ -213,9 +213,9 @@ def update_prompt_template(
 
 
 def delete_prompt_template(
-    db: Session, prompt_template_id: uuid.UUID
+    db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return delete_item(db, models.PromptTemplate, prompt_template_id)
+    return delete_item(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
 
 
 # Category CRUD
@@ -344,9 +344,9 @@ def update_response_pattern(
 
 
 def delete_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID
+    db: Session, response_pattern_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.ResponsePattern]:
-    return delete_item(db, models.ResponsePattern, response_pattern_id)
+    return delete_item(db, models.ResponsePattern, response_pattern_id, organization_id, user_id)
 
 
 # TestSet CRUD
