@@ -62,16 +62,26 @@ def read_dimensions(
 
 
 @router.get("/{dimension_id}", response_model=schemas.Dimension)
-def read_dimension(dimension_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
-    db_dimension = crud.get_dimension(db, dimension_id=dimension_id)
+def read_dimension(
+    dimension_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_dimension = crud.get_dimension(db, dimension_id=dimension_id, organization_id=organization_id, user_id=user_id)
     if db_dimension is None:
         raise HTTPException(status_code=404, detail="Dimension not found")
     return db_dimension
 
 
 @router.delete("/{dimension_id}", response_model=schemas.Dimension)
-def delete_dimension(dimension_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
-    db_dimension = crud.delete_dimension(db, dimension_id=dimension_id)
+def delete_dimension(
+    dimension_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_dimension = crud.delete_dimension(db, dimension_id=dimension_id, organization_id=organization_id, user_id=user_id)
     if db_dimension is None:
         raise HTTPException(status_code=404, detail="Dimension not found")
     return db_dimension
@@ -79,9 +89,13 @@ def delete_dimension(dimension_id: uuid.UUID, db: Session = Depends(get_tenant_d
 
 @router.put("/{dimension_id}", response_model=schemas.Dimension)
 def update_dimension(
-    dimension_id: uuid.UUID, dimension: schemas.DimensionUpdate, db: Session = Depends(get_tenant_db_session)
-):
-    db_dimension = crud.update_dimension(db, dimension_id=dimension_id, dimension=dimension)
+    dimension_id: uuid.UUID, 
+    dimension: schemas.DimensionUpdate, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_dimension = crud.update_dimension(db, dimension_id=dimension_id, dimension=dimension, organization_id=organization_id, user_id=user_id)
     if db_dimension is None:
         raise HTTPException(status_code=404, detail="Dimension not found")
     return db_dimension

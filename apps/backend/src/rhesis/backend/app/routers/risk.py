@@ -60,16 +60,26 @@ def read_risks(
 
 
 @router.get("/{risk_id}", response_model=schemas.Risk)
-def read_risk(risk_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
-    db_risk = crud.get_risk(db, risk_id=risk_id)
+def read_risk(
+    risk_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_risk = crud.get_risk(db, risk_id=risk_id, organization_id=organization_id, user_id=user_id)
     if db_risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
     return db_risk
 
 
 @router.delete("/{risk_id}", response_model=schemas.Risk)
-def delete_risk(risk_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
-    db_risk = crud.delete_risk(db, risk_id=risk_id)
+def delete_risk(
+    risk_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_risk = crud.delete_risk(db, risk_id=risk_id, organization_id=organization_id, user_id=user_id)
     if db_risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
     return db_risk

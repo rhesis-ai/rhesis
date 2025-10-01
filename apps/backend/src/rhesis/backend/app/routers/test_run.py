@@ -292,9 +292,11 @@ def generate_test_run_stats(
 def read_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test run by ID with its related objects"""
-    db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
+    organization_id, user_id = tenant_context
+    db_test_run = crud.get_test_run(db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
     return db_test_run
@@ -354,9 +356,11 @@ def update_test_run(
 def delete_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test run"""
-    db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
+    organization_id, user_id = tenant_context
+    db_test_run = crud.get_test_run(db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
@@ -371,11 +375,13 @@ def delete_test_run(
 def download_test_run_results(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Download test run results as CSV"""
     try:
+        organization_id, user_id = tenant_context
         # Check if test run exists and user has access
-        db_test_run = crud.get_test_run(db, test_run_id=test_run_id)
+        db_test_run = crud.get_test_run(db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
         if db_test_run is None:
             raise HTTPException(status_code=404, detail="Test run not found")
 

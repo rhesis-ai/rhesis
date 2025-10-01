@@ -65,9 +65,14 @@ def read_models(
 
 
 @router.get("/{model_id}", response_model=ModelDetailSchema)
-def read_model(model_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
+def read_model(
+    model_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get a specific model by ID"""
-    db_model = crud.get_model(db, model_id=model_id)
+    organization_id, user_id = tenant_context
+    db_model = crud.get_model(db, model_id=model_id, organization_id=organization_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return db_model
@@ -99,18 +104,28 @@ def update_model(
 
 
 @router.delete("/{model_id}", response_model=schemas.Model)
-def delete_model(model_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
+def delete_model(
+    model_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
     """Delete a model"""
-    db_model = crud.delete_model(db, model_id=model_id)
+    organization_id, user_id = tenant_context
+    db_model = crud.delete_model(db, model_id=model_id, organization_id=organization_id, user_id=user_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return db_model
 
 
 @router.post("/{model_id}/test", response_model=dict)
-async def test_model_connection(model_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
+async def test_model_connection(
+    model_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
     """Test the connection to the model's endpoint"""
-    db_model = crud.get_model(db, model_id=model_id)
+    organization_id, user_id = tenant_context
+    db_model = crud.get_model(db, model_id=model_id, organization_id=organization_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
 
