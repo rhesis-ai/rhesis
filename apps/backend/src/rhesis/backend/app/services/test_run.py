@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 
 
-def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID) -> List[Dict[str, Any]]:
+def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID, organization_id: str = None) -> List[Dict[str, Any]]:
     """
     Get all test results for a test run with related data for CSV export.
 
@@ -31,7 +31,7 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID) -> List[D
     limit = 100  # Use maximum allowed limit
 
     while True:
-        test_results_batch = crud.get_test_results(db, skip=skip, limit=limit, filter=filter_str)
+        test_results_batch = crud.get_test_results(db, skip=skip, limit=limit, filter=filter_str, organization_id=organization_id)
         if not test_results_batch:
             break
         all_test_results.extend(test_results_batch)

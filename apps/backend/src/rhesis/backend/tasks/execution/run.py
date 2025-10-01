@@ -18,7 +18,7 @@ class TestExecutionError(Exception):
 
 def create_test_run(session: Session, test_config: TestConfiguration, task_info: Dict) -> TestRun:
     """Create a new test run with initial status and metadata."""
-    initial_status = get_or_create_status(session, RunStatus.PROGRESS.value, "TestRun")
+    initial_status = get_or_create_status(session, RunStatus.PROGRESS.value, "TestRun", organization_id=str(test_config.organization_id))
 
     # Create the run with proper tenant context via the crud utility
     test_run_data = {
@@ -51,7 +51,7 @@ def update_test_run_status(
         error: Optional error message if the run failed
     """
     # Get the appropriate status record
-    new_status = get_or_create_status(session, status_name, "TestRun")
+    new_status = get_or_create_status(session, status_name, "TestRun", organization_id=str(test_run.organization_id))
 
     # Build update data
     update_data = {"status_id": new_status.id}

@@ -210,7 +210,7 @@ def update_test_run_status(
         "info", f"Current test run status: {current_status_name}, updating to: {overall_status}"
     )
 
-    new_status = get_or_create_status(db, overall_status, "TestRun")
+    new_status = get_or_create_status(db, overall_status, "TestRun", organization_id=str(test_run.organization_id))
     logger_func("debug", f"Got status object: {new_status.name} (id: {new_status.id})")
 
     # Update attributes to mark completion

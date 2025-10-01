@@ -380,7 +380,7 @@ def download_test_run_results(
             raise HTTPException(status_code=404, detail="Test run not found")
 
         # Get test results data
-        test_results_data = get_test_results_for_test_run(db, test_run_id)
+        test_results_data = get_test_results_for_test_run(db, test_run_id, organization_id=str(current_user.organization_id))
 
         # Convert to CSV
         csv_data = test_run_results_to_csv(test_results_data)
