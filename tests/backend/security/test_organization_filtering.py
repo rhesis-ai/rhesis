@@ -54,13 +54,13 @@ class TestCrudOrganizationFiltering:
         test_db.commit()
         
         # User from org1 should be able to access the task
-        result_org1 = crud.get_task(test_db, task.id, organization_id=str(org1.id))
+        result_org1 = crud.get_task(test_db, task.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == task.id
         assert result_org1.organization_id == org1.id
         
         # User from org2 should NOT be able to access the task
-        result_org2 = crud.get_task(test_db, task.id, organization_id=str(org2.id))
+        result_org2 = crud.get_task(test_db, task.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
     def test_get_test_organization_filtering(self, test_db: Session):
@@ -94,13 +94,13 @@ class TestCrudOrganizationFiltering:
         test_db.commit()
         
         # User from org1 should be able to access the test
-        result_org1 = crud.get_test(test_db, test_obj.id, organization_id=str(org1.id))
+        result_org1 = crud.get_test(test_db, test_obj.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == test_obj.id
         assert str(result_org1.organization_id) == str(org1.id)
         
         # User from org2 should NOT be able to access the test
-        result_org2 = crud.get_test(test_db, test_obj.id, organization_id=str(org2.id))
+        result_org2 = crud.get_test(test_db, test_obj.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
     def test_get_test_result_organization_filtering(self, test_db: Session):
@@ -158,13 +158,13 @@ class TestCrudOrganizationFiltering:
         test_db.commit()
         
         # User from org1 should be able to access the test result
-        result_org1 = crud.get_test_result(test_db, test_result.id, organization_id=str(org1.id))
+        result_org1 = crud.get_test_result(test_db, test_result.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == test_result.id
         assert str(result_org1.organization_id) == str(org1.id)
         
         # User from org2 should NOT be able to access the test result
-        result_org2 = crud.get_test_result(test_db, test_result.id, organization_id=str(org2.id))
+        result_org2 = crud.get_test_result(test_db, test_result.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
     def test_get_test_run_organization_filtering(self, test_db: Session):
@@ -221,13 +221,13 @@ class TestCrudOrganizationFiltering:
         test_db.commit()
         
         # User from org1 should be able to access the test run
-        result_org1 = crud.get_test_run(test_db, test_run.id, organization_id=str(org1.id))
+        result_org1 = crud.get_test_run(test_db, test_run.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == test_run.id
         assert str(result_org1.organization_id) == str(org1.id)
         
         # User from org2 should NOT be able to access the test run
-        result_org2 = crud.get_test_run(test_db, test_run.id, organization_id=str(org2.id))
+        result_org2 = crud.get_test_run(test_db, test_run.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
     def test_get_endpoint_organization_filtering(self, test_db: Session):
@@ -258,13 +258,13 @@ class TestCrudOrganizationFiltering:
         )
         
         # User from org1 should be able to access the endpoint
-        result_org1 = crud.get_endpoint(test_db, endpoint.id, organization_id=str(org1.id))
+        result_org1 = crud.get_endpoint(test_db, endpoint.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == endpoint.id
         assert str(result_org1.organization_id) == str(org1.id)
         
         # User from org2 should NOT be able to access the endpoint
-        result_org2 = crud.get_endpoint(test_db, endpoint.id, organization_id=str(org2.id))
+        result_org2 = crud.get_endpoint(test_db, endpoint.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
     def test_get_prompt_organization_filtering(self, test_db: Session):
@@ -288,13 +288,13 @@ class TestCrudOrganizationFiltering:
         )
         
         # User from org1 should be able to access the prompt
-        result_org1 = crud.get_prompt(test_db, prompt.id, organization_id=str(org1.id))
+        result_org1 = crud.get_prompt(test_db, prompt.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == prompt.id
         assert str(result_org1.organization_id) == str(org1.id)
         
         # User from org2 should NOT be able to access the prompt
-        result_org2 = crud.get_prompt(test_db, prompt.id, organization_id=str(org2.id))
+        result_org2 = crud.get_prompt(test_db, prompt.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
     def test_get_model_organization_filtering(self, test_db: Session):
@@ -325,13 +325,13 @@ class TestCrudOrganizationFiltering:
         )
         
         # User from org1 should be able to access the model
-        result_org1 = crud.get_model(test_db, model.id, organization_id=str(org1.id))
+        result_org1 = crud.get_model(test_db, model.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == model.id
         assert result_org1.organization_id == org1.id
         
         # User from org2 should NOT be able to access the model
-        result_org2 = crud.get_model(test_db, model.id, organization_id=str(org2.id))
+        result_org2 = crud.get_model(test_db, model.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
     def test_get_metric_organization_filtering(self, test_db: Session):
@@ -371,13 +371,13 @@ class TestCrudOrganizationFiltering:
         )
         
         # User from org1 should be able to access the metric
-        result_org1 = crud.get_metric(test_db, metric.id, organization_id=str(org1.id))
+        result_org1 = crud.get_metric(test_db, metric.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None
         assert result_org1.id == metric.id
         assert result_org1.organization_id == org1.id
         
         # User from org2 should NOT be able to access the metric
-        result_org2 = crud.get_metric(test_db, metric.id, organization_id=str(org2.id))
+        result_org2 = crud.get_metric(test_db, metric.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
 
