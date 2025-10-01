@@ -21,7 +21,14 @@ class TagsMixin:
 
     @property
     def tags(self):
-        return [tagged_item.tag for tagged_item in self._tags_relationship]
+        # Deduplicate tags by ID to handle duplicate TaggedItem records
+        seen_tag_ids = set()
+        unique_tags = []
+        for tagged_item in self._tags_relationship:
+            if tagged_item.tag and tagged_item.tag.id not in seen_tag_ids:
+                seen_tag_ids.add(tagged_item.tag.id)
+                unique_tags.append(tagged_item.tag)
+        return unique_tags
 
     @tags.setter
     def tags(self, tag_objects):
