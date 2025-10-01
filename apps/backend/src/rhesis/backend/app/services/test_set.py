@@ -516,7 +516,7 @@ def execute_test_set_on_endpoint(
 
     # Verify endpoint exists
     logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id, organization_id=str(current_user.organization_id))
+    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id, organization_id=str(current_user.organization_id), user_id=str(current_user.id))
     if not db_endpoint:
         raise ValueError(f"Endpoint not found: {endpoint_id}")
     logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
