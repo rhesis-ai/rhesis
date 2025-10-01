@@ -2066,10 +2066,10 @@ def delete_comment(db: Session, comment_id: uuid.UUID, organization_id: str, use
 
 
 def add_emoji_reaction(
-    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID, user_name: str
+    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID, user_name: str, organization_id: str = None, user_id_param: str = None
 ) -> Optional[models.Comment]:
     """Add an emoji reaction to a comment"""
-    comment = get_comment(db, comment_id)
+    comment = get_comment(db, comment_id, organization_id, user_id_param)
     if not comment:
         return None
 

@@ -244,7 +244,7 @@ class TestCRUDTransactionManagement:
         user_id = uuid.UUID(authenticated_user_id)
         user_name = "Test User"
         
-        result = crud.add_emoji_reaction(test_db, comment.id, emoji, user_id, user_name)
+        result = crud.add_emoji_reaction(test_db, comment.id, emoji, user_id, user_name, organization_id=test_org_id, user_id_param=authenticated_user_id)
         
         # Verify reaction was added and persisted
         assert result is not None
