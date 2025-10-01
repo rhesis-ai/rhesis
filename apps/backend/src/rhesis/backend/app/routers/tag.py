@@ -76,7 +76,7 @@ def read_tag(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_tag = crud.get_tag(db, tag_id=tag_id)
+    db_tag = crud.get_tag(db, tag_id=tag_id, organization_id=organization_id, user_id=user_id)
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
     return db_tag
@@ -98,7 +98,7 @@ def delete_tag(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_tag = crud.delete_tag(db, tag_id=tag_id)
+    db_tag = crud.delete_tag(db, tag_id=tag_id, organization_id=organization_id, user_id=user_id)
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
     return db_tag

@@ -80,7 +80,7 @@ def read_behavior(
     current_user: User = Depends(require_current_user_or_token)):
     """Get behavior by ID with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = crud.get_behavior(db, behavior_id=behavior_id)
+    db_behavior = crud.get_behavior(db, behavior_id=behavior_id, organization_id=organization_id, user_id=user_id)
     if db_behavior is None:
         raise HTTPException(status_code=404, detail="Behavior not found")
     return db_behavior
@@ -94,7 +94,7 @@ def delete_behavior(
     current_user: User = Depends(require_current_user_or_token)):
     """Delete behavior with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
-    db_behavior = crud.delete_behavior(db, behavior_id=behavior_id)
+    db_behavior = crud.delete_behavior(db, behavior_id=behavior_id, organization_id=organization_id, user_id=user_id)
     if db_behavior is None:
         raise HTTPException(status_code=404, detail="Behavior not found")
     return db_behavior
