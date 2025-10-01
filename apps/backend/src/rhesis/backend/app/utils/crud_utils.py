@@ -296,7 +296,7 @@ def create_item(db: Session, model: Type[T], item_data: Union[Dict[str, Any], Ba
     model_name = model.__name__
     
     # Skip validation for models that don't require organization context
-    exempt_models = ['User', 'Organization', 'Token', 'Endpoint']
+    exempt_models = ['User', 'Organization', 'Token']
     if model_name not in exempt_models:
         if "organization_id" in columns and not organization_id:
             raise ValueError(f"organization_id is required for creating {model_name}")
@@ -345,7 +345,7 @@ def update_item(
     model_name = model.__name__
     
     # Skip validation for models that don't require organization context
-    exempt_models = ['User', 'Organization', 'Token', 'Endpoint']
+    exempt_models = ['User', 'Organization', 'Token']
     if model_name not in exempt_models:
         if "organization_id" in columns and not organization_id:
             raise ValueError(f"organization_id is required for updating {model_name}")
@@ -425,7 +425,7 @@ def delete_item(db: Session, model: Type[T], item_id: uuid.UUID, organization_id
     model_name = model.__name__
     
     # Skip validation for models that don't require organization context
-    exempt_models = ['User', 'Organization', 'Token', 'Endpoint']
+    exempt_models = ['User', 'Organization', 'Token']
     if model_name not in exempt_models:
         if "organization_id" in columns and not organization_id:
             raise ValueError(f"organization_id is required for deleting {model_name}")
