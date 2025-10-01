@@ -2015,6 +2015,8 @@ def get_comments_by_entity(
     db: Session,
     entity_id: uuid.UUID,
     entity_type: str,
+    organization_id: str,
+    user_id: str = None,
     skip: int = 0,
     limit: int = 10,
     sort_by: str = "created_at",
@@ -2023,7 +2025,7 @@ def get_comments_by_entity(
     """Get all comments for a specific entity (test, test_set, test_run)"""
     return (
         QueryBuilder(db, models.Comment)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.filter(
                 models.Comment.entity_id == entity_id, models.Comment.entity_type == entity_type
