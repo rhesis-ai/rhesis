@@ -83,6 +83,7 @@ class TestSet(Base, TagsMixin):
         "Comment",
         primaryjoin="and_(Comment.entity_id == foreign(TestSet.id), Comment.entity_type == 'TestSet')",
         viewonly=True,
+        uselist=True,
     )
 
     def _get_related_items(self, model_class, attribute_key):
