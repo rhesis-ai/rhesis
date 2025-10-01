@@ -83,7 +83,7 @@ def update_prompt(
     current_user: User = Depends(require_current_user_or_token)):
     """Update a prompt"""
     organization_id, user_id = tenant_context
-    db_prompt = crud.update_prompt(db=db, prompt_id=prompt_id, prompt=prompt)
+    db_prompt = crud.update_prompt(db=db, prompt_id=prompt_id, prompt=prompt, organization_id=organization_id, user_id=user_id)
     if db_prompt is None:
         raise HTTPException(status_code=404, detail="Prompt not found")
     return db_prompt
@@ -97,7 +97,7 @@ def delete_prompt(
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a prompt"""
     organization_id, user_id = tenant_context
-    db_prompt = crud.delete_prompt(db=db, prompt_id=prompt_id)
+    db_prompt = crud.delete_prompt(db=db, prompt_id=prompt_id, organization_id=organization_id, user_id=user_id)
     if db_prompt is None:
         raise HTTPException(status_code=404, detail="Prompt not found")
     return db_prompt

@@ -142,7 +142,7 @@ def delete_category(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_category = crud.delete_category(db, category_id=category_id)
+    db_category = crud.delete_category(db, category_id=category_id, organization_id=organization_id, user_id=user_id)
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return db_category

@@ -208,7 +208,7 @@ def refresh_token(
         last_refreshed_at=datetime.now(timezone.utc),
         expires_at=expires_at)
 
-    updated_token = crud.update_token(db=db, token_id=token.id, token=token_update)
+    updated_token = crud.update_token(db=db, token_id=token.id, token=token_update, organization_id=organization_id, user_id=user_id)
     if updated_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
 

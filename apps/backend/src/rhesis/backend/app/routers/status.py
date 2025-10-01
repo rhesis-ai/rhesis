@@ -85,7 +85,7 @@ def read_status(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_status = crud.get_status(db, status_id=status_id)
+    db_status = crud.get_status(db, status_id=status_id, organization_id=organization_id, user_id=user_id)
     if db_status is None:
         raise HTTPException(status_code=404, detail="Status not found")
     return db_status
@@ -107,7 +107,7 @@ def delete_status(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_status = crud.delete_status(db, status_id=status_id)
+    db_status = crud.delete_status(db, status_id=status_id, organization_id=organization_id, user_id=user_id)
     if db_status is None:
         raise HTTPException(status_code=404, detail="Status not found")
     return db_status
@@ -130,7 +130,7 @@ def update_status(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_status = crud.update_status(db, status_id=status_id, status=status)
+    db_status = crud.update_status(db, status_id=status_id, status=status, organization_id=organization_id, user_id=user_id)
     if db_status is None:
         raise HTTPException(status_code=404, detail="Status not found")
     return db_status

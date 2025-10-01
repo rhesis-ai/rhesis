@@ -68,7 +68,7 @@ def read_prompt_template(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     organization_id, user_id = tenant_context
-    db_template = crud.get_prompt_template(db, prompt_template_id=prompt_template_id)
+    db_template = crud.get_prompt_template(db, prompt_template_id=prompt_template_id, organization_id=organization_id, user_id=user_id)
     if db_template is None:
         raise HTTPException(status_code=404, detail="Prompt Template not found")
     return db_template
@@ -81,7 +81,7 @@ def delete_prompt_template(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     organization_id, user_id = tenant_context
-    db_prompt_template = crud.delete_prompt_template(db, prompt_template_id=prompt_template_id)
+    db_prompt_template = crud.delete_prompt_template(db, prompt_template_id=prompt_template_id, organization_id=organization_id, user_id=user_id)
     if db_prompt_template is None:
         raise HTTPException(status_code=404, detail="Prompt Template not found")
     return db_prompt_template
@@ -96,7 +96,7 @@ def update_prompt_template(
     current_user: User = Depends(require_current_user_or_token)):
     organization_id, user_id = tenant_context
     db_prompt_template = crud.update_prompt_template(
-        db, prompt_template_id=prompt_template_id, prompt_template=prompt_template
+        db, prompt_template_id=prompt_template_id, prompt_template=prompt_template, organization_id=organization_id, user_id=user_id
     )
     if db_prompt_template is None:
         raise HTTPException(status_code=404, detail="Prompt Template not found")
