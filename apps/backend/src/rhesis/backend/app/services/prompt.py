@@ -43,7 +43,7 @@ def get_prompts_for_test_set(db: Session, test_set_id: uuid.UUID, organization_i
             # Load Prompt relationships
             joinedload(Prompt.demographic),
             joinedload(Prompt.attack_category),
-            joinedload(Prompt.source),
+            # joinedload(Prompt.source),  # Temporarily disabled due to entity_type column issue
             joinedload(Prompt.status),
             # Load Test relationships for category, topic, behavior
             joinedload(Test.category),
