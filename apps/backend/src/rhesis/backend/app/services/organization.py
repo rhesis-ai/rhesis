@@ -590,7 +590,7 @@ def _get_matching_records(db: Session, model, identifiers: set, organization_id:
     """Get records that match the initial data identifiers."""
     query = (
         QueryBuilder(db, model)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(lambda q: q.filter(model.organization_id == organization_id))
         .build()
     )
@@ -692,7 +692,7 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
             # Get matching records with eager loading of relationships
             query = (
                 QueryBuilder(db, model)
-                .with_organization_filter()
+                .with_organization_filter(organization_id)
                 .with_joinedloads()
                 .with_custom_filter(
                     lambda q: q.filter(model.organization_id == organization_id)

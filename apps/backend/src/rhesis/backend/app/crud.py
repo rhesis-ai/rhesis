@@ -1640,12 +1640,12 @@ def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: 
 
 
 def get_type_lookup_by_name_and_value(
-    db: Session, type_name: str, type_value: str
+    db: Session, type_name: str, type_value: str, organization_id: str, user_id: str = None
 ) -> Optional[models.TypeLookup]:
     """Get a type lookup by its type_name and type_value"""
     return (
         QueryBuilder(db, models.TypeLookup)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.filter(
                 models.TypeLookup.type_name == type_name, models.TypeLookup.type_value == type_value
