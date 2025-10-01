@@ -22,8 +22,10 @@ def get_router(model: Type, base_schema: Type[Base], prefix: str):
     def read_item(
         item_id: UUID,
         db: Session = Depends(get_tenant_db_session),
+        tenant_context=Depends(get_tenant_context),
         current_user: schemas.User = Depends(require_current_user_or_token)):
-        db_item = crud.get_item_detail(db, model, item_id)
+        organization_id, user_id = tenant_context
+        db_item = crud.get_item_detail(db, model, item_id, organization_id, user_id)
         if db_item is None:
             raise HTTPException(status_code=404, detail="Item not found")
         return db_item
@@ -36,6 +38,8 @@ def get_router(model: Type, base_schema: Type[Base], prefix: str):
         sort_order: str = "desc",
         filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
         db: Session = Depends(get_tenant_db_session),
+        tenant_context=Depends(get_tenant_context),
         current_user: schemas.User = Depends(require_current_user_or_token)):
-        items = crud.get_items_detail(db, model, skip, limit, sort_by, sort_order, filter)
+        organization_id, user_id = tenant_context
+        items = crud.get_items_detail(db, model, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
         return items
