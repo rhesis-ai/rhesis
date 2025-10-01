@@ -208,14 +208,14 @@ class TestTestSetOrganizationSecurity:
         test_set = crud.create_test_set(test_db, test_set_data, organization_id=str(org1.id), user_id=str(user1.id))
         
         # User from org1 should be able to delete the test set
-        result_org1 = crud.delete_test_set(test_db, test_set.id, organization_id=str(org1.id))
+        result_org1 = crud.delete_test_set(test_db, test_set.id, organization_id=str(org1.id), user_id=str(user1.id))
         assert result_org1 is not None  # Test set was found and deleted
         
         # Create another test set in org1 for the next test
         test_set2 = crud.create_test_set(test_db, TestSetCreate(name=f"TestSet to Delete 2 {unique_id}", description="Test set 2 for deletion"), organization_id=str(org1.id), user_id=str(user1.id))
         
         # User from org2 should NOT be able to delete the test set from org1
-        result_org2 = crud.delete_test_set(test_db, test_set2.id, organization_id=str(org2.id))
+        result_org2 = crud.delete_test_set(test_db, test_set2.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None  # Test set was not found/deleted due to organization filtering
 
     def test_update_test_set_organization_filtering(self, test_db: Session):

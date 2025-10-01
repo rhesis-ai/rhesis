@@ -69,16 +69,19 @@ class QueryBuilder:
         - Completely bypasses database session variables
         - No SHOW queries for organization context
         - Direct organization ID filtering
+        
+        Raises:
+            ValueError: If organization_id is required but not provided
         """
         if has_organization_id(self.model):
             if organization_id:
                 # Use direct organization_id filtering (optimized)
                 self.query = self.query.filter(self.model.organization_id == organization_id)
             else:
-                # No fallback - organization_id must be provided explicitly
-                logger.warning(
-                    f"with_organization_filter called without organization_id for model {self.model.__name__}. "
-                    "This may result in data leakage across organizations."
+                # SECURITY: organization_id must be provided for models that have it
+                raise ValueError(
+                    f"organization_id is required for {self.model.__name__} but was not provided. "
+                    "This is a security requirement to prevent data leakage across organizations."
                 )
         return self
 
