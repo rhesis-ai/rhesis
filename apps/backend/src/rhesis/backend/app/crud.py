@@ -1390,10 +1390,10 @@ def get_test_contexts(
     return get_items(db, models.TestContext, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
-def get_test_contexts_by_test(db: Session, test_id: uuid.UUID) -> List[models.TestContext]:
+def get_test_contexts_by_test(db: Session, test_id: uuid.UUID, organization_id: str = None) -> List[models.TestContext]:
     return (
         QueryBuilder(db, models.TestContext)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(lambda q: q.filter(models.TestContext.test_id == test_id))
         .all()
     )
