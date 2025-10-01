@@ -58,12 +58,12 @@ def execute_test_configuration(self, test_configuration_id: str):
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
             # Get test configuration with tenant context
-            test_config = get_test_configuration(db, test_configuration_id)
+            test_config = get_test_configuration(db, test_configuration_id, org_id)
 
             # CRITICAL: Check for existing test run by TASK ID (not config ID)
             # This allows multiple test runs per configuration but prevents task retries
             # from creating multiple test runs for the same task
-            existing_test_run = get_test_run_by_task_id(db, self.request.id)
+            existing_test_run = get_test_run_by_task_id(db, self.request.id, org_id)
             if existing_test_run:
                 self.log_with_context(
                     "info",
@@ -120,7 +120,7 @@ def execute_test_configuration(self, test_configuration_id: str):
         # Attempt to update test run status to failed using utility
         # Use task ID to find the specific test run created by this task
         with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
-            test_run = get_test_run_by_task_id(db, self.request.id)
+            test_run = get_test_run_by_task_id(db, self.request.id, org_id)
             if test_run:
                 success = update_test_run_with_error(db, test_run, str(e))
                 if not success:
