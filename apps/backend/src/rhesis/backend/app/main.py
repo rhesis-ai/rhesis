@@ -62,6 +62,7 @@ token_enabled_routes = [
     "/tests/",
     "/test-contexts/",
     "/comments/",
+    "/sources/",
 ]
 
 
@@ -80,26 +81,26 @@ class AuthenticatedAPIRoute(APIRoute):
 def get_api_description():
     """Generate API description with version information."""
     version_info = get_version_info()
-    
+
     description = "API for testing and evaluating AI models.\n\n## Version Information\n"
-    
+
     # Add version details
     description += f"- **Version**: {version_info['version']}\n"
     if 'branch' in version_info:
         description += f"- **Branch**: {version_info['branch']}\n"
     if 'commit' in version_info:
         description += f"- **Commit**: {version_info['commit']}\n"
-    
+
     description += """
 ## URL Encoding
 When using curl, special characters in URLs need to be URL-encoded. For example:
 - Encoded: `/tests/?%24filter=prompt_id%20eq%20'89905869-e8e9-4b2f-b362-3598cfe91968'`
 - Unencoded: `/tests/?$filter=prompt_id eq '89905869-e8e9-4b2f-b362-3598cfe91968'`
 
-The `$` character must be encoded as `%24` when using curl. 
+The `$` character must be encoded as `%24` when using curl.
 Web browsers handle this automatically.
 """
-    
+
     return description
 
 app = FastAPI(
@@ -181,7 +182,7 @@ for router in routers:
 async def root():
     """Welcome endpoint with API status"""
     version_info = get_version_info()
-    
+
     response_data = {
         "name": "Rhesis API",
         "status": "operational",
@@ -209,7 +210,7 @@ async def root():
             }
         },
     }
-    
+
     return JSONResponse(response_data)
 
 
