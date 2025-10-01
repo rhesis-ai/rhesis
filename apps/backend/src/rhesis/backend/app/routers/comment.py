@@ -234,6 +234,8 @@ def read_comments_by_entity(
         db=db,
         entity_id=entity_id,
         entity_type=entity_type,
+        organization_id=organization_id,
+        user_id=user_id,
         skip=skip,
         limit=limit,
         sort_by=sort_by,
