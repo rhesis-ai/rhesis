@@ -297,7 +297,9 @@ def add_emoji_reaction(
         comment_id=comment_id,
         emoji=emoji,
         user_id=current_user.id,
-        user_name=current_user.given_name or current_user.email)
+        user_name=current_user.given_name or current_user.email,
+        organization_id=organization_id,
+        user_id_param=user_id)
 
     if updated_comment is None:
         raise HTTPException(status_code=400, detail="Failed to add emoji reaction")
@@ -328,7 +330,8 @@ def remove_emoji_reaction(
 
     # Remove emoji reaction
     updated_comment = crud.remove_emoji_reaction(
-        db=db, comment_id=comment_id, emoji=emoji, user_id=current_user.id
+        db=db, comment_id=comment_id, emoji=emoji, user_id=current_user.id,
+        organization_id=organization_id, user_id_param=user_id
     )
 
     if updated_comment is None:
