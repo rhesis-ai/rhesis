@@ -256,8 +256,8 @@ class TestTestSetExecution:
             assert result["task_id"] == "task_id_123"
             
             # Verify all mocks were called
-            mock_resolve_test_set.assert_called_once_with(str(test_set.id), test_db)
-            mock_get_endpoint.assert_called_once_with(test_db, endpoint_id=endpoint.id)
+            mock_resolve_test_set.assert_called_once_with(str(test_set.id), test_db, organization_id=test_org_id)
+            mock_get_endpoint.assert_called_once_with(test_db, endpoint_id=endpoint.id, organization_id=test_org_id, user_id=authenticated_user_id)
             mock_validate_access.assert_called_once_with(user, test_set, endpoint)
             mock_create_config.assert_called_once_with(
                 test_db, endpoint.id, test_set.id, user, {"param": "value"}
