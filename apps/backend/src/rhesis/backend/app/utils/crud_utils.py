@@ -91,6 +91,7 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
                 org_uuid = UUID(organization_id)
             populated_data["organization_id"] = org_uuid
         except (ValueError, TypeError) as e:
+            pass
     
     # Auto-populate user_id (direct - no DB queries, no session variables!)
     if "user_id" in columns and not populated_data.get("user_id") and user_id:
@@ -102,6 +103,7 @@ def _auto_populate_tenant_fields(model: Type[T], item_data: Dict[str, Any], orga
                 user_uuid = UUID(user_id)
             populated_data["user_id"] = user_uuid
         except (ValueError, TypeError) as e:
+            pass
     
     return populated_data
 
