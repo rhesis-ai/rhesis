@@ -90,7 +90,7 @@ def get_test_run_by_task_id(db: Session, task_id: str, organization_id: str = No
 
 
 def increment_test_run_progress(
-    db: Session, test_run_id: str, test_id: str, was_successful: bool = True
+    db: Session, test_run_id: str, test_id: str, was_successful: bool = True, organization_id: str = None, user_id: str = None
 ) -> bool:
     """
     Atomically increment the completed_tests counter in test run attributes.
@@ -113,7 +113,7 @@ def increment_test_run_progress(
         if not test_run_uuid:
             return False
 
-        test_run = crud.get_test_run(db, test_run_uuid)
+        test_run = crud.get_test_run(db, test_run_uuid, organization_id=organization_id, user_id=user_id)
         if not test_run:
             return False
 

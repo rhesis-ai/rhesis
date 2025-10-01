@@ -119,7 +119,7 @@ def get_test_configuration(self, test_configuration_id: str):
     with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
         # The crud function will use the properly configured session
         # which has the tenant context already set
-        test_config = crud.get_test_configuration(db, test_configuration_id=config_id)
+        test_config = crud.get_test_configuration(db, test_configuration_id=config_id, organization_id=org_id, user_id=user_id)
 
     self.log_with_context(
         "info",
@@ -261,7 +261,7 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
 
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
-            test_config = crud.get_test_configuration(db, test_config_uuid)
+            test_config = crud.get_test_configuration(db, test_config_uuid, organization_id=org_id, user_id=user_id)
             if not test_config:
                 raise ValueError(f"Test configuration not found: {test_config_id}")
 
@@ -326,7 +326,7 @@ def example_set_execution_mode(test_config_id: str, execution_mode: str) -> bool
 
         with get_db() as db:
             # Set the execution mode
-            success = set_execution_mode(db, test_config_id, ExecutionMode(execution_mode))
+            success = set_execution_mode(db, test_config_id, ExecutionMode(execution_mode), organization_id=None, user_id=None)
 
             if success:
                 logger.info(
