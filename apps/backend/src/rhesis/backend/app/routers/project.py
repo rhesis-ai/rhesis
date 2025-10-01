@@ -121,7 +121,7 @@ def update_project(
     if db_project.owner_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to update this project")
 
-    return crud.update_project(db, project_id=project_id, project=project)
+    return crud.update_project(db, project_id=project_id, project=project, organization_id=organization_id, user_id=user_id)
 
 
 @router.delete("/{project_id}")
@@ -148,4 +148,4 @@ def delete_project(
     if db_project.owner_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete this project")
 
-    return crud.delete_item(db, crud.models.Project, project_id)
+    return crud.delete_project(db, project_id=project_id, organization_id=organization_id, user_id=user_id)
