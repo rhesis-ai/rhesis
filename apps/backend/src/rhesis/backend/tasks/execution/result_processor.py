@@ -247,7 +247,8 @@ def update_test_run_status(
 
     logger_func("debug", f"Updating test run with status_id: {new_status.id}")
     updated_test_run = crud.update_test_run(
-        db, test_run.id, crud.schemas.TestRunUpdate(**update_data)
+        db, test_run.id, crud.schemas.TestRunUpdate(**update_data),
+        organization_id=str(test_run.organization_id), user_id=str(test_run.user_id)
     )
 
     # Verify the update worked
