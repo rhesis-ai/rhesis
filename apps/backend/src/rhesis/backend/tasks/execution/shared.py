@@ -53,7 +53,7 @@ def update_test_run_start(
 
 
 def store_test_result(
-    session: Session, test_run_id: str, test_id: str, result: Dict[str, Any]
+    session: Session, test_run_id: str, test_id: str, result: Dict[str, Any], organization_id: str = None, user_id: str = None
 ) -> None:
     """
     Store an individual test result and update test run progress.
@@ -75,7 +75,7 @@ def store_test_result(
 
         # Update test run progress (this updates completed_tests/failed_tests attributes)
         increment_test_run_progress(
-            db=session, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful
+            db=session, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful, organization_id=organization_id, user_id=user_id
         )
 
         logger.debug(f"Updated test run progress for test {test_id}, successful: {was_successful}")

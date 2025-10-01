@@ -252,7 +252,7 @@ class BaseTask(Task):
 
         return super().before_start(task_id, args, kwargs)
 
-    def _get_user_info(self, user_id: str) -> Tuple[Optional[str], Optional[str]]:
+    def _get_user_info(self, user_id: str, organization_id: str = None) -> Tuple[Optional[str], Optional[str]]:
         """
         Get user email and name for notifications.
 
@@ -267,7 +267,7 @@ class BaseTask(Task):
 
             with self.get_db_session() as db:
                 # Session variables are automatically set by get_db_session()
-                user = crud.get_user(db, user_id)
+                user = crud.get_user(db, user_id, organization_id=organization_id)
                 if user:
                     display_name = (
                         user.display_name
@@ -313,7 +313,7 @@ class BaseTask(Task):
 
             # Get user information
             self.log_with_context("debug", f"Looking up user information for user_id: {user_id}")
-            user_email, user_name = self._get_user_info(user_id)
+            user_email, user_name = self._get_user_info(user_id, organization_id)
 
             if not user_email:
                 self.log_with_context("warning", f"No email found for user {user_id}")

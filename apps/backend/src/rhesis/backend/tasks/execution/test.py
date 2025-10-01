@@ -111,7 +111,7 @@ def execute_single_test(
         # Increment the progress counter
         with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
             progress_updated = increment_test_run_progress(
-                db=db, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful
+                db=db, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful, organization_id=organization_id, user_id=user_id
             )
 
         if progress_updated:
@@ -150,7 +150,7 @@ def execute_single_test(
         # Update progress for failed test
         try:
             progress_updated = increment_test_run_progress(
-                db=db, test_run_id=test_run_id, test_id=test_id, was_successful=False
+                db=db, test_run_id=test_run_id, test_id=test_id, was_successful=False, organization_id=organization_id, user_id=user_id
             )
             if progress_updated:
                 logger.debug(f"✅ DEBUG: Updated test run progress for failed test {test_id}")
