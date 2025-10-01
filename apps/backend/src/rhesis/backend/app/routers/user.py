@@ -110,10 +110,12 @@ async def read_users(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all users with their related objects"""
+    organization_id, user_id = tenant_context
     return crud.get_users(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -121,14 +123,12 @@ async def read_users(
 def read_user(
     user_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    db_user = crud.get_user(db, user_id=user_id)
+    organization_id, user_id_tenant = tenant_context
+    db_user = crud.get_user(db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
-
-    # Check if user belongs to the same organization
-    if db_user.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this user")
     return db_user
 
 
@@ -136,20 +136,17 @@ def read_user(
 def delete_user(
     user_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete users")
 
+    organization_id, user_id_tenant = tenant_context
+    
     # Get user before deletion to check organization
-    db_user = crud.get_user(db, user_id=user_id)
+    db_user = crud.get_user(db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
-
-    # Check if user belongs to the same organization (even for superusers)
-    if db_user.organization_id != current_user.organization_id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to delete users from other organizations"
-        )
 
     return crud.delete_user(db, user_id=user_id)
 
@@ -163,15 +160,12 @@ def update_user(
     user: schemas.UserUpdate,
     request: Request,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token_without_context)):
+    organization_id, user_id_tenant = tenant_context
+    
     # Get user with organization filtering (SECURITY CRITICAL)
-    user_query = db.query(User).filter(User.id == user_id)
-    
-    # Apply organization filtering unless current user is superuser
-    if not current_user.is_superuser and current_user.organization_id:
-        user_query = user_query.filter(User.organization_id == current_user.organization_id)
-    
-    db_user = user_query.first()
+    db_user = crud.get_user(db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found or not accessible")
 

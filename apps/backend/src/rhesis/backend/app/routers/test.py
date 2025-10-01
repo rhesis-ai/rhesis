@@ -155,9 +155,11 @@ def read_tests(
 def read_test(
     test_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test by ID with its related objects"""
-    db_test = crud.get_test(db, test_id=test_id)
+    organization_id, user_id = tenant_context
+    db_test = crud.get_test_detail(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
     return db_test

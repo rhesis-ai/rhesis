@@ -72,15 +72,25 @@ def read_endpoints(
 
 
 @router.get("/{endpoint_id}", response_model=EndpointDetailSchema)
-def read_endpoint(endpoint_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
-    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id)
+def read_endpoint(
+    endpoint_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
+    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id)
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail="Endpoint not found")
     return db_endpoint
 
 
 @router.delete("/{endpoint_id}", response_model=schemas.Endpoint)
-def delete_endpoint(endpoint_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
+def delete_endpoint(
+    endpoint_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
     db_endpoint = crud.delete_endpoint(db, endpoint_id=endpoint_id)
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail="Endpoint not found")
@@ -91,7 +101,10 @@ def delete_endpoint(endpoint_id: uuid.UUID, db: Session = Depends(get_tenant_db_
 def update_endpoint(
     endpoint_id: uuid.UUID,
     endpoint: schemas.EndpointUpdate,
-    db: Session = Depends(get_tenant_db_session)):
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    organization_id, user_id = tenant_context
     db_endpoint = crud.update_endpoint(db, endpoint_id=endpoint_id, endpoint=endpoint)
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail="Endpoint not found")

@@ -77,7 +77,7 @@ def read_source(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_source = crud.get_source(db, source_id=source_id)
+    db_source = crud.get_source(db, source_id=source_id, organization_id=organization_id, user_id=user_id)
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     return db_source

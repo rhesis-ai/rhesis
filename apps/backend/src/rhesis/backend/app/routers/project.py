@@ -65,10 +65,12 @@ async def read_projects(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all projects with their related objects"""
+    organization_id, user_id = tenant_context
     return crud.get_projects(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -88,18 +90,9 @@ def read_project(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_project = crud.get_project(db, project_id=project_id)
+    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id, user_id=user_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Check if user has access to this project
-    if (
-        db_project.organization_id != current_user.organization_id
-        and db_project.owner_id != current_user.id
-        and not current_user.is_superuser
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to access this project")
-
     return db_project
 
 
@@ -120,7 +113,7 @@ def update_project(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_project = crud.get_project(db, project_id=project_id)
+    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id, user_id=user_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -147,7 +140,7 @@ def delete_project(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_project = crud.get_project(db, project_id=project_id)
+    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id, user_id=user_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 

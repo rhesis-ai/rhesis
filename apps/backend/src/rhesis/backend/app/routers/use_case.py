@@ -52,10 +52,12 @@ def read_use_cases(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all use cases with their related objects"""
+    organization_id, user_id = tenant_context
     return crud.get_use_cases(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
     )
 
 
@@ -75,7 +77,7 @@ def read_use_case(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_use_case = crud.get_use_case(db, use_case_id=use_case_id)
+    db_use_case = crud.get_use_case(db, use_case_id=use_case_id, organization_id=organization_id, user_id=user_id)
     if db_use_case is None:
         raise HTTPException(status_code=404, detail="Use case not found")
     return db_use_case
