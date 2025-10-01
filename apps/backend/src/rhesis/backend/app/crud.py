@@ -966,6 +966,10 @@ def assign_tag(
     db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType, organization_id: str = None
 ) -> models.Tag:
     """Create a tag if it doesn't exist and link it to an entity with organization filtering"""
+    from rhesis.backend.logging.rhesis_logger import logger
+    
+    logger.info(f"assign_tag called: tag.name={tag.name}, entity_id={entity_id}, entity_type={entity_type}")
+    
     # Get the actual model class based on entity_type
     model_class = getattr(models, entity_type.value)
 
@@ -988,9 +992,13 @@ def assign_tag(
         .first()
     )
 
+    logger.info(f"Tag lookup: found={db_tag is not None}, tag_id={db_tag.id if db_tag else 'None'}")
+
     # If tag doesn't exist, create it
     if not db_tag:
+        logger.info(f"Creating new tag: {tag.name}")
         db_tag = create_tag(db=db, tag=tag)
+        logger.info(f"Tag created successfully: tag_id={db_tag.id}")
 
     # Check if the tag is already assigned
     existing_assignment = (
@@ -1005,10 +1013,14 @@ def assign_tag(
         .first()
     )
 
+    logger.info(f"Assignment lookup: found={existing_assignment is not None}")
+
     if existing_assignment:
+        logger.info(f"Tag already assigned, returning existing tag: tag_id={db_tag.id}")
         return db_tag
 
     # Create the tagged_item relationship
+    logger.info(f"Creating new tag assignment: tag_id={db_tag.id}, entity_id={entity_id}")
     tagged_item = models.TaggedItem(
         tag_id=db_tag.id,
         entity_id=entity_id,
@@ -1018,9 +1030,12 @@ def assign_tag(
     )
     db.add(tagged_item)
     db.flush()  # Force flush to ensure the TaggedItem is persisted
+    logger.info(f"Tag assignment created successfully: tagged_item_id={tagged_item.id}")
+    
     # Transaction commit is handled by the session context manager
     db.refresh(db_tag)
 
+    logger.info(f"assign_tag completed successfully: tag_id={db_tag.id}")
     return db_tag
 
 
@@ -1281,6 +1296,13 @@ def get_test(
 ) -> Optional[models.Test]:
     """Get test with optimized approach - no session variables needed."""
     return get_item(db, models.Test, test_id, organization_id, user_id)
+
+
+def get_test_detail(
+    db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Test]:
+    """Get test with all relationships loaded using optimized approach - no session variables needed."""
+    return get_item_detail(db, models.Test, test_id, organization_id, user_id)
 
 
 def get_tests(
@@ -1980,9 +2002,11 @@ def get_comments(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Comment]:
     """Get all comments with filtering and pagination"""
-    return get_items_detail(db, models.Comment, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Comment, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def get_comments_by_entity(
