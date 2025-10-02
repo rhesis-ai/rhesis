@@ -91,12 +91,12 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
         echo "Production mode detected"; \
         rm -rf ./src ./tsconfig.json ./.eslintrc.json && \
         echo "Source files removed for production mode"; \
-        npm ci --only=production && \
+        npm ci --only=production --legacy-peer-deps && \
         npm cache clean --force; \
     else \
         echo "Development mode detected"; \
         echo "Source files kept for development mode"; \
-        npm ci && npm cache clean --force; \
+        npm ci --legacy-peer-deps && npm cache clean --force; \
     fi
 
 # Create a non-root user and switch to it
