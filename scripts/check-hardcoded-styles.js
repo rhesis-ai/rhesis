@@ -315,13 +315,17 @@ class StyleChecker {
         // Check for hardcoded border radius
         PATTERNS.borderRadius.lastIndex = 0;
         while ((match = PATTERNS.borderRadius.exec(line)) !== null) {
+          const value = match[1];
+          // Skip percentage values as they are valid for creating circles
+          if (line.indexOf('%') !== -1) continue;
+
           this.violations.push({
             file: filePath,
             line: lineNumber,
             column: match.index + 1,
             type: 'borderRadius',
-            value: match[1],
-            message: this.suggestThemeAlternative('borderRadius', match[1]),
+            value: value,
+            message: this.suggestThemeAlternative('borderRadius', value),
             context: line.trim()
           });
         }

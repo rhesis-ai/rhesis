@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -102,8 +102,9 @@ export default function TestConfiguration({
   const [samples, setSamples] = useState<TestSample[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [refinementText, setRefinementText] = useState('');
+  const hasGeneratedInitialSamples = useRef(false);
 
-  const generateInitialSamples = async (desc: string, config: any) => {
+  const generateInitialSamples = useCallback(async (desc: string, config: any) => {
     if (!desc.trim()) return;
 
     try {
@@ -147,12 +148,16 @@ export default function TestConfiguration({
       );
 
       setSamples(newSamples);
+      hasGeneratedInitialSamples.current = true;
     } catch (error) {
       console.error('Failed to generate initial samples:', error);
     }
-  };
+  }, [sessionToken, documents]);
 
   useEffect(() => {
+    // Only run once on mount
+    if (hasGeneratedInitialSamples.current) return;
+
     // Load data from session storage
     const savedDescription = sessionStorage.getItem(
       'testGenerationDescription'
@@ -164,6 +169,14 @@ export default function TestConfiguration({
       setDescription(savedDescription);
     }
 
+    if (savedDocuments) {
+      try {
+        setDocuments(JSON.parse(savedDocuments));
+      } catch (error) {
+        console.error('Failed to parse saved documents:', error);
+      }
+    }
+
     if (savedConfig) {
       try {
         const config = JSON.parse(savedConfig);
@@ -173,6 +186,7 @@ export default function TestConfiguration({
           categories: config.categories,
           scenarios: config.scenarios,
         });
+
         // Generate initial samples with the loaded configuration
         if (savedDescription) {
           generateInitialSamples(savedDescription, config);
@@ -181,15 +195,7 @@ export default function TestConfiguration({
         console.error('Failed to parse saved configuration:', error);
       }
     }
-
-    if (savedDocuments) {
-      try {
-        setDocuments(JSON.parse(savedDocuments));
-      } catch (error) {
-        console.error('Failed to parse saved documents:', error);
-      }
-    }
-  }, [generateInitialSamples]);
+  }, []); // Empty dependency - run only once on mount
 
   const handleToggleSelection = (
     category: keyof Configuration,
@@ -429,18 +435,22 @@ export default function TestConfiguration({
             label={item}
             onClick={() => onToggle(item)}
             variant={selectedItems.includes(item) ? 'filled' : 'outlined'}
-            sx={theme => ({
-              backgroundColor: selectedItems.includes(item)
-                ? `${color}.main`
-                : 'transparent',
-              borderColor: `${color}.main`,
-              color: selectedItems.includes(item)
-                ? `${color}.main`
-                : 'text.primary',
-              '&:hover': {
-                backgroundColor: `${color}.light`,
-              },
-            })}
+            sx={theme => {
+              const colorKey = color.split('.')[0] as keyof typeof theme.palette;
+              const paletteColor = theme.palette[colorKey] as any;
+              return {
+                backgroundColor: selectedItems.includes(item)
+                  ? paletteColor?.main
+                  : 'transparent',
+                borderColor: paletteColor?.main,
+                color: selectedItems.includes(item)
+                  ? paletteColor?.main
+                  : 'text.primary',
+                '&:hover': {
+                  backgroundColor: paletteColor?.light,
+                },
+              };
+            }}
           />
         ))}
       </Box>
@@ -482,7 +492,7 @@ export default function TestConfiguration({
                 ? configuration.behaviors // Show only AI-generated behaviors
                 : availableBehaviors, // Show fallback only if no AI-generated behaviors
               configuration.behaviors,
-              'primary.main',
+              'primary',
               item => handleToggleSelection('behaviors', item)
             )}
 
@@ -492,7 +502,7 @@ export default function TestConfiguration({
                 ? configuration.topics // Show only AI-generated topics
                 : availableTopics, // Show fallback only if no AI-generated topics
               configuration.topics,
-              'secondary.main',
+              'secondary',
               item => handleToggleSelection('topics', item)
             )}
 
@@ -502,7 +512,7 @@ export default function TestConfiguration({
                 ? configuration.categories // Show only AI-generated categories
                 : availableCategories, // Show fallback only if no AI-generated categories
               configuration.categories,
-              'warning.main',
+              'warning',
               item => handleToggleSelection('categories', item)
             )}
 
@@ -512,7 +522,7 @@ export default function TestConfiguration({
                 ? configuration.scenarios // Show only AI-generated scenarios
                 : availableScenarios, // Show fallback only if no AI-generated scenarios
               configuration.scenarios,
-              'success.main',
+              'success',
               item => handleToggleSelection('scenarios', item)
             )}
 

@@ -141,11 +141,13 @@ export default function ConfirmTestGeneration({
       return;
     }
 
+    // Debug logging for troubleshooting
     console.log('Starting test generation with:', {
       testSetName,
       samplesCount: samples.length,
       configuration,
       description,
+      documents: documents.length,
     });
 
     setIsGenerating(true);
@@ -176,17 +178,22 @@ export default function ConfirmTestGeneration({
         config: generationConfig,
         samples: generationSamples,
         synthesizer_type: 'prompt',
-        num_tests: parseInt(testSetSize.replace(/\D/g, '')), // Extract number from testSetSize
         batch_size: 20,
-        documents: documents.map(doc => ({
-          name: doc.name,
-          description: doc.description || '',
-          path: doc.path,
-          content: doc.content || '',
-        })),
+        ...(documents.length > 0 && {
+          documents: documents.map(doc => ({
+            name: doc.name,
+            description: doc.description || '',
+            path: doc.path,
+            content: doc.content || '',
+          }))
+        }),
       };
 
-      console.log('Sending request to backend:', request);
+      console.log('Test generation request:', {
+      config: generationConfig,
+      samplesCount: generationSamples.length,
+      documentsCount: documents.length,
+    });
       const response = await testSetsClient.generateTestSet(request);
       console.log('Backend response:', response);
 
@@ -280,13 +287,15 @@ export default function ConfirmTestGeneration({
               </Box>
 
               <TextField
-                fullWidth
-                label="Test Set Name"
-                value={testSetName}
-                onChange={e => setTestSetName(e.target.value)}
-                placeholder="e.g., Insurance AI Compliance Suite"
-                sx={{ maxWidth: 400 }}
-              />
+                  fullWidth
+                  label="Test Set Name"
+                  value={testSetName}
+                  onChange={e => setTestSetName(e.target.value)}
+                  placeholder="e.g., Insurance AI Compliance Suite"
+                  sx={{ maxWidth: 400 }}
+                  helperText="Enter a name for your test set to enable generation"
+                  required
+                />
             </CardContent>
           </Card>
         </Grid>
@@ -499,6 +508,7 @@ export default function ConfirmTestGeneration({
           onClick={handleGenerate}
           disabled={isGenerating || !testSetName.trim()}
           sx={{ px: 4, py: 1.5 }}
+          title={!testSetName.trim() ? 'Please enter a test set name' : undefined}
         >
           {isGenerating ? 'Generating...' : 'Generate Tests'}
         </Button>
