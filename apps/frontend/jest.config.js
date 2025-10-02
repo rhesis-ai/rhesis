@@ -22,16 +22,14 @@ const customJestConfig = {
     '!src/auth.ts',
     '!src/middleware.ts',
   ],
-  // Temporarily disable coverage thresholds for initial setup
-  // TODO: Re-enable as test coverage increases
-  // coverageThreshold: {
-  //   global: {
-  //     branches: 70,
-  //     functions: 70,
-  //     lines: 70,
-  //     statements: 70,
-  //   },
-  // },
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',

@@ -93,12 +93,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd apps/frontend
-          npm ci --legacy-peer-deps
+          npm ci
 
       - name: Run tests
         run: |
           cd apps/frontend
-          npm run test:ci
+          npm test -- --passWithNoTests --ci --coverage --watchAll=false
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3

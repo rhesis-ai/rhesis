@@ -19,7 +19,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:ci": "jest --coverage --passWithNoTests --watchAll=false --ci",
+    "test:ci": "jest --ci --coverage --watchAll=false",
     "test:clean-coverage": "rm -rf coverage/"
   },
   "dependencies": {
@@ -56,9 +56,8 @@
   "devDependencies": {
     "@axe-core/react": "^4.7.0",
     "@next/bundle-analyzer": "^15.3.2",
-    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.4.6",
-    "@testing-library/react": "^16.0.0",
+    "@testing-library/react": "^15.0.0",
     "@testing-library/user-event": "^14.5.2",
     "@types/invariant": "^2.2.37",
     "@types/jest": "^29.5.12",
@@ -78,11 +77,5 @@
     "ts-jest": "^29.1.2",
     "typescript": "5.8.3",
     "webpack-bundle-analyzer": "^4.10.2"
-  },
-  "overrides": {
-    "@testing-library/react": {
-      "@types/react": "^19",
-      "@types/react-dom": "^19"
-    }
   }
 }
