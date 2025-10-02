@@ -17,6 +17,9 @@ inputs:
   service-url:
     description: 'Service URL to display'
     required: true
+  actual-service-name:
+    description: 'Actual service name extracted from Cloud Run (bypasses obfuscation)'
+    required: false
 runs:
   using: 'composite'
   steps:
@@ -27,33 +30,41 @@ runs:
         
         if [ "${{ inputs.is-preview }}" = "true" ]; then
           # Preview deployment summary
-          echo "## 🌐 ⚠️ PREVIEW - ${{ inputs.service-type }} Service Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "## ⚠️ PREVIEW - ${{ inputs.service-type }} Deployed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-          printf "**🧪 Preview URL:** [%s](%s)\n" "${{ inputs.service-url }}" "${{ inputs.service-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Preview URL:** [${{ inputs.service-url }}](${{ inputs.service-url }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ⚠️ Preview Warning" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚫 **This is a PREVIEW deployment, NOT live ${{ inputs.environment }}**" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **Receives 0% live traffic**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔒 **Isolated from live environment**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 **Only accessible via the tagged URL above**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🧪 **For testing and review purposes only**" >> $GITHUB_STEP_SUMMARY
+          
+          # Display service name and commit if available
+          if [ -n "${{ inputs.actual-service-name }}" ]; then
+            echo "**Service:** \`${{ inputs.actual-service-name }}\` | **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -n "$GITHUB_SHA" ]; then
+            COMMIT_SHORT=${GITHUB_SHA:0:8}
+            echo "**Commit:** [\`$COMMIT_SHORT\`](https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Preview only** - 0% live traffic, testing purposes only" >> $GITHUB_STEP_SUMMARY
         else
           # Regular deployment summary
-          echo "## 🌐 ✅ ${{ inputs.env-display }} - ${{ inputs.service-type }} Service Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ ${{ inputs.env-display }} - ${{ inputs.service-type }} Deployed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Access Information" >> $GITHUB_STEP_SUMMARY
-          printf "**🌍 ${{ inputs.env-display }} URL:** [%s](%s)\n" "${{ inputs.service-url }}" "${{ inputs.service-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ✅ ${{ inputs.env-display }} Status" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚀 **This is the LIVE ${{ inputs.env-display }} service**" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           
+          if [ -n "$GITHUB_SHA" ]; then
+            COMMIT_SHORT=${GITHUB_SHA:0:8}
+            echo "**Commit:** [\`$COMMIT_SHORT\`](https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ inputs.environment }}" = "prd" ]; then
-            echo "- 📈 **Serving real user traffic**" >> $GITHUB_STEP_SUMMARY
-            echo "- 🔴 **Handle with care - affects users**" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Live deployment** - serving real user traffic" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- 🧪 **Serving ${{ inputs.env-display }} environment traffic**" >> $GITHUB_STEP_SUMMARY
-            echo "- ⚠️ **Handle with care - affects ${{ inputs.env-display }} users**" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Live ${{ inputs.env-display }}** - new revision receiving 100% traffic" >> $GITHUB_STEP_SUMMARY
           fi
         fi
         
