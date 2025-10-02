@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-10-02
+
+### Added
+- Added support for persistent file storage using a new `StorageService` for multi-environment file handling.
+- Added a new API endpoint for generating test configurations.
+- Added `Source` entity type support to the comments system, including model and schema updates.
+- Added versioning information for both backend and frontend components.
+- Added a demo route with Auth0 login_hint integration.
+
+### Changed
+- Refactored the database session management to use `get_tenant_db_session` for improved Row-Level Security (RLS) and tenant context handling.
+- Refactored all routes to use proper database sessions and tenant context.
+- Refactored CRUD functions to include tenant context support.
+- Updated document endpoints for persistent storage.
+- Optimized the `with_count_header` decorator for better performance and compatibility with different dependency patterns.
+- Improved DocumentHandler validation and MIME type support.
+- Updated the Source model and schema with comments support.
+- Updated assign_tag and remove_tag to require organization_id and user_id.
+- Updated test set service to regenerate attributes on test set update.
+- Enhanced mixin structure for comment and task relationships.
+- Streamlined task retrieval and comment counting.
+- Implemented task management features and email notifications.
+
+### Fixed
+- Fixed critical cross-tenant data access vulnerabilities by implementing query-level organization filtering middleware.
+- Fixed numerous CRUD and StatsCalculator vulnerabilities related to organization filtering.
+- Fixed missing `organization_id` and `user_id` parameters in various CRUD operations, tasks, and API endpoints.
+- Fixed transaction management issues and improved CRUD utilities.
+- Fixed 'Not authenticated' error in auth/callback route.
+- Fixed Pydantic schema field shadowing and enum serialization warnings.
+- Fixed UUID validation issues in organization filtering.
+- Fixed CORS staging restrictions.
+- Fixed test failures with RLS and status fixtures.
+- Fixed API key generation to return the actual token value.
+- Fixed issues with initial data loading and organization filter warnings.
+- Fixed chord callback failures due to missing tenant context.
+- Fixed model relationships for comments.
+- Fixed organization filtering warnings in test set execution.
+- Corrected delete_organization CRUD function and router.
+
+### Removed
+- Removed manual transaction management in backend methods.
+- Removed legacy `set_tenant` functions and unused query helpers.
+- Removed verbose debug logging statements.
+
+
 ## [0.2.4] - 2025-09-18
 
 ### Added

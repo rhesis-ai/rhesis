@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-10-02
+
+### Added
+- Implemented comprehensive frontend testing infrastructure with Jest and React Testing Library.
+- Added pre-commit hooks for code formatting and linting.
+- Added comments and tasks count columns to entity DataGrids.
+- Implemented server-side search for test set selection.
+- Added editable task title with validation.
+- **Complete rebranding**: Introduced new Rhesis AI logos, color palette, and visual design system.
+- Added a demo route with Auth0 login_hint integration.
+- Added theme-based circular border radius support.
+- Added complete versioning information for backend and frontend.
+
+### Changed
+- **Complete application rebranding**: Updated entire application with new Rhesis AI theme, fonts, color palette, and brand elements.
+- Redesigned the demo page with a professional UI and brand elements.
+- Enhanced task detail page with navigation button and improved UI consistency.
+- Standardized avatar sizes and consolidated task details UI.
+- Improved metric card chips and UI behavior.
+- Improved test results interface clarity.
+- Truncated project description after 250 characters in ProjectCard.
+- Optimized chart space utilization and fixed alignment issues.
+- Improved visual consistency across onboarding components.
+- Updated logo to increased platypus variant with dark mode support.
+- Reduced default sidebar width.
+- Standardized font sizes and added typography variants to the theme.
+
+### Fixed
+- Resolved duplicate key error in Run Test Drawer with same project names.
+- Resolved initial load issue and improved error handling for tasks.
+- Resolved task details page error.
+- Resolved TypeScript error in TestSetSelectionDialog useRef initialization.
+- Improved error handling and prevented flickering in task components.
+- Resolved GitHub Actions testing issues.
+- Resolved React 19 compatibility issues in GitHub Actions.
+- Fixed hardcoded styles and validation issues across various components.
+- Fixed inconsistencies in chip colors and elevation issues.
+- Prevented charts from reloading on tab focus.
+- Standardized layout consistency and axis visibility across all chart components.
+- Improved endpoints detail page design consistency.
+- Corrected elevation prop usage to use numeric values.
+
+### Removed
+- Removed redundant Final_Summary.md and testing documentation files.
+- Removed workflow section from metrics, test-sets, and test-runs pages.
+- Removed reports navigation item.
+
+
 ## [0.2.4] - 2025-09-18
 
 ### Added

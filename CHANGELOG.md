@@ -13,6 +13,44 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-10-02
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.3.0**
+- **Frontend 0.3.0**
+- **SDK 0.3.0**
+
+### Summary of Changes
+
+**Backend v0.3.0:**
+- Added persistent storage for documents with new `StorageService` and updated document endpoints.
+- Implemented robust organization-level data isolation and access control across all entities and CRUD operations.
+- Enhanced comment and task management features, including email notifications and improved comment counting.
+- Introduced a new endpoint for generating test configurations.
+
+
+**Frontend v0.3.0:**
+- **Complete rebranding initiative**: Introduced new Rhesis AI brand identity with updated color palette, logos, and visual design system.
+- Implemented comprehensive frontend testing infrastructure.
+- Enhanced task management features, including editable task titles, improved UI consistency, and navigation improvements.
+- Improved UI/UX across various components, including dashboards, metrics pages, and data grids, with a focus on theme consistency and error handling.
+
+
+**SDK v0.3.0:**
+- Added functionality to push and pull metrics, including categorical and numeric prompt metrics.
+- Introduced configuration options for metrics, including enum support and backend configuration.
+- Refactored metric classes for improved structure and reusability.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.2.4] - 2025-09-18
 
 ### Platform Release
