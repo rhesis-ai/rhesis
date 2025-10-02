@@ -90,12 +90,12 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to fetch tasks';
         setError(errorMessage);
-        
+
         // Only show notification on initial load or if we don't have cached data
         if (!hasInitialLoad || tasks.length === 0) {
           notifications.show(errorMessage, { severity: 'error' });
         }
-        
+
         // Keep existing data on error if we have it (for pagination/filter errors)
         if (!hasInitialLoad) {
           setTasks([]);
@@ -108,7 +108,14 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         setLoading(false);
       }
     }
-  }, [sessionToken, paginationModel, filterModel, notifications, hasInitialLoad, tasks.length]);
+  }, [
+    sessionToken,
+    paginationModel,
+    filterModel,
+    notifications,
+    hasInitialLoad,
+    tasks.length,
+  ]);
 
   // Delete task
   const deleteTask = useCallback(
@@ -133,7 +140,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to delete task';
         notifications.show(errorMessage, { severity: 'error' });
-        
+
         // Refresh data to ensure consistency after delete failure
         fetchTasks();
       }
@@ -287,13 +294,13 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   if (error && !hasInitialLoad) {
     return (
       <Box>
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           sx={{ mb: 2 }}
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color="inherit"
+              size="small"
               onClick={fetchTasks}
               disabled={loading}
             >
@@ -303,7 +310,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         >
           {error}
         </Alert>
-        
+
         <BaseDataGrid
           rows={[]}
           columns={columns}
