@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, use } from 'react';
+import { useState, useEffect, useCallback, useRef, use } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -45,12 +45,25 @@ export default function TaskDetailPage({ params }: PageProps) {
   const { show } = useNotifications();
 
   const theme = useTheme();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  
+  // Use refs to track state without causing dependency cycles
+  const isLoadingRef = useRef(false);
+  const hasInitialLoadRef = useRef(false);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
+  
+  useEffect(() => {
+    hasInitialLoadRef.current = hasInitialLoad;
+  }, [hasInitialLoad]);
 
   const [statuses, setStatuses] = useState<any[]>([]);
   const [priorities, setPriorities] = useState<any[]>([]);
@@ -75,11 +88,8 @@ export default function TaskDetailPage({ params }: PageProps) {
   // Create a stable reference for the load function
   const loadInitialData = useCallback(
     async (isRetry = false) => {
-      // Prevent multiple concurrent requests
-      if (isLoading && !isRetry) return;
-
-      // Skip if already loaded and not retrying
-      if (hasInitialLoad && !isRetry) return;
+      // Prevent multiple concurrent requests using refs to avoid dependency cycles
+      if (!isRetry && (isLoadingRef.current || hasInitialLoadRef.current)) return;
 
       try {
         if (isRetry) {
@@ -140,21 +150,21 @@ export default function TaskDetailPage({ params }: PageProps) {
         setIsRetrying(false);
       }
     },
-    [taskId, getTask, session?.session_token, show, isLoading, hasInitialLoad]
+    [taskId, getTask, session?.session_token, show]
   );
 
   // Initial load effect - only depends on essential values
   useEffect(() => {
-    if (taskId && session?.session_token && !hasInitialLoad) {
+    if (taskId && session?.session_token) {
       loadInitialData();
     }
-  }, [taskId, session?.session_token, hasInitialLoad, loadInitialData]);
+  }, [taskId, session?.session_token, loadInitialData]);
 
   // Timeout effect - show timeout message if loading takes too long
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
-    if (isLoading && !hasInitialLoad) {
+    if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
       // Set timeout for 10 seconds
       timeoutId = setTimeout(() => {
         setLoadingTimeout(true);
@@ -168,10 +178,10 @@ export default function TaskDetailPage({ params }: PageProps) {
         clearTimeout(timeoutId);
       }
     };
-  }, [isLoading, hasInitialLoad]);
+  }, [isLoading, hasInitialLoad, taskId, session?.session_token]);
 
-  // Show loading state while taskId is being set
-  if (isLoading && !hasInitialLoad) {
+  // Show loading state while loading or if we haven't loaded yet
+  if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
     return (
       <PageContainer
         title={loadingTimeout ? 'Taking longer than expected...' : 'Loading...'}
