@@ -25,7 +25,7 @@ class CommentBase(Base):
         ...,
         description=(
             "Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', "
-            "'Model', 'Prompt', 'Behavior', 'Category', 'Task'"
+            "'Model', 'Prompt', 'Behavior', 'Category', 'Task', 'Source'"
         ),
     )
 
@@ -40,7 +40,7 @@ class CommentCreate(BaseModel):
         ...,
         description=(
             "Type of entity: 'Test', 'TestSet', 'TestRun', 'TestResult', 'Metric', "
-            "'Model', 'Prompt', 'Behavior', 'Category', 'Task'"
+            "'Model', 'Prompt', 'Behavior', 'Category', 'Task', 'Source'"
         ),
     )
 

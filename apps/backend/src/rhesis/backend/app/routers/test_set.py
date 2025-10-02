@@ -25,7 +25,9 @@ from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
     execute_test_set_on_endpoint,
     get_test_set_stats,
-    get_test_set_test_stats)
+    get_test_set_test_stats,
+    update_test_set_attributes,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -525,6 +527,12 @@ async def update_test_set(
         user_id=user_id)
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found")
+
+    try:
+        update_test_set_attributes(db=db, test_set_id=str(test_set_id))
+    except Exception as e:
+        logger.warning(f"Failed to regenerate test set attributes for {test_set_id}: {e}")
+
     return db_test_set
 
 

@@ -33,7 +33,7 @@ export default function IntegrationsLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  
+
   // Redirect to applications if on the root integrations path
   React.useEffect(() => {
     if (pathname === '/integrations') {
@@ -65,8 +65,8 @@ export default function IntegrationsLayout({
   return (
     <Box sx={{ width: '100%' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs 
-          value={tabValue} 
+        <Tabs
+          value={tabValue}
           onChange={handleTabChange}
           aria-label="integration tabs"
           sx={{ px: 3 }}
@@ -79,4 +79,4 @@ export default function IntegrationsLayout({
       {children}
     </Box>
   );
-} 
+}

@@ -30,12 +30,12 @@ export interface JWTCallbackParams {
   token: NextAuthJWT;
   user?: User | null;
   session?: NextAuthSession | null;
-  trigger?: "signIn" | "signUp" | "update";
+  trigger?: 'signIn' | 'signUp' | 'update';
 }
 
 export interface SessionCallbackParams {
   session: Session;
   token: NextAuthJWT;
-  trigger?: "update";
+  trigger?: 'update';
   newSession?: any;
 }

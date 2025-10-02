@@ -15,14 +15,17 @@ interface ErrorBoundaryProps {
   fallback?: React.ComponentType<{ error?: Error; retry: () => void }>;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    console.error('🚨 [ERROR BOUNDARY] Caught error:', error);
+    console.error('[ALERT] [ERROR BOUNDARY] Caught error:', error);
     return {
       hasError: true,
       error,
@@ -30,7 +33,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('🚨 [ERROR BOUNDARY] Component crashed:', {
+    console.error('[ALERT] [ERROR BOUNDARY] Component crashed:', {
       error: {
         name: error.name,
         message: error.message,
@@ -40,7 +43,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         componentStack: errorInfo.componentStack,
       },
       timestamp: new Date().toISOString(),
-      userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown',
+      userAgent:
+        typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown',
       url: typeof window !== 'undefined' ? window.location.href : 'unknown',
     });
 
@@ -51,7 +55,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   handleRetry = () => {
-    console.log('🔄 [ERROR BOUNDARY] Retrying...');
+    console.log('[DEBUG] [ERROR BOUNDARY] Retrying...');
     this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
@@ -59,7 +63,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (this.state.hasError) {
       if (this.props.fallback) {
         const FallbackComponent = this.props.fallback;
-        return <FallbackComponent error={this.state.error} retry={this.handleRetry} />;
+        return (
+          <FallbackComponent
+            error={this.state.error}
+            retry={this.handleRetry}
+          />
+        );
       }
 
       return (
@@ -87,7 +96,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 Something went wrong
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                The application encountered an unexpected error. Please try refreshing the page or contact support if the problem persists.
+                The application encountered an unexpected error. Please try
+                refreshing the page or contact support if the problem persists.
               </Typography>
             </Alert>
 
@@ -101,8 +111,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                   sx={{
                     backgroundColor: 'grey.100',
                     p: 2,
-                    borderRadius: 1,
-                    fontSize: '0.875rem',
+                    borderRadius: theme => theme.shape.borderRadius * 0.25,
+                    fontSize: theme => theme.typography.helperText.fontSize,
                     overflow: 'auto',
                     maxHeight: 200,
                   }}
@@ -140,18 +150,21 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
 // Hook version for functional components
 export function useErrorHandler() {
-  return React.useCallback((error: Error, errorInfo?: { componentStack?: string }) => {
-    console.error('🚨 [ERROR HANDLER] Manual error report:', {
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-      errorInfo,
-      timestamp: new Date().toISOString(),
-      url: typeof window !== 'undefined' ? window.location.href : 'unknown',
-    });
-  }, []);
+  return React.useCallback(
+    (error: Error, errorInfo?: { componentStack?: string }) => {
+      console.error('[ALERT] [ERROR HANDLER] Manual error report:', {
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        },
+        errorInfo,
+        timestamp: new Date().toISOString(),
+        url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+      });
+    },
+    []
+  );
 }
 
 export default ErrorBoundary;

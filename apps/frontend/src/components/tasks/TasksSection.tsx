@@ -1,0 +1,307 @@
+'use client';
+
+import React, { useState, useCallback, useRef } from 'react';
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Paper,
+  Button,
+  Chip,
+  Avatar,
+} from '@mui/material';
+import { AddIcon } from '@/components/icons';
+import { Task, EntityType } from '@/types/tasks';
+import { getEntityDisplayName } from '@/utils/entity-helpers';
+import BaseDataGrid from '@/components/common/BaseDataGrid';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowSelectionModel,
+} from '@mui/x-data-grid';
+import { useRouter } from 'next/navigation';
+import { TaskErrorBoundary } from './TaskErrorBoundary';
+import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useSession } from 'next-auth/react';
+import { useNotifications } from '@/components/common/NotificationContext';
+
+interface TasksSectionProps {
+  entityType: EntityType;
+  entityId: string;
+  sessionToken: string;
+  onCreateTask: (taskData: any) => Promise<void>;
+  onEditTask?: (taskId: string) => void;
+  onDeleteTask?: (taskId: string) => Promise<void>;
+  currentUserId: string;
+  currentUserName: string;
+}
+
+export function TasksSection({
+  entityType,
+  entityId,
+  sessionToken,
+  onCreateTask,
+  onEditTask,
+  onDeleteTask,
+  currentUserId,
+  currentUserName,
+}: TasksSectionProps) {
+  const router = useRouter();
+  const notifications = useNotifications();
+  const isMounted = useRef(true);
+
+  // Component state
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 10,
+  });
+
+  // Fetch tasks with pagination
+  const fetchTasks = useCallback(
+    async (pagination: GridPaginationModel) => {
+      if (!sessionToken) {
+        setError('No session token available');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const tasksClient = clientFactory.getTasksClient();
+
+        const skip = pagination.page * pagination.pageSize;
+        // Use the main tasks endpoint with OData filter for entity-specific tasks
+        const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
+        const response = await tasksClient.getTasks({
+          skip,
+          limit: pagination.pageSize,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+          $filter: filter,
+        });
+
+        if (isMounted.current) {
+          setTasks(response.data);
+          setTotalCount(response.totalCount);
+        }
+      } catch (err) {
+        if (isMounted.current) {
+          const errorMessage =
+            err instanceof Error ? err.message : 'Failed to fetch tasks';
+          setError(errorMessage);
+          notifications.show(errorMessage, { severity: 'error' });
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [entityType, entityId, sessionToken, notifications]
+  );
+
+  // Handle pagination changes
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+      fetchTasks(newModel);
+    },
+    [fetchTasks]
+  );
+
+  // Initial fetch
+  React.useEffect(() => {
+    fetchTasks(paginationModel);
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, [fetchTasks, paginationModel]);
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (onDeleteTask) {
+      try {
+        await onDeleteTask(taskId);
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+      }
+    }
+  };
+
+  const handleRowClick = (params: any) => {
+    try {
+      router.push(`/tasks/${params.id}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  };
+
+  const handleCreateTask = () => {
+    const queryParams = new URLSearchParams({
+      entityType,
+      entityId,
+    });
+    router.push(`/tasks/create?${queryParams.toString()}`);
+  };
+
+  // Column definitions for the table
+  const columns: GridColDef[] = [
+    {
+      field: 'title',
+      headerName: 'Title',
+      width: 300,
+      renderCell: params => (
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+          {params.row.title}
+        </Typography>
+      ),
+    },
+    {
+      field: 'description',
+      headerName: 'Description',
+      width: 400,
+      renderCell: params => (
+        <Typography
+          variant="body2"
+          sx={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+          }}
+        >
+          {params.row.description || '-'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 120,
+      renderCell: params => {
+        const getStatusColor = (status?: string) => {
+          switch (status) {
+            case 'Open':
+              return 'warning';
+            case 'In Progress':
+              return 'primary';
+            case 'Completed':
+              return 'success';
+            case 'Cancelled':
+              return 'error';
+            default:
+              return 'default';
+          }
+        };
+
+        return (
+          <Chip
+            label={params.row.status?.name || 'Unknown'}
+            color={getStatusColor(params.row.status?.name) as any}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'assignee',
+      headerName: 'Assignee',
+      width: 150,
+      renderCell: params => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar
+            src={params.row.assignee?.picture}
+            alt={params.row.assignee?.name || 'Unassigned'}
+            sx={{
+              width: AVATAR_SIZES.SMALL,
+              height: AVATAR_SIZES.SMALL,
+              bgcolor: 'primary.main',
+            }}
+          >
+            {params.row.assignee?.name?.charAt(0) || 'U'}
+          </Avatar>
+          <Typography variant="body2">
+            {params.row.assignee?.name || 'Unassigned'}
+          </Typography>
+        </Box>
+      ),
+    },
+  ];
+
+  return (
+    <TaskErrorBoundary>
+      <Box>
+        {/* Header */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+          }}
+        >
+          <Typography variant="h6" component="h2">
+            Tasks ({tasks.length})
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateTask}
+          >
+            Create Task
+          </Button>
+        </Box>
+
+        {/* Tasks Table */}
+        {error ? (
+          <Typography
+            variant="body2"
+            color="error"
+            sx={{ textAlign: 'center', py: 3 }}
+          >
+            {error}
+          </Typography>
+        ) : !loading && tasks.length === 0 ? (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ textAlign: 'center', py: 3 }}
+          >
+            No tasks yet. Create the first task for this{' '}
+            {getEntityDisplayName(entityType).toLowerCase()}.
+          </Typography>
+        ) : (
+          <BaseDataGrid
+            rows={tasks}
+            columns={columns}
+            loading={loading}
+            onRowClick={handleRowClick}
+            disableRowSelectionOnClick
+            pageSizeOptions={[5, 10, 25]}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
+            getRowId={row => row.id}
+            showToolbar={true}
+            disablePaperWrapper={true}
+            serverSidePagination={true}
+            totalRows={totalCount}
+            sx={{
+              '& .MuiDataGrid-row': {
+                cursor: 'pointer',
+              },
+              minHeight: Math.min(tasks.length * 52 + 120, 400), // Dynamic height
+            }}
+          />
+        )}
+      </Box>
+    </TaskErrorBoundary>
+  );
+}

@@ -1,14 +1,14 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { 
-  TestRun, 
-  TestRunCreate, 
-  TestRunUpdate, 
-  TestRunDetail
+import {
+  TestRun,
+  TestRunCreate,
+  TestRunUpdate,
+  TestRunDetail,
 } from './interfaces/test-run';
-import { 
-  TestRunStatsResponse, 
-  TestRunStatsParams 
+import {
+  TestRunStatsResponse,
+  TestRunStatsParams,
 } from './interfaces/test-run-stats';
 import { Behavior } from './interfaces/behavior';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -23,26 +23,28 @@ const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
   limit: 50,
   sort_by: 'created_at',
-  sort_order: 'desc'
+  sort_order: 'desc',
 };
 
 export class TestRunsClient extends BaseApiClient {
-  async getTestRuns(params: TestRunsQueryParams = {}): Promise<PaginatedResponse<TestRunDetail>> {
+  async getTestRuns(
+    params: TestRunsQueryParams = {}
+  ): Promise<PaginatedResponse<TestRunDetail>> {
     const { test_configuration_id, filter, ...paginationParams } = params;
-    
+
     // Build the OData filter
     let finalFilter = filter;
     if (test_configuration_id) {
       const configFilter = `test_configuration/id eq '${test_configuration_id}'`;
       finalFilter = filter ? `(${filter}) and (${configFilter})` : configFilter;
     }
-    
+
     // Prepare parameters for fetchPaginated
-    const fetchParams = { 
-      ...DEFAULT_PAGINATION, 
-      ...paginationParams 
+    const fetchParams = {
+      ...DEFAULT_PAGINATION,
+      ...paginationParams,
     };
-    
+
     if (finalFilter) {
       (fetchParams as any).$filter = finalFilter;
     }
@@ -58,7 +60,7 @@ export class TestRunsClient extends BaseApiClient {
   async getTestRunsCount(): Promise<number> {
     const response = await this.getTestRuns({
       skip: 0,
-      limit: 1
+      limit: 1,
     });
     return response.pagination.totalCount;
   }
@@ -68,7 +70,9 @@ export class TestRunsClient extends BaseApiClient {
   }
 
   async getTestRunBehaviors(testRunId: string): Promise<Behavior[]> {
-    return this.fetch<Behavior[]>(`${API_ENDPOINTS.testRuns}/${testRunId}/behaviors`);
+    return this.fetch<Behavior[]>(
+      `${API_ENDPOINTS.testRuns}/${testRunId}/behaviors`
+    );
   }
 
   async createTestRun(testRun: TestRunCreate): Promise<TestRun> {
@@ -91,11 +95,14 @@ export class TestRunsClient extends BaseApiClient {
     });
   }
 
-  async getTestRunsByTestConfiguration(testConfigurationId: string, params: Partial<PaginationParams> = {}): Promise<PaginatedResponse<TestRunDetail>> {
+  async getTestRunsByTestConfiguration(
+    testConfigurationId: string,
+    params: Partial<PaginationParams> = {}
+  ): Promise<PaginatedResponse<TestRunDetail>> {
     return this.getTestRuns({
       ...DEFAULT_PAGINATION,
       ...params,
-      test_configuration_id: testConfigurationId
+      test_configuration_id: testConfigurationId,
     });
   }
 
@@ -103,9 +110,11 @@ export class TestRunsClient extends BaseApiClient {
     return this.fetchBlob(`${API_ENDPOINTS.testRuns}/${testRunId}/download`);
   }
 
-  async getTestRunStats(params: TestRunStatsParams = {}): Promise<TestRunStatsResponse> {
+  async getTestRunStats(
+    params: TestRunStatsParams = {}
+  ): Promise<TestRunStatsResponse> {
     const queryParams = new URLSearchParams();
-    
+
     // Add all parameters to query string
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -126,7 +135,8 @@ export class TestRunsClient extends BaseApiClient {
     endpoint: keyof typeof API_ENDPOINTS | string,
     options: RequestInit = {}
   ): Promise<Blob> {
-    const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const path =
+      API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
     const url = joinUrl(this.baseUrl, path);
     const headers = this.getHeaders();
 
@@ -145,4 +155,4 @@ export class TestRunsClient extends BaseApiClient {
 
     return response.blob();
   }
-} 
+}

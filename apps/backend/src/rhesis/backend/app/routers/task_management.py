@@ -77,7 +77,7 @@ def list_tasks(
     response: Response = None):
     """List tasks with filtering, sorting, and comment counts"""
     try:
-        return crud.get_tasks_with_comment_counts(
+        return crud.get_tasks(
             db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
         )
     except Exception as e:
@@ -88,7 +88,7 @@ def list_tasks(
 @router.get("/{task_id}", response_model=TaskDetailSchema)
 def get_task(task_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
     """Get a single task by ID"""
-    task = crud.get_task_with_comment_count(db=db, task_id=task_id)
+    task = crud.get_task(db=db, task_id=task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return task

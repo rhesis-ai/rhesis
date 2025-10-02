@@ -1,8 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Grid, Typography } from '@mui/material';
-import BaseFreesoloAutocomplete, { AutocompleteOption } from '@/components/common/BaseFreesoloAutocomplete';
+import { Box, Grid, Typography, useTheme } from '@mui/material';
+import { InsertDriveFileOutlined as DocumentIcon } from '@mui/icons-material';
+import BaseFreesoloAutocomplete, {
+  AutocompleteOption,
+} from '@/components/common/BaseFreesoloAutocomplete';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail, TypeLookup } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -19,7 +22,11 @@ interface TestDetailOption {
   name: string;
 }
 
-export default function TestDetailData({ sessionToken, test: initialTest }: TestDetailDataProps) {
+export default function TestDetailData({
+  sessionToken,
+  test: initialTest,
+}: TestDetailDataProps) {
+  const theme = useTheme();
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
   const [types, setTypes] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
@@ -36,10 +43,16 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
 
       // Fetch behaviors with sorting
       const behaviorsClient = apiFactory.getBehaviorClient();
-      const behaviorsData = await behaviorsClient.getBehaviors({ sort_by: 'name', sort_order: 'asc' });
+      const behaviorsData = await behaviorsClient.getBehaviors({
+        sort_by: 'name',
+        sort_order: 'asc',
+      });
       setBehaviors(
         behaviorsData
-          .filter((b: { id: UUID; name: string }) => b.id && b.name && b.name.trim() !== '')
+          .filter(
+            (b: { id: UUID; name: string }) =>
+              b.id && b.name && b.name.trim() !== ''
+          )
           .map((b: { id: UUID; name: string }) => ({ id: b.id, name: b.name }))
       );
 
@@ -49,9 +62,14 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
         const typesData = await typeLookupClient.getTypeLookups({
           sort_by: 'type_value',
           sort_order: 'asc',
-          $filter: "type_name eq 'TestType'"
+          $filter: "type_name eq 'TestType'",
         });
-        setTypes(typesData.map((t: { id: UUID; type_value: string }) => ({ id: t.id, name: t.type_value })));
+        setTypes(
+          typesData.map((t: { id: UUID; type_value: string }) => ({
+            id: t.id,
+            name: t.type_value,
+          }))
+        );
       } catch (error) {
         console.error('Error fetching test types:', error);
         setTypes([]);
@@ -59,13 +77,31 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
 
       // Fetch topics with entity_type filter and sorting
       const topicsClient = apiFactory.getTopicClient();
-      const topicsData = await topicsClient.getTopics({ entity_type: 'Test', sort_by: 'name', sort_order: 'asc' });
-      setTopics(topicsData.map((t: { id: UUID; name: string }) => ({ id: t.id, name: t.name })));
+      const topicsData = await topicsClient.getTopics({
+        entity_type: 'Test',
+        sort_by: 'name',
+        sort_order: 'asc',
+      });
+      setTopics(
+        topicsData.map((t: { id: UUID; name: string }) => ({
+          id: t.id,
+          name: t.name,
+        }))
+      );
 
       // Fetch categories with entity_type filter and sorting
       const categoriesClient = apiFactory.getCategoryClient();
-      const categoriesData = await categoriesClient.getCategories({ entity_type: 'Test', sort_by: 'name', sort_order: 'asc' });
-      setCategories(categoriesData.map((c: { id: UUID; name: string }) => ({ id: c.id, name: c.name })));
+      const categoriesData = await categoriesClient.getCategories({
+        entity_type: 'Test',
+        sort_by: 'name',
+        sort_order: 'asc',
+      });
+      setCategories(
+        categoriesData.map((c: { id: UUID; name: string }) => ({
+          id: c.id,
+          name: c.name,
+        }))
+      );
     };
 
     fetchOptions();
@@ -94,7 +130,10 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
     }
   }, [sessionToken, test.id, isUpdating]);
 
-  const handleUpdate = async (field: string, value: string | AutocompleteOption | null) => {
+  const handleUpdate = async (
+    field: string,
+    value: string | AutocompleteOption | null
+  ) => {
     if (!sessionToken || isUpdating) return;
 
     setIsUpdating(true);
@@ -114,7 +153,7 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           `Creating new ${field} is not supported in this version`,
           {
             severity: 'info',
-            autoHideDuration: 6000
+            autoHideDuration: 6000,
           }
         );
       } else if (value) {
@@ -124,13 +163,10 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
         // Update the test
         await testsClient.updateTest(test.id, updatePayload);
 
-        notifications.show(
-          `Successfully updated test ${field}`,
-          {
-            severity: 'success',
-            autoHideDuration: 6000
-          }
-        );
+        notifications.show(`Successfully updated test ${field}`, {
+          severity: 'success',
+          autoHideDuration: 6000,
+        });
 
         // Refresh the test data
         await refreshTest();
@@ -141,13 +177,10 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
         // Update the test
         await testsClient.updateTest(test.id, updatePayload);
 
-        notifications.show(
-          `Successfully cleared test ${field}`,
-          {
-            severity: 'success',
-            autoHideDuration: 6000
-          }
-        );
+        notifications.show(`Successfully cleared test ${field}`, {
+          severity: 'success',
+          autoHideDuration: 6000,
+        });
 
         // Refresh the test data
         await refreshTest();
@@ -155,13 +188,10 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
     } catch (error) {
       console.error(`Error updating test ${field}:`, error);
 
-      notifications.show(
-        `Failed to update test ${field}`,
-        {
-          severity: 'error',
-          autoHideDuration: 6000
-        }
-      );
+      notifications.show(`Failed to update test ${field}`, {
+        severity: 'error',
+        autoHideDuration: 6000,
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -190,10 +220,12 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           <BaseFreesoloAutocomplete
             options={behaviors}
             value={getDisplayValue('behavior')}
-            onChange={(value) => {
+            onChange={value => {
               // Find the matching behavior option by name
               if (typeof value === 'string') {
-                const matchingBehavior = behaviors.find(behavior => behavior.name === value);
+                const matchingBehavior = behaviors.find(
+                  behavior => behavior.name === value
+                );
                 if (matchingBehavior) {
                   handleUpdate('behavior', matchingBehavior);
                 } else {
@@ -211,7 +243,7 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           <BaseFreesoloAutocomplete
             options={types}
             value={getDisplayValue('test_type')}
-            onChange={(value) => {
+            onChange={value => {
               // Find the matching type option by name
               if (typeof value === 'string') {
                 const matchingType = types.find(type => type.name === value);
@@ -234,10 +266,12 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           <BaseFreesoloAutocomplete
             options={topics}
             value={getDisplayValue('topic')}
-            onChange={(value) => {
+            onChange={value => {
               // Find the matching topic option by name
               if (typeof value === 'string') {
-                const matchingTopic = topics.find(topic => topic.name === value);
+                const matchingTopic = topics.find(
+                  topic => topic.name === value
+                );
                 if (matchingTopic) {
                   handleUpdate('topic', matchingTopic);
                 } else {
@@ -255,10 +289,12 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           <BaseFreesoloAutocomplete
             options={categories}
             value={getDisplayValue('category')}
-            onChange={(value) => {
+            onChange={value => {
               // Find the matching category option by name
               if (typeof value === 'string') {
-                const matchingCategory = categories.find(category => category.name === value);
+                const matchingCategory = categories.find(
+                  category => category.name === value
+                );
                 if (matchingCategory) {
                   handleUpdate('category', matchingCategory);
                 } else {
@@ -308,23 +344,33 @@ export default function TestDetailData({ sessionToken, test: initialTest }: Test
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {test.test_metadata.sources.map((source: any, index: number) => (
               <Box key={index}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  📄 {source.document || source.source || 'Unknown Document'}
-                </Typography>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                >
+                  <DocumentIcon
+                    sx={{
+                      fontSize: theme.iconSizes.small,
+                      color: 'text.secondary',
+                    }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {source.document || source.source || 'Unknown Document'}
+                  </Typography>
+                </Box>
                 <Box
                   sx={{
                     p: 2,
                     border: 1,
                     borderColor: 'divider',
-                    borderRadius: 1,
+                    borderRadius: theme => theme.shape.borderRadius * 0.25,
                     backgroundColor: 'background.paper',
                     minHeight: '100px',
                     maxHeight: '300px',
                     overflow: 'auto',
                     fontFamily: 'monospace',
-                    fontSize: '0.875rem',
+                    fontSize: theme.typography.helperText.fontSize,
                     whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word'
+                    wordBreak: 'break-word',
                   }}
                 >
                   {source.content || 'No content available'}

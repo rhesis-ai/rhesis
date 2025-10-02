@@ -12,7 +12,10 @@ interface PassRateTimelineChartProps {
   filters: Partial<TestResultsStatsOptions>;
 }
 
-export default function PassRateTimelineChart({ sessionToken, filters }: PassRateTimelineChartProps) {
+export default function PassRateTimelineChart({
+  sessionToken,
+  filters,
+}: PassRateTimelineChartProps) {
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,14 +25,15 @@ export default function PassRateTimelineChart({ sessionToken, filters }: PassRat
       setIsLoading(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
-      
+
       const options: TestResultsStatsOptions = {
         mode: 'timeline', // Specific mode for timeline data
         months: filters.months || 6,
-        ...filters
+        ...filters,
       };
 
-      const statsData = await testResultsClient.getComprehensiveTestResultsStats(options);
+      const statsData =
+        await testResultsClient.getComprehensiveTestResultsStats(options);
       if (statsData && typeof statsData === 'object') {
         console.log('Timeline API Response:', statsData);
         console.log('Timeline data:', statsData.timeline);
@@ -40,7 +44,8 @@ export default function PassRateTimelineChart({ sessionToken, filters }: PassRat
         setError('Invalid timeline data received');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load timeline data';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to load timeline data';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -53,7 +58,7 @@ export default function PassRateTimelineChart({ sessionToken, filters }: PassRat
 
   return (
     <BaseTimelineChart
-      title="Pass Rate Over Time"
+      title="Pass Rate by Month"
       data={stats?.timeline || []}
       dataExtractor={extractOverallData}
       height={400}

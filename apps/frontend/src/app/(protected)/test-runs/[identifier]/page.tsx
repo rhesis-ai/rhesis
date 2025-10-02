@@ -6,8 +6,8 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestRunDetailCharts from './components/TestRunDetailCharts';
 import TestRunTestsGrid from './components/TestRunTestsGrid';
 import TestRunDetailsSection from './components/TestRunDetailsSection';
-import TestRunWorkflowSection from './components/TestRunWorkflowSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -15,12 +15,16 @@ interface PageProps {
 }
 
 // Generate metadata for the page
-export async function generateMetadata({ params }: { params: Promise<{ identifier: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ identifier: string }>;
+}): Promise<Metadata> {
   try {
     const resolvedParams = await params;
     const identifier = resolvedParams.identifier;
-    const session = await auth() as { session_token: string } | null;
-    
+    const session = (await auth()) as { session_token: string } | null;
+
     // If no session (like during warmup), return basic metadata
     if (!session?.session_token) {
       return {
@@ -28,11 +32,11 @@ export async function generateMetadata({ params }: { params: Promise<{ identifie
         description: `Details for Test Run ${identifier}`,
       };
     }
-    
+
     const apiFactory = new ApiClientFactory(session.session_token);
     const testRunsClient = apiFactory.getTestRunsClient();
     const testRun = await testRunsClient.getTestRun(resolvedParams.identifier);
-    
+
     return {
       title: `Test Run | ${identifier}`,
       description: `Details for Test Run ${identifier}`,
@@ -52,14 +56,14 @@ export default async function TestRunPage({ params }: { params: any }) {
   // Ensure params is properly awaited
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;
-  
+
   const session = await auth();
-  
+
   // If no session (like during warmup), redirect to login
   if (!session?.session_token) {
     throw new Error('Authentication required');
   }
-  
+
   const apiFactory = new ApiClientFactory(session.session_token);
   const testRunsClient = apiFactory.getTestRunsClient();
   const testRun = await testRunsClient.getTestRun(identifier);
@@ -68,7 +72,7 @@ export default async function TestRunPage({ params }: { params: any }) {
   const title = testRun.name || `Test Run ${identifier}`;
   const breadcrumbs = [
     { title: 'Test Runs', path: '/test-runs' },
-    { title, path: `/test-runs/${identifier}` }
+    { title, path: `/test-runs/${identifier}` },
   ];
 
   return (
@@ -76,32 +80,32 @@ export default async function TestRunPage({ params }: { params: any }) {
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         {/* Charts Section */}
         <Box sx={{ mb: 4 }}>
-          <TestRunDetailCharts 
-            testRunId={identifier} 
-            sessionToken={session.session_token} 
+          <TestRunDetailCharts
+            testRunId={identifier}
+            sessionToken={session.session_token}
           />
         </Box>
 
         <Grid container spacing={3}>
           {/* Main Content Column */}
-          <Grid item xs={12} md={9}>
-            <Paper sx={{ p: 3, mb: 4 }}>
-              <TestRunDetailsSection 
-                testRun={testRun} 
+          <Grid item xs={12}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+              <TestRunDetailsSection
+                testRun={testRun}
                 sessionToken={session.session_token}
               />
             </Paper>
 
             {/* Tests Grid Paper */}
-            <Paper sx={{ p: 3, mb: 4 }}>
+            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
               <TestRunTestsGrid
                 testRunId={identifier}
                 sessionToken={session.session_token}
               />
             </Paper>
 
-            {/* Comments Section */}
-            <CommentsWrapper
+            {/* Tasks and Comments Section */}
+            <TasksAndCommentsWrapper
               entityType="TestRun"
               entityId={testRun.id}
               sessionToken={session.session_token}
@@ -110,22 +114,8 @@ export default async function TestRunPage({ params }: { params: any }) {
               currentUserPicture={session.user?.picture || undefined}
             />
           </Grid>
-
-          {/* Workflow Column */}
-          <Grid item xs={12} md={3}>
-            <Paper sx={{ p: 3 }}>
-              <TestRunWorkflowSection 
-                sessionToken={session.session_token} 
-                testRunId={identifier}
-                status={testRun.status?.name || undefined}
-                assignee={testRun.assignee}
-                owner={testRun.owner}
-                testConfigurationId={testRun.test_configuration_id}
-              />
-            </Paper>
-          </Grid>
         </Grid>
       </Box>
     </PageContainer>
   );
-} 
+}

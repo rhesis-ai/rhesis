@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Alert,
+  CircularProgress,
+  useTheme,
+  Paper,
+} from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
@@ -13,15 +20,17 @@ interface MetricTimelineChartsGridProps {
 }
 
 // Extract unique metric names from timeline data
-const extractUniqueMetrics = (timeline?: Array<{
-  date: string;
-  overall: any;
-  metrics?: Record<string, any>;
-}>) => {
+const extractUniqueMetrics = (
+  timeline?: Array<{
+    date: string;
+    overall: any;
+    metrics?: Record<string, any>;
+  }>
+) => {
   if (!timeline || timeline.length === 0) return [];
-  
+
   const metricNames = new Set<string>();
-  
+
   timeline.forEach(item => {
     if (item.metrics) {
       Object.keys(item.metrics).forEach(metricName => {
@@ -29,11 +38,15 @@ const extractUniqueMetrics = (timeline?: Array<{
       });
     }
   });
-  
+
   return Array.from(metricNames).sort();
 };
 
-export default function MetricTimelineChartsGrid({ sessionToken, filters }: MetricTimelineChartsGridProps) {
+export default function MetricTimelineChartsGrid({
+  sessionToken,
+  filters,
+}: MetricTimelineChartsGridProps) {
+  const theme = useTheme();
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,14 +56,15 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
       setIsLoading(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
-      
+
       const options: TestResultsStatsOptions = {
         mode: 'timeline', // Use timeline mode to get metric breakdown
         months: filters.months || 6,
-        ...filters
+        ...filters,
       };
 
-      const statsData = await testResultsClient.getComprehensiveTestResultsStats(options);
+      const statsData =
+        await testResultsClient.getComprehensiveTestResultsStats(options);
       if (statsData && typeof statsData === 'object') {
         console.log('Metrics Timeline API Response:', statsData);
         console.log('Timeline data for metrics:', statsData.timeline);
@@ -61,7 +75,10 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
         setError('Invalid timeline data received');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load metrics timeline data';
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Failed to load metrics timeline data';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -78,9 +95,18 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: 400,
+        }}
+      >
         <CircularProgress size={24} />
-        <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading metrics timeline...</Typography>
+        <Typography variant="helperText" sx={{ ml: 2 }}>
+          Loading metrics timeline...
+        </Typography>
       </Box>
     );
   }
@@ -100,7 +126,8 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
           No metric timeline data available
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Timeline data does not contain metric breakdowns for the selected period.
+          Timeline data does not contain metric breakdowns for the selected
+          period.
         </Typography>
       </Box>
     );
@@ -112,23 +139,26 @@ export default function MetricTimelineChartsGrid({ sessionToken, filters }: Metr
         Individual Metric Performance Over Time
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Track pass rates for each metric across the selected time period. Found {uniqueMetrics.length} metrics.
+        Track pass rates for each metric across the selected time period. Found{' '}
+        {uniqueMetrics.length} metrics.
       </Typography>
-      
+
       {/* Responsive grid for metric charts */}
-      <Box sx={{ 
-        display: 'grid', 
-        gridTemplateColumns: { 
-          xs: '1fr',           // 1 column on mobile
-          sm: '1fr 1fr',       // 2 columns on small screens  
-          md: '1fr 1fr',       // 2 columns on medium screens
-          lg: '1fr 1fr 1fr',   // 3 columns on large screens
-          xl: '1fr 1fr 1fr 1fr' // 4 columns on extra large screens
-        }, 
-        gap: 3 
-      }}>
-        {uniqueMetrics.map((metricName) => (
-          <MetricTimelineChart 
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr', // 1 column on mobile
+            sm: '1fr 1fr', // 2 columns on small screens
+            md: '1fr 1fr', // 2 columns on medium screens
+            lg: '1fr 1fr 1fr', // 3 columns on large screens
+            xl: '1fr 1fr 1fr 1fr', // 4 columns on extra large screens
+          },
+          gap: theme.customSpacing.section.medium,
+        }}
+      >
+        {uniqueMetrics.map(metricName => (
+          <MetricTimelineChart
             key={metricName}
             metricName={metricName}
             timelineData={stats.timeline || []}

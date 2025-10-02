@@ -200,7 +200,10 @@ def get_prompt_templates(
 
 
 def create_prompt_template(
-    db: Session, prompt_template: schemas.PromptTemplateCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    prompt_template: schemas.PromptTemplateCreate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> models.PromptTemplate:
     """Create prompt template with optimized approach - no session variables needed."""
     return create_item(db, models.PromptTemplate, prompt_template, organization_id, user_id)
@@ -331,7 +334,10 @@ def get_response_patterns(
 
 
 def create_response_pattern(
-    db: Session, response_pattern: schemas.ResponsePatternCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    response_pattern: schemas.ResponsePatternCreate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> models.ResponsePattern:
     """Create response pattern with optimized approach - no session variables needed."""
     return create_item(db, models.ResponsePattern, response_pattern, organization_id, user_id)
@@ -1158,13 +1164,19 @@ def create_token(
 
 
 def update_token(
-    db: Session, token_id: uuid.UUID, token: schemas.TokenUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    token_id: uuid.UUID,
+    token: schemas.TokenUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Token]:
     """Update token with optimized approach - no session variables needed."""
     return update_item(db, models.Token, token_id, token, organization_id, user_id)
 
 
-def revoke_token(db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Token]:
+def revoke_token(
+    db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Token]:
     """Delete token with optimized approach - no session variables needed."""
     return delete_item(db, models.Token, token_id, organization_id, user_id)
 
@@ -1992,7 +2004,9 @@ def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
 
 
 # Comment CRUD
-def get_comment(db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Comment]:
+def get_comment(
+    db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Comment]:
     """Get a specific comment by ID with optimized tenant context"""
     return get_item(db, models.Comment, comment_id, organization_id, user_id)
 
@@ -2056,7 +2070,11 @@ def create_comment(
 
 
 def update_comment(
-    db: Session, comment_id: uuid.UUID, comment: schemas.CommentUpdate, organization_id: str = None, user_id: str = None
+    db: Session,
+    comment_id: uuid.UUID,
+    comment: schemas.CommentUpdate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Optional[models.Comment]:
     """Update a comment with optimized tenant context"""
     return update_item(db, models.Comment, comment_id, comment, organization_id, user_id)

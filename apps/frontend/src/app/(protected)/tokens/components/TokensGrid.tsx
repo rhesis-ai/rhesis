@@ -1,19 +1,34 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Chip, Box, IconButton, Tooltip, Typography, Button, Paper } from '@mui/material';
+import {
+  Chip,
+  Box,
+  IconButton,
+  Tooltip,
+  Typography,
+  Button,
+  Paper,
+  useTheme,
+} from '@mui/material';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { DeleteIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
 import AddIcon from '@mui/icons-material/Add';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import KeyIcon from '@mui/icons-material/Key';
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import { GridPaginationModel } from '@mui/x-data-grid';
 
 interface TokensGridProps {
   tokens: Token[];
-  onRefreshToken: (tokenId: string, expiresInDays: number | null) => Promise<void>;
+  onRefreshToken: (
+    tokenId: string,
+    expiresInDays: number | null
+  ) => Promise<void>;
   onDeleteToken: (tokenId: string) => Promise<void>;
   loading: boolean;
   onCreateToken?: () => void;
@@ -22,19 +37,20 @@ interface TokensGridProps {
   paginationModel?: GridPaginationModel;
 }
 
-export default function TokensGrid({ 
-  tokens, 
-  onRefreshToken, 
-  onDeleteToken, 
-  loading, 
+export default function TokensGrid({
+  tokens,
+  onRefreshToken,
+  onDeleteToken,
+  loading,
   onCreateToken,
   totalCount,
   onPaginationModelChange,
   paginationModel = {
     page: 0,
     pageSize: 10,
-  }
+  },
 }: TokensGridProps) {
+  const theme = useTheme();
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
@@ -62,25 +78,35 @@ export default function TokensGrid({
       field: 'last_used',
       headerName: 'Last Used',
       flex: 1,
-      renderCell: (params: any) => 
-        params.row.last_used_at 
-          ? formatDistanceToNow(new Date(params.row.last_used_at), { addSuffix: true })
+      renderCell: (params: any) =>
+        params.row.last_used_at
+          ? formatDistanceToNow(new Date(params.row.last_used_at), {
+              addSuffix: true,
+            })
           : 'Never',
     },
     {
       field: 'expires',
       headerName: 'Expires',
       flex: 1,
-      renderCell: (params: any) => (
+      renderCell: (params: any) =>
         params.row.expires_at ? (
           <Chip
-            label={formatDistanceToNow(new Date(params.row.expires_at), { addSuffix: true })}
+            label={formatDistanceToNow(new Date(params.row.expires_at), {
+              addSuffix: true,
+            })}
             size="small"
             variant="outlined"
-            sx={{ 
-              borderColor: new Date(params.row.expires_at) > new Date() ? 'success.light' : 'error.light',
-              color: new Date(params.row.expires_at) > new Date() ? 'success.main' : 'error.main',
-              bgcolor: 'transparent'
+            sx={{
+              borderColor:
+                new Date(params.row.expires_at) > new Date()
+                  ? 'success.light'
+                  : 'error.light',
+              color:
+                new Date(params.row.expires_at) > new Date()
+                  ? 'success.main'
+                  : 'error.main',
+              bgcolor: 'transparent',
             }}
           />
         ) : (
@@ -88,14 +114,13 @@ export default function TokensGrid({
             label="Never"
             size="small"
             variant="outlined"
-            sx={{ 
+            sx={{
               borderColor: 'success.light',
               color: 'success.main',
-              bgcolor: 'transparent'
+              bgcolor: 'transparent',
             }}
           />
-        )
-      ),
+        ),
     },
     {
       field: 'actions',
@@ -105,9 +130,9 @@ export default function TokensGrid({
       renderCell: (params: any) => (
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Tooltip title="Invalidate and refresh">
-            <IconButton 
-              size="small" 
-              onClick={(e) => {
+            <IconButton
+              size="small"
+              onClick={e => {
                 e.stopPropagation();
                 handleRefreshClick(params.row.id);
               }}
@@ -116,9 +141,9 @@ export default function TokensGrid({
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete Token">
-            <IconButton 
+            <IconButton
               size="small"
-              onClick={(e) => {
+              onClick={e => {
                 e.stopPropagation();
                 onDeleteToken(params.row.id);
               }}
@@ -134,24 +159,41 @@ export default function TokensGrid({
   if (!loading && tokens.length === 0) {
     return (
       <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
-        <Box 
-          sx={{ 
-            textAlign: 'center', 
+        <Box
+          sx={{
+            textAlign: 'center',
             py: 8,
             px: 2,
             bgcolor: 'background.paper',
-            borderRadius: 1,
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
           }}
         >
-          <Typography variant="h5" sx={{ mb: 2 }}>
-            🚀 Create your first Rhesis API token! 
+          <Typography
+            variant="h5"
+            sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+          >
+            <RocketLaunchIcon color="primary" />
+            Create your first Rhesis API token!
           </Typography>
           <Typography variant="body1" sx={{ mb: 1 }}>
-            You haven&apos;t created any tokens yet. Get started by creating your first token
+            You haven&apos;t created any tokens yet. Get started by creating
+            your first token
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            🔑 Create tokens to interact with the Rhesis API <br/>
-            🎮 Build amazing integrations and have fun! 
+            <Box
+              component="span"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+            >
+              <KeyIcon fontSize="small" color="primary" />
+              Create tokens to interact with the Rhesis API
+            </Box>
+            <Box
+              component="span"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+            >
+              <SportsEsportsIcon fontSize="small" color="primary" />
+              Build amazing integrations and have fun!
+            </Box>
           </Typography>
         </Box>
       </Paper>
@@ -173,13 +215,14 @@ export default function TokensGrid({
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
+            disablePaperWrapper={true}
           />
         </Box>
       </Paper>
       <RefreshTokenModal
         open={refreshModalOpen}
         onClose={() => setRefreshModalOpen(false)}
-        onRefresh={async (expiresInDays) => {
+        onRefresh={async expiresInDays => {
           if (selectedTokenId) {
             await onRefreshToken(selectedTokenId, expiresInDays);
             setRefreshModalOpen(false);
@@ -189,4 +232,4 @@ export default function TokensGrid({
       />
     </>
   );
-} 
+}

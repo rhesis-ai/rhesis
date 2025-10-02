@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -17,7 +18,10 @@ import MetricCard from './MetricCard';
 import SectionEditDrawer from './DimensionDrawer';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type { Behavior as ApiBehavior, BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
+import type {
+  Behavior as ApiBehavior,
+  BehaviorWithMetrics,
+} from '@/utils/api-client/interfaces/behavior';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 
@@ -26,7 +30,7 @@ interface BehaviorMetrics {
     metrics: MetricDetail[] | any[];
     isLoading: boolean;
     error: string | null;
-  }
+  };
 }
 
 interface SelectedMetricsTabProps {
@@ -38,14 +42,23 @@ interface SelectedMetricsTabProps {
   error: string | null;
   onRefresh: () => void;
   setBehaviors: React.Dispatch<React.SetStateAction<ApiBehavior[]>>;
-  setBehaviorsWithMetrics: React.Dispatch<React.SetStateAction<BehaviorWithMetrics[]>>;
+  setBehaviorsWithMetrics: React.Dispatch<
+    React.SetStateAction<BehaviorWithMetrics[]>
+  >;
   setBehaviorMetrics: React.Dispatch<React.SetStateAction<BehaviorMetrics>>;
   onTabChange: () => void; // Function to switch to Metrics Directory tab
 }
 
 // Add type guard function
-function isValidMetricType(type: string | undefined): type is 'custom-prompt' | 'api-call' | 'custom-code' | 'grading' {
-  return type === 'custom-prompt' || type === 'api-call' || type === 'custom-code' || type === 'grading';
+function isValidMetricType(
+  type: string | undefined
+): type is 'custom-prompt' | 'api-call' | 'custom-code' | 'grading' {
+  return (
+    type === 'custom-prompt' ||
+    type === 'api-call' ||
+    type === 'custom-code' ||
+    type === 'grading'
+  );
 }
 
 export default function SelectedMetricsTab({
@@ -59,10 +72,11 @@ export default function SelectedMetricsTab({
   setBehaviors,
   setBehaviorsWithMetrics,
   setBehaviorMetrics,
-  onTabChange
+  onTabChange,
 }: SelectedMetricsTabProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const theme = useTheme();
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -87,11 +101,15 @@ export default function SelectedMetricsTab({
     setDrawerOpen(true);
   };
 
-  const handleSaveSection = async (title: string, description: string, organization_id: UUID) => {
+  const handleSaveSection = async (
+    title: string,
+    description: string,
+    organization_id: UUID
+  ) => {
     try {
       setDrawerLoading(true);
       setDrawerError(undefined);
-      
+
       const behaviorClient = new BehaviorClient(sessionToken);
 
       if (isNewSection) {
@@ -99,64 +117,73 @@ export default function SelectedMetricsTab({
         const createPayload = {
           name: title,
           description: description || null,
-          organization_id
+          organization_id,
         };
 
         const created = await behaviorClient.createBehavior(createPayload);
-        
+
         // Create new behavior with metrics structure for optimized data
         const newBehaviorWithMetrics: BehaviorWithMetrics = {
           ...created,
           nano_id: null,
           organization_id: created.organization_id || organizationId,
-          status_id: created.status_id || '' as UUID,
+          status_id: created.status_id || ('' as UUID),
           metrics: [],
           organization: {} as any,
-          status: null
+          status: null,
         };
-        
+
         setBehaviors(prev => [...prev, created]);
         setBehaviorMetrics(prev => ({
           ...prev,
-          [created.id]: { metrics: [], isLoading: false, error: null }
+          [created.id]: { metrics: [], isLoading: false, error: null },
         }));
         setBehaviorsWithMetrics(prev => [...prev, newBehaviorWithMetrics]);
-        
-        notifications.show('Dimension created successfully', { 
-          severity: 'success', 
-          autoHideDuration: 4000 
+
+        notifications.show('Dimension created successfully', {
+          severity: 'success',
+          autoHideDuration: 4000,
         });
       } else if (editingSection && editingSection.key) {
         // Update existing behavior
         const updatePayload = {
           name: title,
           description: description || null,
-          organization_id
+          organization_id,
         };
 
-        const updated = await behaviorClient.updateBehavior(editingSection.key, updatePayload);
-        
-        setBehaviors(prev => prev.map(b => 
-          b.id === editingSection.key 
-            ? { ...b, name: updated.name, description: updated.description } 
-            : b
-        ));
-        
-        setBehaviorsWithMetrics(prev => prev.map(b => 
-          b.id === editingSection.key 
-            ? { ...b, name: updated.name, description: updated.description } 
-            : b
-        ));
-        
-        notifications.show('Dimension updated successfully', { 
-          severity: 'success', 
-          autoHideDuration: 4000 
+        const updated = await behaviorClient.updateBehavior(
+          editingSection.key,
+          updatePayload
+        );
+
+        setBehaviors(prev =>
+          prev.map(b =>
+            b.id === editingSection.key
+              ? { ...b, name: updated.name, description: updated.description }
+              : b
+          )
+        );
+
+        setBehaviorsWithMetrics(prev =>
+          prev.map(b =>
+            b.id === editingSection.key
+              ? { ...b, name: updated.name, description: updated.description }
+              : b
+          )
+        );
+
+        notifications.show('Dimension updated successfully', {
+          severity: 'success',
+          autoHideDuration: 4000,
         });
       }
       setDrawerOpen(false);
     } catch (err) {
       console.error('Error saving behavior:', err);
-      setDrawerError(err instanceof Error ? err.message : 'Failed to save dimension');
+      setDrawerError(
+        err instanceof Error ? err.message : 'Failed to save dimension'
+      );
     } finally {
       setDrawerLoading(false);
     }
@@ -171,8 +198,11 @@ export default function SelectedMetricsTab({
 
         if (behaviorData && behaviorData.metrics.length > 0) {
           // First remove all metrics from the behavior
-          const removePromises = behaviorData.metrics.map(metric => 
-            metricsClient.removeBehaviorFromMetric(metric.id as UUID, editingSection.key as UUID)
+          const removePromises = behaviorData.metrics.map(metric =>
+            metricsClient.removeBehaviorFromMetric(
+              metric.id as UUID,
+              editingSection.key as UUID
+            )
           );
 
           try {
@@ -189,7 +219,7 @@ export default function SelectedMetricsTab({
 
         // Then delete the behavior itself
         await behaviorClient.deleteBehavior(editingSection.key);
-        
+
         // Update local state
         setBehaviors(prev => prev.filter(b => b.id !== editingSection.key));
         setBehaviorMetrics(prev => {
@@ -200,17 +230,19 @@ export default function SelectedMetricsTab({
           }
           return newState;
         });
-        setBehaviorsWithMetrics(prev => prev.filter(b => b.id !== editingSection.key));
-        
-        notifications.show('Dimension deleted successfully', { 
-          severity: 'success', 
-          autoHideDuration: 4000 
+        setBehaviorsWithMetrics(prev =>
+          prev.filter(b => b.id !== editingSection.key)
+        );
+
+        notifications.show('Dimension deleted successfully', {
+          severity: 'success',
+          autoHideDuration: 4000,
         });
         setDrawerOpen(false);
       } catch (err) {
         console.error('Error deleting behavior:', err);
         notifications.show(
-          err instanceof Error ? err.message : 'Failed to delete dimension', 
+          err instanceof Error ? err.message : 'Failed to delete dimension',
           { severity: 'error', autoHideDuration: 4000 }
         );
       }
@@ -219,20 +251,28 @@ export default function SelectedMetricsTab({
     }
   };
 
-  const handleMetricDetail = (metricType: string) => {
-    router.push(`/metrics/${metricType}`);
+  const handleMetricDetail = (metricId: string) => {
+    router.push(`/metrics/${metricId}`);
   };
 
-  const handleRemoveMetricFromBehavior = async (behaviorId: string, metricId: string) => {
+  const handleRemoveMetricFromBehavior = async (
+    behaviorId: string,
+    metricId: string
+  ) => {
     try {
       const behaviorClient = new BehaviorClient(sessionToken);
       const metricClient = new MetricsClient(sessionToken);
 
       // Remove metric from behavior
-      await metricClient.removeBehaviorFromMetric(metricId as UUID, behaviorId as UUID);
+      await metricClient.removeBehaviorFromMetric(
+        metricId as UUID,
+        behaviorId as UUID
+      );
 
       // Fetch updated metrics for the behavior
-      const updatedBehaviorMetrics = await behaviorClient.getBehaviorMetrics(behaviorId as UUID);
+      const updatedBehaviorMetrics = await behaviorClient.getBehaviorMetrics(
+        behaviorId as UUID
+      );
 
       setBehaviorMetrics(prev => ({
         ...prev,
@@ -240,8 +280,8 @@ export default function SelectedMetricsTab({
           ...prev[behaviorId],
           metrics: updatedBehaviorMetrics,
           isLoading: false,
-          error: null
-        }
+          error: null,
+        },
       }));
 
       // Also update the optimized behaviorsWithMetrics data
@@ -252,16 +292,16 @@ export default function SelectedMetricsTab({
             : behavior
         )
       );
-      
+
       notifications.show('Successfully removed metric from behavior', {
         severity: 'success',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     } catch (err) {
       console.error('Error removing metric from behavior:', err);
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
-        autoHideDuration: 4000
+        autoHideDuration: 4000,
       });
     }
   };
@@ -270,57 +310,78 @@ export default function SelectedMetricsTab({
     const behaviorMetricsList = behaviorWithMetrics.metrics || [];
 
     return (
-      <Box key={behaviorWithMetrics.id} sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography 
-            variant="h6" 
-            component="h2" 
-            sx={{ fontWeight: 'bold' }}
+      <Box key={behaviorWithMetrics.id} sx={{ mb: theme.spacing(4) }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            mb: theme.spacing(1),
+            pb: theme.spacing(1),
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{
+              fontWeight: theme.typography.fontWeightBold,
+              color: theme.palette.text.primary,
+            }}
           >
             {behaviorWithMetrics.name}
           </Typography>
-          <IconButton 
-            onClick={() => handleEditSection(behaviorWithMetrics.id as UUID, behaviorWithMetrics.name, behaviorWithMetrics.description || '')}
+          <IconButton
+            onClick={() =>
+              handleEditSection(
+                behaviorWithMetrics.id as UUID,
+                behaviorWithMetrics.name,
+                behaviorWithMetrics.description || ''
+              )
+            }
             size="small"
+            sx={{
+              color: theme.palette.primary.main,
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+              },
+            }}
           >
             <EditIcon />
           </IconButton>
         </Box>
-        <Typography 
-          variant="body2" 
+        <Typography
+          variant="body2"
           color="text.secondary"
-          sx={{ mb: 3 }}
+          sx={{ mb: theme.spacing(3) }}
         >
           {behaviorWithMetrics.description || 'No description provided'}
         </Typography>
-        
+
         {behaviorMetricsList.length > 0 ? (
-          <Box 
-            sx={{ 
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 3,
-              '& > *': {
-                flex: { 
-                  xs: '1 1 100%', 
-                  sm: '1 1 calc(50% - 12px)', 
-                  md: '1 1 calc(33.333% - 16px)' 
-                },
-                minWidth: { xs: '100%', sm: '300px', md: '320px' },
-                maxWidth: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' }
-              }
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: theme.spacing(3),
+              width: '100%',
+              px: 0,
             }}
           >
-            {behaviorMetricsList.map((metric) => (
+            {behaviorMetricsList.map(metric => (
               <Box key={metric.id} sx={{ position: 'relative' }}>
-                <Box 
-                  sx={{ 
+                <Box
+                  sx={{
                     position: 'absolute',
-                    top: 8,
-                    right: 8,
+                    top: theme.spacing(1),
+                    right: theme.spacing(1),
                     display: 'flex',
-                    gap: 1,
-                    zIndex: 1
+                    gap: theme.spacing(0.5),
+                    zIndex: 1,
                   }}
                 >
                   <IconButton
@@ -329,30 +390,41 @@ export default function SelectedMetricsTab({
                     sx={{
                       padding: '2px',
                       '& .MuiSvgIcon-root': {
-                        fontSize: '0.875rem'
-                      }
+                        fontSize:
+                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        color: 'currentColor',
+                      },
                     }}
                   >
                     <OpenInNewIcon fontSize="inherit" />
                   </IconButton>
                   <IconButton
                     size="small"
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
-                      handleRemoveMetricFromBehavior(behaviorWithMetrics.id, metric.id);
+                      handleRemoveMetricFromBehavior(
+                        behaviorWithMetrics.id,
+                        metric.id
+                      );
                     }}
                     sx={{
                       padding: '2px',
                       '& .MuiSvgIcon-root': {
-                        fontSize: '0.875rem'
-                      }
+                        fontSize:
+                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                        color: 'currentColor',
+                      },
                     }}
                   >
                     <CloseIcon fontSize="inherit" />
                   </IconButton>
                 </Box>
-                <MetricCard 
-                  type={isValidMetricType(metric.metric_type?.type_value) ? metric.metric_type.type_value : undefined}
+                <MetricCard
+                  type={
+                    isValidMetricType(metric.metric_type?.type_value)
+                      ? metric.metric_type.type_value
+                      : undefined
+                  }
                   title={metric.name}
                   description={metric.description}
                   backend={metric.backend_type?.type_value}
@@ -365,24 +437,39 @@ export default function SelectedMetricsTab({
             ))}
           </Box>
         ) : (
-          <Paper 
-            sx={{ 
-              p: 3, 
+          <Paper
+            elevation={0}
+            sx={{
+              p: theme.spacing(3),
               textAlign: 'center',
-              backgroundColor: 'action.hover',
+              backgroundColor: theme.palette.action.hover,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 2
+              gap: theme.spacing(2),
+              borderRadius: theme.shape.borderRadius,
+              border: `1px dashed ${theme.palette.divider}`,
             }}
           >
-            <Typography color="text.secondary">
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              sx={{ fontWeight: theme.typography.fontWeightMedium }}
+            >
               No metrics assigned to this behavior
             </Typography>
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
               onClick={onTabChange}
+              sx={{
+                color: theme.palette.primary.main,
+                borderColor: theme.palette.primary.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.light,
+                  borderColor: theme.palette.primary.main,
+                },
+              }}
             >
               Add Metric
             </Button>
@@ -394,13 +481,15 @@ export default function SelectedMetricsTab({
 
   if (isLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        p: 4, 
-        minHeight: '200px' 
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          p: 4,
+          minHeight: '200px',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <CircularProgress size={24} />
           <Typography>Loading behaviors and metrics...</Typography>
@@ -418,26 +507,28 @@ export default function SelectedMetricsTab({
   }
 
   return (
-    <Box sx={{ 
-      width: '100%',
-      pr: 2,
-      pb: 4
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        px: theme.spacing(3),
+        pb: theme.spacing(4),
+      }}
+    >
       {behaviorsWithMetrics
         .filter(b => b.name && b.name.trim() !== '')
         .sort((a, b) => a.name.localeCompare(b.name))
         .map(behavior => renderSection(behavior))}
-      
-      <Box 
-        sx={{ 
-          mt: 4, 
-          p: 3, 
+
+      <Box
+        sx={{
+          mt: 4,
+          p: 3,
           border: '2px dashed',
           borderColor: 'divider',
-          borderRadius: 1,
+          borderRadius: theme => theme.shape.borderRadius * 0.25,
           display: 'flex',
           justifyContent: 'center',
-          mb: 8
+          mb: 8,
         }}
       >
         <Button
@@ -458,11 +549,11 @@ export default function SelectedMetricsTab({
           description={editingSection.description}
           onSave={handleSaveSection}
           onDelete={
-            !isNewSection && 
-            editingSection.key && 
-            behaviorMetrics[editingSection.key] && 
+            !isNewSection &&
+            editingSection.key &&
+            behaviorMetrics[editingSection.key] &&
             behaviorMetrics[editingSection.key].metrics.length === 0
-              ? handleDeleteSection 
+              ? handleDeleteSection
               : undefined
           }
           isNew={isNewSection}

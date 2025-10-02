@@ -1,0 +1,59 @@
+name: 'Setup Service Environment'
+description: 'Sets up service name and image name based on environment and service type'
+inputs:
+  environment:
+    description: 'Environment (dev, stg, prd)'
+    required: true
+  service-type:
+    description: 'Service type (backend, frontend, worker)'
+    required: true
+  project-id:
+    description: 'GCP Project ID'
+    required: true
+outputs:
+  service-name:
+    description: 'Service name for the environment'
+    value: ${{ steps.setup.outputs.service-name }}
+  image-name:
+    description: 'Docker image name for the environment'
+    value: ${{ steps.setup.outputs.image-name }}
+  env-display:
+    description: 'Human-readable environment name'
+    value: ${{ steps.setup.outputs.env-display }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup service environment variables
+      id: setup
+      shell: bash
+      run: |
+        # Set environment display name
+        if [ "${{ inputs.environment }}" = "prd" ]; then
+          ENV_DISPLAY="PRODUCTION"
+          SERVICE_NAME="rhesis-${{ inputs.service-type }}"
+          IMAGE_NAME="gcr.io/${{ inputs.project-id }}/rhesis-${{ inputs.service-type }}"
+        else
+          if [ "${{ inputs.environment }}" = "stg" ]; then
+            ENV_DISPLAY="STAGING"
+          else
+            ENV_DISPLAY="DEVELOPMENT"
+          fi
+          SERVICE_NAME="rhesis-${{ inputs.service-type }}-${{ inputs.environment }}"
+          IMAGE_NAME="gcr.io/${{ inputs.project-id }}/rhesis-${{ inputs.service-type }}-${{ inputs.environment }}"
+        fi
+        
+        # Set outputs
+        echo "service-name=$SERVICE_NAME" >> $GITHUB_OUTPUT
+        echo "image-name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+        echo "env-display=$ENV_DISPLAY" >> $GITHUB_OUTPUT
+        
+        # Set environment variables for use in the calling workflow
+        echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
+        echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+        echo "ENV_DISPLAY=$ENV_DISPLAY" >> $GITHUB_ENV
+        
+        echo "✅ Service environment setup complete:"
+        echo "  Environment: ${{ inputs.environment }} ($ENV_DISPLAY)"
+        echo "  Service: $SERVICE_NAME"
+        echo "  Image: $IMAGE_NAME"
+

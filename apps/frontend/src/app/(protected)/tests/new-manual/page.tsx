@@ -22,12 +22,16 @@ export default function NewTestPage() {
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       {/* Breadcrumbs */}
-      <Breadcrumbs 
-        separator={<NavigateNextIcon fontSize="small" />} 
+      <Breadcrumbs
+        separator={<NavigateNextIcon fontSize="small" />}
         aria-label="breadcrumb"
         sx={{ mb: 3 }}
       >
-        <Link href="/tests" passHref style={{ textDecoration: 'none', color: 'inherit' }}>
+        <Link
+          href="/tests"
+          passHref
+          style={{ textDecoration: 'none', color: 'inherit' }}
+        >
           <Typography color="text.primary">Tests</Typography>
         </Link>
         <Typography color="text.primary">New Test</Typography>
@@ -36,4 +40,4 @@ export default function NewTestPage() {
       <NewTestGrid onSave={handleSave} onCancel={handleCancel} />
     </Box>
   );
-} 
+}

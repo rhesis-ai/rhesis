@@ -62,6 +62,15 @@ class Category(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
+class Source(Base):
+    id: UUID4
+    title: str
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class TestTag(Base):
     id: UUID4
     name: str
@@ -85,6 +94,7 @@ class TestBase(Base):
     behavior_id: Optional[UUID4] = None
     category_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
+    source_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     test_metadata: Optional[Dict[str, Any]] = None
 
@@ -118,6 +128,7 @@ class TestDetail(Test):
     behavior: Optional[Behavior] = None
     category: Optional[Category] = None
     status: Optional[Status] = None
+    source: Optional[Source] = None
     tags: Optional[List[TestTag]] = []
 
 

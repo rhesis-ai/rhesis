@@ -13,10 +13,14 @@ from rhesis.backend.app.schemas.services import (
     DocumentUploadResponse,
     ExtractDocumentRequest,
     ExtractDocumentResponse,
+    GenerateContentRequest,
     GenerateTestsRequest,
     GenerateTestsResponse,
     PromptRequest,
-    TextResponse)
+    TestConfigRequest,
+    TestConfigResponse,
+    TextResponse,
+)
 from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.gemini_client import (
     create_chat_completion,
@@ -24,6 +28,10 @@ from rhesis.backend.app.services.gemini_client import (
     get_json_response)
 from rhesis.backend.app.services.generation import generate_tests
 from rhesis.backend.app.services.github import read_repo_contents
+from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
+
+# Use rhesis logger
+from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
 from rhesis.sdk.types import Document
 
@@ -45,12 +53,13 @@ async def get_github_contents(repo_url: str):
     Returns:
         str: The contents of the repository
     """
-    print(f"Getting GitHub contents for {repo_url}")
+    logger.info(f"Getting GitHub contents for {repo_url}")
     try:
         contents = read_repo_contents(repo_url)
         return contents
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Failed to get GitHub contents for {repo_url}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to retrieve repository contents")
 
 
 @router.post("/openai/json")
@@ -129,22 +138,21 @@ async def create_chat_completion_endpoint(request: dict):
 
 
 @router.post("/generate/content")
-async def generate_content_endpoint(request: dict):
+async def generate_content_endpoint(request: GenerateContentRequest):
     """
-    OpenAI-compatible chat completions endpoint.
-    Accepts requests in the standard OpenAI chat completion format.
+    Generate text using LLM with optional OpenAI schema validation.
 
     Args:
-        request: The complete chat completion request body matching OpenAI's format
+        request: Contains prompt and optional OpenAI schema for structured output
 
     Returns:
-        dict: The unmodified OpenAI API response
+        str or dict: Raw text if no schema, validated dict if schema provided
     """
     try:
         from rhesis.sdk.models.providers.gemini import GeminiLLM
 
-        prompt = request.get("prompt")
-        schema = request.get("schema")
+        prompt = request.prompt
+        schema = request.schema
 
         model = GeminiLLM()
         response = model.generate(prompt, schema=schema)
@@ -330,3 +338,36 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
         if request.path:
             handler = DocumentHandler()
             await handler.cleanup(request.path)
+
+
+@router.post("/generate/test_config", response_model=TestConfigResponse)
+async def generate_test_config(request: TestConfigRequest):
+    """
+    Generate test configuration JSON based on user description.
+
+    This endpoint analyzes a user-provided description and generates a configuration
+    JSON containing relevant behaviors, topics, test categories, and test scenarios
+    from predefined lists.
+
+    Args:
+        request: Contains prompt (description) for test configuration generation
+
+    Returns:
+        TestConfigResponse: JSON containing selected behaviors, topics, test categories,
+            and scenarios
+    """
+    try:
+        logger.info(f"Test config generation request for prompt: {request.prompt[:100]}...")
+        service = TestConfigGeneratorService()
+        result = service.generate_config(request.prompt)
+        logger.info("Test config generation successful")
+        return result
+    except ValueError as e:
+        logger.warning(f"Invalid request for test config generation: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid request parameters")
+    except RuntimeError as e:
+        logger.error(f"Test config generation failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate test configuration")
+    except Exception as e:
+        logger.error(f"Unexpected error in test config generation: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")

@@ -6,9 +6,12 @@ export async function POST(req: NextRequest) {
   try {
     // Get feedback data from request body
     const { feedback, email, rating } = await req.json();
-    
+
     if (!feedback || feedback.trim() === '') {
-      return NextResponse.json({ error: 'Feedback content is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Feedback content is required' },
+        { status: 400 }
+      );
     }
 
     // Get session (if user is logged in)
@@ -60,7 +63,10 @@ ${rating ? `<p><strong>Rating:</strong> ${rating}/5 stars</p>` : ''}
 
     await transporter.sendMail(mailOptions);
 
-    return NextResponse.json({ success: true, message: 'Feedback sent successfully' });
+    return NextResponse.json({
+      success: true,
+      message: 'Feedback sent successfully',
+    });
   } catch (error) {
     console.error('Error sending feedback email:', error);
     return NextResponse.json(
@@ -68,4 +74,4 @@ ${rating ? `<p><strong>Rating:</strong> ${rating}/5 stars</p>` : ''}
       { status: 500 }
     );
   }
-} 
+}

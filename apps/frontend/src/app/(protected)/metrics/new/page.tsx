@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -13,9 +13,9 @@ import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import IconButton from '@mui/material/IconButton';
+import { useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNotifications } from '@/components/common/NotificationContext';
 import Stepper from '@mui/material/Stepper';
@@ -65,7 +65,7 @@ const initialFormData: MetricFormData = {
   reasoning: '',
   score_type: 'binary',
   explanation: '',
-  model_id: ''
+  model_id: '',
 };
 
 const steps = ['Metric Information and Criteria', 'Confirmation'];
@@ -77,9 +77,11 @@ export default function NewMetricPage() {
   const searchParams = useSearchParams();
   const notifications = useNotifications();
   const { data: session } = useSession();
+  const theme = useTheme();
   const type = searchParams.get('type');
   const [activeStep, setActiveStep] = React.useState(0);
-  const [formData, setFormData] = React.useState<MetricFormData>(initialFormData);
+  const [formData, setFormData] =
+    React.useState<MetricFormData>(initialFormData);
   const [models, setModels] = React.useState<Model[]>([]);
   const [isLoadingModels, setIsLoadingModels] = React.useState(true);
   const [isCreating, setIsCreating] = React.useState(false);
@@ -95,16 +97,23 @@ export default function NewMetricPage() {
   React.useEffect(() => {
     const fetchModels = async () => {
       if (!session?.session_token) return;
-      
+
       try {
         setIsLoadingModels(true);
         const apiClient = new ApiClientFactory(session.session_token);
         const modelsClient = apiClient.getModelsClient();
-        const response = await modelsClient.getModels({ sort_by: 'name', sort_order: 'asc', skip: 0, limit: 100 });
+        const response = await modelsClient.getModels({
+          sort_by: 'name',
+          sort_order: 'asc',
+          skip: 0,
+          limit: 100,
+        });
         setModels(response.data || []); // Use .data instead of .items
       } catch (error) {
         console.error('Failed to fetch models:', error);
-        notifications.show('Failed to load evaluation models', { severity: 'error' });
+        notifications.show('Failed to load evaluation models', {
+          severity: 'error',
+        });
       } finally {
         setIsLoadingModels(false);
       }
@@ -113,36 +122,40 @@ export default function NewMetricPage() {
     fetchModels();
   }, [session?.session_token, notifications]);
 
-  const handleChange = (field: keyof MetricFormData) => (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string | 'binary' | 'numeric'>
-  ) => {
-    const value = event.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const handleChange =
+    (field: keyof MetricFormData) =>
+    (
+      event:
+        | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+        | SelectChangeEvent<string | 'binary' | 'numeric'>
+    ) => {
+      const value = event.target.value;
+      setFormData(prev => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
 
-  const handleStepChange = (index: number) => (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const newSteps = [...formData.evaluation_steps];
-    newSteps[index] = event.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      evaluation_steps: newSteps,
-    }));
-  };
+  const handleStepChange =
+    (index: number) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const newSteps = [...formData.evaluation_steps];
+      newSteps[index] = event.target.value;
+      setFormData(prev => ({
+        ...prev,
+        evaluation_steps: newSteps,
+      }));
+    };
 
   const addStep = () => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       evaluation_steps: [...prev.evaluation_steps, ''],
     }));
   };
 
   const removeStep = (index: number) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       evaluation_steps: prev.evaluation_steps.filter((_, i) => i !== index),
     }));
@@ -160,7 +173,9 @@ export default function NewMetricPage() {
     try {
       console.log('Session:', session);
       if (!session?.session_token) {
-        throw new Error('No session token available. Please try logging in again.');
+        throw new Error(
+          'No session token available. Please try logging in again.'
+        );
       }
 
       const apiClient = new ApiClientFactory(session.session_token);
@@ -169,14 +184,16 @@ export default function NewMetricPage() {
 
       // Get both metric type and backend type in a single API call
       const allTypeLookups = await typeLookupClient.getTypeLookups({
-        $filter: `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
+        $filter: `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`,
       });
 
-      const typeLookups = allTypeLookups.filter(lookup => 
-        lookup.type_name === 'MetricType' && lookup.type_value === type
+      const typeLookups = allTypeLookups.filter(
+        lookup =>
+          lookup.type_name === 'MetricType' && lookup.type_value === type
       );
-      const backendTypes = allTypeLookups.filter(lookup => 
-        lookup.type_name === 'BackendType' && lookup.type_value === 'custom'
+      const backendTypes = allTypeLookups.filter(
+        lookup =>
+          lookup.type_name === 'BackendType' && lookup.type_value === 'custom'
       );
 
       if (!typeLookups.length) {
@@ -188,8 +205,12 @@ export default function NewMetricPage() {
       }
 
       // Filter out empty steps and join with separator
-      const nonEmptySteps = formData.evaluation_steps.filter(step => step.trim());
-      const formattedSteps = nonEmptySteps.map((step, index) => `Step ${index + 1}:\n${step.trim()}`);
+      const nonEmptySteps = formData.evaluation_steps.filter(step =>
+        step.trim()
+      );
+      const formattedSteps = nonEmptySteps.map(
+        (step, index) => `Step ${index + 1}:\n${step.trim()}`
+      );
 
       // Create the metric request object
       const metricRequest: MetricCreate = {
@@ -200,24 +221,35 @@ export default function NewMetricPage() {
         evaluation_steps: formattedSteps.join(STEP_SEPARATOR),
         reasoning: formData.reasoning || '',
         score_type: formData.score_type,
-        min_score: formData.score_type === 'numeric' ? parseFloat(String(formData.min_score)) : undefined,
-        max_score: formData.score_type === 'numeric' ? parseFloat(String(formData.max_score)) : undefined,
-        threshold: formData.score_type === 'numeric' ? parseFloat(String(formData.threshold)) : undefined,
+        min_score:
+          formData.score_type === 'numeric'
+            ? parseFloat(String(formData.min_score))
+            : undefined,
+        max_score:
+          formData.score_type === 'numeric'
+            ? parseFloat(String(formData.max_score))
+            : undefined,
+        threshold:
+          formData.score_type === 'numeric'
+            ? parseFloat(String(formData.threshold))
+            : undefined,
         explanation: formData.explanation || '',
         metric_type_id: typeLookups[0].id as UUID,
         backend_type_id: backendTypes[0].id as UUID,
         model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
-        owner_id: session.user?.id as UUID
+        owner_id: session.user?.id as UUID,
       };
 
       console.log('Submitting metric:', JSON.stringify(metricRequest, null, 2));
 
       await metricsClient.createMetric(metricRequest);
-      notifications.show('Metric created successfully', { severity: 'success' });
+      notifications.show('Metric created successfully', {
+        severity: 'success',
+      });
       router.push('/metrics?tab=directory');
     } catch (error) {
       notifications.show(
-        error instanceof Error ? error.message : 'Failed to create metric', 
+        error instanceof Error ? error.message : 'Failed to create metric',
         { severity: 'error' }
       );
     } finally {
@@ -227,19 +259,21 @@ export default function NewMetricPage() {
 
   const handleNext = (event: React.MouseEvent) => {
     event.preventDefault(); // Prevent any form submission
-    setActiveStep((prevStep) => prevStep + 1);
+    setActiveStep(prevStep => prevStep + 1);
   };
 
   const handleBack = (event: React.MouseEvent) => {
     event.preventDefault(); // Prevent any form submission
-    setActiveStep((prevStep) => prevStep - 1);
+    setActiveStep(prevStep => prevStep - 1);
   };
 
   const renderMetricInformation = () => (
     <>
       {/* General Section */}
       <Box sx={{ mb: 5 }}>
-        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>General Information</Typography>
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+          General Information
+        </Typography>
         <TextField
           fullWidth
           required
@@ -250,7 +284,7 @@ export default function NewMetricPage() {
           helperText="Your custom metric name is simply for identification purposes only. It must not be one of Rhesis AI's default metric name, and cannot already be taken by another custom metric."
           sx={{ mb: 3 }}
         />
-        
+
         <TextField
           fullWidth
           multiline
@@ -264,7 +298,9 @@ export default function NewMetricPage() {
 
         <BaseTag
           value={formData.tags}
-          onChange={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))}
+          onChange={newTags =>
+            setFormData(prev => ({ ...prev, tags: newTags }))
+          }
           label="Tags"
           placeholder="Add tags (press Enter or comma to add)"
           helperText="Add relevant tags to help organize and find this metric later"
@@ -277,8 +313,10 @@ export default function NewMetricPage() {
 
       {/* Evaluation Section */}
       <Box sx={{ mb: 5 }}>
-        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>Evaluation Process</Typography>
-        
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+          Evaluation Process
+        </Typography>
+
         <FormControl fullWidth sx={{ mb: 3 }}>
           <InputLabel required>Evaluation Model</InputLabel>
           <Select
@@ -298,13 +336,15 @@ export default function NewMetricPage() {
                 <Typography>No models available</Typography>
               </MenuItem>
             ) : (
-              models.map((model) => (
+              models.map(model => (
                 <MenuItem key={model.id} value={model.id}>
                   <Box>
-                    <Typography variant="subtitle2">
-                      {model.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="subtitle2">{model.name}</Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                    >
                       {model.description}
                     </Typography>
                   </Box>
@@ -326,9 +366,12 @@ export default function NewMetricPage() {
           sx={{ mb: 3 }}
         />
 
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>Evaluation Steps</Typography>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          Evaluation Steps
+        </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Break down the evaluation process into clear, sequential steps. Each step should be specific and actionable.
+          Break down the evaluation process into clear, sequential steps. Each
+          step should be specific and actionable.
         </Typography>
         {formData.evaluation_steps?.map((step, index) => (
           <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -342,7 +385,7 @@ export default function NewMetricPage() {
               value={step}
               onChange={handleStepChange(index)}
             />
-            <IconButton 
+            <IconButton
               onClick={() => removeStep(index)}
               disabled={formData.evaluation_steps.length === 1}
               sx={{ mt: 1 }}
@@ -351,11 +394,7 @@ export default function NewMetricPage() {
             </IconButton>
           </Box>
         ))}
-        <Button
-          startIcon={<AddIcon />}
-          onClick={addStep}
-          sx={{ mb: 3 }}
-        >
+        <Button startIcon={<AddIcon />} onClick={addStep} sx={{ mb: 3 }}>
           Add Step
         </Button>
 
@@ -374,7 +413,9 @@ export default function NewMetricPage() {
 
       {/* Result Section */}
       <Box>
-        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>Result Configuration</Typography>
+        <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+          Result Configuration
+        </Typography>
         <FormControl fullWidth sx={{ mb: 3 }}>
           <InputLabel required>Score Type</InputLabel>
           <Select<'binary' | 'numeric'>
@@ -437,15 +478,19 @@ export default function NewMetricPage() {
 
   const renderConfirmation = () => (
     <Box>
-      <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>Review Your Metric</Typography>
-      
-      <Box sx={{ 
-        display: 'grid', 
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, 
-        gap: 3,
-        maxWidth: '1000px',
-        mx: 'auto'
-      }}>
+      <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+        Review Your Metric
+      </Typography>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gap: 3,
+          maxWidth: '1000px',
+          mx: 'auto',
+        }}
+      >
         {/* Left Column */}
         <Box>
           {/* General Section Review */}
@@ -453,37 +498,63 @@ export default function NewMetricPage() {
             <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
               General Information
             </Typography>
-            
+
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Name</Typography>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium' }}
+              >
+                Name
+              </Typography>
               <Typography sx={{ color: 'text.primary' }}>
                 {formData.name}
               </Typography>
             </Box>
 
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Description</Typography>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium' }}
+              >
+                Description
+              </Typography>
               <Typography sx={{ color: 'text.primary' }}>
                 {formData.description || 'No description provided'}
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium', mb: 1 }}>Tags</Typography>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium', mb: 1 }}
+              >
+                Tags
+              </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {formData.tags.length > 0 ? formData.tags.map((tag) => (
-                  <Box key={tag} sx={{ 
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
-                    px: 1.5,
-                    py: 0.5,
-                    borderRadius: 1,
-                    fontSize: '0.875rem'
-                  }}>
-                    {tag}
-                  </Box>
-                )) : (
-                  <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                {formData.tags.length > 0 ? (
+                  formData.tags.map(tag => (
+                    <Box
+                      key={tag}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: theme => theme.shape.borderRadius * 0.25,
+                        fontSize: theme.typography.helperText.fontSize,
+                      }}
+                    >
+                      {tag}
+                    </Box>
+                  ))
+                ) : (
+                  <Typography
+                    variant="body2"
+                    sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+                  >
                     No tags added
                   </Typography>
                 )}
@@ -496,37 +567,63 @@ export default function NewMetricPage() {
             <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
               Evaluation Process
             </Typography>
-            
+
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Evaluation Model</Typography>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium' }}
+              >
+                Evaluation Model
+              </Typography>
               <Typography sx={{ color: 'text.primary' }}>
-                {models.find(model => model.id === formData.model_id)?.name || 'No model selected'}
+                {models.find(model => model.id === formData.model_id)?.name ||
+                  'No model selected'}
               </Typography>
             </Box>
 
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Evaluation Prompt</Typography>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', mt: 1 }}>
-                <Typography sx={{ 
-                  fontFamily: 'monospace', 
-                  fontSize: '0.875rem',
-                  whiteSpace: 'pre-wrap',
-                  color: 'text.primary'
-                }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium' }}
+              >
+                Evaluation Prompt
+              </Typography>
+              <Paper
+                variant="outlined"
+                sx={{ p: 2, bgcolor: 'action.hover', mt: 1 }}
+              >
+                <Typography
+                  sx={{
+                    fontFamily: 'monospace',
+                    fontSize: theme.typography.helperText.fontSize,
+                    whiteSpace: 'pre-wrap',
+                    color: 'text.primary',
+                  }}
+                >
                   {formData.evaluation_prompt}
                 </Typography>
               </Paper>
             </Box>
 
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium', mb: 1 }}>Reasoning Instructions</Typography>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium', mb: 1 }}
+              >
+                Reasoning Instructions
+              </Typography>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
-                <Typography sx={{ 
-                  fontFamily: 'monospace', 
-                  fontSize: '0.875rem',
-                  whiteSpace: 'pre-wrap',
-                  color: 'text.primary'
-                }}>
+                <Typography
+                  sx={{
+                    fontFamily: 'monospace',
+                    fontSize: theme.typography.helperText.fontSize,
+                    whiteSpace: 'pre-wrap',
+                    color: 'text.primary',
+                  }}
+                >
                   {formData.reasoning}
                 </Typography>
               </Paper>
@@ -541,32 +638,43 @@ export default function NewMetricPage() {
             <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
               Evaluation Steps
             </Typography>
-            
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {formData.evaluation_steps?.filter(step => step.trim()).map((step, index) => (
-                <Paper key={index} variant="outlined" sx={{ 
-                  p: 2, 
-                  bgcolor: 'background.paper',
-                  position: 'relative',
-                  pl: 4
-                }}>
-                  <Typography sx={{
-                    position: 'absolute',
-                    left: 12,
-                    top: 12,
-                    color: 'primary.main',
-                    fontWeight: 'bold',
-                    fontSize: '0.875rem'
-                  }}>
-                    {index + 1}
-                  </Typography>
-                  <Typography variant="body2" sx={{ 
-                    color: 'text.primary'
-                  }}>
-                    {step}
-                  </Typography>
-                </Paper>
-              ))}
+              {formData.evaluation_steps
+                ?.filter(step => step.trim())
+                .map((step, index) => (
+                  <Paper
+                    key={index}
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      bgcolor: 'background.paper',
+                      position: 'relative',
+                      pl: 4,
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        position: 'absolute',
+                        left: 12,
+                        top: 12,
+                        color: 'primary.main',
+                        fontWeight: 'bold',
+                        fontSize: theme.typography.helperText.fontSize,
+                      }}
+                    >
+                      {index + 1}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.primary',
+                      }}
+                    >
+                      {step}
+                    </Typography>
+                  </Paper>
+                ))}
             </Box>
           </Paper>
 
@@ -575,20 +683,33 @@ export default function NewMetricPage() {
             <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
               Result Configuration
             </Typography>
-            
+
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Score Type</Typography>
-              <Box sx={{ 
-                bgcolor: formData.score_type === 'binary' ? 'primary.main' : 'primary.main',
-                color: 'primary.contrastText',
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 1,
-                fontSize: '0.875rem',
-                display: 'inline-block',
-                mt: 0.5
-              }}>
-                {formData.score_type === 'binary' ? 'Binary (Pass/Fail)' : 'Numeric'}
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium' }}
+              >
+                Score Type
+              </Typography>
+              <Box
+                sx={{
+                  bgcolor:
+                    formData.score_type === 'binary'
+                      ? 'primary.main'
+                      : 'primary.main',
+                  color: 'primary.contrastText',
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: theme => theme.shape.borderRadius * 0.25,
+                  fontSize: theme.typography.helperText.fontSize,
+                  display: 'inline-block',
+                  mt: 0.5,
+                }}
+              >
+                {formData.score_type === 'binary'
+                  ? 'Binary (Pass/Fail)'
+                  : 'Numeric'}
               </Box>
             </Box>
 
@@ -596,20 +717,56 @@ export default function NewMetricPage() {
               <>
                 <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
                   <Box>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Min Score</Typography>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'text.primary' }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      sx={{ fontWeight: 'medium' }}
+                    >
+                      Min Score
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: theme.typography.subtitle1.fontSize,
+                        fontWeight: 500,
+                        color: 'text.primary',
+                      }}
+                    >
                       {formData.min_score}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Max Score</Typography>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'text.primary' }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      sx={{ fontWeight: 'medium' }}
+                    >
+                      Max Score
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: theme.typography.subtitle1.fontSize,
+                        fontWeight: 500,
+                        color: 'text.primary',
+                      }}
+                    >
                       {formData.max_score}
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium' }}>Threshold</Typography>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: 'success.main' }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      sx={{ fontWeight: 'medium' }}
+                    >
+                      Threshold
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: theme.typography.subtitle1.fontSize,
+                        fontWeight: 500,
+                        color: 'success.main',
+                      }}
+                    >
                       ≥ {formData.threshold}
                     </Typography>
                   </Box>
@@ -618,14 +775,22 @@ export default function NewMetricPage() {
             )}
 
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'medium', mb: 1 }}>Result Explanation</Typography>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontWeight: 'medium', mb: 1 }}
+              >
+                Result Explanation
+              </Typography>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
-                <Typography sx={{ 
-                  fontFamily: 'monospace', 
-                  fontSize: '0.875rem',
-                  whiteSpace: 'pre-wrap',
-                  color: 'text.primary'
-                }}>
+                <Typography
+                  sx={{
+                    fontFamily: 'monospace',
+                    fontSize: theme.typography.helperText.fontSize,
+                    whiteSpace: 'pre-wrap',
+                    color: 'text.primary',
+                  }}
+                >
                   {formData.explanation}
                 </Typography>
               </Paper>
@@ -669,20 +834,22 @@ export default function NewMetricPage() {
       title={getTitle()}
       breadcrumbs={[
         { title: 'Metrics', path: '/metrics' },
-        { title: 'New Metric' }
+        { title: 'New Metric' },
       ]}
       sx={{ mb: 4 }}
     >
       <Box sx={{ width: '100%' }}>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          mb: 4,
-          mt: 4
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            mb: 4,
+            mt: 4,
+          }}
+        >
           <Box sx={{ maxWidth: '600px', width: '100%' }}>
             <Stepper activeStep={activeStep}>
-              {steps.map((label) => (
+              {steps.map(label => (
                 <Step key={label}>
                   <StepLabel>{label}</StepLabel>
                 </Step>
@@ -698,29 +865,29 @@ export default function NewMetricPage() {
             <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
               <Button
                 startIcon={<ArrowBackIcon />}
-                onClick={activeStep === 0 ? () => router.push('/metrics') : handleBack}
+                onClick={
+                  activeStep === 0 ? () => router.push('/metrics') : handleBack
+                }
                 type="button"
                 disabled={isCreating}
               >
                 {activeStep === 0 ? 'Cancel' : 'Back'}
               </Button>
-              
+
               {activeStep === steps.length - 1 ? (
                 <Button
                   type="submit"
                   variant="contained"
                   color="primary"
                   disabled={isCreating}
-                  startIcon={isCreating ? <CircularProgress size={20} /> : undefined}
+                  startIcon={
+                    isCreating ? <CircularProgress size={20} /> : undefined
+                  }
                 >
                   {isCreating ? 'Creating...' : 'Create Metric'}
                 </Button>
               ) : (
-                <Button
-                  variant="contained"
-                  onClick={handleNext}
-                  type="button"
-                >
+                <Button variant="contained" onClick={handleNext} type="button">
                   Next
                 </Button>
               )}
@@ -730,4 +897,4 @@ export default function NewMetricPage() {
       </Box>
     </PageContainer>
   );
-} 
+}

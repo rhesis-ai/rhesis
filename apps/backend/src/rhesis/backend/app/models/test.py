@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin, TagsMixin
+from .mixins import CommentsMixin, CountsMixin, OrganizationMixin, TagsMixin, TasksMixin
 
 # Association table for test_set and test
 test_test_set_association = Table(
@@ -17,7 +17,7 @@ test_test_set_association = Table(
 )
 
 
-class Test(Base, TagsMixin, OrganizationMixin):
+class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "test"
 
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
@@ -33,6 +33,7 @@ class Test(Base, TagsMixin, OrganizationMixin):
     behavior_id = Column(GUID(), ForeignKey("behavior.id"))
     category_id = Column(GUID(), ForeignKey("category.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
+    source_id = Column(GUID(), ForeignKey("source.id"))
     # Test source info (origin, inputs, context)
     # Named 'test_metadata' to avoid SQLAlchemy's reserved 'metadata' attribute
     test_metadata = Column(JSONB)
@@ -62,3 +63,4 @@ class Test(Base, TagsMixin, OrganizationMixin):
         viewonly=True,
         uselist=True,
     )
+    source = relationship("Source", back_populates="tests")

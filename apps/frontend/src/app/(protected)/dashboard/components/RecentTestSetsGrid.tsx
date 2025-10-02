@@ -13,11 +13,15 @@ interface RecentTestSetsGridProps {
   sessionToken: string;
 }
 
-export default function RecentTestSetsGrid({ sessionToken }: RecentTestSetsGridProps) {
+export default function RecentTestSetsGrid({
+  sessionToken,
+}: RecentTestSetsGridProps) {
   const [testSets, setTestSets] = useState<TestSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [organizations, setOrganizations] = useState<Record<string, Organization>>({});
+  const [organizations, setOrganizations] = useState<
+    Record<string, Organization>
+  >({});
   const [validOrgIds, setValidOrgIds] = useState<Set<string>>(new Set());
   const [totalCount, setTotalCount] = useState<number>(0);
   const [paginationModel, setPaginationModel] = useState({
@@ -29,20 +33,20 @@ export default function RecentTestSetsGrid({ sessionToken }: RecentTestSetsGridP
     try {
       setLoading(true);
       setError(null);
-      
+
       // Calculate skip based on pagination model
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
-      
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
       const response = await testSetsClient.getTestSets({
         skip,
         limit,
         sort_by: 'created_at',
-        sort_order: 'desc'
+        sort_order: 'desc',
       });
-      
+
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
     } catch (error) {
@@ -63,36 +67,37 @@ export default function RecentTestSetsGrid({ sessionToken }: RecentTestSetsGridP
   };
 
   const testSetsColumns: GridColDef[] = [
-    { 
-      field: 'name', 
-      headerName: 'Name', 
+    {
+      field: 'name',
+      headerName: 'Name',
       flex: 1,
-      minWidth: 120
+      minWidth: 120,
     },
-    { 
-      field: 'description', 
-      headerName: 'Description', 
+    {
+      field: 'description',
+      headerName: 'Description',
       width: 220,
-      valueGetter: (_, row) => row.short_description || row.description || 'No description'
+      valueGetter: (_, row) =>
+        row.short_description || row.description || 'No description',
     },
-    { 
-      field: 'visibility', 
-      headerName: 'Visibility', 
+    {
+      field: 'visibility',
+      headerName: 'Visibility',
       width: 100,
       valueGetter: (_, row) => {
         if (row.visibility) {
-          return row.visibility.charAt(0).toUpperCase() + row.visibility.slice(1);
+          return (
+            row.visibility.charAt(0).toUpperCase() + row.visibility.slice(1)
+          );
         }
         return row.is_published ? 'Public' : 'Private';
       },
-      renderCell: (params) => (
+      renderCell: params => (
         <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
-          <Typography variant="body2">
-            {params.value}
-          </Typography>
+          <Typography variant="body2">{params.value}</Typography>
         </Box>
-      )
-    }
+      ),
+    },
   ];
 
   if (loading && testSets.length === 0) {
@@ -124,7 +129,8 @@ export default function RecentTestSetsGrid({ sessionToken }: RecentTestSetsGridP
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disableRowSelectionOnClick
+        disablePaperWrapper={true}
       />
     </Box>
   );
-} 
+}
