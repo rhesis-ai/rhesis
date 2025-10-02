@@ -25,11 +25,12 @@ import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 interface TestSetsQueryParams extends Partial<PaginationParams> {
   // Add any additional test-set specific query params here
   has_runs?: boolean;
+  $filter?: string;
 }
 
 const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
-  limit: 50, // Update default limit to match requirement
+  limit: 50, // Default limit for paginated views
   sort_by: 'created_at',
   sort_order: 'desc',
 };
@@ -115,13 +116,13 @@ export class TestSetsClient extends BaseApiClient {
   async getTestSets(
     params: TestSetsQueryParams = {}
   ): Promise<PaginatedResponse<TestSet>> {
-    const { has_runs, ...paginationParams } = params;
+    const { has_runs, $filter, ...paginationParams } = params;
     const finalParams = { ...DEFAULT_PAGINATION, ...paginationParams };
 
     let response: PaginatedResponse<TestSet>;
 
-    if (has_runs !== undefined) {
-      // Build URL manually when has_runs is specified, as fetchPaginated doesn't support custom parameters
+    if (has_runs !== undefined || $filter) {
+      // Build URL manually when has_runs or $filter is specified
       const queryParams = new URLSearchParams();
 
       // Add pagination parameters
@@ -134,8 +135,15 @@ export class TestSetsClient extends BaseApiClient {
       if (finalParams.sort_order)
         queryParams.append('sort_order', finalParams.sort_order);
 
-      // Add has_runs parameter
-      queryParams.append('has_runs', has_runs.toString());
+      // Add has_runs parameter if provided
+      if (has_runs !== undefined) {
+        queryParams.append('has_runs', has_runs.toString());
+      }
+
+      // Add $filter parameter if provided
+      if ($filter) {
+        queryParams.append('$filter', $filter);
+      }
 
       const path = API_ENDPOINTS.testSets;
       const queryString = queryParams.toString();
