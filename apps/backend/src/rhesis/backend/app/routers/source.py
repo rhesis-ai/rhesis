@@ -196,7 +196,7 @@ async def upload_source(
         if not document_source_type:
             raise HTTPException(
                 status_code=500,
-                detail="Document source type not found. Please ensure database is properly initialized.",
+                detail="Document source type not found. Please ensure database is initialized.",
             )
 
         # Initialize DocumentHandler
@@ -277,7 +277,7 @@ async def extract_source_content(
         if not source_type or source_type.type_value != "Document":
             raise HTTPException(
                 status_code=400,
-                detail="Source is not a document type. Content extraction is only supported for document sources.",
+                detail="Only documents support content extraction.",
             )
 
         # Check if source has file metadata
@@ -286,8 +286,7 @@ async def extract_source_content(
 
         file_path = db_source.source_metadata["file_path"]
 
-        # Initialize DocumentHandler and DocumentExtractor
-        handler = DocumentHandler()
+        # Initialize DocumentExtractor
         extractor = DocumentExtractor()
 
         # Get file extension to determine format
@@ -376,7 +375,7 @@ async def get_source_content(
         if not source_type or source_type.type_value != "Document":
             raise HTTPException(
                 status_code=400,
-                detail="Source is not a document type. Content retrieval is only supported for document sources.",
+                detail="Source is not a document type. Only documents supported.",
             )
 
         # Check if source has file metadata
