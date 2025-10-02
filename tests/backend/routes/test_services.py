@@ -15,7 +15,7 @@ class TestGenerateContentEndpoint:
         # Arrange
         mock_request = GenerateContentRequest(
             prompt="Generate a test function",
-            schema={"type": "object", "properties": {"code": {"type": "string"}}},
+            json_schema={"type": "object", "properties": {"code": {"type": "string"}}},
         )
 
         expected_response = {"code": "def test_function():\n    return True"}
@@ -42,7 +42,7 @@ class TestGenerateContentEndpoint:
         # Arrange
         mock_request = GenerateContentRequest(
             prompt="Generate a test function",
-            schema={"type": "object"},
+            json_schema={"type": "object"},
         )
 
         # Mock the GeminiLLM class to raise an exception
