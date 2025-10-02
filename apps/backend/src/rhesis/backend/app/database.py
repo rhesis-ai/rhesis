@@ -12,6 +12,68 @@ from rhesis.backend.logging import logger
 
 load_dotenv()
 
+# Cache for session variables to avoid unnecessary re-setting
+# Key format: (connection_id, organization_id, user_id) for security
+_session_variable_cache = {}
+
+
+def _set_session_variables_raw(cursor, organization_id: str = '', user_id: str = ''):
+    """
+    Set PostgreSQL session variables using a raw database cursor.
+    
+    This is a low-level utility function used by connection event handlers
+    and other functions that need to set session variables.
+    
+    Args:
+        cursor: Database cursor (psycopg2 or similar)
+        organization_id: Organization ID (defaults to empty string)
+        user_id: User ID (defaults to empty string)
+    """
+    cursor.execute("SELECT set_config('app.current_organization', %s, false)", (organization_id,))
+    cursor.execute("SELECT set_config('app.current_user', %s, false)", (user_id,))
+
+
+def _set_session_variables(db: Session, organization_id: str = '', user_id: str = ''):
+    """
+    Set PostgreSQL session variables using SQLAlchemy session.
+    
+    This function handles cases where the variables might not exist yet by
+    gracefully creating them. It's optimized to minimize database round trips.
+    Uses caching to avoid re-setting variables if they're already correct.
+    
+    Args:
+        db: SQLAlchemy session
+        organization_id: Organization ID (defaults to empty string)
+        user_id: User ID (defaults to empty string)
+    """
+    # Security: Use connection ID + org + user as cache key to prevent cross-tenant leaks
+    connection_id = id(db.connection())
+    cache_key = (connection_id, organization_id, user_id)
+    
+    if cache_key in _session_variable_cache:
+        return
+    
+    try:
+        # Set both variables in a single SQL statement for efficiency
+        db.execute(
+            text("""
+                SELECT 
+                    set_config('app.current_organization', :org_id, false),
+                    set_config('app.current_user', :user_id, false)
+            """), 
+            {"org_id": organization_id, "user_id": user_id}
+        )
+        
+        # Cache the values for this specific connection + user/org combination
+        _session_variable_cache[cache_key] = True
+        
+    except Exception as e:
+        # Handle case where session variables don't exist yet
+        logger.debug(f"Session variables set with potential creation: {e}")
+        # Re-raise only if it's a serious error, not just "variable doesn't exist"
+        if "unrecognized configuration parameter" not in str(e).lower():
+            raise
+
 
 def get_database_url() -> str:
     """Get the appropriate database URL based on the current mode."""
@@ -71,6 +133,10 @@ engine = create_engine(
     }
 )
 
+
+# Connection event handlers removed - session variables are now set efficiently
+# in the dependency injection system when needed, avoiding multiple DB round trips
+
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
@@ -86,110 +152,11 @@ _current_tenant_organization_id: ContextVar[Optional[str]] = ContextVar(
 _current_tenant_user_id: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 
 
-def get_current_user_id(session: Session) -> Optional[UUID]:
-    """Get the current user ID from the database session."""
-    try:
-        result = session.execute(text('SHOW "app.current_user";')).scalar()
-        # Return None if result is None, empty string, or can't be converted to UUID
-        if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
-            return None
-        # Validate that result is a valid UUID format before converting
-        try:
-            return UUID(result)
-        except (ValueError, TypeError):
-            logger.debug(f"Invalid UUID format for user ID: {result}")
-            return None
-    except Exception as e:
-        logger.debug(f"Error getting current user ID: {e}")
-        return None
+# Removed legacy get_current_user_id and get_current_organization_id functions
+# These are no longer needed - use direct parameter passing to CRUD functions
 
 
-def get_current_organization_id(session: Session) -> Optional[UUID]:
-    """Get the current organization ID from the database session."""
-    try:
-        result = session.execute(text('SHOW "app.current_organization";')).scalar()
-        logger.debug(
-            f"get_current_organization_id - Raw result from DB: '{result}', type: {type(result)}"
-        )
-        # Return None if result is None, empty string, or can't be converted to UUID
-        if not result or result == "" or (isinstance(result, str) and result.strip() == ""):
-            logger.debug(
-                f"get_current_organization_id - Returning None for empty/None result: '{result}'"
-            )
-            return None
-        # Validate that result is a valid UUID format before converting
-        try:
-            uuid_result = UUID(result)
-            logger.debug(f"get_current_organization_id - Returning valid UUID: {uuid_result}")
-            return uuid_result
-        except (ValueError, TypeError):
-            logger.debug(
-                f"get_current_organization_id - Invalid UUID format for organization ID: {result}"
-            )
-            return None
-    except Exception as e:
-        logger.debug(f"get_current_organization_id - Error getting current organization ID: {e}")
-        return None
-
-
-def _execute_set_tenant(
-    connection, organization_id: Optional[str] = None, user_id: Optional[str] = None
-):
-    """Helper function to execute SET commands for tenant context"""
-    try:
-        # Only set if organization_id is not None, not empty, and is a valid UUID format
-        if organization_id and organization_id.strip() and organization_id != "":
-            # Validate UUID format before setting
-            try:
-                UUID(organization_id)  # Validate it's a proper UUID
-                # logger.debug(f"Setting app.current_organization to: {organization_id}")
-                if hasattr(connection, "execute"):  # SQLAlchemy session
-                    connection.execute(
-                        text("SELECT set_config('app.current_organization', :org_id, false)"),
-                        {"org_id": str(organization_id)},
-                    )
-                else:  # Raw database connection
-                    cursor = connection.cursor()
-                    cursor.execute(
-                        "SELECT set_config('app.current_organization', %s, false)",
-                        (str(organization_id),),
-                    )
-                    cursor.close()
-            except (ValueError, TypeError) as uuid_error:
-                logger.debug(
-                    f"Invalid UUID format for organization_id: {organization_id}, error: {uuid_error}"
-                )
-        else:
-            pass
-            # logger.debug("Not setting app.current_organization (empty or None)")
-
-        # Only set if user_id is not None, not empty, and is a valid UUID format
-        if user_id and user_id.strip() and user_id != "":
-            # Validate UUID format before setting
-            try:
-                UUID(user_id)  # Validate it's a proper UUID
-                # logger.debug(f"Setting app.current_user to: {user_id}")
-                if hasattr(connection, "execute"):  # SQLAlchemy session
-                    connection.execute(
-                        text("SELECT set_config('app.current_user', :user_id, false)"),
-                        {"user_id": str(user_id)},
-                    )
-                else:  # Raw database connection
-                    cursor = connection.cursor()
-                    cursor.execute(
-                        "SELECT set_config('app.current_user', %s, false)", (str(user_id),)
-                    )
-                    cursor.close()
-            except (ValueError, TypeError) as uuid_error:
-                logger.debug(f"Invalid UUID format for user_id: {user_id}, error: {uuid_error}")
-        else:
-            pass
-            # logger.debug("Not setting app.current_user (empty or None)")
-    except Exception as e:
-        logger.error(f"Error setting tenant context: {e}")
-        # Don't raise the exception - allow the operation to continue
-        pass
-
+# Legacy set_tenant functions removed - use direct parameter passing instead
 
 def clear_tenant_context():
     """Clear the tenant context variables"""
@@ -204,85 +171,48 @@ def clear_tenant_context():
 
 
 def reset_session_context(db: Session):
-    """Reset PostgreSQL session variables for row-level security."""
+    """
+    Reset PostgreSQL session variables for row-level security.
+    
+    This function safely resets session variables to empty strings rather than NULL
+    to prevent "unrecognized configuration parameter" errors. It's now more robust
+    and handles cases where variables might not have been initialized.
+    """
     try:
-        # Use set_config with NULL instead of RESET to avoid issues with
-        # current_user reserved keyword
-        db.execute(text("SELECT set_config('app.current_organization', NULL, false)"))
-        db.execute(text("SELECT set_config('app.current_user', NULL, false)"))
-        # Also clear context vars
+        # Reset to empty strings (not NULL) to prevent errors
+        # Empty strings are safer than NULL for current_setting() calls
+        _set_session_variables(db)
+        
+        # Also clear context vars for backward compatibility
         clear_tenant_context()
+        
+        logger.debug("Successfully reset session variables to empty strings")
+        
     except Exception as e:
         logger.debug(f"Error resetting RLS session context: {e}")
 
 
-def set_tenant(
-    session: Session, organization_id: Optional[str] = None, user_id: Optional[str] = None
-):
-    """Set PostgreSQL session variables for row-level security."""
+def set_session_variables(db: Session, organization_id: str, user_id: str):
+    """
+    Explicitly set PostgreSQL session variables for RLS policies.
+    
+    This is a utility function that can be used when you need to manually
+    set session variables outside of the dependency injection system.
+    
+    Args:
+        db: Database session
+        organization_id: Organization UUID as string
+        user_id: User UUID as string
+    """
     try:
-        # Store in context vars
-        if organization_id is not None:
-            _current_tenant_organization_id.set(organization_id)
-        if user_id is not None:
-            _current_tenant_user_id.set(user_id)
-
-        _execute_set_tenant(session, organization_id, user_id)
+        _set_session_variables(db, organization_id, user_id)
+        logger.debug(f"Manually set session variables: org={organization_id}, user={user_id}")
+        
     except Exception as e:
-        logger.debug(f"Error in set_tenant: {e}")
-
-
-def _set_tenant_for_connection(dbapi_connection, connection_record):
-    """Set tenant context for new connections"""
-    try:
-        org_id = _current_tenant_organization_id.get()
-        user_id = _current_tenant_user_id.get()
-        _execute_set_tenant(dbapi_connection, org_id, user_id)
-    except Exception as e:
-        logger.debug(f"Error in _set_tenant_for_connection: {e}")
-
-
-# Register the event listener
-event.listen(engine, "connect", _set_tenant_for_connection)
-
-
-@contextmanager
-def maintain_tenant_context(session: Session):
-    """Maintain the tenant context across a transaction."""
-    # Store current context
-    try:
-        prev_org_id = _current_tenant_organization_id.get()
-        prev_user_id = _current_tenant_user_id.get()
-    except Exception:
-        prev_org_id = None
-        prev_user_id = None
-
-    # If transaction is active and dirty, commit it before starting a new one
-    try:
-        if session.in_transaction():
-            if session.dirty or session.new or session.deleted:
-                # Transaction has changes that might need handling
-                pass
-
-        # Set context before the operation
-        set_tenant(session, prev_org_id, prev_user_id)
-        yield
-    except Exception:
-        # Only rollback if there's an active transaction
-        if session.in_transaction():
-            session.rollback()
+        logger.warning(f"Failed to manually set session variables: {e}")
         raise
-    finally:
-        try:
-            # Only commit if there are actual changes
-            if session.in_transaction() and (session.dirty or session.new or session.deleted):
-                session.commit()
-            # Clean up tenant context
-            _execute_set_tenant(session, None, None)
-        except Exception as e:
-            logger.debug(f"Error in maintain_tenant_context cleanup: {e}")
-            if session.in_transaction():
-                session.rollback()
+
+
 
 
 def init_db():
@@ -290,140 +220,57 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
 
-def get_db() -> Generator[Session, None, None]:
-    """Get a database session."""
-    db = SessionLocal()
-    try:
-        # Start with a clean session
-        db.expire_all()
-
-        # Reset tenant context for this request
-        org_token, user_token = clear_tenant_context()
-
-        yield db
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        try:
-            # Clean up any pending transaction
-            if db.in_transaction():
-                db.rollback()
-
-            # Clear tenant context and session state
-            _execute_set_tenant(db, None, None)
-            clear_tenant_context()
-            db.expire_all()
-
-            # Close the session
-            db.close()
-        except Exception as e:
-            logger.debug(f"Error during session cleanup: {e}")
-            # Still try to close the session even if cleanup fails
-            try:
-                db.close()
-            except Exception:
-                pass
-
-
 @contextmanager
-def get_org_aware_db(organization_id: str, user_id: str = None) -> Generator[Session, None, None]:
+def get_db() -> Generator[Session, None, None]:
     """
-    Get database session with tenant context set using SET LOCAL within transaction.
+    Get a database session with transparent transaction management.
     
-    This approach:
-    1. Uses SET LOCAL to set variables within transaction scope only
-    2. Automatically commits on successful completion via yield pattern
-    3. Automatically rolls back on exception via db.begin() context manager
-    4. Eliminates need for separate SHOW queries during entity creation
-    5. No connection pooling issues since it uses existing SessionLocal
+    For operations requiring tenant context, use get_db_with_tenant_variables().
+    This function provides a basic session for operations like user lookup,
+    token validation, and other non-tenant-specific queries.
     """
     db = SessionLocal()
     try:
-        # Begin transaction explicitly - this handles commit/rollback automatically
-        with db.begin():
-            # Set session variables within the transaction using SET LOCAL
-            # SET LOCAL only affects the current transaction
-            if organization_id:
-                try:
-                    UUID(organization_id)  # Validate UUID format
-                    db.execute(
-                        text('SET LOCAL "app.current_organization" = :org_id'), 
-                        {"org_id": organization_id}
-                    )
-                    logger.debug(f"Set LOCAL app.current_organization = {organization_id}")
-                except (ValueError, TypeError) as e:
-                    logger.debug(f"Invalid organization_id UUID: {organization_id}, error: {e}")
-                    raise ValueError(f"Invalid organization_id: {organization_id}")
-            
-            if user_id:
-                try:
-                    UUID(user_id)  # Validate UUID format
-                    db.execute(
-                        text('SET LOCAL "app.current_user" = :user_id'), 
-                        {"user_id": user_id}
-                    )
-                    logger.debug(f"Set LOCAL app.current_user = {user_id}")
-                except (ValueError, TypeError) as e:
-                    logger.debug(f"Invalid user_id UUID: {user_id}, error: {e}")
-                    raise ValueError(f"Invalid user_id: {user_id}")
-            
-            # Store in context vars for any legacy code that might need it
-            _current_tenant_organization_id.set(organization_id)
-            if user_id:
-                _current_tenant_user_id.set(user_id)
-                
-            yield db
-            # ↑ Execution pauses here, returns db to caller
-            # ↓ After caller finishes, execution resumes here
-            # Transaction commits automatically if no exception occurred
-            # (handled by db.begin() context manager)
-    except Exception:
-        # Transaction rolls back automatically via db.begin() context manager
+        yield db
+        if db.in_transaction():
+            db.commit()
+    except Exception as e:
+        if db.in_transaction():
+            db.rollback()
         raise
     finally:
-        # Clear context vars and close session
-        clear_tenant_context()
+        # Clean up session variable cache for this connection
+        try:
+            connection_id = id(db.connection()) if hasattr(db, 'connection') else None
+            if connection_id:
+                keys_to_remove = [key for key in _session_variable_cache.keys() 
+                                if key[0] == connection_id]
+                for key in keys_to_remove:
+                    del _session_variable_cache[key]
+        except Exception as e:
+            logger.debug(f"Cache cleanup error (non-critical): {e}")
+        
         db.close()
 
 
-def get_current_organization_id_cached(session: Session = None) -> Optional[UUID]:
+@contextmanager
+def get_db_with_tenant_variables(organization_id: str = '', user_id: str = '') -> Generator[Session, None, None]:
     """
-    Get current organization ID from context vars first, fallback to database query.
+    Get a database session with tenant context automatically set.
     
-    OPTIMIZED: Avoids database SHOW queries when context is available.
+    This is the centralized function used by both FastAPI dependencies and task system.
+    
+    Args:
+        organization_id: Organization ID for session variables
+        user_id: User ID for session variables
+        
+    Yields:
+        Session: Database session with tenant context set
     """
-    # Try context vars first (no database query needed)
-    try:
-        org_id = _current_tenant_organization_id.get()
-        if org_id:
-            return UUID(org_id)
-    except Exception:
-        pass
-    
-    # Fallback to database query for backwards compatibility
-    if session:
-        return get_current_organization_id(session)
-    
-    return None
+    with get_db() as db:
+        _set_session_variables(db, organization_id, user_id)
+        yield db
 
 
-def get_current_user_id_cached(session: Session = None) -> Optional[UUID]:
-    """
-    Get current user ID from context vars first, fallback to database query.
-    
-    OPTIMIZED: Avoids database SHOW queries when context is available.
-    """
-    # Try context vars first (no database query needed)
-    try:
-        user_id = _current_tenant_user_id.get()
-        if user_id:
-            return UUID(user_id)
-    except Exception:
-        pass
-    
-    # Fallback to database query for backwards compatibility
-    if session:
-        return get_current_user_id(session)
-    
-    return None
+# For tenant-aware operations, use get_db_with_tenant_variables()
+# For basic operations, use get_db() and pass tenant context to CRUD functions

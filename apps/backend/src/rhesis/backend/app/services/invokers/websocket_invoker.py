@@ -348,9 +348,6 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     mapping_duration = time.time() - mapping_start_time
 
                     logger.debug(f"Response mapping completed in {mapping_duration:.2f}s")
-                    logger.debug(
-                        f"Final mapped response: {json.dumps(mapped_response, indent=2, default=str)}"
-                    )
 
                     return mapped_response
 

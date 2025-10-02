@@ -22,7 +22,6 @@ from rhesis.backend.app.utils.crud_utils import (
     get_item_detail,
     get_items,
     get_items_detail,
-    maintain_tenant_context,
     update_item,
 )
 from rhesis.backend.app.utils.model_utils import QueryBuilder
@@ -52,7 +51,7 @@ def get_session_variables(db: Session):
 
 # Endpoint CRUD
 def get_endpoint(
-    db: Session, endpoint_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, endpoint_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Endpoint]:
     """Get endpoint with optimized approach - no session variables needed."""
     return get_item(db, models.Endpoint, endpoint_id, organization_id, user_id)
@@ -65,12 +64,14 @@ def get_endpoints(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Endpoint]:
-    return get_items_detail(db, models.Endpoint, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Endpoint, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_endpoint(
-    db: Session, endpoint: schemas.EndpointCreate, organization_id: str = None, user_id: str = None
+    db: Session, endpoint: schemas.EndpointCreate, organization_id: str, user_id: str
 ) -> models.Endpoint:
     """Create endpoint with optimized approach - no session variables needed."""
     return create_item(db, models.Endpoint, endpoint, organization_id, user_id)
@@ -80,15 +81,15 @@ def update_endpoint(
     db: Session,
     endpoint_id: uuid.UUID,
     endpoint: schemas.EndpointUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str,
+    user_id: str,
 ) -> Optional[models.Endpoint]:
     """Update endpoint with optimized approach - no session variables needed."""
     return update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
 
 
-def delete_endpoint(db: Session, endpoint_id: uuid.UUID) -> Optional[models.Endpoint]:
-    return delete_item(db, models.Endpoint, endpoint_id)
+def delete_endpoint(db: Session, endpoint_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Endpoint]:
+    return delete_item(db, models.Endpoint, endpoint_id, organization_id=organization_id, user_id=user_id)
 
 
 # UseCase CRUD
@@ -106,8 +107,10 @@ def get_use_cases(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.UseCase]:
-    return get_items(db, models.UseCase, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.UseCase, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_use_case(
@@ -128,9 +131,7 @@ def update_use_case(
     return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
 
 
-def delete_use_case(
-    db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.UseCase]:
+def delete_use_case(db: Session, use_case_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.UseCase]:
     """Delete use case with optimized approach - no session variables needed."""
     return delete_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
@@ -150,8 +151,10 @@ def get_prompts(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Prompt]:
-    return get_items(db, models.Prompt, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Prompt, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_prompt(
@@ -172,15 +175,15 @@ def update_prompt(
     return update_item(db, models.Prompt, prompt_id, prompt, organization_id, user_id)
 
 
-def delete_prompt(db: Session, prompt_id: uuid.UUID) -> Optional[models.Prompt]:
-    return delete_item(db, models.Prompt, prompt_id)
+def delete_prompt(db: Session, prompt_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Prompt]:
+    return delete_item(db, models.Prompt, prompt_id, organization_id=organization_id, user_id=user_id)
 
 
 # Prompt Template CRUD
 def get_prompt_template(
-    db: Session, prompt_template_id: uuid.UUID
+    db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return get_item(db, models.PromptTemplate, prompt_template_id)
+    return get_item(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
 
 
 def get_prompt_templates(
@@ -190,8 +193,10 @@ def get_prompt_templates(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.PromptTemplate]:
-    return get_items(db, models.PromptTemplate, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.PromptTemplate, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_prompt_template(
@@ -205,15 +210,15 @@ def create_prompt_template(
 
 
 def update_prompt_template(
-    db: Session, prompt_template_id: uuid.UUID, prompt_template: schemas.PromptTemplateUpdate
+    db: Session, prompt_template_id: uuid.UUID, prompt_template: schemas.PromptTemplateUpdate, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return update_item(db, models.PromptTemplate, prompt_template_id, prompt_template)
+    return update_item(db, models.PromptTemplate, prompt_template_id, prompt_template, organization_id, user_id)
 
 
 def delete_prompt_template(
-    db: Session, prompt_template_id: uuid.UUID
+    db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return delete_item(db, models.PromptTemplate, prompt_template_id)
+    return delete_item(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
 
 
 # Category CRUD
@@ -231,8 +236,10 @@ def get_categories(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Category]:
-    return get_items(db, models.Category, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Category, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_category(
@@ -253,8 +260,8 @@ def update_category(
     return update_item(db, models.Category, category_id, category, organization_id, user_id)
 
 
-def delete_category(db: Session, category_id: uuid.UUID) -> Optional[models.Category]:
-    return delete_item(db, models.Category, category_id)
+def delete_category(db: Session, category_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Category]:
+    return delete_item(db, models.Category, category_id, organization_id=organization_id, user_id=user_id)
 
 
 # Behavior CRUD
@@ -308,9 +315,9 @@ def delete_behavior(
 
 # ResponsePattern CRUD
 def get_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID
+    db: Session, response_pattern_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.ResponsePattern]:
-    return get_item(db, models.ResponsePattern, response_pattern_id)
+    return get_item(db, models.ResponsePattern, response_pattern_id, organization_id, user_id)
 
 
 def get_response_patterns(
@@ -320,8 +327,10 @@ def get_response_patterns(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.ResponsePattern]:
-    return get_items(db, models.ResponsePattern, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.ResponsePattern, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_response_pattern(
@@ -335,24 +344,25 @@ def create_response_pattern(
 
 
 def update_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID, response_pattern: schemas.ResponsePatternUpdate
+    db: Session, response_pattern_id: uuid.UUID, response_pattern: schemas.ResponsePatternUpdate, organization_id: str, user_id: str
 ) -> Optional[models.ResponsePattern]:
-    return update_item(db, models.ResponsePattern, response_pattern_id, response_pattern)
+    return update_item(db, models.ResponsePattern, response_pattern_id, response_pattern, organization_id, user_id)
 
 
 def delete_response_pattern(
-    db: Session, response_pattern_id: uuid.UUID
+    db: Session, response_pattern_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.ResponsePattern]:
-    return delete_item(db, models.ResponsePattern, response_pattern_id)
+    return delete_item(db, models.ResponsePattern, response_pattern_id, organization_id, user_id)
 
 
 # TestSet CRUD
-def get_test_set(db: Session, test_set_id: uuid.UUID) -> Optional[models.TestSet]:
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.TestSet]:
     """
-    Get a test set by its UUID, applying proper visibility filtering.
+    Get a test set by its UUID, applying proper visibility filtering and organization scoping.
     """
     return (
         QueryBuilder(db, models.TestSet)
+        .with_organization_filter(organization_id)  # Add organization filtering
         .with_visibility_filter()
         .with_custom_filter(lambda q: q.filter(models.TestSet.id == test_set_id))
         .first()
@@ -367,14 +377,17 @@ def get_test_sets(
     sort_order: str = "desc",
     filter: str | None = None,
     has_runs: bool | None = None,
+    organization_id: str = None,
 ) -> List[models.TestSet]:
     """
     Get test sets with detail loading and proper filtering.
     Public test sets are visible regardless of organization.
+    Organization filtering is applied when organization_id is provided.
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
         .with_joinedloads()
+        .with_organization_filter(organization_id)  # Apply organization filtering
         .with_visibility_filter()  # This already handles public visibility correctly
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
@@ -398,11 +411,13 @@ def get_test_sets(
                 return filtered_query
             else:
                 # Only test sets that don't have test runs
+                subquery_builder = QueryBuilder(db, models.TestSet).with_organization_filter(organization_id)
                 subquery = (
-                    db.query(models.TestSet.id)
+                    subquery_builder.query
                     .join(models.TestConfiguration)
                     .join(models.TestRun)
                     .distinct()
+                    .with_entities(models.TestSet.id)
                     .subquery()
                 )
                 filtered_query = query.filter(~models.TestSet.id.in_(subquery))
@@ -432,17 +447,18 @@ def update_test_set(
     return update_item(db, models.TestSet, test_set_id, test_set, organization_id, user_id)
 
 
-def delete_test_set(db: Session, test_set_id: uuid.UUID) -> Optional[models.TestSet]:
-    return delete_item(db, models.TestSet, test_set_id)
+def delete_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestSet]:
+    return delete_item(db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id)
 
 
-def get_test_set_by_nano_id_or_slug(db: Session, identifier: str) -> Optional[models.TestSet]:
+def get_test_set_by_nano_id_or_slug(db: Session, identifier: str, organization_id: str = None, user_id: str = None) -> Optional[models.TestSet]:
     """
     Get a test set by its nano_id or slug, applying proper visibility filtering.
     """
     return (
         QueryBuilder(db, models.TestSet)
         .with_joinedloads()
+        .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.filter(
@@ -453,7 +469,7 @@ def get_test_set_by_nano_id_or_slug(db: Session, identifier: str) -> Optional[mo
     )
 
 
-def resolve_test_set(identifier: str, db: Session) -> Optional[models.TestSet]:
+def resolve_test_set(identifier: str, db: Session, organization_id: str = None) -> Optional[models.TestSet]:
     """
     Resolve a test set from any valid identifier (UUID, nano_id, or slug).
     Returns None if not found or if there's an error parsing the identifier.
@@ -462,10 +478,10 @@ def resolve_test_set(identifier: str, db: Session) -> Optional[models.TestSet]:
         # First try UUID
         try:
             identifier_uuid = uuid.UUID(identifier)
-            db_test_set = get_test_set(db, test_set_id=identifier_uuid)
+            db_test_set = get_test_set(db, test_set_id=identifier_uuid, organization_id=organization_id)
         except ValueError:
             # If not UUID, try nano_id or slug
-            db_test_set = get_test_set_by_nano_id_or_slug(db, identifier)
+            db_test_set = get_test_set_by_nano_id_or_slug(db, identifier, organization_id=organization_id)
 
         return db_test_set
     except ValueError:
@@ -521,9 +537,9 @@ def get_test_set_tests(
 
 # TestConfiguration CRUD
 def get_test_configuration(
-    db: Session, test_configuration_id: uuid.UUID
+    db: Session, test_configuration_id: uuid.UUID, organization_id: str = None
 ) -> Optional[models.TestConfiguration]:
-    return get_item_detail(db, models.TestConfiguration, test_configuration_id)
+    return get_item_detail(db, models.TestConfiguration, test_configuration_id, organization_id=organization_id)
 
 
 def get_test_configurations(
@@ -533,8 +549,10 @@ def get_test_configurations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestConfiguration]:
-    return get_items_detail(db, models.TestConfiguration, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.TestConfiguration, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_test_configuration(
@@ -576,8 +594,10 @@ def get_risks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Risk]:
-    return get_items(db, models.Risk, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Risk, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_risk(
@@ -598,9 +618,7 @@ def update_risk(
     return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
 
 
-def delete_risk(
-    db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Risk]:
+def delete_risk(db: Session, risk_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Risk]:
     """Delete risk with optimized approach - no session variables needed."""
     return delete_item(db, models.Risk, risk_id, organization_id, user_id)
 
@@ -620,8 +638,10 @@ def get_statuses(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Status]:
-    return get_items(db, models.Status, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Status, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_status(
@@ -642,9 +662,7 @@ def update_status(
     return update_item(db, models.Status, status_id, status, organization_id, user_id)
 
 
-def delete_status(
-    db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Status]:
+def delete_status(db: Session, status_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Status]:
     """Delete status with optimized approach - no session variables needed."""
     return delete_item(db, models.Status, status_id, organization_id, user_id)
 
@@ -664,8 +682,10 @@ def get_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Source]:
-    return get_items(db, models.Source, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Source, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_source(
@@ -686,9 +706,7 @@ def update_source(
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
 
 
-def delete_source(
-    db: Session, source_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Source]:
+def delete_source(db: Session, source_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Source]:
     """Delete source with optimized approach - no session variables needed."""
     return delete_item(db, models.Source, source_id, organization_id, user_id)
 
@@ -708,8 +726,10 @@ def get_topics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Topic]:
-    return get_items(db, models.Topic, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Topic, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_topic(
@@ -730,9 +750,7 @@ def update_topic(
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)
 
 
-def delete_topic(
-    db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Topic]:
+def delete_topic(db: Session, topic_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Topic]:
     """Delete topic with optimized approach - no session variables needed."""
     return delete_item(db, models.Topic, topic_id, organization_id, user_id)
 
@@ -752,8 +770,10 @@ def get_demographics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Demographic]:
-    return get_items(db, models.Demographic, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Demographic, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_demographic(
@@ -779,8 +799,8 @@ def update_demographic(
     )
 
 
-def delete_demographic(db: Session, demographic_id: uuid.UUID) -> Optional[models.Demographic]:
-    return delete_item(db, models.Demographic, demographic_id)
+def delete_demographic(db: Session, demographic_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Demographic]:
+    return delete_item(db, models.Demographic, demographic_id, organization_id=organization_id, user_id=user_id)
 
 
 # Dimension CRUD
@@ -798,8 +818,10 @@ def get_dimensions(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Dimension]:
-    return get_items(db, models.Dimension, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Dimension, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_dimension(
@@ -823,8 +845,8 @@ def update_dimension(
     return update_item(db, models.Dimension, dimension_id, dimension, organization_id, user_id)
 
 
-def delete_dimension(db: Session, dimension_id: uuid.UUID) -> Optional[models.Dimension]:
-    return delete_item(db, models.Dimension, dimension_id)
+def delete_dimension(db: Session, dimension_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Dimension]:
+    return delete_item(db, models.Dimension, dimension_id, organization_id=organization_id, user_id=user_id)
 
 
 # User CRUD
@@ -842,45 +864,44 @@ def get_users(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.User]:
-    return get_items(db, models.User, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.User, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """Create a new user without RLS checks, because we're creating a new user that has no
     organization_id"""
     # Exclude send_invite field since it's not part of the User model
-    user_data = user.dict(exclude={"send_invite"})
+    user_data = user.model_dump(exclude={"send_invite"})
     db_user = models.User(**user_data)
     db.add(db_user)
-    db.commit()
+    # Flush to get ID and other generated values before refresh
+    db.flush()
+    # Transaction commit is handled by the session context manager
     db.refresh(db_user)
     return db_user
 
 
 def update_user(db: Session, user_id: uuid.UUID, user: schemas.UserUpdate) -> Optional[models.User]:
     """Update user with special handling for onboarding (no organization)"""
-    try:
-        # Direct query without RLS filters for user updates
-        db_user = db.query(models.User).filter(models.User.id == user_id).first()
-        if not db_user:
-            return None
+    # Direct query without RLS filters for user updates
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        return None
 
-        # Update user attributes
-        user_data = user.model_dump(exclude_unset=True)
-        for key, value in user_data.items():
-            setattr(db_user, key, value)
+    # Update user attributes
+    user_data = user.model_dump(exclude_unset=True)
+    for key, value in user_data.items():
+        setattr(db_user, key, value)
 
-        db.commit()
-        return db_user
-    except Exception as e:
-        db.rollback()
-        logger.debug(f"Error updating user: {e}")
-        raise
+    # Transaction commit/rollback is handled by the session context manager
+    return db_user
 
 
-def delete_user(db: Session, user_id: uuid.UUID) -> Optional[models.User]:
-    return delete_item(db, models.User, user_id)
+def delete_user(db: Session, user_id: uuid.UUID, organization_id: str, user_id_param: str) -> Optional[models.User]:
+    return delete_item(db, models.User, user_id, organization_id=organization_id, user_id=user_id_param)
 
 
 def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
@@ -919,12 +940,14 @@ def get_tags(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Tag]:
-    return get_items(db, models.Tag, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Tag, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_tag(
-    db: Session, tag: schemas.TagCreate, organization_id: str = None, user_id: str = None
+    db: Session, tag: schemas.TagCreate, organization_id: str, user_id: str
 ) -> models.Tag:
     """Create tag with optimized approach - no session variables needed."""
     return create_item(db, models.Tag, tag, organization_id, user_id)
@@ -941,24 +964,33 @@ def update_tag(
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
 
 
-def delete_tag(
-    db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Tag]:
+def delete_tag(db: Session, tag_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Tag]:
     """Delete tag with optimized approach - no session variables needed."""
     return delete_item(db, models.Tag, tag_id, organization_id, user_id)
 
 
 def assign_tag(
-    db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType
+    db: Session, tag: schemas.TagCreate, entity_id: UUID, entity_type: EntityType, organization_id: str = None, user_id: str = None
 ) -> models.Tag:
-    """Create a tag if it doesn't exist and link it to an entity"""
+    """Create a tag if it doesn't exist and link it to an entity with organization filtering"""
+    from rhesis.backend.logging.rhesis_logger import logger
+    
+    logger.info(f"assign_tag called: tag.name={tag.name}, entity_id={entity_id}, entity_type={entity_type}")
+    
     # Get the actual model class based on entity_type
     model_class = getattr(models, entity_type.value)
 
-    # Verify the entity exists
-    entity = db.query(model_class).filter(model_class.id == entity_id).first()
+    # Verify the entity exists with organization filtering (SECURITY CRITICAL)
+    entity_query = db.query(model_class).filter(model_class.id == entity_id)
+    
+    # Apply organization filtering if the model supports it
+    if organization_id and hasattr(model_class, 'organization_id'):
+        from uuid import UUID
+        entity_query = entity_query.filter(model_class.organization_id == UUID(organization_id))
+    
+    entity = entity_query.first()
     if not entity:
-        raise ValueError(f"{entity_type.value} with id {entity_id} not found")
+        raise ValueError(f"{entity_type.value} with id {entity_id} not found or not accessible")
 
     # Check if tag already exists (keep organization filter for double security)
     db_tag = (
@@ -967,9 +999,13 @@ def assign_tag(
         .first()
     )
 
+    logger.info(f"Tag lookup: found={db_tag is not None}, tag_id={db_tag.id if db_tag else 'None'}")
+
     # If tag doesn't exist, create it
     if not db_tag:
-        db_tag = create_tag(db=db, tag=tag)
+        logger.info(f"Creating new tag: {tag.name}")
+        db_tag = create_tag(db=db, tag=tag, organization_id=organization_id, user_id=user_id)
+        logger.info(f"Tag created successfully: tag_id={db_tag.id}")
 
     # Check if the tag is already assigned
     existing_assignment = (
@@ -984,10 +1020,14 @@ def assign_tag(
         .first()
     )
 
+    logger.info(f"Assignment lookup: found={existing_assignment is not None}")
+
     if existing_assignment:
+        logger.info(f"Tag already assigned, returning existing tag: tag_id={db_tag.id}")
         return db_tag
 
     # Create the tagged_item relationship
+    logger.info(f"Creating new tag assignment: tag_id={db_tag.id}, entity_id={entity_id}")
     tagged_item = models.TaggedItem(
         tag_id=db_tag.id,
         entity_id=entity_id,
@@ -996,25 +1036,39 @@ def assign_tag(
         user_id=tag.user_id,
     )
     db.add(tagged_item)
-    with maintain_tenant_context(db):
-        db.commit()
-        db.refresh(db_tag)
+    db.flush()  # Force flush to ensure the TaggedItem is persisted
+    logger.info(f"Tag assignment created successfully: tagged_item_id={tagged_item.id}")
+    
+    # Transaction commit is handled by the session context manager
+    db.refresh(db_tag)
 
+    logger.info(f"assign_tag completed successfully: tag_id={db_tag.id}")
     return db_tag
 
 
-def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityType) -> bool:
+def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityType, organization_id: str = None) -> bool:
     """Remove a tag from an entity by deleting the tagged_item relationship"""
-    # Get the tag to check organization
-    db_tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
+    # Get the tag with organization filtering (SECURITY CRITICAL)
+    tag_query = db.query(models.Tag).filter(models.Tag.id == tag_id)
+    if organization_id:
+        from uuid import UUID as UUIDType
+        tag_query = tag_query.filter(models.Tag.organization_id == UUIDType(organization_id))
+    
+    db_tag = tag_query.first()
     if not db_tag:
-        raise ValueError("Tag not found")
+        raise ValueError("Tag not found or not accessible")
 
-    # Verify the entity exists
+    # Verify the entity exists with organization filtering (SECURITY CRITICAL)
     model_class = getattr(models, entity_type.value)
-    entity = db.query(model_class).filter(model_class.id == entity_id).first()
+    entity_query = db.query(model_class).filter(model_class.id == entity_id)
+    
+    # Apply organization filtering if the model supports it
+    if organization_id and hasattr(model_class, 'organization_id'):
+        entity_query = entity_query.filter(model_class.organization_id == UUIDType(organization_id))
+    
+    entity = entity_query.first()
     if not entity:
-        raise ValueError(f"{entity_type.value} with id {entity_id} not found")
+        raise ValueError(f"{entity_type.value} with id {entity_id} not found or not accessible")
 
     result = (
         db.query(models.TaggedItem)
@@ -1027,8 +1081,7 @@ def remove_tag(db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityTy
         .delete()
     )
 
-    with maintain_tenant_context(db):
-        db.commit()
+    # Transaction commit is handled by the session context manager
     return result > 0
 
 
@@ -1060,6 +1113,7 @@ def get_user_tokens(
     sort_order: str = "desc",
     filter: str | None = None,
     valid_only: bool = False,
+    organization_id: str = None,
 ) -> List[models.Token]:
     """Get all active bearer tokens for a user with pagination and sorting
 
@@ -1078,7 +1132,7 @@ def get_user_tokens(
     """
     query_builder = (
         QueryBuilder(db, models.Token)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
         )
@@ -1127,17 +1181,30 @@ def revoke_token(
     return delete_item(db, models.Token, token_id, organization_id, user_id)
 
 
-def revoke_user_tokens(db: Session, user_id: uuid.UUID) -> List[models.Token]:
-    result = db.query(models.Token).filter(models.Token.user_id == user_id).delete()
-    with maintain_tenant_context(db):
-        db.commit()
+def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = None) -> int:
+    """Revoke all tokens for a user with organization filtering (SECURITY CRITICAL)"""
+    query = db.query(models.Token).filter(models.Token.user_id == user_id)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(models.Token.organization_id == UUID(organization_id))
+    
+    result = query.delete()
+    # Transaction commit is handled by the session context manager
     return result
 
 
-def get_token_by_value(db: Session, token_value: str):
-    """Retrieve a token by its value"""
-    token = db.query(models.Token).filter(models.Token.token == token_value).first()
-    return token
+def get_token_by_value(db: Session, token_value: str, organization_id: str = None):
+    """Retrieve a token by its value with organization filtering (SECURITY CRITICAL)"""
+    query = db.query(models.Token).filter(models.Token.token == token_value)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(models.Token.organization_id == UUID(organization_id))
+    
+    return query.first()
 
 
 # Organization CRUD
@@ -1155,47 +1222,42 @@ def get_organizations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Organization]:
-    return get_items(db, models.Organization, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.Organization, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_organization(
     db: Session, organization: schemas.OrganizationCreate
 ) -> models.Organization:
     """Create a new organization without RLS checks, because we're creating a new organization"""
-    try:
-        # Print session variables before reset
-        before_vars = get_session_variables(db)
-        logger.info(f"Session variables BEFORE reset: {before_vars}")
+    # Print session variables before reset
+    before_vars = get_session_variables(db)
+    logger.info(f"Session variables BEFORE reset: {before_vars}")
 
-        # Reset session context to ensure the new organization is created correctly
-        reset_session_context(db)
+    # Reset session context to ensure the new organization is created correctly
+    reset_session_context(db)
 
-        # Verify variables are cleared
-        after_vars = get_session_variables(db)
-        logger.info(f"Session variables AFTER reset: {after_vars}")
+    # Verify variables are cleared
+    after_vars = get_session_variables(db)
+    logger.info(f"Session variables AFTER reset: {after_vars}")
 
-        # Make sure session is clean to avoid RLS issues
-        db.expire_all()
+    # Make sure session is clean to avoid RLS issues
+    db.expire_all()
 
-        # Convert Pydantic model to dict
-        org_data = (
-            organization.dict() if hasattr(organization, "dict") else organization.model_dump()
-        )
-        db_org = models.Organization(**org_data)
+    # Convert Pydantic model to dict
+    org_data = organization.model_dump()
+    db_org = models.Organization(**org_data)
 
-        # Add and commit in a simple transaction
-        db.add(db_org)
-        db.commit()
+    # Add to session - transaction management is handled by context manager
+    db.add(db_org)
+    db.flush()  # Flush to get the ID
 
-        # Simply return the object without refreshing
-        # The refresh operation is what often triggers RLS issues
-        logger.info(f"Organization created successfully: {db_org.id}")
-        return db_org
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error creating organization: {str(e)}")
-        raise ValueError(f"Failed to create organization: {str(e)}")
+    # Simply return the object without refreshing
+    # The refresh operation is what often triggers RLS issues
+    logger.info(f"Organization created successfully: {db_org.id}")
+    return db_org
 
 
 def update_organization(
@@ -1224,8 +1286,10 @@ def get_projects(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Project]:
-    return get_items_detail(db, models.Project, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Project, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_project(
@@ -1236,9 +1300,9 @@ def create_project(
 
 
 def update_project(
-    db: Session, project_id: uuid.UUID, project: schemas.ProjectUpdate
+    db: Session, project_id: uuid.UUID, project: schemas.ProjectUpdate, organization_id: str, user_id: str
 ) -> Optional[models.Project]:
-    return update_item(db, models.Project, project_id, project)
+    return update_item(db, models.Project, project_id, project, organization_id, user_id)
 
 
 def get_test(
@@ -1248,6 +1312,13 @@ def get_test(
     return get_item(db, models.Test, test_id, organization_id, user_id)
 
 
+def get_test_detail(
+    db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Test]:
+    """Get test with all relationships loaded using optimized approach - no session variables needed."""
+    return get_item_detail(db, models.Test, test_id, organization_id, user_id)
+
+
 def get_tests(
     db: Session,
     skip: int = 0,
@@ -1255,8 +1326,10 @@ def get_tests(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Test]:
-    return get_items_detail(db, models.Test, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Test, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_test(
@@ -1277,36 +1350,35 @@ def update_test(
     return update_item(db, models.Test, test_id, test, organization_id, user_id)
 
 
-def delete_test(db: Session, test_id: uuid.UUID) -> Optional[models.Test]:
+def delete_test(db: Session, test_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Test]:
     """Delete a test and update any associated test sets' attributes"""
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
-    with maintain_tenant_context(db):
-        # Get the test to be deleted
-        db_test = get_item(db, models.Test, test_id)
-        if db_test is None:
-            return None
+    # Get the test to be deleted
+    db_test = get_item(db, models.Test, test_id, organization_id, user_id)
+    if db_test is None:
+        return None
 
-        # Get all test sets that contain this test before deletion
-        test_set_ids = db.execute(
-            test_test_set_association.select().where(test_test_set_association.c.test_id == test_id)
-        ).fetchall()
+    # Get all test sets that contain this test before deletion
+    test_set_ids = db.execute(
+        test_test_set_association.select().where(test_test_set_association.c.test_id == test_id)
+    ).fetchall()
 
-        affected_test_set_ids = [row.test_set_id for row in test_set_ids]
+    affected_test_set_ids = [row.test_set_id for row in test_set_ids]
 
-        # Store a copy of the test before deletion
-        deleted_test = db_test
+    # Store a copy of the test before deletion
+    deleted_test = db_test
 
-        # Delete the test (this will also cascade delete the associations)
-        db.delete(db_test)
-        db.flush()
+    # Delete the test (this will also cascade delete the associations)
+    db.delete(db_test)
+    db.flush()
 
-        # Update attributes for all affected test sets
-        for test_set_id in affected_test_set_ids:
-            update_test_set_attributes(db=db, test_set_id=str(test_set_id))
+    # Update attributes for all affected test sets
+    for test_set_id in affected_test_set_ids:
+        update_test_set_attributes(db=db, test_set_id=str(test_set_id))
 
-        db.commit()
-        return deleted_test
+    # Transaction commit is handled by the session context manager
+    return deleted_test
 
 
 # TestContext CRUD
@@ -1324,14 +1396,16 @@ def get_test_contexts(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestContext]:
-    return get_items(db, models.TestContext, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.TestContext, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
-def get_test_contexts_by_test(db: Session, test_id: uuid.UUID) -> List[models.TestContext]:
+def get_test_contexts_by_test(db: Session, test_id: uuid.UUID, organization_id: str = None) -> List[models.TestContext]:
     return (
         QueryBuilder(db, models.TestContext)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(lambda q: q.filter(models.TestContext.test_id == test_id))
         .all()
     )
@@ -1360,8 +1434,8 @@ def update_test_context(
     )
 
 
-def delete_test_context(db: Session, test_context_id: uuid.UUID) -> Optional[models.TestContext]:
-    return delete_item(db, models.TestContext, test_context_id)
+def delete_test_context(db: Session, test_context_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestContext]:
+    return delete_item(db, models.TestContext, test_context_id, organization_id=organization_id, user_id=user_id)
 
 
 # Test Run CRUD
@@ -1379,18 +1453,20 @@ def get_test_runs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestRun]:
-    return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.TestRun, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
-def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID) -> List[models.Behavior]:
-    """Get behaviors that have test results for a specific test run"""
-    # Verify the test run exists
+def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID, organization_id: str = None) -> List[models.Behavior]:
+    """Get behaviors that have test results for a specific test run with organization filtering"""
+    # Verify the test run exists (UUID lookup is safe)
     test_run = get_test_run(db, test_run_id)
     if not test_run:
         raise ValueError(f"Test run with id {test_run_id} not found")
 
-    # Get unique behavior IDs from tests that have results in this test run
+    # Get unique behavior IDs from tests that have results in this test run (SECURITY: Add organization filtering)
     behavior_ids_query = (
         db.query(models.Test.behavior_id)
         .join(models.TestResult, models.Test.id == models.TestResult.test_id)
@@ -1398,8 +1474,14 @@ def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID) -> List[models.B
             models.TestResult.test_run_id == test_run_id,
             models.Test.behavior_id.isnot(None),  # Only tests that have a behavior
         )
-        .distinct()
     )
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        behavior_ids_query = behavior_ids_query.filter(models.Test.organization_id == UUID(organization_id))
+    
+    behavior_ids_query = behavior_ids_query.distinct()
 
     behavior_ids = [row[0] for row in behavior_ids_query.all()]
 
@@ -1468,8 +1550,8 @@ def update_test_run(
     return update_item(db, models.TestRun, test_run_id, test_run, organization_id, user_id)
 
 
-def delete_test_run(db: Session, test_run_id: uuid.UUID) -> Optional[models.TestRun]:
-    return delete_item(db, models.TestRun, test_run_id)
+def delete_test_run(db: Session, test_run_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestRun]:
+    return delete_item(db, models.TestRun, test_run_id, organization_id=organization_id, user_id=user_id)
 
 
 # Test Result CRUD
@@ -1487,8 +1569,10 @@ def get_test_results(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TestResult]:
-    return get_items(db, models.TestResult, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.TestResult, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_test_result(
@@ -1512,12 +1596,12 @@ def update_test_result(
     return update_item(db, models.TestResult, test_result_id, test_result, organization_id, user_id)
 
 
-def delete_test_result(db: Session, test_result_id: uuid.UUID) -> Optional[models.TestResult]:
-    return delete_item(db, models.TestResult, test_result_id)
+def delete_test_result(db: Session, test_result_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TestResult]:
+    return delete_item(db, models.TestResult, test_result_id, organization_id=organization_id, user_id=user_id)
 
 
-def delete_project(db: Session, project_id: uuid.UUID) -> Optional[models.Project]:
-    return delete_item(db, models.Project, project_id)
+def delete_project(db: Session, project_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Project]:
+    return delete_item(db, models.Project, project_id, organization_id=organization_id, user_id=user_id)
 
 
 # TypeLookup CRUD
@@ -1535,8 +1619,10 @@ def get_type_lookups(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.TypeLookup]:
-    return get_items(db, models.TypeLookup, skip, limit, sort_by, sort_order, filter)
+    return get_items(db, models.TypeLookup, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_type_lookup(
@@ -1560,20 +1646,18 @@ def update_type_lookup(
     return update_item(db, models.TypeLookup, type_lookup_id, type_lookup, organization_id, user_id)
 
 
-def delete_type_lookup(
-    db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.TypeLookup]:
+def delete_type_lookup(db: Session, type_lookup_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.TypeLookup]:
     """Delete type lookup with optimized approach - no session variables needed."""
     return delete_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
 
 def get_type_lookup_by_name_and_value(
-    db: Session, type_name: str, type_value: str
+    db: Session, type_name: str, type_value: str, organization_id: str, user_id: str = None
 ) -> Optional[models.TypeLookup]:
     """Get a type lookup by its type_name and type_value"""
     return (
         QueryBuilder(db, models.TypeLookup)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.filter(
                 models.TypeLookup.type_name == type_name, models.TypeLookup.type_value == type_value
@@ -1584,14 +1668,13 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
-def get_metric(db: Session, metric_id: uuid.UUID) -> Optional[models.Metric]:
+def get_metric(db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str = None) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
-    with maintain_tenant_context(db):
-        return (
-            QueryBuilder(db, models.Metric)
-            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
-            .with_organization_filter()
-            .with_visibility_filter()
+    return (
+        QueryBuilder(db, models.Metric)
+        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
             .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
             .first()
         )
@@ -1604,14 +1687,15 @@ def get_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Metric]:
     """Get all metrics with their related objects, including many-to-many relationships"""
-    with maintain_tenant_context(db):
-        return (
-            QueryBuilder(db, models.Metric)
-            .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
-            .with_organization_filter()
-            .with_visibility_filter()
+    return (
+        QueryBuilder(db, models.Metric)
+        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
             .with_odata_filter(filter)
             .with_pagination(skip, limit)
             .with_sorting(sort_by, sort_order)
@@ -1637,9 +1721,9 @@ def update_metric(
     return update_item(db, models.Metric, metric_id, metric, organization_id, user_id)
 
 
-def delete_metric(db: Session, metric_id: uuid.UUID) -> Optional[models.Metric]:
+def delete_metric(db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Metric]:
     """Delete a metric"""
-    return delete_item(db, models.Metric, metric_id)
+    return delete_item(db, models.Metric, metric_id, organization_id=organization_id, user_id=user_id)
 
 
 def add_behavior_to_metric(
@@ -1657,15 +1741,21 @@ def add_behavior_to_metric(
     Returns:
         bool: True if the behavior was added, False if it was already associated
     """
-    # Verify the metric exists
-    metric = db.query(models.Metric).filter(models.Metric.id == metric_id).first()
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = db.query(models.Metric).filter(
+        models.Metric.id == metric_id,
+        models.Metric.organization_id == organization_id
+    ).first()
     if not metric:
-        raise ValueError(f"Metric with id {metric_id} not found")
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
-    # Verify the behavior exists
-    behavior = db.query(models.Behavior).filter(models.Behavior.id == behavior_id).first()
+    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
+    behavior = db.query(models.Behavior).filter(
+        models.Behavior.id == behavior_id,
+        models.Behavior.organization_id == organization_id
+    ).first()
     if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found")
+        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
 
     # Check if the association already exists
     existing = (
@@ -1691,8 +1781,7 @@ def add_behavior_to_metric(
         )
     )
 
-    with maintain_tenant_context(db):
-        db.commit()
+    # Transaction commit is handled by the session context manager
     return True
 
 
@@ -1710,15 +1799,21 @@ def remove_behavior_from_metric(
     Returns:
         bool: True if the behavior was removed, False if it wasn't associated
     """
-    # Verify the metric exists
-    metric = db.query(models.Metric).filter(models.Metric.id == metric_id).first()
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = db.query(models.Metric).filter(
+        models.Metric.id == metric_id,
+        models.Metric.organization_id == organization_id
+    ).first()
     if not metric:
-        raise ValueError(f"Metric with id {metric_id} not found")
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
-    # Verify the behavior exists
-    behavior = db.query(models.Behavior).filter(models.Behavior.id == behavior_id).first()
+    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
+    behavior = db.query(models.Behavior).filter(
+        models.Behavior.id == behavior_id,
+        models.Behavior.organization_id == organization_id
+    ).first()
     if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found")
+        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
 
     result = (
         db.query(models.behavior_metric_association)
@@ -1730,14 +1825,14 @@ def remove_behavior_from_metric(
         .delete()
     )
 
-    with maintain_tenant_context(db):
-        db.commit()
+    # Transaction commit is handled by the session context manager
     return result > 0
 
 
 def get_metric_behaviors(
     db: Session,
     metric_id: UUID,
+    organization_id: str,
     skip: int = 0,
     limit: int = 20,
     sort_by: str = "created_at",
@@ -1749,6 +1844,7 @@ def get_metric_behaviors(
     Args:
         db: Database session
         metric_id: ID of the metric
+        organization_id: ID of the organization (SECURITY CRITICAL)
         skip: Number of records to skip
         limit: Maximum number of records to return
         sort_by: Field to sort by
@@ -1758,14 +1854,17 @@ def get_metric_behaviors(
     Returns:
         List of behaviors associated with the metric
     """
-    # Verify the metric exists
-    metric = db.query(models.Metric).filter(models.Metric.id == metric_id).first()
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = db.query(models.Metric).filter(
+        models.Metric.id == metric_id,
+        models.Metric.organization_id == UUID(organization_id)
+    ).first()
     if not metric:
-        raise ValueError(f"Metric with id {metric_id} not found")
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
     return (
         QueryBuilder(db, models.Behavior)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.behavior_metric_association).filter(
                 models.behavior_metric_association.c.metric_id == metric_id
@@ -1781,6 +1880,7 @@ def get_metric_behaviors(
 def get_behavior_metrics(
     db: Session,
     behavior_id: UUID,
+    organization_id: str,
     skip: int = 0,
     limit: int = 20,
     sort_by: str = "created_at",
@@ -1792,6 +1892,7 @@ def get_behavior_metrics(
     Args:
         db: Database session
         behavior_id: ID of the behavior
+        organization_id: ID of the organization (SECURITY CRITICAL)
         skip: Number of records to skip
         limit: Maximum number of records to return
         sort_by: Field to sort by
@@ -1801,14 +1902,17 @@ def get_behavior_metrics(
     Returns:
         List of metrics associated with the behavior
     """
-    # Verify the behavior exists
-    behavior = db.query(models.Behavior).filter(models.Behavior.id == behavior_id).first()
+    # Verify the behavior exists AND belongs to the organization (SECURITY CRITICAL)
+    behavior = db.query(models.Behavior).filter(
+        models.Behavior.id == behavior_id,
+        models.Behavior.organization_id == UUID(organization_id)
+    ).first()
     if not behavior:
-        raise ValueError(f"Behavior with id {behavior_id} not found")
+        raise ValueError(f"Behavior with id {behavior_id} not found or not accessible")
 
     return (
         QueryBuilder(db, models.Metric)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.behavior_metric_association).filter(
                 models.behavior_metric_association.c.behavior_id == behavior_id
@@ -1822,9 +1926,16 @@ def get_behavior_metrics(
 
 
 # Model CRUD
-def get_model(db: Session, model_id: uuid.UUID) -> Optional[models.Model]:
-    """Get a specific model by ID with its related objects"""
-    return get_item_detail(db, models.Model, model_id)
+def get_model(db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Model]:
+    """Get a specific model by ID with its related objects and organization filtering"""
+    query = db.query(models.Model).filter(models.Model.id == model_id)
+    
+    # Apply organization filtering (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID as UUIDType
+        query = query.filter(models.Model.organization_id == UUIDType(organization_id))
+    
+    return query.first()
 
 
 def get_models(
@@ -1834,9 +1945,11 @@ def get_models(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Model]:
     """Get all models with their related objects"""
-    return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Model, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_model(
@@ -1857,9 +1970,9 @@ def update_model(
     return update_item(db, models.Model, model_id, model, organization_id, user_id)
 
 
-def delete_model(db: Session, model_id: uuid.UUID) -> Optional[models.Model]:
+def delete_model(db: Session, model_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Model]:
     """Delete a model"""
-    return delete_item(db, models.Model, model_id)
+    return delete_item(db, models.Model, model_id, organization_id=organization_id, user_id=user_id)
 
 
 def test_model_connection(db: Session, model_id: uuid.UUID) -> bool:
@@ -1905,15 +2018,19 @@ def get_comments(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Comment]:
     """Get all comments with filtering and pagination"""
-    return get_items_detail(db, models.Comment, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Comment, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def get_comments_by_entity(
     db: Session,
     entity_id: uuid.UUID,
     entity_type: str,
+    organization_id: str,
+    user_id: str = None,
     skip: int = 0,
     limit: int = 10,
     sort_by: str = "created_at",
@@ -1922,7 +2039,7 @@ def get_comments_by_entity(
     """Get all comments for a specific entity (test, test_set, test_run)"""
     return (
         QueryBuilder(db, models.Comment)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.filter(
                 models.Comment.entity_id == entity_id, models.Comment.entity_type == entity_type
@@ -1963,18 +2080,16 @@ def update_comment(
     return update_item(db, models.Comment, comment_id, comment, organization_id, user_id)
 
 
-def delete_comment(
-    db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
-) -> Optional[models.Comment]:
+def delete_comment(db: Session, comment_id: uuid.UUID, organization_id: str, user_id: str) -> Optional[models.Comment]:
     """Delete a comment with optimized tenant context"""
     return delete_item(db, models.Comment, comment_id, organization_id, user_id)
 
 
 def add_emoji_reaction(
-    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID, user_name: str
+    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID, user_name: str, organization_id: str = None, user_id_param: str = None
 ) -> Optional[models.Comment]:
     """Add an emoji reaction to a comment"""
-    comment = get_comment(db, comment_id)
+    comment = get_comment(db, comment_id, organization_id, user_id_param)
     if not comment:
         return None
 
@@ -2010,17 +2125,17 @@ def add_emoji_reaction(
     update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
     db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     db.refresh(comment)
 
     return comment
 
 
 def remove_emoji_reaction(
-    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID
+    db: Session, comment_id: uuid.UUID, emoji: str, user_id: uuid.UUID, organization_id: str = None, user_id_param: str = None
 ) -> Optional[models.Comment]:
     """Remove an emoji reaction from a comment"""
-    comment = get_comment(db, comment_id)
+    comment = get_comment(db, comment_id, organization_id, user_id_param)
     if not comment:
         return None
 
@@ -2042,15 +2157,18 @@ def remove_emoji_reaction(
     update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
     db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
 
-    db.commit()
+    # Transaction commit is handled by the session context manager
     db.refresh(comment)
 
     return comment
 
 
 # Task CRUD
-def get_task(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
-    return get_items(db, models.Task, task_id)
+def get_task(
+    db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Task]:
+    """Get task with optimized approach - no session variables needed."""
+    return get_item(db, models.Task, task_id, organization_id, user_id)
 
 
 def get_tasks(
@@ -2060,9 +2178,11 @@ def get_tasks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None
 ) -> List[models.Task]:
     """Get tasks with filtering and sorting"""
-    return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter)
+    return get_items_detail(db, models.Task, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
 
 
 def create_task(
@@ -2079,15 +2199,24 @@ def create_task(
     return create_item(db, models.Task, task, organization_id=organization_id, user_id=user_id)
 
 
-def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate) -> Optional[models.Task]:
-    """Update a task"""
+def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate, organization_id: str = None) -> Optional[models.Task]:
+    """Update a task with organization filtering"""
     # Check if status is being changed to "Completed"
     if task.status_id is not None:
-        # Get current task to compare status
-        current_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        # Get current task to compare status (SECURITY CRITICAL)
+        task_query = db.query(models.Task).filter(models.Task.id == task_id)
+        if organization_id:
+            from uuid import UUID as UUIDType
+            task_query = task_query.filter(models.Task.organization_id == UUIDType(organization_id))
+        
+        current_task = task_query.first()
         if current_task and task.status_id != current_task.status_id:
-            # Get the new status to check if it's "Completed"
-            new_status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
+            # Get the new status with organization filtering (SECURITY CRITICAL)
+            status_query = db.query(models.Status).filter(models.Status.id == task.status_id)
+            if organization_id:
+                status_query = status_query.filter(models.Status.organization_id == UUIDType(organization_id))
+            
+            new_status = status_query.first()
             if new_status and new_status.name == "Completed":
                 # Set completed_at to current timestamp
                 task.completed_at = datetime.utcnow()
@@ -2095,7 +2224,84 @@ def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate) -> Op
     return update_item(db, models.Task, task_id, task)
 
 
-def delete_task(db: Session, task_id: uuid.UUID) -> bool:
+def delete_task(db: Session, task_id: uuid.UUID, organization_id: str, user_id: str) -> bool:
     """Delete a task"""
-    result = delete_item(db, models.Task, task_id)
+    result = delete_item(db, models.Task, task_id, organization_id=organization_id, user_id=user_id)
     return result is not None
+
+
+def get_tasks_with_comment_counts(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str = None,
+    organization_id: str = None,
+) -> List[models.Task]:
+    """
+    Get tasks with comment counts using PostgreSQL aggregation with organization filtering.
+    Uses a subquery to count comments for each task efficiently.
+    """
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import aliased
+
+    # Create alias for Comment model
+    Comment = aliased(models.Comment)
+
+    # Subquery to count comments for each task with organization filtering (SECURITY CRITICAL)
+    comment_filters = [Comment.entity_type == "Task"]
+    if organization_id:
+        from uuid import UUID
+        comment_filters.append(Comment.organization_id == UUID(organization_id))
+    
+    comment_count_subquery = (
+        select(Comment.entity_id, func.count(Comment.id).label("total_comments"))
+        .where(*comment_filters)
+        .group_by(Comment.entity_id)
+        .subquery()
+    )
+
+    # First get the tasks with organization filter using QueryBuilder
+    from rhesis.backend.app.utils.model_utils import QueryBuilder
+    
+    # Use QueryBuilder for organization filtering, OData, sorting, and pagination
+    query_builder = (
+        QueryBuilder(db, models.Task)
+        .with_organization_filter(organization_id)
+        .with_odata_filter(filter)
+        .with_sorting(sort_by, sort_order)
+        .with_pagination(skip, limit)
+    )
+    
+    # Execute the query to get tasks
+    tasks = query_builder.all()
+
+    # Now get comment counts for these tasks
+    task_ids = [task.id for task in tasks]
+
+    if task_ids:
+        # Get comment counts for the tasks with organization filtering (SECURITY CRITICAL)
+        comment_query = (
+            db.query(Comment.entity_id, func.count(Comment.id).label("total_comments"))
+            .where(Comment.entity_type == "Task")
+            .where(Comment.entity_id.in_(task_ids))
+        )
+        
+        # Apply organization filtering to comments (SECURITY CRITICAL)
+        if organization_id:
+            from uuid import UUID
+            comment_query = comment_query.where(Comment.organization_id == UUID(organization_id))
+            
+        comment_counts = comment_query.group_by(Comment.entity_id).all()
+
+        # Create a mapping of task_id to comment count
+        comment_count_map = {str(task_id): count for task_id, count in comment_counts}
+    else:
+        comment_count_map = {}
+
+    # Add total_comments to each task
+    for task in tasks:
+        task.total_comments = comment_count_map.get(str(task.id), 0)
+
+    return tasks

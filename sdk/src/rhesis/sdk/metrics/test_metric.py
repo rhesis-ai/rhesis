@@ -64,40 +64,62 @@ class MockUser:
         self.organization_id = organization_id
 
 
-def load_metric_from_db(db: Session, metric_id: str) -> Optional[Metric]:
-    """Load a metric from the database by ID."""
+def load_metric_from_db(
+    db: Session, metric_id: str, organization_id: str = None
+) -> Optional[Metric]:
+    """Load a metric from the database by ID with organization filtering to prevent data leakage."""
+    base_query = db.query(Metric)
+
+    # Apply organization filtering if provided (recommended for multi-tenant security)
+    if organization_id:
+        try:
+            org_uuid = UUID(organization_id)
+            base_query = base_query.filter(Metric.organization_id == org_uuid)
+        except (ValueError, TypeError):
+            print(f"⚠️ Warning: Invalid organization_id format: {organization_id}")
+
     try:
         # Try as UUID first
         metric_uuid = UUID(metric_id)
-        metric = db.query(Metric).filter(Metric.id == metric_uuid).first()
+        metric = base_query.filter(Metric.id == metric_uuid).first()
         if metric:
             return metric
     except ValueError:
         pass
 
     # Try as nano_id
-    metric = db.query(Metric).filter(Metric.nano_id == metric_id).first()
+    metric = base_query.filter(Metric.nano_id == metric_id).first()
     if metric:
         return metric
 
     # Try as name
-    metric = db.query(Metric).filter(Metric.name == metric_id).first()
+    metric = base_query.filter(Metric.name == metric_id).first()
     return metric
 
 
-def load_test_from_db(db: Session, test_id: str) -> Optional[Test]:
-    """Load a test from the database by ID."""
+def load_test_from_db(db: Session, test_id: str, organization_id: str = None) -> Optional[Test]:
+    """Load a test from the database by ID with organization filtering to prevent data leakage."""
+    base_query = db.query(Test)
+
+    # Apply organization filtering if provided (recommended for multi-tenant security)
+    if organization_id:
+        try:
+            org_uuid = UUID(organization_id)
+            base_query = base_query.filter(Test.organization_id == org_uuid)
+        except (ValueError, TypeError):
+            print(f"⚠️ Warning: Invalid organization_id format: {organization_id}")
+
     try:
         # Try as UUID first
         test_uuid = UUID(test_id)
-        test = db.query(Test).filter(Test.id == test_uuid).first()
+        test = base_query.filter(Test.id == test_uuid).first()
         if test:
             return test
     except ValueError:
         pass
 
     # Try as nano_id
-    test = db.query(Test).filter(Test.nano_id == test_id).first()
+    test = base_query.filter(Test.nano_id == test_id).first()
     return test
 
 
@@ -124,7 +146,7 @@ def extract_test_data(test: Test) -> tuple:
     return input_text, expected_output, context
 
 
-def test_metric(
+def run_metric_test(
     metric_id: str,
     organization_id: str,
     user_id: str,
@@ -140,26 +162,28 @@ def test_metric(
     # Get database session
     db_session = SessionLocal()
 
-    try:
-        # Set up tenant context for database operations
-        from rhesis.backend.app.database import set_tenant
-
-        set_tenant(db_session, organization_id, user_id)
-        print(f"🔑 Set tenant context: org={organization_id}, user={user_id}")
-
-    except Exception as e:
-        print(f"⚠️  Warning: Could not set tenant context: {e}")
+    # Note: Tenant context is now passed directly to CRUD operations instead of using set_tenant
+    # The organization_id and user_id will be passed to individual CRUD functions as needed
+    print(f"🔑 Using tenant context: org={organization_id}, user={user_id}")
 
     try:
         # Load test data if test_id is provided
         if test_id:
             print(f"🧪 Loading test data: {test_id}")
-            test_model = load_test_from_db(db_session, test_id)
+            test_model = load_test_from_db(db_session, test_id, organization_id)
 
             if not test_model:
                 print(f"❌ Test not found: {test_id}")
                 print("💡 Available tests:")
-                tests = db_session.query(Test).limit(5).all()
+                # Apply organization filtering to prevent data leakage
+                test_query = db_session.query(Test)
+                if organization_id:
+                    try:
+                        org_uuid = UUID(organization_id)
+                        test_query = test_query.filter(Test.organization_id == org_uuid)
+                    except (ValueError, TypeError):
+                        print(f"⚠️ Warning: Invalid organization_id format: {organization_id}")
+                tests = test_query.limit(5).all()
                 for t in tests:
                     print(
                         f"   - {t.nano_id}: {t.prompt.content[:50] if t.prompt else 'No prompt'}..."
@@ -185,12 +209,20 @@ def test_metric(
 
         # Load metric from database
         print(f"📊 Loading metric: {metric_id}")
-        metric_model = load_metric_from_db(db_session, metric_id)
+        metric_model = load_metric_from_db(db_session, metric_id, organization_id)
 
         if not metric_model:
             print(f"❌ Metric not found: {metric_id}")
             print("💡 Available metrics:")
-            metrics = db_session.query(Metric).limit(5).all()
+            # Apply organization filtering to prevent data leakage
+            metric_query = db_session.query(Metric)
+            if organization_id:
+                try:
+                    org_uuid = UUID(organization_id)
+                    metric_query = metric_query.filter(Metric.organization_id == org_uuid)
+                except (ValueError, TypeError):
+                    print(f"⚠️ Warning: Invalid organization_id format: {organization_id}")
+            metrics = metric_query.limit(5).all()
             for m in metrics:
                 print(f"   - {m.nano_id or m.id}: {m.name}")
             return {"error": f"Metric not found: {metric_id}"}
@@ -484,7 +516,7 @@ def main():
         print()
 
     # Run the test
-    results = test_metric(
+    results = run_metric_test(
         metric_id=args.metric_id,
         organization_id=args.organization_id,
         user_id=args.user_id,
