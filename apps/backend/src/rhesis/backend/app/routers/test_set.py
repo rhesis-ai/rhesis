@@ -305,14 +305,6 @@ async def generate_test_set(
             status_code=500, detail=f"Failed to start test set generation: {str(e)}"
         )
 
-    finally:
-        # Cleanup documents regardless of success or failure
-        if request.documents:
-            handler = DocumentHandler()
-            for doc in request.documents:
-                if doc.path:
-                    await handler.cleanup(doc.path)
-
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
 async def create_test_set_bulk(
