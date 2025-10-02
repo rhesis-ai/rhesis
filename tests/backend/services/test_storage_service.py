@@ -67,8 +67,7 @@ class TestStorageServiceInitialization(
             os.environ,
             {
                 "BACKEND_ENV": "development",
-                "GCS_PROJECT_ID": "test-project",
-                # Missing GCS_CREDENTIALS_PATH
+                "STORAGE_PROJECT_ID": "test-project",
                 "LOCAL_STORAGE_PATH": "/tmp/test-storage",
             },
             clear=True,
@@ -90,8 +89,8 @@ class TestStorageServiceInitialization(
             os.environ,
             {
                 "BACKEND_ENV": "production",
-                "GCS_PROJECT_ID": "test-project",
-                "GCS_CREDENTIALS_PATH": "/path/to/credentials.json",
+                "STORAGE_PROJECT_ID": "test-project",
+                "STORAGE_CREDENTIALS_PATH": "/path/to/credentials.json",
             },
             clear=True,
         ):
