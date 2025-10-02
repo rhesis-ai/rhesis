@@ -1076,7 +1076,8 @@ class SourceDataFactory(BaseDataFactory):
         if include_optional:
             data.update({
                 "description": fake.text(max_nb_chars=300),
-                "entity_type": fake.random_element(elements=("website", "paper", "book", "article", "documentation")),
+                # source_type_id is optional and requires a valid type_lookup record
+                # "source_type_id": str(fake.uuid4()),  # UUID for type_lookup reference
                 "url": fake.url(),  # Faker returns string, which is what we want
                 "citation": f"{fake.name()} et al. ({fake.year()}). {fake.sentence()}",
                 "language_code": fake.random_element(elements=("en", "es", "fr", "de", "zh"))
