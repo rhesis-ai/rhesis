@@ -32,7 +32,7 @@ export default function TestSetSelectionDialog({
   const [inputValue, setInputValue] = React.useState<string>('');
   const [isSearching, setIsSearching] = React.useState(false);
   const notifications = useNotifications();
-  const searchTimeoutRef = React.useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Create OData filter for search
   const createSearchFilter = React.useCallback(
