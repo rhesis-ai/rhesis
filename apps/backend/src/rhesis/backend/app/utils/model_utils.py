@@ -78,11 +78,11 @@ class QueryBuilder:
             exempt_models = ['User', 'Organization', 'Token']
             if self.model.__name__ in exempt_models:
                 # For exempt models, apply organization filter if provided, but don't require it
-                if organization_id and organization_id.strip():
+                if organization_id and (isinstance(organization_id, str) and organization_id.strip() or not isinstance(organization_id, str)):
                     self.query = self.query.filter(self.model.organization_id == organization_id)
             else:
                 # For non-exempt models, organization_id is required
-                if organization_id and organization_id.strip():
+                if organization_id and (isinstance(organization_id, str) and organization_id.strip() or not isinstance(organization_id, str)):
                     # Use direct organization_id filtering (optimized)
                     self.query = self.query.filter(self.model.organization_id == organization_id)
                 else:
