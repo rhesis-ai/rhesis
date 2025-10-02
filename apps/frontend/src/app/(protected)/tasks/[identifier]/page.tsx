@@ -327,8 +327,8 @@ export default function TaskDetailPage({ params }: PageProps) {
               Sorry, we couldn&apos;t load this task
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              The task you&apos;re looking for might have been deleted, moved, or you
-              may not have permission to view it.
+              The task you&apos;re looking for might have been deleted, moved,
+              or you may not have permission to view it.
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Task ID: {taskId}
@@ -551,9 +551,9 @@ export default function TaskDetailPage({ params }: PageProps) {
         {error && editedTask && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>Connection Issue:</strong> We&apos;re having trouble connecting
-              to the server, but we&apos;re showing you the last saved version of
-              this task.
+              <strong>Connection Issue:</strong> We&apos;re having trouble
+              connecting to the server, but we&apos;re showing you the last
+              saved version of this task.
             </Typography>
             <Box
               sx={{
