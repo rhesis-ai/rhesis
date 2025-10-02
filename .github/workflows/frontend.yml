@@ -98,7 +98,7 @@ jobs:
       - name: Run tests
         run: |
           cd apps/frontend
-          npm test -- --passWithNoTests --ci --coverage --watchAll=false
+          npm run test:ci
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
