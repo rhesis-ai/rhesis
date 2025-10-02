@@ -369,7 +369,7 @@ export default function TestsTable({
   }, []);
 
   const generateNewTests = useCallback(() => {
-    router.push('/tests/new-generated');
+    router.push('/tests/generate');
   }, [router]);
 
   const handleDrawerClose = useCallback(() => {
