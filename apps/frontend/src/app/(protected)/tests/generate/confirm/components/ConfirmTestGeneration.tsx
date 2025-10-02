@@ -39,6 +39,8 @@ import { Document as DocumentInterface } from '@/utils/api-client/interfaces/doc
 
 interface ConfirmTestGenerationProps {
   sessionToken: string;
+  onGenerateComplete?: () => void;
+  onBack?: () => void;
 }
 
 interface TestSample {
@@ -59,6 +61,8 @@ interface Configuration {
 
 export default function ConfirmTestGeneration({
   sessionToken,
+  onGenerateComplete,
+  onBack,
 }: ConfirmTestGenerationProps) {
   const router = useRouter();
   const { show } = useNotifications();
@@ -81,9 +85,7 @@ export default function ConfirmTestGeneration({
     const savedDescription = sessionStorage.getItem(
       'testGenerationDescription'
     );
-    const savedConfiguration = sessionStorage.getItem(
-      'testGenerationConfiguration'
-    );
+    const savedConfiguration = sessionStorage.getItem('testGenerationConfig');
     const savedSamples = sessionStorage.getItem('testGenerationSamples');
     const savedDocuments = sessionStorage.getItem('testGenerationDocuments');
 
@@ -93,7 +95,8 @@ export default function ConfirmTestGeneration({
 
     if (savedConfiguration) {
       try {
-        setConfiguration(JSON.parse(savedConfiguration));
+        const config = JSON.parse(savedConfiguration);
+        setConfiguration(config);
       } catch (error) {
         console.error('Failed to parse saved configuration:', error);
       }
@@ -117,7 +120,11 @@ export default function ConfirmTestGeneration({
   }, []);
 
   const handleBack = () => {
-    router.push('/tests/generate/configure');
+    if (onBack) {
+      onBack();
+    } else {
+      router.push('/tests/generate/configure');
+    }
   };
 
   const handleGenerate = async () => {
@@ -153,8 +160,7 @@ export default function ConfirmTestGeneration({
         purposes: configuration.topics, // Map topics to purposes
         test_type: 'single_turn',
         response_generation: 'prompt_only',
-        test_coverage: testSetSize,
-        tags: configuration.categories,
+        test_coverage: testSetSize || 'standard',
         description: description,
       };
 
@@ -170,6 +176,7 @@ export default function ConfirmTestGeneration({
         config: generationConfig,
         samples: generationSamples,
         synthesizer_type: 'prompt',
+        num_tests: parseInt(testSetSize.replace(/\D/g, '')), // Extract number from testSetSize
         batch_size: 20,
         documents: documents.map(doc => ({
           name: doc.name,
@@ -184,18 +191,19 @@ export default function ConfirmTestGeneration({
       console.log('Backend response:', response);
 
       show(response.message, { severity: 'success' });
-      console.log('Test generation task started:', {
-        taskId: response.task_id,
-        estimatedTests: response.estimated_tests,
-      });
 
       // Clear session storage
       sessionStorage.removeItem('testGenerationDescription');
-      sessionStorage.removeItem('testGenerationConfiguration');
+      sessionStorage.removeItem('testGenerationConfig');
       sessionStorage.removeItem('testGenerationSamples');
       sessionStorage.removeItem('testGenerationDocuments');
 
-      setTimeout(() => router.push('/tests'), 2000);
+      // Call completion callback or redirect
+      if (onGenerateComplete) {
+        setTimeout(onGenerateComplete, 2000);
+      } else {
+        setTimeout(() => router.push('/tests'), 2000);
+      }
     } catch (error) {
       console.error('Failed to start test generation:', error);
       show('Failed to start test generation. Please try again.', {

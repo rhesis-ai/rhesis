@@ -27,6 +27,8 @@ import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
 
 interface TestConfigurationProps {
   sessionToken: string;
+  onNext?: () => void;
+  onBack?: () => void;
 }
 
 interface TestSample {
@@ -83,6 +85,8 @@ const availableScenarios = [
 
 export default function TestConfiguration({
   sessionToken,
+  onNext,
+  onBack,
 }: TestConfigurationProps) {
   const router = useRouter();
   const { show } = useNotifications();
@@ -98,6 +102,55 @@ export default function TestConfiguration({
   const [samples, setSamples] = useState<TestSample[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [refinementText, setRefinementText] = useState('');
+
+  const generateInitialSamples = async (desc: string, config: any) => {
+    if (!desc.trim()) return;
+
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const servicesClient = apiFactory.getServicesClient();
+
+      const request = {
+        prompt: {
+          project_context: desc,
+          test_behaviors: config.behaviors,
+          test_purposes: config.topics,
+          key_topics: config.categories,
+          specific_requirements: config.scenarios.join(', '),
+          test_type: 'config',
+          output_format: 'json',
+        },
+        num_tests: 5,
+        documents: documents.map(doc => ({
+          name: doc.name,
+          description: doc.description || '',
+          path: doc.path,
+          content: doc.content || '',
+        })),
+      };
+
+      setIsGenerating(true);
+      const response = await servicesClient.generateTests(request);
+      setIsGenerating(false);
+
+      console.log('Initial samples generated:', response);
+
+      const newSamples: TestSample[] = response.tests.map(
+        (test: any, index: number) => ({
+          id: `sample-${index}`,
+          text: test.prompt?.content || test.text || '',
+          behavior: test.behavior || 'Reliability',
+          topic: test.topic || 'General',
+          rating: null,
+          feedback: '',
+        })
+      );
+
+      setSamples(newSamples);
+    } catch (error) {
+      console.error('Failed to generate initial samples:', error);
+    }
+  };
 
   useEffect(() => {
     // Load data from session storage
@@ -136,57 +189,7 @@ export default function TestConfiguration({
         console.error('Failed to parse saved documents:', error);
       }
     }
-  }, []);
-
-  const generateInitialSamples = async (desc: string, config: any) => {
-    if (!desc.trim()) return;
-
-    try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const servicesClient = apiFactory.getServicesClient();
-
-      const request = {
-        prompt: {
-          project_context: desc,
-          test_behaviors: config.behaviors,
-          test_purposes: config.topics,
-          key_topics: config.categories,
-          specific_requirements: config.scenarios.join(', '),
-          test_type: 'config',
-          output_format: 'json',
-        },
-        num_tests: 5,
-        documents: documents.map(doc => ({
-          name: doc.name,
-          description: doc.description || '',
-          path: doc.path,
-          content: doc.content || '',
-        })),
-      };
-
-      const response = await servicesClient.generateTests(request);
-
-      // Convert response to samples format
-      const newSamples: TestSample[] = response.tests.map(
-        (test: any, index: number) => ({
-          id: `initial-${index}`,
-          text: test.prompt?.content || test.text || '',
-          behavior: test.behavior || 'Reliability',
-          topic: test.topic || 'General',
-          rating: null,
-          feedback: '',
-        })
-      );
-
-      setSamples(newSamples);
-    } catch (error) {
-      console.error('Failed to generate initial samples:', error);
-    }
-  };
-
-  const handleBack = () => {
-    router.push('/tests/generate/describe');
-  };
+  }, [generateInitialSamples]);
 
   const handleToggleSelection = (
     category: keyof Configuration,
@@ -384,7 +387,19 @@ export default function TestConfiguration({
       JSON.stringify(configuration)
     );
     sessionStorage.setItem('testGenerationSamples', JSON.stringify(samples));
-    router.push('/tests/generate/confirm');
+    if (onNext) {
+      onNext();
+    } else {
+      router.push('/tests/generate/confirm');
+    }
+  };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      router.push('/tests/generate/describe');
+    }
   };
 
   const renderConfigurationSection = (
@@ -398,30 +413,34 @@ export default function TestConfiguration({
       <Typography variant="h6" gutterBottom>
         {title}
       </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 1,
+          maxHeight: 150,
+          overflow: 'auto',
+          mb: 1,
+        }}
+      >
         {items.map(item => (
           <Chip
             key={item}
             label={item}
             onClick={() => onToggle(item)}
             variant={selectedItems.includes(item) ? 'filled' : 'outlined'}
-            sx={theme => {
-              const paletteColor = theme.palette[
-                color as keyof typeof theme.palette
-              ] as any;
-              return {
-                backgroundColor: selectedItems.includes(item)
-                  ? `${paletteColor?.main}20`
-                  : 'transparent',
-                borderColor: paletteColor?.main,
-                color: selectedItems.includes(item)
-                  ? paletteColor?.main
-                  : 'text.primary',
-                '&:hover': {
-                  backgroundColor: `${paletteColor?.main}10`,
-                },
-              };
-            }}
+            sx={theme => ({
+              backgroundColor: selectedItems.includes(item)
+                ? `${color}.main`
+                : 'transparent',
+              borderColor: `${color}.main`,
+              color: selectedItems.includes(item)
+                ? `${color}.main`
+                : 'text.primary',
+              '&:hover': {
+                backgroundColor: `${color}.light`,
+              },
+            })}
           />
         ))}
       </Box>
@@ -460,13 +479,8 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Behavior Testing',
               configuration.behaviors.length > 0
-                ? [
-                    ...new Set([
-                      ...configuration.behaviors,
-                      ...availableBehaviors,
-                    ]),
-                  ]
-                : availableBehaviors,
+                ? configuration.behaviors // Show only AI-generated behaviors
+                : availableBehaviors, // Show fallback only if no AI-generated behaviors
               configuration.behaviors,
               'primary.main',
               item => handleToggleSelection('behaviors', item)
@@ -475,8 +489,8 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Topics',
               configuration.topics.length > 0
-                ? [...new Set([...configuration.topics, ...availableTopics])]
-                : availableTopics,
+                ? configuration.topics // Show only AI-generated topics
+                : availableTopics, // Show fallback only if no AI-generated topics
               configuration.topics,
               'secondary.main',
               item => handleToggleSelection('topics', item)
@@ -485,13 +499,8 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Test Categories',
               configuration.categories.length > 0
-                ? [
-                    ...new Set([
-                      ...configuration.categories,
-                      ...availableCategories,
-                    ]),
-                  ]
-                : availableCategories,
+                ? configuration.categories // Show only AI-generated categories
+                : availableCategories, // Show fallback only if no AI-generated categories
               configuration.categories,
               'warning.main',
               item => handleToggleSelection('categories', item)
@@ -500,13 +509,8 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Test Scenarios',
               configuration.scenarios.length > 0
-                ? [
-                    ...new Set([
-                      ...configuration.scenarios,
-                      ...availableScenarios,
-                    ]),
-                  ]
-                : availableScenarios,
+                ? configuration.scenarios // Show only AI-generated scenarios
+                : availableScenarios, // Show fallback only if no AI-generated scenarios
               configuration.scenarios,
               'success.main',
               item => handleToggleSelection('scenarios', item)
@@ -595,16 +599,8 @@ export default function TestConfiguration({
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  • {samples.length} samples
+                  • {samples.length} samples (auto-generated based on behaviors)
                 </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<RefreshIcon />}
-                  onClick={handleGenerateSamples}
-                  disabled={isGenerating || !description.trim()}
-                >
-                  {isGenerating ? 'Generating...' : 'Generate Samples'}
-                </Button>
               </Box>
             </Box>
 
@@ -619,8 +615,8 @@ export default function TestConfiguration({
 
             {samples.length === 0 && !isGenerating && (
               <Alert severity="info" sx={{ mb: 3 }}>
-                Click &quot;Generate Samples&quot; to create test cases based on
-                your configuration.
+                Samples will be generated automatically when you select
+                behaviors.
               </Alert>
             )}
 

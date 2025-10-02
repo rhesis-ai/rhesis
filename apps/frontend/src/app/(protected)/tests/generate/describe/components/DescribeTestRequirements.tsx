@@ -25,6 +25,8 @@ import {
 
 interface DescribeTestRequirementsProps {
   sessionToken: string;
+  onNext?: () => void;
+  onBack?: () => void;
 }
 
 const suggestions = [
@@ -36,6 +38,8 @@ const suggestions = [
 
 export default function DescribeTestRequirements({
   sessionToken,
+  onNext,
+  onBack,
 }: DescribeTestRequirementsProps) {
   const router = useRouter();
   const { show } = useNotifications();
@@ -44,10 +48,6 @@ export default function DescribeTestRequirements({
   const [documents, setDocuments] = useState<ProcessedDocument[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleBack = () => {
-    router.push('/tests/generate');
-  };
 
   const handleSuggestionClick = (suggestion: string) => {
     setDescription(suggestion);
@@ -125,8 +125,12 @@ export default function DescribeTestRequirements({
         JSON.stringify(configResponse)
       );
 
-      // Navigate to configuration page
-      router.push('/tests/generate/configure');
+      // Navigate to configuration page or call onNext
+      if (onNext) {
+        onNext();
+      } else {
+        router.push('/tests/generate/configure');
+      }
     } catch (error) {
       console.error('Failed to proceed:', error);
       show('Failed to generate configuration. Please try again.', {
@@ -144,6 +148,14 @@ export default function DescribeTestRequirements({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+  };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      router.push('/tests/generate');
+    }
   };
 
   return (

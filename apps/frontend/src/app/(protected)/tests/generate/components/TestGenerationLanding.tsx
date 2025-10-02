@@ -23,6 +23,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 
 interface TestGenerationLandingProps {
   sessionToken: string;
+  onGenerationTypeSelect?: (type: 'manual' | 'ai') => void;
 }
 
 interface TestSetTemplate {
@@ -76,15 +77,24 @@ const testSetTemplates: TestSetTemplate[] = [
 
 export default function TestGenerationLanding({
   sessionToken,
+  onGenerationTypeSelect,
 }: TestGenerationLandingProps) {
   const router = useRouter();
 
   const handleAIGeneration = () => {
-    router.push('/tests/generate/describe');
+    if (onGenerationTypeSelect) {
+      onGenerationTypeSelect('ai');
+    } else {
+      router.push('/tests/generate/describe');
+    }
   };
 
   const handleManualWriting = () => {
-    router.push('/tests/new-manual');
+    if (onGenerationTypeSelect) {
+      onGenerationTypeSelect('manual');
+    } else {
+      router.push('/tests/new-manual');
+    }
   };
 
   const handleUseTemplate = (templateId: string) => {
@@ -131,7 +141,7 @@ export default function TestGenerationLanding({
           >
             <CardContent sx={{ flexGrow: 1, textAlign: 'center', p: 4 }}>
               <Box
-                sx={(theme) => ({
+                sx={theme => ({
                   width: 80,
                   height: 80,
                   borderRadius: theme.shape.borderRadius,
@@ -185,7 +195,7 @@ export default function TestGenerationLanding({
           >
             <CardContent sx={{ flexGrow: 1, textAlign: 'center', p: 4 }}>
               <Box
-                sx={(theme) => ({
+                sx={theme => ({
                   width: 80,
                   height: 80,
                   borderRadius: theme.shape.borderRadius,
@@ -264,7 +274,7 @@ export default function TestGenerationLanding({
                       }}
                     />
                     <Box
-                      sx={(theme) => ({
+                      sx={theme => ({
                         width: 40,
                         height: 40,
                         borderRadius: theme.shape.borderRadius,
