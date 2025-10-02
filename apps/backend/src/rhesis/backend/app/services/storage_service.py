@@ -13,18 +13,18 @@ class StorageService:
     def __init__(self):
         """Initialize StorageService with configuration from environment variables."""
         self.bucket_name = self._get_bucket_name()
-        self.project_id = os.getenv("GCS_PROJECT_ID")
-        self.credentials_path = os.getenv("GCS_CREDENTIALS_PATH")
+        self.project_id = os.getenv("STORAGE_PROJECT_ID")
+        self.credentials_path = os.getenv("STORAGE_CREDENTIALS_PATH")
         self.storage_path = os.getenv("LOCAL_STORAGE_PATH", "/tmp/rhesis-files")
 
-        # Check if GCS is configured
-        self.use_gcs = all([self.bucket_name, self.project_id, self.credentials_path])
+        # Check if GCS is configured (credentials_path optional for Cloud Run)
+        self.use_gcs = all([self.bucket_name, self.project_id])
 
         # Initialize file system
         self.fs = self._get_file_system()
 
         if self.use_gcs:
-            logger.info(f"StorageService initialized with GCS bucket: {self.bucket_name}")
+            logger.info(f"StorageService initialized with cloud storage bucket: {self.bucket_name}")
         else:
             logger.warning(
                 "StorageService using ephemeral container storage - files will be lost on restart"
@@ -47,13 +47,20 @@ class StorageService:
             return None
 
         bucket_name = f"sources-rhesis-{env_suffix}"
-        logger.info(f"Using environment-specific bucket: {bucket_name}")
+        logger.info(f"Using environment-specific storage bucket: {bucket_name}")
         return bucket_name
 
     def _get_file_system(self):
-        """Get file system - GCS if configured, otherwise temporary storage."""
+        """Get file system - cloud storage if configured, otherwise temporary storage."""
         if self.use_gcs:
-            return fsspec.filesystem("gcs", project=self.project_id, token=self.credentials_path)
+            if self.credentials_path:
+                # Local development: use explicit credentials file
+                return fsspec.filesystem(
+                    "gcs", project=self.project_id, token=self.credentials_path
+                )
+            else:
+                # Production: use service account attached to Cloud Run
+                return fsspec.filesystem("gcs", project=self.project_id)
         else:
             # Fallback to temporary storage
             return fsspec.filesystem("file")
@@ -61,11 +68,13 @@ class StorageService:
     def get_file_path(self, organization_id: str, source_id: str, filename: str) -> str:
         """Generate file path for multi-tenant storage."""
         if self.use_gcs:
-            # GCS path: bucket/org_id/source_id_filename
+            # Cloud storage path: bucket/org_id/source_id_filename
             return f"{self.bucket_name}/{organization_id}/{source_id}_{filename}"
         else:
             # Temporary storage path: /tmp/rhesis-files/org_id/source_id_filename
-            logger.info(f"GCS not configured, saving file to temp storage: {self.storage_path}")
+            logger.info(
+                f"Cloud storage not configured, saving file to temp storage: {self.storage_path}"
+            )
             storage_dir = Path(self.storage_path) / organization_id
             storage_dir.mkdir(parents=True, exist_ok=True)
             return str(storage_dir / f"{source_id}_{filename}")
