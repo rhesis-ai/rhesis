@@ -48,7 +48,7 @@ jobs:
       contents: read
       id-token: write
     environment: ${{ github.event.inputs.environment || 'dev' }}
-    
+
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
       SERVICE: worker
@@ -66,7 +66,7 @@ jobs:
         run: |
           # Write the key to a file, ensuring it's properly quoted
           echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
-          
+
           # Validate that the file contains valid JSON
           if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
             echo "❌ Error: Service account key is not valid JSON"
@@ -74,7 +74,7 @@ jobs:
             head -c 20 ${{ env.SA_KEY_PATH }}
             exit 1
           fi
-          
+
           echo "✅ Service account key validated as proper JSON"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
@@ -124,10 +124,10 @@ jobs:
       contents: read
       id-token: write
     environment: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
-    
+
     env:
       ENVIRONMENT: ${{ needs.build.outputs.environment || github.event.inputs.environment }}
-      
+
     steps:
       - uses: actions/checkout@v4
 
@@ -136,7 +136,7 @@ jobs:
         run: |
           # Write the key to a file, ensuring it's properly quoted
           echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
-          
+
           # Validate that the file contains valid JSON
           if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
             echo "❌ Error: Service account key is not valid JSON"
@@ -144,7 +144,7 @@ jobs:
             head -c 20 ${{ env.SA_KEY_PATH }}
             exit 1
           fi
-          
+
           echo "✅ Service account key validated as proper JSON"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
@@ -240,50 +240,51 @@ jobs:
             --from-literal=BACKEND_ENV="${{ secrets.BACKEND_ENV }}" \
             --from-literal=WORKER_ENV="${{ secrets.WORKER_ENV }}" \
             --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
+            --from-literal=STORAGE_PROJECT_ID="${{ secrets.STORAGE_PROJECT_ID }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy to GKE
         run: |
           echo "Deploying image: ${{ env.IMAGE_NAME }}:latest"
           echo "Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}"
-          
+
           # Update kustomization with correct image and environment
           cd apps/worker/k8s
-          
+
           # Update deployment with actual values
           sed -i "s|gcr.io/PROJECT_ID/rhesis-worker|${{ env.IMAGE_NAME }}|g" deployment.yaml
           sed -i "s|PROJECT_ID:REGION:CLOUDSQL_INSTANCE|${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}|g" deployment.yaml
           sed -i "s|GCP_SERVICE_ACCOUNT_EMAIL|${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}|g" serviceaccount.yaml
-          
+
           # Always force pod restart by updating timestamp annotation
           sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
-          
+
           # Update kustomization for environment
           cat > kustomization.yaml << EOF
           apiVersion: kustomize.config.k8s.io/v1beta1
           kind: Kustomization
-          
+
           resources:
           - deployment.yaml
           - service.yaml
           - serviceaccount.yaml
           - networkpolicy.yaml
-          
+
           labels:
           - includeSelectors: true
             pairs:
               environment: ${{ env.ENVIRONMENT }}
-          
+
           namespace: ${{ env.NAMESPACE }}
-          
+
           images:
           - name: ${{ env.IMAGE_NAME }}
             newTag: latest
           EOF
-          
+
           # Apply manifests
           kubectl apply -k . --namespace=${{ env.NAMESPACE }}
-          
+
           # Wait for deployment to be ready
           echo "Waiting for deployment to be ready..."
           if ! kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s; then
@@ -303,5 +304,5 @@ jobs:
             done
             exit 1
           fi
-          
+
           echo "✅ Deployment completed successfully"
