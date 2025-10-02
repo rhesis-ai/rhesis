@@ -377,6 +377,15 @@ export default function TestRunDrawer({
               value={project}
               onChange={(_, newValue) => setProject(newValue)}
               getOptionLabel={option => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box component="li" key={option.id} {...otherProps}>
+                    {option.name}
+                  </Box>
+                );
+              }}
               fullWidth
               renderInput={params => (
                 <TextField {...params} label="Application" required />
