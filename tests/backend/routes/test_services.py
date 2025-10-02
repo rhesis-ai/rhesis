@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 from rhesis.backend.app.routers.services import generate_content_endpoint
+from rhesis.backend.app.schemas.services import GenerateContentRequest
 
 
 class TestGenerateContentEndpoint:
@@ -12,10 +13,10 @@ class TestGenerateContentEndpoint:
     async def test_generate_content_endpoint_success(self):
         """Test successful content generation with valid request."""
         # Arrange
-        mock_request = {
-            "prompt": "Generate a test function",
-            "schema": {"type": "object", "properties": {"code": {"type": "string"}}},
-        }
+        mock_request = GenerateContentRequest(
+            prompt="Generate a test function",
+            schema={"type": "object", "properties": {"code": {"type": "string"}}},
+        )
 
         expected_response = {"code": "def test_function():\n    return True"}
 
@@ -39,10 +40,10 @@ class TestGenerateContentEndpoint:
     async def test_generate_content_endpoint_exception_handling(self):
         """Test that exceptions are properly handled and converted to HTTPException."""
         # Arrange
-        mock_request = {
-            "prompt": "Generate a test function",
-            "schema": {"type": "object"},
-        }
+        mock_request = GenerateContentRequest(
+            prompt="Generate a test function",
+            schema={"type": "object"},
+        )
 
         # Mock the GeminiLLM class to raise an exception
         with patch("rhesis.sdk.models.providers.gemini.GeminiLLM") as mock_gemini_class:
