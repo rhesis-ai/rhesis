@@ -22,6 +22,13 @@ repos:
           files: ^apps/backend/
           pass_filenames: false
 
+        - id: frontend-format
+          name: auto-fix frontend formatting
+          language: system
+          entry: cd apps/frontend && npm run format
+          files: ^apps/frontend/
+          pass_filenames: false
+
         - id: frontend-validate
           name: validate frontend (format, lint, type-check, build)
           language: system
