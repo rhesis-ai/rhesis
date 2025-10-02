@@ -174,31 +174,31 @@ def environment_configurations():
         },
         "development": {
             "BACKEND_ENV": "development",
-            "GCS_PROJECT_ID": "test-project-dev",
-            "GCS_CREDENTIALS_PATH": "/path/to/dev/credentials.json",
+            "STORAGE_PROJECT_ID": "test-project-dev",
+            "STORAGE_CREDENTIALS_PATH": "/path/to/dev/credentials.json",
             "LOCAL_STORAGE_PATH": "/tmp/dev-storage",
         },
         "staging": {
             "BACKEND_ENV": "staging",
-            "GCS_PROJECT_ID": "test-project-stg",
-            "GCS_CREDENTIALS_PATH": "/path/to/stg/credentials.json",
+            "STORAGE_PROJECT_ID": "test-project-stg",
+            "STORAGE_CREDENTIALS_PATH": "/path/to/stg/credentials.json",
             "LOCAL_STORAGE_PATH": "/tmp/stg-storage",
         },
         "production": {
             "BACKEND_ENV": "production",
-            "GCS_PROJECT_ID": "test-project-prd",
-            "GCS_CREDENTIALS_PATH": "/path/to/prd/credentials.json",
+            "STORAGE_PROJECT_ID": "test-project-prd",
+            "STORAGE_CREDENTIALS_PATH": "/path/to/prd/credentials.json",
             "LOCAL_STORAGE_PATH": "/tmp/prd-storage",
         },
         "partial_gcs": {
             "BACKEND_ENV": "development",
-            "GCS_PROJECT_ID": "test-project",
-            # Missing GCS_CREDENTIALS_PATH to test fallback
+            "STORAGE_PROJECT_ID": "test-project",
+            # Missing STORAGE_CREDENTIALS_PATH to test fallback
             "LOCAL_STORAGE_PATH": "/tmp/fallback-storage",
         },
         "no_gcs": {
             "BACKEND_ENV": "development",
-            # Missing both GCS_PROJECT_ID and GCS_CREDENTIALS_PATH
+            # Missing both STORAGE_PROJECT_ID and STORAGE_CREDENTIALS_PATH
             "LOCAL_STORAGE_PATH": "/tmp/no-gcs-storage",
         },
     }
