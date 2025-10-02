@@ -2199,7 +2199,7 @@ def create_task(
     return create_item(db, models.Task, task, organization_id=organization_id, user_id=user_id)
 
 
-def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate, organization_id: str = None) -> Optional[models.Task]:
+def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate, organization_id: str = None, user_id: str = None) -> Optional[models.Task]:
     """Update a task with organization filtering"""
     # Check if status is being changed to "Completed"
     if task.status_id is not None:
@@ -2221,7 +2221,7 @@ def update_task(db: Session, task_id: uuid.UUID, task: schemas.TaskUpdate, organ
                 # Set completed_at to current timestamp
                 task.completed_at = datetime.utcnow()
 
-    return update_item(db, models.Task, task_id, task)
+    return update_item(db, models.Task, task_id, task, organization_id=organization_id, user_id=user_id)
 
 
 def delete_task(db: Session, task_id: uuid.UUID, organization_id: str, user_id: str) -> bool:

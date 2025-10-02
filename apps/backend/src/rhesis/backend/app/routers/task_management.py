@@ -157,7 +157,7 @@ def update_task(
             task.assignee_id is not None and task.assignee_id != current_task.assignee_id
         )
 
-        updated_task = crud.update_task(db=db, task_id=task_id, task=task, organization_id=organization_id)
+        updated_task = crud.update_task(db=db, task_id=task_id, task=task, organization_id=organization_id, user_id=user_id)
         if updated_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
