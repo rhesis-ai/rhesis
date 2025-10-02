@@ -257,11 +257,12 @@ class TestDocumentHandlerIntegration(
         mock_file = MockUploadFile(content, filename)
 
         # Test save document
-        file_path, metadata = await handler.save_document(
+        metadata = await handler.save_document(
             document=mock_file,
             organization_id="org-integration",
             source_id="source-integration",
         )
+        file_path = metadata["file_path"]
 
         # Verify save results
         assert file_path is not None
@@ -289,11 +290,12 @@ class TestDocumentHandlerIntegration(
             mock_file = MockUploadFile(content, filename)
 
             # Test save
-            file_path, metadata = await handler.save_document(
+            metadata = await handler.save_document(
                 document=mock_file,
                 organization_id="org-file-types",
                 source_id=f"source-{filename}",
             )
+            file_path = metadata["file_path"]
 
             # Verify metadata
             assert metadata["file_type"] == expected_mime
@@ -319,11 +321,12 @@ class TestDocumentHandlerIntegration(
         small_content = b"x" * 500  # 500 bytes
         small_file = MockUploadFile(small_content, "small.txt")
 
-        file_path, metadata = await handler.save_document(
+        metadata = await handler.save_document(
             document=small_file,
             organization_id="org-size-test",
             source_id="source-small",
         )
+        file_path = metadata["file_path"]
         assert metadata["file_size"] == 500
 
         # Clean up
@@ -388,11 +391,12 @@ class TestDocumentHandlerIntegration(
             mock_file = MockUploadFile(content, filename)
 
             # Save document
-            file_path, metadata = await handler.save_document(
+            metadata = await handler.save_document(
                 document=mock_file,
                 organization_id=f"org-concurrent-{doc_id}",
                 source_id=f"source-{doc_id}",
             )
+            file_path = metadata["file_path"]
 
             # Retrieve document
             retrieved_content = await handler.get_document_content(file_path)
