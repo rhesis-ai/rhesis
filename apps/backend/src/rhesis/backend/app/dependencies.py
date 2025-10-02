@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_org_aware_db
+from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
+from rhesis.backend.logging import logger
 
 
 @lru_cache()
@@ -52,6 +53,52 @@ def get_tenant_context(current_user: User = Depends(require_current_user_or_toke
         )
     
     return organization_id, user_id
+
+
+def get_db_session():
+    """
+    FastAPI dependency that provides a database session directly.
+    
+    This is for routes that need a Session object directly rather than a context manager.
+    It properly handles the context manager from get_db() and yields the actual Session.
+    
+    Returns:
+        Session: The database session
+    """
+    with get_db() as db:
+        yield db
+
+
+def get_tenant_db_session(tenant_context: tuple = Depends(get_tenant_context)):
+    """
+    FastAPI dependency that provides a database session with automatic session variables.
+    
+    This is a drop-in replacement for get_db_session that automatically sets
+    PostgreSQL session variables for RLS policies.
+    
+    Returns:
+        Session: The database session with session variables set
+    """
+    organization_id, user_id = tenant_context
+    
+    with get_db_with_tenant_variables(organization_id, user_id) as db:
+        yield db
+
+
+def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
+    """
+    FastAPI dependency that provides both a database session and tenant context.
+    
+    Automatically sets PostgreSQL session variables for RLS policies while
+    also providing explicit tenant context parameters.
+    
+    Returns:
+        tuple: (db_session, organization_id, user_id)
+    """
+    organization_id, user_id = tenant_context
+    
+    with get_db_with_tenant_variables(organization_id, user_id) as db:
+        yield db, organization_id, user_id
 
 
 # Backward compatibility alias for behavior endpoints

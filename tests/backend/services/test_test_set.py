@@ -1,8 +1,8 @@
 """
-Tests for test_set service functions that use maintain_tenant_context.
+Tests for test_set service functions.
 
 These tests verify the current behavior of functions before they are refactored
-to use the new get_org_aware_db approach.
+to use the new direct parameter passing approach.
 """
 
 import pytest
@@ -47,7 +47,7 @@ def create_endpoint_data(**overrides):
         "method": fake.random_element(elements=("GET", "POST", "PUT", "DELETE")),
         "protocol": "REST",
         "request_headers": {},
-        "environment": fake.random_element(elements=("DEVELOPMENT", "STAGING", "PRODUCTION"))
+        "environment": fake.random_element(elements=("development", "staging", "production"))
     }
     data.update(overrides)
     return data
@@ -56,7 +56,7 @@ def create_endpoint_data(**overrides):
 @pytest.mark.unit
 @pytest.mark.service
 class TestTestSetAssociations:
-    """Test test set association operations that use maintain_tenant_context."""
+    """Test test set association operations."""
 
     def test_create_test_set_associations_success(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test successful creation of test set associations."""
@@ -192,7 +192,7 @@ class TestTestSetAssociations:
 @pytest.mark.unit
 @pytest.mark.service
 class TestTestSetExecution:
-    """Test test set execution operations that use maintain_tenant_context."""
+    """Test test set execution operations."""
 
     def test_execute_test_set_on_endpoint_success(self, test_db: Session, authenticated_user_id, test_org_id):
         """Test successful test set execution on endpoint."""
@@ -256,8 +256,8 @@ class TestTestSetExecution:
             assert result["task_id"] == "task_id_123"
             
             # Verify all mocks were called
-            mock_resolve_test_set.assert_called_once_with(str(test_set.id), test_db)
-            mock_get_endpoint.assert_called_once_with(test_db, endpoint_id=endpoint.id)
+            mock_resolve_test_set.assert_called_once_with(str(test_set.id), test_db, organization_id=test_org_id)
+            mock_get_endpoint.assert_called_once_with(test_db, endpoint_id=endpoint.id, organization_id=test_org_id, user_id=authenticated_user_id)
             mock_validate_access.assert_called_once_with(user, test_set, endpoint)
             mock_create_config.assert_called_once_with(
                 test_db, endpoint.id, test_set.id, user, {"param": "value"}

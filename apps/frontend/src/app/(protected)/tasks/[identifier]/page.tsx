@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useCallback, useRef, use } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -16,7 +16,6 @@ import {
   Grid,
   Alert,
   CircularProgress,
-  Chip,
   Avatar,
   useTheme,
   IconButton,
@@ -36,7 +35,7 @@ import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ identifier: string }>;
 }
 
 export default function TaskDetailPage({ params }: PageProps) {
@@ -46,9 +45,25 @@ export default function TaskDetailPage({ params }: PageProps) {
   const { show } = useNotifications();
 
   const theme = useTheme();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  // Use refs to track state without causing dependency cycles
+  const isLoadingRef = useRef(false);
+  const hasInitialLoadRef = useRef(false);
+
+  // Update refs when state changes
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  useEffect(() => {
+    hasInitialLoadRef.current = hasInitialLoad;
+  }, [hasInitialLoad]);
 
   const [statuses, setStatuses] = useState<any[]>([]);
   const [priorities, setPriorities] = useState<any[]>([]);
@@ -60,7 +75,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   const [editTitle, setEditTitle] = useState('');
 
   const resolvedParams = use(params);
-  const taskId = resolvedParams.id;
+  const taskId = resolvedParams.identifier;
 
   // Initialize edit description and title when task loads
   useEffect(() => {
@@ -70,92 +85,168 @@ export default function TaskDetailPage({ params }: PageProps) {
     }
   }, [editedTask]);
 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      // Skip if already loaded
-      if (
-        statuses.length > 0 &&
-        priorities.length > 0 &&
-        users.length > 0 &&
-        editedTask
-      ) {
+  // Create a stable reference for the load function
+  const loadInitialData = useCallback(
+    async (isRetry = false) => {
+      // Prevent multiple concurrent requests using refs to avoid dependency cycles
+      if (!isRetry && (isLoadingRef.current || hasInitialLoadRef.current))
         return;
-      }
 
       try {
-        setIsLoading(true);
+        if (isRetry) {
+          setIsRetrying(true);
+        } else {
+          setIsLoading(true);
+        }
         setError(null);
 
+        if (!taskId) {
+          throw new Error('No task ID provided');
+        }
+
+        if (!session?.session_token) {
+          throw new Error('No session token available');
+        }
+
         // Load task data first to get existing status/priority IDs
-        const taskData = taskId ? await getTask(taskId) : null;
+        const taskData = await getTask(taskId);
+
+        if (!taskData) {
+          throw new Error('Task not found');
+        }
 
         // Load statuses, priorities, and users in parallel, including existing task's status/priority
         const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
           await Promise.all([
-            getStatusesForTask(session?.session_token, taskData?.status_id),
-            getPrioritiesForTask(session?.session_token, taskData?.priority_id),
+            getStatusesForTask(session.session_token, taskData.status_id),
+            getPrioritiesForTask(session.session_token, taskData.priority_id),
             (async () => {
               if (!session?.session_token) return [];
               const clientFactory = new ApiClientFactory(session.session_token);
               const usersClient = clientFactory.getUsersClient();
               const response = await usersClient.getUsers();
-              return response.data;
+              return response.data || [];
             })(),
           ]);
 
-        setStatuses(fetchedStatuses);
-        setPriorities(fetchedPriorities);
+        setStatuses(fetchedStatuses || []);
+        setPriorities(fetchedPriorities || []);
         setUsers(fetchedUsers);
         setEditedTask(taskData);
+        setHasInitialLoad(true);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to load task data';
         setError(errorMessage);
-        show(errorMessage, { severity: 'error' });
+
+        // Only show notification on initial load or retry
+        if (!hasInitialLoad || isRetry) {
+          show(errorMessage, { severity: 'error' });
+        }
+
+        // Set hasInitialLoad to true even on error to prevent infinite retries
+        setHasInitialLoad(true);
       } finally {
         setIsLoading(false);
+        setIsRetrying(false);
       }
-    };
+    },
+    [taskId, getTask, session?.session_token, show]
+  );
 
-    if (taskId) {
+  // Initial load effect - only depends on essential values
+  useEffect(() => {
+    if (taskId && session?.session_token) {
       loadInitialData();
     }
-  }, [
-    taskId,
-    getTask,
-    show,
-    session?.session_token,
-    editedTask,
-    priorities.length,
-    statuses.length,
-    users.length,
-  ]);
+  }, [taskId, session?.session_token, loadInitialData]);
 
-  // Show loading state while taskId is being set
-  if (isLoading) {
+  // Timeout effect - show timeout message if loading takes too long
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
+      // Set timeout for 10 seconds
+      timeoutId = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 10000);
+    } else {
+      setLoadingTimeout(false);
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isLoading, hasInitialLoad, taskId, session?.session_token]);
+
+  // Show loading state while loading or if we haven't loaded yet
+  if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
     return (
       <PageContainer
-        title="Loading..."
+        title={loadingTimeout ? 'Taking longer than expected...' : 'Loading...'}
         breadcrumbs={[
           { title: 'Tasks', path: '/tasks' },
-          { title: 'Loading...', path: `/tasks/${taskId}` },
+          {
+            title: loadingTimeout ? 'Slow Connection' : 'Loading...',
+            path: `/tasks/${taskId}`,
+          },
         ]}
       >
         <Box
           sx={{
             display: 'flex',
+            flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
             minHeight: '50vh',
+            gap: 3,
           }}
         >
           <CircularProgress />
+
+          {loadingTimeout && (
+            <Box sx={{ textAlign: 'center', maxWidth: 400 }}>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  This is taking longer than usual
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  The server might be experiencing high load or there could be a
+                  network issue. We&apos;re still trying to load your task.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Task ID: {taskId}
+                </Typography>
+              </Alert>
+
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push('/tasks')}
+                >
+                  Back to Tasks
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setLoadingTimeout(false);
+                    setHasInitialLoad(false);
+                    loadInitialData(true);
+                  }}
+                >
+                  Try Again
+                </Button>
+              </Box>
+            </Box>
+          )}
         </Box>
       </PageContainer>
     );
   }
 
-  if (error) {
+  if (error && !editedTask) {
     return (
       <PageContainer
         title="Error"
@@ -165,9 +256,68 @@ export default function TaskDetailPage({ params }: PageProps) {
         ]}
       >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
+          <Alert
+            severity="error"
+            sx={{ mb: 3 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => loadInitialData(true)}
+                disabled={isRetrying}
+              >
+                {isRetrying ? (
+                  <>
+                    <CircularProgress
+                      color="inherit"
+                      size={16}
+                      sx={{ mr: 1 }}
+                    />
+                    Retrying...
+                  </>
+                ) : (
+                  'Retry'
+                )}
+              </Button>
+            }
+          >
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              Sorry, we couldn&apos;t load this task
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              We encountered an issue while trying to load the task details.
+              This might be due to a temporary network issue or server problem.
+            </Typography>
+            <Box
+              sx={{
+                fontSize: theme => theme.typography.helperText.fontSize,
+                fontFamily: 'monospace',
+                color: 'text.secondary',
+                mt: 1,
+              }}
+            >
+              Error: {error}
+            </Box>
           </Alert>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button variant="contained" onClick={() => router.push('/tasks')}>
+              Back to Tasks
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => loadInitialData(true)}
+              disabled={isRetrying}
+            >
+              {isRetrying ? (
+                <>
+                  <CircularProgress color="inherit" size={16} sx={{ mr: 1 }} />
+                  Retrying...
+                </>
+              ) : (
+                'Try Again'
+              )}
+            </Button>
+          </Box>
         </Box>
       </PageContainer>
     );
@@ -183,9 +333,37 @@ export default function TaskDetailPage({ params }: PageProps) {
         ]}
       >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Task not found
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              Sorry, we couldn&apos;t load this task
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              The task you&apos;re looking for might have been deleted, moved,
+              or you may not have permission to view it.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Task ID: {taskId}
+            </Typography>
           </Alert>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button variant="contained" onClick={() => router.push('/tasks')}>
+              Back to Tasks
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => loadInitialData(true)}
+              disabled={isRetrying}
+            >
+              {isRetrying ? (
+                <>
+                  <CircularProgress color="inherit" size={16} sx={{ mr: 1 }} />
+                  Retrying...
+                </>
+              ) : (
+                'Try Again'
+              )}
+            </Button>
+          </Box>
         </Box>
       </PageContainer>
     );
@@ -194,26 +372,36 @@ export default function TaskDetailPage({ params }: PageProps) {
   const task = editedTask;
 
   const handleSaveDescription = async () => {
-    if (!taskId) return;
+    if (!taskId || !editedTask) return;
 
     setIsSaving(true);
+    const originalDescription = editedTask.description;
 
     try {
       const updateData: TaskUpdate = {
-        title: task.title,
+        title: editedTask.title,
         description: editDescription,
-        status_id: task.status_id,
-        priority_id: task.priority_id,
-        assignee_id: task.assignee_id || undefined,
+        status_id: editedTask.status_id,
+        priority_id: editedTask.priority_id,
+        assignee_id: editedTask.assignee_id || undefined,
       };
 
-      await updateTask(taskId, updateData);
+      const updatedTask = await updateTask(taskId, updateData);
+
+      // Update local state with the response from server
+      if (updatedTask) {
+        setEditedTask(updatedTask);
+      }
+
       show('Description updated successfully', { severity: 'success' });
       setIsEditingDescription(false);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to update description';
       show(errorMessage, { severity: 'error' });
+
+      // Revert description on error
+      setEditDescription(originalDescription || '');
     } finally {
       setIsSaving(false);
     }
@@ -234,12 +422,23 @@ export default function TaskDetailPage({ params }: PageProps) {
         assignee_id: taskData.assignee_id || undefined,
       };
 
-      await updateTask(taskId, updateData);
+      const updatedTask = await updateTask(taskId, updateData);
+
+      // Update local state with the response from server
+      if (updatedTask) {
+        setEditedTask(updatedTask);
+      }
+
       show('Task updated successfully', { severity: 'success' });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to update task';
       show(errorMessage, { severity: 'error' });
+
+      // Revert local changes on error if we have original data
+      if (editedTask && taskToSave) {
+        setEditedTask(editedTask);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -359,6 +558,44 @@ export default function TaskDetailPage({ params }: PageProps) {
       </Box>
 
       <Box sx={{ flexGrow: 1, pt: 3 }}>
+        {/* Show warning if there's an error but we have cached data */}
+        {error && editedTask && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <strong>Connection Issue:</strong> We&apos;re having trouble
+              connecting to the server, but we&apos;re showing you the last
+              saved version of this task.
+            </Typography>
+            <Box
+              sx={{
+                fontSize: theme => theme.typography.helperText.fontSize,
+                fontFamily: 'monospace',
+                color: 'text.secondary',
+                mb: 1,
+              }}
+            >
+              {error}
+            </Box>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => loadInitialData(true)}
+              disabled={isRetrying}
+              variant="outlined"
+              sx={{ mt: 1 }}
+            >
+              {isRetrying ? (
+                <>
+                  <CircularProgress color="inherit" size={14} sx={{ mr: 1 }} />
+                  Reconnecting...
+                </>
+              ) : (
+                'Try to Reconnect'
+              )}
+            </Button>
+          </Alert>
+        )}
+
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Paper sx={{ p: 4 }}>

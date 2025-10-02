@@ -80,7 +80,7 @@ def _apply_filters(base_query, **filters):
     return base_query
 
 
-def _compute_test_result_distribution(db: Session, test_run_ids: List[str]) -> Dict[str, int]:
+def _compute_test_result_distribution(db: Session, test_run_ids: List[str], organization_id: str = None) -> Dict[str, int]:
     """
     Compute the distribution of test results by analyzing their test_metrics.
     Uses the same approach as test_result stats to determine pass/fail based on metrics.
@@ -90,10 +90,15 @@ def _compute_test_result_distribution(db: Session, test_run_ids: List[str]) -> D
     if not test_run_ids:
         return {"passed": 0, "failed": 0, "pending": 0}
 
-    # Get all test results with their test_metrics
-    test_results = (
-        db.query(models.TestResult).filter(models.TestResult.test_run_id.in_(test_run_ids)).all()
-    )
+    # Get all test results with their test_metrics (SECURITY: Include organization filtering)
+    query = db.query(models.TestResult).filter(models.TestResult.test_run_id.in_(test_run_ids))
+    
+    # Apply organization filtering if provided (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(models.TestResult.organization_id == UUID(organization_id))
+    
+    test_results = query.all()
 
     # Count results by analyzing metrics (same logic as test_result.py)
     passed = 0
@@ -433,7 +438,7 @@ def get_test_run_stats(
 
     # Efficiently compute test result distribution using SQL aggregation
     test_run_ids = [str(test_run.id) for test_run in test_runs]
-    result_stats = _compute_test_result_distribution(db, test_run_ids)
+    result_stats = _compute_test_result_distribution(db, test_run_ids, organization_id)
 
     # Initialize other statistics containers
     status_stats = {}  # status -> count

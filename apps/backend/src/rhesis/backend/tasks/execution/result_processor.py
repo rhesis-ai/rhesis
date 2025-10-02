@@ -210,7 +210,7 @@ def update_test_run_status(
         "info", f"Current test run status: {current_status_name}, updating to: {overall_status}"
     )
 
-    new_status = get_or_create_status(db, overall_status, "TestRun")
+    new_status = get_or_create_status(db, overall_status, "TestRun", organization_id=str(test_run.organization_id))
     logger_func("debug", f"Got status object: {new_status.name} (id: {new_status.id})")
 
     # Update attributes to mark completion
@@ -247,7 +247,8 @@ def update_test_run_status(
 
     logger_func("debug", f"Updating test run with status_id: {new_status.id}")
     updated_test_run = crud.update_test_run(
-        db, test_run.id, crud.schemas.TestRunUpdate(**update_data)
+        db, test_run.id, crud.schemas.TestRunUpdate(**update_data),
+        organization_id=str(test_run.organization_id), user_id=str(test_run.user_id)
     )
 
     # Verify the update worked
@@ -258,8 +259,7 @@ def update_test_run_status(
     else:
         logger_func("warning", "Test run status update may have failed - no status returned")
 
-    # Commit the transaction explicitly
-    db.commit()
+    # Transaction commit is handled by the session context manager
 
 
 def format_status_details(tests_passed: int, tests_failed: int) -> str:

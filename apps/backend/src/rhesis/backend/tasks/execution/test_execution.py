@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.database import set_tenant
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -36,21 +36,7 @@ from rhesis.backend.tasks.execution.response_extractor import extract_response_w
 # ============================================================================
 
 
-def setup_tenant_context(
-    db: Session, organization_id: Optional[str], user_id: Optional[str]
-) -> None:
-    """Set up tenant context for database operations."""
-    if not organization_id:
-        return
-
-    try:
-        # Verify PostgreSQL has the parameter defined
-        db.execute(text('SHOW "app.current_organization"'))
-        # Set the tenant context for this session
-        set_tenant(db, organization_id, user_id)
-        logger.debug(f"Set tenant context: organization_id={organization_id}, user_id={user_id}")
-    except Exception as e:
-        logger.warning(f"Failed to set tenant context: {e}")
+# Tenant context is now passed directly to CRUD operations
 
 
 # ============================================================================
@@ -71,7 +57,7 @@ def get_test_and_prompt(
         ValueError: If test or prompt is not found
     """
     # Get the test
-    test = crud.get_test(db, UUID(test_id))
+    test = crud.get_test(db, UUID(test_id), organization_id=organization_id)
     if not test:
         # Fallback query with organization filter
         test_query = db.query(Test).filter(Test.id == UUID(test_id))
@@ -118,11 +104,11 @@ def get_test_metrics(test: Test) -> List[Dict]:
 
 
 def check_existing_result(
-    db: Session, test_config_id: str, test_run_id: str, test_id: str
+    db: Session, test_config_id: str, test_run_id: str, test_id: str, organization_id: str = None, user_id: str = None
 ) -> Optional[Dict[str, Any]]:
     """Check if a result already exists for this test configuration."""
     filter_str = f"test_configuration_id eq {test_config_id} and test_run_id eq {test_run_id} and test_id eq {test_id}"
-    existing_results = crud.get_test_results(db, limit=1, filter=filter_str)
+    existing_results = crud.get_test_results(db, limit=1, filter=filter_str, organization_id=organization_id, user_id=user_id)
 
     if not existing_results:
         return None
@@ -190,21 +176,14 @@ def process_endpoint_result(result: Dict) -> Dict:
     if not result:
         return {}
 
-    # Debug: Log the input structure
-    logger.info(f"🔍 INPUT RESULT: {result}")
 
     # Create a DEEP copy of the result to avoid modifying the original or sharing references
     processed_result = copy.deepcopy(result)
 
-    # Debug: Log key fields before processing
-    logger.info(f"🔍 BEFORE - output: '{processed_result.get('output', 'NOT_FOUND')}'")
-    logger.info(f"🔍 BEFORE - metadata: '{processed_result.get('metadata', 'NOT_FOUND')}'")
-    logger.info(f"🔍 BEFORE - error: '{processed_result.get('error', 'NOT_FOUND')}'")
 
     # Use the existing fallback logic to get the processed output
     processed_output = extract_response_with_fallback(processed_result)
 
-    logger.info(f"⚠️ PROCESSED OUTPUT: '{processed_output}' (type: {type(processed_output)})")
 
     # Set the output field to the processed response
     processed_result["output"] = processed_output
@@ -230,7 +209,7 @@ def create_test_result_record(
     processed_result: Dict,
 ) -> None:
     """Create and store the test result record in the database."""
-    test_result_status = get_or_create_status(db, ResultStatus.PASS.value, "TestResult")
+    test_result_status = get_or_create_status(db, ResultStatus.PASS.value, "TestResult", organization_id=organization_id)
 
     test_result_data = {
         "test_configuration_id": UUID(test_config_id),
@@ -245,7 +224,7 @@ def create_test_result_record(
     }
 
     try:
-        result = crud.create_test_result(db, schemas.TestResultCreate(**test_result_data))
+        result = crud.create_test_result(db, schemas.TestResultCreate(**test_result_data), organization_id=organization_id, user_id=user_id)
         logger.debug(
             f"Successfully created test result with ID: {result.id if hasattr(result, 'id') else 'UNKNOWN'}"
         )
@@ -302,11 +281,10 @@ def execute_test(
     start_time = datetime.utcnow()
 
     try:
-        # Setup and initialization
-        setup_tenant_context(db, organization_id, user_id)
+        # Tenant context should be passed directly to CRUD operations by the calling task
 
         # Check for existing result to avoid duplicates
-        existing_result = check_existing_result(db, test_config_id, test_run_id, test_id)
+        existing_result = check_existing_result(db, test_config_id, test_run_id, test_id, organization_id, user_id)
         if existing_result:
             logger.info(f"Found existing result for test {test_id}")
             return existing_result
