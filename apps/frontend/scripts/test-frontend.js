@@ -18,10 +18,10 @@ function runCommand(command, args = [], options = {}) {
     const child = spawn(command, args, {
       stdio: 'inherit',
       shell: true,
-      ...options
+      ...options,
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       if (code === 0) {
         resolve();
       } else {
@@ -29,7 +29,7 @@ function runCommand(command, args = [], options = {}) {
       }
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       reject(error);
     });
   });
