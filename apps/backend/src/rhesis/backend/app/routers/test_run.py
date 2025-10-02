@@ -369,7 +369,7 @@ def delete_test_run(
     if db_test_run.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete this test run")
 
-    return crud.delete_test_run(db=db, test_run_id=test_run_id)
+    return crud.delete_test_run(db=db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id)
 
 
 @router.get("/{test_run_id}/download", response_class=StreamingResponse)
