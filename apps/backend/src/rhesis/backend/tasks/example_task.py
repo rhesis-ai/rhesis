@@ -14,13 +14,12 @@ from typing import Any, Dict
 from uuid import UUID
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.database import SessionLocal
+from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import (
     BaseTask,
     email_notification,
-    with_tenant_context,
 )
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.modes import (
@@ -74,29 +73,22 @@ def echo(self, message: str):
     bind=True,
     display_name="Test Set Count",
 )
-@with_tenant_context
-def get_test_set_count(self, db=None):
+# with_tenant_context decorator removed - tenant context now passed directly
+def get_test_set_count(self):
     """
     Count test sets for the current organization.
 
-    This task demonstrates using the tenant context system for database operations.
-    The @with_tenant_context decorator automatically:
-    1. Creates a database session
-    2. Sets the tenant context from the task
-    3. Passes the session to the task function
-    4. Closes the session when done
-
-    All database operations will have the correct tenant context automatically.
+    Demonstrates using the tenant context system for database operations.
+    Uses get_db_with_tenant_variables for explicit tenant context.
     """
-    # The db session is automatically injected by the with_tenant_context decorator
-    # and already has the correct tenant context set
-
-    # Use the crud utility which will respect the tenant context
-    test_sets = crud.get_test_sets(db)
-    count = len(test_sets)
-
     # Access context using the new utility method
     org_id, user_id = self.get_tenant_context()
+
+    # Use tenant-aware database session with explicit organization_id and user_id
+    with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+        # Use the crud utility which will respect the tenant context
+        test_sets = crud.get_test_sets(db)
+        count = len(test_sets)
 
     self.log_with_context("info", "Test set count retrieved", test_set_count=count)
 
@@ -109,23 +101,25 @@ def get_test_set_count(self, db=None):
     bind=True,
     display_name="Test Configuration Retrieval",
 )
-@with_tenant_context
-def get_test_configuration(self, test_configuration_id: str, db=None):
+# with_tenant_context decorator removed - tenant context now passed directly
+def get_test_configuration(self, test_configuration_id: str):
     """
     Get details of a specific test configuration.
 
-    This task demonstrates using the tenant context system with parameters.
-    The database session is automatically configured with the correct tenant.
+    Demonstrates using the tenant context system with parameters.
+    Uses get_db_with_tenant_variables for explicit tenant context.
     """
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
+
     # Convert string ID to UUID
     config_id = UUID(test_configuration_id)
 
-    # The crud function will use the properly configured session
-    # which has the tenant context already set
-    test_config = crud.get_test_configuration(db, test_configuration_id=config_id)
-
-    # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    # Use tenant-aware database session with explicit organization_id and user_id
+    with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+        # The crud function will use the properly configured session
+        # which has the tenant context already set
+        test_config = crud.get_test_configuration(db, test_configuration_id=config_id, organization_id=org_id, user_id=user_id)
 
     self.log_with_context(
         "info",
@@ -160,8 +154,8 @@ def manual_db_example(self):
 
     results = {}
 
-    # Use the context manager to get a properly configured session
-    with self.get_db_session() as db:
+    # Use tenant-aware database session with explicit organization_id and user_id
+    with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
         # The session already has tenant context set
         test_sets = crud.get_test_sets(db)
         results["test_set_count"] = len(test_sets)
@@ -183,8 +177,8 @@ def manual_db_example(self):
     bind=True,
     display_name="Email Notification Test",
 )
-@with_tenant_context
-def email_notification_test(self, test_message: str = "Test message", message: str = None, db=None):
+# with_tenant_context decorator removed - tenant context now passed directly
+def email_notification_test(self, test_message: str = "Test message", message: str = None):
     """
     Test task to verify email notifications are working.
     This task will always succeed to test success notifications.
@@ -208,8 +202,8 @@ def email_notification_test(self, test_message: str = "Test message", message: s
 
 
 @app.task(base=BaseTask, bind=True, display_name="Example Task")
-@with_tenant_context
-def example_task(self, name: str, delay_seconds: int = 5, db=None):
+# with_tenant_context decorator removed - tenant context now passed directly
+def example_task(self, name: str, delay_seconds: int = 5):
     """
     Example task that demonstrates basic functionality.
 
@@ -236,8 +230,8 @@ def example_task(self, name: str, delay_seconds: int = 5, db=None):
 
 
 @app.task(base=BaseTask, bind=True, display_name="Test Configuration Mode Example")
-@with_tenant_context
-def example_execution_mode_task(self, test_config_id: str, db=None) -> Dict[str, Any]:
+# with_tenant_context decorator removed - tenant context now passed directly
+def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
     """
     Example task that demonstrates execution mode handling.
 
@@ -254,6 +248,9 @@ def example_execution_mode_task(self, test_config_id: str, db=None) -> Dict[str,
         "info", "Checking execution mode for test config", test_config_id=test_config_id
     )
 
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
+
     try:
         # Get test configuration
         from rhesis.backend.tasks.utils import safe_uuid_convert
@@ -262,9 +259,11 @@ def example_execution_mode_task(self, test_config_id: str, db=None) -> Dict[str,
         if not test_config_uuid:
             raise ValueError(f"Invalid test configuration ID: {test_config_id}")
 
-        test_config = crud.get_test_configuration(db, test_config_uuid)
-        if not test_config:
-            raise ValueError(f"Test configuration not found: {test_config_id}")
+        # Use tenant-aware database session with explicit organization_id and user_id
+        with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+            test_config = crud.get_test_configuration(db, test_config_uuid, organization_id=org_id, user_id=user_id)
+            if not test_config:
+                raise ValueError(f"Test configuration not found: {test_config_id}")
 
         # Get current execution mode
         execution_mode = get_execution_mode(test_config)
@@ -321,13 +320,13 @@ def example_set_execution_mode(test_config_id: str, execution_mode: str) -> bool
     Returns:
         bool: True if successful, False otherwise
     """
-    with SessionLocal() as db:
-        try:
-            # Validate execution mode
-            ExecutionMode(execution_mode)
+    try:
+        # Validate execution mode
+        ExecutionMode(execution_mode)
 
+        with get_db() as db:
             # Set the execution mode
-            success = set_execution_mode(db, test_config_id, ExecutionMode(execution_mode))
+            success = set_execution_mode(db, test_config_id, ExecutionMode(execution_mode), organization_id=None, user_id=None)
 
             if success:
                 logger.info(
@@ -338,12 +337,12 @@ def example_set_execution_mode(test_config_id: str, execution_mode: str) -> bool
                 logger.error(f"Failed to set execution mode for test config {test_config_id}")
                 return False
 
-        except ValueError as e:
-            logger.error(f"Invalid execution mode '{execution_mode}': {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"Error setting execution mode: {str(e)}")
-            return False
+    except ValueError as e:
+        logger.error(f"Invalid execution mode '{execution_mode}': {str(e)}")
+        return False
+    except Exception as e:
+        logger.error(f"Error setting execution mode: {str(e)}")
+        return False
 
 
 # Example usage documentation

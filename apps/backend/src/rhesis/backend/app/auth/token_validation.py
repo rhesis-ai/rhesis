@@ -12,10 +12,10 @@ def update_token_usage(db: Session, token) -> None:
     try:
         token.last_used_at = datetime.now(timezone.utc)
         db.add(token)
-        db.commit()
+        # Transaction commit/rollback is handled by the session context manager
     except Exception as e:
         logger.error(f"Failed to update token last_used_at: {str(e)}")
-        db.rollback()
+        # Transaction rollback is handled by the session context manager
 
 
 def validate_token(

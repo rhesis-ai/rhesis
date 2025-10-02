@@ -43,13 +43,18 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
     if (!isMounted.current) return;
 
     try {
-      setLoading(true);
+      // Only show loading spinner on initial load or when no data exists
+      // This prevents flickering on pagination/filter changes
+      if (!hasInitialLoad || tasks.length === 0) {
+        setLoading(true);
+      }
       setError(null);
 
       const clientFactory = new ApiClientFactory(sessionToken);
@@ -75,23 +80,42 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       });
 
       if (isMounted.current) {
-        setTasks(response.data);
-        // Use the actual total count from backend
-        setTotalCount(response.totalCount);
+        setTasks(response.data || []);
+        // Use the actual total count from backend, fallback to 0
+        setTotalCount(response.totalCount || 0);
+        setHasInitialLoad(true);
       }
     } catch (err) {
       if (isMounted.current) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to fetch tasks';
         setError(errorMessage);
-        notifications.show(errorMessage, { severity: 'error' });
+
+        // Only show notification on initial load or if we don't have cached data
+        if (!hasInitialLoad || tasks.length === 0) {
+          notifications.show(errorMessage, { severity: 'error' });
+        }
+
+        // Keep existing data on error if we have it (for pagination/filter errors)
+        if (!hasInitialLoad) {
+          setTasks([]);
+          setTotalCount(0);
+        }
+        setHasInitialLoad(true);
       }
     } finally {
       if (isMounted.current) {
         setLoading(false);
       }
     }
-  }, [sessionToken, paginationModel, filterModel, notifications]);
+  }, [
+    sessionToken,
+    paginationModel,
+    filterModel,
+    notifications,
+    hasInitialLoad,
+    tasks.length,
+  ]);
 
   // Delete task
   const deleteTask = useCallback(
@@ -105,6 +129,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         // Remove from local state
         setTasks(prev => prev.filter(task => task.id !== taskId));
         setSelectedRows(prev => prev.filter(id => id !== taskId));
+        // Update total count
+        setTotalCount(prev => Math.max(0, prev - 1));
 
         notifications.show('Task deleted successfully', {
           severity: 'success',
@@ -114,9 +140,12 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to delete task';
         notifications.show(errorMessage, { severity: 'error' });
+
+        // Refresh data to ensure consistency after delete failure
+        fetchTasks();
       }
     },
-    [sessionToken, notifications, onRefresh]
+    [sessionToken, notifications, onRefresh, fetchTasks]
   );
 
   // Delete selected tasks
@@ -261,11 +290,71 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
     },
   ];
 
+  // Show error state with retry option
+  if (error && !hasInitialLoad) {
+    return (
+      <Box>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={fetchTasks}
+              disabled={loading}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+
+        <BaseDataGrid
+          rows={[]}
+          columns={columns}
+          loading={loading}
+          onRowClick={handleRowClick}
+          checkboxSelection
+          onRowSelectionModelChange={setSelectedRows}
+          rowSelectionModel={selectedRows}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          onFilterModelChange={handleFilterModelChange}
+          pageSizeOptions={[10, 25, 50, 100]}
+          getRowId={row => row.id}
+          disableRowSelectionOnClick
+          showToolbar={true}
+          serverSidePagination={true}
+          totalRows={0}
+          serverSideFiltering={true}
+          enableQuickFilter={true}
+          disablePaperWrapper={true}
+          actionButtons={[
+            {
+              label: 'Create Task',
+              onClick: () => router.push('/tasks/create'),
+              icon: <AddIcon />,
+              variant: 'contained' as const,
+              color: 'primary' as const,
+            },
+          ]}
+          sx={{
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+            },
+          }}
+        />
+      </Box>
+    );
+  }
+
   return (
     <Box>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+      {error && hasInitialLoad && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {error} - Showing cached data.
         </Alert>
       )}
 

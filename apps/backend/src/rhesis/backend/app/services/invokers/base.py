@@ -87,7 +87,7 @@ class BaseEndpointInvoker(ABC):
             endpoint.last_token_expires_at = datetime.utcnow() + timedelta(
                 seconds=token_data.get("expires_in", 3600)
             )
-            db.commit()
+            # Transaction commit is handled by the session context manager
 
             return endpoint.last_token
         except Exception as e:

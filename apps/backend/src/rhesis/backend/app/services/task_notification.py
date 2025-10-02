@@ -48,7 +48,8 @@ def send_task_assignment_notification(
         # Get entity name if entity_type and entity_id are provided
         entity_name = None
         if task.entity_type and task.entity_id:
-            entity_name = _get_entity_name(db, task.entity_type, task.entity_id)
+            # SECURITY: Pass task's organization_id for filtering
+            entity_name = _get_entity_name(db, task.entity_type, task.entity_id, str(task.organization_id))
             # Ensure we don't pass "N/A" or None as entity_name
             if entity_name in [None, "N/A", "None"]:
                 entity_name = None
@@ -100,27 +101,39 @@ def send_task_assignment_notification(
         return False
 
 
-def _get_entity_name(db: Session, entity_type: str, entity_id: str) -> Optional[str]:
+def _get_entity_name(db: Session, entity_type: str, entity_id: str, organization_id: str = None) -> Optional[str]:
     """
-    Get the name of an entity based on its type and ID.
+    Get the name of an entity based on its type and ID with organization filtering.
 
     Args:
         db: Database session
         entity_type: Type of entity (Test, TestSet, TestRun, etc.)
         entity_id: ID of the entity
+        organization_id: Organization ID for security filtering (CRITICAL)
 
     Returns:
         Optional[str]: Entity name if found, None otherwise
     """
     try:
+        from uuid import UUID
+        
         if entity_type == "Test":
-            test = db.query(models.Test).filter(models.Test.id == entity_id).first()
+            query = db.query(models.Test).filter(models.Test.id == entity_id)
+            if organization_id:
+                query = query.filter(models.Test.organization_id == UUID(organization_id))
+            test = query.first()
             return test.name if test else None
         elif entity_type == "TestSet":
-            test_set = db.query(models.TestSet).filter(models.TestSet.id == entity_id).first()
+            query = db.query(models.TestSet).filter(models.TestSet.id == entity_id)
+            if organization_id:
+                query = query.filter(models.TestSet.organization_id == UUID(organization_id))
+            test_set = query.first()
             return test_set.name if test_set else None
         elif entity_type == "TestRun":
-            test_run = db.query(models.TestRun).filter(models.TestRun.id == entity_id).first()
+            query = db.query(models.TestRun).filter(models.TestRun.id == entity_id)
+            if organization_id:
+                query = query.filter(models.TestRun.organization_id == UUID(organization_id))
+            test_run = query.first()
             return test_run.name if test_run else None
         # Add more entity types as needed
         else:

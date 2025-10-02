@@ -29,12 +29,14 @@ show_help() {
     echo -e "${YELLOW}Usage:${NC}"
     echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server"
     echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server"
+    echo -e "  ${GREEN}./rh frontend test${NC}   - Run frontend tests"
     echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server"
     echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo -e "  ${BLUE}./rh backend start${NC}"
     echo -e "  ${BLUE}./rh frontend start${NC}"
+    echo -e "  ${BLUE}./rh frontend test${NC}"
     echo -e "  ${BLUE}./rh docs start${NC}"
     echo ""
 }
@@ -46,7 +48,7 @@ start_backend() {
         echo -e "${RED}❌ Error: Backend directory not found${NC}"
         exit 1
     }
-    
+
     if [ -f "start.sh" ]; then
         ./start.sh
     else
@@ -62,7 +64,7 @@ start_frontend() {
         echo -e "${RED}❌ Error: Frontend directory not found${NC}"
         exit 1
     }
-    
+
     if [ -f "start.sh" ]; then
         ./start.sh
     else
@@ -78,13 +80,40 @@ start_docs() {
         echo -e "${RED}❌ Error: Documentation directory not found${NC}"
         exit 1
     }
-    
+
     if [ -f "start.sh" ]; then
         ./start.sh
     else
         echo -e "${RED}❌ Error: Docs start.sh not found${NC}"
         exit 1
     fi
+}
+
+# Function to run frontend tests
+test_frontend() {
+    echo -e "${GREEN}🧪 Running Frontend Tests...${NC}"
+    cd "$SCRIPT_DIR/apps/frontend" || {
+        echo -e "${RED}❌ Error: Frontend directory not found${NC}"
+        exit 1
+    }
+
+    # Check if node_modules exists
+    if [ ! -d "node_modules" ]; then
+        echo -e "${YELLOW}📦 Installing dependencies first...${NC}"
+        npm install || {
+            echo -e "${RED}❌ Error: Failed to install dependencies${NC}"
+            exit 1
+        }
+    fi
+
+    # Run tests
+    echo -e "${BLUE}🧪 Executing tests...${NC}"
+    npm test || {
+        echo -e "${RED}❌ Error: Tests failed${NC}"
+        exit 1
+    }
+
+    echo -e "${GREEN}✅ Frontend tests completed!${NC}"
 }
 
 # Parse command line arguments
@@ -106,9 +135,12 @@ case "$1" in
             "start")
                 start_frontend
                 ;;
+            "test")
+                test_frontend
+                ;;
             *)
                 echo -e "${RED}❌ Unknown frontend command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh frontend start${NC}"
+                echo -e "${YELLOW}Use: ./rh frontend start or ./rh frontend test${NC}"
                 exit 1
                 ;;
         esac
@@ -134,4 +166,4 @@ case "$1" in
         show_help
         exit 1
         ;;
-esac 
+esac

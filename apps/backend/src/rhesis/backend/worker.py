@@ -66,6 +66,12 @@ app.conf.update(
     # Task tracking for monitoring
     task_send_sent_event=False,  # Disable for performance
     worker_send_task_events=False,  # Disable for performance
+    # Reduce verbose task result logging
+    task_always_eager=False,
+    task_eager_propagates=False,
+    # Suppress verbose task result logging
+    worker_log_format='[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
+    worker_task_log_format='[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
     # Task annotations
     task_annotations={
         "rhesis.backend.tasks.execution.results.collect_results": {
@@ -95,6 +101,12 @@ app.conf.update(
 
 # Auto-discover tasks
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
+
+# Configure logging to reduce verbosity
+import logging
+# Suppress verbose Celery task result logging
+logging.getLogger('celery.task').setLevel(logging.WARNING)
+logging.getLogger('celery.worker').setLevel(logging.WARNING)
 
 if __name__ == "__main__":
     print("\n=== Worker Module Test ===")

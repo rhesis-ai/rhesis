@@ -17,13 +17,26 @@ from .utils import timer
 class StatsCalculator:
     """Main class for stats calculations with improved maintainability"""
 
-    def __init__(self, db: Session, config: StatsConfig = None):
+    def __init__(self, db: Session, config: StatsConfig = None, organization_id: str = None):
         self.db = db
         self.config = config or StatsConfig()
+        self.organization_id = organization_id  # SECURITY CRITICAL: Store organization context
 
     # ============================================================================
     # Core Stats Processing Methods
     # ============================================================================
+    
+    def _apply_organization_filter(self, query, model):
+        """Apply organization filtering to a query if organization_id is set and model supports it"""
+        if self.organization_id and hasattr(model, 'organization_id'):
+            from uuid import UUID
+            # Handle both string and UUID inputs
+            if isinstance(self.organization_id, UUID):
+                org_id = self.organization_id
+            else:
+                org_id = UUID(self.organization_id)
+            query = query.filter(model.organization_id == org_id)
+        return query
 
     def _process_dimension_breakdown(self, stats: List[Tuple], top: Optional[int] = None) -> Dict:
         """Process dimension statistics with optional top N filtering"""
@@ -70,13 +83,15 @@ class StatsCalculator:
 
             # Special handling for Status model
             if target_model.__name__ == "Status":
+                # Apply organization filtering to TypeLookup query (SECURITY CRITICAL)
+                type_lookup_query = self.db.query(TypeLookup.id).filter(
+                    TypeLookup.type_name == "EntityType",
+                    TypeLookup.type_value == entity_model.__name__,
+                )
+                type_lookup_query = self._apply_organization_filter(type_lookup_query, TypeLookup)
+                
                 dimension.extra_filters = target_model.entity_type_id.in_(
-                    self.db.query(TypeLookup.id)
-                    .filter(
-                        TypeLookup.type_name == "EntityType",
-                        TypeLookup.type_value == entity_model.__name__,
-                    )
-                    .scalar_subquery()
+                    type_lookup_query.scalar_subquery()
                 )
 
             dimensions.append(dimension)
@@ -98,6 +113,9 @@ class StatsCalculator:
             .group_by(dimension.model.name)
         )
 
+        # Apply organization filtering to dimension model (SECURITY CRITICAL)
+        query = self._apply_organization_filter(query, dimension.model)
+
         if dimension.extra_filters is not None:
             query = query.filter(dimension.extra_filters)
 
@@ -116,6 +134,9 @@ class StatsCalculator:
                 .outerjoin(dimension.model, dimension.join_column)
                 .group_by(dimension.model.name)
             )
+
+            # Apply organization filtering to dimension model (SECURITY CRITICAL)
+            main_query = self._apply_organization_filter(main_query, dimension.model)
 
             # Apply extra filters if provided
             if dimension.extra_filters is not None:
@@ -313,11 +334,13 @@ class StatsCalculator:
             with timer("all dimensions processing", self.config.enable_timing):
                 for dim in dimensions:
                     with timer(f"dimension {dim.name} processing", self.config.enable_timing):
-                        dimension_stats = (
+                        # Apply organization filtering to dimension query (SECURITY CRITICAL)
+                        dimension_query = (
                             self.db.query(dim.model.name, func.count(dim.entity_column))
                             .outerjoin(dim.model, dim.join_column)
-                            .group_by(dim.model.name)
                         )
+                        dimension_query = self._apply_organization_filter(dimension_query, dim.model)
+                        dimension_stats = dimension_query.group_by(dim.model.name)
 
                         if dim.extra_filters is not None:
                             dimension_stats = dimension_stats.filter(dim.extra_filters)
@@ -487,7 +510,10 @@ class StatsCalculator:
         else:
             if self.config.enable_debug_logging:
                 print("Getting all related entity IDs")
-            return self.db.query(related_model.id).subquery()
+            # Apply organization filtering to related model query (SECURITY CRITICAL)
+            related_query = self.db.query(related_model.id)
+            related_query = self._apply_organization_filter(related_query, related_model)
+            return related_query.subquery()
 
     def _empty_stats_result(self, result: StatsResult, months: int) -> Dict:
         """Create empty stats result with proper structure"""

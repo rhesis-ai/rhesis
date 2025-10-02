@@ -78,6 +78,14 @@ class TestSet(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
         "Test", secondary=test_test_set_association, back_populates="test_sets", viewonly=True
     )
 
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(TestSet.id), Comment.entity_type == 'TestSet')",
+        viewonly=True,
+        uselist=True,
+    )
+
     def _get_related_items(self, model_class, attribute_key):
         """Helper method to fetch related items from attributes"""
         session = Session.object_session(self)

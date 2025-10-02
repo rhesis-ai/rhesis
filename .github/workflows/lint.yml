@@ -47,7 +47,7 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd apps/frontend
-        npm ci
+        npm ci --legacy-peer-deps
 
     - name: Run frontend validation (format, lint, type-check, build)
       run: |

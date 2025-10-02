@@ -7,6 +7,7 @@ from typing import Any, Dict
 from uuid import UUID
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import BaseTask, email_notification
 from rhesis.backend.tasks.execution.result_processor import TestRunProcessor
@@ -37,10 +38,14 @@ def collect_results(self, results, test_run_id: str) -> Dict[str, Any]:
         "debug", f"Received {len(results) if results else 0} results from parallel tasks"
     )
 
+    # Access context using the new utility method
+    org_id, user_id = self.get_tenant_context()
+
     try:
-        with self.get_db_session() as db:
-            # Get test run
-            test_run = crud.get_test_run(db, UUID(test_run_id))
+        # Use tenant-aware database session with explicit organization_id and user_id
+        with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
+            # Get test run with tenant context
+            test_run = crud.get_test_run(db, UUID(test_run_id), organization_id=org_id, user_id=user_id)
             if not test_run:
                 raise ValueError(f"Test run not found: {test_run_id}")
 

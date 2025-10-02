@@ -21,6 +21,8 @@ from typing import Any, Dict, List, Optional
 
 from faker import Faker
 
+from rhesis.backend.app.constants import EntityType
+
 # Initialize Faker with consistent seed for reproducible tests
 fake = Faker()
 Faker.seed(12345)
@@ -776,6 +778,125 @@ class PromptDataFactory(BaseDataFactory):
         }
 
 
+class EndpointDataFactory(BaseDataFactory):
+    """
+    Endpoint Data Factory for generating endpoint entity data
+    
+    Provides consistent endpoint data generation for Endpoint entities with various
+    scenarios including minimal data, comprehensive data, and edge cases.
+    """
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal required data for Endpoint entity creation"""
+        return {
+            "name": fake.word().title() + " Endpoint",
+            "protocol": "REST",
+            "url": fake.url(),
+        }
+    
+    @classmethod
+    def sample_data(cls) -> Dict[str, Any]:
+        """Generate comprehensive sample data for Endpoint entity"""
+        return {
+            **cls.minimal_data(),
+            "description": fake.sentence(),
+            "environment": fake.random_element(elements=("development", "staging", "production")),
+            "config_source": fake.random_element(elements=("manual", "openapi", "llm_generated")),
+            "method": fake.random_element(elements=("GET", "POST", "PUT", "DELETE", "PATCH")),
+            "endpoint_path": f"/{fake.word()}/{fake.word()}",
+            "request_headers": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {token}"
+            },
+            "query_params": {
+                "limit": 10,
+                "offset": 0
+            },
+            "request_body_template": {
+                "name": "{name}",
+                "value": "{value}"
+            },
+            "response_format": fake.random_element(elements=("json", "xml", "text")),
+            "response_mappings": {
+                "data": "$.result",
+                "error": "$.error"
+            },
+            "validation_rules": {
+                "status_code": [200, 201],
+                "response_time": {"max": 5000}
+            },
+            "auth_type": fake.random_element(elements=("bearer", "api_key", "oauth2")),
+            "auth": {
+                "type": "bearer",
+                "token": fake.sha256()
+            }
+        }
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate data for updating Endpoint entities"""
+        return {
+            "description": fake.sentence(),
+            "environment": fake.random_element(elements=("development", "staging", "production")),
+            "auth": {
+                "type": "api_key",
+                "key": fake.sha256()
+            }
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate edge case data for Endpoint entities"""
+        base_data = cls.sample_data()
+        
+        if case_type == "minimal":
+            return cls.minimal_data()
+        elif case_type == "websocket":
+            base_data.update({
+                "protocol": "WebSocket",
+                "url": f"wss://{fake.domain_name()}/ws",
+                "method": None,
+                "endpoint_path": None
+            })
+        elif case_type == "grpc":
+            base_data.update({
+                "protocol": "GRPC",
+                "url": f"grpc://{fake.domain_name()}:9090",
+                "method": None,
+                "endpoint_path": f"{fake.word()}.{fake.word()}"
+            })
+        elif case_type == "oauth2":
+            base_data.update({
+                "auth_type": "oauth2",
+                "client_id": fake.uuid4(),
+                "client_secret": fake.sha256(),
+                "token_url": fake.url() + "/oauth/token",
+                "scopes": ["read", "write"],
+                "audience": fake.domain_name()
+            })
+        elif case_type == "complex_config":
+            base_data.update({
+                "openapi_spec": {
+                    "openapi": "3.0.0",
+                    "info": {"title": fake.sentence(), "version": "1.0.0"},
+                    "paths": {
+                        "/test": {
+                            "get": {
+                                "responses": {"200": {"description": "Success"}}
+                            }
+                        }
+                    }
+                },
+                "llm_suggestions": {
+                    "confidence": 0.95,
+                    "suggested_params": ["id", "name", "status"]
+                }
+            })
+        
+        return base_data
+
+
 # Factory registry for dynamic access - moved after all factory definitions
 FACTORY_REGISTRY = {
     "behavior": BehaviorDataFactory,
@@ -787,6 +908,7 @@ FACTORY_REGISTRY = {
     "dimension": DimensionDataFactory,
     "project": ProjectDataFactory,
     "prompt": PromptDataFactory,
+    "endpoint": EndpointDataFactory,
 }
 
 
@@ -947,17 +1069,15 @@ class SourceDataFactory(BaseDataFactory):
         data = {"title": fake.sentence(nb_words=4).rstrip(".")}
 
         if include_optional:
-            data.update(
-                {
-                    "description": fake.text(max_nb_chars=300),
-                    "url": fake.url(),  # Faker returns string, which is what we want
-                    "citation": f"{fake.name()} et al. ({fake.year()}). {fake.sentence()}",
-                    "language_code": fake.random_element(
-                        elements=("en", "es", "fr", "de", "zh")
-                    ),
-                }
-            )
-
+            data.update({
+                "description": fake.text(max_nb_chars=300),
+                # source_type_id is optional and requires a valid type_lookup record
+                # "source_type_id": str(fake.uuid4()),  # UUID for type_lookup reference
+                "url": fake.url(),  # Faker returns string, which is what we want
+                "citation": f"{fake.name()} et al. ({fake.year()}). {fake.sentence()}",
+                "language_code": fake.random_element(elements=("en", "es", "fr", "de", "zh"))
+            })
+        
         return data
 
     @classmethod
@@ -1849,6 +1969,7 @@ class CommentDataFactory(BaseDataFactory):
         return {
             "content": fake.sentence(nb_words=8),
             "entity_id": fake.uuid4(),  # Will be replaced with real entity ID in tests
+<<<<<<< HEAD
             "entity_type": fake.random_element(
                 elements=[
                     "Test",
@@ -1862,12 +1983,23 @@ class CommentDataFactory(BaseDataFactory):
                     "Category",
                 ]
             ),
+=======
+            "entity_type": fake.random_element(elements=[
+                EntityType.TEST.value, EntityType.TEST_SET.value, EntityType.TEST_RUN.value, 
+                EntityType.TEST_RESULT.value, EntityType.METRIC.value, EntityType.MODEL.value, 
+                EntityType.PROMPT.value, EntityType.BEHAVIOR.value, EntityType.CATEGORY.value
+            ])
+>>>>>>> main
         }
 
     @classmethod
+<<<<<<< HEAD
     def sample_data(
         cls, entity_id: Optional[str] = None, entity_type: str = "Test"
     ) -> Dict[str, Any]:
+=======
+    def sample_data(cls, entity_id: Optional[str] = None, entity_type: str = None) -> Dict[str, Any]:
+>>>>>>> main
         """
         Generate sample comment data
 
@@ -1880,10 +2012,16 @@ class CommentDataFactory(BaseDataFactory):
         """
         return {
             "content": fake.paragraph(nb_sentences=2),
+<<<<<<< HEAD
             "entity_id": entity_id
             or fake.uuid4(),  # Will be replaced with real entity ID in tests
             "entity_type": entity_type,
             "emojis": {},  # Start with no emoji reactions
+=======
+            "entity_id": entity_id or fake.uuid4(),  # Will be replaced with real entity ID in tests
+            "entity_type": entity_type or EntityType.TEST.value,
+            "emojis": {}  # Start with no emoji reactions
+>>>>>>> main
         }
 
     @classmethod
@@ -1898,27 +2036,50 @@ class CommentDataFactory(BaseDataFactory):
             return {
                 "content": fake.text(max_nb_chars=2000),
                 "entity_id": fake.uuid4(),
+<<<<<<< HEAD
                 "entity_type": "Test",
+=======
+                "entity_type": EntityType.TEST.value
+>>>>>>> main
             }
         elif case_type == "special_chars":
             return {
                 "content": "Comment with émojis 💬 and spëcial chars! @#$%^&*()",
                 "entity_id": fake.uuid4(),
+<<<<<<< HEAD
                 "entity_type": "Test",
+=======
+                "entity_type": EntityType.TEST.value
+>>>>>>> main
             }
         elif case_type == "unicode":
             return {
                 "content": f"Comment 测试 тест テスト {fake.sentence()}",
                 "entity_id": fake.uuid4(),
+<<<<<<< HEAD
                 "entity_type": "Test",
             }
         elif case_type == "empty_content":
             return {"content": "", "entity_id": fake.uuid4(), "entity_type": "Test"}
+=======
+                "entity_type": EntityType.TEST.value
+            }
+        elif case_type == "empty_content":
+            return {
+                "content": "",
+                "entity_id": fake.uuid4(),
+                "entity_type": EntityType.TEST.value
+            }
+>>>>>>> main
         elif case_type == "sql_injection":
             return {
                 "content": "'; DROP TABLE comments; --",
                 "entity_id": fake.uuid4(),
+<<<<<<< HEAD
                 "entity_type": "Test",
+=======
+                "entity_type": EntityType.TEST.value
+>>>>>>> main
             }
 
         return super().edge_case_data(case_type)
@@ -1985,6 +2146,111 @@ class CommentDataFactory(BaseDataFactory):
             comments.append(data)
 
         return comments
+
+
+@dataclass
+class TestDataFactory(BaseDataFactory):
+    """Factory for generating test entity test data"""
+    
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        """Generate minimal test data (only required fields)"""
+        # Test entity only requires organization_id and user_id (from OrganizationMixin)
+        # All other fields are optional
+        return {}
+    
+    @classmethod
+    def sample_data(cls, include_prompt: bool = True, include_behavior: bool = True, 
+                   include_category: bool = True, include_status: bool = True) -> Dict[str, Any]:
+        """
+        Generate sample test data
+        
+        Args:
+            include_prompt: Whether to include prompt_id reference
+            include_behavior: Whether to include behavior_id reference
+            include_category: Whether to include category_id reference
+            include_status: Whether to include status_id reference
+            
+        Returns:
+            Dict containing test data
+        """
+        data = {}
+        
+        # Optional fields that can be included
+        if include_prompt:
+            data["prompt_id"] = None  # Will be set by fixtures
+        
+        if include_behavior:
+            data["behavior_id"] = None  # Will be set by fixtures
+            
+        if include_category:
+            data["category_id"] = None  # Will be set by fixtures
+            
+        if include_status:
+            data["status_id"] = None  # Will be set by fixtures
+        
+        # Other optional fields
+        data.update({
+            "priority": fake.random_int(min=1, max=5),
+            "test_metadata": {
+                "source": fake.random_element(["manual", "automated", "imported"]),
+                "tags": fake.words(nb=3),
+                "notes": fake.sentence()
+            }
+        })
+        
+        return data
+    
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        """Generate test update data"""
+        return {
+            "priority": fake.random_int(min=1, max=5),
+            "test_metadata": {
+                "updated": True,
+                "notes": fake.sentence(),
+                "tags": fake.words(nb=2)
+            }
+        }
+    
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        """Generate test edge case data"""
+        if case_type == "high_priority":
+            return {
+                "priority": 1,
+                "test_metadata": {
+                    "priority_reason": "Critical security test"
+                }
+            }
+        elif case_type == "low_priority":
+            return {
+                "priority": 5,
+                "test_metadata": {
+                    "priority_reason": "Nice to have test"
+                }
+            }
+        elif case_type == "complex_metadata":
+            return {
+                "test_metadata": {
+                    "execution_context": {
+                        "environment": "staging",
+                        "browser": "chrome",
+                        "viewport": {"width": 1920, "height": 1080}
+                    },
+                    "test_data": {
+                        "inputs": fake.words(nb=5),
+                        "expected_outputs": fake.words(nb=3)
+                    },
+                    "configuration": {
+                        "timeout": 30000,
+                        "retries": 3,
+                        "parallel": True
+                    }
+                }
+            }
+        
+        return super().edge_case_data(case_type)
 
 
 @dataclass
@@ -2091,6 +2357,7 @@ class TagDataFactory(BaseDataFactory):
 
 
 # Update factory registry with new factories
+<<<<<<< HEAD
 FACTORY_REGISTRY.update(
     {
         "comment": CommentDataFactory,
@@ -2106,6 +2373,22 @@ FACTORY_REGISTRY.update(
         "use_case": UseCaseDataFactory,
     }
 )
+=======
+FACTORY_REGISTRY.update({
+    "comment": CommentDataFactory,
+    "prompt_template": PromptTemplateDataFactory,
+    "response_pattern": ResponsePatternDataFactory,
+    "risk": RiskDataFactory,
+    "source": SourceDataFactory,
+    "status": StatusDataFactory,
+    "tag": TagDataFactory,
+    "test": TestDataFactory,
+    "token": TokenDataFactory,
+    "topic": TopicDataFactory,
+    "type_lookup": TypeLookupDataFactory,
+    "use_case": UseCaseDataFactory,
+})
+>>>>>>> main
 
 
 # Export main classes and functions
@@ -2115,6 +2398,7 @@ __all__ = [
     "TopicDataFactory",
     "CategoryDataFactory",
     "CommentDataFactory",
+    "EndpointDataFactory",
     "MetricDataFactory",
     "ModelDataFactory",
     "OrganizationDataFactory",
@@ -2125,6 +2409,7 @@ __all__ = [
     "SourceDataFactory",
     "StatusDataFactory",
     "TagDataFactory",
+    "TestDataFactory",
     "TokenDataFactory",
     "TopicDataFactory",
     "TypeLookupDataFactory",

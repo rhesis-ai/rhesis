@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -20,10 +21,11 @@ def get_router(model: Type, base_schema: Type[Base], prefix: str):
     @router.get("/{item_id}", response_model=detailed_schema)
     def read_item(
         item_id: UUID,
-        db: Session = Depends(get_db),
-        current_user: schemas.User = Depends(require_current_user_or_token),
-    ):
-        db_item = crud.get_item_detail(db, model, item_id)
+        db: Session = Depends(get_tenant_db_session),
+        tenant_context=Depends(get_tenant_context),
+        current_user: schemas.User = Depends(require_current_user_or_token)):
+        organization_id, user_id = tenant_context
+        db_item = crud.get_item_detail(db, model, item_id, organization_id, user_id)
         if db_item is None:
             raise HTTPException(status_code=404, detail="Item not found")
         return db_item
@@ -35,8 +37,9 @@ def get_router(model: Type, base_schema: Type[Base], prefix: str):
         sort_by: str = "created_at",
         sort_order: str = "desc",
         filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-        db: Session = Depends(get_db),
-        current_user: schemas.User = Depends(require_current_user_or_token),
-    ):
-        items = crud.get_items_detail(db, model, skip, limit, sort_by, sort_order, filter)
+        db: Session = Depends(get_tenant_db_session),
+        tenant_context=Depends(get_tenant_context),
+        current_user: schemas.User = Depends(require_current_user_or_token)):
+        organization_id, user_id = tenant_context
+        items = crud.get_items_detail(db, model, skip, limit, sort_by, sort_order, filter, organization_id=organization_id, user_id=user_id)
         return items

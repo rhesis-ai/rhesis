@@ -26,7 +26,7 @@ class EndpointService:
         )
 
     def invoke_endpoint(
-        self, db: Session, endpoint_id: str, input_data: Dict[str, Any]
+        self, db: Session, endpoint_id: str, input_data: Dict[str, Any], organization_id: str = None
     ) -> Dict[str, Any]:
         """
         Invoke an endpoint with the given input data.
@@ -35,6 +35,7 @@ class EndpointService:
             db: Database session
             endpoint_id: ID of the endpoint to invoke
             input_data: Input data to be mapped to the endpoint's request template
+            organization_id: Organization ID for security filtering (CRITICAL)
 
         Returns:
             Dict containing the mapped response from the endpoint
@@ -42,8 +43,8 @@ class EndpointService:
         Raises:
             HTTPException: If endpoint is not found or invocation fails
         """
-        # Fetch endpoint configuration
-        endpoint = self._get_endpoint(db, endpoint_id)
+        # Fetch endpoint configuration with organization filtering (SECURITY CRITICAL)
+        endpoint = self._get_endpoint(db, endpoint_id, organization_id)
 
         try:
             # Create appropriate invoker based on protocol
@@ -56,23 +57,31 @@ class EndpointService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    def _get_endpoint(self, db: Session, endpoint_id: str) -> Endpoint:
+    def _get_endpoint(self, db: Session, endpoint_id: str, organization_id: str = None) -> Endpoint:
         """
-        Get an endpoint by ID.
+        Get an endpoint by ID with organization filtering.
 
         Args:
             db: Database session
             endpoint_id: ID of the endpoint to retrieve
+            organization_id: Organization ID for security filtering (CRITICAL)
 
         Returns:
             The endpoint configuration
 
         Raises:
-            HTTPException: If endpoint is not found
+            HTTPException: If endpoint is not found or not accessible
         """
-        endpoint = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
+        query = db.query(Endpoint).filter(Endpoint.id == endpoint_id)
+        
+        # Apply organization filtering if provided (SECURITY CRITICAL)
+        if organization_id:
+            from uuid import UUID
+            query = query.filter(Endpoint.organization_id == UUID(organization_id))
+        
+        endpoint = query.first()
         if not endpoint:
-            raise HTTPException(status_code=404, detail="Endpoint not found")
+            raise HTTPException(status_code=404, detail="Endpoint not found or not accessible")
         return endpoint
 
     def get_schema(self) -> Dict[str, Any]:
@@ -119,7 +128,7 @@ def get_schema() -> Dict[str, Any]:
 if __name__ == "__main__":
     import argparse
 
-    from rhesis.backend.app.database import SessionLocal, set_tenant
+    from rhesis.backend.app.database import get_db
 
     parser = argparse.ArgumentParser(description="Test endpoint invocation")
     parser.add_argument("endpoint_id", help="ID of the endpoint to invoke")
@@ -135,23 +144,20 @@ if __name__ == "__main__":
     # Prepare input data
     input_data = {"input": args.input, "session_id": args.session or str(uuid.uuid4())}
 
-    # Create DB session
-    db = SessionLocal()
+    # Use simple get_db and pass tenant context directly to operations
     try:
-        # Set tenant context
-        set_tenant(db, organization_id=args.org_id, user_id=args.user_id)
-
-        # Invoke endpoint
-        # print(f"\nInvoking endpoint {args.endpoint_id} with input: {input_data}")
-        # print(f"Using organization ID: {args.org_id}")
-        # print(f"Using user ID: {args.user_id}")
-        result = invoke(db, args.endpoint_id, input_data)
-        # print("\nResponse:")
-        # print(json.dumps(result, indent=2))
+        with get_db() as db:
+            # Invoke endpoint
+            # print(f"\nInvoking endpoint {args.endpoint_id} with input: {input_data}")
+            # print(f"Using organization ID: {args.organization_id}")
+            # print(f"Using user ID: {args.user_id}")
+            result = invoke(db, args.endpoint_id, input_data)
+            # print("\nResponse:")
+            # print(json.dumps(result, indent=2))
+            
+            print(result.get("response", result))
     except Exception as e:
         print(f"\nError: {str(e)}")
-    finally:
-        db.close()
 
 """
 Usage examples:

@@ -88,16 +88,16 @@ class TestProjectRoutes(ProjectTestMixin, BaseEntityRouteTests):
         assert created_project["owner_id"] is not None  # Should be auto-assigned
         assert created_project["user_id"] is not None   # Should be auto-assigned
     
-    def test_create_project_with_explicit_owner(self, project_factory, db_owner_user, db_status):
+    def test_create_project_with_explicit_owner(self, project_factory, db_owner_user, db_project_status):
         """Test project creation with explicit owner assignment"""
         project_data = ProjectDataFactory.sample_data()
         project_data["owner_id"] = str(db_owner_user.id)
-        project_data["status_id"] = str(db_status.id)  # Use valid status
+        project_data["status_id"] = str(db_project_status.id)  # Use project-specific status
         
         created_project = project_factory.create(project_data)
         
         assert created_project["owner_id"] == str(db_owner_user.id)
-        assert created_project["status_id"] == str(db_status.id)
+        assert created_project["status_id"] == str(db_project_status.id)
     
     def test_project_ownership_authorization(self, project_factory, project_data):
         """Test that project operations respect ownership rules"""
@@ -214,14 +214,14 @@ class TestProjectRoutes(ProjectTestMixin, BaseEntityRouteTests):
     
     # === PROJECT RELATIONSHIP TESTS ===
     
-    def test_project_with_status_relationship(self, project_factory, db_status):
+    def test_project_with_status_relationship(self, project_factory, db_project_status):
         """Test project creation with status relationship"""
         project_data = ProjectDataFactory.sample_data()
-        project_data["status_id"] = str(db_status.id)
+        project_data["status_id"] = str(db_project_status.id)
         
         created_project = project_factory.create(project_data)
         
-        assert created_project["status_id"] == str(db_status.id)
+        assert created_project["status_id"] == str(db_project_status.id)
         # Verify the status relationship works
         assert "status_id" in created_project
     
@@ -276,15 +276,15 @@ class TestProjectRoutes(ProjectTestMixin, BaseEntityRouteTests):
         assert updated_project["name"] == "Updated Project Name"
         assert "status_id" in updated_project
         
-    def test_project_status_api_integration(self, project_factory, db_status, db_inactive_status):
+    def test_project_status_api_integration(self, project_factory, db_project_status, db_inactive_status):
         """Test project status integration and updates"""
         project_data = ProjectDataFactory.sample_data()
-        project_data["status_id"] = str(db_status.id)
+        project_data["status_id"] = str(db_project_status.id)
         
         created_project = project_factory.create(project_data)
         
         # Verify initial status
-        assert created_project["status_id"] == str(db_status.id)
+        assert created_project["status_id"] == str(db_project_status.id)
         assert created_project["name"] == project_data["name"]
         
         # Test status update

@@ -11,9 +11,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.constants import EntityType
-from rhesis.backend.app.database import (
-    maintain_tenant_context,
-)
+# Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.model_utils import QueryBuilder
 from rhesis.backend.logging import logger
@@ -83,38 +81,35 @@ def _auto_populate_tenant_fields(
     """
     columns = inspect(model).columns.keys()
     populated_data = item_data.copy()
-
-    logger.debug(f"_auto_populate_tenant_fields - model: {model.__name__}, input data: {item_data}")
-
+    
     # Auto-populate organization_id (direct - no DB queries, no session variables!)
     if (
         "organization_id" in columns
         and not populated_data.get("organization_id")
-        and organization_id
+        and organization_id and (isinstance(organization_id, str) and organization_id.strip() or not isinstance(organization_id, str))
     ):
         try:
-            org_uuid = UUID(organization_id)
+            # Handle both UUID objects and string IDs
+            if isinstance(organization_id, uuid.UUID):
+                org_uuid = organization_id
+            else:
+                org_uuid = UUID(organization_id)
             populated_data["organization_id"] = org_uuid
-            logger.debug(
-                f"_auto_populate_tenant_fields - Auto-populating organization_id: '{org_uuid}' (direct)"
-            )
         except (ValueError, TypeError) as e:
-            logger.debug(
-                f"_auto_populate_tenant_fields - Invalid organization_id: {organization_id}, error: {e}"
-            )
-
+            pass
+    
     # Auto-populate user_id (direct - no DB queries, no session variables!)
-    if "user_id" in columns and not populated_data.get("user_id") and user_id:
+    if "user_id" in columns and not populated_data.get("user_id") and user_id and (isinstance(user_id, str) and user_id.strip() or not isinstance(user_id, str)):
         try:
-            user_uuid = UUID(user_id)
+            # Handle both UUID objects and string IDs
+            if isinstance(user_id, uuid.UUID):
+                user_uuid = user_id
+            else:
+                user_uuid = UUID(user_id)
             populated_data["user_id"] = user_uuid
-            logger.debug(
-                f"_auto_populate_tenant_fields - Auto-populating user_id: '{user_uuid}' (direct)"
-            )
         except (ValueError, TypeError) as e:
-            logger.debug(f"_auto_populate_tenant_fields - Invalid user_id: {user_id}, error: {e}")
-
-    logger.debug(f"_auto_populate_tenant_fields - Final populated data: {populated_data}")
+            pass
+    
     return populated_data
 
 
@@ -157,15 +152,15 @@ def _prepare_update_data(
 def _create_db_item_with_transaction(
     db: Session, model: Type[T], item_data: Dict[str, Any], commit: bool = True
 ) -> T:
-    """Create database item within a transaction."""
+    """Create database item. Transaction management is handled by the session context manager."""
     db_item = model(**item_data)
 
     db.add(db_item)
     db.flush()  # Flush to get the ID and other generated values
     db.refresh(db_item)  # Refresh to ensure we have all generated values
 
-    if commit:
-        db.commit()
+    # Note: commit parameter is kept for backward compatibility but transaction 
+    # management is now handled by get_db_with_tenant_variables() context manager
 
     return db_item
 
@@ -214,10 +209,11 @@ def get_item_detail(
     - No SET LOCAL commands needed
     - No SHOW queries during retrieval
     - Direct tenant context injection
+    - Uses selectinload for many-to-many relationships to avoid cartesian products
     """
     return (
         QueryBuilder(db, model)
-        .with_joinedloads()
+        .with_optimized_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
@@ -321,7 +317,20 @@ def create_item(
 
     Returns:
         Created database item
+        
+    Raises:
+        ValueError: If organization_id or user_id is required but not provided
     """
+    # Check if model has organization_id field and it's required
+    columns = inspect(model).columns.keys()
+    model_name = model.__name__
+    
+    # Skip validation for models that don't require organization context
+    exempt_models = ['User', 'Organization', 'Token']
+    if model_name not in exempt_models:
+        if "organization_id" in columns and not organization_id:
+            raise ValueError(f"organization_id is required for creating {model_name}")
+    
     # Prepare data for creation using direct tenant context
     prepared_data = _prepare_item_data(model, item_data, organization_id, user_id)
 
@@ -356,7 +365,19 @@ def update_item(
 
     Returns:
         Updated database item or None if not found
+        
+    Raises:
+        ValueError: If organization_id or user_id is required but not provided
     """
+    # Check if model has organization_id field and it's required
+    columns = inspect(model).columns.keys()
+    model_name = model.__name__
+    
+    # Skip validation for models that don't require organization context
+    exempt_models = ['User', 'Organization', 'Token']
+    if model_name not in exempt_models:
+        if "organization_id" in columns and not organization_id:
+            raise ValueError(f"organization_id is required for updating {model_name}")
     # Get existing item with direct tenant context
     db_item = get_item(db, model, item_id, organization_id, user_id)
     if db_item is None:
@@ -370,10 +391,12 @@ def update_item(
         columns = inspect(model).columns.keys()
         if "organization_id" in columns:
             try:
-                update_data["organization_id"] = UUID(organization_id)
-                logger.debug(
-                    f"update_item - Auto-populating organization_id: '{organization_id}' for update"
-                )
+                # Handle both UUID objects and string IDs
+                if isinstance(organization_id, uuid.UUID):
+                    update_data["organization_id"] = organization_id
+                else:
+                    update_data["organization_id"] = UUID(organization_id)
+                logger.debug(f"update_item - Auto-populating organization_id: '{organization_id}' for update")
             except (ValueError, TypeError) as e:
                 logger.debug(
                     f"update_item - Invalid organization_id: {organization_id}, error: {e}"
@@ -383,7 +406,11 @@ def update_item(
         columns = inspect(model).columns.keys()
         if "user_id" in columns:
             try:
-                update_data["user_id"] = UUID(user_id)
+                # Handle both UUID objects and string IDs
+                if isinstance(user_id, uuid.UUID):
+                    update_data["user_id"] = user_id
+                else:
+                    update_data["user_id"] = UUID(user_id)
                 logger.debug(f"update_item - Auto-populating user_id: '{user_id}' for update")
             except (ValueError, TypeError) as e:
                 logger.debug(f"update_item - Invalid user_id: {user_id}, error: {e}")
@@ -393,11 +420,11 @@ def update_item(
         if hasattr(db_item, key):
             setattr(db_item, key, value)
 
-    # Commit changes
+    # Flush and refresh to ensure we have updated values
+    # Transaction commit is handled by the session context manager
     db.flush()
     db.refresh(db_item)
-    db.commit()
-
+    
     return db_item
 
 
@@ -426,7 +453,19 @@ def delete_item(
 
     Returns:
         Deleted database item or None if not found
+        
+    Raises:
+        ValueError: If organization_id or user_id is required but not provided
     """
+    # Check if model has organization_id field and it's required
+    columns = inspect(model).columns.keys()
+    model_name = model.__name__
+    
+    # Skip validation for models that don't require organization context
+    exempt_models = ['User', 'Organization', 'Token']
+    if model_name not in exempt_models:
+        if "organization_id" in columns and not organization_id:
+            raise ValueError(f"organization_id is required for deleting {model_name}")
     # Get existing item with direct tenant context
     db_item = get_item(db, model, item_id, organization_id, user_id)
     if db_item is None:
@@ -435,23 +474,30 @@ def delete_item(
     # Store reference before deletion
     deleted_item = db_item
 
-    # Delete and commit
+    # Delete item - transaction commit is handled by the session context manager
     db.delete(db_item)
-    db.commit()
-
+    db.flush()  # Flush to ensure delete is applied within the transaction
+    
     return deleted_item
 
 
-def count_items(db: Session, model: Type[T], filter: str = None) -> int:
-    """Get the total count of items matching filters (without pagination)."""
-    with maintain_tenant_context(db):
-        return (
-            QueryBuilder(db, model)
-            .with_organization_filter()
-            .with_visibility_filter()
-            .with_odata_filter(filter)
-            .count()
-        )
+def count_items(db: Session, model: Type[T], filter: str = None, organization_id: str = None, user_id: str = None) -> int:
+    """
+    Get the total count of items matching filters (without pagination) using optimized approach - no session variables needed.
+    
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during counting
+    - Direct tenant context injection
+    """
+    return (
+        QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .with_odata_filter(filter)
+        .count()
+    )
 
 
 # ============================================================================
@@ -502,51 +548,58 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
 
 
 def get_or_create_entity(
-    db: Session, model: Type[T], entity_data: Union[Dict[str, Any], BaseModel], commit: bool = True
+    db: Session, model: Type[T], entity_data: Union[Dict[str, Any], BaseModel], organization_id: str = None, user_id: str = None, commit: bool = True
 ) -> T:
     """
-    Get or create an entity based on identifying fields.
+    Get or create an entity based on identifying fields using optimized approach - no session variables needed.
 
     Attempts to find an existing entity using unique identifying fields before creating a new one.
     Always includes organization_id in the lookup if the model supports it.
+
+    Performance improvements:
+    - Completely bypasses database session variables
+    - No SET LOCAL commands needed
+    - No SHOW queries during lookup/creation
+    - Direct tenant context injection
 
     Args:
         db: Database session
         model: SQLAlchemy model class
         entity_data: Entity data as dict or Pydantic model
+        organization_id: Direct organization ID for tenant context
+        user_id: Direct user ID for tenant context
         commit: Whether to commit the transaction when creating (default: True)
 
     Returns:
         Existing or newly created entity
     """
-    with maintain_tenant_context(db):
-        # Convert to dict for processing
-        search_data = _convert_pydantic_to_dict(entity_data)
+    # Convert to dict for processing
+    search_data = _convert_pydantic_to_dict(entity_data)
 
-        # Build base query
-        query = QueryBuilder(db, model).with_organization_filter().with_visibility_filter()
+    # Build base query with direct tenant context
+    query = QueryBuilder(db, model).with_organization_filter(organization_id).with_visibility_filter()
 
-        # Try to find by ID first if provided
-        if "id" in search_data and search_data["id"]:
-            search_filters = _build_search_filters_for_model(model, search_data)
-            db_entity = query.with_custom_filter(
-                lambda q: q.filter(model.id == search_data["id"], *search_filters)
-            ).first()
-            if db_entity:
-                return db_entity
-
-        # Build search filters for other identifying fields
+    # Try to find by ID first if provided
+    if "id" in search_data and search_data["id"]:
         search_filters = _build_search_filters_for_model(model, search_data)
+        db_entity = query.with_custom_filter(
+            lambda q: q.filter(model.id == search_data["id"], *search_filters)
+        ).first()
+        if db_entity:
+            return db_entity
 
-        # Search for existing entity if we have sufficient filters
-        # The base query already includes organization filtering, so we just need identifying fields
-        if len(search_filters) >= 1:  # Need at least one identifying field
-            db_entity = query.with_custom_filter(lambda q: q.filter(*search_filters)).first()
-            if db_entity:
-                return db_entity
+    # Build search filters for other identifying fields
+    search_filters = _build_search_filters_for_model(model, search_data)
 
-        # Create new entity if not found
-        return create_item(db, model, entity_data, commit=commit)
+    # Search for existing entity if we have sufficient filters
+    # The base query already includes organization filtering, so we just need identifying fields
+    if len(search_filters) >= 1:  # Need at least one identifying field
+        db_entity = query.with_custom_filter(lambda q: q.filter(*search_filters)).first()
+        if db_entity:
+            return db_entity
+
+    # Create new entity if not found using direct tenant context
+    return create_item(db, model, entity_data, organization_id, user_id, commit=commit)
 
 
 # ============================================================================
@@ -554,20 +607,20 @@ def get_or_create_entity(
 # ============================================================================
 
 
-def get_or_create_status(db: Session, name: str, entity_type, commit: bool = True) -> Status:
-    """Get or create a status with the specified name and entity type."""
+def get_or_create_status(db: Session, name: str, entity_type, description: str = None, organization_id: str = None, user_id: str = None, commit: bool = True) -> Status:
+    """Get or create a status with the specified name, entity type, and optional description using optimized approach - no session variables needed."""
     # Handle EntityType enum or string
     entity_type_value = entity_type.value if hasattr(entity_type, "value") else entity_type
 
     # Get or create the entity type lookup
     entity_type_lookup = get_or_create_type_lookup(
-        db=db, type_name="EntityType", type_value=entity_type_value, commit=commit
+        db=db, type_name="EntityType", type_value=entity_type_value, organization_id=organization_id, user_id=user_id, commit=commit
     )
 
     # Try to find existing status
     query = (
         QueryBuilder(db, Status)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.filter(Status.name == name, Status.entity_type_id == entity_type_lookup.id)
@@ -578,19 +631,28 @@ def get_or_create_status(db: Session, name: str, entity_type, commit: bool = Tru
     if existing_status:
         return existing_status
 
+    # Prepare status data
+    status_data = {"name": name, "entity_type_id": entity_type_lookup.id}
+    
+    # Add description only if provided
+    if description is not None:
+        status_data["description"] = description
+
     # Create new status
     return create_item(
         db=db,
         model=Status,
-        item_data={"name": name, "entity_type_id": entity_type_lookup.id},
+        item_data=status_data,
+        organization_id=organization_id,
+        user_id=user_id,
         commit=commit,
     )
 
 
 def get_or_create_type_lookup(
-    db: Session, type_name: str, type_value: str, commit: bool = True
+    db: Session, type_name: str, type_value: str, organization_id: str = None, user_id: str = None, commit: bool = True
 ) -> TypeLookup:
-    """Get or create a type lookup with the specified type_name and type_value."""
+    """Get or create a type lookup with the specified type_name and type_value using optimized approach - no session variables needed."""
     logger.debug(
         f"get_or_create_type_lookup - Looking for type_name='{type_name}', type_value='{type_value}'"
     )
@@ -598,7 +660,7 @@ def get_or_create_type_lookup(
     # Try to find existing type lookup
     query = (
         QueryBuilder(db, TypeLookup)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.filter(
@@ -624,6 +686,8 @@ def get_or_create_type_lookup(
             db=db,
             model=TypeLookup,
             item_data={"type_name": type_name, "type_value": type_value},
+            organization_id=organization_id,
+            user_id=user_id,
             commit=commit,
         )
         logger.debug(f"get_or_create_type_lookup - Created new type: {result}")
@@ -639,9 +703,11 @@ def get_or_create_topic(
     entity_type: str | None = None,
     description: str | None = None,
     status: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
     commit: bool = True,
 ) -> Topic:
-    """Get or create a topic with optional entity type, description, and status."""
+    """Get or create a topic with optional entity type, description, and status using optimized approach - no session variables needed."""
     # Prepare topic data - only include non-None values
     topic_data = {"name": name}
 
@@ -652,19 +718,21 @@ def get_or_create_topic(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type, commit=commit
+            db=db, type_name="EntityType", type_value=entity_type, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         topic_data["entity_type_id"] = entity_type_lookup.id
 
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, commit=commit
+            db=db, name=status, entity_type=EntityType.GENERAL, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         topic_data["status_id"] = status_obj.id
 
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Topic, topic_data, commit=commit)
+    return get_or_create_entity(db, Topic, topic_data, organization_id, user_id, commit=commit)
 
 
 def get_or_create_category(
@@ -673,9 +741,11 @@ def get_or_create_category(
     entity_type: str | None = None,
     description: str | None = None,
     status: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
     commit: bool = True,
 ) -> Category:
-    """Get or create a category with optional entity type, description, and status."""
+    """Get or create a category with optional entity type, description, and status using optimized approach - no session variables needed."""
     # Prepare category data - only include non-None values
     category_data = {"name": name}
 
@@ -686,19 +756,21 @@ def get_or_create_category(
     # Add entity type if provided
     if entity_type:
         entity_type_lookup = get_or_create_type_lookup(
-            db=db, type_name="EntityType", type_value=entity_type, commit=commit
+            db=db, type_name="EntityType", type_value=entity_type, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         category_data["entity_type_id"] = entity_type_lookup.id
 
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, commit=commit
+            db=db, name=status, entity_type=EntityType.GENERAL, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         category_data["status_id"] = status_obj.id
 
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Category, category_data, commit=commit)
+    return get_or_create_entity(db, Category, category_data, organization_id, user_id, commit=commit)
 
 
 def get_or_create_behavior(
@@ -706,9 +778,11 @@ def get_or_create_behavior(
     name: str,
     description: str | None = None,
     status: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
     commit: bool = True,
 ) -> Behavior:
-    """Get or create a behavior with optional description and status."""
+    """Get or create a behavior with optional description and status using optimized approach - no session variables needed."""
     # Prepare behavior data - only include non-None values
     behavior_data = {"name": name}
 
@@ -719,9 +793,10 @@ def get_or_create_behavior(
     # Add status if provided
     if status:
         status_obj = get_or_create_status(
-            db=db, name=status, entity_type=EntityType.GENERAL, commit=commit
+            db=db, name=status, entity_type=EntityType.GENERAL, 
+            organization_id=organization_id, user_id=user_id, commit=commit
         )
         behavior_data["status_id"] = status_obj.id
 
     # Use get_or_create_entity for consistent lookup logic
-    return get_or_create_entity(db, Behavior, behavior_data, commit=commit)
+    return get_or_create_entity(db, Behavior, behavior_data, organization_id, user_id, commit=commit)

@@ -1,7 +1,7 @@
 from typing import Dict, List
 from uuid import UUID
 
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 
 class EmojiReaction(BaseModel):
@@ -14,8 +14,8 @@ class EmojiReaction(BaseModel):
     user_id: UUID = Field(..., description="User ID who reacted with this emoji")
     user_name: str = Field(..., description="User's display name")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+from_attributes=True)
 
 
 class CommentEmojis(RootModel[Dict[str, List[EmojiReaction]]]):

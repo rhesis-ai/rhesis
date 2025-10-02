@@ -16,6 +16,13 @@ echo "🔍 Checking code formatting..."
 npm run format:check
 FORMAT_EXIT_CODE=$?
 
+if [ $FORMAT_EXIT_CODE -ne 0 ]; then
+    echo "⚠️  Formatting issues found. Here's how to fix them:"
+    echo "  npm run format:check              # Check what needs fixing"
+    echo "  npm run format                    # Auto-fix formatting issues"
+    echo "  Then stage files and retry commit"
+fi
+
 echo "🔍 Checking for TypeScript errors..."
 npm run type-check
 TS_EXIT_CODE=$?
@@ -38,6 +45,10 @@ fi
 # Clean up the lint output file
 rm -f lint_output.txt
 
+echo "🔍 Running tests..."
+npm test -- --passWithNoTests --watchAll=false
+TEST_EXIT_CODE=$?
+
 echo "🔍 Testing build process..."
 
 # Use --no-lint to skip linting (since we already did it)
@@ -49,10 +60,22 @@ BUILD_EXIT_CODE=$?
 echo "Cleaning up build artifacts..."
 npm run clean
 
-if [ $FORMAT_EXIT_CODE -eq 0 ] && [ $TS_EXIT_CODE -eq 0 ] && [ $LINT_EXIT_CODE -eq 0 ] && [ $BUILD_EXIT_CODE -eq 0 ]; then
-    echo "✅ All checks passed!"
+if [ $FORMAT_EXIT_CODE -eq 0 ] && [ $TS_EXIT_CODE -eq 0 ] && [ $LINT_EXIT_CODE -eq 0 ] && [ $TEST_EXIT_CODE -eq 0 ] && [ $BUILD_EXIT_CODE -eq 0 ]; then
+    echo "\n✅ All checks passed!\n"
+    echo "  ✓ Code formatting"
+    echo "  ✓ TypeScript validation"
+    echo "  ✓ Linting"
+    echo "  ✓ Tests"
+    echo "  ✓ Build process"
+    echo ""
     exit 0
 else
-    echo "❌ Validation failed. Please fix the errors before building the container."
+    echo "\n❌ Validation failed. Please fix the errors before committing:\n"
+    [ $FORMAT_EXIT_CODE -ne 0 ] && echo "  ✗ Code formatting failed"
+    [ $TS_EXIT_CODE -ne 0 ] && echo "  ✗ TypeScript validation failed"
+    [ $LINT_EXIT_CODE -ne 0 ] && echo "  ✗ Linting failed"
+    [ $TEST_EXIT_CODE -ne 0 ] && echo "  ✗ Tests failed"
+    [ $BUILD_EXIT_CODE -ne 0 ] && echo "  ✗ Build process failed"
+    echo ""
     exit 1
 fi

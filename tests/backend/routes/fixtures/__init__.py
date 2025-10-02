@@ -87,7 +87,7 @@ __all__ = [
     "topic_with_children",
     
     # Status and project fixtures
-    "test_type_lookup", "db_status", "db_inactive_status", "db_draft_status",
+    "test_type_lookup", "project_entity_type", "db_status", "db_inactive_status", "db_draft_status", "db_project_status",
     "db_project", "db_inactive_project", "db_draft_project",
     
     # Utility fixtures

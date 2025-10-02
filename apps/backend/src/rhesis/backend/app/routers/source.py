@@ -1,3 +1,4 @@
+from rhesis.backend.app.models.user import User
 import uuid
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -20,8 +21,7 @@ router = APIRouter(
     prefix="/sources",
     tags=["sources"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
-)
+    dependencies=[Depends(require_current_user_or_token)])
 
 
 @router.post("/", response_model=schemas.Source)
@@ -30,10 +30,9 @@ router = APIRouter(
 )
 def create_source(
     source: schemas.SourceCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Create source with optimized approach - no session variables needed.
 
@@ -58,22 +57,22 @@ def read_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
     """Get all sources with their related objects"""
+    organization_id, user_id = tenant_context
     return crud.get_sources(
-        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+        db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter, organization_id=organization_id, user_id=user_id
     )
 
 
 @router.get("/{source_id}")
 def read_source(
     source_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Get source with optimized approach - no session variables needed.
 
@@ -84,7 +83,7 @@ def read_source(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_source = crud.get_source(db, source_id=source_id)
+    db_source = crud.get_source(db, source_id=source_id, organization_id=organization_id, user_id=user_id)
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     return db_source
@@ -93,10 +92,9 @@ def read_source(
 @router.delete("/{source_id}")
 def delete_source(
     source_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Delete source with optimized approach - no session variables needed.
 
@@ -107,7 +105,7 @@ def delete_source(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_source = crud.delete_source(db, source_id=source_id)
+    db_source = crud.delete_source(db, source_id=source_id, organization_id=organization_id, user_id=user_id)
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     return db_source
@@ -117,10 +115,9 @@ def delete_source(
 def update_source(
     source_id: uuid.UUID,
     source: schemas.SourceUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Update source with optimized approach - no session variables needed.
 
@@ -131,7 +128,7 @@ def update_source(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    db_source = crud.update_source(db, source_id=source_id, source=source)
+    db_source = crud.update_source(db, source_id=source_id, source=source, organization_id=organization_id, user_id=user_id)
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     return db_source

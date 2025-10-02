@@ -81,21 +81,53 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Validate environment parameter
         uses: ./.github/actions/validate-environment
         with:
           environment: ${{ github.event.inputs.environment }}
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd apps/frontend
+          npm ci --legacy-peer-deps
+
+      - name: Run tests
+        run: |
+          cd apps/frontend
+          npm test -- --passWithNoTests --ci --coverage --watchAll=false
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: apps/frontend/coverage/lcov.info
+          directory: apps/frontend/
+          token: ${{secrets.CODECOV_TOKEN}}
+          flags: frontend
+          name: frontend-coverage
+
   build:
-    needs: validate-inputs
+    needs: [validate-inputs, test]
     if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
-    
+
     env:
       ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       SERVICE: frontend
@@ -115,7 +147,7 @@ jobs:
         run: |
           # Write the key to a file, ensuring it's properly quoted
           echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
-          
+
           # Validate that the file contains valid JSON
           if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
             echo "❌ Error: Service account key is not valid JSON"
@@ -123,7 +155,7 @@ jobs:
             head -c 20 ${{ env.SA_KEY_PATH }}
             exit 1
           fi
-          
+
           echo "✅ Service account key validated as proper JSON"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
@@ -137,12 +169,12 @@ jobs:
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
-          
+
           # Get commit SHA (short version for URLs)
           COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
           echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          
+
           # Check if this is a preview deployment
           if [ "${{ inputs.preview }}" = "true" ] || [ "${{ github.event.inputs.preview }}" = "true" ]; then
             IS_PREVIEW="true"
@@ -152,7 +184,7 @@ jobs:
           echo "IS_PREVIEW=$IS_PREVIEW" >> $GITHUB_ENV
           echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
           echo "🔍 Preview deployment mode: $IS_PREVIEW"
-          
+
       - name: Setup service environment
         uses: ./.github/actions/setup-service-env
         with:
@@ -171,7 +203,7 @@ jobs:
             # URL will be fetched from Cloud Run after tagging
             PREVIEW_FRONTEND_URL="PLACEHOLDER_URL"
             echo "Building preview image with frontend URL: $PREVIEW_FRONTEND_URL"
-            
+
             # Use provided backend URL or default
             if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
               # Decode the base64 encoded backend URL
@@ -181,7 +213,7 @@ jobs:
               BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
               echo "🔗 Using default backend URL: $BACKEND_API_URL"
             fi
-            
+
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
               --build-arg NEXT_PUBLIC_API_BASE_URL="$BACKEND_API_URL" \
@@ -189,7 +221,7 @@ jobs:
               --build-arg NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }} \
               --build-arg NEXT_PUBLIC_AUTH0_CLIENT_ID=${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID }} \
               -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/frontend/Dockerfile apps/frontend
-            
+
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
             # For regular deployments, use latest tag and original URLs
@@ -200,7 +232,7 @@ jobs:
               --build-arg NEXT_PUBLIC_AUTH0_DOMAIN=${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN }} \
               --build-arg NEXT_PUBLIC_AUTH0_CLIENT_ID=${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID }} \
               -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile apps/frontend
-            
+
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi
 
@@ -224,7 +256,7 @@ jobs:
       contents: read
       id-token: write
     environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
-    
+
     env:
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
       COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
@@ -233,17 +265,17 @@ jobs:
     outputs:
       frontend_preview_url: ${{ steps.output_url.outputs.frontend_preview_url }}
       deployed_url: ${{ steps.output_url.outputs.deployed_url }}
-      
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Create and validate service account key file
         id: sa_key
         run: |
           # Write the key to a file, ensuring it's properly quoted
           echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
-          
+
           # Validate that the file contains valid JSON
           if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
             echo "❌ Error: Service account key is not valid JSON"
@@ -251,7 +283,7 @@ jobs:
             head -c 20 ${{ env.SA_KEY_PATH }}
             exit 1
           fi
-          
+
           echo "✅ Service account key validated as proper JSON"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
@@ -264,7 +296,7 @@ jobs:
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
-          
+
       - name: Setup service environment
         uses: ./.github/actions/setup-service-env
         with:
@@ -280,12 +312,12 @@ jobs:
             IMAGE_TAG="${{ env.COMMIT_SHA }}"
             echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
             echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
-            
+
             # Generate the Cloud Run URL for this preview
             # URL will be fetched from Cloud Run after tagging
             PREVIEW_FRONTEND_URL="PLACEHOLDER_URL"
             echo "🌐 Preview will be accessible at: $PREVIEW_FRONTEND_URL"
-            
+
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
@@ -321,13 +353,13 @@ jobs:
           FROM_EMAIL=${{ secrets.FROM_EMAIL }}
           EOF
           )"
-            
+
             echo "✅ Preview revision deployed successfully"
           else
             # Regular deployment with latest tag - UNCHANGED BEHAVIOR
             echo "🚀 Deploying regular revision"
             echo "Image: ${{ env.IMAGE_NAME }}:latest"
-            
+
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:latest \
               --project=${{ env.PROJECT_ID }} \
@@ -361,16 +393,16 @@ jobs:
           FROM_EMAIL=${{ secrets.FROM_EMAIL }}
           EOF
           )"
-            
+
             echo "✅ Regular deployment completed successfully"
-            
+
             # For regular deployments, ensure the new revision gets 100% traffic
             echo "🚦 Setting new revision to receive 100% traffic..."
             gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
               --to-latest \
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.REGION }}
-            
+
             echo "✅ Traffic successfully routed to new revision"
           fi
 
@@ -378,7 +410,7 @@ jobs:
         if: env.IS_PREVIEW == 'true'
         run: |
           echo "Creating tag for commit-specific URL"
-          
+
           # Get the latest revision (the one we just created)
           echo "🔍 Getting latest revision for service: ${{ env.SERVICE_NAME }}"
           LATEST_REVISION=$(gcloud run revisions list \
@@ -387,9 +419,9 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --format="value(metadata.name)" \
             --limit=1)
-          
+
           echo "Latest revision: $LATEST_REVISION"
-          
+
           # Validate revision was found
           if [ -z "$LATEST_REVISION" ]; then
             echo "❌ Error: No latest revision found!"
@@ -397,13 +429,13 @@ jobs:
             gcloud run revisions list --service=${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} --limit=5
             exit 1
           fi
-          
+
           # Clean up obfuscated output for better readability
           CLEAN_REVISION=$(echo "$LATEST_REVISION" | sed 's/\*\*\*/rhesis/g')
           if [ "$CLEAN_REVISION" != "$LATEST_REVISION" ]; then
             echo "📋 Cleaned revision name: $CLEAN_REVISION"
           fi
-          
+
           # Create a valid tag name (lowercase, alphanumeric + hyphens only)
           # Use GitHub actor (username) for more user-friendly URLs
           GITHUB_USER="${{ github.actor }}"
@@ -411,7 +443,7 @@ jobs:
           TAG_NAME="$GITHUB_USER-${{ env.COMMIT_SHA }}"
           TAG_NAME=$(echo "$TAG_NAME" | tr '[:upper:]' '[:lower:]')
           echo "Using tag name: $TAG_NAME (user: ${{ github.actor }})"
-          
+
           # Tag the latest revision and set it to 0% traffic in a single command
           echo "Tagging revision with 0% traffic allocation..."
           echo "🔍 Debug tagging parameters:"
@@ -420,34 +452,34 @@ jobs:
           echo "  - TAG_NAME: $TAG_NAME"
           echo "  - PROJECT_ID: ${{ env.PROJECT_ID }}"
           echo "  - REGION: ${{ env.REGION }}"
-          
+
           TRAFFIC_OUTPUT=$(gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --to-revisions="$LATEST_REVISION=0" \
             --set-tags "$TAG_NAME=$LATEST_REVISION" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} 2>&1)
-          
+
           TRAFFIC_EXIT_CODE=$?
           echo "🔍 Traffic update exit code: $TRAFFIC_EXIT_CODE"
-          
+
           # Display cleaned output
           echo "$TRAFFIC_OUTPUT" | sed 's/\*\*\*/rhesis/g'
-          
+
           if [ $TRAFFIC_EXIT_CODE -ne 0 ]; then
             echo "❌ Traffic update failed!"
             exit 1
           fi
-          
+
           # Get the actual commit-specific URL from Cloud Run (includes random suffix)
           echo "Fetching tagged URL from Cloud Run..."
-          
+
           # Use a more reliable method to extract the tagged URL
           # First try with jq (more reliable)
           PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url' 2>/dev/null || echo "")
-          
+
           # Validate that we got a URL
           if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
             echo "Warning: Could not fetch tagged URL, retrying..."
@@ -457,7 +489,7 @@ jobs:
               --region=${{ env.REGION }} \
               --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url')
           fi
-          
+
           if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
             echo "Error: Failed to get preview URL after retry"
             echo "Debug: Available traffic entries:"
@@ -467,20 +499,20 @@ jobs:
               --format="json" | jq -r '.status.traffic[] | "Tag: \(.tag // "none"), URL: \(.url)"'
             exit 1
           fi
-          
+
           echo "Preview URL created: $PREVIEW_URL"
-          
+
           # Output for use in other steps or jobs
           echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
-          
+
           # Now redeploy with the correct environment variables
           echo "Updating frontend service with correct preview URL in environment variables..."
-          
+
           # Create a unique revision suffix to avoid conflicts
           TIMESTAMP=$(date +%s)
           REVISION_SUFFIX="${{ env.COMMIT_SHA }}-${TIMESTAMP: -4}"
           echo "Using revision suffix: $REVISION_SUFFIX"
-          
+
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
             --project=${{ env.PROJECT_ID }} \
@@ -511,16 +543,16 @@ jobs:
           NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }}
           EOF
           )"
-          
+
           # Update the service with the actual preview URLs
           echo "🔄 Updating frontend service with actual preview URLs..."
-          
+
           # Prepare environment variables for update
           echo "🔍 Debug backend URL inputs:"
           echo "  - inputs.backend_preview_url_encoded: '${{ inputs.backend_preview_url_encoded }}'"
           echo "  - secrets.NEXT_PUBLIC_API_BASE_URL: '${{ secrets.NEXT_PUBLIC_API_BASE_URL }}'"
           echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
-          
+
           # Check if we have a backend preview URL (encoded)
           if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
             # Decode the base64 encoded backend URL
@@ -533,15 +565,15 @@ jobs:
             echo "  - ⚠️ WARNING: No backend preview URL provided, using defaults"
             echo "  - This means frontend will NOT communicate with backend preview!"
           fi
-          
+
           echo "  - Final BACKEND_API_URL: '$BACKEND_API_URL'"
           echo "  - Final BACKEND_URL_VAR: '$BACKEND_URL_VAR'"
-          
+
           # Deploy a new revision with the correct environment variables
           # This revision will replace the tagged revision and receive the preview traffic
           FINAL_REVISION_SUFFIX="${{ env.COMMIT_SHA }}-final"
           echo "🚀 Deploying final revision with correct URLs: $FINAL_REVISION_SUFFIX"
-          
+
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
             --project=${{ env.PROJECT_ID }} \
@@ -572,18 +604,18 @@ jobs:
           NEXT_PUBLIC_AUTH0_SCOPE=${{ secrets.NEXT_PUBLIC_AUTH0_SCOPE }}
           EOF
           )"
-          
+
           # Update the tag to point to the new revision with correct environment variables
           FINAL_REVISION="${{ env.SERVICE_NAME }}-$FINAL_REVISION_SUFFIX"
           echo "🏷️ Updating tag to point to final revision: $FINAL_REVISION"
-          
+
           gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
             --set-tags "$TAG_NAME=$FINAL_REVISION" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }}
-          
+
           echo "✅ Tagged revision updated with correct environment variables"
-          
+
           echo "✅ Frontend service updated with correct preview URL in environment variables"
 
       - name: Output deployed service URL
@@ -602,13 +634,13 @@ jobs:
               --format="value(status.url)")
             echo "📍 Using standard service URL: $DEPLOYED_URL"
           fi
-          
+
           # Debug: Show URL structure to identify masking issues
           echo "🔍 URL Debug Info:"
           echo "  - URL length: ${#DEPLOYED_URL}"
           echo "  - URL starts with: ${DEPLOYED_URL:0:20}..."
           echo "  - URL ends with: ...${DEPLOYED_URL: -20}"
-          
+
           # Set as output for potential use in other workflows and steps
           echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
           echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
@@ -623,10 +655,10 @@ jobs:
           else
             ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}-${{ env.ENVIRONMENT }}"
           fi
-          
+
           echo "✅ Service name: $ACTUAL_SERVICE_NAME"
           echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
-          
+
       - name: Generate deployment summary
         uses: ./.github/actions/generate-deployment-summary
         with:

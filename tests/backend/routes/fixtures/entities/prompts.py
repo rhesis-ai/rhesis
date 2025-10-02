@@ -38,7 +38,7 @@ def db_prompt(test_db: Session, test_organization, db_user, db_status) -> Prompt
         status_id=db_status.id
     )
     test_db.add(prompt)
-    test_db.flush()  # Make sure the object gets an ID
+    test_db.commit()  # Commit the transaction to make it visible to other transactions
     test_db.refresh(prompt)
     return prompt
 
@@ -66,7 +66,7 @@ def db_multilingual_prompt(test_db: Session, test_organization, db_user, db_stat
         status_id=db_status.id
     )
     test_db.add(prompt)
-    test_db.flush()  # Make sure the object gets an ID
+    test_db.commit()  # Commit the transaction to make it visible to other transactions
     test_db.refresh(prompt)
     return prompt
 
@@ -94,7 +94,7 @@ def db_parent_prompt(test_db: Session, test_organization, db_user, db_status) ->
         status_id=db_status.id
     )
     test_db.add(prompt)
-    test_db.flush()  # Make sure the object gets an ID
+    test_db.commit()  # Commit the transaction to make it visible to other transactions
     test_db.refresh(prompt)
     return prompt
 
@@ -124,6 +124,6 @@ def db_child_prompt(test_db: Session, test_organization, db_user, db_status, db_
         status_id=db_status.id
     )
     test_db.add(prompt)
-    test_db.flush()  # Make sure the object gets an ID
+    test_db.commit()  # Commit the transaction to make it visible to other transactions
     test_db.refresh(prompt)
     return prompt

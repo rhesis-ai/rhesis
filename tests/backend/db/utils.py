@@ -20,7 +20,7 @@ from rhesis.backend.app.database import Base
 
 
 @contextmanager
-def test_environment(
+def setup_test_environment(
     test_db_url: Optional[str] = None,
     env_vars: Optional[dict] = None
 ) -> Generator[None, None, None]:
@@ -32,7 +32,7 @@ def test_environment(
         env_vars: Optional dictionary of environment variables to set
     
     Usage:
-        with test_environment(env_vars={"API_KEY": "test-key"}):
+        with setup_test_environment(env_vars={"API_KEY": "test-key"}):
             # Your test code here
             pass
     """

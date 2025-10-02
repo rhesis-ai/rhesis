@@ -13,7 +13,7 @@ from rhesis.backend.app.database import SQLALCHEMY_DATABASE_URL, get_database_ur
 from tests.backend.db.utils import (
     assert_test_database_used,
     get_test_database_stats,
-    test_environment,
+    setup_test_environment,
     DatabaseTestDataManager as TestDataManager
 )
 
@@ -91,7 +91,7 @@ def test_test_data_manager(test_db):
 def test_environment_context_manager():
     """🌍 Test the test_environment context manager."""
     # Test with custom environment variables
-    with test_environment(env_vars={"TEST_VAR": "test_value"}):
+    with setup_test_environment(env_vars={"TEST_VAR": "test_value"}):
         assert os.getenv("TEST_VAR") == "test_value"
         assert os.getenv("SQLALCHEMY_DB_MODE") == "test"
     
@@ -104,12 +104,12 @@ def test_different_database_urls():
     """🔄 Test database URL switching with different PostgreSQL configurations."""
     # Test PostgreSQL configuration
     postgres_url = "postgresql://test_user:test_pass@localhost:5432/test_db"
-    with test_environment(test_db_url=postgres_url):
+    with setup_test_environment(test_db_url=postgres_url):
         assert os.getenv("SQLALCHEMY_DATABASE_TEST_URL") == postgres_url
     
     # Test Cloud SQL Unix socket configuration
     cloudsql_url = "postgresql://user:pass@/test_db?host=/tmp/cloudsql/project:region:instance"
-    with test_environment(test_db_url=cloudsql_url):
+    with setup_test_environment(test_db_url=cloudsql_url):
         assert os.getenv("SQLALCHEMY_DATABASE_TEST_URL") == cloudsql_url
 
 
