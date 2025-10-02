@@ -64,7 +64,9 @@ class MockUser:
         self.organization_id = organization_id
 
 
-def load_metric_from_db(db: Session, metric_id: str, organization_id: str = None) -> Optional[Metric]:
+def load_metric_from_db(
+    db: Session, metric_id: str, organization_id: str = None
+) -> Optional[Metric]:
     """Load a metric from the database by ID with organization filtering to prevent data leakage."""
     base_query = db.query(Metric)
     
@@ -514,7 +516,7 @@ def main():
         print()
 
     # Run the test
-    results = test_metric(
+    results = run_metric_test(
         metric_id=args.metric_id,
         organization_id=args.organization_id,
         user_id=args.user_id,
