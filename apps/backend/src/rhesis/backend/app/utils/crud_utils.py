@@ -86,7 +86,7 @@ def _auto_populate_tenant_fields(
     if (
         "organization_id" in columns
         and not populated_data.get("organization_id")
-        and organization_id and organization_id.strip()
+        and organization_id and (isinstance(organization_id, str) and organization_id.strip() or not isinstance(organization_id, str))
     ):
         try:
             # Handle both UUID objects and string IDs
@@ -99,7 +99,7 @@ def _auto_populate_tenant_fields(
             pass
     
     # Auto-populate user_id (direct - no DB queries, no session variables!)
-    if "user_id" in columns and not populated_data.get("user_id") and user_id and user_id.strip():
+    if "user_id" in columns and not populated_data.get("user_id") and user_id and (isinstance(user_id, str) and user_id.strip() or not isinstance(user_id, str)):
         try:
             # Handle both UUID objects and string IDs
             if isinstance(user_id, uuid.UUID):
