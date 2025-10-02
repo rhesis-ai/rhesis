@@ -118,6 +118,8 @@ app.add_middleware(
         "https://app.rhesis.ai",
         "https://dev-app.rhesis.ai",
         "https://dev-api.rhesis.ai",
+        "https://stg-app.rhesis.ai",
+        "https://stg-api.rhesis.ai",
     ],
     allow_credentials=True,
     allow_methods=["*"],
