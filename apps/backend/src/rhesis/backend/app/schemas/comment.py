@@ -45,7 +45,9 @@ class CommentCreate(BaseModel):
     )
 
     model_config = ConfigDict(
-from_attributes=True)
+        from_attributes=True,
+        use_enum_values=True
+    )
 
 
 class CommentUpdate(BaseModel):
