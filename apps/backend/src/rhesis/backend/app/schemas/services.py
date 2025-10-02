@@ -68,7 +68,7 @@ class ExtractDocumentResponse(BaseModel):
 
 class GenerateContentRequest(BaseModel):
     prompt: str
-    schema: Optional[Dict[str, Any]] = None
+    json_schema: Optional[Dict[str, Any]] = None
 
 
 class TestConfigRequest(BaseModel):
