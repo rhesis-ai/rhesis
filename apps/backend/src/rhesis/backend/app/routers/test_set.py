@@ -537,10 +537,10 @@ def download_test_set_prompts(
     current_user: User = Depends(require_current_user_or_token)):
     try:
         # Resolve test set
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
         # Get prompts with organization filtering (SECURITY CRITICAL)
-        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
         prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
         # Check if prompts list is empty before trying to create CSV
@@ -571,8 +571,8 @@ def get_test_set_prompts(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token)):
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
     organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
     return get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
 
@@ -588,7 +588,7 @@ async def get_test_set_tests(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all tests associated with a test set."""
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, str(current_user.organization_id))
     items, count = crud.get_test_set_tests(
         db=db,
         test_set_id=db_test_set.id,
@@ -653,7 +653,7 @@ def generate_test_set_test_stats(
         db: Database session
         current_user: Current user
     """
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, str(current_user.organization_id))
 
     if mode == StatsMode.ENTITY:
         return get_test_set_stats(
@@ -676,10 +676,10 @@ def download_test_set_prompts_csv(
     current_user: User = Depends(require_current_user_or_token)):
     try:
         # Resolve test set
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
         # Get prompts with organization filtering (SECURITY CRITICAL)
-        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
         prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
         try:
