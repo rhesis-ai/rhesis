@@ -37,26 +37,21 @@ def extract_response_with_fallback(result: Dict) -> str:
     if result.get("error", False):
         # If there's an error, use the error message as the actual response
         error_message = result.get("message", "Unknown error occurred")
-        logger.info(f"🔍 FALLBACK: Using error message: '{error_message}'")
         return error_message
 
     # Try to extract output from successful responses
     actual_response = result.get("output", "")
-    logger.info(f"🔍 FALLBACK: Raw output: '{actual_response}' (type: {type(actual_response)})")
 
     # Check if we have a valid output
     if actual_response and str(actual_response).strip():
-        logger.info(f"🔍 FALLBACK: Using output: '{actual_response}'")
         return str(actual_response)
 
     # No valid output found, try metadata fallback
     metadata = result.get("metadata")
-    logger.info(f"🔍 FALLBACK: Raw metadata: '{metadata}' (type: {type(metadata)})")
 
     if metadata:
         # Use the helper function to extract meaningful content from any metadata type
         metadata_str = extract_meaningful_content_from_metadata(metadata)
-        logger.info(f"🔍 FALLBACK: Processed metadata: '{metadata_str}'")
         if metadata_str:
             return metadata_str
 
@@ -70,7 +65,6 @@ def extract_response_with_fallback(result: Dict) -> str:
     if not error_content:
         error_content = "No output or metadata available"
 
-    logger.info(f"🔍 FALLBACK: Using final fallback: '{error_content}'")
     return str(error_content)
 
 

@@ -55,4 +55,12 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
     test_sets = relationship(
         "TestSet", secondary=test_test_set_association, back_populates="tests", viewonly=True
     )
+
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Test.id), Comment.entity_type == 'Test')",
+        viewonly=True,
+        uselist=True,
+    )
     source = relationship("Source", back_populates="tests")

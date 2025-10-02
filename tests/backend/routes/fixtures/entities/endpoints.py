@@ -9,7 +9,9 @@ from typing import Dict, Any
 from fastapi import status
 from fastapi.testclient import TestClient
 from faker import Faker
+from sqlalchemy.orm import Session
 
+from rhesis.backend.app.models.endpoint import Endpoint
 from ...endpoints import APIEndpoints
 
 fake = Faker()
@@ -190,3 +192,118 @@ def endpoint_with_complex_config(authenticated_client: TestClient) -> Dict[str, 
     assert response.status_code == status.HTTP_200_OK
     
     return response.json()
+
+
+# Database Fixtures for direct database access tests
+
+@pytest.fixture
+def db_endpoint(test_db: Session, test_organization, db_user, db_status) -> Endpoint:
+    """
+    🔗 Create an endpoint in the test database
+    
+    Args:
+        test_db: Database session fixture
+        test_organization: Organization fixture
+        db_user: User fixture
+        db_status: Status fixture
+        
+    Returns:
+        Endpoint: Real endpoint record in database
+    """
+    from tests.backend.routes.fixtures.data_factories import EndpointDataFactory
+    
+    endpoint_data = EndpointDataFactory.sample_data()
+    endpoint = Endpoint(
+        name=endpoint_data["name"],
+        description=endpoint_data["description"],
+        protocol=endpoint_data["protocol"],
+        url=endpoint_data["url"],
+        environment=endpoint_data["environment"],
+        config_source=endpoint_data["config_source"],
+        method=endpoint_data["method"],
+        endpoint_path=endpoint_data["endpoint_path"],
+        request_headers=endpoint_data["request_headers"],
+        query_params=endpoint_data["query_params"],
+        request_body_template=endpoint_data["request_body_template"],
+        response_format=endpoint_data["response_format"],
+        response_mappings=endpoint_data["response_mappings"],
+        validation_rules=endpoint_data["validation_rules"],
+        auth_type=endpoint_data["auth_type"],
+        auth=endpoint_data["auth"],
+        organization_id=test_organization.id,
+        user_id=db_user.id,
+        status_id=db_status.id
+    )
+    
+    test_db.add(endpoint)
+    test_db.flush()
+    test_db.refresh(endpoint)
+    return endpoint
+
+
+@pytest.fixture
+def db_endpoint_minimal(test_db: Session, test_organization, db_user) -> Endpoint:
+    """
+    🔗 Create a minimal endpoint in the test database
+    
+    Only includes required fields for basic testing.
+    
+    Args:
+        test_db: Database session fixture
+        test_organization: Organization fixture  
+        db_user: User fixture
+        
+    Returns:
+        Endpoint: Minimal endpoint record in database
+    """
+    from tests.backend.routes.fixtures.data_factories import EndpointDataFactory
+    
+    endpoint_data = EndpointDataFactory.minimal_data()
+    endpoint = Endpoint(
+        name=endpoint_data["name"],
+        protocol=endpoint_data["protocol"],
+        url=endpoint_data["url"],
+        organization_id=test_organization.id,
+        user_id=db_user.id
+    )
+    
+    test_db.add(endpoint)
+    test_db.flush()
+    test_db.refresh(endpoint)
+    return endpoint
+
+
+@pytest.fixture
+def db_endpoint_rest(test_db: Session, test_organization, db_user, db_status) -> Endpoint:
+    """
+    🔗 Create a REST endpoint in the test database
+    
+    Specifically configured for REST API testing.
+    
+    Args:
+        test_db: Database session fixture
+        test_organization: Organization fixture
+        db_user: User fixture
+        db_status: Status fixture
+        
+    Returns:
+        Endpoint: REST endpoint record in database
+    """
+    endpoint = Endpoint(
+        name="Test REST API",
+        description="REST endpoint for testing",
+        protocol="REST",
+        url="https://api.example.com/v1",
+        method="GET",
+        endpoint_path="/users",
+        request_headers={"Content-Type": "application/json"},
+        response_format="json",
+        organization_id=test_organization.id,
+        user_id=db_user.id,
+        status_id=db_status.id
+    )
+    
+    test_db.add(endpoint)
+    test_db.flush()
+    test_db.refresh(endpoint)
+    return endpoint
