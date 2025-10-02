@@ -95,7 +95,7 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         
         assert created_source["title"] == minimal_data["title"]
         assert created_source.get("description") is None
-        assert created_source.get("entity_type") is None
+        assert created_source.get("source_type_id") is None
         assert created_source.get("url") is None
     
     def test_create_source_with_optional_fields(self, authenticated_client):
@@ -112,20 +112,20 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         
         assert created_source["title"] == source_data["title"]
         assert created_source["description"] == source_data["description"]
-        assert created_source["entity_type"] == source_data["entity_type"]
+        # source_type_id is optional and may be None
+        assert created_source.get("source_type_id") == source_data.get("source_type_id")
         assert created_source["url"] == source_data["url"]
         assert created_source["citation"] == source_data["citation"]
         assert created_source["language_code"] == source_data["language_code"]
     
-    def test_create_source_with_different_entity_types(self, authenticated_client):
-        """Test source creation with different entity types"""
-        entity_types = ["website", "paper", "book", "article", "documentation"]
+    def test_create_source_with_different_titles(self, authenticated_client):
+        """Test source creation with different titles"""
+        titles = [f"Source {i+1}" for i in range(5)]
         created_sources = []
         
-        for entity_type in entity_types:
+        for title in titles:
             source_data = self.get_sample_data()
-            source_data["entity_type"] = entity_type
-            source_data["title"] = f"Source of type {entity_type}"
+            source_data["title"] = title
             
             response = authenticated_client.post(
                 self.endpoints.create,
@@ -134,10 +134,10 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
             
             assert response.status_code == status.HTTP_200_OK
             source = response.json()
-            assert source["entity_type"] == entity_type
+            assert source["title"] == title
             created_sources.append(source)
         
-        assert len(created_sources) == len(entity_types)
+        assert len(created_sources) == len(titles)
     
     def test_create_source_with_valid_urls(self, authenticated_client):
         """Test source creation with various valid URL formats"""
@@ -166,7 +166,6 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
     def test_create_source_with_citation(self, authenticated_client):
         """Test source creation with academic citation"""
         citation_data = self.get_sample_data()
-        citation_data["entity_type"] = "paper"
         citation_data["citation"] = "Smith, J., & Doe, A. (2024). Advanced Testing Methodologies. Journal of Software Quality, 15(3), 123-145."
         
         response = authenticated_client.post(
@@ -178,7 +177,6 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         created_source = response.json()
         
         assert created_source["citation"] == citation_data["citation"]
-        assert created_source["entity_type"] == "paper"
     
     def test_create_source_with_unicode_title(self, authenticated_client):
         """Test source creation with unicode title"""
@@ -232,7 +230,8 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
         
         assert updated_source["title"] == update_data["title"]
         assert updated_source["description"] == update_data["description"]
-        assert updated_source["entity_type"] == update_data["entity_type"]
+        # source_type_id is optional and may be None
+        assert updated_source.get("source_type_id") == update_data.get("source_type_id")
     
     def test_update_source_url_only(self, authenticated_client):
         """Test updating only the URL of a source"""
@@ -452,15 +451,14 @@ class TestSourceRoutes(SourceTestMixin, BaseEntityRouteTests):
 class TestSourceEntityTypes(SourceTestMixin, BaseEntityTests):
     """Enhanced source entity type handling tests"""
 
-    def test_create_sources_with_different_entity_types(self, authenticated_client):
-        """Test creating sources with various entity types"""
-        entity_types = ["website", "paper", "book", "article", "documentation", "blog", "video"]
+    def test_create_sources_with_different_titles(self, authenticated_client):
+        """Test creating sources with various titles"""
+        titles = [f"Test Source {i+1}" for i in range(7)]
         created_sources = []
         
-        for entity_type in entity_types:
+        for title in titles:
             source_data = self.get_sample_data()
-            source_data["entity_type"] = entity_type
-            source_data["title"] = f"Test {entity_type.title()}"
+            source_data["title"] = title
             
             response = authenticated_client.post(
                 self.endpoints.create,
@@ -469,20 +467,18 @@ class TestSourceEntityTypes(SourceTestMixin, BaseEntityTests):
             
             assert response.status_code == status.HTTP_200_OK
             source = response.json()
-            assert source["entity_type"] == entity_type
+            assert source["title"] == title
             created_sources.append(source)
         
-        assert len(created_sources) == len(entity_types)
+        assert len(created_sources) == len(titles)
 
-    def test_filter_sources_by_entity_type(self, authenticated_client):
-        """Test filtering sources by entity type using OData filter"""
-        # Create sources with different entity types
+    def test_filter_sources_by_title(self, authenticated_client):
+        """Test filtering sources by title using OData filter"""
+        # Create sources with different titles
         website_data = self.get_sample_data()
-        website_data["entity_type"] = "website"
         website_data["title"] = "Website Source"
         
         paper_data = self.get_sample_data()
-        paper_data["entity_type"] = "paper"
         paper_data["title"] = "Academic Paper Source"
         
         # Create the sources
@@ -491,26 +487,25 @@ class TestSourceEntityTypes(SourceTestMixin, BaseEntityTests):
         
         # Filter for website sources
         response = authenticated_client.get(
-            f"{self.endpoints.list}?$filter=entity_type eq 'website'",
+            f"{self.endpoints.list}?$filter=title eq 'Website Source'",
         )
         
         assert response.status_code == status.HTTP_200_OK
         sources = response.json()
         
-        # Verify all returned sources are websites
+        # Verify all returned sources have the correct title
         for source in sources:
-            if source.get("entity_type"):  # Skip sources without entity_type
-                assert source["entity_type"] == "website"
+            if source.get("title"):  # Skip sources without title
+                assert source["title"] == "Website Source"
 
     def test_academic_sources_with_citations(self, authenticated_client):
         """Test creating academic sources with proper citations"""
-        academic_types = ["paper", "book", "article"]
+        academic_titles = ["Academic Paper 1", "Academic Book 2", "Academic Article 3"]
         
-        for academic_type in academic_types:
+        for title in academic_titles:
             source_data = self.get_sample_data()
-            source_data["entity_type"] = academic_type
-            source_data["title"] = f"Academic {academic_type.title()}"
-            source_data["citation"] = f"Author, A. (2024). {source_data['title']}. Journal Name, 1(1), 1-10."
+            source_data["title"] = title
+            source_data["citation"] = f"Author, A. (2024). {title}. Journal Name, 1(1), 1-10."
             
             response = authenticated_client.post(
                 self.endpoints.create,
@@ -519,7 +514,7 @@ class TestSourceEntityTypes(SourceTestMixin, BaseEntityTests):
             
             assert response.status_code == status.HTTP_200_OK
             source = response.json()
-            assert source["entity_type"] == academic_type
+            assert source["title"] == title
             assert source["citation"] is not None
             assert "Author, A." in source["citation"]
 
@@ -686,12 +681,10 @@ class TestSourcePerformance(SourceTestMixin, BaseEntityTests):
         """Test performance of complex filtering operations"""
         # Create sources with various attributes
         sources_data = []
-        entity_types = ["website", "paper", "book"]
         languages = ["en", "es", "fr"]
         
         for i in range(15):
             source_data = self.get_sample_data()
-            source_data["entity_type"] = entity_types[i % len(entity_types)]
             source_data["language_code"] = languages[i % len(languages)]
             source_data["title"] = f"Source {i+1}"
             sources_data.append(source_data)
@@ -706,7 +699,7 @@ class TestSourcePerformance(SourceTestMixin, BaseEntityTests):
         
         # Test complex filter
         response = authenticated_client.get(
-            f"{self.endpoints.list}?$filter=entity_type eq 'website' and language_code eq 'en'",
+            f"{self.endpoints.list}?$filter=language_code eq 'en'",
         )
         
         assert response.status_code == status.HTTP_200_OK
@@ -714,6 +707,5 @@ class TestSourcePerformance(SourceTestMixin, BaseEntityTests):
         
         # Verify filtering works correctly
         for source in sources:
-            if source.get("entity_type") and source.get("language_code"):
-                assert source["entity_type"] == "website"
+            if source.get("language_code"):
                 assert source["language_code"] == "en"
