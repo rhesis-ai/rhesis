@@ -74,6 +74,7 @@ def list_tasks(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     response: Response = None):
     """List tasks with filtering, sorting, and comment counts"""
     try:
@@ -104,6 +105,7 @@ def get_tasks_by_entity(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     response: Response = None):
     """Get tasks by entity type and entity ID"""
     try:
