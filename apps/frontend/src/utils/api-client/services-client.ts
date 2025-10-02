@@ -36,6 +36,13 @@ interface GenerateTestsResponse {
   tests: Test[];
 }
 
+interface TestConfigResponse {
+  behaviors: string[];
+  topics: string[];
+  categories: string[];
+  scenarios: string[];
+}
+
 interface TextResponse {
   text: string;
 }
@@ -104,6 +111,19 @@ export class ServicesClient extends BaseApiClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async generateTestConfig(prompt: string): Promise<TestConfigResponse> {
+    return this.fetch<TestConfigResponse>(
+      `${API_ENDPOINTS.services}/generate/test_config`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
       }
     );
   }
