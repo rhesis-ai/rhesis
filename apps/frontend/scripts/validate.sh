@@ -16,6 +16,13 @@ echo "🔍 Checking code formatting..."
 npm run format:check
 FORMAT_EXIT_CODE=$?
 
+if [ $FORMAT_EXIT_CODE -ne 0 ]; then
+    echo "⚠️  Formatting issues found. Here's how to fix them:"
+    echo "  npm run format:check              # Check what needs fixing"
+    echo "  npm run format                    # Auto-fix formatting issues"
+    echo "  Then stage files and retry commit"
+fi
+
 echo "🔍 Checking for TypeScript errors..."
 npm run type-check
 TS_EXIT_CODE=$?
