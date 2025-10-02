@@ -20,7 +20,7 @@ COPY package.json package-lock.json ./
 
 # Install dependencies with cache mounting for faster builds
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+    npm ci --legacy-peer-deps
 
 # Copy only necessary files for the build
 COPY tsconfig.json next.config.mjs .eslintrc.json ./
