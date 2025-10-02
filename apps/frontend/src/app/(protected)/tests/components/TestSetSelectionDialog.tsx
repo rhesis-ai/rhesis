@@ -35,55 +35,68 @@ export default function TestSetSelectionDialog({
   const searchTimeoutRef = React.useRef<NodeJS.Timeout>();
 
   // Create OData filter for search
-  const createSearchFilter = React.useCallback((search: string): string | undefined => {
-    if (!search || search.trim() === '') {
-      return undefined;
-    }
-    // Use case-insensitive contains search on the name field
-    return `contains(tolower(name), tolower('${search.replace(/'/g, "''")}'))`;
-  }, []);
+  const createSearchFilter = React.useCallback(
+    (search: string): string | undefined => {
+      if (!search || search.trim() === '') {
+        return undefined;
+      }
+      // Use case-insensitive contains search on the name field
+      return `contains(tolower(name), tolower('${search.replace(/'/g, "''")}'))`;
+    },
+    []
+  );
 
-  const fetchTestSets = React.useCallback(async (searchValue: string, isInitialLoad = false) => {
-    if (!open) return;
-    
-    // For initial load, use loading state. For search, use isSearching state
-    if (isInitialLoad) {
-      setLoading(true);
-    } else {
-      setIsSearching(true);
-    }
-    
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
-      
-      const filter = createSearchFilter(searchValue);
-      const queryParams: any = {
-        sort_by: 'name',
-        sort_order: 'asc',
-        limit: 100, // Maximum allowed by backend
-      };
-      
-      if (filter) {
-        queryParams.$filter = filter;
-      }
-      
-      const sets = await testSetsClient.getTestSets(queryParams);
-      setTestSets(sets.data);
-    } catch (error) {
-      console.error('Error fetching test sets:', error);
-      notifications.show('Failed to load test sets', {
-        severity: 'error',
-        autoHideDuration: 6000,
-      });
-    } finally {
+  const fetchTestSets = React.useCallback(
+    async (searchValue: string, isInitialLoad = false) => {
+      if (!open) return;
+
+      // For initial load, use loading state. For search, use isSearching state
       if (isInitialLoad) {
-        setLoading(false);
+        setLoading(true);
       } else {
-        setIsSearching(false);
+        setIsSearching(true);
       }
-    }
-  }, [sessionToken, open, notifications, createSearchFilter]);
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const testSetsClient = clientFactory.getTestSetsClient();
+
+        const filter = createSearchFilter(searchValue);
+        const queryParams: {
+          sort_by: string;
+          sort_order: 'asc' | 'desc';
+          limit: number;
+          $filter?: string;
+        } = {
+          sort_by: 'name',
+          sort_order: 'asc',
+          limit: 100, // Maximum allowed by backend
+        };
+
+        if (filter) {
+          queryParams.$filter = filter;
+        }
+
+        const sets = await testSetsClient.getTestSets(queryParams);
+        setTestSets(sets.data);
+      } catch (error) {
+        // Error fetching test sets
+        // eslint-disable-next-line no-console
+        console.error('Error fetching test sets:', error);
+        notifications.show('Failed to load test sets', {
+          severity: 'error',
+          autoHideDuration: 6000,
+        });
+      } finally {
+        if (isInitialLoad) {
+          setLoading(false);
+        } else {
+          setIsSearching(false);
+        }
+      }
+    },
+    [sessionToken, open, notifications, createSearchFilter]
+  );
 
   // Initial load when dialog opens
   React.useEffect(() => {
@@ -92,7 +105,6 @@ export default function TestSetSelectionDialog({
       fetchTestSets('', true);
     }
   }, [open, fetchTestSets]);
-
 
   const handleClose = () => {
     setSelectedTestSet(null);
@@ -177,30 +189,30 @@ export default function TestSetSelectionDialog({
           onInputChange={(_, newInputValue, reason) => {
             // Update the input value for all reasons
             setInputValue(newInputValue);
-            
+
             // Clear any pending search timeout
             if (searchTimeoutRef.current) {
               clearTimeout(searchTimeoutRef.current);
             }
-            
+
             // If search is cleared or reset, immediately show all results
             if (newInputValue === '' || reason === 'reset') {
               fetchTestSets('', false);
               return;
             }
-            
+
             // Only search for 2+ characters
             if (newInputValue.length < 2) {
               return;
             }
-            
+
             // Debounce the search
             searchTimeoutRef.current = setTimeout(() => {
               fetchTestSets(newInputValue, false);
             }, 500);
           }}
           isOptionEqualToValue={(option, value) => option.id === value.id}
-          filterOptions={(x) => x} // Disable client-side filtering since we're doing server-side search
+          filterOptions={x => x} // Disable client-side filtering since we're doing server-side search
           renderOption={(props, option) => (
             <li {...props} key={option.id}>
               {option.name}
@@ -218,7 +230,7 @@ export default function TestSetSelectionDialog({
                 ...params.InputProps,
                 endAdornment: (
                   <React.Fragment>
-                    {(loading || isSearching) ? (
+                    {loading || isSearching ? (
                       <CircularProgress color="inherit" size={20} />
                     ) : null}
                     {params.InputProps.endAdornment}
