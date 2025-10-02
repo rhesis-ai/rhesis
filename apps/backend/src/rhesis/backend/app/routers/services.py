@@ -152,7 +152,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         from rhesis.sdk.models.providers.gemini import GeminiLLM
 
         prompt = request.prompt
-        schema = request.json_schema
+        schema = request.schema_
 
         model = GeminiLLM()
         response = model.generate(prompt, schema=schema)
