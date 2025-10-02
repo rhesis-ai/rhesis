@@ -23,7 +23,7 @@ export default function TestDrawer({
 }: TestDrawerProps) {
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
-  const submitRef = useRef<() => Promise<void>>();
+  const submitRef = useRef<() => Promise<void>>(undefined);
 
   // Get current user from token
   const getCurrentUserId = () => {

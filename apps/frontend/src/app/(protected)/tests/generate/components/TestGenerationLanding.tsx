@@ -31,7 +31,7 @@ interface TestSetTemplate {
   description: string;
   category: string;
   testCount: number;
-  color: string;
+  colorKey: string;
   icon: React.ReactNode;
 }
 
@@ -42,7 +42,7 @@ const testSetTemplates: TestSetTemplate[] = [
     description: 'Comprehensive GDPR compliance validation tests',
     category: 'Data Protection',
     testCount: 243,
-    color: theme.palette.primary.main,
+    colorKey: 'primary',
     icon: <ShieldIcon />,
   },
   {
@@ -51,7 +51,7 @@ const testSetTemplates: TestSetTemplate[] = [
     description: 'AI model bias and fairness evaluation',
     category: 'Fairness',
     testCount: 178,
-    color: theme.palette.secondary.main,
+    colorKey: 'secondary',
     icon: <PeopleIcon />,
   },
   {
@@ -60,7 +60,7 @@ const testSetTemplates: TestSetTemplate[] = [
     description: 'Response time and scalability testing',
     category: 'Speed & Load',
     testCount: 92,
-    color: theme.palette.warning.main,
+    colorKey: 'warning',
     icon: <SpeedIcon />,
   },
   {
@@ -69,7 +69,7 @@ const testSetTemplates: TestSetTemplate[] = [
     description: 'Financial industry specific test scenarios',
     category: 'Banking & Finance',
     testCount: 201,
-    color: theme.palette.info.main,
+    colorKey: 'info',
     icon: <TrendingUpIcon />,
   },
 ];
@@ -104,8 +104,13 @@ export default function TestGenerationLanding({
         <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
           Test Generation
         </Typography>
-        <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-          Create comprehensive test cases using AI-powered generation or select from recommended test sets.
+        <Typography
+          variant="h6"
+          color="text.secondary"
+          sx={{ maxWidth: 600, mx: 'auto' }}
+        >
+          Create comprehensive test cases using AI-powered generation or select
+          from recommended test sets.
         </Typography>
       </Box>
 
@@ -126,7 +131,7 @@ export default function TestGenerationLanding({
           >
             <CardContent sx={{ flexGrow: 1, textAlign: 'center', p: 4 }}>
               <Box
-                sx={{
+                sx={(theme) => ({
                   width: 80,
                   height: 80,
                   borderRadius: theme.shape.borderRadius,
@@ -136,15 +141,21 @@ export default function TestGenerationLanding({
                   justifyContent: 'center',
                   mx: 'auto',
                   mb: 3,
-                }}
+                })}
               >
                 <AutoFixHighIcon sx={{ fontSize: 40, color: 'white' }} />
               </Box>
-              <Typography variant="h5" component="h2" gutterBottom fontWeight="bold">
+              <Typography
+                variant="h5"
+                component="h2"
+                gutterBottom
+                fontWeight="bold"
+              >
                 Generate Tests with AI
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                Describe your testing needs and let AI create comprehensive test cases.
+                Describe your testing needs and let AI create comprehensive test
+                cases.
               </Typography>
               <Button
                 variant="contained"
@@ -174,7 +185,7 @@ export default function TestGenerationLanding({
           >
             <CardContent sx={{ flexGrow: 1, textAlign: 'center', p: 4 }}>
               <Box
-                sx={{
+                sx={(theme) => ({
                   width: 80,
                   height: 80,
                   borderRadius: theme.shape.borderRadius,
@@ -184,15 +195,21 @@ export default function TestGenerationLanding({
                   justifyContent: 'center',
                   mx: 'auto',
                   mb: 3,
-                }}
+                })}
               >
                 <EditIcon sx={{ fontSize: 40, color: 'white' }} />
               </Box>
-              <Typography variant="h5" component="h2" gutterBottom fontWeight="bold">
+              <Typography
+                variant="h5"
+                component="h2"
+                gutterBottom
+                fontWeight="bold"
+              >
                 Write Tests Manually
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                Create custom test cases with full control over content and format.
+                Create custom test cases with full control over content and
+                format.
               </Typography>
               <Button
                 variant="outlined"
@@ -210,12 +227,18 @@ export default function TestGenerationLanding({
 
       {/* Existing Test Sets */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h2" gutterBottom fontWeight="bold" sx={{ mb: 4 }}>
+        <Typography
+          variant="h4"
+          component="h2"
+          gutterBottom
+          fontWeight="bold"
+          sx={{ mb: 4 }}
+        >
           Or use our existing test sets
         </Typography>
 
         <Grid container spacing={3}>
-          {testSetTemplates.map((template) => (
+          {testSetTemplates.map(template => (
             <Grid item xs={12} sm={6} md={3} key={template.id}>
               <Card
                 sx={{
@@ -236,39 +259,56 @@ export default function TestGenerationLanding({
                         width: 12,
                         height: 12,
                         borderRadius: '50%',
-                        bgcolor: template.color,
+                        bgcolor: `${template.colorKey}.main`,
                         mr: 1,
                       }}
                     />
                     <Box
-                      sx={{
+                      sx={(theme) => ({
                         width: 40,
                         height: 40,
-                        borderRadius: theme.shape.borderRadius * 0.5,
-                        bgcolor: `${template.color}20`,
+                        borderRadius: theme.shape.borderRadius,
+                        bgcolor: `${template.colorKey}.light`,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: template.color,
-                      }}
+                        color: `${template.colorKey}.main`,
+                      })}
                     >
                       {template.icon}
                     </Box>
                   </Box>
 
-                  <Typography variant="h6" component="h3" gutterBottom fontWeight="bold">
+                  <Typography
+                    variant="h6"
+                    component="h3"
+                    gutterBottom
+                    fontWeight="bold"
+                  >
                     {template.name}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}
+                  >
                     {template.category}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 3 }}
+                  >
                     {template.description}
                   </Typography>
 
-                  <Typography variant="body2" fontWeight="medium" sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    fontWeight="medium"
+                    sx={{ mb: 2 }}
+                  >
                     {template.testCount} tests
                   </Typography>
 

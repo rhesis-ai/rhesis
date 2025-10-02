@@ -209,7 +209,9 @@ export default function BaseDataGrid({
   const [filteredRows, setFilteredRows] = useState<any[]>(rows);
 
   // Create refs and state for action buttons
-  const buttonRefs = React.useRef<Array<React.RefObject<HTMLDivElement>>>(
+  const buttonRefs = React.useRef<
+    Array<React.RefObject<HTMLDivElement | null>>
+  >(
     Array(actionButtons?.length || 0)
       .fill(null)
       .map(() => React.createRef())

@@ -18,7 +18,10 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
+import {
+  ProcessedDocument,
+  DocumentUploadResponse,
+} from '@/utils/api-client/interfaces/documents';
 
 interface DescribeTestRequirementsProps {
   sessionToken: string;
@@ -50,33 +53,47 @@ export default function DescribeTestRequirements({
     setDescription(suggestion);
   };
 
-  const handleFileUpload = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const handleFileUpload = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
 
-    setIsUploading(true);
-    try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const documentsClient = apiFactory.getDocumentsClient();
+      setIsUploading(true);
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const servicesClient = apiFactory.getServicesClient();
 
-      const uploadPromises = Array.from(files).map(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
+        const uploadPromises = Array.from(files).map(async file => {
+          const response = await servicesClient.uploadDocument(file);
+          return response;
+        });
 
-        const response = await documentsClient.uploadDocument(formData);
-        return response;
-      });
+        const uploadedDocs = await Promise.all(uploadPromises);
 
-      const uploadedDocs = await Promise.all(uploadPromises);
-      setDocuments(prev => [...prev, ...uploadedDocs]);
+        // Transform DocumentUploadResponse to ProcessedDocument format
+        const processedDocs: ProcessedDocument[] = uploadedDocs.map(
+          (uploadedDoc, index) => ({
+            id: `doc-${Date.now()}-${index}`,
+            name: uploadedDoc.path.split('/').pop() || 'Document',
+            description: '',
+            path: uploadedDoc.path,
+            content: '',
+            originalName: uploadedDoc.path.split('/').pop() || 'Document',
+            status: 'completed' as const,
+          })
+        );
 
-      show('Documents uploaded successfully', { severity: 'success' });
-    } catch (error) {
-      console.error('Failed to upload documents:', error);
-      show('Failed to upload documents', { severity: 'error' });
-    } finally {
-      setIsUploading(false);
-    }
-  }, [sessionToken, show]);
+        setDocuments(prev => [...prev, ...processedDocs]);
+
+        show('Documents uploaded successfully', { severity: 'success' });
+      } catch (error) {
+        console.error('Failed to upload documents:', error);
+        show('Failed to upload documents', { severity: 'error' });
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [sessionToken, show]
+  );
 
   const handleRemoveDocument = (docId: string) => {
     setDocuments(prev => prev.filter(doc => doc.id !== docId));
@@ -94,18 +111,27 @@ export default function DescribeTestRequirements({
       const apiFactory = new ApiClientFactory(sessionToken);
       const servicesClient = apiFactory.getServicesClient();
 
-      const configResponse = await servicesClient.generateTestConfig(description);
+      const configResponse =
+        await servicesClient.generateTestConfig(description);
 
       // Store the description, documents, and generated configuration in session storage
       sessionStorage.setItem('testGenerationDescription', description);
-      sessionStorage.setItem('testGenerationDocuments', JSON.stringify(documents));
-      sessionStorage.setItem('testGenerationConfig', JSON.stringify(configResponse));
+      sessionStorage.setItem(
+        'testGenerationDocuments',
+        JSON.stringify(documents)
+      );
+      sessionStorage.setItem(
+        'testGenerationConfig',
+        JSON.stringify(configResponse)
+      );
 
       // Navigate to configuration page
       router.push('/tests/generate/configure');
     } catch (error) {
       console.error('Failed to proceed:', error);
-      show('Failed to generate configuration. Please try again.', { severity: 'error' });
+      show('Failed to generate configuration. Please try again.', {
+        severity: 'error',
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -134,7 +160,9 @@ export default function DescribeTestRequirements({
         {/* Description Input */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            Describe your testing requirements in detail. For example: 'I want to test my e-commerce API for security vulnerabilities and performance under high load...'
+            Describe your testing requirements in detail. For example: &apos;I
+            want to test my e-commerce API for security vulnerabilities and
+            performance under high load...&apos;
           </Typography>
 
           <TextField
@@ -142,7 +170,7 @@ export default function DescribeTestRequirements({
             rows={6}
             fullWidth
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value)}
             placeholder="Enter your testing requirements here..."
             variant="outlined"
             sx={{
@@ -214,7 +242,7 @@ export default function DescribeTestRequirements({
               multiple
               accept=".pdf,.doc,.docx,.txt"
               style={{ display: 'none' }}
-              onChange={(e) => handleFileUpload(e.target.files)}
+              onChange={e => handleFileUpload(e.target.files)}
             />
           </Paper>
 
@@ -233,7 +261,7 @@ export default function DescribeTestRequirements({
               <Typography variant="subtitle2" gutterBottom>
                 Uploaded Documents:
               </Typography>
-              {documents.map((doc) => (
+              {documents.map(doc => (
                 <Box
                   key={doc.id}
                   sx={{
@@ -243,7 +271,7 @@ export default function DescribeTestRequirements({
                     p: 1,
                     border: 1,
                     borderColor: 'grey.200',
-                      sx: (theme) => ({ borderRadius: theme.shape.borderRadius }),
+                    sx: theme => ({ borderRadius: theme.shape.borderRadius }),
                     mb: 1,
                   }}
                 >

@@ -30,7 +30,12 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSetGenerationRequest, TestSetGenerationConfig, GenerationSample } from '@/utils/api-client/interfaces/test-set';
+import {
+  TestSetGenerationRequest,
+  TestSetGenerationConfig,
+  GenerationSample,
+} from '@/utils/api-client/interfaces/test-set';
+import { Document as DocumentInterface } from '@/utils/api-client/interfaces/documents';
 
 interface ConfirmTestGenerationProps {
   sessionToken: string;
@@ -69,12 +74,18 @@ export default function ConfirmTestGeneration({
   const [testSetName, setTestSetName] = useState('');
   const [testSetSize, setTestSetSize] = useState('medium');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [documents, setDocuments] = useState<DocumentInterface[]>([]);
 
   useEffect(() => {
     // Load data from session storage
-    const savedDescription = sessionStorage.getItem('testGenerationDescription');
-    const savedConfiguration = sessionStorage.getItem('testGenerationConfiguration');
+    const savedDescription = sessionStorage.getItem(
+      'testGenerationDescription'
+    );
+    const savedConfiguration = sessionStorage.getItem(
+      'testGenerationConfiguration'
+    );
     const savedSamples = sessionStorage.getItem('testGenerationSamples');
+    const savedDocuments = sessionStorage.getItem('testGenerationDocuments');
 
     if (savedDescription) {
       setDescription(savedDescription);
@@ -95,6 +106,14 @@ export default function ConfirmTestGeneration({
         console.error('Failed to parse saved samples:', error);
       }
     }
+
+    if (savedDocuments) {
+      try {
+        setDocuments(JSON.parse(savedDocuments));
+      } catch (error) {
+        console.error('Failed to parse saved documents:', error);
+      }
+    }
   }, []);
 
   const handleBack = () => {
@@ -108,7 +127,10 @@ export default function ConfirmTestGeneration({
     }
 
     if (samples.length === 0) {
-      show('No test samples available. Please go back and generate some samples.', { severity: 'error' });
+      show(
+        'No test samples available. Please go back and generate some samples.',
+        { severity: 'error' }
+      );
       return;
     }
 
@@ -116,7 +138,7 @@ export default function ConfirmTestGeneration({
       testSetName,
       samplesCount: samples.length,
       configuration,
-      description
+      description,
     });
 
     setIsGenerating(true);
@@ -186,10 +208,14 @@ export default function ConfirmTestGeneration({
 
   const getTestCountEstimate = (size: string) => {
     switch (size) {
-      case 'small': return '25-50 tests';
-      case 'medium': return '75-150 tests';
-      case 'large': return '200+ tests';
-      default: return '75-150 tests';
+      case 'small':
+        return '25-50 tests';
+      case 'medium':
+        return '75-150 tests';
+      case 'large':
+        return '200+ tests';
+      default:
+        return '75-150 tests';
     }
   };
 
@@ -210,7 +236,8 @@ export default function ConfirmTestGeneration({
           Confirm Test Generation
         </Typography>
         <Typography variant="h6" color="text.secondary">
-          Review your configuration and select the test set size to proceed with generation.
+          Review your configuration and select the test set size to proceed with
+          generation.
         </Typography>
       </Box>
 
@@ -224,7 +251,7 @@ export default function ConfirmTestGeneration({
                   sx={{
                     width: 48,
                     height: 48,
-                    sx: (theme) => ({ borderRadius: theme.shape.borderRadius }),
+                    sx: theme => ({ borderRadius: theme.shape.borderRadius }),
                     bgcolor: 'primary.main',
                     display: 'flex',
                     alignItems: 'center',
@@ -248,7 +275,7 @@ export default function ConfirmTestGeneration({
                 fullWidth
                 label="Test Set Name"
                 value={testSetName}
-                onChange={(e) => setTestSetName(e.target.value)}
+                onChange={e => setTestSetName(e.target.value)}
                 placeholder="e.g., Insurance AI Compliance Suite"
                 sx={{ maxWidth: 400 }}
               />
@@ -265,7 +292,7 @@ export default function ConfirmTestGeneration({
                   sx={{
                     width: 48,
                     height: 48,
-                    sx: (theme) => ({ borderRadius: theme.shape.borderRadius }),
+                    sx: theme => ({ borderRadius: theme.shape.borderRadius }),
                     bgcolor: 'success.main',
                     display: 'flex',
                     alignItems: 'center',
@@ -283,45 +310,81 @@ export default function ConfirmTestGeneration({
               </Box>
 
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight="medium"
+                  gutterBottom
+                >
                   Behavior:
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  {configuration.behaviors.map((behavior) => (
-                    <Chip key={behavior} label={behavior} size="small" color="primary" />
+                  {configuration.behaviors.map(behavior => (
+                    <Chip
+                      key={behavior}
+                      label={behavior}
+                      size="small"
+                      color="primary"
+                    />
                   ))}
                 </Box>
               </Box>
 
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight="medium"
+                  gutterBottom
+                >
                   Topics:
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  {configuration.topics.map((topic) => (
-                    <Chip key={topic} label={topic} size="small" color="secondary" />
+                  {configuration.topics.map(topic => (
+                    <Chip
+                      key={topic}
+                      label={topic}
+                      size="small"
+                      color="secondary"
+                    />
                   ))}
                 </Box>
               </Box>
 
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight="medium"
+                  gutterBottom
+                >
                   Category:
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  {configuration.categories.map((category) => (
-                    <Chip key={category} label={category} size="small" color="warning" />
+                  {configuration.categories.map(category => (
+                    <Chip
+                      key={category}
+                      label={category}
+                      size="small"
+                      color="warning"
+                    />
                   ))}
                 </Box>
               </Box>
 
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight="medium"
+                  gutterBottom
+                >
                   Scenarios:
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  {configuration.scenarios.map((scenario) => (
-                    <Chip key={scenario} label={scenario} size="small" color="success" />
+                  {configuration.scenarios.map(scenario => (
+                    <Chip
+                      key={scenario}
+                      label={scenario}
+                      size="small"
+                      color="success"
+                    />
                   ))}
                 </Box>
               </Box>
@@ -344,7 +407,7 @@ export default function ConfirmTestGeneration({
                   sx={{
                     width: 48,
                     height: 48,
-                    sx: (theme) => ({ borderRadius: theme.shape.borderRadius }),
+                    sx: theme => ({ borderRadius: theme.shape.borderRadius }),
                     bgcolor: 'info.main',
                     display: 'flex',
                     alignItems: 'center',
@@ -365,7 +428,7 @@ export default function ConfirmTestGeneration({
                 <FormLabel component="legend">Test Set Size</FormLabel>
                 <RadioGroup
                   value={testSetSize}
-                  onChange={(e) => setTestSetSize(e.target.value)}
+                  onChange={e => setTestSetSize(e.target.value)}
                 >
                   <FormControlLabel
                     value="small"
@@ -418,11 +481,7 @@ export default function ConfirmTestGeneration({
 
       {/* Action Buttons */}
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 4 }}>
-        <Button
-          variant="outlined"
-          onClick={handleBack}
-          disabled={isGenerating}
-        >
+        <Button variant="outlined" onClick={handleBack} disabled={isGenerating}>
           Back
         </Button>
         <Button

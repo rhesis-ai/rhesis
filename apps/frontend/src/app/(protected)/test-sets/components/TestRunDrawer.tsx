@@ -19,7 +19,7 @@ export default function TestRunDrawer({
 }: TestRunDrawerProps) {
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
-  const submitRef = useRef<() => Promise<void>>();
+  const submitRef = useRef<() => Promise<void>>(undefined);
 
   const handleSave = async () => {
     try {

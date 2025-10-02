@@ -1,6 +1,7 @@
 import { UUID } from 'crypto';
 import { Status } from './status';
 import { Tag } from './tag';
+import { Document } from './documents';
 
 export interface TestSetBase {
   name: string;

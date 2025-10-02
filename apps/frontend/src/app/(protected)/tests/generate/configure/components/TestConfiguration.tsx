@@ -46,19 +46,39 @@ interface Configuration {
 }
 
 const availableBehaviors = [
-  'Reliability', 'Compliance', 'Robustness', 'Behavior A', 'Behavior B', 'Behavior C'
+  'Reliability',
+  'Compliance',
+  'Robustness',
+  'Behavior A',
+  'Behavior B',
+  'Behavior C',
 ];
 
 const availableTopics = [
-  'Fraud', 'Claim Processing', 'Topic A', 'Topic B', 'Topic C', 'Topic D'
+  'Fraud',
+  'Claim Processing',
+  'Topic A',
+  'Topic B',
+  'Topic C',
+  'Topic D',
 ];
 
 const availableCategories = [
-  'Harmful', 'Harmless', 'Prompt Injections', 'Category A', 'Category B', 'Category C'
+  'Harmful',
+  'Harmless',
+  'Prompt Injections',
+  'Category A',
+  'Category B',
+  'Category C',
 ];
 
 const availableScenarios = [
-  'Edge Cases', 'User Journey', 'Error Handling', 'Performance Stress', 'Integration', 'Accessibility'
+  'Edge Cases',
+  'User Journey',
+  'Error Handling',
+  'Performance Stress',
+  'Integration',
+  'Accessibility',
 ];
 
 export default function TestConfiguration({
@@ -81,7 +101,9 @@ export default function TestConfiguration({
 
   useEffect(() => {
     // Load data from session storage
-    const savedDescription = sessionStorage.getItem('testGenerationDescription');
+    const savedDescription = sessionStorage.getItem(
+      'testGenerationDescription'
+    );
     const savedDocuments = sessionStorage.getItem('testGenerationDocuments');
     const savedConfig = sessionStorage.getItem('testGenerationConfig');
 
@@ -99,7 +121,9 @@ export default function TestConfiguration({
           scenarios: config.scenarios,
         });
         // Generate initial samples with the loaded configuration
-        generateInitialSamples(savedDescription, config);
+        if (savedDescription) {
+          generateInitialSamples(savedDescription, config);
+        }
       } catch (error) {
         console.error('Failed to parse saved configuration:', error);
       }
@@ -143,14 +167,16 @@ export default function TestConfiguration({
       const response = await servicesClient.generateTests(request);
 
       // Convert response to samples format
-      const newSamples: TestSample[] = response.tests.map((test: any, index: number) => ({
-        id: `initial-${index}`,
-        text: test.prompt?.content || test.text || '',
-        behavior: test.behavior || 'Reliability',
-        topic: test.topic || 'General',
-        rating: null,
-        feedback: '',
-      }));
+      const newSamples: TestSample[] = response.tests.map(
+        (test: any, index: number) => ({
+          id: `initial-${index}`,
+          text: test.prompt?.content || test.text || '',
+          behavior: test.behavior || 'Reliability',
+          topic: test.topic || 'General',
+          rating: null,
+          feedback: '',
+        })
+      );
 
       setSamples(newSamples);
     } catch (error) {
@@ -162,13 +188,16 @@ export default function TestConfiguration({
     router.push('/tests/generate/describe');
   };
 
-  const handleToggleSelection = (category: keyof Configuration, item: string) => {
+  const handleToggleSelection = (
+    category: keyof Configuration,
+    item: string
+  ) => {
     setConfiguration(prev => {
       const newConfig = {
         ...prev,
         [category]: prev[category].includes(item)
           ? prev[category].filter(i => i !== item)
-          : [...prev[category], item]
+          : [...prev[category], item],
       };
 
       // Regenerate samples when configuration changes
@@ -207,14 +236,16 @@ export default function TestConfiguration({
       const response = await servicesClient.generateTests(request);
 
       // Convert response to samples format
-      const newSamples: TestSample[] = response.tests.map((test: any, index: number) => ({
-        id: `reactive-${Date.now()}-${index}`,
-        text: test.prompt?.content || test.text || '',
-        behavior: test.behavior || 'Reliability',
-        topic: test.topic || 'General',
-        rating: null,
-        feedback: '',
-      }));
+      const newSamples: TestSample[] = response.tests.map(
+        (test: any, index: number) => ({
+          id: `reactive-${Date.now()}-${index}`,
+          text: test.prompt?.content || test.text || '',
+          behavior: test.behavior || 'Reliability',
+          topic: test.topic || 'General',
+          rating: null,
+          feedback: '',
+        })
+      );
 
       setSamples(newSamples);
     } catch (error) {
@@ -255,14 +286,16 @@ export default function TestConfiguration({
       const response = await servicesClient.generateTests(request);
 
       // Convert response to samples format
-      const newSamples: TestSample[] = response.tests.map((test: any, index: number) => ({
-        id: `sample-${index}`,
-        text: test.prompt?.content || test.text || '',
-        behavior: test.behavior || 'Reliability',
-        topic: test.topic || 'General',
-        rating: null,
-        feedback: '',
-      }));
+      const newSamples: TestSample[] = response.tests.map(
+        (test: any, index: number) => ({
+          id: `sample-${index}`,
+          text: test.prompt?.content || test.text || '',
+          behavior: test.behavior || 'Reliability',
+          topic: test.topic || 'General',
+          rating: null,
+          feedback: '',
+        })
+      );
 
       setSamples(newSamples);
       show('Test samples generated successfully', { severity: 'success' });
@@ -280,16 +313,20 @@ export default function TestConfiguration({
       setSamples(prev => prev.filter(sample => sample.id !== sampleId));
     } else {
       // Update liked samples
-      setSamples(prev => prev.map(sample =>
-        sample.id === sampleId ? { ...sample, rating } : sample
-      ));
+      setSamples(prev =>
+        prev.map(sample =>
+          sample.id === sampleId ? { ...sample, rating } : sample
+        )
+      );
     }
   };
 
   const handleSampleFeedback = (sampleId: string, feedback: string) => {
-    setSamples(prev => prev.map(sample =>
-      sample.id === sampleId ? { ...sample, feedback } : sample
-    ));
+    setSamples(prev =>
+      prev.map(sample =>
+        sample.id === sampleId ? { ...sample, feedback } : sample
+      )
+    );
   };
 
   const handleRefinementSubmit = async () => {
@@ -320,14 +357,16 @@ export default function TestConfiguration({
 
       const response = await servicesClient.generateTests(request);
 
-      const newSamples: TestSample[] = response.tests.map((test: any, index: number) => ({
-        id: `refined-${Date.now()}-${index}`,
-        text: test.prompt?.content || test.text || '',
-        behavior: test.behavior || 'Reliability',
-        topic: test.topic || 'General',
-        rating: null,
-        feedback: '',
-      }));
+      const newSamples: TestSample[] = response.tests.map(
+        (test: any, index: number) => ({
+          id: `refined-${Date.now()}-${index}`,
+          text: test.prompt?.content || test.text || '',
+          behavior: test.behavior || 'Reliability',
+          topic: test.topic || 'General',
+          rating: null,
+          feedback: '',
+        })
+      );
 
       setSamples(prev => [...prev, ...newSamples]);
       setRefinementText('');
@@ -340,7 +379,10 @@ export default function TestConfiguration({
 
   const handleContinue = () => {
     // Store configuration and samples for final step
-    sessionStorage.setItem('testGenerationConfiguration', JSON.stringify(configuration));
+    sessionStorage.setItem(
+      'testGenerationConfiguration',
+      JSON.stringify(configuration)
+    );
     sessionStorage.setItem('testGenerationSamples', JSON.stringify(samples));
     router.push('/tests/generate/confirm');
   };
@@ -357,20 +399,29 @@ export default function TestConfiguration({
         {title}
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {items.map((item) => (
+        {items.map(item => (
           <Chip
             key={item}
             label={item}
             onClick={() => onToggle(item)}
             variant={selectedItems.includes(item) ? 'filled' : 'outlined'}
-            sx={(theme) => ({
-              backgroundColor: selectedItems.includes(item) ? `${theme.palette[color].main}20` : 'transparent',
-              borderColor: theme.palette[color].main,
-              color: selectedItems.includes(item) ? theme.palette[color].main : 'text.primary',
-              '&:hover': {
-                backgroundColor: `${theme.palette[color].main}10`,
-              },
-            })}
+            sx={theme => {
+              const paletteColor = theme.palette[
+                color as keyof typeof theme.palette
+              ] as any;
+              return {
+                backgroundColor: selectedItems.includes(item)
+                  ? `${paletteColor?.main}20`
+                  : 'transparent',
+                borderColor: paletteColor?.main,
+                color: selectedItems.includes(item)
+                  ? paletteColor?.main
+                  : 'text.primary',
+                '&:hover': {
+                  backgroundColor: `${paletteColor?.main}10`,
+                },
+              };
+            }}
           />
         ))}
       </Box>
@@ -391,45 +442,74 @@ export default function TestConfiguration({
 
       <Grid container sx={{ flex: 1, overflow: 'hidden' }}>
         {/* Left Sidebar - Configuration */}
-        <Grid item xs={12} md={4} sx={{ borderRight: 1, borderColor: 'divider' }}>
+        <Grid
+          item
+          xs={12}
+          md={4}
+          sx={{ borderRight: 1, borderColor: 'divider' }}
+        >
           <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>
             <Typography variant="h5" gutterBottom>
               Tests Configuration
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Configure test parameters and upload documents to guide AI generation.
+              Configure test parameters and upload documents to guide AI
+              generation.
             </Typography>
 
             {renderConfigurationSection(
               'Behavior Testing',
-              configuration.behaviors.length > 0 ? [...new Set([...configuration.behaviors, ...availableBehaviors])] : availableBehaviors,
+              configuration.behaviors.length > 0
+                ? [
+                    ...new Set([
+                      ...configuration.behaviors,
+                      ...availableBehaviors,
+                    ]),
+                  ]
+                : availableBehaviors,
               configuration.behaviors,
               'primary.main',
-              (item) => handleToggleSelection('behaviors', item)
+              item => handleToggleSelection('behaviors', item)
             )}
 
             {renderConfigurationSection(
               'Topics',
-              configuration.topics.length > 0 ? [...new Set([...configuration.topics, ...availableTopics])] : availableTopics,
+              configuration.topics.length > 0
+                ? [...new Set([...configuration.topics, ...availableTopics])]
+                : availableTopics,
               configuration.topics,
               'secondary.main',
-              (item) => handleToggleSelection('topics', item)
+              item => handleToggleSelection('topics', item)
             )}
 
             {renderConfigurationSection(
               'Test Categories',
-              configuration.categories.length > 0 ? [...new Set([...configuration.categories, ...availableCategories])] : availableCategories,
+              configuration.categories.length > 0
+                ? [
+                    ...new Set([
+                      ...configuration.categories,
+                      ...availableCategories,
+                    ]),
+                  ]
+                : availableCategories,
               configuration.categories,
               'warning.main',
-              (item) => handleToggleSelection('categories', item)
+              item => handleToggleSelection('categories', item)
             )}
 
             {renderConfigurationSection(
               'Test Scenarios',
-              configuration.scenarios.length > 0 ? [...new Set([...configuration.scenarios, ...availableScenarios])] : availableScenarios,
+              configuration.scenarios.length > 0
+                ? [
+                    ...new Set([
+                      ...configuration.scenarios,
+                      ...availableScenarios,
+                    ]),
+                  ]
+                : availableScenarios,
               configuration.scenarios,
               'success.main',
-              (item) => handleToggleSelection('scenarios', item)
+              item => handleToggleSelection('scenarios', item)
             )}
 
             {/* Uploaded Files */}
@@ -438,7 +518,7 @@ export default function TestConfiguration({
                 <Typography variant="h6" gutterBottom>
                   Uploaded Files
                 </Typography>
-                {documents.map((doc) => (
+                {documents.map(doc => (
                   <Box
                     key={doc.id}
                     sx={{
@@ -448,7 +528,7 @@ export default function TestConfiguration({
                       p: 1,
                       border: 1,
                       borderColor: 'grey.200',
-                      sx: (theme) => ({ borderRadius: theme.shape.borderRadius }),
+                      sx: theme => ({ borderRadius: theme.shape.borderRadius }),
                       mb: 1,
                     }}
                   >
@@ -466,7 +546,7 @@ export default function TestConfiguration({
                 multiline
                 rows={3}
                 value={refinementText}
-                onChange={(e) => setRefinementText(e.target.value)}
+                onChange={e => setRefinementText(e.target.value)}
                 placeholder="Further refine your test generation instructions..."
                 InputProps={{
                   endAdornment: (
@@ -496,13 +576,21 @@ export default function TestConfiguration({
         {/* Right Content - Test Samples */}
         <Grid item xs={12} md={8}>
           <Box sx={{ p: 3, height: 'calc(100vh - 120px)', overflow: 'auto' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 3,
+              }}
+            >
               <Box>
                 <Typography variant="h5" gutterBottom>
                   Review Test Cases
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Preview of generated test samples. Rate them to improve future generations.
+                  Preview of generated test samples. Rate them to improve future
+                  generations.
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -531,12 +619,13 @@ export default function TestConfiguration({
 
             {samples.length === 0 && !isGenerating && (
               <Alert severity="info" sx={{ mb: 3 }}>
-                Click "Generate Samples" to create test cases based on your configuration.
+                Click &quot;Generate Samples&quot; to create test cases based on
+                your configuration.
               </Alert>
             )}
 
             {/* Test Samples */}
-            {samples.map((sample) => (
+            {samples.map(sample => (
               <Paper key={sample.id} sx={{ p: 3, mb: 3 }}>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="body1" sx={{ mb: 1 }}>
@@ -546,7 +635,7 @@ export default function TestConfiguration({
                     sx={{
                       p: 2,
                       bgcolor: 'primary.50',
-                      sx: (theme) => ({ borderRadius: theme.shape.borderRadius }),
+                      sx: theme => ({ borderRadius: theme.shape.borderRadius }),
                       border: '1px solid',
                       borderColor: 'primary.200',
                     }}
@@ -563,18 +652,21 @@ export default function TestConfiguration({
                     sx={{
                       p: 2,
                       bgcolor: 'grey.50',
-                      sx: (theme) => ({ borderRadius: theme.shape.borderRadius }),
+                      sx: theme => ({ borderRadius: theme.shape.borderRadius }),
                       border: '1px solid',
                       borderColor: 'grey.200',
                     }}
                   >
                     <Typography variant="body2" color="text.secondary">
-                      This is a sample expected response that would be generated based on the test prompt.
+                      This is a sample expected response that would be generated
+                      based on the test prompt.
                     </Typography>
                   </Box>
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
+                >
                   <Typography variant="body2">Rate this test:</Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <IconButton
@@ -599,7 +691,9 @@ export default function TestConfiguration({
                   multiline
                   rows={2}
                   value={sample.feedback}
-                  onChange={(e) => handleSampleFeedback(sample.id, e.target.value)}
+                  onChange={e =>
+                    handleSampleFeedback(sample.id, e.target.value)
+                  }
                   placeholder="Provide feedback to improve this test..."
                   size="small"
                 />
