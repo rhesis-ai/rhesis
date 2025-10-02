@@ -1498,7 +1498,7 @@ def get_test_run_behaviors(db: Session, test_run_id: uuid.UUID, organization_id:
     )
 
 
-def create_test_run(db: Session, test_run: schemas.TestRunCreate) -> models.TestRun:
+def create_test_run(db: Session, test_run: schemas.TestRunCreate, organization_id: str = None, user_id: str = None) -> models.TestRun:
     """Create a new test run with automatic name generation if no name is provided"""
 
     # If no name is provided or it's empty, generate a memorable one
@@ -1536,7 +1536,7 @@ def create_test_run(db: Session, test_run: schemas.TestRunCreate) -> models.Test
         else:
             logger.warning("No organization_id available for test run name generation")
 
-    return create_item(db, models.TestRun, test_run)
+    return create_item(db, models.TestRun, test_run, organization_id=organization_id, user_id=user_id)
 
 
 def update_test_run(
