@@ -7,7 +7,6 @@ data generation and base class inheritance.
 """
 
 import hashlib
-from datetime import datetime
 from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -158,14 +157,17 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
 
         # Mock metadata extraction
         with patch.object(handler, "_extract_metadata") as mock_extract:
-            mock_extract.return_value = {"file_size": len(content)}
+            mock_extract.return_value = {
+                "file_size": len(content),
+                "file_path": "test/path/file.txt",
+            }
 
-            result_path, metadata = await handler.save_document(
+            metadata = await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
 
-            assert result_path == "test/path/file.txt"
-            assert metadata == {"file_size": len(content)}
+            assert metadata["file_path"] == "test/path/file.txt"
+            assert metadata["file_size"] == len(content)
 
             # Verify storage service calls
             mock_storage.get_file_path.assert_called_once_with(
@@ -174,7 +176,9 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
             mock_storage.save_file.assert_called_once_with(
                 content, "test/path/file.txt"
             )
-            mock_extract.assert_called_once_with(content, "test.txt")
+            mock_extract.assert_called_once_with(
+                content, "test.txt", "test/path/file.txt"
+            )
 
 
 @pytest.mark.unit
@@ -251,7 +255,9 @@ class TestDocumentHandlerMetadataExtraction(
             mock_hash.return_value = "abc123hash"
             mock_mime.return_value = "text/plain"
 
-            metadata = handler._extract_metadata(content, filename)
+            metadata = handler._extract_metadata(
+                content, filename, "test/path/file.txt"
+            )
 
             expected_metadata = {
                 "file_size": len(content),
@@ -268,7 +274,8 @@ class TestDocumentHandlerMetadataExtraction(
                 metadata["original_filename"] == expected_metadata["original_filename"]
             )
             assert metadata["file_type"] == expected_metadata["file_type"]
-            assert isinstance(metadata["uploaded_at"], datetime)
+            # uploaded_at is a string representation of datetime
+            assert "uploaded_at" in metadata
 
             mock_hash.assert_called_once_with(content)
             mock_mime.assert_called_once_with(filename)
@@ -369,18 +376,20 @@ class TestDocumentHandlerIntegration(
                 mock_file = MockUploadFile(content, filename)
 
                 # Test save document
-                file_path, metadata = await handler.save_document(
+                metadata = await handler.save_document(
                     document=mock_file,
                     organization_id="org-123",
                     source_id="source-456",
                 )
+                file_path = metadata["file_path"]
 
                 # Verify save results
                 assert file_path is not None
                 assert metadata["file_size"] == len(content)
                 assert metadata["original_filename"] == filename
                 assert metadata["file_type"] == "text/plain"
-                assert isinstance(metadata["uploaded_at"], datetime)
+                # uploaded_at is a string representation of datetime
+                assert "uploaded_at" in metadata
                 assert len(metadata["file_hash"]) == 64
 
                 # Test retrieve document
@@ -435,11 +444,12 @@ class TestDocumentHandlerIntegration(
                     mock_file = MockUploadFile(content, filename)
 
                     # Test save
-                    file_path, metadata = await handler.save_document(
+                    metadata = await handler.save_document(
                         document=mock_file,
                         organization_id="org-123",
                         source_id=f"source-{filename}",
                     )
+                    file_path = metadata["file_path"]
 
                     # Verify metadata
                     assert metadata["file_type"] == expected_mime
@@ -473,13 +483,14 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         # Mock storage service
         mock_storage = MagicMock()
         mock_storage.get_file_path.return_value = "test/path/file.txt"
-        mock_storage.save_file = MagicMock()
+        mock_storage.save_file = AsyncMock()
         handler.storage_service = mock_storage
 
         # Should handle long filename gracefully
-        file_path, metadata = await handler.save_document(
+        metadata = await handler.save_document(
             document=mock_file, organization_id="org-123", source_id="source-456"
         )
+        file_path = metadata["file_path"]
 
         assert metadata["original_filename"] == long_filename
         assert metadata["file_size"] == len(content)
@@ -520,7 +531,9 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         binary_content = bytes(range(256))  # All possible byte values
         filename = "binary_file.bin"
 
-        metadata = handler._extract_metadata(binary_content, filename)
+        metadata = handler._extract_metadata(
+            binary_content, filename, "test/path/binary_file.bin"
+        )
 
         assert metadata["file_size"] == 256
         assert metadata["file_type"] == "application/octet-stream"
@@ -535,7 +548,9 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         unicode_content = "测试内容 with unicode: émojis 🚀".encode("utf-8")
         filename = "unicode_file.txt"
 
-        metadata = handler._extract_metadata(unicode_content, filename)
+        metadata = handler._extract_metadata(
+            unicode_content, filename, "test/path/unicode_file.txt"
+        )
 
         assert metadata["file_size"] == len(unicode_content)
         assert metadata["file_type"] == "text/plain"
@@ -554,13 +569,14 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         # Mock storage service
         mock_storage = MagicMock()
         mock_storage.get_file_path.return_value = "test/path/file.txt"
-        mock_storage.save_file = MagicMock()
+        mock_storage.save_file = AsyncMock()
         handler.storage_service = mock_storage
 
         # Should accept file at exact limit
-        file_path, metadata = await handler.save_document(
+        metadata = await handler.save_document(
             document=mock_file, organization_id="org-123", source_id="source-456"
         )
+        file_path = metadata["file_path"]
 
         assert metadata["file_size"] == 100
 
