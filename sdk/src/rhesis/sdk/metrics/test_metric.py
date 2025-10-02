@@ -69,7 +69,7 @@ def load_metric_from_db(
 ) -> Optional[Metric]:
     """Load a metric from the database by ID with organization filtering to prevent data leakage."""
     base_query = db.query(Metric)
-    
+
     # Apply organization filtering if provided (recommended for multi-tenant security)
     if organization_id:
         try:
@@ -77,7 +77,7 @@ def load_metric_from_db(
             base_query = base_query.filter(Metric.organization_id == org_uuid)
         except (ValueError, TypeError):
             print(f"⚠️ Warning: Invalid organization_id format: {organization_id}")
-    
+
     try:
         # Try as UUID first
         metric_uuid = UUID(metric_id)
@@ -100,7 +100,7 @@ def load_metric_from_db(
 def load_test_from_db(db: Session, test_id: str, organization_id: str = None) -> Optional[Test]:
     """Load a test from the database by ID with organization filtering to prevent data leakage."""
     base_query = db.query(Test)
-    
+
     # Apply organization filtering if provided (recommended for multi-tenant security)
     if organization_id:
         try:
@@ -108,7 +108,7 @@ def load_test_from_db(db: Session, test_id: str, organization_id: str = None) ->
             base_query = base_query.filter(Test.organization_id == org_uuid)
         except (ValueError, TypeError):
             print(f"⚠️ Warning: Invalid organization_id format: {organization_id}")
-    
+
     try:
         # Try as UUID first
         test_uuid = UUID(test_id)
