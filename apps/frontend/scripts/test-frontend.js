@@ -36,7 +36,7 @@ function runCommand(command, args = [], options = {}) {
 }
 
 async function main() {
-  const frontendDir = path.join(__dirname, '..', 'apps', 'frontend');
+  const frontendDir = path.join(__dirname, '..');
 
   try {
     switch (args[0]) {
@@ -83,7 +83,7 @@ if (args.includes('--help') || args.includes('-h')) {
 Frontend Test Runner
 
 Usage:
-  node scripts/test-frontend.js [command] [options]
+  node apps/frontend/scripts/test-frontend.js [command] [options]
 
 Commands:
   setup             Install test dependencies
@@ -94,11 +94,11 @@ Commands:
   [test-pattern]    Run specific tests matching pattern
 
 Examples:
-  node scripts/test-frontend.js setup
-  node scripts/test-frontend.js watch
-  node scripts/test-frontend.js coverage
-  node scripts/test-frontend.js BaseDrawer
-  node scripts/test-frontend.js --testPathPattern=components
+  node apps/frontend/scripts/test-frontend.js setup
+  node apps/frontend/scripts/test-frontend.js watch
+  node apps/frontend/scripts/test-frontend.js coverage
+  node apps/frontend/scripts/test-frontend.js BaseDrawer
+  node apps/frontend/scripts/test-frontend.js --testPathPattern=components
 
 Options:
   --help, -h        Show this help message
