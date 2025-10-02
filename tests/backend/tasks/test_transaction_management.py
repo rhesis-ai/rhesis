@@ -86,6 +86,8 @@ class TestTaskTransactionManagement:
         # Create a mock test run object for testing
         mock_test_run = models.TestRun()
         mock_test_run.id = uuid.UUID(non_existent_id)
+        mock_test_run.organization_id = uuid.UUID(test_org_id)
+        mock_test_run.user_id = uuid.UUID(authenticated_user_id)
         mock_test_run.status = None  # Simulate non-existent status
         
         # This should not raise an exception
