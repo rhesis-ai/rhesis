@@ -2049,8 +2049,11 @@ def remove_emoji_reaction(
 
 
 # Task CRUD
-def get_task(db: Session, task_id: uuid.UUID) -> Optional[models.Task]:
-    return get_items(db, models.Task, task_id)
+def get_task(
+    db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Task]:
+    """Get task with optimized approach - no session variables needed."""
+    return get_item(db, models.Task, task_id, organization_id, user_id)
 
 
 def get_tasks(
