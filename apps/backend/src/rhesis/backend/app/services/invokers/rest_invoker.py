@@ -149,7 +149,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             mapped_response = self.response_mapper.map_response(
                 response_data, endpoint.response_mappings or {}
             )
-            logger.debug(f"Final mapped response: {json.dumps(mapped_response, indent=2)}")
 
             return mapped_response
         except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:

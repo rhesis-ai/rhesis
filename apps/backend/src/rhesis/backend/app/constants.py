@@ -17,6 +17,7 @@ class EntityType(Enum):
     DIMENSION = "Dimension"
     DEMOGRAPHIC = "Demographic"
     TASK = "Task"
+    PROJECT = "Project"
     SOURCE = "Source"
 
     @classmethod

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
@@ -24,8 +25,7 @@ from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.gemini_client import (
     create_chat_completion,
     get_chat_response,
-    get_json_response,
-)
+    get_json_response)
 from rhesis.backend.app.services.generation import generate_tests
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
@@ -39,8 +39,7 @@ router = APIRouter(
     prefix="/services",
     tags=["services"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
-)
+    dependencies=[Depends(require_current_user_or_token)])
 
 
 @router.get("/github/contents")
@@ -105,15 +104,12 @@ async def get_ai_chat_response(chat_request: ChatRequest):
                 get_chat_response(
                     messages=[msg.dict() for msg in chat_request.messages],
                     response_format=chat_request.response_format,
-                    stream=True,
-                ),
-                media_type="text/event-stream",
-            )
+                    stream=True),
+                media_type="text/event-stream")
 
         return get_chat_response(
             messages=[msg.dict() for msg in chat_request.messages],
-            response_format=chat_request.response_format,
-        )
+            response_format=chat_request.response_format)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -156,7 +152,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         from rhesis.sdk.models.providers.gemini import GeminiLLM
 
         prompt = request.prompt
-        schema = request.schema
+        schema = request.schema_
 
         model = GeminiLLM()
         response = model.generate(prompt, schema=schema)
@@ -169,9 +165,8 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Generate test cases using the prompt synthesizer.
 
@@ -236,8 +231,7 @@ async def generate_text(prompt_request: PromptRequest):
                 response_stream = get_chat_response(
                     messages=messages,
                     response_format="text",  # Explicitly request text format
-                    stream=True,
-                )
+                    stream=True)
 
                 async for chunk in response_stream:
                     if chunk["choices"][0]["delta"]["content"]:
@@ -249,8 +243,7 @@ async def generate_text(prompt_request: PromptRequest):
         response = get_chat_response(
             messages=messages,
             response_format="text",  # Explicitly request text format
-            stream=False,
-        )
+            stream=False)
 
         return TextResponse(text=response)
     except Exception as e:
@@ -318,8 +311,7 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported file format: {file_extension}. "
-                f"Supported formats: {', '.join(extractor.supported_extensions)}",
-            )
+                f"Supported formats: {', '.join(extractor.supported_extensions)}")
 
         # Prepare document for extraction
         document = Document(name="document", description="Uploaded document", path=request.path)
