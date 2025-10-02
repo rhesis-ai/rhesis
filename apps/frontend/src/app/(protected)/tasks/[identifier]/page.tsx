@@ -265,9 +265,14 @@ export default function TaskDetailPage({ params }: PageProps) {
             <Typography variant="body2" sx={{ mb: 1 }}>
               We encountered an issue while trying to load the task details. This might be due to a temporary network issue or server problem.
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+            <Box sx={{ 
+              fontSize: theme => theme.typography.helperText.fontSize, 
+              fontFamily: 'monospace',
+              color: 'text.secondary',
+              mt: 1 
+            }}>
               Error: {error}
-            </Typography>
+            </Box>
           </Alert>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
@@ -539,9 +544,14 @@ export default function TaskDetailPage({ params }: PageProps) {
             <Typography variant="body2" sx={{ mb: 1 }}>
               <strong>Connection Issue:</strong> We're having trouble connecting to the server, but we're showing you the last saved version of this task.
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', mb: 1 }}>
+            <Box sx={{ 
+              fontSize: theme => theme.typography.helperText.fontSize, 
+              fontFamily: 'monospace',
+              color: 'text.secondary',
+              mb: 1 
+            }}>
               {error}
-            </Typography>
+            </Box>
             <Button 
               color="inherit" 
               size="small" 
