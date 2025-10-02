@@ -2164,44 +2164,11 @@ def remove_emoji_reaction(
 
 
 # Task CRUD
-def get_task(db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None) -> Optional[models.Task]:
-    """Get a single task by ID with organization filtering"""
-    query = db.query(models.Task).filter(models.Task.id == task_id)
-    
-    # Apply organization filtering (SECURITY CRITICAL)
-    if organization_id:
-        from uuid import UUID as UUIDType
-        query = query.filter(models.Task.organization_id == UUIDType(organization_id))
-    
-    return query.first()
-
-
-def get_task_with_comment_count(db: Session, task_id: uuid.UUID, organization_id: str = None) -> Optional[models.Task]:
-    """Get a single task by ID with comment count and organization filtering"""
-    from sqlalchemy import func
-
-    # Get the task with organization filtering (SECURITY CRITICAL)
-    query = db.query(models.Task).filter(models.Task.id == task_id)
-    if organization_id:
-        from uuid import UUID as UUIDType
-        query = query.filter(models.Task.organization_id == UUIDType(organization_id))
-    
-    task = query.first()
-    if not task:
-        return None
-
-    # Get comment count for this specific task
-    comment_count = (
-        db.query(func.count(models.Comment.id))
-        .filter(models.Comment.entity_id == task_id)
-        .filter(models.Comment.entity_type == "Task")
-        .scalar()
-    ) or 0
-
-    # Add total_comments to the task
-    task.total_comments = comment_count
-
-    return task
+def get_task(
+    db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Task]:
+    """Get task with optimized approach - no session variables needed."""
+    return get_item(db, models.Task, task_id, organization_id, user_id)
 
 
 def get_tasks(
