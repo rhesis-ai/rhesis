@@ -44,6 +44,7 @@ dependencies = [
     "litellm>=1.76.0",
     "torch>=2.8.0",
     "transformers>=4.56.0",
+    "nanoid>=2.0.0",
 ]
 
 [project.license]
