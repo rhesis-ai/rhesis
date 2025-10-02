@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from rhesis.backend.app.schemas.documents import Document
 
@@ -68,7 +68,7 @@ class ExtractDocumentResponse(BaseModel):
 
 class GenerateContentRequest(BaseModel):
     prompt: str
-    json_schema: Optional[Dict[str, Any]] = None
+    schema_: Optional[Dict[str, Any]] = Field(None, alias="schema")
 
 
 class TestConfigRequest(BaseModel):
