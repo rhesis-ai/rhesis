@@ -240,6 +240,14 @@ export default function ExecuteTestSetDrawer({
                 setSelectedEndpoint(null);
               }}
               getOptionLabel={option => option.name}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box component="li" key={option.id} {...otherProps}>
+                    {option.name}
+                  </Box>
+                );
+              }}
               renderInput={params => (
                 <TextField
                   {...params}
