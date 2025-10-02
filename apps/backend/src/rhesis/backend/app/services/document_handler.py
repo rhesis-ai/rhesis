@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from fastapi import UploadFile
 
@@ -27,7 +27,7 @@ class DocumentHandler:
 
     async def save_document(
         self, document: UploadFile, organization_id: str, source_id: str
-    ) -> Tuple[str, dict]:
+    ) -> dict:
         """
         Save uploaded document to persistent storage.
 
@@ -37,12 +37,12 @@ class DocumentHandler:
             source_id: Source ID for unique file naming
 
         Returns:
-            Tuple[str, dict]: (file_path, metadata_dict)
+            dict: metadata_dict containing file_path and other metadata
 
         Raises:
             ValueError: If document size exceeds limit or is empty
         """
-        if not document.filename:
+        if not document.filename or not document.filename.strip():
             raise ValueError("Document has no name")
 
         # Read document content to check size
@@ -124,5 +124,6 @@ class DocumentHandler:
             ".jpeg": "image/jpeg",
             ".gif": "image/gif",
             ".svg": "image/svg+xml",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
         return mime_types.get(ext, "application/octet-stream")
