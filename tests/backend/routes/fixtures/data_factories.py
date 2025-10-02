@@ -2007,7 +2007,7 @@ class CommentDataFactory(BaseDataFactory):
         return data
     
     @classmethod
-    def batch_data(cls, count: int, variation: bool = True, entity_type: str = "Test") -> List[Dict[str, Any]]:
+    def batch_data(cls, count: int, variation: bool = True, entity_type: EntityType = EntityType.TEST) -> List[Dict[str, Any]]:
         """
         Generate batch of comment data
         
@@ -2024,7 +2024,7 @@ class CommentDataFactory(BaseDataFactory):
             if variation:
                 # Create varied data
                 data = cls.sample_data(
-                    entity_type=fake.random_element(elements=["Test", "TestSet", "TestRun", "Behavior", "Metric"])
+                    entity_type=fake.random_element(elements=[EntityType.TEST, EntityType.TEST_SET, EntityType.TEST_RUN, EntityType.BEHAVIOR, EntityType.METRIC])
                 )
             else:
                 # Create similar data with incremental content
