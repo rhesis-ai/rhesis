@@ -21,41 +21,19 @@ def with_count_header(model: Type):
             response: Response = kwargs["response"]
             filter_expr = kwargs.get("filter")
             
-            # Handle multiple dependency patterns for maximum compatibility
-            db_context = kwargs.get("db_context")
+            # Get dependencies - all endpoints now use this pattern
             db = kwargs.get("db")
             tenant_context = kwargs.get("tenant_context")
             
-            if db_context:
-                # Pattern 1: Combined db_context (db, organization_id, user_id)
-                db, organization_id, user_id = db_context
-                count = count_items(db, model, filter_expr, organization_id, user_id)
-                response.headers["X-Total-Count"] = str(count)
-                
-            elif db and tenant_context:
-                # Pattern 2: Separate db (with session variables) + tenant_context
+            if db and tenant_context:
+                # Standard pattern: db + tenant_context
                 organization_id, user_id = tenant_context
                 count = count_items(db, model, filter_expr, organization_id, user_id)
                 response.headers["X-Total-Count"] = str(count)
-                
-            elif db:
-                # Pattern 3: Just db session (legacy or tenant_db_session with RLS only)
-                if tenant_context:
-                    organization_id, user_id = tenant_context
-                    count = count_items(db, model, filter_expr, organization_id, user_id)
-                else:
-                    # Try RLS-only approach, but handle gracefully if session variables aren't set
-                    try:
-                        count = count_items(db, model, filter_expr, None, None)
-                    except Exception as e:
-                        if "unrecognized configuration parameter" in str(e):
-                            count = 0
-                        else:
-                            raise
-                
-                response.headers["X-Total-Count"] = str(count)
-                
             else:
+                # Missing required dependencies - cannot count items without organization filtering
+                # This is a security requirement to prevent data leakage across organizations
+                logger.warning(f"Cannot count {model.__name__} items without organization context")
                 response.headers["X-Total-Count"] = "0"
 
             # Call original route function (await if async)

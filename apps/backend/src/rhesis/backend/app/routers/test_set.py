@@ -412,6 +412,7 @@ async def read_test_sets(
         None, description="Filter test sets by whether they have test runs"
     ),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """
     Get test sets with flexible filtering.
