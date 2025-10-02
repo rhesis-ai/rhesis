@@ -51,16 +51,16 @@ export default function TaskDetailPage({ params }: PageProps) {
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  
+
   // Use refs to track state without causing dependency cycles
   const isLoadingRef = useRef(false);
   const hasInitialLoadRef = useRef(false);
-  
+
   // Update refs when state changes
   useEffect(() => {
     isLoadingRef.current = isLoading;
   }, [isLoading]);
-  
+
   useEffect(() => {
     hasInitialLoadRef.current = hasInitialLoad;
   }, [hasInitialLoad]);
@@ -89,7 +89,8 @@ export default function TaskDetailPage({ params }: PageProps) {
   const loadInitialData = useCallback(
     async (isRetry = false) => {
       // Prevent multiple concurrent requests using refs to avoid dependency cycles
-      if (!isRetry && (isLoadingRef.current || hasInitialLoadRef.current)) return;
+      if (!isRetry && (isLoadingRef.current || hasInitialLoadRef.current))
+        return;
 
       try {
         if (isRetry) {
