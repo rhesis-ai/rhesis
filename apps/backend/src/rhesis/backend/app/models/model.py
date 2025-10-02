@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin, TagsMixin
+from .mixins import CommentsMixin, CountsMixin, OrganizationAndUserMixin, TagsMixin, TasksMixin
 
 
-class Model(Base, OrganizationAndUserMixin, TagsMixin):
+class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "model"
 
     # Basic information
@@ -40,10 +40,3 @@ class Model(Base, OrganizationAndUserMixin, TagsMixin):
 
     # Metrics relationship
     metrics = relationship("Metric", back_populates="model")
-
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Model.id), Comment.entity_type == 'Model')",
-        viewonly=True,
-    )

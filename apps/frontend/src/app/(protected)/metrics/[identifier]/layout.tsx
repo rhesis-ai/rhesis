@@ -7,9 +7,5 @@ export default function MetricLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <Box sx={{ p: 3, height: '100%' }}>
-      {children}
-    </Box>
-  );
-} 
+  return <Box sx={{ p: 3, height: '100%' }}>{children}</Box>;
+}

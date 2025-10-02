@@ -70,16 +70,16 @@ services:
     image: postgres:16-alpine
     container_name: rhesis-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-rhesis-db}
-      POSTGRES_USER: ${POSTGRES_USER:-rhesis-user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-secured-password}
+      POSTGRES_DB: ${SQLALCHEMY_DB_NAME:-rhesis-db}
+      POSTGRES_USER: ${SQLALCHEMY_DB_USER:-rhesis-user}
+      POSTGRES_PASSWORD: ${SQLALCHEMY_DB_PASS:-your-secured-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rhesis-user} -d ${POSTGRES_DB:-rhesis-db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${SQLALCHEMY_DB_USER:-rhesis-user} -d ${SQLALCHEMY_DB_NAME:-rhesis-db}"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { GridColDef, GridRowSelectionModel, GridPaginationModel } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridRowSelectionModel,
+  GridPaginationModel,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Typography, Box, Alert, Button, Chip } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -17,7 +21,11 @@ interface TestSetTestsGridProps {
   onRefresh?: () => void;
 }
 
-export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }: TestSetTestsGridProps) {
+export default function TestSetTestsGrid({
+  sessionToken,
+  testSetId,
+  onRefresh,
+}: TestSetTestsGridProps) {
   const isMounted = useRef(true);
   const router = useRouter();
   const notifications = useNotifications();
@@ -34,22 +42,22 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
   // Data fetching function
   const fetchTests = useCallback(async () => {
     if (!sessionToken || !testSetId) return;
-    
+
     try {
       if (isMounted.current) {
         setLoading(true);
       }
-      
+
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
-      
+
       const response = await testSetsClient.getTestSetTests(testSetId, {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'topic',
-        sort_order: 'asc'
+        sort_order: 'asc',
       });
-      
+
       if (isMounted.current) {
         setTests(response.data);
         setTotalCount(response.pagination.totalCount);
@@ -76,82 +84,94 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
     };
   }, [fetchTests]);
 
-  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-  }, []);
-
-  const columns: GridColDef[] = React.useMemo(() => [
-    { 
-      field: 'prompt',
-      headerName: 'Prompt', 
-      flex: 3,
-      renderCell: (params) => {
-        const prompt = params.row.prompt;
-        if (!prompt) return null;
-
-        return (
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: '100%'
-            }}
-          >
-            {prompt.content}
-          </Typography>
-        );
-      }
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
     },
-    { 
-      field: 'behavior',
-      headerName: 'Behavior', 
-      flex: 1,
-      renderCell: (params) => {
-        const behaviorName = params.row.behavior?.name;
-        if (!behaviorName) return null;
+    []
+  );
 
-        return (
-          <Chip
-            label={behaviorName}
-            variant="outlined"
-            size="small"
-            color="primary"
-          />
-        );
-      }
-    },
-    { 
-      field: 'topic', 
-      headerName: 'Topic', 
-      flex: 1,
-      renderCell: (params) => {
-        const topicName = params.row.topic?.name;
-        if (!topicName) return null;
+  const columns: GridColDef[] = React.useMemo(
+    () => [
+      {
+        field: 'prompt',
+        headerName: 'Prompt',
+        flex: 3,
+        renderCell: params => {
+          const prompt = params.row.prompt;
+          if (!prompt) return null;
 
-        return (
-          <Chip
-            label={topicName}
-            variant="outlined"
-            size="small"
-            color="secondary"
-          />
-        );
-      }
-    }
-  ], []);
+          return (
+            <Typography
+              variant="body2"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '100%',
+              }}
+            >
+              {prompt.content}
+            </Typography>
+          );
+        },
+      },
+      {
+        field: 'behavior',
+        headerName: 'Behavior',
+        flex: 1,
+        renderCell: params => {
+          const behaviorName = params.row.behavior?.name;
+          if (!behaviorName) return null;
+
+          return (
+            <Chip
+              label={behaviorName}
+              variant="outlined"
+              size="small"
+              color="default"
+            />
+          );
+        },
+      },
+      {
+        field: 'topic',
+        headerName: 'Topic',
+        flex: 1,
+        renderCell: params => {
+          const topicName = params.row.topic?.name;
+          if (!topicName) return null;
+
+          return (
+            <Chip
+              label={topicName}
+              variant="outlined"
+              size="small"
+              color="default"
+            />
+          );
+        },
+      },
+    ],
+    []
+  );
 
   // Handle row click to navigate to test details
-  const handleRowClick = useCallback((params: any) => {
-    const testId = params.id;
-    router.push(`/tests/${testId}`);
-  }, [router]);
+  const handleRowClick = useCallback(
+    (params: any) => {
+      const testId = params.id;
+      router.push(`/tests/${testId}`);
+    },
+    [router]
+  );
 
   // Handle row selection change
-  const handleSelectionChange = useCallback((newSelection: GridRowSelectionModel) => {
-    setSelectedRows(newSelection);
-  }, []);
+  const handleSelectionChange = useCallback(
+    (newSelection: GridRowSelectionModel) => {
+      setSelectedRows(newSelection);
+    },
+    []
+  );
 
   const handleTestSaved = useCallback(() => {
     if (sessionToken) {
@@ -163,34 +183,41 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
   // Handle removing tests from test set
   const handleRemoveTests = useCallback(async () => {
     if (!sessionToken || !testSetId || selectedRows.length === 0) return;
-    
+
     try {
       const testSetsClient = new TestSetsClient(sessionToken);
-      await testSetsClient.disassociateTestsFromTestSet(testSetId, selectedRows as string[]);
-      
+      await testSetsClient.disassociateTestsFromTestSet(
+        testSetId,
+        selectedRows as string[]
+      );
+
       notifications.show(
         `Successfully removed ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'} from test set`,
         {
           severity: 'success',
-          autoHideDuration: 6000
+          autoHideDuration: 6000,
         }
       );
-      
+
       // Refresh the data
       fetchTests();
       onRefresh?.();
     } catch (error) {
       console.error('Error removing tests from test set:', error);
-      
-      notifications.show(
-        'Failed to remove tests from test set',
-        {
-          severity: 'error',
-          autoHideDuration: 6000
-        }
-      );
+
+      notifications.show('Failed to remove tests from test set', {
+        severity: 'error',
+        autoHideDuration: 6000,
+      });
     }
-  }, [sessionToken, testSetId, selectedRows, fetchTests, onRefresh, notifications]);
+  }, [
+    sessionToken,
+    testSetId,
+    selectedRows,
+    fetchTests,
+    onRefresh,
+    notifications,
+  ]);
 
   // Dynamic action buttons based on selection
   const getActionButtons = useCallback(() => {
@@ -202,7 +229,7 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
-        onClick: handleRemoveTests
+        onClick: handleRemoveTests,
       });
     }
 
@@ -222,18 +249,25 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
       )}
 
       {selectedRows.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box
+          sx={{
+            mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <Typography variant="subtitle1" color="primary">
             {selectedRows.length} tests selected
           </Typography>
         </Box>
       )}
-      
+
       <BaseDataGrid
         rows={tests}
         columns={columns}
         loading={loading}
-        getRowId={(row) => row.id}
+        getRowId={row => row.id}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
@@ -245,7 +279,8 @@ export default function TestSetTestsGrid({ sessionToken, testSetId, onRefresh }:
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
+        disablePaperWrapper={true}
       />
     </>
   );
-} 
+}

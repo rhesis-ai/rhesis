@@ -1,12 +1,24 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Category, CategoryCreate, CategoryUpdate, CategoriesQueryParams } from './interfaces/category';
+import {
+  Category,
+  CategoryCreate,
+  CategoryUpdate,
+  CategoriesQueryParams,
+} from './interfaces/category';
 import { UUID } from 'crypto';
 
 export class CategoryClient extends BaseApiClient {
   async getCategories(params: CategoriesQueryParams = {}): Promise<Category[]> {
-    const { skip = 0, limit = 100, sort_by = 'created_at', sort_order = 'desc', $filter, entity_type } = params;
-    
+    const {
+      skip = 0,
+      limit = 100,
+      sort_by = 'created_at',
+      sort_order = 'desc',
+      $filter,
+      entity_type,
+    } = params;
+
     // Build query string
     const queryParams = new URLSearchParams();
     queryParams.append('skip', skip.toString());
@@ -19,11 +31,11 @@ export class CategoryClient extends BaseApiClient {
     if (entity_type) {
       queryParams.append('entity_type', entity_type);
     }
-    
+
     const url = `${API_ENDPOINTS.categories}?${queryParams.toString()}`;
-    
+
     return this.fetch<Category[]>(url, {
-      cache: 'no-store'
+      cache: 'no-store',
     });
   }
 
@@ -50,4 +62,4 @@ export class CategoryClient extends BaseApiClient {
       method: 'DELETE',
     });
   }
-} 
+}

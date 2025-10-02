@@ -17,35 +17,36 @@ interface PageProps {
 export default function EndpointPage({ params, searchParams }: PageProps) {
   // Use the params Promise
   const [identifier, setIdentifier] = useState<string>('');
-  
+
   useEffect(() => {
     // Resolve the params Promise when component mounts
     params.then(resolvedParams => {
       setIdentifier(resolvedParams.identifier);
     });
   }, [params]);
-  
+
   const { data: session, status } = useSession();
   const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   useEffect(() => {
     const fetchEndpoint = async () => {
       try {
         if (status === 'loading') return; // Wait for session to load
         if (!identifier) return; // Wait for identifier to be resolved
-        
+
         if (!session) {
           throw new Error('No session available');
         }
-        
+
         // Add UUID validation
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(identifier)) {
           throw new Error('Invalid endpoint identifier format');
         }
-        
+
         // Get session token from the correct property
         const sessionToken = session.session_token || '';
         const apiFactory = new ApiClientFactory(sessionToken);
@@ -58,19 +59,26 @@ export default function EndpointPage({ params, searchParams }: PageProps) {
         setLoading(false);
       }
     };
-    
+
     fetchEndpoint();
   }, [identifier, session, status]);
 
   if (status === 'loading' || loading || !identifier) {
     return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Box
+        sx={{
+          p: 3,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
         <CircularProgress size={24} sx={{ mr: 1 }} />
         <Typography>Loading endpoint...</Typography>
       </Box>
     );
   }
-  
+
   if (status === 'unauthenticated') {
     return (
       <Box sx={{ p: 3 }}>
@@ -80,36 +88,34 @@ export default function EndpointPage({ params, searchParams }: PageProps) {
       </Box>
     );
   }
-  
+
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography color="error">
-          Error loading endpoint: {error}
-        </Typography>
+        <Typography color="error">Error loading endpoint: {error}</Typography>
       </Box>
     );
   }
-  
+
   if (!endpoint) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography color="error">
-          No endpoint found
-        </Typography>
+        <Typography color="error">No endpoint found</Typography>
       </Box>
     );
   }
-  
+
   return (
-    <PageContainer 
-      title={endpoint.name} 
+    <PageContainer
+      title={endpoint.name}
       breadcrumbs={[
         { title: 'Endpoints', path: '/endpoints' },
-        { title: endpoint.name }
+        { title: endpoint.name },
       ]}
     >
-      <EndpointDetail endpoint={endpoint} />
+      <Box sx={{ flexGrow: 1, pt: 3 }}>
+        <EndpointDetail endpoint={endpoint} />
+      </Box>
     </PageContainer>
   );
 }

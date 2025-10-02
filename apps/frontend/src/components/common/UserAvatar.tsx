@@ -1,18 +1,19 @@
 import React from 'react';
 import { Avatar, AvatarProps } from '@mui/material';
+import { AVATAR_SIZES, AvatarSize } from '@/constants/avatar-sizes';
 
 interface UserAvatarProps extends Omit<AvatarProps, 'src' | 'alt'> {
   userName?: string;
   userPicture?: string;
-  size?: number;
+  size?: AvatarSize;
 }
 
-export function UserAvatar({ 
-  userName, 
-  userPicture, 
-  size = 40, 
-  sx, 
-  ...props 
+export function UserAvatar({
+  userName,
+  userPicture,
+  size = AVATAR_SIZES.LARGE,
+  sx,
+  ...props
 }: UserAvatarProps) {
   return (
     <Avatar
@@ -23,7 +24,7 @@ export function UserAvatar({
         height: size,
         bgcolor: 'primary.main',
         flexShrink: 0,
-        ...sx
+        ...sx,
       }}
       {...props}
     >

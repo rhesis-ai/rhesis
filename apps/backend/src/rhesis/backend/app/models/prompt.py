@@ -8,12 +8,12 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin, TagsMixin
+from .mixins import CommentsMixin, CountsMixin, OrganizationMixin, TagsMixin, TasksMixin
 from .test_set import prompt_test_set_association
 from .use_case import prompt_use_case_association
 
 
-class Prompt(Base, TagsMixin, OrganizationMixin):
+class Prompt(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "prompt"
     content = Column(Text, nullable=False)
     demographic_id = Column(
@@ -59,12 +59,7 @@ class Prompt(Base, TagsMixin, OrganizationMixin):
     children = relationship("Prompt", back_populates="parent")
     tests = relationship("Test", back_populates="prompt")
 
-    # Comment relationship (polymorphic)
-    comments = relationship(
-        "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Prompt.id), Comment.entity_type == 'Prompt')",
-        viewonly=True,
-    )
+    # Comments, tasks relationships and counts property are now provided by CommentTaskMixin
 
     def to_dict(self):
         """Convert the Prompt object to a dictionary with related names."""

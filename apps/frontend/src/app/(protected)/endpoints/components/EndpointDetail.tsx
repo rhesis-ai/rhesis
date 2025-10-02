@@ -1,14 +1,33 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, Tabs, Tab, Grid, Button, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, ListItemIcon, ListItemText, Chip } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Paper,
+  Tabs,
+  Tab,
+  Grid,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  CircularProgress,
+  ListItemIcon,
+  ListItemText,
+  Chip,
+  Alert,
+  Snackbar,
+} from '@mui/material';
 import dynamic from 'next/dynamic';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { 
-  EditIcon, 
-  SaveIcon, 
-  CancelIcon, 
+import {
+  EditIcon,
+  SaveIcon,
+  CancelIcon,
   PlayArrowIcon,
   SmartToyIcon,
   DevicesIcon,
@@ -29,11 +48,10 @@ import {
   PhoneIphoneIcon,
   SchoolIcon,
   ScienceIcon,
-  AccountTreeIcon
+  AccountTreeIcon,
 } from '@/components/icons';
 import { LoadingButton } from '@mui/lab';
 import { updateEndpoint, invokeEndpoint } from '@/actions/endpoints';
-import { Alert, Snackbar } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -64,7 +82,7 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   PhoneIphone: PhoneIphoneIcon,
   School: SchoolIcon,
   Science: ScienceIcon,
-  AccountTree: AccountTreeIcon
+  AccountTree: AccountTreeIcon,
 };
 
 // Get appropriate icon based on project type or use case
@@ -74,21 +92,24 @@ const getProjectIcon = (project: Project) => {
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
-  
+
   // Fall back to a default icon
   return <SmartToyIcon />;
 };
 
-// Move the getEnvironmentColor helper function from EndpointsTable.tsx to this component
-const getEnvironmentColor = (environment: string) => {
-  switch (environment.toLowerCase()) {
-    case 'production':
-      return 'success';
-    case 'staging':
-      return 'warning';
-    default:
-      return 'info';
-  }
+// Environment chips should use neutral colors for better UX
+const getEnvironmentColor = (
+  environment: string
+):
+  | 'default'
+  | 'primary'
+  | 'secondary'
+  | 'error'
+  | 'info'
+  | 'success'
+  | 'warning' => {
+  // Use 'default' for all environments to get neutral grey styling
+  return 'default';
 };
 
 interface TabPanelProps {
@@ -125,26 +146,30 @@ interface EndpointDetailProps {
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
-    <Box 
-      sx={{ 
-        height: '200px', 
-        display: 'flex', 
-        alignItems: 'center', 
+    <Box
+      sx={{
+        height: '200px',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         border: '1px solid rgba(0, 0, 0, 0.23)',
         borderRadius: '4px',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'action.hover',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={20} />
-        <Typography variant="body2" color="text.secondary">Loading editor...</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Loading editor...
+        </Typography>
       </Box>
     </Box>
-  )
+  ),
 });
 
-export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDetailProps) {
+export default function EndpointDetail({
+  endpoint: initialEndpoint,
+}: EndpointDetailProps) {
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);
   const [currentTab, setCurrentTab] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -157,14 +182,14 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
   }>({
     open: false,
     message: '',
-    severity: 'success'
+    severity: 'success',
   });
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [testInput, setTestInput] = useState<string>(`{
   "input": "[place your input here]"
 }`);
-  
+
   // Add projects state and loading state
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
@@ -177,15 +202,17 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
       try {
         setLoadingProjects(true);
         const sessionToken = session?.session_token || '';
-        
+
         if (sessionToken) {
           const client = new ApiClientFactory(sessionToken).getProjectsClient();
           const response = await client.getProjects();
-          
+
           // Create a map for faster lookups
           const projectMap: Record<string, Project> = {};
-          const projectsArray = Array.isArray(response) ? response : response?.data;
-          
+          const projectsArray = Array.isArray(response)
+            ? response
+            : response?.data;
+
           if (Array.isArray(projectsArray)) {
             projectsArray.forEach((project: Project) => {
               if (project && project.id) {
@@ -193,7 +220,7 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
               }
             });
           }
-          
+
           setProjects(projectMap);
         }
       } catch (err) {
@@ -226,18 +253,23 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
     try {
       setIsSaving(true);
       const result = await updateEndpoint(endpoint.id, editedValues);
-      
+
       if (result.success) {
         setEndpoint({ ...endpoint, ...editedValues });
         setIsEditing(false);
         setEditedValues({});
-        notifications.show('Endpoint updated successfully', { severity: 'success' });
+        notifications.show('Endpoint updated successfully', {
+          severity: 'success',
+        });
       } else {
         throw new Error(result.error);
       }
     } catch (error) {
       console.error('Failed to update endpoint:', error);
-      notifications.show(`Failed to update endpoint: ${(error as Error).message}`, { severity: 'error' });
+      notifications.show(
+        `Failed to update endpoint: ${(error as Error).message}`,
+        { severity: 'error' }
+      );
     } finally {
       setIsSaving(false);
     }
@@ -263,9 +295,22 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
 
   return (
     <>
-      <Card>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
-          <Tabs value={currentTab} onChange={handleTabChange} aria-label="endpoint configuration tabs">
+      <Paper elevation={2} sx={{ mb: 4 }}>
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pr: 2,
+          }}
+        >
+          <Tabs
+            value={currentTab}
+            onChange={handleTabChange}
+            aria-label="endpoint configuration tabs"
+          >
             <Tab label="Basic Information" />
             <Tab label="Request Settings" />
             <Tab label="Response Settings" />
@@ -273,17 +318,17 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
           </Tabs>
           {isEditing ? (
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button 
-                startIcon={<SaveIcon />} 
-                variant="contained" 
+              <Button
+                startIcon={<SaveIcon />}
+                variant="contained"
                 onClick={handleSave}
                 disabled={isSaving}
               >
                 {isSaving ? 'Saving...' : 'Save'}
               </Button>
-              <Button 
-                startIcon={<CancelIcon />} 
-                variant="outlined" 
+              <Button
+                startIcon={<CancelIcon />}
+                variant="outlined"
                 onClick={handleCancel}
                 disabled={isSaving}
               >
@@ -291,7 +336,11 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
               </Button>
             </Box>
           ) : (
-            <Button startIcon={<EditIcon />} variant="outlined" onClick={handleEdit}>
+            <Button
+              startIcon={<EditIcon />}
+              variant="outlined"
+              onClick={handleEdit}
+            >
               Edit
             </Button>
           )}
@@ -300,7 +349,9 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
         <TabPanel value={currentTab} index={0}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>General Information</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Basic Details
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   {isEditing ? (
@@ -308,11 +359,13 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       fullWidth
                       label="Name"
                       value={editedValues.name || ''}
-                      onChange={(e) => handleChange('name', e.target.value)}
+                      onChange={e => handleChange('name', e.target.value)}
                     />
                   ) : (
                     <>
-                      <Typography variant="subtitle2" color="text.secondary">Name</Typography>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Name
+                      </Typography>
                       <Typography variant="body1">{endpoint.name}</Typography>
                     </>
                   )}
@@ -323,14 +376,20 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       fullWidth
                       label="Description"
                       value={editedValues.description || ''}
-                      onChange={(e) => handleChange('description', e.target.value)}
+                      onChange={e =>
+                        handleChange('description', e.target.value)
+                      }
                       multiline
                       rows={1}
                     />
                   ) : (
                     <>
-                      <Typography variant="subtitle2" color="text.secondary">Description</Typography>
-                      <Typography variant="body1">{endpoint.description || 'No description provided'}</Typography>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Description
+                      </Typography>
+                      <Typography variant="body1">
+                        {endpoint.description || 'No description provided'}
+                      </Typography>
                     </>
                   )}
                 </Grid>
@@ -338,7 +397,9 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Request Configuration</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Request Configuration
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   {isEditing ? (
@@ -346,11 +407,13 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       fullWidth
                       label="URL"
                       value={editedValues.url || ''}
-                      onChange={(e) => handleChange('url', e.target.value)}
+                      onChange={e => handleChange('url', e.target.value)}
                     />
                   ) : (
                     <>
-                      <Typography variant="subtitle2" color="text.secondary">URL</Typography>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        URL
+                      </Typography>
                       <Typography variant="body1">{endpoint.url}</Typography>
                     </>
                   )}
@@ -362,17 +425,23 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       <Select
                         value={editedValues.protocol || ''}
                         label="Protocol"
-                        onChange={(e) => handleChange('protocol', e.target.value)}
+                        onChange={e => handleChange('protocol', e.target.value)}
                       >
-                        {PROTOCOLS.map((protocol) => (
-                          <MenuItem key={protocol} value={protocol}>{protocol}</MenuItem>
+                        {PROTOCOLS.map(protocol => (
+                          <MenuItem key={protocol} value={protocol}>
+                            {protocol}
+                          </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
                   ) : (
                     <>
-                      <Typography variant="subtitle2" color="text.secondary">Protocol</Typography>
-                      <Typography variant="body1">{endpoint.protocol}</Typography>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Protocol
+                      </Typography>
+                      <Typography variant="body1">
+                        {endpoint.protocol}
+                      </Typography>
                     </>
                   )}
                 </Grid>
@@ -383,16 +452,20 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       <Select
                         value={editedValues.method || ''}
                         label="Method"
-                        onChange={(e) => handleChange('method', e.target.value)}
+                        onChange={e => handleChange('method', e.target.value)}
                       >
-                        {METHODS.map((method) => (
-                          <MenuItem key={method} value={method}>{method}</MenuItem>
+                        {METHODS.map(method => (
+                          <MenuItem key={method} value={method}>
+                            {method}
+                          </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
                   ) : (
                     <>
-                      <Typography variant="subtitle2" color="text.secondary">Method</Typography>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Method
+                      </Typography>
                       <Typography variant="body1">{endpoint.method}</Typography>
                     </>
                   )}
@@ -402,7 +475,9 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
 
             {/* Project Selection */}
             <Grid item xs={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>Project</Typography>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Project
+              </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   {isEditing ? (
@@ -411,7 +486,9 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       <Select
                         value={editedValues.project_id || ''}
                         label="Project"
-                        onChange={(e) => handleChange('project_id', e.target.value)}
+                        onChange={e =>
+                          handleChange('project_id', e.target.value)
+                        }
                       >
                         <MenuItem value="">
                           <em>None</em>
@@ -419,15 +496,20 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                         {loadingProjects ? (
                           <MenuItem disabled>
                             <CircularProgress size={20} />
-                            <Box component="span" sx={{ ml: 1 }}>Loading projects...</Box>
+                            <Box component="span" sx={{ ml: 1 }}>
+                              Loading projects...
+                            </Box>
                           </MenuItem>
                         ) : (
-                          Object.values(projects).map((project) => (
+                          Object.values(projects).map(project => (
                             <MenuItem key={project.id} value={project.id}>
                               <ListItemIcon>
                                 {getProjectIcon(project)}
                               </ListItemIcon>
-                              <ListItemText primary={project.name} secondary={project.description} />
+                              <ListItemText
+                                primary={project.name}
+                                secondary={project.description}
+                              />
                             </MenuItem>
                           ))
                         )}
@@ -438,23 +520,32 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       {endpoint.project_id ? (
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           {projects[endpoint.project_id] && (
-                            <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                            <Box
+                              sx={{
+                                mr: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
+                            >
                               {getProjectIcon(projects[endpoint.project_id])}
                             </Box>
                           )}
                           <Typography variant="body1">
-                            {projects[endpoint.project_id]?.name || 'Loading project...'}
+                            {projects[endpoint.project_id]?.name ||
+                              'Loading project...'}
                           </Typography>
                         </Box>
                       ) : (
-                        <Typography variant="body1">No project assigned</Typography>
+                        <Typography variant="body1">
+                          No project assigned
+                        </Typography>
                       )}
                     </>
                   )}
                 </Grid>
               </Grid>
             </Grid>
-            
+
             <Grid item xs={12}>
               {isEditing ? (
                 <FormControl fullWidth>
@@ -462,17 +553,21 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                   <Select
                     value={editedValues.environment || ''}
                     label="Environment"
-                    onChange={(e) => handleChange('environment', e.target.value)}
+                    onChange={e => handleChange('environment', e.target.value)}
                   >
-                    {ENVIRONMENTS.map((env) => (
-                      <MenuItem key={env} value={env}>{env}</MenuItem>
+                    {ENVIRONMENTS.map(env => (
+                      <MenuItem key={env} value={env}>
+                        {env}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               ) : (
                 <>
-                  <Typography variant="subtitle1" sx={{ mb: 2 }}>Environment</Typography>
-                  <Chip 
+                  <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                    Environment
+                  </Typography>
+                  <Chip
                     label={endpoint.environment}
                     color={getEnvironmentColor(endpoint.environment as string)}
                     variant="outlined"
@@ -487,13 +582,23 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
         <TabPanel value={currentTab} index={1}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Request Headers</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Request Headers
+              </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
                   height="200px"
                   defaultLanguage="json"
-                  value={JSON.stringify(isEditing ? editedValues.request_headers : endpoint.request_headers || {}, null, 2)}
-                  onChange={(value) => handleJsonChange('request_headers', value || '')}
+                  value={JSON.stringify(
+                    isEditing
+                      ? editedValues.request_headers
+                      : endpoint.request_headers || {},
+                    null,
+                    2
+                  )}
+                  onChange={value =>
+                    handleJsonChange('request_headers', value || '')
+                  }
                   options={{
                     readOnly: !isEditing,
                     minimap: { enabled: false },
@@ -505,13 +610,23 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Request Body Template</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Request Body Template
+              </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
                   height="300px"
                   defaultLanguage="json"
-                  value={JSON.stringify(isEditing ? editedValues.request_body_template : endpoint.request_body_template || {}, null, 2)}
-                  onChange={(value) => handleJsonChange('request_body_template', value || '')}
+                  value={JSON.stringify(
+                    isEditing
+                      ? editedValues.request_body_template
+                      : endpoint.request_body_template || {},
+                    null,
+                    2
+                  )}
+                  onChange={value =>
+                    handleJsonChange('request_body_template', value || '')
+                  }
                   options={{
                     readOnly: !isEditing,
                     minimap: { enabled: false },
@@ -527,13 +642,23 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
         <TabPanel value={currentTab} index={2}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Response Mappings</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Response Mappings
+              </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
                   height="200px"
                   defaultLanguage="json"
-                  value={JSON.stringify(isEditing ? editedValues.response_mappings : endpoint.response_mappings || {}, null, 2)}
-                  onChange={(value) => handleJsonChange('response_mappings', value || '')}
+                  value={JSON.stringify(
+                    isEditing
+                      ? editedValues.response_mappings
+                      : endpoint.response_mappings || {},
+                    null,
+                    2
+                  )}
+                  onChange={value =>
+                    handleJsonChange('response_mappings', value || '')
+                  }
                   options={{
                     readOnly: !isEditing,
                     minimap: { enabled: false },
@@ -553,14 +678,15 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                 Test your endpoint configuration with sample data
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter sample JSON data that matches your request template structure
+                Enter sample JSON data that matches your request template
+                structure
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
                   height="200px"
                   defaultLanguage="json"
                   value={testInput}
-                  onChange={(value) => setTestInput(value || '')}
+                  onChange={value => setTestInput(value || '')}
                   options={{
                     minimap: { enabled: false },
                     lineNumbers: 'on',
@@ -571,7 +697,7 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                 />
               </Box>
             </Grid>
-            
+
             <Grid item xs={12} sx={{ mt: 2 }}>
               <LoadingButton
                 variant="contained"
@@ -593,10 +719,16 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
                       throw new Error(result.error);
                     }
                   } catch (error) {
-                    setTestResponse(JSON.stringify({
-                      success: false,
-                      error: (error as Error).message
-                    }, null, 2));
+                    setTestResponse(
+                      JSON.stringify(
+                        {
+                          success: false,
+                          error: (error as Error).message,
+                        },
+                        null,
+                        2
+                      )
+                    );
                   } finally {
                     setIsTestingEndpoint(false);
                   }
@@ -632,7 +764,7 @@ export default function EndpointDetail({ endpoint: initialEndpoint }: EndpointDe
             )}
           </Grid>
         </TabPanel>
-      </Card>
+      </Paper>
     </>
   );
-} 
+}

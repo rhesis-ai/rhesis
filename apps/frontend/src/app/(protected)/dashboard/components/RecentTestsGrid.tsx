@@ -12,7 +12,9 @@ interface RecentTestsGridProps {
   sessionToken: string;
 }
 
-export default function RecentTestsGrid({ sessionToken }: RecentTestsGridProps) {
+export default function RecentTestsGrid({
+  sessionToken,
+}: RecentTestsGridProps) {
   const [tests, setTests] = useState<TestDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,17 +27,17 @@ export default function RecentTestsGrid({ sessionToken }: RecentTestsGridProps) 
   const fetchTests = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // Calculate skip based on pagination model
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
-      
+
       const client = new ApiClientFactory(sessionToken).getTestsClient();
-      const response = await client.getTests({ 
-        skip, 
+      const response = await client.getTests({
+        skip,
         limit,
         sort_by: 'created_at',
-        sort_order: 'desc'
+        sort_order: 'desc',
       });
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
@@ -57,38 +59,38 @@ export default function RecentTestsGrid({ sessionToken }: RecentTestsGridProps) 
   };
 
   const testColumns: GridColDef[] = [
-    { 
+    {
       field: 'behavior',
       headerName: 'Behavior',
       width: 120,
-      valueGetter: (_, row) => row.behavior?.name || 'Unspecified'
+      valueGetter: (_, row) => row.behavior?.name || 'Unspecified',
     },
     {
       field: 'topic',
       headerName: 'Topic',
       width: 120,
-      valueGetter: (_, row) => row.topic?.name || 'Uncategorized'
+      valueGetter: (_, row) => row.topic?.name || 'Uncategorized',
     },
-    { 
+    {
       field: 'prompt',
-      headerName: 'Prompt', 
+      headerName: 'Prompt',
       flex: 1,
       minWidth: 100,
-      valueGetter: (_, row) => row.prompt?.content || 'No prompt'
+      valueGetter: (_, row) => row.prompt?.content || 'No prompt',
     },
-    { 
-      field: 'owner_email', 
-      headerName: 'Owner', 
+    {
+      field: 'owner_email',
+      headerName: 'Owner',
       width: 180,
       valueGetter: (_, row) => {
         const owner = row.owner;
         if (!owner) return 'No owner';
-        
+
         // Use the name field if available
         if (owner.name) {
           return owner.name;
         }
-        
+
         // If we have given_name or family_name, format the full name
         if (owner.given_name || owner.family_name) {
           const fullName = [owner.given_name, owner.family_name]
@@ -96,11 +98,11 @@ export default function RecentTestsGrid({ sessionToken }: RecentTestsGridProps) 
             .join(' ');
           return fullName;
         }
-        
+
         // Fall back to email if no name is available
         return owner.email || 'No contact info';
-      }
-    }
+      },
+    },
   ];
 
   if (loading && tests.length === 0) {
@@ -133,7 +135,8 @@ export default function RecentTestsGrid({ sessionToken }: RecentTestsGridProps) 
         linkPath="/tests"
         linkField="id"
         disableRowSelectionOnClick
+        disablePaperWrapper={true}
       />
     </Box>
   );
-} 
+}

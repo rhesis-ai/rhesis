@@ -8,8 +8,9 @@ from deepeval.metrics import (
     FaithfulnessMetric,
 )
 
-from rhesis.sdk.metrics.base import MetricResult, retry_evaluation
+from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
+from rhesis.sdk.metrics.utils import retry_evaluation
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 

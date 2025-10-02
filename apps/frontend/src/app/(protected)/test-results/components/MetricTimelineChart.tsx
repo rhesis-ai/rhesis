@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTheme } from '@mui/material';
 import BaseTimelineChart from './BaseTimelineChart';
 import { TimelineDataItem, createMetricExtractor } from './timelineUtils';
 
@@ -9,7 +10,11 @@ interface MetricTimelineChartProps {
   timelineData: TimelineDataItem[];
 }
 
-export default function MetricTimelineChart({ metricName, timelineData }: MetricTimelineChartProps) {
+export default function MetricTimelineChart({
+  metricName,
+  timelineData,
+}: MetricTimelineChartProps) {
+  const theme = useTheme();
   const contextInfo = (data: any[]) => {
     if (data.length === 0) {
       return 'No data available for this metric in the selected period';
@@ -27,8 +32,8 @@ export default function MetricTimelineChart({ metricName, timelineData }: Metric
       contextInfo={contextInfo}
       filterEmptyData={true}
       titleVariant="h6"
-      titleFontSize="1rem"
-      subtitleFontSize="0.8rem"
+      titleFontSize={String(theme.typography.subtitle1.fontSize)}
+      subtitleFontSize={String(theme.typography.helperText.fontSize)}
     />
   );
 }

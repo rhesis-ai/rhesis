@@ -168,3 +168,53 @@ async def verify_auth(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
         )
+
+
+@router.get("/demo")
+async def demo_redirect(request: Request):
+    """Redirect to Auth0 login with demo user pre-filled"""
+    try:
+        logger.info("Demo redirect requested")
+        
+        # Demo user email
+        DEMO_EMAIL = os.getenv("DEMO_USER_EMAIL", "demo@rhesis.ai")
+        
+        # Store the origin in session for callback
+        origin = request.headers.get("origin") or request.headers.get("referer")
+        if origin:
+            request.session["original_frontend"] = origin
+        
+        base_url = str(request.base_url).rstrip("/")
+        callback_url = f"{base_url}/auth/callback"
+        
+        # Store return_to in session - demo users go to dashboard
+        request.session["return_to"] = "/dashboard"
+        
+        # Only rewrite http to https if not localhost
+        if (
+            callback_url.startswith("http://")
+            and "localhost" not in callback_url
+            and "127.0.0.1" not in callback_url
+        ):
+            callback_url = "https://" + callback_url[7:]
+        
+        if not os.getenv("AUTH0_DOMAIN"):
+            raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")
+        
+        # Auth0 authorization parameters with login_hint for demo user
+        auth_params = {
+            "redirect_uri": callback_url,
+            "audience": f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/",
+            "login_hint": DEMO_EMAIL,  # Pre-fills the email field
+            "prompt": "login",  # Always show login screen
+        }
+        
+        # Use the existing OAuth redirect but with demo-specific parameters
+        response = await oauth.auth0.authorize_redirect(request, **auth_params)
+        
+        logger.info(f"Demo redirect created with login_hint: {DEMO_EMAIL}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Demo redirect error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Demo redirect failed: {str(e)}")

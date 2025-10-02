@@ -67,6 +67,7 @@ def create_detailed_schema(
         ("family_name", Optional[str], None),
         ("given_name", Optional[str], None),
         ("picture", Optional[str], None),
+        ("counts", Optional[Dict[str, Any]], None),
         # Model-specific fields
         ("model_name", Optional[str], None),
         ("endpoint", Optional[str], None),  # Regular field for Model, relationship for others

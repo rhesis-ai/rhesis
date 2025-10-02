@@ -1,0 +1,215 @@
+/* Local Font Definitions */
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('/fonts/be-vietnam-pro/be-vietnam-pro-semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/sora/sora-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/sora/sora-medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('/fonts/sora/sora-semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Apply brand fonts and colors to Nextra */
+
+/* Typography - apply to all text elements */
+body,
+.nextra-content,
+.nextra-sidebar,
+.nextra-nav-container,
+p, span, div, li, td, th, label, a {
+  font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+/* Headings use Sora font */
+h1, h2, h3, h4, h5, h6,
+.nextra-content h1,
+.nextra-content h2,
+.nextra-content h3,
+.nextra-content h4,
+.nextra-content h5,
+.nextra-content h6 {
+  font-family: "Sora", "Be Vietnam Pro", sans-serif !important;
+}
+
+/* Text colors - grey by default */
+body,
+.nextra-content,
+.nextra-content p,
+.nextra-content div,
+.nextra-content span,
+.nextra-content li,
+.nextra-sidebar a,
+.nextra-nav-container a {
+  color: #3D3D3D !important;
+}
+
+/* Headings color */
+.nextra-content h1,
+.nextra-content h2,
+.nextra-content h3,
+.nextra-content h4,
+.nextra-content h5,
+.nextra-content h6 {
+  color: #3D3D3D !important;
+}
+
+/* Links - blue only on hover */
+.nextra-content a {
+  color: #3D3D3D !important;
+  text-decoration: none;
+}
+
+.nextra-content a:hover,
+.nextra-sidebar a:hover,
+.nextra-nav-container a:hover {
+  color: #2AA1CE !important;
+  text-decoration: underline;
+}
+
+/* Active sidebar links */
+.nextra-sidebar a[aria-current="page"],
+.nextra-sidebar a[data-active="true"] {
+  background-color: #2AA1CE !important;
+  color: white !important;
+}
+
+/* Dark mode */
+[data-theme="dark"] body,
+[data-theme="dark"] .nextra-content,
+[data-theme="dark"] .nextra-content p,
+[data-theme="dark"] .nextra-content div,
+[data-theme="dark"] .nextra-content span,
+[data-theme="dark"] .nextra-content li,
+[data-theme="dark"] .nextra-sidebar a,
+[data-theme="dark"] .nextra-nav-container a {
+  color: #FFFFFF !important; /* Changed from #E6EDF3 to white for better icon visibility */
+  background-color: #0D1117;
+}
+
+[data-theme="dark"] .nextra-content h1,
+[data-theme="dark"] .nextra-content h2,
+[data-theme="dark"] .nextra-content h3,
+[data-theme="dark"] .nextra-content h4,
+[data-theme="dark"] .nextra-content h5,
+[data-theme="dark"] .nextra-content h6 {
+  color: #E6EDF3 !important;
+}
+
+[data-theme="dark"] .nextra-content a {
+  color: #E6EDF3 !important;
+}
+
+[data-theme="dark"] .nextra-content a:hover,
+[data-theme="dark"] .nextra-sidebar a:hover,
+[data-theme="dark"] .nextra-nav-container a:hover {
+  color: #3BC4F2 !important; /* Keep the blue hover color */
+}
+
+/* Dark mode backgrounds */
+[data-theme="dark"] body,
+[data-theme="dark"] .nextra-content,
+[data-theme="dark"] .nextra-sidebar,
+[data-theme="dark"] .nextra-nav-container {
+  background-color: #0D1117 !important;
+}
+
+[data-theme="dark"] .nextra-sidebar {
+  background-color: #161B22 !important;
+}
+
+/* Code styling */
+.nextra-content code {
+  background-color: #E4F2FA !important;
+  color: #2AA1CE !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+
+[data-theme="dark"] .nextra-content code {
+  background-color: #1F242B !important;
+  color: #3BC4F2 !important;
+}
+
+/* Nextra CSS variables for primary colors */
+:root {
+  --nextra-primary-hue: 200;
+  --nextra-primary-saturation: 70%;
+}
+
+/* Override Nextra's color variables for better dark mode readability */
+[data-theme="dark"] {
+  /* Text colors - following Langfuse approach */
+  --nextra-primary-hue: 200;
+  --nextra-primary-saturation: 100%;
+  --nextra-primary-lightness: 60%;
+  
+  /* Neutral colors for better readability */
+  --x-color-neutral-50: #FFFFFF;   /* Pure white for primary text */
+  --x-color-neutral-100: #F8FAFC;  /* Near white */
+  --x-color-neutral-200: #F1F5F9;  /* Very light gray */
+  --x-color-neutral-300: #E2E8F0;  /* Light gray */
+  --x-color-neutral-400: #FFFFFF;  /* White for navigation links */
+  --x-color-neutral-500: #E6EDF3;  /* Light gray for secondary text */
+  --x-color-neutral-600: #A9B1BB;  /* Medium gray for muted text */
+  --x-color-neutral-700: #64748B;  /* Darker gray */
+  --x-color-neutral-800: #475569;  /* Dark gray */
+  --x-color-neutral-900: #334155;  /* Very dark gray */
+}
+
+/* Apply custom fonts to navbar while keeping default styling */
+.nextra-navbar,
+.nextra-navbar *,
+.nextra-nav-container,
+.nextra-nav-container * {
+  font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+
+

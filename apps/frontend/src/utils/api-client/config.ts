@@ -1,7 +1,9 @@
 import { getBaseUrl } from '../url-resolver';
 
 if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_API_BASE_URL environment variable is not defined');
+  throw new Error(
+    'NEXT_PUBLIC_API_BASE_URL environment variable is not defined'
+  );
 }
 
 console.log('API_CONFIG: baseUrl set to:', getBaseUrl());
@@ -22,7 +24,7 @@ export const API_ENDPOINTS = {
   endpoints: '/endpoints',
   organizations: '/organizations',
   users: '/users',
-  projects: '/projects', 
+  projects: '/projects',
   testRuns: '/test_runs',
   testResults: '/test_results',
   testConfigurations: '/test_configurations',
@@ -35,8 +37,9 @@ export const API_ENDPOINTS = {
   type_lookups: '/type_lookups',
   metrics: '/metrics',
   models: '/models',
-  comments: '/comments'
-} as const; 
+  comments: '/comments',
+  tasks: '/tasks',
+} as const;
 
 export const ENTITY_TYPES = {
   test: 'Test',

@@ -13,39 +13,41 @@ interface RecentActivitiesGridProps {
 }
 
 const recentActivitiesColumns: GridColDef[] = [
-  { 
+  {
     field: 'behavior',
     headerName: 'Behavior',
     width: 130,
-    valueGetter: (_, row) => row.behavior?.name || 'Unspecified'
+    valueGetter: (_, row) => row.behavior?.name || 'Unspecified',
   },
-  { 
-    field: 'topic', 
-    headerName: 'Topic', 
+  {
+    field: 'topic',
+    headerName: 'Topic',
     width: 130,
-    valueGetter: (_, row) => row.topic?.name || 'Uncategorized'
+    valueGetter: (_, row) => row.topic?.name || 'Uncategorized',
   },
-  { 
-    field: 'timestamp', 
-    headerName: 'Update Time', 
+  {
+    field: 'timestamp',
+    headerName: 'Update Time',
     width: 150,
     valueGetter: (_, row) => {
-      return row.updated_at ? format(parseISO(row.updated_at), 'yyyy-MM-dd HH:mm') : '';
-    }
+      return row.updated_at
+        ? format(parseISO(row.updated_at), 'yyyy-MM-dd HH:mm')
+        : '';
+    },
   },
-  { 
-    field: 'assignee', 
-    headerName: 'Assignee', 
+  {
+    field: 'assignee',
+    headerName: 'Assignee',
     flex: 1,
     valueGetter: (_, row) => {
       const assignee = row.assignee;
       if (!assignee) return 'No assignee';
-      
+
       // Use the name field if available
       if (assignee.name) {
         return assignee.name;
       }
-      
+
       // If we have given_name or family_name, format the full name
       if (assignee.given_name || assignee.family_name) {
         const fullName = [assignee.given_name, assignee.family_name]
@@ -53,14 +55,16 @@ const recentActivitiesColumns: GridColDef[] = [
           .join(' ');
         return fullName;
       }
-      
+
       // Fall back to email if no name is available
       return assignee.email || 'No contact info';
-    }
+    },
   },
 ];
 
-export default function RecentActivitiesGrid({ sessionToken }: RecentActivitiesGridProps) {
+export default function RecentActivitiesGrid({
+  sessionToken,
+}: RecentActivitiesGridProps) {
   const [activities, setActivities] = useState<TestDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,17 +77,17 @@ export default function RecentActivitiesGrid({ sessionToken }: RecentActivitiesG
   const fetchRecentActivities = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // Calculate skip based on pagination model
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
-      
+
       const client = new ApiClientFactory(sessionToken).getTestsClient();
-      const response = await client.getTests({ 
-        skip, 
+      const response = await client.getTests({
+        skip,
         limit,
         sort_by: 'updated_at',
-        sort_order: 'desc'
+        sort_order: 'desc',
       });
       setActivities(response.data);
       setTotalCount(response.pagination.totalCount);
@@ -119,7 +123,7 @@ export default function RecentActivitiesGrid({ sessionToken }: RecentActivitiesG
           {error}
         </Alert>
       )}
- 
+
       <BaseDataGrid
         rows={activities}
         columns={recentActivitiesColumns}
@@ -134,7 +138,8 @@ export default function RecentActivitiesGrid({ sessionToken }: RecentActivitiesG
         linkPath="/tests"
         linkField="id"
         disableRowSelectionOnClick
+        disablePaperWrapper={true}
       />
     </Box>
   );
-} 
+}

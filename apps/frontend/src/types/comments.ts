@@ -35,4 +35,14 @@ export interface CommentReactionRequest {
   emoji: string;
 }
 
-export type EntityType = 'Test' | 'TestSet' | 'TestRun' | 'TestResult' | 'Metric' | 'Model' | 'Prompt' | 'Behavior' | 'Category';
+export type EntityType =
+  | 'Test'
+  | 'TestSet'
+  | 'TestRun'
+  | 'TestResult'
+  | 'Metric'
+  | 'Model'
+  | 'Prompt'
+  | 'Behavior'
+  | 'Category'
+  | 'Task';

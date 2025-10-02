@@ -1,33 +1,33 @@
 export type StatsMode = 'entity' | 'related_entity';
 
 // Test Results Stats specific modes based on API documentation
-export type TestResultsStatsMode = 
-  | 'all' 
-  | 'summary' 
-  | 'metrics' 
-  | 'behavior' 
-  | 'category' 
-  | 'topic' 
-  | 'overall' 
-  | 'timeline' 
+export type TestResultsStatsMode =
+  | 'all'
+  | 'summary'
+  | 'metrics'
+  | 'behavior'
+  | 'category'
+  | 'topic'
+  | 'overall'
+  | 'timeline'
   | 'test_runs';
 
 export interface StatsOptions {
   top?: number;
   months?: number;
-  mode?: StatsMode;  // Default is 'entity' if not specified
+  mode?: StatsMode; // Default is 'entity' if not specified
 }
 
 // Comprehensive options for test results stats
 export interface TestResultsStatsOptions {
   // Data mode selection
   mode?: TestResultsStatsMode;
-  
+
   // Time range options
   months?: number;
   start_date?: string;
   end_date?: string;
-  
+
   // Test-level filters
   test_set_ids?: string[];
   behavior_ids?: string[];
@@ -36,16 +36,16 @@ export interface TestResultsStatsOptions {
   status_ids?: string[];
   test_ids?: string[];
   test_type_ids?: string[];
-  
+
   // Test run filters
   test_run_id?: string; // Legacy single run support
   test_run_ids?: string[];
-  
+
   // User-related filters
   user_ids?: string[];
   assignee_ids?: string[];
   owner_ids?: string[];
-  
+
   // Other filters
   prompt_ids?: string[];
   priority_min?: number;
@@ -87,4 +87,4 @@ export interface PaginatedResponse<T> {
     pageSize: number;
     totalPages: number;
   };
-} 
+}

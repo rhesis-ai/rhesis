@@ -21,7 +21,10 @@ export interface NavigationDividerItem {
   kind: 'divider';
 }
 
-export type NavigationItem = NavigationPageItem | NavigationHeaderItem | NavigationDividerItem;
+export type NavigationItem =
+  | NavigationPageItem
+  | NavigationHeaderItem
+  | NavigationDividerItem;
 
 export interface BrandingProps {
   title: string;
@@ -49,4 +52,4 @@ export interface LayoutProps {
   branding: BrandingProps;
   authentication: AuthenticationProps;
   theme: Theme;
-} 
+}

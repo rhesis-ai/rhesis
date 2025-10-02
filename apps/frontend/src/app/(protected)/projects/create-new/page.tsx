@@ -6,18 +6,18 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default async function CreateProjectPage() {
   const session = await auth();
-  
+
   // Debug session information
   console.log('Session user info:', session?.user);
-  
+
   if (!session?.session_token) {
     throw new Error('No session token available');
   }
-  
+
   if (!session?.user?.id) {
     throw new Error('No user ID available in session');
   }
-  
+
   // Get organization ID from session or fetch it from API
   let organizationId: UUID | undefined;
   if (session.user && 'organization_id' in session.user) {
@@ -34,13 +34,13 @@ export default async function CreateProjectPage() {
       console.error('Error fetching user data:', error);
     }
   }
-  
+
   console.log('Using organization ID:', organizationId);
-  
+
   return (
     <Box sx={{ p: 0 }}>
-      <CreateProjectClient 
-        sessionToken={session.session_token} 
+      <CreateProjectClient
+        sessionToken={session.session_token}
         userId={session.user.id as UUID}
         organizationId={organizationId}
         userName={session.user.name || ''}
@@ -48,4 +48,4 @@ export default async function CreateProjectPage() {
       />
     </Box>
   );
-} 
+}

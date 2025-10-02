@@ -15,11 +15,11 @@ export default function TestRunDrawer({
   onClose,
   sessionToken,
   selectedTestSetIds,
-  onSuccess
+  onSuccess,
 }: TestRunDrawerProps) {
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
-  const submitRef = useRef<(() => Promise<void>)>();
+  const submitRef = useRef<() => Promise<void>>();
 
   const handleSave = async () => {
     try {
@@ -52,4 +52,4 @@ export default function TestRunDrawer({
       />
     </BaseDrawer>
   );
-} 
+}

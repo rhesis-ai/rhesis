@@ -11,7 +11,10 @@ interface TestRunTagsProps {
   testRun: TestRunDetail;
 }
 
-export default function TestRunTags({ sessionToken, testRun }: TestRunTagsProps) {
+export default function TestRunTags({
+  sessionToken,
+  testRun,
+}: TestRunTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
 
   // Initialize and update tag names when testRun changes
@@ -26,10 +29,10 @@ export default function TestRunTags({ sessionToken, testRun }: TestRunTagsProps)
       <BaseTag
         value={tagNames}
         onChange={setTagNames}
-        label="Tags" 
+        label="Tags"
         placeholder="Add tags (press Enter or comma to add)"
         helperText="These tags help categorize and find this test run"
-        chipColor="primary"
+        chipColor="default"
         addOnBlur
         delimiters={[',', 'Enter']}
         size="small"
@@ -41,4 +44,4 @@ export default function TestRunTags({ sessionToken, testRun }: TestRunTagsProps)
       />
     </Box>
   );
-} 
+}

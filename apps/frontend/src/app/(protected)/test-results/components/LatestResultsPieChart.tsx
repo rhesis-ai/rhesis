@@ -1,10 +1,20 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Paper, Typography, CircularProgress, Alert, Box } from '@mui/material';
+import {
+  Paper,
+  Typography,
+  CircularProgress,
+  Alert,
+  Box,
+  useTheme,
+} from '@mui/material';
 import { BasePieChart } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestResultsStats, PassFailStats } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultsStats,
+  PassFailStats,
+} from '@/utils/api-client/interfaces/test-results';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 
 interface LatestResultsPieChartProps {
@@ -14,21 +24,25 @@ interface LatestResultsPieChartProps {
 
 const transformPassFailToChartData = (stats?: PassFailStats) => {
   if (!stats) return [{ name: 'No Data', value: 1 }];
-  
+
   const passed = stats.passed || 0;
   const failed = stats.failed || 0;
-  
+
   if (passed === 0 && failed === 0) {
     return [{ name: 'No Data', value: 1 }];
   }
-  
+
   return [
     { name: 'Passed', value: passed },
-    { name: 'Failed', value: failed }
+    { name: 'Failed', value: failed },
   ].filter(item => item.value > 0);
 };
 
-export default function LatestResultsPieChart({ sessionToken, filters }: LatestResultsPieChartProps) {
+export default function LatestResultsPieChart({
+  sessionToken,
+  filters,
+}: LatestResultsPieChartProps) {
+  const theme = useTheme();
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,14 +52,15 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
       setIsLoading(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
-      
+
       const options: TestResultsStatsOptions = {
         mode: 'summary', // Specific mode for overall stats
         months: filters.months || 6,
-        ...filters
+        ...filters,
       };
 
-      const statsData = await testResultsClient.getComprehensiveTestResultsStats(options);
+      const statsData =
+        await testResultsClient.getComprehensiveTestResultsStats(options);
       if (statsData && typeof statsData === 'object') {
         setStats(statsData);
         setError(null);
@@ -54,7 +69,8 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
         setError('Invalid summary data received');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load summary data';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to load summary data';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -69,7 +85,7 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
     const data = transformPassFailToChartData(stats?.overall_pass_rates);
     return data.map(item => ({
       ...item,
-      value: isNaN(item.value) ? 0 : item.value
+      value: isNaN(item.value) ? 0 : item.value,
     }));
   }, [stats?.overall_pass_rates]);
 
@@ -79,16 +95,40 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
 
   if (isLoading) {
     return (
-      <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper
+        elevation={theme.elevation.standard}
+        sx={{
+          p: theme.customSpacing.container.medium,
+          height: 400,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Overall Results
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: theme.customSpacing.section.small }}
+        >
           Distribution of passed and failed tests in the selected period
         </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flex: 1,
+          }}
+        >
           <CircularProgress size={24} />
-          <Typography variant="body2" sx={{ ml: 2, fontSize: '0.875rem' }}>Loading results...</Typography>
+          <Typography
+            variant="helperText"
+            sx={{ ml: theme.customSpacing.container.small }}
+          >
+            Loading results...
+          </Typography>
         </Box>
       </Paper>
     );
@@ -96,11 +136,23 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
 
   if (error) {
     return (
-      <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+      <Paper
+        elevation={theme.elevation.standard}
+        sx={{
+          p: theme.customSpacing.container.medium,
+          height: 400,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
           Overall Results
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: theme.customSpacing.section.small }}
+        >
           Error occurred
         </Typography>
         <Alert severity="error">{error}</Alert>
@@ -109,11 +161,28 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
   }
 
   return (
-    <Paper elevation={1} sx={{ p: 3, height: 400, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h6" sx={{ mb: 1 }}>
+    <Paper
+      elevation={theme.elevation.standard}
+      sx={{
+        p: theme.customSpacing.container.medium,
+        height: 400,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Typography variant="h6" sx={{ mb: theme.customSpacing.section.small }}>
         {stats?.metadata?.test_run_id ? 'Test Run Results' : 'Overall Results'}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{
+          mb: theme.customSpacing.section.small,
+          minHeight: '2.5rem', // Ensure consistent height for 2 lines
+          display: 'flex',
+          alignItems: 'flex-start',
+        }}
+      >
         Distribution of passed and failed tests in the selected period
       </Typography>
       <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -122,19 +191,24 @@ export default function LatestResultsPieChart({ sessionToken, filters }: LatestR
           data={latestRunData}
           useThemeColors={true}
           colorPalette="pie"
-          height={240}
+          height={300}
+          innerRadius={40}
+          outerRadius={90}
           showPercentage={true}
+          elevation={0}
+          preventLegendOverflow={true}
+          variant="test-results"
           legendProps={{
-            wrapperStyle: { 
-              fontSize: '10px',
-              marginTop: '15px',
-              marginBottom: '10px',
-              paddingBottom: '10px'
-            }, 
+            wrapperStyle: {
+              fontSize: theme.typography.chartTick.fontSize,
+              marginTop: theme.spacing(1.875),
+              marginBottom: theme.spacing(1.25),
+              paddingBottom: theme.spacing(1.25),
+            },
             iconSize: 8,
             layout: 'horizontal',
             verticalAlign: 'bottom',
-            align: 'center'
+            align: 'center',
           }}
         />
       </Box>

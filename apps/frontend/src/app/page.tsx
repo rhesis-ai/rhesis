@@ -1,17 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { 
-  Box, 
-  Container, 
-  AppBar, 
-  Toolbar, 
-  Typography, 
+import {
+  Box,
+  Container,
+  AppBar,
+  Toolbar,
+  Typography,
   CircularProgress,
   Paper,
   Grid,
   useMediaQuery,
-  useTheme
+  useTheme,
 } from '@mui/material';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
@@ -19,16 +19,16 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
 import { getClientApiBaseUrl } from '../utils/url-resolver';
-// Import Material UI icons
-import SpeedIcon from '@mui/icons-material/Speed';
-import SecurityIcon from '@mui/icons-material/Security';
-import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
-import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import GroupAddIcon from '@mui/icons-material/GroupAdd';
-import ControlCameraIcon from '@mui/icons-material/ControlCamera';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import TuneIcon from '@mui/icons-material/Tune';
+// Import Material UI icons - Using Outlined variants as default
+import SpeedIcon from '@mui/icons-material/SpeedOutlined';
+import SecurityIcon from '@mui/icons-material/SecurityOutlined';
+import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotionsOutlined';
+import LightbulbIcon from '@mui/icons-material/LightbulbOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
+import GroupAddIcon from '@mui/icons-material/GroupAddOutlined';
+import ControlCameraIcon from '@mui/icons-material/ControlCameraOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMoreOutlined';
+import TuneIcon from '@mui/icons-material/TuneOutlined';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -36,14 +36,16 @@ export default function LandingPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sessionExpired, setSessionExpired] = useState(false);
-  const [backendSessionValid, setBackendSessionValid] = useState<boolean | null>(null);
-  
+  const [backendSessionValid, setBackendSessionValid] = useState<
+    boolean | null
+  >(null);
+
   useEffect(() => {
     // Check if user was redirected due to session expiration or forced logout
     const urlParams = new URLSearchParams(window.location.search);
     const isSessionExpired = urlParams.get('session_expired') === 'true';
     const isForcedLogout = urlParams.get('force_logout') === 'true';
-    
+
     if (isSessionExpired || isForcedLogout) {
       setSessionExpired(true);
       setBackendSessionValid(false);
@@ -52,15 +54,20 @@ export default function LandingPage() {
       newUrl.searchParams.delete('session_expired');
       newUrl.searchParams.delete('force_logout');
       window.history.replaceState({}, '', newUrl.toString());
-      
+
       if (status === 'authenticated') {
         signOut({ redirect: false, callbackUrl: '/' });
       }
       return;
     }
-    
+
     // Validate backend session immediately when user appears authenticated
-    if (status === 'authenticated' && session && !sessionExpired && backendSessionValid === null) {
+    if (
+      status === 'authenticated' &&
+      session &&
+      !sessionExpired &&
+      backendSessionValid === null
+    ) {
       const validateBackendSession = async () => {
         try {
           const response = await fetch(
@@ -81,7 +88,7 @@ export default function LandingPage() {
           try {
             await fetch(`${getClientApiBaseUrl()}/auth/logout`, {
               method: 'GET',
-              headers: { 'Accept': 'application/json' },
+              headers: { Accept: 'application/json' },
             });
           } catch (logoutError) {
             console.warn('Backend logout failed:', logoutError);
@@ -106,27 +113,32 @@ export default function LandingPage() {
     return null;
   }
 
-  if (status === 'authenticated' && session && !sessionExpired && backendSessionValid === true) {
+  if (
+    status === 'authenticated' &&
+    session &&
+    !sessionExpired &&
+    backendSessionValid === true
+  ) {
     return (
       <Grid container component="main" sx={{ height: '100vh' }}>
-        {/* Left side - Background image and content - same as unauthenticated view */}
+        {/* Left side - Background and content */}
         <Grid
           item
           xs={false}
           sm={4}
           md={7}
           sx={{
-            background: 'linear-gradient(175deg, rgba(16,24,40,1) 0%, rgba(29,41,57,1) 49%, rgba(52,64,84,1) 80%)',
+            backgroundColor: 'primary.dark',
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          <AppBar 
-            position="relative" 
-            color="transparent" 
-            elevation={0} 
-            sx={{ 
+          <AppBar
+            position="relative"
+            color="transparent"
+            elevation={0}
+            sx={{
               background: 'transparent',
               boxShadow: 'none',
             }}
@@ -134,9 +146,9 @@ export default function LandingPage() {
             <Toolbar>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Image
-                  src="/rhesis-logo-white.png"
-                  alt="Rhesis Logo"
-                  width={180}
+                  src="/logos/rhesis-logo-platypus.png"
+                  alt="Rhesis AI Logo"
+                  width={200}
                   height={0}
                   style={{ height: 'auto' }}
                   priority
@@ -144,7 +156,7 @@ export default function LandingPage() {
               </Box>
             </Toolbar>
           </AppBar>
-          
+
           {/* Content overlay on the background - same as unauthenticated view */}
           <Box
             sx={{
@@ -157,40 +169,86 @@ export default function LandingPage() {
             }}
           >
             {/* Feature points - same as unauthenticated view */}
-            <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box
+              sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}
+            >
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <CheckCircleIcon sx={{ color: 'white' }} /> Your expertise, in every test.
+                <Typography
+                  variant="h6"
+                  color="common.white"
+                  fontWeight="bold"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                >
+                  <CheckCircleIcon sx={{ color: 'common.white' }} /> Your
+                  expertise, in every test.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                  Transform business knowledge and expert input directly into powerful, actionable test cases.
+                <Typography
+                  variant="body2"
+                  color="common.white"
+                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+                >
+                  Transform business knowledge and expert input directly into
+                  powerful, actionable test cases.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <GroupAddIcon sx={{ color: 'white' }} /> Collaboration built in.
+                <Typography
+                  variant="h6"
+                  color="common.white"
+                  fontWeight="bold"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                >
+                  <GroupAddIcon sx={{ color: 'common.white' }} /> Collaboration
+                  built in.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                  Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
+                <Typography
+                  variant="body2"
+                  color="common.white"
+                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+                >
+                  Bring subject matter experts into the loop — seamlessly
+                  contribute, review, and refine tests together.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ControlCameraIcon sx={{ color: 'white' }} /> End-to-end control.
+                <Typography
+                  variant="h6"
+                  color="common.white"
+                  fontWeight="bold"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                >
+                  <ControlCameraIcon sx={{ color: 'common.white' }} />{' '}
+                  End-to-end control.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                  From test generation to execution to results, manage the entire validation process in one place.
+                <Typography
+                  variant="body2"
+                  color="common.white"
+                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+                >
+                  From test generation to execution to results, manage the
+                  entire validation process in one place.
                 </Typography>
               </Box>
 
               <Box>
-                <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <TuneIcon sx={{ color: 'white' }} /> Scale your validation power.
+                <Typography
+                  variant="h6"
+                  color="common.white"
+                  fontWeight="bold"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                >
+                  <TuneIcon sx={{ color: 'common.white' }} /> Scale your
+                  validation power.
                 </Typography>
-                <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                  Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
+                <Typography
+                  variant="body2"
+                  color="common.white"
+                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+                >
+                  Automate, adapt, and expand test coverage effortlessly — no
+                  matter how fast your use cases evolve.
                 </Typography>
               </Box>
             </Box>
@@ -213,9 +271,9 @@ export default function LandingPage() {
             {isMobile && (
               <Box sx={{ mb: 4 }}>
                 <Image
-                  src="/rhesis-logo.png"
-                  alt="Rhesis Logo"
-                  width={150}
+                  src="/logos/rhesis-logo-platypus.png"
+                  alt="Rhesis AI Logo"
+                  width={160}
                   height={0}
                   style={{ height: 'auto' }}
                   priority
@@ -223,20 +281,26 @@ export default function LandingPage() {
               </Box>
             )}
 
-            <Box sx={{ 
-              width: '100%', 
-              maxWidth: 400, 
-              textAlign: 'center',
-              p: 3,
-              borderRadius: 2,
-              boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-              background: 'rgba(255, 255, 255, 0.9)',
-            }}>
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: 400,
+                textAlign: 'center',
+                p: 3,
+                borderRadius: theme => theme.shape.borderRadius * 0.5,
+                boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+                background: theme =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(0, 0, 0, 0.8)'
+                    : 'rgba(255, 255, 255, 0.9)',
+              }}
+            >
               <Typography variant="h5" gutterBottom>
                 Welcome back, {session.user?.name || 'User'}!
               </Typography>
               <Typography variant="body1" gutterBottom>
-                You&apos;re already logged in. Redirecting you to the dashboard...
+                You&apos;re already logged in. Redirecting you to the
+                dashboard...
               </Typography>
               <CircularProgress sx={{ mt: 2 }} />
             </Box>
@@ -248,24 +312,24 @@ export default function LandingPage() {
 
   return (
     <Grid container component="main" sx={{ height: '100vh' }}>
-      {/* Left side - Background image and content */}
+      {/* Left side - Background and content */}
       <Grid
         item
         xs={false}
         sm={4}
         md={7}
         sx={{
-          background: 'linear-gradient(175deg, rgba(16,24,40,1) 0%, rgba(29,41,57,1) 49%, rgba(52,64,84,1) 80%)',
+          backgroundColor: 'primary.dark',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        <AppBar 
-          position="relative" 
-          color="transparent" 
-          elevation={0} 
-          sx={{ 
+        <AppBar
+          position="relative"
+          color="transparent"
+          elevation={0}
+          sx={{
             background: 'transparent',
             boxShadow: 'none',
           }}
@@ -273,9 +337,9 @@ export default function LandingPage() {
           <Toolbar>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Image
-                src="/rhesis-logo-white.png"
-                alt="Rhesis Logo"
-                width={180}
+                src="/logos/rhesis-logo-platypus.png"
+                alt="Rhesis AI Logo"
+                width={200}
                 height={0}
                 style={{ height: 'auto' }}
                 priority
@@ -283,7 +347,7 @@ export default function LandingPage() {
             </Box>
           </Toolbar>
         </AppBar>
-        
+
         {/* Content overlay on the background */}
         <Box
           sx={{
@@ -295,42 +359,85 @@ export default function LandingPage() {
             flex: 1,
           }}
         >
-
           {/* Feature points */}
           <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <CheckCircleIcon sx={{ color: 'white' }} /> Your expertise, in every test.
+              <Typography
+                variant="h6"
+                color="common.white"
+                fontWeight="bold"
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
+                <CheckCircleIcon sx={{ color: 'common.white' }} /> Your
+                expertise, in every test.
               </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                Transform business knowledge and expert input directly into powerful, actionable test cases.
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <GroupAddIcon sx={{ color: 'white' }} /> Collaboration built in.
-              </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                Bring subject matter experts into the loop — seamlessly contribute, review, and refine tests together.
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <ControlCameraIcon sx={{ color: 'white' }} /> End-to-end control.
-              </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                From test generation to execution to results, manage the entire validation process in one place.
+              <Typography
+                variant="body2"
+                color="common.white"
+                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+              >
+                Transform business knowledge and expert input directly into
+                powerful, actionable test cases.
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="h6" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <TuneIcon sx={{ color: 'white' }} /> Scale your validation power.
+              <Typography
+                variant="h6"
+                color="common.white"
+                fontWeight="bold"
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
+                <GroupAddIcon sx={{ color: 'common.white' }} /> Collaboration
+                built in.
               </Typography>
-              <Typography variant="body2" color="white" sx={{ maxWidth: '90%', opacity: 0.9, ml: 4 }}>
-                Automate, adapt, and expand test coverage effortlessly — no matter how fast your use cases evolve.
+              <Typography
+                variant="body2"
+                color="common.white"
+                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+              >
+                Bring subject matter experts into the loop — seamlessly
+                contribute, review, and refine tests together.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography
+                variant="h6"
+                color="common.white"
+                fontWeight="bold"
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
+                <ControlCameraIcon sx={{ color: 'common.white' }} /> End-to-end
+                control.
+              </Typography>
+              <Typography
+                variant="body2"
+                color="common.white"
+                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+              >
+                From test generation to execution to results, manage the entire
+                validation process in one place.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography
+                variant="h6"
+                color="common.white"
+                fontWeight="bold"
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
+                <TuneIcon sx={{ color: 'common.white' }} /> Scale your
+                validation power.
+              </Typography>
+              <Typography
+                variant="body2"
+                color="common.white"
+                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
+              >
+                Automate, adapt, and expand test coverage effortlessly — no
+                matter how fast your use cases evolve.
               </Typography>
             </Box>
           </Box>
@@ -353,9 +460,9 @@ export default function LandingPage() {
           {isMobile && (
             <Box sx={{ mb: 4 }}>
               <Image
-                src="/rhesis-logo.png"
-                alt="Rhesis Logo"
-                width={150}
+                src="/logos/rhesis-logo-platypus.png"
+                alt="Rhesis AI Logo"
+                width={160}
                 height={0}
                 style={{ height: 'auto' }}
                 priority
@@ -370,4 +477,4 @@ export default function LandingPage() {
       </Grid>
     </Grid>
   );
-} 
+}
