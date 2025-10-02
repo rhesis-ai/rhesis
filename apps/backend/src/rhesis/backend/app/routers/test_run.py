@@ -84,6 +84,7 @@ def read_test_runs(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all test runs with their related objects"""
     test_runs = crud.get_test_runs(

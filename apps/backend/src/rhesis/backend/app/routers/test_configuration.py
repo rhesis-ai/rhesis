@@ -72,6 +72,7 @@ def read_test_configurations(
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get all test configurations with their related objects"""
     test_configurations = crud.get_test_configurations(
