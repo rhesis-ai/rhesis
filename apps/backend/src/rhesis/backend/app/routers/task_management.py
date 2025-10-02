@@ -78,8 +78,10 @@ def list_tasks(
     response: Response = None):
     """List tasks with filtering, sorting, and comment counts"""
     try:
+        organization_id, user_id = tenant_context
         return crud.get_tasks(
-            db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter
+            db=db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order, filter=filter,
+            organization_id=organization_id, user_id=user_id
         )
     except Exception as e:
         logger.error(f"Error listing tasks: {e}")
@@ -87,9 +89,13 @@ def list_tasks(
 
 
 @router.get("/{task_id}", response_model=TaskDetailSchema)
-def get_task(task_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
+def get_task(
+    task_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context)):
     """Get a single task by ID"""
-    task = crud.get_task(db=db, task_id=task_id)
+    organization_id, user_id = tenant_context
+    task = crud.get_task(db=db, task_id=task_id, organization_id=organization_id, user_id=user_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
@@ -109,6 +115,7 @@ def get_tasks_by_entity(
     response: Response = None):
     """Get tasks by entity type and entity ID"""
     try:
+        organization_id, user_id = tenant_context
         # Create a filter expression for entity_type and entity_id
         filter_expr = f"entity_type eq '{entity_type}' and entity_id eq {entity_id}"
 
@@ -118,7 +125,9 @@ def get_tasks_by_entity(
             limit=limit,
             sort_by=sort_by,
             sort_order=sort_order,
-            filter=filter_expr)
+            filter=filter_expr,
+            organization_id=organization_id,
+            user_id=user_id)
     except Exception as e:
         logger.error(f"Error getting tasks by entity {entity_type}/{entity_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -132,8 +141,11 @@ def update_task(
     current_user=Depends(require_current_user_or_token)):
     """Update a task"""
     try:
+        organization_id = str(current_user.organization_id)
+        user_id = str(current_user.id)
+        
         # Get the current task to check for assignee changes
-        current_task = crud.get_task(db=db, task_id=task_id)
+        current_task = crud.get_task(db=db, task_id=task_id, organization_id=organization_id, user_id=user_id)
         if current_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
@@ -145,7 +157,7 @@ def update_task(
             task.assignee_id is not None and task.assignee_id != current_task.assignee_id
         )
 
-        updated_task = crud.update_task(db=db, task_id=task_id, task=task)
+        updated_task = crud.update_task(db=db, task_id=task_id, task=task, organization_id=organization_id)
         if updated_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
@@ -168,10 +180,14 @@ def update_task(
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: uuid.UUID, db: Session = Depends(get_tenant_db_session)):
+def delete_task(
+    task_id: uuid.UUID, 
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context)):
     """Delete a task"""
     try:
-        success = crud.delete_task(db=db, task_id=task_id)
+        organization_id, user_id = tenant_context
+        success = crud.delete_task(db=db, task_id=task_id, organization_id=organization_id, user_id=user_id)
         if not success:
             raise HTTPException(status_code=404, detail="Task not found")
         return {"message": "Task deleted successfully"}
