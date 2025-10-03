@@ -621,7 +621,6 @@ def _create_test_configuration(
         organization_id=organization_id, 
         user_id=user_id
     )
-    print(f"I got db_test_config: {db_test_config}")
     # Access the ID immediately while we're still in the same transaction context
     # This avoids any potential session expiration or RLS context issues
     test_config_id = str(db_test_config.id)
