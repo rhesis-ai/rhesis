@@ -7,7 +7,7 @@ metadata:
     app: rhesis-worker
     component: worker
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       app: rhesis-worker
@@ -27,7 +27,7 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "1.5Gi"
+            memory: "2.5Gi"
             cpu: "250m"
           limits:
             memory: "4Gi"
