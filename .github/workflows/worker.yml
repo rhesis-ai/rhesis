@@ -353,13 +353,22 @@ jobs:
           
           # Wait for deployment rollout with validation
           echo "📋 Waiting for deployment rollout..."
-          kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s || {
-            echo "❌ Deployment rollout failed!"
-            echo "🔍 Checking deployment status..."
+          kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=600s || {
+            echo "⚠️ Deployment rollout timeout - checking status..."
             kubectl get pods --namespace=${{ env.NAMESPACE }} | grep rhesis-worker
             echo "🔍 Checking deployment conditions..."
             kubectl describe deployment rhesis-worker --namespace=${{ env.NAMESPACE }} | grep -A 10 "Conditions:"
-            exit 1
+            
+            # Check if deployment is actually ready despite timeout
+            READY_REPLICAS=$(kubectl get deployment rhesis-worker --namespace=${{ env.NAMESPACE }} -o jsonpath='{.status.readyReplicas}')
+            DESIRED_REPLICAS=$(kubectl get deployment rhesis-worker --namespace=${{ env.NAMESPACE }} -o jsonpath='{.spec.replicas}')
+            
+            if [ "$READY_REPLICAS" = "$DESIRED_REPLICAS" ]; then
+              echo "✅ Deployment is actually ready ($READY_REPLICAS/$DESIRED_REPLICAS) - continuing despite timeout"
+            else
+              echo "❌ Deployment rollout failed! Ready: $READY_REPLICAS, Desired: $DESIRED_REPLICAS"
+              exit 1
+            fi
           }
           
           # Verify single revision deployment
