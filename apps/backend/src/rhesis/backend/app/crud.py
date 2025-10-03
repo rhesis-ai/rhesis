@@ -673,9 +673,9 @@ def get_test_configurations(
 
 
 def create_test_configuration(
-    db: Session, test_configuration: schemas.TestConfigurationCreate
+    db: Session, test_configuration: schemas.TestConfigurationCreate, organization_id: str = None, user_id: str = None
 ) -> models.TestConfiguration:
-    return create_item(db, models.TestConfiguration, test_configuration)
+    return create_item(db, models.TestConfiguration, test_configuration, organization_id=organization_id, user_id=user_id)
 
 
 def update_test_configuration(

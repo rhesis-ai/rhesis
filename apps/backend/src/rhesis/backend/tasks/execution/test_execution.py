@@ -303,7 +303,7 @@ def execute_test(
         input_data = {"input": prompt_content}
 
         result = endpoint_service.invoke_endpoint(
-            db=db, endpoint_id=endpoint_id, input_data=input_data
+            db=db, endpoint_id=endpoint_id, input_data=input_data, organization_id=organization_id
         )
 
         # Calculate execution time
