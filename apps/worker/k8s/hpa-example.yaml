@@ -1,0 +1,42 @@
+# Example HPA configuration that should be created by the GitHub Actions workflow
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rhesis-worker-hpa
+  namespace: NAMESPACE_PLACEHOLDER
+  labels:
+    app: rhesis-worker
+    component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rhesis-worker
+  minReplicas: MIN_REPLICAS_PLACEHOLDER
+  maxReplicas: MAX_REPLICAS_PLACEHOLDER
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
