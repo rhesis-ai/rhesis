@@ -264,17 +264,28 @@ jobs:
           echo "  - Memory limit: 4Gi (generous headroom for spikes and safety)"
           echo "  - Celery concurrency: 2 (optimized for minimal memory usage and debugging)"
           
-          # Set environment-specific replica counts for initial deployment
+          # Set environment-specific replica counts for clean deployment
+          echo "🗑️ Ensuring clean deployment state..."
+          
+          # Always scale to 0 first to clean up any mixed revisions
+          kubectl scale deployment rhesis-worker --replicas=0 -n ${{ env.NAMESPACE }} --timeout=120s || echo "⚠️ Scale down failed, continuing..."
+          
+          # Wait for pods to terminate
+          echo "⏳ Waiting for all pods to terminate..."
+          kubectl wait --for=delete pods -l app=rhesis-worker,environment=${{ env.ENVIRONMENT }} --namespace=${{ env.NAMESPACE }} --timeout=120s || echo "⚠️ Wait timeout, continuing..."
+          
+          # Set environment-specific replica counts
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             sed -i 's/replicas: 4/replicas: 16/g' deployment.yaml
             echo "  ✅ Production: Deploying with 16 initial replicas (32 total workers with concurrency=2)"
           elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
-            sed -i 's/replicas: 4/replicas: 12/g' deployment.yaml
-            echo "  ✅ Staging: Deploying with 12 initial replicas (24 total workers with concurrency=2)"
-          else
             sed -i 's/replicas: 4/replicas: 8/g' deployment.yaml
-            echo "  ✅ Development: Deploying with 8 initial replicas (16 total workers with concurrency=2)"
+            echo "  ✅ Staging: Deploying with 8 initial replicas (16 total workers with concurrency=2)"
+          else
+            echo "  ✅ Development: Deploying with 4 initial replicas (8 total workers with concurrency=2)"
           fi
+          
+          echo "🧹 Clean deployment preparation completed"
           
           # Always force pod restart by updating timestamp annotation
           sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
@@ -288,17 +299,17 @@ jobs:
             NAMESPACE_NAME="rhesis-worker"
             echo "  - Production: Min 16, Max 32 replicas (32-64 total workers)"
           elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
-            MIN_REPLICAS="12"
-            MAX_REPLICAS="24"
-            SERVICE_NAME="rhesis-worker"
-            NAMESPACE_NAME="rhesis-worker-${{ env.ENVIRONMENT }}"
-            echo "  - Staging: Min 12, Max 24 replicas (24-48 total workers)"
-          else
             MIN_REPLICAS="8"
             MAX_REPLICAS="16"
             SERVICE_NAME="rhesis-worker"
             NAMESPACE_NAME="rhesis-worker-${{ env.ENVIRONMENT }}"
-            echo "  - Development: Min 8, Max 16 replicas (16-32 total workers)"
+            echo "  - Staging: Min 8, Max 16 replicas (16-32 total workers)"
+          else
+            MIN_REPLICAS="4"
+            MAX_REPLICAS="8"
+            SERVICE_NAME="rhesis-worker"
+            NAMESPACE_NAME="rhesis-worker-${{ env.ENVIRONMENT }}"
+            echo "  - Development: Min 4, Max 8 replicas (8-16 total workers)"
           fi
           
           # Generate HPA with environment-specific values
@@ -340,14 +351,46 @@ jobs:
           # Apply manifests
           kubectl apply -k . --namespace=${{ env.NAMESPACE }}
           
+          # Wait for deployment rollout with validation
+          echo "📋 Waiting for deployment rollout..."
+          kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s || {
+            echo "❌ Deployment rollout failed!"
+            echo "🔍 Checking deployment status..."
+            kubectl get pods --namespace=${{ env.NAMESPACE }} | grep rhesis-worker
+            echo "🔍 Checking deployment conditions..."
+            kubectl describe deployment rhesis-worker --namespace=${{ env.NAMESPACE }} | grep -A 10 "Conditions:"
+            exit 1
+          }
+          
+          # Verify single revision deployment
+          echo "✅ Validating clean deployment..."
+          REVISION_COUNT=$(kubectl rollout history deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} | grep -c "deployment.apps/rhesis-worker")
+          
+          # Check for mixed pods (different template hashes)
+          TEMPLATE_HASHES=$(kubectl get pods --namespace=${{ env.NAMESPACE }} -l app=rhesis-worker -o jsonpath='{range .items[*]}{.metadata.labels.pod-template-hash}{"\n"}{end}' | sort | uniq | wc -l)
+          
+          if [ "$TEMPLATE_HASHES" -gt "1" ]; then
+            echo "⚠️ Warning: Multiple template hashes detected - this indicates mixed revisions"
+            kubectl get pods --namespace=${{ env.NAMESPACE }} -l app=rhesis-worker -o custom-columns="NAME:.metadata.name,HASH:.metadata.labels.pod-template-hash" | sort -k2
+
+            echo "🔧 Force rolling update to clean mixed revisions..."
+            kubectl rollout restart deployment/rhesis-worker --namespace=${{ env.NAMESPACE }}
+            
+            echo "⏳ Waiting for clean rollout..."
+            kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s || {
+              echo "❌ Clean rollout failed - manual intervention needed"
+              exit 1
+            }
+          else
+            echo "✅ Clean deployment verified - single template hash"
+          fi
+          
           # Clean up any old failed pods to ensure clean deployment
-          echo "Cleaning up old/failed pods..."
+          echo "🧹 Cleaning up any remaining old/failed pods..."
           kubectl delete pods --field-selector=status.phase!=Running --namespace=${{ env.NAMESPACE }} --ignore-not-found=true || true
           
-          # Wait for deployment to be ready
-          echo "Waiting for deployment to be ready..."
-          if ! kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s; then
-            echo "❌ Deployment failed to become ready. Debugging information:"
+          # Display final deployment status
+          echo "📊 Final deployment validation..."
             echo ""
             echo "=== Pod Status ==="
             kubectl get pods --namespace=${{ env.NAMESPACE }} -o wide
@@ -383,9 +426,9 @@ jobs:
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             echo "  ✅ Autoscaling: Enabled with HPA (16-32 pods, 32-64 total workers)"
           elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
-            echo "  ✅ Autoscaling: Enabled with HPA (12-24 pods, 24-48 total workers)"
-          else
             echo "  ✅ Autoscaling: Enabled with HPA (8-16 pods, 16-32 total workers)"
+          else
+            echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods, 8-16 total workers)"
           fi
           echo "  ✅ Cleanup: Old pods removed"
           
