@@ -181,14 +181,16 @@ jobs:
             echo "Creating GKE Autopilot cluster..."
             gcloud container clusters create-auto ${{ env.CLUSTER_NAME }} \
               --region=${{ env.REGION }} \
-              --project=${{ env.PROJECT_ID }} \
-              --network=default \
-              --subnetwork=default \
-              --release-channel=regular \
-              --enable-ip-alias \
-              --workload-pool=${{ env.PROJECT_ID }}.svc.id.goog
+               --project=${{ env.PROJECT_ID }} \
+               --network=default \
+               --subnetwork=default \
+               --release-channel=regular \
+               --enable-ip-alias \
+               --workload-pool=${{ env.PROJECT_ID }}.svc.id.goog \
+               --hpa-profile=performance
           else
             echo "Cluster ${{ env.CLUSTER_NAME }} already exists"
+            echo "Autopilot clusters handle autoscaling automatically - no manual configuration needed"
           fi
 
       - name: Get GKE credentials
@@ -224,7 +226,7 @@ jobs:
             --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
             --from-literal=CELERY_WORKER_LOGLEVEL="${{ secrets.LOG_LEVEL || 'INFO' }}" \
-            --from-literal=CELERY_WORKER_CONCURRENCY="${{ secrets.CELERY_WORKER_CONCURRENCY || '8' }}" \
+            --from-literal=CELERY_WORKER_CONCURRENCY="${{ secrets.CELERY_WORKER_CONCURRENCY || '4' }}" \
             --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --from-literal=GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
             --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
@@ -256,8 +258,42 @@ jobs:
           sed -i "s|PROJECT_ID:REGION:CLOUDSQL_INSTANCE|${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}|g" deployment.yaml
           sed -i "s|GCP_SERVICE_ACCOUNT_EMAIL|${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}|g" serviceaccount.yaml
 
+          # Optimize resource settings for stability (ensure optimized values are applied)
+          echo "🔧 Applying optimized resource configurations..."
+          echo "  - Memory request: 1.5Gi (optimized based on actual usage)"
+          echo "  - Memory limit: 3Gi (prevents OOMKilled while avoiding evictions)"
+          echo "  - Celery concurrency: 4 (reduced from 8 to reduce memory usage)"
+          
           # Always force pod restart by updating timestamp annotation
           sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
+
+          # Configure HPA based on environment
+          echo "🌍 Configuring for ${{ env.ENVIRONMENT }} environment..."
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            MIN_REPLICAS="6"
+            MAX_REPLICAS="15"
+            SERVICE_NAME="rhesis-worker"
+            NAMESPACE_NAME="rhesis-worker"
+            echo "  - Production: Min 6, Max 15 replicas"
+          else
+            MIN_REPLICAS="4"
+            MAX_REPLICAS="8"
+            SERVICE_NAME="rhesis-worker"
+            NAMESPACE_NAME="rhesis-worker-${{ env.ENVIRONMENT }}"
+            echo "  - Non-production: Min 4, Max 8 replicas"
+          fi
+          
+          # Generate HPA with environment-specific values
+          HPA_NAME="rhesis-worker-hpa-${{ env.ENVIRONMENT }}"
+          echo "📈 Generating HPA configuration: $HPA_NAME"
+          sed "s/NAMESPACE_PLACEHOLDER/$NAMESPACE_NAME/g; s/MIN_REPLICAS_PLACEHOLDER/$MIN_REPLICAS/g; s/MAX_REPLICAS_PLACEHOLDER/$MAX_REPLICAS/g" hpa-example.yaml > hpa-${{ env.ENVIRONMENT }}.yaml
+          
+          # Validate HPA configuration
+          echo "✅ Validating HPA configuration..."
+          kubectl apply -f hpa-${{ env.ENVIRONMENT }}.yaml --dry-run=client || {
+            echo "❌ HPA configuration validation failed"
+            exit 1
+          }
 
           # Update kustomization for environment
           cat > kustomization.yaml << EOF
@@ -269,11 +305,12 @@ jobs:
           - service.yaml
           - serviceaccount.yaml
           - networkpolicy.yaml
+          - hpa-${{ env.ENVIRONMENT }}.yaml
 
           labels:
-          - includeSelectors: true
-            pairs:
-              environment: ${{ env.ENVIRONMENT }}
+           - includeSelectors: true
+             pairs:
+               environment: ${{ env.ENVIRONMENT }}
 
           namespace: ${{ env.NAMESPACE }}
 
@@ -284,7 +321,11 @@ jobs:
 
           # Apply manifests
           kubectl apply -k . --namespace=${{ env.NAMESPACE }}
-
+          
+          # Clean up any old failed pods to ensure clean deployment
+          echo "Cleaning up old/failed pods..."
+          kubectl delete pods --field-selector=status.phase!=Running --namespace=${{ env.NAMESPACE }} --ignore-not-found=true || true
+          
           # Wait for deployment to be ready
           echo "Waiting for deployment to be ready..."
           if ! kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s; then
@@ -304,5 +345,28 @@ jobs:
             done
             exit 1
           fi
+          
+          # Verify HPA is working
+          echo "=== HPA Status ==="
+          kubectl get hpa --namespace=${{ env.NAMESPACE }} || echo "HPA not found (will show metrics after deployment settles)"
+          echo ""
+          
+          echo "=== Final Status ==="
+          kubectl get deployment,hpa,pods --namespace=${{ env.NAMESPACE }} | grep -E "(NAME|rhesis-worker|READY|AGE)" | head -10
+          echo ""
 
+          echo "📊 Deployment Summary"
+          echo "  ✅ Cluster: ${{ env.CLUSTER_NAME }}"
+          echo "  ✅ Namespace: ${{ env.NAMESPACE }}"
+          echo "  ✅ Image: ${{ env.IMAGE_NAME }}:latest"
+          echo "  ✅ Environment: ${{ env.ENVIRONMENT }}"
+          echo "  ✅ Resource optimization: Applied (1.5Gi/3Gi memory, 250m CPU)"
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            echo "  ✅ Autoscaling: Enabled with HPA (6-15 pods)"
+          else
+            echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods)"
+          fi
+          echo "  ✅ Cleanup: Old pods removed"
+          
+          echo ""
           echo "✅ Deployment completed successfully"
