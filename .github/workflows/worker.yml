@@ -260,8 +260,8 @@ jobs:
 
           # Optimize resource settings for stability (ensure optimized values are applied)
           echo "🔧 Applying optimized resource configurations..."
-          echo "  - Memory request: 2.5Gi (safe buffer above ~950MB actual usage)"
-          echo "  - Memory limit: 4Gi (generous headroom for spikes and safety)"
+          echo "  - Memory request: 4Gi (prevents HPA auto-scaling due to memory pressure)"
+          echo "  - Memory limit: 6Gi (generous headroom for spikes and safety)"
           echo "  - Celery concurrency: 2 (optimized for minimal memory usage and debugging)"
           
           # Set environment-specific replica counts for clean deployment
@@ -421,7 +421,7 @@ jobs:
           echo "  ✅ Namespace: ${{ env.NAMESPACE }}"
           echo "  ✅ Image: ${{ env.IMAGE_NAME }}:latest"
           echo "  ✅ Environment: ${{ env.ENVIRONMENT }}"
-          echo "  ✅ Resource optimization: Applied (2.5Gi/4Gi memory, 250m CPU)"
+          echo "  ✅ Resource optimization: Applied (4Gi/6Gi memory, 250m CPU)"
           echo "  ✅ Concurrency: Optimized 2 workers per pod (minimal memory usage)"
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             echo "  ✅ Autoscaling: Enabled with HPA (16-32 pods, 32-64 total workers)"
