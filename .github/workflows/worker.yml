@@ -260,27 +260,45 @@ jobs:
 
           # Optimize resource settings for stability (ensure optimized values are applied)
           echo "🔧 Applying optimized resource configurations..."
-          echo "  - Memory request: 1.5Gi (optimized based on actual usage)"
-          echo "  - Memory limit: 3Gi (prevents OOMKilled while avoiding evictions)"
-          echo "  - Celery concurrency: 4 (reduced from 8 to reduce memory usage)"
+          echo "  - Memory request: 2.5Gi (safe buffer above ~950MB actual usage)"
+          echo "  - Memory limit: 4Gi (generous headroom for spikes and safety)"
+          echo "  - Celery concurrency: 2 (optimized for minimal memory usage and debugging)"
+          
+          # Set environment-specific replica counts for initial deployment
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            sed -i 's/replicas: 4/replicas: 16/g' deployment.yaml
+            echo "  ✅ Production: Deploying with 16 initial replicas (32 total workers with concurrency=2)"
+          elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
+            sed -i 's/replicas: 4/replicas: 12/g' deployment.yaml
+            echo "  ✅ Staging: Deploying with 12 initial replicas (24 total workers with concurrency=2)"
+          else
+            sed -i 's/replicas: 4/replicas: 8/g' deployment.yaml
+            echo "  ✅ Development: Deploying with 8 initial replicas (16 total workers with concurrency=2)"
+          fi
           
           # Always force pod restart by updating timestamp annotation
           sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
 
-          # Configure HPA based on environment
-          echo "🌍 Configuring for ${{ env.ENVIRONMENT }} environment..."
+          # Configure HPA based on environment with optimized concurrency=2
+          echo "🌍 Configuring for ${{ env.ENVIRONMENT }} environment (concurrency=2 optimized)..."
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            MIN_REPLICAS="6"
-            MAX_REPLICAS="15"
+            MIN_REPLICAS="16"
+            MAX_REPLICAS="32"
             SERVICE_NAME="rhesis-worker"
             NAMESPACE_NAME="rhesis-worker"
-            echo "  - Production: Min 6, Max 15 replicas"
-          else
-            MIN_REPLICAS="4"
-            MAX_REPLICAS="8"
+            echo "  - Production: Min 16, Max 32 replicas (32-64 total workers)"
+          elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
+            MIN_REPLICAS="12"
+            MAX_REPLICAS="24"
             SERVICE_NAME="rhesis-worker"
             NAMESPACE_NAME="rhesis-worker-${{ env.ENVIRONMENT }}"
-            echo "  - Non-production: Min 4, Max 8 replicas"
+            echo "  - Staging: Min 12, Max 24 replicas (24-48 total workers)"
+          else
+            MIN_REPLICAS="8"
+            MAX_REPLICAS="16"
+            SERVICE_NAME="rhesis-worker"
+            NAMESPACE_NAME="rhesis-worker-${{ env.ENVIRONMENT }}"
+            echo "  - Development: Min 8, Max 16 replicas (16-32 total workers)"
           fi
           
           # Generate HPA with environment-specific values
@@ -360,11 +378,14 @@ jobs:
           echo "  ✅ Namespace: ${{ env.NAMESPACE }}"
           echo "  ✅ Image: ${{ env.IMAGE_NAME }}:latest"
           echo "  ✅ Environment: ${{ env.ENVIRONMENT }}"
-          echo "  ✅ Resource optimization: Applied (1.5Gi/3Gi memory, 250m CPU)"
+          echo "  ✅ Resource optimization: Applied (2.5Gi/4Gi memory, 250m CPU)"
+          echo "  ✅ Concurrency: Optimized 2 workers per pod (minimal memory usage)"
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            echo "  ✅ Autoscaling: Enabled with HPA (6-15 pods)"
+            echo "  ✅ Autoscaling: Enabled with HPA (16-32 pods, 32-64 total workers)"
+          elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
+            echo "  ✅ Autoscaling: Enabled with HPA (12-24 pods, 24-48 total workers)"
           else
-            echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods)"
+            echo "  ✅ Autoscaling: Enabled with HPA (8-16 pods, 16-32 total workers)"
           fi
           echo "  ✅ Cleanup: Old pods removed"
           

@@ -27,10 +27,10 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "1.5Gi"
+            memory: "2.5Gi"
             cpu: "250m"
           limits:
-            memory: "3Gi"
+            memory: "4Gi"
             cpu: "1000m"
         env:
         - name: BROKER_URL
