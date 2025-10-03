@@ -190,9 +190,9 @@ spec:
             path: /health/basic
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 60
+          initialDelaySeconds: 120
           periodSeconds: 30
-          timeoutSeconds: 15
+          timeoutSeconds: 30
           failureThreshold: 10
           successThreshold: 1
       
