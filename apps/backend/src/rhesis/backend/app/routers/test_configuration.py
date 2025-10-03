@@ -186,11 +186,13 @@ def delete_test_configuration(
 def execute_test_configuration_endpoint(
     test_configuration_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Execute a test configuration by running its test set.
     """
+    organization_id, user_id = tenant_context
     # Verify the test configuration exists
     db_test_configuration = crud.get_test_configuration(
         db,
