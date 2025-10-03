@@ -42,7 +42,7 @@ def count_test_sets(self):
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
             # Get all test sets with the proper tenant context
-            test_sets = crud.get_test_sets(db)
+            test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
             total_count = len(test_sets)
             self.log_with_context("info", "Total test sets counted", total_count=total_count)
 

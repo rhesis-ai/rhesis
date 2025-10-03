@@ -87,7 +87,7 @@ def get_test_set_count(self):
     # Use tenant-aware database session with explicit organization_id and user_id
     with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
         # Use the crud utility which will respect the tenant context
-        test_sets = crud.get_test_sets(db)
+        test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
         count = len(test_sets)
 
     self.log_with_context("info", "Test set count retrieved", test_set_count=count)
@@ -157,7 +157,7 @@ def manual_db_example(self):
     # Use tenant-aware database session with explicit organization_id and user_id
     with get_db_with_tenant_variables(org_id or '', user_id or '') as db:
         # The session already has tenant context set
-        test_sets = crud.get_test_sets(db)
+        test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
         results["test_set_count"] = len(test_sets)
 
     self.log_with_context(

@@ -49,11 +49,22 @@ def update_test_run_start(
         }
     )
 
-    crud.update_test_run(session, test_run.id, crud.schemas.TestRunUpdate(attributes=attributes))
+    crud.update_test_run(
+        session,
+        test_run.id,
+        crud.schemas.TestRunUpdate(attributes=attributes),
+        organization_id=str(test_run.organization_id) if test_run.organization_id else None,
+        user_id=str(test_run.user_id) if test_run.user_id else None,
+    )
 
 
 def store_test_result(
-    session: Session, test_run_id: str, test_id: str, result: Dict[str, Any], organization_id: str = None, user_id: str = None
+    session: Session,
+    test_run_id: str,
+    test_id: str,
+    result: Dict[str, Any],
+    organization_id: str = None,
+    user_id: str = None,
 ) -> None:
     """
     Store an individual test result and update test run progress.
@@ -75,7 +86,12 @@ def store_test_result(
 
         # Update test run progress (this updates completed_tests/failed_tests attributes)
         increment_test_run_progress(
-            db=session, test_run_id=test_run_id, test_id=test_id, was_successful=was_successful, organization_id=organization_id, user_id=user_id
+            db=session,
+            test_run_id=test_run_id,
+            test_id=test_id,
+            was_successful=was_successful,
+            organization_id=organization_id,
+            user_id=user_id,
         )
 
         logger.debug(f"Updated test run progress for test {test_id}, successful: {was_successful}")
@@ -137,10 +153,9 @@ def trigger_results_collection(
 
     # Create the collect_results task
     # Note: For chord callbacks, results are passed automatically by Celery
-    # For manual calls, we need to pass them explicitly
+    # For manual calls, we need to pass them explicitly as the first parameter
     task = collect_results.s(
-        results,  # This will be the first parameter (results)
-        test_run_id,  # This will be the second parameter (test_run_id)
+        results,  # This will be the first parameter (results) - required for manual calls
     ).set(
         # Pass context in headers so BaseTask.before_start can pick them up
         headers={
@@ -148,6 +163,7 @@ def trigger_results_collection(
             if test_config.organization_id
             else None,
             "user_id": str(test_config.user_id) if test_config.user_id else None,
+            "test_run_id": test_run_id,  # Pass test_run_id in headers
         }
     )
 
