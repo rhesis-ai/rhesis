@@ -153,10 +153,9 @@ def trigger_results_collection(
 
     # Create the collect_results task
     # Note: For chord callbacks, results are passed automatically by Celery
-    # For manual calls, we need to pass them explicitly
+    # For manual calls, we need to pass them explicitly as the first parameter
     task = collect_results.s(
-        results,  # This will be the first parameter (results)
-        test_run_id,  # This will be the second parameter (test_run_id)
+        results,  # This will be the first parameter (results) - required for manual calls
     ).set(
         # Pass context in headers so BaseTask.before_start can pick them up
         headers={
@@ -164,6 +163,7 @@ def trigger_results_collection(
             if test_config.organization_id
             else None,
             "user_id": str(test_config.user_id) if test_config.user_id else None,
+            "test_run_id": test_run_id,  # Pass test_run_id in headers
         }
     )
 
