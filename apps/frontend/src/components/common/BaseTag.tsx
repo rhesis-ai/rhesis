@@ -120,15 +120,17 @@ export default function BaseTag({
   const inputRef = useRef<HTMLInputElement>(null);
   const isProcessingKeyboardInput = useRef<boolean>(false);
   const notifications = useNotifications();
-  
+
   // Keep track of current tag objects (name -> tag mapping)
-  const [tagObjectsMap, setTagObjectsMap] = useState<Map<string, Tag>>(new Map());
+  const [tagObjectsMap, setTagObjectsMap] = useState<Map<string, Tag>>(
+    new Map()
+  );
 
   // Update local tags when value prop changes
   useEffect(() => {
     setLocalTags(value);
   }, [value]);
-  
+
   // Update tag objects map when entity tags change
   useEffect(() => {
     if (entity?.tags) {
@@ -188,7 +190,11 @@ export default function BaseTag({
           ...(entity.user_id && { user_id: entity.user_id }),
         };
 
-        const newTag = await tagsClient.assignTagToEntity(entityType, entity.id, tagPayload);
+        const newTag = await tagsClient.assignTagToEntity(
+          entityType,
+          entity.id,
+          tagPayload
+        );
         // Update the map by adding the new tag
         const newMap = new Map(tagObjectsMap);
         newMap.set(newTag.name, newTag);
@@ -298,7 +304,7 @@ export default function BaseTag({
     for (const tag of tags) {
       const trimmedTag = tag.trim();
       if (!trimmedTag || !validate(trimmedTag)) continue;
-      
+
       if (uniqueTags && newTags.includes(trimmedTag)) {
         duplicates.push(trimmedTag);
         continue;
