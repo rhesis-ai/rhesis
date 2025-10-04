@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, getCsrfToken, signIn } from 'next-auth/react';
+import { useSession, getCsrfToken } from 'next-auth/react';
 import {
   Box,
   Paper,
@@ -26,7 +26,8 @@ type OnboardingStatus =
   | 'idle'
   | 'creating_organization'
   | 'updating_user'
-  | 'loading_initial_data';
+  | 'loading_initial_data'
+  | 'completed';
 
 interface FormData {
   firstName: string;
@@ -131,20 +132,28 @@ export default function OnboardingPageClient({
       }
 
       if ('session_token' in response) {
-        // Re-authenticate with the new session token to update NextAuth session
-        try {
-          const result = await signIn('credentials', {
-            session_token: response.session_token,
-            redirect: false,
-          });
+        if (typeof window !== 'undefined') {
+          const hostname = window.location.hostname;
+          const isLocalhost =
+            hostname === 'localhost' || hostname === '127.0.0.1';
 
-          if (!result?.ok) {
-            console.error('Failed to update session with new token');
-            throw new Error('Failed to update session');
+          // Fix: Use .rhesis.ai (with leading dot) to include all subdomains
+          // or use the current hostname for non-production environments
+          let cookieOptions;
+          if (isLocalhost) {
+            cookieOptions = 'path=/; samesite=lax';
+          } else if (
+            hostname.endsWith('.rhesis.ai') ||
+            hostname === 'rhesis.ai'
+          ) {
+            // For production and staging subdomains, use .rhesis.ai to include all subdomains
+            cookieOptions = `domain=.rhesis.ai; path=/; secure; samesite=lax`;
+          } else {
+            // For other environments, use the current hostname
+            cookieOptions = `domain=${hostname}; path=/; secure; samesite=lax`;
           }
-        } catch (sessionError) {
-          console.error('Session update error:', sessionError);
-          throw new Error('Failed to update session with new organization');
+
+          document.cookie = `next-auth.session-token=${response.session_token}; ${cookieOptions}`;
         }
 
         // Create invited users and send invitation emails now that we have the organization
@@ -255,6 +264,7 @@ export default function OnboardingPageClient({
           );
 
           if (initDataResponse.status === 'success') {
+            setOnboardingStatus('completed');
             notifications.show('Onboarding completed successfully!', {
               severity: 'success',
             });

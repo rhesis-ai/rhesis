@@ -10,8 +10,8 @@ class StatsConfig:
 
     default_top_items: Optional[int] = None
     default_months: int = 6
-    enable_timing: bool = True
-    enable_debug_logging: bool = True
+    enable_timing: bool = False
+    enable_debug_logging: bool = False
 
 
 @dataclass
