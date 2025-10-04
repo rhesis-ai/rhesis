@@ -159,6 +159,9 @@ class StatsCalculator:
                 func.count(model.id).label("count"),
             ).filter(model.created_at >= start_date)
 
+            # Apply organization filtering (SECURITY CRITICAL)
+            query = self._apply_organization_filter(query, model)
+
             if subquery is not None:
                 query = query.join(subquery, model.id == subquery.c.id)
 
@@ -262,14 +265,12 @@ class StatsCalculator:
                             .all()
                         )
                     else:
-                        # Direct query for unfiltered results
-                        column_stats = (
-                            self.db.query(
-                                getattr(entity_model, column_name), func.count(entity_model.id)
-                            )
-                            .group_by(getattr(entity_model, column_name))
-                            .all()
+                        # Direct query for unfiltered results - apply organization filtering (SECURITY CRITICAL)
+                        column_query = self.db.query(
+                            getattr(entity_model, column_name), func.count(entity_model.id)
                         )
+                        column_query = self._apply_organization_filter(column_query, entity_model)
+                        column_stats = column_query.group_by(getattr(entity_model, column_name)).all()
 
                     # Process results
                     stats_processed = [
@@ -310,7 +311,10 @@ class StatsCalculator:
         ):
             # Get total count
             with timer("total count query", self.config.enable_timing):
-                total_count = self.db.query(func.count(entity_model.id)).scalar()
+                total_count_query = self.db.query(func.count(entity_model.id))
+                # Apply organization filtering (SECURITY CRITICAL)
+                total_count_query = self._apply_organization_filter(total_count_query, entity_model)
+                total_count = total_count_query.scalar()
 
             # Initialize result
             result = StatsResult(
@@ -334,11 +338,15 @@ class StatsCalculator:
             with timer("all dimensions processing", self.config.enable_timing):
                 for dim in dimensions:
                     with timer(f"dimension {dim.name} processing", self.config.enable_timing):
-                        # Apply organization filtering to dimension query (SECURITY CRITICAL)
+                        # Apply organization filtering to both entity and dimension models (SECURITY CRITICAL)
                         dimension_query = (
                             self.db.query(dim.model.name, func.count(dim.entity_column))
+                            .select_from(entity_model)
                             .outerjoin(dim.model, dim.join_column)
                         )
+                        # Filter the base entity model by organization
+                        dimension_query = self._apply_organization_filter(dimension_query, entity_model)
+                        # Also filter the dimension model if it has organization_id
                         dimension_query = self._apply_organization_filter(dimension_query, dim.model)
                         dimension_stats = dimension_query.group_by(dim.model.name)
 
@@ -426,7 +434,10 @@ class StatsCalculator:
                         else 0
                     )
                 else:
-                    result.total = self.db.query(func.count(related_model.id)).scalar()
+                    # Apply organization filtering (SECURITY CRITICAL)
+                    total_query = self.db.query(func.count(related_model.id))
+                    total_query = self._apply_organization_filter(total_query, related_model)
+                    result.total = total_query.scalar()
 
                 if self.config.enable_debug_logging:
                     print(f"Found {result.total} total entities")
