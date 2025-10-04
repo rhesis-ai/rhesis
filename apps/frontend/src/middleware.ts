@@ -27,6 +27,30 @@ async function verifySessionWithBackend(sessionToken: string) {
   }
 }
 
+// Helper function to get fresh user data from backend
+async function getFreshUserDataFromBackend(sessionToken: string) {
+  try {
+    const response = await fetch(
+      `${getServerBackendUrl()}/auth/verify?session_token=${sessionToken}`,
+      {
+        headers: {
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.authenticated ? data.user : null;
+  } catch (error) {
+    console.error('Failed to fetch fresh user data:', error);
+    return null;
+  }
+}
+
 // Helper function to get session token from request
 function getSessionTokenFromRequest(request: NextRequest): string | null {
   const sessionCookie = request.cookies.get('next-auth.session-token');
@@ -230,16 +254,38 @@ export async function middleware(request: NextRequest) {
       return await createSessionClearingResponse(homeUrl, true, sessionToken); // Call backend logout with session token
     }
 
+    // Check if this is a redirect from just-completed onboarding
+    const onboardingComplete = request.nextUrl.searchParams.get('onboarding_complete') === 'true';
+    
     // Get session data from auth
     const session = await auth();
-    if (!session?.user?.organization_id && pathname !== ONBOARDING_PATH) {
+    
+    // If onboarding just completed, fetch fresh user data from backend to avoid race condition
+    let userOrganizationId = session?.user?.organization_id;
+    if (onboardingComplete && !userOrganizationId) {
+      console.log('[INFO] Onboarding completed, fetching fresh user data from backend');
+      const freshUser = await getFreshUserDataFromBackend(sessionToken);
+      if (freshUser?.organization_id) {
+        userOrganizationId = freshUser.organization_id;
+        console.log('[SUCCESS] Fresh user data retrieved with organization_id:', userOrganizationId);
+        
+        // Remove the query parameter and redirect to clean URL
+        const cleanUrl = new URL(request.url);
+        cleanUrl.searchParams.delete('onboarding_complete');
+        return NextResponse.redirect(cleanUrl);
+      } else {
+        console.log('[WARNING] Fresh user data still missing organization_id');
+      }
+    }
+    
+    if (!userOrganizationId && pathname !== ONBOARDING_PATH) {
       console.log(
         '[WARNING] No organization_id found, redirecting to onboarding'
       );
       return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url));
     }
 
-    if (pathname === ONBOARDING_PATH && session?.user?.organization_id) {
+    if (pathname === ONBOARDING_PATH && userOrganizationId) {
       console.log(
         '[WARNING] User already has organization, redirecting to dashboard'
       );
