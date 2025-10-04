@@ -137,15 +137,11 @@ export default function OnboardingPageClient({
             session_token: response.session_token,
             redirect: false,
           });
-          
+
           if (!result?.ok) {
             console.error('Failed to update session with new token');
             throw new Error('Failed to update session');
           }
-          
-          // Wait for the session cookie to fully propagate
-          // This is especially important in production where cookies use domain-specific settings
-          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (sessionError) {
           console.error('Session update error:', sessionError);
           throw new Error('Failed to update session with new organization');
@@ -262,14 +258,8 @@ export default function OnboardingPageClient({
             notifications.show('Onboarding completed successfully!', {
               severity: 'success',
             });
-            
-            // Give time for session to propagate, especially important in production
-            // where cookies have domain-specific settings and there's network latency
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // Add query parameter to signal onboarding completion for middleware
-            // This helps prevent race conditions with session updates
-            window.location.href = '/dashboard?onboarding_complete=true';
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            window.location.href = '/dashboard';
             return;
           } else {
             throw new Error('Failed to initialize organization data');
