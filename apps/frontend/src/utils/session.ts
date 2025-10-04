@@ -206,15 +206,16 @@ export async function clearAllSessionData() {
       `${name}=; domain=.${domain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`,
     ];
 
-    // For staging and production, add specific domain strategies
-    const env = process.env.FRONTEND_ENV;
-    if (env === 'production' || env === 'staging') {
-      const envDomain = env === 'production' ? 'rhesis.ai' : 'stg.rhesis.ai';
+    // For rhesis.ai domains (dev, staging, production), add specific domain strategies
+    // Use the same logic as cookie setting to ensure consistency
+    if (hostname.endsWith('.rhesis.ai') || hostname === 'rhesis.ai') {
       clearStrategies.push(
-        `${name}=; domain=${envDomain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
-        `${name}=; domain=.${envDomain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
-        `${name}=; domain=${envDomain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`,
-        `${name}=; domain=.${envDomain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`
+        // Clear with .rhesis.ai domain (matches how cookies are set)
+        `${name}=; domain=.rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
+        `${name}=; domain=.rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`,
+        // Also clear with rhesis.ai domain (fallback)
+        `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
+        `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`
       );
     }
 
