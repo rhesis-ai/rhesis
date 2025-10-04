@@ -44,6 +44,27 @@ export const validateUrl = (
     return { isValid: true }; // Empty is valid for optional fields
   }
 
+  // Helper function to validate domain format
+  const isValidDomain = (hostname: string): boolean => {
+    // Domain must have at least one dot and a valid TLD
+    if (!hostname.includes('.')) return false;
+    
+    // Split into parts and validate
+    const parts = hostname.split('.');
+    if (parts.length < 2) return false;
+    
+    // Last part should be a valid TLD (2-6 characters, letters only)
+    const tld = parts[parts.length - 1];
+    if (!/^[a-zA-Z]{2,6}$/.test(tld)) return false;
+    
+    // Each part should be valid (alphanumeric + hyphens, not starting/ending with hyphen)
+    return parts.every(part => {
+      if (!part || part.length > 63) return false;
+      if (part.startsWith('-') || part.endsWith('-')) return false;
+      return /^[a-zA-Z0-9-]+$/.test(part);
+    });
+  };
+
   // Try to parse as-is first
   try {
     const urlObj = new URL(trimmedUrl);
@@ -57,6 +78,14 @@ export const validateUrl = (
       };
     }
 
+    // Validate the domain even if URL constructor succeeded
+    if (!isValidDomain(urlObj.hostname)) {
+      return {
+        isValid: false,
+        message: 'Please enter a valid domain (e.g., example.com)',
+      };
+    }
+
     return { isValid: true };
   } catch {
     // If URL constructor fails, try adding https:// prefix
@@ -64,16 +93,14 @@ export const validateUrl = (
       const urlWithProtocol = new URL(`https://${trimmedUrl}`);
 
       // Check if it's a valid domain format
-      const domainRegex =
-        /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?(\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?)*$/;
-      const isValidDomain = domainRegex.test(urlWithProtocol.hostname);
+      if (!isValidDomain(urlWithProtocol.hostname)) {
+        return {
+          isValid: false,
+          message: 'Please enter a valid URL (e.g., https://example.com or example.com)',
+        };
+      }
 
-      return {
-        isValid: isValidDomain,
-        message: isValidDomain
-          ? undefined
-          : 'Please enter a valid URL (e.g., https://example.com or example.com)',
-      };
+      return { isValid: true };
     } catch {
       return {
         isValid: false,
