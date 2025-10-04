@@ -466,6 +466,7 @@ def get_test_sets(
     filter: str | None = None,
     has_runs: bool | None = None,
     organization_id: str = None,
+    user_id: str = None,
 ) -> List[models.TestSet]:
     """
     Get test sets with detail loading and proper filtering.

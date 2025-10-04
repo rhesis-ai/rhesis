@@ -159,12 +159,14 @@ def update_user(
     user_id: uuid.UUID,
     user: schemas.UserUpdate,
     request: Request,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
+    db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context)):
-    organization_id, user_id_tenant = tenant_context
+    # Get optional tenant context - may be None during onboarding
+    organization_id = str(current_user.organization_id) if current_user.organization_id else None
+    user_id_tenant = str(current_user.id) if current_user.id else None
     
     # Get user with organization filtering (SECURITY CRITICAL)
+    # During onboarding, organization_id may be None, which is acceptable
     db_user = crud.get_user(db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found or not accessible")
