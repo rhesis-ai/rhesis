@@ -137,7 +137,7 @@ export default function OnboardingPageClient({
             session_token: response.session_token,
             redirect: false,
           });
-          
+
           if (!result?.ok) {
             console.error('Failed to update session with new token');
             throw new Error('Failed to update session');
