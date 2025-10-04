@@ -35,7 +35,7 @@ export async function handleClientSignOut() {
     });
   } catch (error) {
     console.error('[ERROR] [DEBUG] Error during sign out:', error);
-    
+
     // Ultimate fallback: force redirect with session expired flags
     console.log('[ERROR] [DEBUG] Ultimate fallback redirect');
     window.location.href = '/?session_expired=true&force_logout=true';
