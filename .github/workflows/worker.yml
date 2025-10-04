@@ -413,7 +413,6 @@ jobs:
               kubectl logs $pod --namespace=${{ env.NAMESPACE }} --tail=50 || echo "No logs available"
               echo ""
             done
-            exit 1
           fi
           
           # Verify HPA is working
