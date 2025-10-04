@@ -26,7 +26,8 @@ type OnboardingStatus =
   | 'idle'
   | 'creating_organization'
   | 'updating_user'
-  | 'loading_initial_data';
+  | 'loading_initial_data'
+  | 'completed';
 
 interface FormData {
   firstName: string;
@@ -263,6 +264,7 @@ export default function OnboardingPageClient({
           );
 
           if (initDataResponse.status === 'success') {
+            setOnboardingStatus('completed');
             notifications.show('Onboarding completed successfully!', {
               severity: 'success',
             });

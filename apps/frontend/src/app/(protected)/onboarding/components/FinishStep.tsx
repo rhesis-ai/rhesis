@@ -25,7 +25,8 @@ type OnboardingStatus =
   | 'idle'
   | 'creating_organization'
   | 'updating_user'
-  | 'loading_initial_data';
+  | 'loading_initial_data'
+  | 'completed';
 
 interface FinishStepProps {
   formData: FormData;
@@ -55,8 +56,10 @@ export default function FinishStep({
         return 'Updating user information...';
       case 'loading_initial_data':
         return 'Loading initial data...';
+      case 'completed':
+        return 'Setup completed.';
       default:
-        return 'Setup Completed';
+        return 'Complete Setup';
     }
   };
 
