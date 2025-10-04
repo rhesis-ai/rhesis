@@ -198,10 +198,10 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.FRONTEND_ENV === 'production',
+        secure: process.env.FRONTEND_ENV === 'production' || process.env.FRONTEND_ENV === 'staging',
         maxAge: SESSION_DURATION_SECONDS,
         domain:
-          process.env.FRONTEND_ENV === 'production' ? '.rhesis.ai' : undefined,
+          process.env.FRONTEND_ENV === 'production' || process.env.FRONTEND_ENV === 'staging' ? '.rhesis.ai' : undefined,
       },
     },
   },

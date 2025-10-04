@@ -118,8 +118,8 @@ async function createSessionClearingResponse(
     // Delete the cookie (default behavior)
     response.cookies.delete(name);
 
-    // For production environment, also set expired cookies with various domain configurations
-    if (process.env.FRONTEND_ENV === 'production') {
+    // For production and staging environments, also set expired cookies with various domain configurations
+    if (process.env.FRONTEND_ENV === 'production' || process.env.FRONTEND_ENV === 'staging') {
       // Clear with leading dot domain for broader coverage (primary method)
       response.cookies.set(name, '', {
         domain: '.rhesis.ai',
