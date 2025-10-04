@@ -200,8 +200,8 @@ export const authConfig: NextAuthConfig = {
         path: '/',
         secure: process.env.FRONTEND_ENV !== 'development',
         maxAge: SESSION_DURATION_SECONDS,
-        domain:
-          process.env.FRONTEND_ENV !== 'development' ? '.rhesis.ai' : undefined,
+        // Use undefined domain to isolate sessions per subdomain (prevents cross-environment conflicts)
+        domain: undefined,
       },
     },
   },
