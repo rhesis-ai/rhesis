@@ -239,13 +239,6 @@ export async function clearAllSessionData() {
   // Step 4: Clear ALL session storage items
   sessionStorage.clear();
 
-  console.log(
-    '🟡 [DEBUG] Adding 800ms delay before redirect to ensure cleanup completion'
-  );
-  // Add a longer delay before redirecting to ensure all cleanup is completed
-  await new Promise(resolve => setTimeout(resolve, 800));
-
-  console.log('🟡 [DEBUG] Redirecting to home page /');
-  // Force reload to clear any in-memory state and redirect to home page
-  window.location.href = '/';
+  console.log('🟡 [DEBUG] Session data clearing completed - no redirect needed');
+  // Note: Redirect will be handled by the calling function (NextAuth signOut)
 }

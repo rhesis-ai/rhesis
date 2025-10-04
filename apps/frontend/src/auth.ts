@@ -180,7 +180,9 @@ export const authConfig: NextAuthConfig = {
     },
   },
   events: {
-    async signOut() {},
+    async signOut() {
+      console.log('[AUTH] NextAuth signOut event triggered - session fully cleared');
+    },
   },
   pages: {
     signIn: '/',
