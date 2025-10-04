@@ -118,6 +118,7 @@ export default function BaseTag({
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [localTags, setLocalTags] = useState<string[]>(value);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isProcessingKeyboardInput = useRef<boolean>(false);
   const notifications = useNotifications();
 
   // Update local tags when value prop changes
@@ -204,7 +205,14 @@ export default function BaseTag({
     if (maxTags !== undefined && localTags.length >= maxTags) return;
 
     // Check if tag already exists
-    if (uniqueTags && localTags.includes(trimmedValue)) return;
+    if (uniqueTags && localTags.includes(trimmedValue)) {
+      notifications?.show(`Tag "${trimmedValue}" already exists`, {
+        severity: 'info',
+        autoHideDuration: 3000,
+      });
+      setInputValue('');
+      return;
+    }
 
     // Add the new tag
     handleTagsChange([...localTags, trimmedValue]);
@@ -217,7 +225,12 @@ export default function BaseTag({
     if (isDelimiter && inputValue) {
       event.preventDefault();
       event.stopPropagation();
+      isProcessingKeyboardInput.current = true;
       handleAddTag(inputValue);
+      // Reset the flag after a short delay to allow Autocomplete's onChange to complete
+      setTimeout(() => {
+        isProcessingKeyboardInput.current = false;
+      }, 0);
     } else if (
       event.key === 'Backspace' &&
       !inputValue &&
@@ -254,11 +267,16 @@ export default function BaseTag({
     // Process each tag
     const newTags = [...localTags];
     let tagsAdded = 0;
+    const duplicates: string[] = [];
 
     for (const tag of tags) {
       const trimmedTag = tag.trim();
       if (!trimmedTag || !validate(trimmedTag)) continue;
-      if (uniqueTags && newTags.includes(trimmedTag)) continue;
+      
+      if (uniqueTags && newTags.includes(trimmedTag)) {
+        duplicates.push(trimmedTag);
+        continue;
+      }
 
       // Check max tags limit
       if (maxTags !== undefined && newTags.length >= maxTags) break;
@@ -271,13 +289,30 @@ export default function BaseTag({
       handleTagsChange(newTags);
       setInputValue('');
     }
+
+    // Notify about duplicates
+    if (duplicates.length > 0) {
+      const message =
+        duplicates.length === 1
+          ? `Tag "${duplicates[0]}" already exists`
+          : `${duplicates.length} duplicate tags skipped`;
+      notifications?.show(message, {
+        severity: 'info',
+        autoHideDuration: 3000,
+      });
+    }
   };
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     setFocused(false);
 
     if (addOnBlur && inputValue) {
+      isProcessingKeyboardInput.current = true;
       handleAddTag(inputValue);
+      // Reset the flag after a short delay to allow Autocomplete's onChange to complete
+      setTimeout(() => {
+        isProcessingKeyboardInput.current = false;
+      }, 0);
     }
 
     if (clearInputOnBlur) {
@@ -317,6 +352,10 @@ export default function BaseTag({
         value={localTags}
         inputValue={inputValue}
         onChange={(event, newValue: string[]) => {
+          // Skip if we're already processing keyboard input to prevent duplicate API calls
+          if (isProcessingKeyboardInput.current) {
+            return;
+          }
           // Handle tag changes when chips are removed or values change
           handleTagsChange(newValue);
         }}
