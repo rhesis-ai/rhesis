@@ -48,15 +48,15 @@ export const validateUrl = (
   const isValidDomain = (hostname: string): boolean => {
     // Domain must have at least one dot and a valid TLD
     if (!hostname.includes('.')) return false;
-    
+
     // Split into parts and validate
     const parts = hostname.split('.');
     if (parts.length < 2) return false;
-    
+
     // Last part should be a valid TLD (2-6 characters, letters only)
     const tld = parts[parts.length - 1];
     if (!/^[a-zA-Z]{2,6}$/.test(tld)) return false;
-    
+
     // Each part should be valid (alphanumeric + hyphens, not starting/ending with hyphen)
     return parts.every(part => {
       if (!part || part.length > 63) return false;
@@ -96,7 +96,8 @@ export const validateUrl = (
       if (!isValidDomain(urlWithProtocol.hostname)) {
         return {
           isValid: false,
-          message: 'Please enter a valid URL (e.g., https://example.com or example.com)',
+          message:
+            'Please enter a valid URL (e.g., https://example.com or example.com)',
         };
       }
 
