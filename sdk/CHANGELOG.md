@@ -13,6 +13,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-10-02
+
+### Added
+- Added `push` functionality to `PromptMetricCategorical` and `PromptMetricNumeric` for submitting metric data.
+- Added `pull` functionality to `PromptMetricCategorical` and `PromptMetricNumeric` for retrieving metric data by name or ID.
+- Added `from_config` method to `PromptMetric` for easier instantiation from configuration.
+- Added `sdk_config_to_backend_config` and `backend_config_to_sdk_config` functions for configuration conversion.
+- Added parameter and URL parameter processing in the SDK client.
+- Added metrics endpoint to the SDK client.
+
+### Changed
+- Refactored metric backend to use Rhesis instead of native.
+- Refactored common metric functionality into base classes.
+- Improved metric configuration to accept enums.
+- Improved configuration handling for metrics.
+- Updated `BaseMetric` to accept enums for categorical metrics.
+
+### Fixed
+- Resolved linting errors in test_metric.py.
+- Fixed default arguments for `prompt_metric_categorical`.
+- Fixed metric backend configuration.
+- Fixed enum and string validation in metrics.
+- Fixed handling of categories in `PromptMetric`.
+- Fixed raising errors for incorrect metric types.
+- Fixed prompt metric imports.
+- Fixed test data leakage in `test_metric.py`.
+- Fixed handling of `None` config in prompt synthesizer.
+
+
 ## [0.2.4] - 2025-09-18
 
 ### Added

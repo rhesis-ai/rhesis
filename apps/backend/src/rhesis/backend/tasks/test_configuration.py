@@ -82,6 +82,11 @@ def execute_test_configuration(self, test_configuration_id: str):
                     test_configuration_id=test_configuration_id,
                 )
                 test_run = create_test_run(db, test_config, {"id": self.request.id}, current_user_id=user_id)
+                
+                # CRITICAL: Explicitly commit the test run creation before launching parallel tasks
+                # This ensures the test run exists in the database before async tasks try to reference it
+                db.commit()
+                self.log_with_context("debug", f"Test run {test_run.id} committed to database")
 
             # Execute test cases in parallel
             result = execute_test_cases(db, test_config, test_run)

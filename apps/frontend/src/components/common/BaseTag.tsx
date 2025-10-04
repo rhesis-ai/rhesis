@@ -118,12 +118,27 @@ export default function BaseTag({
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [localTags, setLocalTags] = useState<string[]>(value);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isProcessingKeyboardInput = useRef<boolean>(false);
   const notifications = useNotifications();
+  
+  // Keep track of current tag objects (name -> tag mapping)
+  const [tagObjectsMap, setTagObjectsMap] = useState<Map<string, Tag>>(new Map());
 
   // Update local tags when value prop changes
   useEffect(() => {
     setLocalTags(value);
   }, [value]);
+  
+  // Update tag objects map when entity tags change
+  useEffect(() => {
+    if (entity?.tags) {
+      const newMap = new Map<string, Tag>();
+      entity.tags.forEach(tag => {
+        newMap.set(tag.name, tag);
+      });
+      setTagObjectsMap(newMap);
+    }
+  }, [entity?.tags]);
 
   const handleTagsChange = async (newTagNames: string[]) => {
     if (!sessionToken || !entityType || !entity || isUpdating) {
@@ -133,6 +148,7 @@ export default function BaseTag({
 
     setIsUpdating(true);
     const initialTagNames = localTags;
+    const initialTagObjectsMap = new Map(tagObjectsMap);
 
     // Update local state immediately
     setLocalTags(newTagNames);
@@ -142,9 +158,11 @@ export default function BaseTag({
       const apiFactory = new ApiClientFactory(sessionToken);
       const tagsClient = new TagsClient(sessionToken);
 
-      // Tags to remove (exist in current but not in new)
-      const tagsToRemove =
-        entity.tags?.filter(tag => !newTagNames.includes(tag.name)) || [];
+      // Tags to remove (exist in current but not in new) - use the current tagObjectsMap
+      const tagsToRemove = initialTagNames
+        .filter(tagName => !newTagNames.includes(tagName))
+        .map(tagName => tagObjectsMap.get(tagName))
+        .filter((tag): tag is Tag => tag !== undefined);
 
       // Tags to add (exist in new but not in current)
       const tagsToAdd = newTagNames.filter(
@@ -154,6 +172,10 @@ export default function BaseTag({
       // Remove tags
       for (const tag of tagsToRemove) {
         await tagsClient.removeTagFromEntity(entityType, entity.id, tag.id);
+        // Update the map by removing the deleted tag
+        const newMap = new Map(tagObjectsMap);
+        newMap.delete(tag.name);
+        setTagObjectsMap(newMap);
       }
 
       // Add new tags
@@ -166,7 +188,11 @@ export default function BaseTag({
           ...(entity.user_id && { user_id: entity.user_id }),
         };
 
-        await tagsClient.assignTagToEntity(entityType, entity.id, tagPayload);
+        const newTag = await tagsClient.assignTagToEntity(entityType, entity.id, tagPayload);
+        // Update the map by adding the new tag
+        const newMap = new Map(tagObjectsMap);
+        newMap.set(newTag.name, newTag);
+        setTagObjectsMap(newMap);
       }
 
       notifications?.show('Tags updated successfully', {
@@ -185,6 +211,7 @@ export default function BaseTag({
       // Revert local state on error
       setLocalTags(initialTagNames);
       onChange(initialTagNames);
+      setTagObjectsMap(initialTagObjectsMap);
     } finally {
       setIsUpdating(false);
     }
@@ -204,7 +231,14 @@ export default function BaseTag({
     if (maxTags !== undefined && localTags.length >= maxTags) return;
 
     // Check if tag already exists
-    if (uniqueTags && localTags.includes(trimmedValue)) return;
+    if (uniqueTags && localTags.includes(trimmedValue)) {
+      notifications?.show(`Tag "${trimmedValue}" already exists`, {
+        severity: 'info',
+        autoHideDuration: 3000,
+      });
+      setInputValue('');
+      return;
+    }
 
     // Add the new tag
     handleTagsChange([...localTags, trimmedValue]);
@@ -217,7 +251,12 @@ export default function BaseTag({
     if (isDelimiter && inputValue) {
       event.preventDefault();
       event.stopPropagation();
+      isProcessingKeyboardInput.current = true;
       handleAddTag(inputValue);
+      // Reset the flag after a short delay to allow Autocomplete's onChange to complete
+      setTimeout(() => {
+        isProcessingKeyboardInput.current = false;
+      }, 0);
     } else if (
       event.key === 'Backspace' &&
       !inputValue &&
@@ -254,11 +293,16 @@ export default function BaseTag({
     // Process each tag
     const newTags = [...localTags];
     let tagsAdded = 0;
+    const duplicates: string[] = [];
 
     for (const tag of tags) {
       const trimmedTag = tag.trim();
       if (!trimmedTag || !validate(trimmedTag)) continue;
-      if (uniqueTags && newTags.includes(trimmedTag)) continue;
+      
+      if (uniqueTags && newTags.includes(trimmedTag)) {
+        duplicates.push(trimmedTag);
+        continue;
+      }
 
       // Check max tags limit
       if (maxTags !== undefined && newTags.length >= maxTags) break;
@@ -271,13 +315,30 @@ export default function BaseTag({
       handleTagsChange(newTags);
       setInputValue('');
     }
+
+    // Notify about duplicates
+    if (duplicates.length > 0) {
+      const message =
+        duplicates.length === 1
+          ? `Tag "${duplicates[0]}" already exists`
+          : `${duplicates.length} duplicate tags skipped`;
+      notifications?.show(message, {
+        severity: 'info',
+        autoHideDuration: 3000,
+      });
+    }
   };
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     setFocused(false);
 
     if (addOnBlur && inputValue) {
+      isProcessingKeyboardInput.current = true;
       handleAddTag(inputValue);
+      // Reset the flag after a short delay to allow Autocomplete's onChange to complete
+      setTimeout(() => {
+        isProcessingKeyboardInput.current = false;
+      }, 0);
     }
 
     if (clearInputOnBlur) {
@@ -317,6 +378,10 @@ export default function BaseTag({
         value={localTags}
         inputValue={inputValue}
         onChange={(event, newValue: string[]) => {
+          // Skip if we're already processing keyboard input to prevent duplicate API calls
+          if (isProcessingKeyboardInput.current) {
+            return;
+          }
           // Handle tag changes when chips are removed or values change
           handleTagsChange(newValue);
         }}

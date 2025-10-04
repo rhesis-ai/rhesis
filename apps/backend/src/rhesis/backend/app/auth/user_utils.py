@@ -99,9 +99,8 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
     """
     Get user from JWT token using simple database session.
     
-    Uses a simple session to get user and organization_id, then returns the user
-    only if they have an organization_id. The actual database operations that
-    need tenant context should pass organization_id and user_id directly to CRUD operations.
+    Uses a simple session to get user. The caller is responsible for checking
+    whether the user needs an organization_id (via without_context parameter).
     """
     try:
         payload = verify_jwt_token(token, secret_key)
@@ -114,10 +113,9 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
             with get_db() as db:
                 user = crud.get_user_by_id(db, user_id)
                 
-            # User must have an organization_id to proceed
-            if not user or not user.organization_id:
+            if not user:
                 return None
-                
+            
             return user
 
     except Exception:
@@ -186,7 +184,7 @@ async def get_authenticated_user_with_context(
                             return user
 
     # Try JWT token if secret_key is provided
-    if secret_key and not credentials.credentials.startswith("rh-"):
+    if secret_key and credentials and not credentials.credentials.startswith("rh-"):
         jwt_user = await get_user_from_jwt(credentials.credentials, secret_key)
         if jwt_user:
             if not jwt_user.organization_id and not without_context:

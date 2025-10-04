@@ -284,7 +284,7 @@ def build_empty_stats_response(
         "category_pass_rates": {},
         "topic_pass_rates": {},
         "test_run_summary": [],
-        "most_run_tests": [],
+        "most_run_test_sets": [],  # Fixed: was "most_run_tests"
         "top_executors": [],
         "overall_summary": {
             "total_runs": 0,

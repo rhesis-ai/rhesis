@@ -15,12 +15,13 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID, organizat
     Args:
         db: Database session
         test_run_id: UUID of the test run
+        organization_id: Organization ID for security filtering
 
     Returns:
         List of dictionaries containing test result data
     """
     # First check if test run exists
-    test_run = crud.get_test_run(db, test_run_id)
+    test_run = crud.get_test_run(db, test_run_id, organization_id=organization_id)
     if not test_run:
         raise ValueError("Test Run not found")
 
@@ -58,9 +59,9 @@ def get_test_results_for_test_run(db: Session, test_run_id: uuid.UUID, organizat
     csv_data = []
 
     for result in all_test_results:
-        # Get related data
-        test = crud.get_test(db, result.test_id) if result.test_id else None
-        prompt = crud.get_prompt(db, result.prompt_id) if result.prompt_id else None
+        # Get related data with organization filtering
+        test = crud.get_test(db, result.test_id, organization_id=organization_id) if result.test_id else None
+        prompt = crud.get_prompt(db, result.prompt_id, organization_id=organization_id) if result.prompt_id else None
 
         # Base row data
         row = {

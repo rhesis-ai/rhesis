@@ -431,6 +431,7 @@ def get_test_run_stats(
             end_date_obj=end_date_obj,
             months=months,
             organization_id=organization_id,
+            total_test_runs=0,
             available_statuses=[],
             available_test_sets=[],
             available_executors=[],

@@ -132,7 +132,7 @@ def read_user(
     return db_user
 
 
-@router.delete("/{user_id}", response_model=schemas.Behavior)
+@router.delete("/{user_id}", response_model=schemas.User)
 def delete_user(
     user_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -143,12 +143,11 @@ def delete_user(
 
     organization_id, user_id_tenant = tenant_context
     
-    # Get user before deletion to check organization
-    db_user = crud.get_user(db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant)
+    db_user = crud.delete_user(db, user_id=user_id, organization_id=organization_id, user_id_param=user_id_tenant)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
-
-    return crud.delete_user(db, user_id=user_id)
+    
+    return db_user
 
 
 @router.put("/{user_id}", response_model=schemas.User)
@@ -159,12 +158,14 @@ def update_user(
     user_id: uuid.UUID,
     user: schemas.UserUpdate,
     request: Request,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
+    db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context)):
-    organization_id, user_id_tenant = tenant_context
+    # Get optional tenant context - may be None during onboarding
+    organization_id = str(current_user.organization_id) if current_user.organization_id else None
+    user_id_tenant = str(current_user.id) if current_user.id else None
     
     # Get user with organization filtering (SECURITY CRITICAL)
+    # During onboarding, organization_id may be None, which is acceptable
     db_user = crud.get_user(db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found or not accessible")

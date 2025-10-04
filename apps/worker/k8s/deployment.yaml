@@ -7,7 +7,7 @@ metadata:
     app: rhesis-worker
     component: worker
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       app: rhesis-worker
@@ -27,10 +27,10 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "1.5Gi"
+            memory: "4Gi"
             cpu: "250m"
           limits:
-            memory: "4Gi"
+            memory: "6Gi"
             cpu: "1000m"
         env:
         - name: BROKER_URL
@@ -190,9 +190,9 @@ spec:
             path: /health/basic
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 60
+          initialDelaySeconds: 120
           periodSeconds: 30
-          timeoutSeconds: 15
+          timeoutSeconds: 30
           failureThreshold: 10
           successThreshold: 1
       

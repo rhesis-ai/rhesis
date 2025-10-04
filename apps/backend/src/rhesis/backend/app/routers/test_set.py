@@ -425,7 +425,8 @@ async def read_test_sets(
     from rhesis.backend.logging import logger
 
     logger.info(f"test_sets endpoint called with has_runs={has_runs}")
-
+    
+    organization_id, user_id = tenant_context
     return crud.get_test_sets(
         db=db,
         skip=skip,
@@ -434,7 +435,8 @@ async def read_test_sets(
         sort_order=sort_order,
         filter=filter,
         has_runs=has_runs,
-        organization_id=str(current_user.organization_id))
+        organization_id=organization_id,
+        user_id=user_id)
 
 
 @router.get("/stats", response_model=schemas.EntityStats)
@@ -608,6 +610,7 @@ async def execute_test_set(
     endpoint_id: uuid.UUID,
     test_configuration_attributes: schemas.TestSetExecutionRequest = None,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Submit a test set for execution against an endpoint."""
     try:
@@ -616,12 +619,15 @@ async def execute_test_set(
         if test_configuration_attributes and test_configuration_attributes.execution_options:
             attributes = test_configuration_attributes.execution_options
 
+        organization_id, user_id = tenant_context
         result = execute_test_set_on_endpoint(
             db=db,
             test_set_identifier=test_set_identifier,
             endpoint_id=endpoint_id,
             current_user=current_user,
-            test_configuration_attributes=attributes)
+            test_configuration_attributes=attributes,
+            organization_id=organization_id,
+            user_id=user_id)
         return result
 
     except ValueError as e:

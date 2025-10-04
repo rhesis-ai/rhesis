@@ -343,9 +343,11 @@ def generate_test_result_stats(
 def read_test_result(
     test_result_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Get a specific test result by ID"""
-    db_test_result = crud.get_test_result(db, test_result_id=test_result_id)
+    organization_id, user_id = tenant_context
+    db_test_result = crud.get_test_result(db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
     return db_test_result
@@ -390,9 +392,11 @@ def update_test_result(
 def delete_test_result(
     test_result_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test result"""
-    db_test_result = crud.get_test_result(db, test_result_id=test_result_id)
+    organization_id, user_id = tenant_context
+    db_test_result = crud.get_test_result(db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
 
@@ -400,4 +404,4 @@ def delete_test_result(
     if db_test_result.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
-    return crud.delete_test_result(db=db, test_result_id=test_result_id)
+    return crud.delete_test_result(db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)

@@ -38,16 +38,17 @@ def execute_tests_in_parallel(
         )
         tasks.append(task)
 
-    # Create callback task with correct parameters and context for the decorator-based collect_results
-    callback = collect_results.s(
-        str(test_run.id),  # test_run_id (after results parameter)
-    ).set(
-        # Pass context in headers so BaseTask.before_start can pick them up
+    # Create callback task with correct parameters and context for collect_results
+    # CRITICAL: For chord callbacks, Celery automatically passes results as first parameter
+    # test_run_id must be passed via headers, not as a parameter
+    callback = collect_results.s().set(
+        # Pass ALL context in headers so BaseTask.before_start can pick them up
         headers={
             "organization_id": str(test_config.organization_id)
             if test_config.organization_id
             else None,
             "user_id": str(test_config.user_id) if test_config.user_id else None,
+            "test_run_id": str(test_run.id),  # Pass test_run_id in headers
         }
     )
 
@@ -56,7 +57,7 @@ def execute_tests_in_parallel(
 
     # Execute the chord
     job = chord(tasks, callback).apply_async()
-    logger.info(f"Chord created with ID: {job.id}")
+    logger.info(f"Chord created with ID: {job.id} for {len(tasks)} tasks")
 
     # Update test run with chord information using shared utility
     update_test_run_start(

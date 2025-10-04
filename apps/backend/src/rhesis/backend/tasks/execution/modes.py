@@ -75,7 +75,7 @@ def set_execution_mode(db: Session, test_config_id: str, execution_mode: Executi
         # Update the test configuration
         update_data = {"attributes": current_attributes}
         crud.update_test_configuration(
-            db, test_config.id, crud.schemas.TestConfigurationUpdate(**update_data)
+            db, test_config.id, crud.schemas.TestConfigurationUpdate(**update_data), organization_id=organization_id, user_id=user_id
         )
 
         logger.info(
