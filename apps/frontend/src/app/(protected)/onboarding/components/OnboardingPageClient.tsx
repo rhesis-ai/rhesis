@@ -270,6 +270,7 @@ export default function OnboardingPageClient({
           }
         } catch (initError: any) {
           setIsSubmitting(false);
+          setOnboardingStatus('idle');
           console.error('Initial data loading error:', initError);
           notifications.show(
             initError?.message ||
@@ -283,13 +284,12 @@ export default function OnboardingPageClient({
       }
     } catch (error: any) {
       setIsSubmitting(false);
+      setOnboardingStatus('idle');
       console.error('Onboarding error:', error);
       notifications.show(
         error?.message || 'Failed to complete onboarding. Please try again.',
         { severity: 'error' }
       );
-    } finally {
-      setOnboardingStatus('idle');
     }
   };
 
