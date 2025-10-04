@@ -200,7 +200,8 @@ export const authConfig: NextAuthConfig = {
         path: '/',
         secure: process.env.FRONTEND_ENV !== 'development',
         maxAge: SESSION_DURATION_SECONDS,
-        domain: process.env.FRONTEND_ENV !== 'development' ? '.rhesis.ai' : undefined,
+        domain:
+          process.env.FRONTEND_ENV !== 'development' ? '.rhesis.ai' : undefined,
       },
     },
   },
