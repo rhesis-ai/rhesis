@@ -181,7 +181,9 @@ export const authConfig: NextAuthConfig = {
   },
   events: {
     async signOut() {
-      console.log('[AUTH] NextAuth signOut event triggered - session fully cleared');
+      console.log(
+        '[AUTH] NextAuth signOut event triggered - session fully cleared'
+      );
     },
   },
   pages: {

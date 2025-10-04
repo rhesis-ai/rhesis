@@ -239,6 +239,8 @@ export async function clearAllSessionData() {
   // Step 4: Clear ALL session storage items
   sessionStorage.clear();
 
-  console.log('🟡 [DEBUG] Session data clearing completed - no redirect needed');
+  console.log(
+    '🟡 [DEBUG] Session data clearing completed - no redirect needed'
+  );
   // Note: Redirect will be handled by the calling function (NextAuth signOut)
 }

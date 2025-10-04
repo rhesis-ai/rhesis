@@ -81,7 +81,10 @@ export default function SignIn() {
           let cookieOptions;
           if (isLocalhost) {
             cookieOptions = 'path=/; samesite=lax';
-          } else if (hostname.endsWith('.rhesis.ai') || hostname === 'rhesis.ai') {
+          } else if (
+            hostname.endsWith('.rhesis.ai') ||
+            hostname === 'rhesis.ai'
+          ) {
             // For production and staging subdomains, use .rhesis.ai to include all subdomains
             cookieOptions = `domain=.rhesis.ai; path=/; secure; samesite=lax`;
           } else {
