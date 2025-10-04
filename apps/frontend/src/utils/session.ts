@@ -206,16 +206,12 @@ export async function clearAllSessionData() {
       `${name}=; domain=.${domain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`,
     ];
 
-    // For rhesis.ai domains (dev, staging, production), add specific domain strategies
-    // Use the same logic as cookie setting to ensure consistency
-    if (hostname.endsWith('.rhesis.ai') || hostname === 'rhesis.ai') {
+    // For deployed environments, add secure clearing (but no cross-domain clearing)
+    if (!hostname.includes('localhost')) {
       clearStrategies.push(
-        // Clear with .rhesis.ai domain (matches how cookies are set)
-        `${name}=; domain=.rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
-        `${name}=; domain=.rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`,
-        // Also clear with rhesis.ai domain (fallback)
-        `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
-        `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`
+        // Clear with secure flag for HTTPS environments
+        `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
+        `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`
       );
     }
 
