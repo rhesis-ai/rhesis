@@ -120,9 +120,9 @@ async function createSessionClearingResponse(
 
     // For production environment, also set expired cookies with various domain configurations
     if (process.env.FRONTEND_ENV === 'production') {
-      // Clear with specific domain
+      // Clear with leading dot domain for broader coverage (primary method)
       response.cookies.set(name, '', {
-        domain: 'rhesis.ai',
+        domain: '.rhesis.ai',
         path: '/',
         secure: true,
         sameSite: 'lax',
@@ -130,9 +130,9 @@ async function createSessionClearingResponse(
         expires: new Date(0),
       });
 
-      // Clear with leading dot domain for broader coverage
+      // Clear with specific domain (fallback)
       response.cookies.set(name, '', {
-        domain: '.rhesis.ai',
+        domain: 'rhesis.ai',
         path: '/',
         secure: true,
         sameSite: 'lax',
