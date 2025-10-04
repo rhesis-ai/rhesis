@@ -73,13 +73,21 @@ export default function SignIn() {
           console.log('🟢 [DEBUG] Token length:', incomingToken.length);
           setStatus('Verifying session token...');
 
-          // Set cookie with proper domain - handle Docker environment
-          const isDocker =
-            process.env.FRONTEND_ENV === 'production' &&
-            window.location.hostname !== 'localhost';
-          const cookieOptions = isDocker
-            ? `domain=rhesis.ai; path=/; secure; samesite=lax`
-            : 'path=/; samesite=lax';
+          // Set cookie with proper domain - handle different environments
+          const hostname = window.location.hostname;
+          const isLocalhost =
+            hostname === 'localhost' || hostname === '127.0.0.1';
+
+          let cookieOptions;
+          if (isLocalhost) {
+            cookieOptions = 'path=/; samesite=lax';
+          } else if (hostname.endsWith('.rhesis.ai') || hostname === 'rhesis.ai') {
+            // For production and staging subdomains, use .rhesis.ai to include all subdomains
+            cookieOptions = `domain=.rhesis.ai; path=/; secure; samesite=lax`;
+          } else {
+            // For other environments, use the current hostname
+            cookieOptions = `domain=${hostname}; path=/; secure; samesite=lax`;
+          }
 
           document.cookie = `next-auth.session-token=${incomingToken}; ${cookieOptions}`;
 
