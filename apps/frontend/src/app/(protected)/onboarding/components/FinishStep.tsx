@@ -56,7 +56,7 @@ export default function FinishStep({
       case 'loading_initial_data':
         return 'Loading initial data...';
       default:
-        return 'Complete Setup';
+        return 'Setup Completed';
     }
   };
 
