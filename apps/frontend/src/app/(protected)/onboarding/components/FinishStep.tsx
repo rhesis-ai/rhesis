@@ -56,7 +56,7 @@ export default function FinishStep({
       case 'loading_initial_data':
         return 'Loading initial data...';
       default:
-        return 'Complete';
+        return 'Complete Setup';
     }
   };
 
@@ -170,7 +170,7 @@ export default function FinishStep({
           }
           size="large"
         >
-          {isSubmitting ? getButtonText() : 'Complete Setup'}
+          {getButtonText()}
         </Button>
       </Box>
     </Box>
