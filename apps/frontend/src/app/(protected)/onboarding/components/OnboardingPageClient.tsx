@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, getCsrfToken } from 'next-auth/react';
+import { useSession, getCsrfToken, signIn } from 'next-auth/react';
 import {
   Box,
   Paper,
@@ -131,16 +131,20 @@ export default function OnboardingPageClient({
       }
 
       if ('session_token' in response) {
-        if (typeof window !== 'undefined') {
-          const hostname = window.location.hostname;
-          const isLocalhost =
-            hostname === 'localhost' || hostname === '127.0.0.1';
-
-          const cookieOptions = isLocalhost
-            ? 'path=/; samesite=lax'
-            : `domain=rhesis.ai; path=/; secure; samesite=lax`;
-
-          document.cookie = `next-auth.session-token=${response.session_token}; ${cookieOptions}`;
+        // Re-authenticate with the new session token to update NextAuth session
+        try {
+          const result = await signIn('credentials', {
+            session_token: response.session_token,
+            redirect: false,
+          });
+          
+          if (!result?.ok) {
+            console.error('Failed to update session with new token');
+            throw new Error('Failed to update session');
+          }
+        } catch (sessionError) {
+          console.error('Session update error:', sessionError);
+          throw new Error('Failed to update session with new organization');
         }
 
         // Create invited users and send invitation emails now that we have the organization
