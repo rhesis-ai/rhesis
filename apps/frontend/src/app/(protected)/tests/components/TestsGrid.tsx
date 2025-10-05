@@ -379,10 +379,12 @@ export default function TestsTable({
 
   const handleTestSaved = useCallback(() => {
     if (sessionToken) {
-      fetchTests();
+      // Reset to first page to show the newly created test at the top
+      // The useEffect will automatically refetch when paginationModel changes
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
       onRefresh?.();
     }
-  }, [sessionToken, fetchTests, onRefresh]);
+  }, [sessionToken, onRefresh]);
 
   const handleGenerateTests = useCallback(() => {
     generateNewTests();
