@@ -26,7 +26,7 @@ router = APIRouter(
 )
 async def create_organization(
     organization: schemas.OrganizationCreate,
-    db: Session = Depends(get_tenant_db_session),
+    db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context)):
     if not organization.owner_id or not organization.user_id:
         raise HTTPException(status_code=400, detail="owner_id and user_id are required")

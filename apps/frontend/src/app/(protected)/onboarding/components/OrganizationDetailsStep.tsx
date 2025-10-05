@@ -13,6 +13,13 @@ import {
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import StepHeader from './StepHeader';
+import {
+  validateRequired,
+  validateName,
+  validateOrganizationName,
+  validateUrl,
+  normalizeUrl,
+} from '@/utils/validation';
 
 interface FormData {
   firstName: string;
@@ -47,9 +54,10 @@ export default function OrganizationDetailsStep({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [hasAttemptedPrefill, setHasAttemptedPrefill] = useState(false);
   const [errors, setErrors] = useState({
-    firstName: false,
-    lastName: false,
-    organizationName: false,
+    firstName: '',
+    lastName: '',
+    organizationName: '',
+    website: '',
   });
 
   // Prefill form with user data from session
@@ -141,14 +149,30 @@ export default function OrganizationDetailsStep({
   ]);
 
   const validateForm = () => {
+    const firstNameValidation = validateName(formData.firstName, 'First name');
+    const lastNameValidation = validateName(formData.lastName, 'Last name');
+    const organizationNameValidation = validateOrganizationName(
+      formData.organizationName
+    );
+    const websiteValidation = validateUrl(formData.website, {
+      required: false,
+    });
+
     const newErrors = {
-      firstName: !formData.firstName.trim(),
-      lastName: !formData.lastName.trim(),
-      organizationName: !formData.organizationName.trim(),
+      firstName: firstNameValidation.message || '',
+      lastName: lastNameValidation.message || '',
+      organizationName: organizationNameValidation.message || '',
+      website: websiteValidation.message || '',
     };
 
     setErrors(newErrors);
-    return !Object.values(newErrors).some(Boolean);
+
+    return (
+      firstNameValidation.isValid &&
+      lastNameValidation.isValid &&
+      organizationNameValidation.isValid &&
+      websiteValidation.isValid
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -195,7 +219,19 @@ export default function OrganizationDetailsStep({
 
     // Clear error once the user types
     if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [name]: false }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    // Normalize URL when user finishes editing the website field
+    if (name === 'website' && value.trim()) {
+      const normalized = normalizeUrl(value);
+      if (normalized !== value) {
+        updateFormData({ [name]: normalized });
+      }
     }
   };
 
@@ -235,8 +271,8 @@ export default function OrganizationDetailsStep({
               value={formData.firstName}
               onChange={handleChange}
               required
-              error={errors.firstName}
-              helperText={errors.firstName ? 'First name is required' : ''}
+              error={Boolean(errors.firstName)}
+              helperText={errors.firstName || ''}
               variant="outlined"
             />
 
@@ -247,8 +283,8 @@ export default function OrganizationDetailsStep({
               value={formData.lastName}
               onChange={handleChange}
               required
-              error={errors.lastName}
-              helperText={errors.lastName ? 'Last name is required' : ''}
+              error={Boolean(errors.lastName)}
+              helperText={errors.lastName || ''}
               variant="outlined"
             />
 
@@ -259,10 +295,8 @@ export default function OrganizationDetailsStep({
               value={formData.organizationName}
               onChange={handleChange}
               required
-              error={errors.organizationName}
-              helperText={
-                errors.organizationName ? 'Organization name is required' : ''
-              }
+              error={Boolean(errors.organizationName)}
+              helperText={errors.organizationName || ''}
               variant="outlined"
             />
 
@@ -272,7 +306,12 @@ export default function OrganizationDetailsStep({
               name="website"
               value={formData.website}
               onChange={handleChange}
+              onBlur={handleBlur}
               placeholder="https://example.com"
+              error={Boolean(errors.website)}
+              helperText={
+                errors.website || "Enter your organization's website URL"
+              }
               variant="outlined"
             />
           </Stack>

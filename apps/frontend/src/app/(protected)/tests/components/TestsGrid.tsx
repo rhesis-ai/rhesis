@@ -377,12 +377,58 @@ export default function TestsTable({
     setSelectedTest(undefined);
   }, []);
 
-  const handleTestSaved = useCallback(() => {
+  const handleTestSaved = useCallback(async () => {
     if (sessionToken) {
-      fetchTests();
-      onRefresh?.();
+      try {
+        // Fetch the most recent test (the one just created)
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const testsClient = clientFactory.getTestsClient();
+
+        const response = await testsClient.getTests({
+          skip: 0,
+          limit: 1,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        });
+
+        if (response.data.length > 0) {
+          const newTest = response.data[0];
+
+          // Add the new test to the top of the current list
+          setTests(prevTests => {
+            // Check if the test already exists to avoid duplicates
+            const existingIndex = prevTests.findIndex(
+              test => test.id === newTest.id
+            );
+            if (existingIndex >= 0) {
+              // Update existing test
+              const updatedTests = [...prevTests];
+              updatedTests[existingIndex] = newTest;
+              return updatedTests;
+            } else {
+              // Add new test to the top
+              return [newTest, ...prevTests];
+            }
+          });
+
+          // Update total count
+          setTotalCount(prev => prev + 1);
+
+          // If we're not on the first page, go to first page to show the new test
+          if (paginationModel.page > 0) {
+            setPaginationModel(prev => ({ ...prev, page: 0 }));
+          }
+        }
+
+        onRefresh?.();
+      } catch (error) {
+        console.error('Error fetching newly created test:', error);
+        // Fallback to full refresh
+        fetchTests();
+        onRefresh?.();
+      }
     }
-  }, [sessionToken, fetchTests, onRefresh]);
+  }, [sessionToken, onRefresh, fetchTests, paginationModel.page]);
 
   const handleGenerateTests = useCallback(() => {
     generateNewTests();
