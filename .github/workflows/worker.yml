@@ -185,6 +185,7 @@ jobs:
             echo "⚠️ ENVIRONMENT not set, defaulting to: $ENV_VALUE"
           fi
           echo "ENVIRONMENT=$ENV_VALUE" >> "$GITHUB_ENV"
+          echo "ENV_VALUE=$ENV_VALUE" >> "$GITHUB_ENV"
           
           if [ "$ENV_VALUE" = "prd" ]; then
             {
@@ -293,18 +294,34 @@ jobs:
           # Set environment-specific replica counts for clean deployment
           echo "🗑️ Ensuring clean deployment state..."
           
-          # Always scale to 0 first to clean up any mixed revisions
-          kubectl scale deployment rhesis-worker --replicas=0 -n "${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Scale down failed, continuing..."
-          
-          # Wait for pods to terminate
-          echo "⏳ Waiting for all pods to terminate..."
-          kubectl wait --for=delete pods -l app=rhesis-worker,environment="${{ env.ENVIRONMENT }}" --namespace="${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Wait timeout, continuing..."
+          # Check if deployment exists and has selector issues
+          if kubectl get deployment rhesis-worker -n "${{ env.NAMESPACE }}" >/dev/null 2>&1; then
+            echo "📋 Checking existing deployment selector..."
+            CURRENT_ENV_LABEL=$(kubectl get deployment rhesis-worker -n "${{ env.NAMESPACE }}" -o jsonpath='{.spec.selector.matchLabels.environment}' 2>/dev/null || echo "")
+            
+            if [ "$CURRENT_ENV_LABEL" != "${{ env.ENV_VALUE }}" ]; then
+              echo "⚠️ Deployment selector mismatch detected (current: '$CURRENT_ENV_LABEL', expected: '${{ env.ENV_VALUE }}')"
+              echo "🗑️ Deleting deployment to fix immutable selector..."
+              kubectl delete deployment rhesis-worker -n "${{ env.NAMESPACE }}" --timeout=120s
+              echo "⏳ Waiting for deployment deletion..."
+              kubectl wait --for=delete deployment rhesis-worker -n "${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Delete timeout, continuing..."
+            else
+              echo "✅ Deployment selector is correct, scaling to 0 for clean update..."
+              kubectl scale deployment rhesis-worker --replicas=0 -n "${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Scale down failed, continuing..."
+              
+              # Wait for pods to terminate
+              echo "⏳ Waiting for all pods to terminate..."
+              kubectl wait --for=delete pods -l app=rhesis-worker -n "${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Wait timeout, continuing..."
+            fi
+          else
+            echo "📋 No existing deployment found, will create new one"
+          fi
           
           # Set environment-specific replica counts
-          if [ "$ENV_VALUE" = "prd" ]; then
+          if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
             sed -i 's/replicas: 4/replicas: 16/g' deployment.yaml
             echo "  ✅ Production: Deploying with 16 initial replicas (32 total workers with concurrency=2)"
-          elif [ "$ENV_VALUE" = "stg" ]; then
+          elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             sed -i 's/replicas: 4/replicas: 8/g' deployment.yaml
             echo "  ✅ Staging: Deploying with 8 initial replicas (16 total workers with concurrency=2)"
           else
@@ -317,32 +334,32 @@ jobs:
           sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
 
           # Configure HPA based on environment with optimized concurrency=2
-          echo "🌍 Configuring for $ENV_VALUE environment (concurrency=2 optimized)..."
-          if [ "$ENV_VALUE" = "prd" ]; then
+          echo "🌍 Configuring for ${{ env.ENV_VALUE }} environment (concurrency=2 optimized)..."
+          if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
             MIN_REPLICAS="16"
             MAX_REPLICAS="32"
             NAMESPACE_NAME="rhesis-worker"
             echo "  - Production: Min 16, Max 32 replicas (32-64 total workers)"
-          elif [ "$ENV_VALUE" = "stg" ]; then
+          elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             MIN_REPLICAS="8"
             MAX_REPLICAS="16"
-            NAMESPACE_NAME="rhesis-worker-$ENV_VALUE"
+            NAMESPACE_NAME="rhesis-worker-${{ env.ENV_VALUE }}"
             echo "  - Staging: Min 8, Max 16 replicas (16-32 total workers)"
           else
             MIN_REPLICAS="4"
             MAX_REPLICAS="8"
-            NAMESPACE_NAME="rhesis-worker-$ENV_VALUE"
+            NAMESPACE_NAME="rhesis-worker-${{ env.ENV_VALUE }}"
             echo "  - Development: Min 4, Max 8 replicas (8-16 total workers)"
           fi
           
           # Generate HPA with environment-specific values
-          HPA_NAME="rhesis-worker-hpa-$ENV_VALUE"
+          HPA_NAME="rhesis-worker-hpa-${{ env.ENV_VALUE }}"
           echo "📈 Generating HPA configuration: $HPA_NAME"
-          sed "s/NAMESPACE_PLACEHOLDER/$NAMESPACE_NAME/g; s/MIN_REPLICAS_PLACEHOLDER/$MIN_REPLICAS/g; s/MAX_REPLICAS_PLACEHOLDER/$MAX_REPLICAS/g" hpa-example.yaml > "hpa-$ENV_VALUE.yaml"
+          sed "s/NAMESPACE_PLACEHOLDER/$NAMESPACE_NAME/g; s/MIN_REPLICAS_PLACEHOLDER/$MIN_REPLICAS/g; s/MAX_REPLICAS_PLACEHOLDER/$MAX_REPLICAS/g" hpa-example.yaml > "hpa-${{ env.ENV_VALUE }}.yaml"
           
           # Validate HPA configuration
           echo "✅ Validating HPA configuration..."
-          kubectl apply -f "hpa-$ENV_VALUE.yaml" --dry-run=client || {
+          kubectl apply -f "hpa-${{ env.ENV_VALUE }}.yaml" --dry-run=client || {
             echo "❌ HPA configuration validation failed"
             exit 1
           }
@@ -357,12 +374,12 @@ jobs:
           - service.yaml
           - serviceaccount.yaml
           - networkpolicy.yaml
-          - hpa-$ENV_VALUE.yaml
+          - hpa-${{ env.ENV_VALUE }}.yaml
           
           labels:
            - includeSelectors: true
              pairs:
-               environment: $ENV_VALUE
+               environment: ${{ env.ENV_VALUE }}
           
           namespace: ${{ env.NAMESPACE }}
           
@@ -449,12 +466,12 @@ jobs:
           echo "  ✅ Cluster: ${{ env.CLUSTER_NAME }}"
           echo "  ✅ Namespace: ${{ env.NAMESPACE }}"
           echo "  ✅ Image: ${{ env.IMAGE_NAME }}:latest"
-          echo "  ✅ Environment: $ENV_VALUE"
+          echo "  ✅ Environment: ${{ env.ENV_VALUE }}"
           echo "  ✅ Resource optimization: Applied (4Gi/6Gi memory, 250m CPU)"
           echo "  ✅ Concurrency: Optimized 2 workers per pod (minimal memory usage)"
-          if [ "$ENV_VALUE" = "prd" ]; then
+          if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
             echo "  ✅ Autoscaling: Enabled with HPA (16-32 pods, 32-64 total workers)"
-          elif [ "$ENV_VALUE" = "stg" ]; then
+          elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             echo "  ✅ Autoscaling: Enabled with HPA (8-16 pods, 16-32 total workers)"
           else
             echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods, 8-16 total workers)"
