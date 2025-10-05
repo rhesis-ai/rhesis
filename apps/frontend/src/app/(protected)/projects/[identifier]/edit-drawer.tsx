@@ -142,7 +142,7 @@ export default function EditDrawer({
   const [formData, setFormData] = React.useState({
     name: project.name,
     description: project.description || '',
-    owner_id: project.owner?.id,
+    owner_id: project.owner?.id || project.owner_id, // Fallback to owner_id field
     is_active: project.is_active,
     icon: project.icon || 'SmartToy',
   });
@@ -153,7 +153,7 @@ export default function EditDrawer({
       setFormData({
         name: project.name,
         description: project.description || '',
-        owner_id: project.owner?.id,
+        owner_id: project.owner?.id || project.owner_id, // Fallback to owner_id field
         is_active: project.is_active,
         icon: project.icon || 'SmartToy',
       });
@@ -260,7 +260,7 @@ export default function EditDrawer({
       newErrors.description = 'Description must be less than 500 characters';
     }
 
-    if (!formData.owner_id) {
+    if (!formData.owner_id || formData.owner_id.trim() === '') {
       newErrors.owner_id = 'Owner is required';
     }
 
@@ -290,7 +290,7 @@ export default function EditDrawer({
         projectUpdate.description = formData.description;
       }
 
-      if (formData.owner_id) {
+      if (formData.owner_id !== undefined) {
         projectUpdate.owner_id = formData.owner_id;
       }
 
