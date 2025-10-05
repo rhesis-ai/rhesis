@@ -82,9 +82,9 @@ export default function CreateTest({
 
   // Reset form to default state
   const resetForm = useCallback(() => {
-    setFormData({ 
-      ...defaultFormData, 
-      owner_id: defaultOwnerId 
+    setFormData({
+      ...defaultFormData,
+      owner_id: defaultOwnerId,
     });
   }, [defaultOwnerId]);
 
