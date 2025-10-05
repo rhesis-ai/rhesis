@@ -193,7 +193,39 @@ export default function ProjectEditDrawer({
   const handleSaveWrapper = async () => {
     setLoading(true);
     try {
-      await onSave(formData);
+      // Create a clean update object with only the fields we want to update
+      const projectUpdate: Partial<Project> = {};
+
+      if (formData.name) {
+        projectUpdate.name = formData.name;
+      }
+
+      if (formData.description !== undefined) {
+        projectUpdate.description = formData.description;
+      }
+
+      // Always include owner_id if it's set (even if empty string to clear owner)
+      if (formData.owner_id !== undefined) {
+        projectUpdate.owner_id = formData.owner_id;
+      }
+
+      if (formData.environment) {
+        projectUpdate.environment = formData.environment;
+      }
+
+      if (formData.useCase) {
+        projectUpdate.useCase = formData.useCase;
+      }
+
+      if (formData.icon) {
+        projectUpdate.icon = formData.icon;
+      }
+
+      if (formData.tags) {
+        projectUpdate.tags = formData.tags;
+      }
+
+      await onSave(projectUpdate);
       onClose();
     } catch (error) {
       console.error('Failed to save project:', error);
