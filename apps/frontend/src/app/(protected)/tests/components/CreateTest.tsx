@@ -368,6 +368,7 @@ export default function CreateTest({
       categories,
       statuses,
       setLoading,
+      resetForm,
     ]
   );
 
