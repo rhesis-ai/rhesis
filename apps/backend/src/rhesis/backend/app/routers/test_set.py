@@ -279,6 +279,7 @@ async def generate_test_set(
             current_user=current_user,
             num_tests=test_count,
             batch_size=request.batch_size,
+            model="gemini",
             prompt=generation_prompt,
             documents=[doc.dict() for doc in request.documents] if request.documents else None,
         )
