@@ -383,7 +383,7 @@ export default function TestsTable({
         // Fetch the most recent test (the one just created)
         const clientFactory = new ApiClientFactory(sessionToken);
         const testsClient = clientFactory.getTestsClient();
-        
+
         const response = await testsClient.getTests({
           skip: 0,
           limit: 1,
@@ -393,11 +393,13 @@ export default function TestsTable({
 
         if (response.data.length > 0) {
           const newTest = response.data[0];
-          
+
           // Add the new test to the top of the current list
           setTests(prevTests => {
             // Check if the test already exists to avoid duplicates
-            const existingIndex = prevTests.findIndex(test => test.id === newTest.id);
+            const existingIndex = prevTests.findIndex(
+              test => test.id === newTest.id
+            );
             if (existingIndex >= 0) {
               // Update existing test
               const updatedTests = [...prevTests];
@@ -408,16 +410,16 @@ export default function TestsTable({
               return [newTest, ...prevTests];
             }
           });
-          
+
           // Update total count
           setTotalCount(prev => prev + 1);
-          
+
           // If we're not on the first page, go to first page to show the new test
           if (paginationModel.page > 0) {
             setPaginationModel(prev => ({ ...prev, page: 0 }));
           }
         }
-        
+
         onRefresh?.();
       } catch (error) {
         console.error('Error fetching newly created test:', error);
