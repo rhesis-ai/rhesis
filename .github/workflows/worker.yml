@@ -68,15 +68,15 @@ jobs:
           echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
 
           # Validate that the file contains valid JSON
-          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+          if ! jq . "${{ env.SA_KEY_PATH }}" > /dev/null 2>&1; then
             echo "❌ Error: Service account key is not valid JSON"
             echo "First few characters:"
-            head -c 20 ${{ env.SA_KEY_PATH }}
+            head -c 20 "${{ env.SA_KEY_PATH }}"
             exit 1
           fi
 
           echo "✅ Service account key validated as proper JSON"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath "${{ env.SA_KEY_PATH }}")" >> "$GITHUB_ENV"
 
       - name: Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -89,20 +89,31 @@ jobs:
       - name: Set environment variables
         id: set_env
         run: |
-          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION }}" >> $GITHUB_ENV
+          {
+            echo "PROJECT_ID=${{ secrets.PROJECT_ID }}"
+            echo "REGION=${{ secrets.REGION }}"
+          } >> "$GITHUB_ENV"
+          
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            echo "SERVICE_NAME=rhesis-worker" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker" >> $GITHUB_ENV
-            echo "service_name=rhesis-worker" >> $GITHUB_OUTPUT
-            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker" >> $GITHUB_OUTPUT
+            {
+              echo "SERVICE_NAME=rhesis-worker"
+              echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker"
+            } >> "$GITHUB_ENV"
+            {
+              echo "service_name=rhesis-worker"
+              echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "SERVICE_NAME=rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
-            echo "service_name=rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
-            echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+            {
+              echo "SERVICE_NAME=rhesis-worker-${{ env.ENVIRONMENT }}"
+              echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker-${{ env.ENVIRONMENT }}"
+            } >> "$GITHUB_ENV"
+            {
+              echo "service_name=rhesis-worker-${{ env.ENVIRONMENT }}"
+              echo "image_name=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker-${{ env.ENVIRONMENT }}"
+            } >> "$GITHUB_OUTPUT"
           fi
-          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> "$GITHUB_ENV"
 
       - name: Configure Docker for GCR
         run: |
@@ -138,15 +149,15 @@ jobs:
           echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
 
           # Validate that the file contains valid JSON
-          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+          if ! jq . "${{ env.SA_KEY_PATH }}" > /dev/null 2>&1; then
             echo "❌ Error: Service account key is not valid JSON"
             echo "First few characters:"
-            head -c 20 ${{ env.SA_KEY_PATH }}
+            head -c 20 "${{ env.SA_KEY_PATH }}"
             exit 1
           fi
 
           echo "✅ Service account key validated as proper JSON"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath "${{ env.SA_KEY_PATH }}")" >> "$GITHUB_ENV"
 
       - name: Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -162,8 +173,10 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION }}" >> $GITHUB_ENV
+          {
+            echo "PROJECT_ID=${{ secrets.PROJECT_ID }}"
+            echo "REGION=${{ secrets.REGION }}"
+          } >> "$GITHUB_ENV"
           
           # Ensure ENVIRONMENT is set with fallback
           ENV_VALUE="${{ env.ENVIRONMENT }}"
@@ -171,16 +184,20 @@ jobs:
             ENV_VALUE="dev"
             echo "⚠️ ENVIRONMENT not set, defaulting to: $ENV_VALUE"
           fi
-          echo "ENVIRONMENT=$ENV_VALUE" >> $GITHUB_ENV
+          echo "ENVIRONMENT=$ENV_VALUE" >> "$GITHUB_ENV"
           
           if [ "$ENV_VALUE" = "prd" ]; then
-            echo "CLUSTER_NAME=rhesis-worker" >> $GITHUB_ENV
-            echo "NAMESPACE=rhesis-worker" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker" >> $GITHUB_ENV
+            {
+              echo "CLUSTER_NAME=rhesis-worker"
+              echo "NAMESPACE=rhesis-worker"
+              echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker"
+            } >> "$GITHUB_ENV"
           else
-            echo "CLUSTER_NAME=rhesis-worker-$ENV_VALUE" >> $GITHUB_ENV
-            echo "NAMESPACE=rhesis-worker-$ENV_VALUE" >> $GITHUB_ENV
-            echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker-$ENV_VALUE" >> $GITHUB_ENV
+            {
+              echo "CLUSTER_NAME=rhesis-worker-$ENV_VALUE"
+              echo "NAMESPACE=rhesis-worker-$ENV_VALUE"
+              echo "IMAGE_NAME=gcr.io/${{ secrets.PROJECT_ID }}/rhesis-worker-$ENV_VALUE"
+            } >> "$GITHUB_ENV"
           fi
 
       - name: Create or get GKE Autopilot cluster
@@ -218,12 +235,12 @@ jobs:
 
       - name: Create namespace
         run: |
-          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace "${{ env.NAMESPACE }}" --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Create or update secrets
         run: |
           kubectl create secret generic rhesis-worker-secrets \
-            --namespace=${{ env.NAMESPACE }} \
+            --namespace="${{ env.NAMESPACE }}" \
             --from-literal=BROKER_URL="${{ secrets.BROKER_URL }}" \
             --from-literal=CELERY_RESULT_BACKEND="${{ secrets.CELERY_RESULT_BACKEND }}" \
             --from-literal=SQLALCHEMY_DATABASE_URL="${{ secrets.SQLALCHEMY_DATABASE_URL }}" \
@@ -277,11 +294,11 @@ jobs:
           echo "🗑️ Ensuring clean deployment state..."
           
           # Always scale to 0 first to clean up any mixed revisions
-          kubectl scale deployment rhesis-worker --replicas=0 -n ${{ env.NAMESPACE }} --timeout=120s || echo "⚠️ Scale down failed, continuing..."
+          kubectl scale deployment rhesis-worker --replicas=0 -n "${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Scale down failed, continuing..."
           
           # Wait for pods to terminate
           echo "⏳ Waiting for all pods to terminate..."
-          kubectl wait --for=delete pods -l app=rhesis-worker,environment=${{ env.ENVIRONMENT }} --namespace=${{ env.NAMESPACE }} --timeout=120s || echo "⚠️ Wait timeout, continuing..."
+          kubectl wait --for=delete pods -l app=rhesis-worker,environment="${{ env.ENVIRONMENT }}" --namespace="${{ env.NAMESPACE }}" --timeout=120s || echo "⚠️ Wait timeout, continuing..."
           
           # Set environment-specific replica counts
           if [ "$ENV_VALUE" = "prd" ]; then
@@ -304,19 +321,16 @@ jobs:
           if [ "$ENV_VALUE" = "prd" ]; then
             MIN_REPLICAS="16"
             MAX_REPLICAS="32"
-            SERVICE_NAME="rhesis-worker"
             NAMESPACE_NAME="rhesis-worker"
             echo "  - Production: Min 16, Max 32 replicas (32-64 total workers)"
           elif [ "$ENV_VALUE" = "stg" ]; then
             MIN_REPLICAS="8"
             MAX_REPLICAS="16"
-            SERVICE_NAME="rhesis-worker"
             NAMESPACE_NAME="rhesis-worker-$ENV_VALUE"
             echo "  - Staging: Min 8, Max 16 replicas (16-32 total workers)"
           else
             MIN_REPLICAS="4"
             MAX_REPLICAS="8"
-            SERVICE_NAME="rhesis-worker"
             NAMESPACE_NAME="rhesis-worker-$ENV_VALUE"
             echo "  - Development: Min 4, Max 8 replicas (8-16 total workers)"
           fi
@@ -324,53 +338,53 @@ jobs:
           # Generate HPA with environment-specific values
           HPA_NAME="rhesis-worker-hpa-$ENV_VALUE"
           echo "📈 Generating HPA configuration: $HPA_NAME"
-          sed "s/NAMESPACE_PLACEHOLDER/$NAMESPACE_NAME/g; s/MIN_REPLICAS_PLACEHOLDER/$MIN_REPLICAS/g; s/MAX_REPLICAS_PLACEHOLDER/$MAX_REPLICAS/g" hpa-example.yaml > hpa-$ENV_VALUE.yaml
+          sed "s/NAMESPACE_PLACEHOLDER/$NAMESPACE_NAME/g; s/MIN_REPLICAS_PLACEHOLDER/$MIN_REPLICAS/g; s/MAX_REPLICAS_PLACEHOLDER/$MAX_REPLICAS/g" hpa-example.yaml > "hpa-$ENV_VALUE.yaml"
           
           # Validate HPA configuration
           echo "✅ Validating HPA configuration..."
-          kubectl apply -f hpa-$ENV_VALUE.yaml --dry-run=client || {
+          kubectl apply -f "hpa-$ENV_VALUE.yaml" --dry-run=client || {
             echo "❌ HPA configuration validation failed"
             exit 1
           }
 
           # Update kustomization for environment
-          cat > kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-- deployment.yaml
-- service.yaml
-- serviceaccount.yaml
-- networkpolicy.yaml
-- hpa-$ENV_VALUE.yaml
-
-labels:
- - includeSelectors: true
-   pairs:
-     environment: $ENV_VALUE
-
-namespace: ${{ env.NAMESPACE }}
-
-images:
-- name: ${{ env.IMAGE_NAME }}
-  newTag: latest
-EOF
+          cat > kustomization.yaml <<EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          
+          resources:
+          - deployment.yaml
+          - service.yaml
+          - serviceaccount.yaml
+          - networkpolicy.yaml
+          - hpa-$ENV_VALUE.yaml
+          
+          labels:
+           - includeSelectors: true
+             pairs:
+               environment: $ENV_VALUE
+          
+          namespace: ${{ env.NAMESPACE }}
+          
+          images:
+          - name: ${{ env.IMAGE_NAME }}
+            newTag: latest
+          EOF
 
           # Apply manifests
-          kubectl apply -k . --namespace=${{ env.NAMESPACE }}
+          kubectl apply -k . --namespace="${{ env.NAMESPACE }}"
           
           # Wait for deployment rollout with validation
           echo "📋 Waiting for deployment rollout..."
-          kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=600s || {
+          kubectl rollout status deployment/rhesis-worker --namespace="${{ env.NAMESPACE }}" --timeout=600s || {
             echo "⚠️ Deployment rollout timeout - checking status..."
-            kubectl get pods --namespace=${{ env.NAMESPACE }} | grep rhesis-worker
+            kubectl get pods --namespace="${{ env.NAMESPACE }}" | grep rhesis-worker
             echo "🔍 Checking deployment conditions..."
-            kubectl describe deployment rhesis-worker --namespace=${{ env.NAMESPACE }} | grep -A 10 "Conditions:"
+            kubectl describe deployment rhesis-worker --namespace="${{ env.NAMESPACE }}" | grep -A 10 "Conditions:"
             
             # Check if deployment is actually ready despite timeout
-            READY_REPLICAS=$(kubectl get deployment rhesis-worker --namespace=${{ env.NAMESPACE }} -o jsonpath='{.status.readyReplicas}')
-            DESIRED_REPLICAS=$(kubectl get deployment rhesis-worker --namespace=${{ env.NAMESPACE }} -o jsonpath='{.spec.replicas}')
+            READY_REPLICAS=$(kubectl get deployment rhesis-worker --namespace="${{ env.NAMESPACE }}" -o jsonpath='{.status.readyReplicas}')
+            DESIRED_REPLICAS=$(kubectl get deployment rhesis-worker --namespace="${{ env.NAMESPACE }}" -o jsonpath='{.spec.replicas}')
             
             if [ "$READY_REPLICAS" = "$DESIRED_REPLICAS" ]; then
               echo "✅ Deployment is actually ready ($READY_REPLICAS/$DESIRED_REPLICAS) - continuing despite timeout"
@@ -382,20 +396,19 @@ EOF
           
           # Verify single revision deployment
           echo "✅ Validating clean deployment..."
-          REVISION_COUNT=$(kubectl rollout history deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} | grep -c "deployment.apps/rhesis-worker")
           
           # Check for mixed pods (different template hashes)
-          TEMPLATE_HASHES=$(kubectl get pods --namespace=${{ env.NAMESPACE }} -l app=rhesis-worker -o jsonpath='{range .items[*]}{.metadata.labels.pod-template-hash}{"\n"}{end}' | sort | uniq | wc -l)
+          TEMPLATE_HASHES=$(kubectl get pods --namespace="${{ env.NAMESPACE }}" -l app=rhesis-worker -o jsonpath='{range .items[*]}{.metadata.labels.pod-template-hash}{"\n"}{end}' | sort | uniq | wc -l)
           
           if [ "$TEMPLATE_HASHES" -gt "1" ]; then
             echo "⚠️ Warning: Multiple template hashes detected - this indicates mixed revisions"
-            kubectl get pods --namespace=${{ env.NAMESPACE }} -l app=rhesis-worker -o custom-columns="NAME:.metadata.name,HASH:.metadata.labels.pod-template-hash" | sort -k2
+            kubectl get pods --namespace="${{ env.NAMESPACE }}" -l app=rhesis-worker -o custom-columns="NAME:.metadata.name,HASH:.metadata.labels.pod-template-hash" | sort -k2
 
             echo "🔧 Force rolling update to clean mixed revisions..."
-            kubectl rollout restart deployment/rhesis-worker --namespace=${{ env.NAMESPACE }}
+            kubectl rollout restart deployment/rhesis-worker --namespace="${{ env.NAMESPACE }}"
             
             echo "⏳ Waiting for clean rollout..."
-            kubectl rollout status deployment/rhesis-worker --namespace=${{ env.NAMESPACE }} --timeout=300s || {
+            kubectl rollout status deployment/rhesis-worker --namespace="${{ env.NAMESPACE }}" --timeout=300s || {
               echo "❌ Clean rollout failed - manual intervention needed"
               exit 1
             }
@@ -405,31 +418,31 @@ EOF
           
           # Clean up any old failed pods to ensure clean deployment
           echo "🧹 Cleaning up any remaining old/failed pods..."
-          kubectl delete pods --field-selector=status.phase!=Running --namespace=${{ env.NAMESPACE }} --ignore-not-found=true || true
+          kubectl delete pods --field-selector=status.phase!=Running --namespace="${{ env.NAMESPACE }}" --ignore-not-found=true || true
           
           # Display final deployment status
           echo "📊 Final deployment validation..."
           echo ""
           echo "=== Pod Status ==="
-          kubectl get pods --namespace=${{ env.NAMESPACE }} -o wide
+          kubectl get pods --namespace="${{ env.NAMESPACE }}" -o wide
           echo ""
           echo "=== Pod Events ==="
-          kubectl get events --namespace=${{ env.NAMESPACE }} --sort-by='.lastTimestamp' | tail -20
+          kubectl get events --namespace="${{ env.NAMESPACE }}" --sort-by='.lastTimestamp' | tail -20
           echo ""
           echo "=== Pod Logs (if any pods exist) ==="
-          for pod in $(kubectl get pods --namespace=${{ env.NAMESPACE }} -o jsonpath='{.items[*].metadata.name}'); do
+          for pod in $(kubectl get pods --namespace="${{ env.NAMESPACE }}" -o jsonpath='{.items[*].metadata.name}'); do
             echo "--- Logs for $pod ---"
-            kubectl logs $pod --namespace=${{ env.NAMESPACE }} --tail=50 || echo "No logs available"
+            kubectl logs "$pod" --namespace="${{ env.NAMESPACE }}" --tail=50 || echo "No logs available"
             echo ""
           done
           
           # Verify HPA is working
           echo "=== HPA Status ==="
-          kubectl get hpa --namespace=${{ env.NAMESPACE }} || echo "HPA not found (will show metrics after deployment settles)"
+          kubectl get hpa --namespace="${{ env.NAMESPACE }}" || echo "HPA not found (will show metrics after deployment settles)"
           echo ""
           
           echo "=== Final Status ==="
-          kubectl get deployment,hpa,pods --namespace=${{ env.NAMESPACE }} | grep -E "(NAME|rhesis-worker|READY|AGE)" | head -10
+          kubectl get deployment,hpa,pods --namespace="${{ env.NAMESPACE }}" | grep -E "(NAME|rhesis-worker|READY|AGE)" | head -10
           echo ""
 
           echo "📊 Deployment Summary"
