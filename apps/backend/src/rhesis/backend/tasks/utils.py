@@ -144,7 +144,13 @@ def increment_test_run_progress(
         # Update the test run
         update_data = {"attributes": current_attributes}
 
-        crud.update_test_run(db, test_run.id, crud.schemas.TestRunUpdate(**update_data))
+        crud.update_test_run(
+            db, 
+            test_run.id, 
+            crud.schemas.TestRunUpdate(**update_data),
+            organization_id=str(test_run.organization_id) if test_run.organization_id else None,
+            user_id=str(test_run.user_id) if test_run.user_id else None
+        )
 
         return True
 

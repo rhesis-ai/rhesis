@@ -37,7 +37,12 @@ def create_test_run(session: Session, test_config: TestConfiguration, task_info:
         },
     }
 
-    test_run = crud.create_test_run(session, crud.schemas.TestRunCreate(**test_run_data))
+    test_run = crud.create_test_run(
+        session, 
+        crud.schemas.TestRunCreate(**test_run_data), 
+        organization_id=str(test_config.organization_id) if test_config.organization_id else None,
+        user_id=str(executor_user_id) if executor_user_id else None
+    )
     return test_run
 
 
@@ -90,4 +95,10 @@ def update_test_run_status(
     update_data["attributes"] = test_run.attributes
 
     # Use crud update operation
-    crud.update_test_run(session, test_run.id, crud.schemas.TestRunUpdate(**update_data))
+    crud.update_test_run(
+        session, 
+        test_run.id, 
+        crud.schemas.TestRunUpdate(**update_data),
+        organization_id=str(test_run.organization_id) if test_run.organization_id else None,
+        user_id=str(test_run.user_id) if test_run.user_id else None
+    )

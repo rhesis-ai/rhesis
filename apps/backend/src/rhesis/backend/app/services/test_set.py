@@ -475,6 +475,8 @@ def execute_test_set_on_endpoint(
     endpoint_id: uuid.UUID,
     current_user: models.User,
     test_configuration_attributes: Dict[str, Any] = None,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration and submitting it for execution.
@@ -485,6 +487,8 @@ def execute_test_set_on_endpoint(
         endpoint_id: Endpoint UUID
         current_user: Current authenticated user
         test_configuration_attributes: Optional attributes for test configuration
+        organization_id: Organization ID for tenant context
+        user_id: User ID for tenant context
 
     Returns:
         Dict containing execution status and metadata
@@ -526,7 +530,7 @@ def execute_test_set_on_endpoint(
 
     # Create test configuration
     test_config_id = _create_test_configuration(
-        db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes
+        db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes, organization_id, user_id
     )
 
     # Submit for execution
@@ -582,6 +586,8 @@ def _create_test_configuration(
     test_set_id: uuid.UUID,
     current_user: models.User,
     test_configuration_attributes: Dict[str, Any] = None,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> str:
     """Create test configuration and return its ID as string."""
     from rhesis.backend.app import crud, schemas
@@ -609,8 +615,12 @@ def _create_test_configuration(
     logger.debug(f"Test configuration schema created: {test_config}")
 
     # Create the test configuration
-    db_test_config = crud.create_test_configuration(db=db, test_configuration=test_config)
-    print(f"I got db_test_config: {db_test_config}")
+    db_test_config = crud.create_test_configuration(
+        db=db, 
+        test_configuration=test_config, 
+        organization_id=organization_id, 
+        user_id=user_id
+    )
     # Access the ID immediately while we're still in the same transaction context
     # This avoids any potential session expiration or RLS context issues
     test_config_id = str(db_test_config.id)

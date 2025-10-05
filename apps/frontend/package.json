@@ -1,6 +1,6 @@
 {
   "name": "rhesis-app",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "scripts": {
     "dev": "next dev --turbo -H 0.0.0.0 -p 3000",
     "build": "npm run clean && next build",
@@ -57,7 +57,7 @@
     "@axe-core/react": "^4.7.0",
     "@next/bundle-analyzer": "^15.3.2",
     "@testing-library/jest-dom": "^6.4.6",
-    "@testing-library/react": "^15.0.0",
+    "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.5.2",
     "@types/invariant": "^2.2.37",
     "@types/jest": "^29.5.12",

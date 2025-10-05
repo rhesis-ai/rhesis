@@ -33,17 +33,22 @@ export default function TestRunDrawer({
     }
   };
 
+  const isMultiple = selectedTestSetIds.length > 1;
+  const title = isMultiple ? 'Execute Test Sets' : 'Execute Test Set';
+  const buttonText = isMultiple ? 'Run Test Sets' : 'Run Test Set';
+
   return (
     <BaseDrawer
       open={open}
       onClose={onClose}
-      title="Execute Test Sets"
+      title={title}
       loading={loading}
       error={error}
       onSave={handleSave}
-      saveButtonText="Execute now"
+      saveButtonText={buttonText}
     >
       <CreateTestRun
+        open={open}
         sessionToken={sessionToken}
         selectedTestSetIds={selectedTestSetIds}
         onSuccess={onSuccess}

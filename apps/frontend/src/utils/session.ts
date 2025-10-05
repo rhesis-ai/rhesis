@@ -75,26 +75,89 @@ export async function clearAllSessionData() {
   );
 
   // Step 1: Call backend logout endpoint to clear server-side session
+  // Try to get the session token first to pass to backend
+  let sessionToken: string | undefined;
   try {
-    console.log('🟡 [DEBUG] Calling backend logout endpoint');
-    const response = await fetch(`${API_CONFIG.baseUrl}/auth/logout`, {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-    console.log('🟡 [DEBUG] Backend logout response status:', response.status);
+    // Extract session token from cookie directly
+    const cookieValue = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('next-auth.session-token='))
+      ?.split('=')[1];
+
+    if (cookieValue) {
+      // Try to parse as JSON first
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieValue));
+        if (
+          sessionData &&
+          typeof sessionData === 'object' &&
+          sessionData.session_token
+        ) {
+          sessionToken = sessionData.session_token;
+        }
+      } catch {
+        // If JSON parsing fails, treat as direct token
+        sessionToken = decodeURIComponent(cookieValue);
+      }
+    }
   } catch (error) {
-    console.warn(
-      '🟡 [DEBUG] Backend logout failed (continuing with frontend cleanup):',
-      error
-    );
-    // Continue with frontend cleanup even if backend fails
+    console.warn('🟡 [DEBUG] Could not retrieve session token:', error);
   }
 
-  // Step 2: Clear all frontend cookies
-  const cookiesToClear = [
+  // Call backend logout with retry logic
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `🟡 [DEBUG] Calling backend logout endpoint (attempt ${attempt + 1}/${maxRetries + 1})`
+      );
+      const logoutUrl = new URL(`${API_CONFIG.baseUrl}/auth/logout`);
+      if (sessionToken) {
+        logoutUrl.searchParams.set('session_token', sessionToken);
+      }
+
+      const response = await fetch(logoutUrl.toString(), {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      console.log(
+        '🟡 [DEBUG] Backend logout response status:',
+        response.status
+      );
+
+      if (response.ok) {
+        break; // Success, exit retry loop
+      }
+
+      if (attempt < maxRetries) {
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    } catch (error) {
+      console.warn(
+        `🟡 [DEBUG] Backend logout attempt ${attempt + 1} failed:`,
+        error
+      );
+      if (attempt === maxRetries) {
+        console.warn(
+          '🟡 [DEBUG] All backend logout attempts failed, continuing with frontend cleanup'
+        );
+      }
+    }
+  }
+
+  // Step 2: Clear ALL frontend cookies
+  // Get all cookies and extract their names
+  const allCookies = document.cookie.split(';');
+  const cookieNames = allCookies
+    .map(cookie => cookie.trim().split('=')[0])
+    .filter(name => name.length > 0);
+
+  // Include known authentication cookies in case some aren't in document.cookie yet
+  const knownAuthCookies = [
     'next-auth.session-token',
     'next-auth.csrf-token',
     'next-auth.callback-url',
@@ -107,43 +170,73 @@ export async function clearAllSessionData() {
     '__Host-next-auth.csrf-token',
     '__Secure-next-auth.callback-url',
     '__Secure-next-auth.session-token',
-    // Additional possible cookie variations
     'next-auth.state',
     'authjs.state',
     'next-auth.nonce',
     'authjs.nonce',
   ];
 
-  console.log('🟡 [DEBUG] Clearing cookies:', cookiesToClear);
+  // Combine all cookies (remove duplicates)
+  const allCookiesToClear = Array.from(
+    new Set([...cookieNames, ...knownAuthCookies])
+  );
 
-  // Clear cookies with both domain and non-domain options
-  cookiesToClear.forEach(name => {
-    // Clear without domain (for development)
-    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
+  console.log('🟡 [DEBUG] Clearing ALL cookies:', allCookiesToClear);
 
-    // Clear with domain (for production)
-    if (process.env.FRONTEND_ENV === 'production') {
-      document.cookie = `${name}=; domain=rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
-      // Also try with leading dot for broader domain coverage
-      document.cookie = `${name}=; domain=.rhesis.ai; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
+  // Clear each cookie with multiple variations to ensure complete removal
+  allCookiesToClear.forEach(name => {
+    // Get current hostname
+    const hostname = window.location.hostname;
+    const domain = hostname.split('.').slice(-2).join('.'); // Get base domain
+
+    // Clear with various path and domain combinations
+    const clearStrategies = [
+      // Without domain (default)
+      `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`,
+      `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax`,
+      `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=None; Secure`,
+
+      // With current hostname
+      `${name}=; domain=${hostname}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`,
+
+      // With base domain
+      `${name}=; domain=${domain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`,
+
+      // With leading dot (broader coverage)
+      `${name}=; domain=.${domain}; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`,
+    ];
+
+    // For deployed environments, add secure clearing (but no cross-domain clearing)
+    if (!hostname.includes('localhost')) {
+      clearStrategies.push(
+        // Clear with secure flag for HTTPS environments
+        `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; Secure`,
+        `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax; Secure`
+      );
     }
+
+    // Apply all clearing strategies
+    clearStrategies.forEach(strategy => {
+      document.cookie = strategy;
+    });
   });
 
-  console.log('🟡 [DEBUG] Clearing localStorage items');
-  // Step 3: Clear any local storage items
-  localStorage.removeItem('next-auth.message');
-  localStorage.removeItem('next-auth.callback-url');
+  // Double-check: Try to clear cookies again after a brief moment
+  setTimeout(() => {
+    allCookiesToClear.forEach(name => {
+      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
+    });
+  }, 100);
 
-  // Step 4: Clear any session storage items
+  console.log('🟡 [DEBUG] Clearing localStorage items');
+  // Step 3: Clear ALL local storage items
+  localStorage.clear();
+
+  // Step 4: Clear ALL session storage items
   sessionStorage.clear();
 
   console.log(
-    '🟡 [DEBUG] Adding 800ms delay before redirect to ensure cleanup completion'
+    '🟡 [DEBUG] Session data clearing completed - no redirect needed'
   );
-  // Add a longer delay before redirecting to ensure all cleanup is completed
-  await new Promise(resolve => setTimeout(resolve, 800));
-
-  console.log('🟡 [DEBUG] Redirecting to home page /');
-  // Force reload to clear any in-memory state and redirect to home page
-  window.location.href = '/';
+  // Note: Redirect will be handled by the calling function (NextAuth signOut)
 }

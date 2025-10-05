@@ -239,6 +239,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
 
             # Process test sets
             print("Processing test sets...")
+            created_test_sets = []
             for item in initial_data.get("test_set", []):
                 # Get test set status
                 status = get_or_create_status(
@@ -264,7 +265,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "license_type_id": license_type.id,
                         "visibility": item["visibility"],
                         "attributes": item["metadata"],
-                        "user_id": uuid.UUID(user_id),
+                        "user_id": uuid.UUID(user_id),  # Set the creating user
+                        "owner_id": uuid.UUID(user_id),  # Set the owner to the same user
+                        "assignee_id": uuid.UUID(user_id),  # Set the assignee to the same user
                         "organization_id": uuid.UUID(organization_id),
                     },
                     organization_id=organization_id,
@@ -293,6 +296,18 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         }
                         db.execute(test_test_set_association.insert().values(**values))
                         db.flush()
+                
+                # Track test sets to update attributes after associations are complete
+                created_test_sets.append(test_set)
+            
+            # Update test set attributes based on associated tests
+            print("Updating test set attributes...")
+            from rhesis.backend.app.services.test_set import update_test_set_attributes
+            for test_set in created_test_sets:
+                try:
+                    update_test_set_attributes(db=db, test_set_id=str(test_set.id))
+                except Exception as e:
+                    print(f"Warning: Failed to update attributes for test set {test_set.name}: {e}")
 
             # Process metrics
             print("Processing metrics...")

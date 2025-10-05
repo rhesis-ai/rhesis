@@ -199,9 +199,11 @@ def update_test(
 def delete_test(
     test_id: UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """Delete a test"""
-    db_test = crud.get_test(db, test_id=test_id)
+    organization_id, user_id = tenant_context
+    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
@@ -209,4 +211,4 @@ def delete_test(
     if db_test.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to delete this test")
 
-    return crud.delete_test(db=db, test_id=test_id)
+    return crud.delete_test(db=db, test_id=test_id, organization_id=organization_id, user_id=user_id)

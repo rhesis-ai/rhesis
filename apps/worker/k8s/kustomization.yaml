@@ -6,6 +6,7 @@ resources:
 - service.yaml
 - serviceaccount.yaml
 - networkpolicy.yaml
+- hpa.yaml
 
 labels:
 - includeSelectors: true

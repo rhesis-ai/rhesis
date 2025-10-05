@@ -61,6 +61,24 @@
                 <td style="padding: 8px 0; font-family: monospace; font-size: 0.9em;">{{ test_run_id }}</td>
             </tr>
             {%- endif %}
+            {%- if test_set_id %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Test Set ID:</td>
+                <td style="padding: 8px 0; font-family: monospace; font-size: 0.9em;">{{ test_set_id }}</td>
+            </tr>
+            {%- endif %}
+            {%- if test_set_name %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Test Set Name:</td>
+                <td style="padding: 8px 0;">{{ test_set_name }}</td>
+            </tr>
+            {%- endif %}
+            {%- if num_tests_generated %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Tests Generated:</td>
+                <td style="padding: 8px 0;">{{ num_tests_generated }}</td>
+            </tr>
+            {%- endif %}
         </table>
     </div>
 
@@ -71,17 +89,28 @@
     </div>
     {%- endif %}
 
-    {%- if frontend_url and test_run_id %}
-    <div style="text-align: center; margin: 30px 0;">
-        <a href="{{ frontend_url }}/test-runs/{{ test_run_id }}" 
-           style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-            View Results
-        </a>
-    </div>
+    {%- if frontend_url %}
+        {%- if test_run_id %}
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ frontend_url }}/test-runs/{{ test_run_id }}" 
+               style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                View Results
+            </a>
+        </div>
+        {%- elif test_set_id %}
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ frontend_url }}/test-sets/{{ test_set_id }}" 
+               style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                View Test Set
+            </a>
+        </div>
+        {%- endif %}
     {%- endif %}
     
     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em;">
         <p>Best regards,<br>Rhesis AI Team</p>
+        
+        {% include '_imprint.html.jinja2' %}
     </div>
 </body>
 </html> 
