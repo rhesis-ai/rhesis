@@ -80,6 +80,14 @@ export default function CreateTest({
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>(defaultFormData);
 
+  // Reset form to default state
+  const resetForm = useCallback(() => {
+    setFormData({ 
+      ...defaultFormData, 
+      owner_id: defaultOwnerId 
+    });
+  }, [defaultOwnerId]);
+
   // Options for dropdowns
   const [behaviors, setBehaviors] = useState<AutocompleteOption[]>([]);
   const [topics, setTopics] = useState<AutocompleteOption[]>([]);
@@ -341,6 +349,8 @@ export default function CreateTest({
           throw new Error(response.message);
         }
 
+        // Reset form to default state after successful creation
+        resetForm();
         onSuccess?.();
       } catch (err) {
         onError?.((err as Error).message);
