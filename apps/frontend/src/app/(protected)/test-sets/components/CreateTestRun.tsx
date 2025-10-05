@@ -8,103 +8,36 @@ import {
   MenuItem,
   Divider,
   Chip,
+  Stack,
+  Autocomplete,
+  TextField,
+  FormHelperText,
+  CircularProgress,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
+import { UUID } from 'crypto';
 
-// Import Material-UI icons from bundled source
-import {
-  SmartToyIcon,
-  DevicesIcon,
-  WebIcon,
-  StorageIcon,
-  CodeIcon,
-  DataObjectIcon,
-  CloudIcon,
-  AnalyticsIcon,
-  ShoppingCartIcon,
-  TerminalIcon,
-  VideogameAssetIcon,
-  ChatIcon,
-  PsychologyIcon,
-  DashboardIcon,
-  SearchIcon,
-  AutoFixHighIcon,
-  PhoneIphoneIcon,
-  SchoolIcon,
-  ScienceIcon,
-  AccountTreeIcon,
-} from '@/components/icons';
+interface ProjectOption {
+  id: UUID;
+  name: string;
+}
+
+interface EndpointOption {
+  id: UUID;
+  name: string;
+  environment?: 'development' | 'staging' | 'production';
+  project_id?: string;
+}
 
 // Import execution mode icons directly from Material-UI
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 
-// Map of icon names to components for easy lookup
-const ICON_MAP: Record<string, React.ComponentType> = {
-  SmartToy: SmartToyIcon,
-  Devices: DevicesIcon,
-  Web: WebIcon,
-  Storage: StorageIcon,
-  Code: CodeIcon,
-  DataObject: DataObjectIcon,
-  Cloud: CloudIcon,
-  Analytics: AnalyticsIcon,
-  ShoppingCart: ShoppingCartIcon,
-  Terminal: TerminalIcon,
-  VideogameAsset: VideogameAssetIcon,
-  Chat: ChatIcon,
-  Psychology: PsychologyIcon,
-  Dashboard: DashboardIcon,
-  Search: SearchIcon,
-  AutoFixHigh: AutoFixHighIcon,
-  PhoneIphone: PhoneIphoneIcon,
-  School: SchoolIcon,
-  Science: ScienceIcon,
-  AccountTree: AccountTreeIcon,
-};
-
-// Get appropriate icon based on project type or use case
-const getProjectIcon = (project: Project) => {
-  // Check if a specific project icon was selected during creation
-  if (project.icon && ICON_MAP[project.icon]) {
-    const IconComponent = ICON_MAP[project.icon];
-    return <IconComponent />;
-  }
-
-  // Fall back to useCase-based icons if no specific icon is set
-  if (project.useCase) {
-    switch (project.useCase.toLowerCase()) {
-      case 'chatbot':
-        return <ChatIcon />;
-      case 'assistant':
-        return <PsychologyIcon />;
-      case 'advisor':
-        return <SmartToyIcon />;
-      default:
-        return <SmartToyIcon />;
-    }
-  }
-
-  // Default icon
-  return <SmartToyIcon />;
-};
-
-// Helper function to get environment color
-const getEnvironmentColor = (environment: string) => {
-  switch (environment.toLowerCase()) {
-    case 'production':
-      return 'success';
-    case 'staging':
-      return 'warning';
-    default:
-      return 'info';
-  }
-};
-
 interface CreateTestRunProps {
+  open: boolean;
   sessionToken: string;
   selectedTestSetIds: string[];
   onSuccess?: () => void;
@@ -113,6 +46,7 @@ interface CreateTestRunProps {
 }
 
 export default function CreateTestRun({
+  open,
   sessionToken,
   selectedTestSetIds,
   onSuccess,
@@ -120,58 +54,128 @@ export default function CreateTestRun({
   submitRef,
 }: CreateTestRunProps) {
   const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>('');
-  const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
+  const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
+    []
+  );
+  const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
 
+  // Fetch projects and endpoints when drawer opens
   useEffect(() => {
+    if (!sessionToken || !open) {
+      console.log('Skipping data fetch - drawer not open or no session token');
+      return;
+    }
+
     const fetchInitialData = async () => {
       try {
+        console.log('Starting to fetch initial data...');
         const clientFactory = new ApiClientFactory(sessionToken);
 
-        // Fetch projects
+        // Fetch projects with proper response handling
         const projectsClient = clientFactory.getProjectsClient();
+        console.log('About to call getProjects...');
+
         const projectsData = await projectsClient.getProjects({
+          sort_by: 'name',
           sort_order: 'asc',
+          limit: 100,
         });
-        setProjects(projectsData.data || []);
+
+        console.log('Projects API response:', projectsData);
+
+        // Handle both response formats: direct array or {data: array}
+        let projectsArray: Project[] = [];
+        if (Array.isArray(projectsData)) {
+          // Direct array response
+          projectsArray = projectsData;
+          console.log('Using direct array response');
+        } else if (projectsData && Array.isArray(projectsData.data)) {
+          // Paginated response with data property
+          projectsArray = projectsData.data;
+          console.log('Using paginated response data');
+        } else {
+          console.warn('Invalid projects response structure:', projectsData);
+        }
+
+        const processedProjects = projectsArray
+          .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
+          .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
+
+        console.log('Final processed projects:', processedProjects);
+        setProjects(processedProjects);
+
+        // Fetch all endpoints
+        try {
+          const endpointsClient = clientFactory.getEndpointsClient();
+          const endpointsResponse = await endpointsClient.getEndpoints({
+            sort_by: 'name',
+            sort_order: 'asc',
+            limit: 100,
+          });
+
+          if (endpointsResponse && Array.isArray(endpointsResponse.data)) {
+            const processedEndpoints = endpointsResponse.data
+              .filter(e => e.id && e.name && e.name.trim() !== '')
+              .map(e => ({
+                id: e.id as UUID,
+                name: e.name,
+                environment: e.environment,
+                project_id: e.project_id,
+              }));
+
+            setEndpoints(processedEndpoints);
+          } else {
+            setEndpoints([]);
+          }
+        } catch (endpointsError) {
+          console.error('Error fetching endpoints:', endpointsError);
+          setEndpoints([]);
+        }
       } catch (error) {
         console.error('Error fetching initial data:', error);
         setProjects([]); // Ensure projects remains an empty array on error
+        setEndpoints([]);
         onError?.('Failed to load initial data');
       }
     };
 
-    fetchInitialData();
-  }, [sessionToken, onError]);
+    if (open) {
+      fetchInitialData();
+      // Reset selections when drawer opens
+      setSelectedProject(null);
+      setSelectedEndpoint(null);
+    }
+  }, [sessionToken, onError, selectedTestSetIds, open]);
 
+  // Filter endpoints when project changes
   useEffect(() => {
-    const fetchEndpoints = async () => {
-      if (!selectedProject) {
-        setEndpoints([]);
-        return;
-      }
+    if (!selectedProject) {
+      setFilteredEndpoints([]);
+      setSelectedEndpoint(null);
+      return;
+    }
 
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const endpointsClient = clientFactory.getEndpointsClient();
-        const endpointsData = await endpointsClient.getEndpoints();
-        // Filter endpoints by project_id
-        const filteredEndpoints = endpointsData.data.filter(
-          endpoint => endpoint.project_id === selectedProject
-        );
-        setEndpoints(filteredEndpoints || []);
-      } catch (error) {
-        console.error('Error fetching endpoints:', error);
-        setEndpoints([]); // Ensure endpoints remains an empty array on error
-        onError?.('Failed to load endpoints');
-      }
-    };
+    // Filter endpoints that belong to the selected project
+    const filtered = endpoints.filter(
+      endpoint => endpoint.project_id === selectedProject
+    );
+    setFilteredEndpoints(filtered);
 
-    fetchEndpoints();
-  }, [selectedProject, sessionToken, onError]);
+    // Reset selected endpoint when project changes
+    setSelectedEndpoint(null);
+  }, [selectedProject, endpoints]);
+
+  const handleEndpointChange = (value: EndpointOption | null) => {
+    if (!value) {
+      setSelectedEndpoint(null);
+      return;
+    }
+    setSelectedEndpoint(value.id);
+  };
 
   const handleSubmit = async () => {
     if (!selectedEndpoint || selectedTestSetIds.length === 0) {
@@ -214,111 +218,157 @@ export default function CreateTestRun({
     submitRef.current = handleSubmit;
   }
 
+  const isFormValid = selectedProject && selectedEndpoint;
+
   return (
     <>
-      <Typography variant="subtitle2" color="text.secondary">
-        Target
-      </Typography>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Stack spacing={3}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Execution Target
+          </Typography>
 
-      <FormControl fullWidth>
-        <InputLabel>Project</InputLabel>
-        <Select
-          value={selectedProject}
-          onChange={e => {
-            setSelectedProject(e.target.value);
-            setSelectedEndpoint('');
-          }}
-          label="Project"
-        >
-          {(projects || []).map(project => (
-            <MenuItem key={project.id} value={project.id}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {getProjectIcon(project)}
-                <Typography>{project.name}</Typography>
-              </Box>
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+          <FormControl fullWidth>
+            <Autocomplete
+              options={projects}
+              value={projects.find(p => p.id === selectedProject) || null}
+              onChange={(_, newValue) => {
+                if (!newValue) {
+                  setSelectedProject(null);
+                  return;
+                }
+                setSelectedProject(newValue.id);
+                setSelectedEndpoint(null);
+              }}
+              getOptionLabel={option => option.name}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box component="li" key={option.id} {...otherProps}>
+                    {option.name}
+                  </Box>
+                );
+              }}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Project"
+                  required
+                  placeholder="Select a project"
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+            />
+            {projects.length === 0 && !loading && (
+              <FormHelperText>No projects available</FormHelperText>
+            )}
+          </FormControl>
 
-      <FormControl fullWidth>
-        <InputLabel>Endpoint</InputLabel>
-        <Select
-          value={selectedEndpoint}
-          onChange={e => setSelectedEndpoint(e.target.value)}
-          label="Endpoint"
-          disabled={!selectedProject}
-        >
-          {!endpoints || endpoints.length === 0 ? (
-            <MenuItem disabled>
-              <Typography color="text.secondary">
-                {selectedProject
-                  ? 'No endpoints available for this project'
-                  : 'Select a project first'}
-              </Typography>
-            </MenuItem>
-          ) : (
-            endpoints.map(endpoint => (
-              <MenuItem key={endpoint.id} value={endpoint.id}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                  }}
-                >
-                  <Typography>{endpoint.name}</Typography>
-                  <Chip
-                    label={endpoint.environment}
-                    size="small"
-                    color={getEnvironmentColor(endpoint.environment)}
-                    sx={{ ml: 1, textTransform: 'capitalize' }}
-                  />
+          <FormControl fullWidth>
+            <Autocomplete
+              options={filteredEndpoints}
+              value={
+                filteredEndpoints.find(e => e.id === selectedEndpoint) || null
+              }
+              onChange={(_, newValue) => handleEndpointChange(newValue)}
+              getOptionLabel={option => option.name}
+              disabled={!selectedProject}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Endpoint"
+                  required
+                  placeholder={
+                    selectedProject
+                      ? 'Select endpoint'
+                      : 'Select a project first'
+                  }
+                />
+              )}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box
+                    key={option.id}
+                    {...otherProps}
+                    component="li"
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span>{option.name}</span>
+                    {option.environment && (
+                      <Chip
+                        label={option.environment}
+                        size="small"
+                        color={
+                          option.environment === 'production'
+                            ? 'error'
+                            : option.environment === 'staging'
+                              ? 'warning'
+                              : 'success'
+                        }
+                        sx={{ ml: 1 }}
+                      />
+                    )}
+                  </Box>
+                );
+              }}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+            />
+            {filteredEndpoints.length === 0 && selectedProject && !loading && (
+              <FormHelperText>
+                No endpoints available for this project
+              </FormHelperText>
+            )}
+          </FormControl>
+
+          <Divider />
+
+          <Typography variant="subtitle2" color="text.secondary">
+            Configuration Options
+          </Typography>
+
+          <FormControl fullWidth>
+            <InputLabel>Execution Mode</InputLabel>
+            <Select
+              value={executionMode}
+              onChange={e => setExecutionMode(e.target.value)}
+              label="Execution Mode"
+            >
+              <MenuItem value="Parallel">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CallSplitIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Parallel</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Tests run simultaneously for faster execution (default)
+                    </Typography>
+                  </Box>
                 </Box>
               </MenuItem>
-            ))
-          )}
-        </Select>
-      </FormControl>
-
-      <Divider sx={{ my: 2 }} />
-
-      <Typography variant="subtitle2" color="text.secondary">
-        Execution Options
-      </Typography>
-
-      <FormControl fullWidth>
-        <InputLabel>Execution Mode</InputLabel>
-        <Select
-          value={executionMode}
-          onChange={e => setExecutionMode(e.target.value)}
-          label="Execution Mode"
-        >
-          <MenuItem value="Parallel">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CallSplitIcon fontSize="small" />
-              <Box>
-                <Typography variant="body1">Parallel</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Tests run simultaneously for faster execution (default)
-                </Typography>
-              </Box>
-            </Box>
-          </MenuItem>
-          <MenuItem value="Sequential">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ArrowForwardIcon fontSize="small" />
-              <Box>
-                <Typography variant="body1">Sequential</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Tests run one after another, better for rate-limited endpoints
-                </Typography>
-              </Box>
-            </Box>
-          </MenuItem>
-        </Select>
-      </FormControl>
+              <MenuItem value="Sequential">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ArrowForwardIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Sequential</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Tests run one after another, better for rate-limited
+                      endpoints
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
+      )}
     </>
   );
 }
