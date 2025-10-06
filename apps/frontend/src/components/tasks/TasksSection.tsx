@@ -49,7 +49,6 @@ export function TasksSection({
 }: TasksSectionProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const isMounted = useRef(true);
 
   // Component state
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -61,14 +60,30 @@ export function TasksSection({
     pageSize: 10,
   });
 
-  // Fetch tasks with pagination
-  const fetchTasks = useCallback(
-    async (pagination: GridPaginationModel) => {
-      if (!sessionToken) {
-        setError('No session token available');
-        setLoading(false);
-        return;
-      }
+  // Handle pagination changes
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      console.log('[TasksSection] handlePaginationModelChange called', newModel);
+      setPaginationModel(newModel);
+    },
+    []
+  );
+
+  // Extract primitive values to use as stable dependencies
+  const currentPage = paginationModel.page;
+  const currentPageSize = paginationModel.pageSize;
+
+  // Fetch tasks - using a simpler, more robust pattern
+  React.useEffect(() => {
+    // Don't even create the controller if we're missing required props
+    if (!entityType || !entityId || !sessionToken) {
+      setLoading(false); // Important: ensure loading is false if we can't fetch
+      return;
+    }
+    
+    const abortController = new AbortController();
+
+    const fetchTasks = async () => {
 
       setLoading(true);
       setError(null);
@@ -77,54 +92,41 @@ export function TasksSection({
         const clientFactory = new ApiClientFactory(sessionToken);
         const tasksClient = clientFactory.getTasksClient();
 
-        const skip = pagination.page * pagination.pageSize;
-        // Use the main tasks endpoint with OData filter for entity-specific tasks
+        const skip = currentPage * currentPageSize;
         const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
+        
         const response = await tasksClient.getTasks({
           skip,
-          limit: pagination.pageSize,
+          limit: currentPageSize,
           sort_by: 'created_at',
           sort_order: 'desc',
           $filter: filter,
         });
 
-        if (isMounted.current) {
+        // Only update state if not aborted
+        if (!abortController.signal.aborted) {
           setTasks(response.data);
           setTotalCount(response.totalCount);
+          setLoading(false);
         }
       } catch (err) {
-        if (isMounted.current) {
+        // Only update state if not aborted
+        if (!abortController.signal.aborted) {
           const errorMessage =
             err instanceof Error ? err.message : 'Failed to fetch tasks';
           setError(errorMessage);
           notifications.show(errorMessage, { severity: 'error' });
-        }
-      } finally {
-        if (isMounted.current) {
           setLoading(false);
         }
       }
-    },
-    [entityType, entityId, sessionToken, notifications]
-  );
+    };
 
-  // Handle pagination changes
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-      fetchTasks(newModel);
-    },
-    [fetchTasks]
-  );
-
-  // Initial fetch
-  React.useEffect(() => {
-    fetchTasks(paginationModel);
+    fetchTasks();
 
     return () => {
-      isMounted.current = false;
+      abortController.abort();
     };
-  }, [fetchTasks, paginationModel]);
+  }, [currentPage, currentPageSize, entityType, entityId, sessionToken]);
 
   const handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {
