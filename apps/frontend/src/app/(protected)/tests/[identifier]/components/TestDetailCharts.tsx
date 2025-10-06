@@ -194,7 +194,7 @@ function LastTestRunCard({
               <Typography
                 variant="body2"
                 sx={{
-                  fontSize: '0.75rem',
+                  fontSize: theme.typography.caption.fontSize,
                   textAlign: 'center',
                   fontWeight: 500,
                   color: theme.palette.primary.main,
@@ -213,7 +213,7 @@ function LastTestRunCard({
               variant="body2"
               color="text.secondary"
               sx={{
-                fontSize: '0.75rem',
+                fontSize: theme.typography.caption.fontSize,
                 textAlign: 'center',
                 fontWeight: 500,
               }}
@@ -232,14 +232,14 @@ function LastTestRunCard({
                 flexWrap: 'wrap',
               }}
             >
-              <Chip
-                size="small"
-                label={`${metricCounts.passed}/${metricCounts.total} metrics passed`}
-                sx={{
-                  fontSize: '0.7rem',
-                  height: 24,
-                }}
-              />
+            <Chip
+              size="small"
+              label={`${metricCounts.passed}/${metricCounts.total} metrics passed`}
+              sx={{
+                fontSize: theme.typography.caption.fontSize,
+                height: 24,
+              }}
+            />
             </Box>
           )}
 
@@ -260,7 +260,7 @@ function LastTestRunCard({
                 <Typography
                   variant="caption"
                   color="text.secondary"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ fontSize: theme.typography.caption.fontSize }}
                 >
                   {formatExecutionTime(lastRunExecutionTime)}
                 </Typography>
@@ -274,7 +274,7 @@ function LastTestRunCard({
                 <Typography
                   variant="caption"
                   color="text.secondary"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ fontSize: theme.typography.caption.fontSize }}
                 >
                   {formatDate(lastRunDate)}
                 </Typography>
@@ -335,9 +335,9 @@ function SinglePointChart({
             backgroundColor: 'background.paper',
             border: 1,
             borderColor: 'divider',
-            borderRadius: 1,
+            borderRadius: theme.shape.borderRadius,
             p: '10px 14px',
-            fontSize: '0.75rem',
+            fontSize: theme.typography.caption.fontSize,
             color: 'text.primary',
             minWidth: '150px',
           }}
@@ -345,27 +345,27 @@ function SinglePointChart({
           <Box sx={{ mb: '6px' }}>
             <Typography
               component="span"
-              sx={{ color: 'text.secondary', fontSize: '0.75rem' }}
+              sx={{ color: 'text.secondary', fontSize: theme.typography.caption.fontSize }}
             >
               Value:{' '}
             </Typography>
             <Typography
               component="span"
-              sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+              sx={{ fontWeight: 600, fontSize: theme.typography.caption.fontSize }}
             >
               {displayValue}
             </Typography>
           </Box>
           {tooltipDetails &&
             tooltipDetails.map((detail, index) => (
-              <Box key={index} sx={{ mb: '4px', fontSize: '0.7rem' }}>
+              <Box key={index} sx={{ mb: '4px', fontSize: theme.typography.caption.fontSize }}>
                 <Typography
                   component="span"
-                  sx={{ color: 'text.secondary', fontSize: '0.7rem' }}
+                  sx={{ color: 'text.secondary', fontSize: theme.typography.caption.fontSize }}
                 >
                   {detail.label}:{' '}
                 </Typography>
-                <Typography component="span" sx={{ fontSize: '0.7rem' }}>
+                <Typography component="span" sx={{ fontSize: theme.typography.caption.fontSize }}>
                   {detail.value}
                 </Typography>
               </Box>
@@ -449,7 +449,7 @@ function SinglePointChart({
             variant="caption"
             color="text.secondary"
             sx={{
-              fontSize: '0.7rem',
+              fontSize: theme.typography.caption.fontSize,
               textAlign: 'center',
               mt: 0.5,
             }}
