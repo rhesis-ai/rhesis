@@ -63,7 +63,10 @@ export function TasksSection({
   // Handle pagination changes
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
-      console.log('[TasksSection] handlePaginationModelChange called', newModel);
+      console.log(
+        '[TasksSection] handlePaginationModelChange called',
+        newModel
+      );
       setPaginationModel(newModel);
     },
     []
@@ -80,11 +83,10 @@ export function TasksSection({
       setLoading(false); // Important: ensure loading is false if we can't fetch
       return;
     }
-    
+
     const abortController = new AbortController();
 
     const fetchTasks = async () => {
-
       setLoading(true);
       setError(null);
 
@@ -94,7 +96,7 @@ export function TasksSection({
 
         const skip = currentPage * currentPageSize;
         const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
-        
+
         const response = await tasksClient.getTasks({
           skip,
           limit: currentPageSize,
