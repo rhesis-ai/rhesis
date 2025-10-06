@@ -45,6 +45,7 @@ def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "organization",
         "user",
         "backend_type",
+        "counts",
     ]
     for key in keys_to_remove:
         config.pop(key, None)
