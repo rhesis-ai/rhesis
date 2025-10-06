@@ -12,6 +12,10 @@ import {
 } from './interfaces/tests';
 import { StatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
+import {
+  IndividualTestStats,
+  IndividualTestStatsOptions,
+} from './interfaces/individual-test-stats';
 
 // Default pagination settings
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -170,6 +174,33 @@ export class TestsClient extends BaseApiClient {
     return this.fetch<TestBulkCreateResponse>(`${API_ENDPOINTS.tests}/bulk`, {
       method: 'POST',
       body: JSON.stringify(request),
+    });
+  }
+
+  async getIndividualTestStats(
+    testId: string,
+    options: IndividualTestStatsOptions = {}
+  ): Promise<IndividualTestStats> {
+    const queryParams = new URLSearchParams();
+    if (options.recent_runs_limit !== undefined)
+      queryParams.append(
+        'recent_runs_limit',
+        options.recent_runs_limit.toString()
+      );
+    if (options.months !== undefined)
+      queryParams.append('months', options.months.toString());
+    if (options.start_date !== undefined)
+      queryParams.append('start_date', options.start_date);
+    if (options.end_date !== undefined)
+      queryParams.append('end_date', options.end_date);
+
+    const queryString = queryParams.toString();
+    const url = queryString
+      ? `${API_ENDPOINTS.tests}/${testId}/stats?${queryString}`
+      : `${API_ENDPOINTS.tests}/${testId}/stats`;
+
+    return this.fetch<IndividualTestStats>(url, {
+      cache: 'no-store',
     });
   }
 }

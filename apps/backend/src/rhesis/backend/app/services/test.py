@@ -13,7 +13,6 @@ from rhesis.backend.app.constants import (
 )
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
     get_or_create_status,
@@ -25,30 +24,6 @@ from rhesis.backend.app.utils.uuid_utils import (
     validate_uuid_parameters,
 )
 from rhesis.backend.logging import logger
-
-
-def get_test_stats(
-    db: Session,
-    current_user_organization_id: str | None,
-    top: int | None = None,
-    months: int = 6,
-) -> Dict:
-    """
-    Get comprehensive statistics about tests.
-
-    Args:
-        db: Database session
-        current_user_organization_id: Optional organization ID for filtering
-        top: Optional number of top items to show per dimension
-        months: Number of months to include in historical stats (default: 6)
-    """
-    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
-    return calculator.get_entity_stats(
-        entity_model=models.Test,
-        organization_id=current_user_organization_id,
-        top=top,
-        months=months,
-    )
 
 
 def load_defaults():
