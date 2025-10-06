@@ -92,44 +92,61 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
 
           const uniqueProjectIds = [...new Set(projectIds)];
 
-          // Check which projects we don't have cached yet
-          const uncachedProjectIds = uniqueProjectIds.filter(
-            id => !projectNames[id]
-          );
+          if (uniqueProjectIds.length > 0) {
+            // Use functional update to check cache and fetch only uncached projects
+            // This avoids circular dependency on projectNames
+            setProjectNames(prev => {
+              const uncachedProjectIds = uniqueProjectIds.filter(
+                id => !prev[id]
+              );
 
-          if (uncachedProjectIds.length > 0) {
-            // Fetch all project names in parallel and update state once
-            Promise.all(
-              uncachedProjectIds.map(async projectId => {
-                try {
-                  const clientFactory = new ApiClientFactory(sessionToken);
-                  const projectsClient = clientFactory.getProjectsClient();
-                  const project = await projectsClient.getProject(projectId);
-                  return { projectId, name: project.name };
-                } catch (err) {
-                  console.error(`Error fetching project ${projectId}:`, err);
-                  return null;
-                }
-              })
-            ).then(results => {
-              if (isMounted.current) {
-                const newProjects = results
-                  .filter(
-                    (result): result is { projectId: string; name: string } =>
-                      result !== null
-                  )
-                  .reduce(
-                    (acc, { projectId, name }) => {
-                      acc[projectId] = name;
-                      return acc;
-                    },
-                    {} as Record<string, string>
-                  );
+              if (uncachedProjectIds.length > 0) {
+                // Fetch all uncached project names in parallel
+                Promise.all(
+                  uncachedProjectIds.map(async projectId => {
+                    try {
+                      const clientFactory = new ApiClientFactory(sessionToken);
+                      const projectsClient = clientFactory.getProjectsClient();
+                      const project =
+                        await projectsClient.getProject(projectId);
+                      return { projectId, name: project.name };
+                    } catch (err) {
+                      console.error(
+                        `Error fetching project ${projectId}:`,
+                        err
+                      );
+                      return null;
+                    }
+                  })
+                ).then(results => {
+                  if (isMounted.current) {
+                    const newProjects = results
+                      .filter(
+                        (
+                          result
+                        ): result is { projectId: string; name: string } =>
+                          result !== null
+                      )
+                      .reduce(
+                        (acc, { projectId, name }) => {
+                          acc[projectId] = name;
+                          return acc;
+                        },
+                        {} as Record<string, string>
+                      );
 
-                if (Object.keys(newProjects).length > 0) {
-                  setProjectNames(prev => ({ ...prev, ...newProjects }));
-                }
+                    if (Object.keys(newProjects).length > 0) {
+                      setProjectNames(current => ({
+                        ...current,
+                        ...newProjects,
+                      }));
+                    }
+                  }
+                });
               }
+
+              // Return current state unchanged (actual update happens in Promise.then)
+              return prev;
             });
           }
         }
@@ -145,7 +162,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         }
       }
     },
-    [sessionToken, projectNames]
+    [sessionToken]
   );
 
   useEffect(() => {
