@@ -232,14 +232,14 @@ function LastTestRunCard({
                 flexWrap: 'wrap',
               }}
             >
-            <Chip
-              size="small"
-              label={`${metricCounts.passed}/${metricCounts.total} metrics passed`}
-              sx={{
-                fontSize: theme.typography.caption.fontSize,
-                height: 24,
-              }}
-            />
+              <Chip
+                size="small"
+                label={`${metricCounts.passed}/${metricCounts.total} metrics passed`}
+                sx={{
+                  fontSize: theme.typography.caption.fontSize,
+                  height: 24,
+                }}
+              />
             </Box>
           )}
 
@@ -345,27 +345,42 @@ function SinglePointChart({
           <Box sx={{ mb: '6px' }}>
             <Typography
               component="span"
-              sx={{ color: 'text.secondary', fontSize: theme.typography.caption.fontSize }}
+              sx={{
+                color: 'text.secondary',
+                fontSize: theme.typography.caption.fontSize,
+              }}
             >
               Value:{' '}
             </Typography>
             <Typography
               component="span"
-              sx={{ fontWeight: 600, fontSize: theme.typography.caption.fontSize }}
+              sx={{
+                fontWeight: 600,
+                fontSize: theme.typography.caption.fontSize,
+              }}
             >
               {displayValue}
             </Typography>
           </Box>
           {tooltipDetails &&
             tooltipDetails.map((detail, index) => (
-              <Box key={index} sx={{ mb: '4px', fontSize: theme.typography.caption.fontSize }}>
+              <Box
+                key={index}
+                sx={{ mb: '4px', fontSize: theme.typography.caption.fontSize }}
+              >
                 <Typography
                   component="span"
-                  sx={{ color: 'text.secondary', fontSize: theme.typography.caption.fontSize }}
+                  sx={{
+                    color: 'text.secondary',
+                    fontSize: theme.typography.caption.fontSize,
+                  }}
                 >
                   {detail.label}:{' '}
                 </Typography>
-                <Typography component="span" sx={{ fontSize: theme.typography.caption.fontSize }}>
+                <Typography
+                  component="span"
+                  sx={{ fontSize: theme.typography.caption.fontSize }}
+                >
                   {detail.value}
                 </Typography>
               </Box>
