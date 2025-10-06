@@ -129,7 +129,9 @@ function LastTestRunCard({
     >
       <CardContent
         sx={{
-          p: 0.5,
+          pt: 0.25,
+          px: 0.5,
+          pb: 0.25,
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -141,8 +143,8 @@ function LastTestRunCard({
           variant="subtitle2"
           component="h3"
           sx={{
-            mb: 1,
-            px: 0.5,
+            mb: 0,
+            px: 0,
             textAlign: 'center',
           }}
         >
@@ -158,7 +160,6 @@ function LastTestRunCard({
             justifyContent: 'center',
             gap: 1,
             px: 1,
-            py: 0.5,
           }}
         >
           {/* Status with Icon */}
@@ -329,34 +330,47 @@ function SinglePointChart({
         ? formatValue(payload[0].value)
         : payload[0].value;
       return (
-        <div
-          style={{
-            backgroundColor: theme.palette.background.paper,
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: '4px',
-            padding: '10px 14px',
+        <Box
+          sx={{
+            backgroundColor: 'background.paper',
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: '10px 14px',
             fontSize: '0.75rem',
-            color: theme.palette.text.primary,
+            color: 'text.primary',
             minWidth: '150px',
           }}
         >
-          <div style={{ marginBottom: '6px' }}>
-            <span style={{ color: theme.palette.text.secondary }}>Value: </span>
-            <span style={{ fontWeight: 600 }}>{displayValue}</span>
-          </div>
+          <Box sx={{ mb: '6px' }}>
+            <Typography
+              component="span"
+              sx={{ color: 'text.secondary', fontSize: '0.75rem' }}
+            >
+              Value:{' '}
+            </Typography>
+            <Typography
+              component="span"
+              sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+            >
+              {displayValue}
+            </Typography>
+          </Box>
           {tooltipDetails &&
             tooltipDetails.map((detail, index) => (
-              <div
-                key={index}
-                style={{ marginBottom: '4px', fontSize: '0.7rem' }}
-              >
-                <span style={{ color: theme.palette.text.secondary }}>
+              <Box key={index} sx={{ mb: '4px', fontSize: '0.7rem' }}>
+                <Typography
+                  component="span"
+                  sx={{ color: 'text.secondary', fontSize: '0.7rem' }}
+                >
                   {detail.label}:{' '}
-                </span>
-                <span>{detail.value}</span>
-              </div>
+                </Typography>
+                <Typography component="span" sx={{ fontSize: '0.7rem' }}>
+                  {detail.value}
+                </Typography>
+              </Box>
             ))}
-        </div>
+        </Box>
       );
     }
     return null;
