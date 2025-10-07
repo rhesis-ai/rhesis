@@ -160,7 +160,10 @@ export default function DangerZone({
             </Typography>
             <Box
               component="ul"
-              sx={{ m: theme => theme.spacing(1, 0), pl: theme => theme.spacing(2.5) }}
+              sx={{
+                m: theme => theme.spacing(1, 0),
+                pl: theme => theme.spacing(2.5),
+              }}
             >
               <li>Lose access to all organization data and projects</li>
               <li>Need to be re-invited to rejoin this organization</li>
