@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -160,7 +159,7 @@ async def upload_source(
     file: UploadFile = File(...),
     title: str = None,
     description: str = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -191,7 +190,7 @@ async def upload_source(
     try:
         # Get Document source type
         document_source_type = crud.get_type_lookup_by_name_and_value(
-            db, type_name="SourceType", type_value="Document"
+            db, type_name="SourceType", type_value="Document", organization_id=organization_id
         )
         if not document_source_type:
             raise HTTPException(
@@ -235,7 +234,7 @@ async def upload_source(
 @router.post("/{source_id}/extract")
 async def extract_source_content(
     source_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -333,7 +332,7 @@ async def extract_source_content(
 @router.get("/{source_id}/content")
 async def get_source_content(
     source_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
