@@ -230,9 +230,9 @@ export default function TestSetDetailsSection({
           Test Set Details
         </Typography>
 
-        {/* Title Field */}
+        {/* Name Field */}
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-          Title
+          Name
         </Typography>
         {isEditingTitle ? (
           <TextField
