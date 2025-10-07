@@ -155,6 +155,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: FRONTEND_URL
+        - name: DB_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DB_ENCRYPTION_KEY
         # Memory optimization settings
         - name: PYTHONMALLOC
           value: "malloc"
