@@ -10,6 +10,7 @@ from .enums import (
 )
 from .guid import GUID
 from .mixins import TagsMixin
+from rhesis.backend.app.utils.encryption import EncryptedString
 
 
 class Endpoint(Base, TagsMixin):
@@ -62,12 +63,12 @@ class Endpoint(Base, TagsMixin):
 
     # Authentication fields
     auth_type = Column(String, nullable=True)
-    auth_token = Column(Text, nullable=True)
+    auth_token = Column(EncryptedString(), nullable=True)  # Encrypted for security
     client_id = Column(Text, nullable=True)
-    client_secret = Column(Text, nullable=True)
+    client_secret = Column(EncryptedString(), nullable=True)  # Encrypted for security
     token_url = Column(Text, nullable=True)
     scopes = Column(ARRAY(Text), nullable=True)
     audience = Column(Text, nullable=True)
     extra_payload = Column(JSON, nullable=True)
-    last_token = Column(Text, nullable=True)
+    last_token = Column(EncryptedString(), nullable=True)  # Encrypted for security
     last_token_expires_at = Column(DateTime, nullable=True)
