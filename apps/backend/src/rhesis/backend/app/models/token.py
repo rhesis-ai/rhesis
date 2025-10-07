@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .mixins import OrganizationMixin
+from rhesis.backend.app.utils.encryption import EncryptedString
 
 
 class Token(Base, OrganizationMixin):
@@ -13,7 +14,7 @@ class Token(Base, OrganizationMixin):
     name = Column(String)
 
     # Token-specific columns
-    token = Column(String, nullable=False)
+    token = Column(EncryptedString(), nullable=False)  # Encrypted for security (user-generated tokens)
     token_obfuscated = Column(String)
     token_type = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=True)
