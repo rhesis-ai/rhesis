@@ -251,6 +251,7 @@ jobs:
             --from-literal=SQLALCHEMY_DB_PASS="${{ secrets.SQLALCHEMY_DB_PASS }}" \
             --from-literal=SQLALCHEMY_DB_HOST="${{ secrets.SQLALCHEMY_DB_HOST || '127.0.0.1' }}" \
             --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
+            --from-literal=DB_ENCRYPTION_KEY="${{ secrets.DB_ENCRYPTION_KEY }}" \
             --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
             --from-literal=CELERY_WORKER_LOGLEVEL="${{ secrets.LOG_LEVEL || 'INFO' }}" \
             --from-literal=CELERY_WORKER_CONCURRENCY="${{ secrets.CELERY_WORKER_CONCURRENCY || '2' }}" \
