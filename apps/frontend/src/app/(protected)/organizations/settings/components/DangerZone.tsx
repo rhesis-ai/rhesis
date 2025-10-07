@@ -13,6 +13,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
@@ -95,12 +96,12 @@ export default function DangerZone({
         sx={{
           border: '2px solid',
           borderColor: 'error.main',
-          borderRadius: 1,
+          borderRadius: theme => theme.shape.borderRadius,
           p: 3,
           backgroundColor: theme =>
             theme.palette.mode === 'dark'
-              ? 'rgba(211, 47, 47, 0.08)'
-              : 'rgba(211, 47, 47, 0.04)',
+              ? alpha(theme.palette.error.main, 0.08)
+              : alpha(theme.palette.error.main, 0.04),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
@@ -157,11 +158,14 @@ export default function DangerZone({
             <Typography variant="body2" fontWeight="bold" gutterBottom>
               This action is irreversible. You will:
             </Typography>
-            <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+            <Box
+              component="ul"
+              sx={{ m: theme => theme.spacing(1, 0), pl: theme => theme.spacing(2.5) }}
+            >
               <li>Lose access to all organization data and projects</li>
               <li>Need to be re-invited to rejoin this organization</li>
               <li>Go through the onboarding process again</li>
-            </ul>
+            </Box>
             <Typography variant="body2" fontWeight="bold" sx={{ mt: 1 }}>
               Your contributions (tests, prompts, etc.) will remain in the
               organization.
