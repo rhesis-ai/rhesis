@@ -183,7 +183,12 @@ export class BaseApiClient {
         });
 
         if (!response.ok) {
-          console.error('[ERROR] [DEBUG] API Response Error:', {
+          // Determine if this is an expected validation/client error or an unexpected server error
+          const isClientError = [400, 409, 422, 429].includes(response.status);
+          const logLevel = isClientError ? 'warn' : 'error';
+          const logPrefix = isClientError ? '[VALIDATION]' : '[ERROR]';
+
+          console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
             url,
             status: response.status,
             statusText: response.statusText,
@@ -222,10 +227,16 @@ export class BaseApiClient {
             errorMessage = await response.text();
           }
 
-          console.error('[ERROR] [DEBUG] Full error details:', {
+          console[logLevel](`${logPrefix} [DEBUG] Full error details:`, {
             errorMessage,
             errorData,
           });
+
+          // Provide user-friendly messages for rate limiting
+          if (response.status === 429) {
+            const rateLimitInfo = errorMessage; // e.g., "10 per 1 hour"
+            errorMessage = `Too many requests. You've exceeded the rate limit (${rateLimitInfo}). Please try again later.`;
+          }
 
           const error = new Error(
             `API error: ${response.status} - ${errorMessage}`
@@ -286,7 +297,15 @@ export class BaseApiClient {
               `Network error when connecting to ${this.baseUrl}. Please check your connection and ensure the API server is running.`
             );
           }
-          console.error(`API request failed for ${url}:`, error);
+
+          // Use appropriate log level based on error status
+          const isClientError =
+            error.status && [400, 409, 422, 429].includes(error.status);
+          if (isClientError) {
+            console.warn(`API client error for ${url}:`, error);
+          } else {
+            console.error(`API request failed for ${url}:`, error);
+          }
           throw error;
         }
 

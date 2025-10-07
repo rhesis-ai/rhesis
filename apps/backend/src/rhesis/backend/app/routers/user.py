@@ -8,7 +8,6 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context)
-from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.auth import create_session_token
@@ -49,13 +48,37 @@ async def create_user(
     # Check for existing user with the same email
     existing_user = crud.get_user_by_email(db, user.email)
     if existing_user:
-        raise HTTPException(status_code=409, detail=f"User with email {user.email} already exists")
+        # User already exists - check if they can be re-invited
+        if existing_user.organization_id is not None:
+            # User belongs to another organization
+            raise HTTPException(
+                status_code=409,
+                detail="This user already belongs to an organization. "
+                       "They must leave their current organization before joining yours."
+            )
+        
+        # User exists but has no organization (previously left/removed)
+        # Re-invite them by updating their organization_id
+        existing_user.organization_id = current_user.organization_id
+        
+        # Update other fields from the invitation if provided
+        if user.name:
+            existing_user.name = user.name
+        if user.given_name:
+            existing_user.given_name = user.given_name
+        if user.family_name:
+            existing_user.family_name = user.family_name
+        
+        db.flush()
+        created_user = existing_user
+        send_invite = user.send_invite
+    else:
+        # New user - create them
+        # Extract send_invite flag before creating user (since it's not part of the model)
+        send_invite = user.send_invite
 
-    # Extract send_invite flag before creating user (since it's not part of the model)
-    send_invite = user.send_invite
-
-    # Create the user (crud function will automatically exclude send_invite)
-    created_user = crud.create_user(db=db, user=user)
+        # Create the user (crud function will automatically exclude send_invite)
+        created_user = crud.create_user(db=db, user=user)
 
     # Send invitation email if requested
     if send_invite and email_service.is_configured:
@@ -143,9 +166,61 @@ def delete_user(
 
     organization_id, user_id_tenant = tenant_context
     
-    db_user = crud.delete_user(db, user_id=user_id, organization_id=organization_id, user_id_param=user_id_tenant)
+    try:
+        db_user = crud.delete_user(
+            db, 
+            target_user_id=user_id, 
+            organization_id=organization_id, 
+            user_id=user_id_tenant
+        )
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return db_user
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/leave-organization", response_model=schemas.User)
+def leave_organization(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context)):
+    """
+    Allow a user to leave their current organization.
+    
+    This sets the user's organization_id to NULL, removing them from their organization.
+    The user account remains active but loses organization access.
+    On next login, the user will go through the onboarding flow again.
+    
+    The user is identified by their authentication token.
+    """
+    # Check if user is part of an organization
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="You are not currently part of any organization"
+        )
+    
+    # Get the user from the database
+    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Store organization name for logging
+    organization = None
+    if db_user.organization_id:
+        organization = db.query(models.Organization).filter(
+            models.Organization.id == db_user.organization_id
+        ).first()
+    
+    # Remove user from organization
+    db_user.organization_id = None
+    db.commit()
+    db.refresh(db_user)
+    
+    # Log the action
+    org_name = organization.name if organization else "Unknown"
+    logger.info(f"User {db_user.email} left organization {org_name}")
     
     return db_user
 

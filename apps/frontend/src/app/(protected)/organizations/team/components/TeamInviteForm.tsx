@@ -162,11 +162,21 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           return user;
         } catch (error: any) {
           let errorMessage = 'Unknown error';
+          let isExpectedError = false;
 
           // Extract meaningful error messages from different error formats
           if (error?.message) {
             // Handle API error messages that might contain JSON
             if (error.message.includes('API error:')) {
+              // Extract the status code and message
+              const statusMatch = error.message.match(/API error: (\d+)/);
+              const statusCode = statusMatch ? parseInt(statusMatch[1]) : null;
+
+              // 400, 409, 422, 429 are expected client/validation errors
+              isExpectedError = statusCode
+                ? [400, 409, 422, 429].includes(statusCode)
+                : false;
+
               // Extract the actual error message after "API error: status -"
               const match = error.message.match(/API error: \d+ - (.+)/);
               if (match && match[1]) {
@@ -190,7 +200,13 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
             errorMessage = error;
           }
 
-          console.error(`Failed to create user with email ${email}:`, error);
+          // Log expected validation errors as warnings, unexpected errors as errors
+          if (isExpectedError) {
+            console.warn(`Invitation validation: ${email} - ${errorMessage}`);
+          } else {
+            console.error(`Failed to create user with email ${email}:`, error);
+          }
+
           invitationResults.push({
             email,
             success: false,
@@ -225,7 +241,14 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           .filter((error, index, arr) => arr.indexOf(error) === index); // Get unique errors
 
         let errorSummary = '';
-        if (
+        if (errorTypes.length === 1 && errorTypes[0]?.includes('rate limit')) {
+          errorSummary = 'rate limit exceeded';
+        } else if (
+          errorTypes.length === 1 &&
+          errorTypes[0]?.includes('already belongs to an organization')
+        ) {
+          errorSummary = `${failedEmails.join(', ')} already belong${failedEmails.length === 1 ? 's' : ''} to another organization`;
+        } else if (
           errorTypes.length === 1 &&
           errorTypes[0]?.includes('already exists')
         ) {
@@ -250,7 +273,19 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           .filter((error, index, arr) => arr.indexOf(error) === index); // Get unique errors
 
         let errorMessage = '';
-        if (
+        if (errorTypes.length === 1 && errorTypes[0]?.includes('rate limit')) {
+          // Extract the full rate limit message which is user-friendly
+          errorMessage = errorTypes[0];
+        } else if (
+          errorTypes.length === 1 &&
+          errorTypes[0]?.includes('already belongs to an organization')
+        ) {
+          if (failedEmails.length === 1) {
+            errorMessage = `${failedEmails[0]} already belongs to another organization. They must leave their current organization first.`;
+          } else {
+            errorMessage = `${failedEmails.join(', ')} already belong to another organization. They must leave their current organizations first.`;
+          }
+        } else if (
           errorTypes.length === 1 &&
           errorTypes[0]?.includes('already exists')
         ) {

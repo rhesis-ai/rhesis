@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { type Theme } from '@mui/material/styles';
 import { type Session } from 'next-auth';
 

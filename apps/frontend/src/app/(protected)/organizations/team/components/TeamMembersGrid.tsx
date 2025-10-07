@@ -138,16 +138,22 @@ export default function TeamMembersGrid({
       await usersClient.deleteUser(userToDelete.id);
 
       notifications.show(
-        `Successfully removed ${getDisplayName(userToDelete)} from the team.`,
+        `Successfully removed ${getDisplayName(userToDelete)} from the organization.`,
         { severity: 'success' }
       );
 
       // Refresh the users list
       const skip = paginationModel.page * paginationModel.pageSize;
       fetchUsers(skip, paginationModel.pageSize);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting user:', error);
-      notifications.show('Failed to remove user. Please try again.', {
+
+      // Handle specific error cases
+      const errorMessage =
+        error?.message ||
+        'Failed to remove user from organization. Please try again.';
+
+      notifications.show(errorMessage, {
         severity: 'error',
       });
     } finally {
@@ -249,7 +255,7 @@ export default function TeamMembersGrid({
           <IconButton
             onClick={() => handleDeleteUser(user)}
             size="small"
-            title="Remove user from team"
+            title="Remove from organization"
           >
             <DeleteIcon fontSize="small" />
           </IconButton>
@@ -305,10 +311,12 @@ export default function TeamMembersGrid({
         onClose={handleCancelDelete}
         onConfirm={handleConfirmDelete}
         isLoading={deleting}
-        title="Remove Team Member"
-        message={`Are you sure you want to remove ${userToDelete ? getDisplayName(userToDelete) : ''} from the team?\n\nThis action cannot be undone and the user will lose access to the organization.`}
-        itemType="team member"
-        confirmButtonText={deleting ? 'Removing...' : 'Remove User'}
+        title="Remove from Organization"
+        message={`Are you sure you want to remove ${userToDelete ? getDisplayName(userToDelete) : ''} from the organization?\n\nThey will lose access to all organization resources but can be re-invited in the future. Their contributions to projects and tests will remain intact.`}
+        itemType="user"
+        confirmButtonText={
+          deleting ? 'Removing...' : 'Remove from Organization'
+        }
       />
     </Box>
   );
