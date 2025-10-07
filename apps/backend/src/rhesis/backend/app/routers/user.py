@@ -8,7 +8,6 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context)
-from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.auth import create_session_token
@@ -180,6 +179,50 @@ def delete_user(
         return db_user
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/leave-organization", response_model=schemas.User)
+def leave_organization(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context)):
+    """
+    Allow a user to leave their current organization.
+    
+    This sets the user's organization_id to NULL, removing them from their organization.
+    The user account remains active but loses organization access.
+    On next login, the user will go through the onboarding flow again.
+    
+    The user is identified by their authentication token.
+    """
+    # Check if user is part of an organization
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="You are not currently part of any organization"
+        )
+    
+    # Get the user from the database
+    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Store organization name for logging
+    organization = None
+    if db_user.organization_id:
+        organization = db.query(models.Organization).filter(
+            models.Organization.id == db_user.organization_id
+        ).first()
+    
+    # Remove user from organization
+    db_user.organization_id = None
+    db.commit()
+    db.refresh(db_user)
+    
+    # Log the action
+    org_name = organization.name if organization else "Unknown"
+    logger.info(f"User {db_user.email} left organization {org_name}")
+    
+    return db_user
 
 
 @router.put("/{user_id}", response_model=schemas.User)

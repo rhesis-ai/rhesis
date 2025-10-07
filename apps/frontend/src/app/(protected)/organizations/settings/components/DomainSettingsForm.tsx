@@ -109,7 +109,7 @@ export default function DomainSettingsForm({
             value={formData.domain}
             onChange={handleChange('domain')}
             placeholder="example.com"
-            helperText="Your organization&apos;s domain for automatic user association"
+            helperText="Your organization's domain for automatic user association"
           />
         </Grid>
 

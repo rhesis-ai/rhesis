@@ -11,6 +11,7 @@ import OrganizationDetailsForm from './components/OrganizationDetailsForm';
 import ContactInformationForm from './components/ContactInformationForm';
 import DomainSettingsForm from './components/DomainSettingsForm';
 import SubscriptionInfo from './components/SubscriptionInfo';
+import DangerZone from './components/DangerZone';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
@@ -18,32 +19,35 @@ export default function OrganizationSettingsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrganization = useCallback(async (showLoading = false) => {
-    if (!session?.session_token || !session?.user?.organization_id) {
-      setInitialLoading(false);
-      return;
-    }
-
-    try {
-      if (showLoading) {
-        setInitialLoading(true);
-      }
-      setError(null);
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const organizationsClient = apiFactory.getOrganizationsClient();
-      const orgData = await organizationsClient.getOrganization(
-        session.user.organization_id
-      );
-      setOrganization(orgData);
-    } catch (err: any) {
-      console.error('Error fetching organization:', err);
-      setError(err.message || 'Failed to load organization details');
-    } finally {
-      if (showLoading) {
+  const fetchOrganization = useCallback(
+    async (showLoading = false) => {
+      if (!session?.session_token || !session?.user?.organization_id) {
         setInitialLoading(false);
+        return;
       }
-    }
-  }, [session]);
+
+      try {
+        if (showLoading) {
+          setInitialLoading(true);
+        }
+        setError(null);
+        const apiFactory = new ApiClientFactory(session.session_token);
+        const organizationsClient = apiFactory.getOrganizationsClient();
+        const orgData = await organizationsClient.getOrganization(
+          session.user.organization_id
+        );
+        setOrganization(orgData);
+      } catch (err: any) {
+        console.error('Error fetching organization:', err);
+        setError(err.message || 'Failed to load organization details');
+      } finally {
+        if (showLoading) {
+          setInitialLoading(false);
+        }
+      }
+    },
+    [session]
+  );
 
   useEffect(() => {
     fetchOrganization(true);
@@ -123,13 +127,20 @@ export default function OrganizationSettingsPage() {
       </Paper>
 
       {/* Subscription Information Section */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
           Subscription
         </Typography>
         <SubscriptionInfo organization={organization} />
       </Paper>
+
+      {/* Danger Zone Section */}
+      <Paper sx={{ p: 3 }}>
+        <DangerZone
+          organization={organization}
+          sessionToken={session?.session_token || ''}
+        />
+      </Paper>
     </PageContainer>
   );
 }
-

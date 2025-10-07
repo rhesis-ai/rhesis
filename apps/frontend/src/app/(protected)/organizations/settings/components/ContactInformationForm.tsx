@@ -34,12 +34,12 @@ export default function ContactInformationForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (field: keyof typeof formData) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData({ ...formData, [field]: e.target.value });
-    setError(null);
-  };
+  const handleChange =
+    (field: keyof typeof formData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData({ ...formData, [field]: e.target.value });
+      setError(null);
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +49,7 @@ export default function ContactInformationForm({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const organizationsClient = apiFactory.getOrganizationsClient();
-      
+
       await organizationsClient.updateOrganization(organization.id, {
         email: formData.email || undefined,
         phone: formData.phone || undefined,
@@ -128,4 +128,3 @@ export default function ContactInformationForm({
     </Box>
   );
 }
-

@@ -70,4 +70,10 @@ export class UsersClient extends BaseApiClient {
       method: 'DELETE',
     });
   }
+
+  async leaveOrganization(): Promise<User> {
+    return this.fetch<User>(`${API_ENDPOINTS.users}/leave-organization`, {
+      method: 'PATCH',
+    });
+  }
 }

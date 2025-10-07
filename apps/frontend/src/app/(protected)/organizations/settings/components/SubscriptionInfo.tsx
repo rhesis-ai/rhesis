@@ -1,13 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Grid,
-  Typography,
-  Chip,
-  Alert,
-} from '@mui/material';
+import { Box, Grid, Typography, Chip, Alert } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
@@ -20,7 +14,9 @@ interface SubscriptionInfoProps {
   organization: Organization;
 }
 
-export default function SubscriptionInfo({ organization }: SubscriptionInfoProps) {
+export default function SubscriptionInfo({
+  organization,
+}: SubscriptionInfoProps) {
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'Not set';
     try {
@@ -40,7 +36,8 @@ export default function SubscriptionInfo({ organization }: SubscriptionInfoProps
 
   const daysUntilExpiration = organization.subscription_ends_at
     ? Math.ceil(
-        (new Date(organization.subscription_ends_at).getTime() - new Date().getTime()) /
+        (new Date(organization.subscription_ends_at).getTime() -
+          new Date().getTime()) /
           (1000 * 60 * 60 * 24)
       )
     : null;
@@ -96,17 +93,19 @@ export default function SubscriptionInfo({ organization }: SubscriptionInfoProps
           <Typography variant="body1">
             {formatDate(organization.subscription_ends_at)}
           </Typography>
-          
+
           {organization.subscription_ends_at && (
             <Box sx={{ mt: 2 }}>
               {isExpired ? (
                 <Alert severity="error">
-                  Your subscription has expired. Please contact support to renew.
+                  Your subscription has expired. Please contact support to
+                  renew.
                 </Alert>
               ) : daysUntilExpiration !== null && daysUntilExpiration <= 30 ? (
                 <Alert severity="warning">
-                  Your subscription will expire in {daysUntilExpiration} day{daysUntilExpiration !== 1 ? 's' : ''}. 
-                  Please contact support to renew.
+                  Your subscription will expire in {daysUntilExpiration} day
+                  {daysUntilExpiration !== 1 ? 's' : ''}. Please contact support
+                  to renew.
                 </Alert>
               ) : (
                 <Alert severity="info">
@@ -132,11 +131,11 @@ export default function SubscriptionInfo({ organization }: SubscriptionInfoProps
 
         <Grid item xs={12}>
           <Alert severity="info">
-            To modify subscription details or user limits, please contact your account manager or support team.
+            To modify subscription details or user limits, please contact your
+            account manager or support team.
           </Alert>
         </Grid>
       </Grid>
     </Box>
   );
 }
-
