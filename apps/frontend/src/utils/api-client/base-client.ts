@@ -187,7 +187,7 @@ export class BaseApiClient {
           const isClientError = [400, 409, 422, 429].includes(response.status);
           const logLevel = isClientError ? 'warn' : 'error';
           const logPrefix = isClientError ? '[VALIDATION]' : '[ERROR]';
-          
+
           console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
             url,
             status: response.status,
@@ -297,9 +297,10 @@ export class BaseApiClient {
               `Network error when connecting to ${this.baseUrl}. Please check your connection and ensure the API server is running.`
             );
           }
-          
+
           // Use appropriate log level based on error status
-          const isClientError = error.status && [400, 409, 422, 429].includes(error.status);
+          const isClientError =
+            error.status && [400, 409, 422, 429].includes(error.status);
           if (isClientError) {
             console.warn(`API client error for ${url}:`, error);
           } else {
