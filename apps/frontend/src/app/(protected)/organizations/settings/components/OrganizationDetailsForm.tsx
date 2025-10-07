@@ -36,12 +36,12 @@ export default function OrganizationDetailsForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (field: keyof typeof formData) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData({ ...formData, [field]: e.target.value });
-    setError(null);
-  };
+  const handleChange =
+    (field: keyof typeof formData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData({ ...formData, [field]: e.target.value });
+      setError(null);
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +51,7 @@ export default function OrganizationDetailsForm({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const organizationsClient = apiFactory.getOrganizationsClient();
-      
+
       await organizationsClient.updateOrganization(organization.id, {
         name: formData.name,
         display_name: formData.display_name || undefined,
@@ -152,4 +152,3 @@ export default function OrganizationDetailsForm({
     </Box>
   );
 }
-
