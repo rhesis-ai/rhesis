@@ -1,7 +1,8 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
-from rhesis.sdk.services import LLMService
+from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
@@ -18,6 +19,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
         test_set: TestSet,
         batch_size: int = 5,
         system_prompt: Optional[str] = None,
+        model: Optional[Union[str, BaseLLM]] = None,
     ):
         """
         Initialize the ParaphrasingSynthesizer.
@@ -25,6 +27,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
             test_set: The original test set to paraphrase
             batch_size: Maximum number of prompts to process in a single LLM call
             system_prompt: Optional custom system prompt template to override the default
+            model: The model to use for generation (e.g., "gemini", "openai")
         """
         super().__init__(batch_size=batch_size)
         self.test_set = test_set
@@ -33,7 +36,11 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
         # Set system prompt using utility
         self.system_prompt = load_prompt_template(self.__class__.__name__, system_prompt)
 
-        self.llm_service = LLMService()
+        # Initialize model
+        if isinstance(model, str) or model is None:
+            self.model = get_model(model)
+        else:
+            self.model = model
 
     def _parse_paraphrases(self, content: Any) -> List[Dict[str, Any]]:
         """
@@ -107,7 +114,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
         )
 
         # Use utility function for LLM calls
-        content = retry_llm_call(self.llm_service, formatted_prompt)
+        content = retry_llm_call(self.model, formatted_prompt)
 
         # Parse and validate the response
         paraphrases = self._parse_paraphrases(content)
@@ -115,7 +122,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
         # Ensure we get exactly num_paraphrases results
         if len(paraphrases) < self.num_paraphrases:
             for attempt in range(2):
-                additional_content = retry_llm_call(self.llm_service, formatted_prompt)
+                additional_content = retry_llm_call(self.model, formatted_prompt)
                 additional_paraphrases = self._parse_paraphrases(additional_content)
                 paraphrases.extend(additional_paraphrases)
 
@@ -182,6 +189,7 @@ class ParaphrasingSynthesizer(TestSetSynthesizer):
         # Use utility function to create TestSet
         return create_test_set(
             all_tests,
+            model=self.model,
             synthesizer_name="ParaphrasingSynthesizer",
             batch_size=self.batch_size,
             original_test_set_id=self.test_set.fields.get("id", "unknown"),

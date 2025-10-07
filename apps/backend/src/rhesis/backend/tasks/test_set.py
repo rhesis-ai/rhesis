@@ -1,5 +1,4 @@
 import logging
-import os
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -90,12 +89,6 @@ def count_test_sets(self):
 
 
 # Helper functions for test set generation and saving
-def _configure_synthesizer_sdk(self) -> str:
-    """Configure the SDK for synthesizer operations."""
-    base_url = os.getenv("RHESIS_BASE_URL", "https://api.rhesis.ai")
-    SynthesizerFactory.configure_sdk(base_url=base_url, api_key="")
-    self.log_with_context("info", "SDK configured", base_url=base_url)
-    return base_url
 
 
 def _determine_synthesizer_type(
@@ -140,10 +133,10 @@ def _process_synthesizer_parameters(
     return synthesizer_kwargs
 
 
-def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, processed_kwargs: dict):
+def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, model: str, processed_kwargs: dict):
     """Create and initialize the synthesizer."""
     synthesizer = SynthesizerFactory.create_synthesizer(
-        synthesizer_type=synth_type, batch_size=batch_size, model="gemini", **processed_kwargs
+        synthesizer_type=synth_type, batch_size=batch_size, model=model, **processed_kwargs
     )
 
     self.log_with_context(
@@ -151,6 +144,7 @@ def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, proc
         "Synthesizer initialized",
         synthesizer_type=synth_type.value,
         synthesizer_class=synthesizer.__class__.__name__,
+        model=model,
     )
 
     return synthesizer
@@ -233,6 +227,7 @@ def generate_and_save_test_set(
     synthesizer_type: str,
     num_tests: int = 5,
     batch_size: int = 20,
+    model: str = "gemini",
     **synthesizer_kwargs,
 ):
     """
@@ -245,6 +240,7 @@ def generate_and_save_test_set(
         synthesizer_type: Type of synthesizer to use (e.g., "prompt", "paraphrasing")
         num_tests: Number of test cases to generate (default: 5)
         batch_size: Batch size for the synthesizer (default: 20)
+        model: The model to use for generation (default: "gemini")
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
             For PromptSynthesizer:
                 - prompt (str, required): The generation prompt
@@ -266,14 +262,16 @@ def generate_and_save_test_set(
         generate_and_save_test_set.delay(
             synthesizer_type="prompt",
             prompt="Generate insurance claim tests",
-            num_tests=10
+            num_tests=10,
+            model="gemini"
         )
 
         # Using ParaphrasingSynthesizer
         generate_and_save_test_set.delay(
             synthesizer_type="paraphrasing",
             source_test_set_id="test-set-123",
-            num_tests=5
+            num_tests=5,
+            model="gemini"
         )
 
         # Using DocumentSynthesizer
@@ -285,7 +283,8 @@ def generate_and_save_test_set(
                 "description": "Insurance policy terms",
                 "path": "/uploads/policy_doc.pdf"
             }],
-            num_tests=10
+            num_tests=10,
+            model="gemini"
         )
     """
     # Access context using the new utility method
@@ -302,20 +301,17 @@ def generate_and_save_test_set(
     )
 
     try:
-        # Step 1: Configure SDK
+        # Step 1: Determine synthesizer type
         self.update_state(state="PROGRESS", meta={"status": "Initializing synthesizer"})
-        _configure_synthesizer_sdk(self)
-
-        # Step 2: Determine synthesizer type
         synth_type = _determine_synthesizer_type(self, synthesizer_type, synthesizer_kwargs)
 
-        # Step 3: Process parameters
+        # Step 2: Process parameters
         processed_kwargs = _process_synthesizer_parameters(self, synth_type, synthesizer_kwargs)
 
-        # Step 4: Create synthesizer
-        synthesizer = _create_synthesizer(self, synth_type, batch_size, processed_kwargs)
+        # Step 3: Create synthesizer
+        synthesizer = _create_synthesizer(self, synth_type, batch_size, model, processed_kwargs)
 
-        # Step 5: Generate test set
+        # Step 4: Generate test set
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} test cases"})
         test_set = synthesizer.generate(num_tests=num_tests)
 
@@ -326,11 +322,11 @@ def generate_and_save_test_set(
             requested_tests=num_tests,
         )
 
-        # Step 6: Save to database
+        # Step 5: Save to database
         self.update_state(state="PROGRESS", meta={"status": "Saving test set to database"})
         db_test_set = _save_test_set_to_database(self, test_set, org_id, user_id)
 
-        # Step 7: Build and return result
+        # Step 6: Build and return result
         result = _build_task_result(
             self,
             db_test_set,
