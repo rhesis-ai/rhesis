@@ -1105,11 +1105,52 @@ def update_user(db: Session, user_id: uuid.UUID, user: schemas.UserUpdate) -> Op
 
 
 def delete_user(
-    db: Session, user_id: uuid.UUID, organization_id: str, user_id_param: str
+    db: Session, target_user_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.User]:
-    return delete_item(
-        db, models.User, user_id, organization_id=organization_id, user_id=user_id_param
-    )
+    """
+    Soft delete a user by removing them from their organization.
+    
+    For users who have created resources (tests, prompts, etc.), we perform a soft delete
+    by setting organization_id to NULL. This preserves audit trails while removing access.
+    
+    For invited users who never logged in (no auth0_id and no associated resources),
+    we can safely perform a hard delete.
+    
+    Args:
+        db: Database session
+        target_user_id: ID of user to delete/remove from organization
+        organization_id: Organization ID for tenant context
+        user_id: ID of the current user performing the action (for tenant context)
+        
+    Returns:
+        Deleted/updated user object or None if not found
+        
+    Raises:
+        ValueError: If user tries to delete themselves
+    """
+    # Security check: Prevent users from deleting themselves
+    if str(target_user_id) == str(user_id):
+        raise ValueError("Users cannot remove themselves from the organization")
+    
+    # Get the user with tenant context
+    db_user = get_item(db, models.User, target_user_id, organization_id, user_id)
+    if db_user is None:
+        return None
+    
+    # Check if this is an invited user who never logged in
+    # They can be safely hard-deleted if they have no Auth0 ID
+    if db_user.auth0_id is None:
+        # Invited user who never logged in - safe to hard delete
+        db.delete(db_user)
+        db.flush()
+        return db_user
+    
+    # User has logged in or has associated resources - perform soft delete
+    # Remove them from their organization but keep the user record
+    db_user.organization_id = None
+    db.flush()
+    
+    return db_user
 
 
 def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
