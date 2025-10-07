@@ -1,8 +1,10 @@
+import json
 import os
 from pathlib import Path
 from typing import Optional
 
 import fsspec
+from google.oauth2 import service_account
 
 from rhesis.backend.logging import logger
 
@@ -12,64 +14,54 @@ class StorageService:
 
     def __init__(self):
         """Initialize StorageService with configuration from environment variables."""
-        self.bucket_name = self._get_bucket_name()
-        self.project_id = os.getenv("STORAGE_PROJECT_ID")
-        self.credentials_path = os.getenv("STORAGE_CREDENTIALS_PATH")
+        self.storage_uri = os.getenv("STORAGE_SERVICE_URI")
+        self.service_account_key = os.getenv("STORAGE_SERVICE_ACCOUNT_KEY")
         self.storage_path = os.getenv("LOCAL_STORAGE_PATH", "/tmp/rhesis-files")
 
-        # Check if GCS is configured (credentials_path optional for Cloud Run)
-        self.use_gcs = all([self.bucket_name, self.project_id])
+        # Check if cloud storage is configured
+        self.use_cloud_storage = all([self.storage_uri, self.service_account_key])
 
         # Initialize file system
         self.fs = self._get_file_system()
 
-        if self.use_gcs:
-            logger.info(f"StorageService initialized with cloud storage bucket: {self.bucket_name}")
+        if self.use_cloud_storage:
+            logger.info(f"StorageService initialized with cloud storage URI: {self.storage_uri}")
         else:
             logger.warning(
                 "StorageService using ephemeral container storage - files will be lost on restart"
             )
 
-    def _get_bucket_name(self) -> Optional[str]:
-        """Get environment-specific bucket name."""
-        env_mapping = {
-            "local": None,  # Use local storage
-            "production": "prd",
-            "staging": "stg",
-            "development": "dev",
-        }
-
-        backend_env = os.getenv("BACKEND_ENV", "").lower()
-        env_suffix = env_mapping.get(backend_env, "dev")  # Default to dev
-
-        if env_suffix is None:
-            logger.info("Local environment detected - using local file storage")
-            return None
-
-        bucket_name = f"sources-rhesis-{env_suffix}"
-        logger.info(f"Using environment-specific storage bucket: {bucket_name}")
-        return bucket_name
-
     def _get_file_system(self):
         """Get file system - cloud storage if configured, otherwise temporary storage."""
-        if self.use_gcs:
-            if self.credentials_path:
-                # Local development: use explicit credentials file
-                return fsspec.filesystem(
-                    "gcs", project=self.project_id, token=self.credentials_path
+        if self.use_cloud_storage:
+            try:
+                # Parse service account key from environment variable
+                service_account_info = json.loads(self.service_account_key)
+
+                # Create credentials object with explicit scopes for GCS
+                credentials = service_account.Credentials.from_service_account_info(
+                    service_account_info, scopes=["https://www.googleapis.com/auth/cloud-platform"]
                 )
-            else:
-                # Production: use service account attached to Cloud Run
-                return fsspec.filesystem("gcs", project=self.project_id)
+
+                fs = fsspec.filesystem("gcs", project=credentials.project_id, token=credentials)
+                return fs
+            except Exception as e:
+                logger.error(f"Failed to initialize GCS filesystem: {str(e)}", exc_info=True)
+                logger.warning("Falling back to local filesystem due to GCS error")
+                return fsspec.filesystem("file")
         else:
+            logger.info("Using local filesystem (cloud storage not configured)")
             # Fallback to temporary storage
             return fsspec.filesystem("file")
 
     def get_file_path(self, organization_id: str, source_id: str, filename: str) -> str:
         """Generate file path for multi-tenant storage."""
-        if self.use_gcs:
-            # Cloud storage path: bucket/org_id/source_id_filename
-            return f"{self.bucket_name}/{organization_id}/{source_id}_{filename}"
+        if self.use_cloud_storage:
+            # Extract bucket name from storage URI
+            # (e.g., "gs://sources-rhesis-dev" -> "sources-rhesis-dev")
+            bucket_name = self.storage_uri.replace("gs://", "")
+            # Cloud storage path: bucket_name/org_id/source_id_filename
+            return f"{bucket_name}/{organization_id}/{source_id}_{filename}"
         else:
             # Temporary storage path: /tmp/rhesis-files/org_id/source_id_filename
             logger.info(
