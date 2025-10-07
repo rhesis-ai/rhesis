@@ -36,7 +36,11 @@ class SynthesizerFactory:
 
     @classmethod
     def create_synthesizer(
-        cls, synthesizer_type: SynthesizerType, batch_size: int = 20, model: str = None, **kwargs: Any
+        cls,
+        synthesizer_type: SynthesizerType,
+        batch_size: int = 20,
+        model: str = None,
+        **kwargs: Any,
     ) -> TestSetSynthesizer:
         """
         Create a synthesizer instance based on the synthesizer type.
@@ -74,13 +78,17 @@ class SynthesizerFactory:
         elif synthesizer_type == SynthesizerType.PARAPHRASING:
             if "test_set" not in kwargs:
                 raise ValueError("'test_set' argument is required for ParaphrasingSynthesizer")
-            return synthesizer_class(test_set=kwargs["test_set"], batch_size=batch_size, model=model)
+            return synthesizer_class(
+                test_set=kwargs["test_set"], batch_size=batch_size, model=model
+            )
 
         elif synthesizer_type == SynthesizerType.DOCUMENT:
             if "prompt" not in kwargs:
                 raise ValueError("'prompt' argument is required for DocumentSynthesizer")
             # Pass documents through kwargs and include model
-            return synthesizer_class(prompt=kwargs["prompt"], batch_size=batch_size, model=model, **kwargs)
+            return synthesizer_class(
+                prompt=kwargs["prompt"], batch_size=batch_size, model=model, **kwargs
+            )
 
         # This should never be reached given the validation above, but adding for completeness
         raise ValueError(f"Unknown synthesizer configuration for type: {synthesizer_type}")
