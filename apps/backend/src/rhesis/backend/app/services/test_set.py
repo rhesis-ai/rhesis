@@ -3,6 +3,7 @@ import random
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List
+from uuid import UUID
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -13,7 +14,6 @@ from rhesis.backend.app.constants import (
     ERROR_TEST_SET_NOT_FOUND,
     EntityType,
 )
-from rhesis.backend.app.database import maintain_tenant_context
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.stats import StatsCalculator
@@ -28,8 +28,9 @@ from rhesis.backend.app.utils.uuid_utils import (
 from rhesis.backend.logging import logger
 
 
-def get_test_set(db: Session, test_set_id: uuid.UUID):
-    return (
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
+    """Get test set by ID with organization filtering for security"""
+    query = (
         db.query(TestSet)
         .filter(TestSet.id == test_set_id)
         .options(
@@ -38,12 +39,18 @@ def get_test_set(db: Session, test_set_id: uuid.UUID):
             joinedload(TestSet.prompts).joinedload(Prompt.attack_category),
             joinedload(TestSet.prompts).joinedload(Prompt.topic),
             joinedload(TestSet.prompts).joinedload(Prompt.behavior),
-            joinedload(TestSet.prompts).joinedload(Prompt.source),
+            # joinedload(TestSet.prompts).joinedload(Prompt.source),  # Temporarily disabled due to entity_type column issue
             joinedload(TestSet.prompts).joinedload(Prompt.status),
             joinedload(TestSet.prompts).joinedload(Prompt.user),
         )
-        .first()
     )
+    
+    # Apply organization filtering if provided
+    if organization_id:
+        from uuid import UUID as UUIDType
+        query = query.filter(TestSet.organization_id == UUIDType(organization_id))
+    
+    return query.first()
 
 
 def load_defaults():
@@ -144,7 +151,6 @@ def bulk_create_test_set(
         raise Exception(ERROR_BULK_CREATE_FAILED.format(entity="test set", error=validation_error))
 
     try:
-        with maintain_tenant_context(db):
             # Convert dictionary to schema if needed
             if isinstance(test_set_data, dict):
                 test_set_data = schemas.TestSetBulkCreate(**test_set_data)
@@ -154,12 +160,15 @@ def bulk_create_test_set(
                 db=db,
                 name=defaults["test_set"]["status"],
                 entity_type=EntityType.GENERAL,
+                organization_id=organization_id, user_id=user_id,
             )
 
             license_type = get_or_create_type_lookup(
                 db=db,
                 type_name="LicenseType",
                 type_value=defaults["test_set"]["license_type"],
+                organization_id=organization_id,
+                user_id=user_id,
             )
 
             # Sanitize UUID fields for test set
@@ -203,12 +212,10 @@ def bulk_create_test_set(
                 db=db, test_set=test_set, defaults=defaults, license_type=license_type
             )
 
-            # Commit the entire transaction
-            db.commit()
+            # Transaction commit/rollback is handled by the session context manager
             return test_set
 
     except Exception as e:
-        db.rollback()
         raise Exception(f"Failed to create test set: {str(e)}")
 
 
@@ -218,7 +225,7 @@ def get_test_set_stats(
     """
     Get comprehensive statistics about test sets.
     """
-    calculator = StatsCalculator(db)
+    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
     return calculator.get_entity_stats(
         entity_model=models.TestSet,
         organization_id=current_user_organization_id,
@@ -245,7 +252,7 @@ def get_test_set_test_stats(
         months: Number of months to include in historical stats (default: 6)
     """
 
-    calculator = StatsCalculator(db)
+    calculator = StatsCalculator(db, organization_id=current_user_organization_id)
     return calculator.get_related_stats(
         entity_model=models.TestSet,
         related_model=models.Test,
@@ -289,9 +296,11 @@ def create_test_set_associations(
         return error_response
 
     try:
-        with maintain_tenant_context(db):
-            # Validate test set exists
-            test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+            # Validate test set exists AND belongs to the organization (SECURITY CRITICAL)
+            test_set = db.query(models.TestSet).filter(
+                models.TestSet.id == test_set_id,
+                models.TestSet.organization_id == UUID(organization_id)
+            ).first()
             if not test_set:
                 error_response = {
                     "success": False,
@@ -322,13 +331,12 @@ def create_test_set_associations(
                     defaults=load_defaults(),
                     license_type=test_set.license_type,
                 )
-                db.commit()
+                # Transaction commit is handled by the session context manager
 
             logger.info(f"Returning final result: {bulk_result}")
             return bulk_result
 
     except Exception as e:
-        db.rollback()
         error_response = {
             "success": False,
             "total_tests": len(test_ids),
@@ -363,9 +371,11 @@ def remove_test_set_associations(
         }
 
     try:
-        with maintain_tenant_context(db):
-            # Get test set and verify it exists
-            test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+            # Get test set and verify it exists AND belongs to the organization (SECURITY CRITICAL)
+            test_set = db.query(models.TestSet).filter(
+                models.TestSet.id == test_set_id,
+                models.TestSet.organization_id == UUID(organization_id)
+            ).first()
             if not test_set:
                 return {
                     "success": False,
@@ -396,7 +406,7 @@ def remove_test_set_associations(
                 license_type=test_set.license_type,
             )
 
-            db.commit()
+            # Transaction commit is handled by the session context manager
 
             return {
                 "success": True,
@@ -406,7 +416,6 @@ def remove_test_set_associations(
             }
 
     except Exception as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": len(test_ids),
@@ -434,30 +443,30 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     except ValueError:
         raise ValueError(ERROR_INVALID_UUID.format(entity="test set", id=test_set_id))
 
-    with maintain_tenant_context(db):
-        # Get test set with relationships
-        test_set = (
-            db.query(models.TestSet)
-            .options(joinedload(models.TestSet.tests))
-            .filter(models.TestSet.id == test_set_uuid)
-            .first()
-        )
+    # Get test set with relationships - UUID is globally unique, no organization filtering needed
+    test_set = (
+        db.query(models.TestSet)
+        .options(joinedload(models.TestSet.tests))
+        .filter(models.TestSet.id == test_set_uuid)
+        .first()
+    )
 
-        if not test_set:
-            raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(id=test_set_id))
+    if not test_set:
+        raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id))
 
-        # Get defaults and license type
-        defaults = load_defaults()
-        license_type = get_or_create_type_lookup(
-            db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"]
-        )
+    # Get defaults and license type - use test_set's organization context
+    defaults = load_defaults()
+    license_type = get_or_create_type_lookup(
+        db=db, type_name="LicenseType", type_value=defaults["test_set"]["license_type"],
+        organization_id=str(test_set.organization_id), user_id=str(test_set.user_id)
+    )
 
-        # Regenerate attributes
-        test_set.attributes = generate_test_set_attributes(
-            db=db, test_set=test_set, defaults=defaults, license_type=license_type
-        )
+    # Regenerate attributes
+    test_set.attributes = generate_test_set_attributes(
+        db=db, test_set=test_set, defaults=defaults, license_type=license_type
+    )
 
-        db.commit()
+    # Transaction commit is handled by the session context manager
 
 
 def execute_test_set_on_endpoint(
@@ -466,6 +475,8 @@ def execute_test_set_on_endpoint(
     endpoint_id: uuid.UUID,
     current_user: models.User,
     test_configuration_attributes: Dict[str, Any] = None,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration and submitting it for execution.
@@ -476,6 +487,8 @@ def execute_test_set_on_endpoint(
         endpoint_id: Endpoint UUID
         current_user: Current authenticated user
         test_configuration_attributes: Optional attributes for test configuration
+        organization_id: Organization ID for tenant context
+        user_id: User ID for tenant context
 
     Returns:
         Dict containing execution status and metadata
@@ -498,45 +511,44 @@ def execute_test_set_on_endpoint(
     if not endpoint_id:
         raise ValueError("endpoint_id is required")
 
-    with maintain_tenant_context(db):
-        # Resolve test set
-        logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-        db_test_set = crud.resolve_test_set(test_set_identifier, db)
-        if db_test_set is None:
-            raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
-        logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
+    # Resolve test set
+    logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=str(current_user.organization_id))
+    if db_test_set is None:
+        raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
+    logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
 
-        # Verify endpoint exists
-        logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-        db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id)
-        if not db_endpoint:
-            raise ValueError(f"Endpoint not found: {endpoint_id}")
-        logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
+    # Verify endpoint exists
+    logger.debug(f"Verifying endpoint exists: {endpoint_id}")
+    db_endpoint = crud.get_endpoint(db, endpoint_id=endpoint_id, organization_id=str(current_user.organization_id), user_id=str(current_user.id))
+    if not db_endpoint:
+        raise ValueError(f"Endpoint not found: {endpoint_id}")
+    logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
 
-        # Check user access permissions
-        _validate_user_access(current_user, db_test_set, db_endpoint)
+    # Check user access permissions
+    _validate_user_access(current_user, db_test_set, db_endpoint)
 
-        # Create test configuration
-        test_config_id = _create_test_configuration(
-            db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes
-        )
+    # Create test configuration
+    test_config_id = _create_test_configuration(
+        db, endpoint_id, db_test_set.id, current_user, test_configuration_attributes, organization_id, user_id
+    )
 
-        # Submit for execution
-        task_result = _submit_test_configuration_for_execution(test_config_id, current_user)
+    # Submit for execution
+    task_result = _submit_test_configuration_for_execution(test_config_id, current_user)
 
-        # Return success response
-        response_data = {
-            "status": "submitted",
-            "message": f"Test set execution started for {db_test_set.name}",
-            "test_set_id": str(db_test_set.id),
-            "test_set_name": db_test_set.name,
-            "endpoint_id": str(endpoint_id),
-            "endpoint_name": db_endpoint.name,
-            "test_configuration_id": test_config_id,
-            "task_id": task_result.id,
-        }
-        logger.info(f"Successfully initiated test set execution: {response_data}")
-        return response_data
+    # Return success response
+    response_data = {
+        "status": "submitted",
+        "message": f"Test set execution started for {db_test_set.name}",
+        "test_set_id": str(db_test_set.id),
+        "test_set_name": db_test_set.name,
+        "endpoint_id": str(endpoint_id),
+        "endpoint_name": db_endpoint.name,
+        "test_configuration_id": test_config_id,
+        "task_id": task_result.id,
+    }
+    logger.info(f"Successfully initiated test set execution: {response_data}")
+    return response_data
 
 
 def _validate_user_access(
@@ -574,6 +586,8 @@ def _create_test_configuration(
     test_set_id: uuid.UUID,
     current_user: models.User,
     test_configuration_attributes: Dict[str, Any] = None,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> str:
     """Create test configuration and return its ID as string."""
     from rhesis.backend.app import crud, schemas
@@ -601,8 +615,12 @@ def _create_test_configuration(
     logger.debug(f"Test configuration schema created: {test_config}")
 
     # Create the test configuration
-    db_test_config = crud.create_test_configuration(db=db, test_configuration=test_config)
-    print(f"I got db_test_config: {db_test_config}")
+    db_test_config = crud.create_test_configuration(
+        db=db, 
+        test_configuration=test_config, 
+        organization_id=organization_id, 
+        user_id=user_id
+    )
     # Access the ID immediately while we're still in the same transaction context
     # This avoids any potential session expiration or RLS context issues
     test_config_id = str(db_test_config.id)

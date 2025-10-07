@@ -38,16 +38,10 @@ def evaluate_prompt_response(
     """
     metrics_results = {}
 
-    # Debug: Log the result structure
-    logger.info(f"DEBUG: Result structure for evaluation: {result}")
 
     # Extract actual_response using the fallback hierarchy
     actual_response = extract_response_with_fallback(result)
 
-    # Debug: Log the extracted actual_response
-    logger.info(
-        f"DEBUG: Extracted actual_response for metrics: '{actual_response}' (type: {type(actual_response)})"
-    )
 
     try:
         metrics_results = metrics_evaluator.evaluate(

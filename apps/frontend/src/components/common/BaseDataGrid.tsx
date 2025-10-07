@@ -214,7 +214,7 @@ export default function BaseDataGrid({
   >(
     Array(actionButtons?.length || 0)
       .fill(null)
-      .map(() => React.createRef())
+      .map(() => React.createRef<HTMLDivElement | null>())
   );
   const [openStates, setOpenStates] = React.useState<boolean[]>(
     Array(actionButtons?.length || 0).fill(false)

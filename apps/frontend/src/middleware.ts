@@ -118,21 +118,10 @@ async function createSessionClearingResponse(
     // Delete the cookie (default behavior)
     response.cookies.delete(name);
 
-    // For production environment, also set expired cookies with various domain configurations
-    if (process.env.FRONTEND_ENV === 'production') {
-      // Clear with specific domain
+    // Clear cookies for current hostname only (no cross-environment clearing)
+    if (process.env.FRONTEND_ENV !== 'development') {
+      // For deployed environments, clear with secure flag
       response.cookies.set(name, '', {
-        domain: 'rhesis.ai',
-        path: '/',
-        secure: true,
-        sameSite: 'lax',
-        maxAge: 0,
-        expires: new Date(0),
-      });
-
-      // Clear with leading dot domain for broader coverage
-      response.cookies.set(name, '', {
-        domain: '.rhesis.ai',
         path: '/',
         secure: true,
         sameSite: 'lax',
@@ -140,7 +129,7 @@ async function createSessionClearingResponse(
         expires: new Date(0),
       });
     } else {
-      // For development, ensure cookies are cleared
+      // For development, clear without secure flag
       response.cookies.set(name, '', {
         path: '/',
         maxAge: 0,

@@ -1,12 +1,13 @@
 import json
 import os
+import uuid
 from typing import List, Type
 
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.database import maintain_tenant_context, set_tenant
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.utils.crud_utils import (
@@ -22,34 +23,42 @@ from rhesis.backend.app.utils.model_utils import QueryBuilder
 
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
     """
-    Load initial data from the JSON file into the database.
+    Load initial data from the JSON file into the database using optimized approach.
+
+    This function uses the provided database session to ensure transaction consistency
+    with the calling code. The tenant context is passed directly to CRUD operations.
+
+    Performance improvements:
+    - Uses provided db session for transaction consistency
+    - Eliminates manual session variable management  
+    - Direct tenant context injection
 
     Args:
-        db: Database session
+        db: Database session to use for all operations
         organization_id: Organization ID to associate with all entities
         user_id: User ID to associate with all entities
     """
-    # First set the tenant context
-    set_tenant(db, organization_id=str(organization_id), user_id=str(user_id))
-
     script_directory = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(script_directory, "initial_data.json"), "r") as file:
         initial_data = json.load(file)
 
     try:
-        with maintain_tenant_context(db):
-            # Process type lookups first as they're needed by other entities
+        # Use the provided database session for transaction consistency
+        # Process type lookups first as they're needed by other entities
             print("Processing type lookups...")
             for item in initial_data.get("type_lookup", []):
                 get_or_create_type_lookup(
-                    db=db, type_name=item["type_name"], type_value=item["type_value"], commit=False
+                    db=db, type_name=item["type_name"], type_value=item["type_value"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
             # Process statuses next as they're also needed by other entities
             print("Processing statuses...")
             for item in initial_data.get("status", []):
                 get_or_create_status(
-                    db=db, name=item["name"], entity_type=item["entity_type"], commit=False
+                    db=db, name=item["name"], entity_type=item["entity_type"], 
+                    description=item.get("description"),
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
             # Process behaviors
@@ -60,6 +69,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     name=item["name"],
                     description=item["description"],
                     status=item.get("status"),
+                    organization_id=organization_id,
+                    user_id=user_id,
                     commit=False,
                 )
 
@@ -75,7 +86,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "is_active": item.get("is_active", True),
                 }
                 get_or_create_entity(
-                    db=db, model=models.UseCase, entity_data=use_case_data, commit=False
+                    db=db, model=models.UseCase, entity_data=use_case_data, 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
             # Process risks
@@ -85,7 +97,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db=db,
                     model=models.Risk,
                     entity_data={"name": item["name"], "description": item["description"]},
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process projects
@@ -95,7 +107,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 status = None
                 if item.get("status"):
                     status = get_or_create_status(
-                        db=db, name=item["status"], entity_type="General", commit=False
+                        db=db, name=item["status"], entity_type="General", 
+                        organization_id=organization_id, user_id=user_id, commit=False
                     )
 
                 project_data = {
@@ -114,7 +127,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db=db,
                     model=models.Project,
                     entity_data=project_data,
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process categories
@@ -126,7 +139,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     description=item["description"],
                     entity_type=item.get("entity_type"),
                     status=item.get("status"),
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process dimensions
@@ -136,20 +149,22 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db=db,
                     model=models.Dimension,
                     entity_data={"name": item["name"], "description": item["description"]},
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process demographics
             print("Processing demographics...")
             for item in initial_data.get("demographic", []):
-                dimension_name = item.pop("dimension", None)
-                demographic = get_or_create_entity(
-                    db=db, model=models.Demographic, entity_data=item, commit=False
-                )
+                item_copy = item.copy()  # Don't modify original data
+                dimension_name = item_copy.pop("dimension", None)
+                demographic = get_or_create_entity(db=db, model=models.Demographic, entity_data=item_copy, organization_id=organization_id, user_id=user_id, commit=False)
                 if dimension_name:
                     dimension = (
                         db.query(models.Dimension)
-                        .filter(models.Dimension.name == dimension_name)
+                        .filter(
+                            models.Dimension.name == dimension_name,
+                            models.Dimension.organization_id == uuid.UUID(organization_id)
+                        )
                         .first()
                     )
                     if dimension:
@@ -165,7 +180,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     description=item["description"],
                     entity_type=item.get("entity_type"),
                     status=item.get("status"),
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
 
             # Process tests
@@ -174,34 +189,36 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             for item in initial_data.get("test", []):
                 # Get test type
                 test_type = get_or_create_type_lookup(
-                    db=db, type_name="TestType", type_value=item["test_type"], commit=False
+                    db=db, type_name="TestType", type_value=item["test_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get test status
                 status = get_or_create_status(
-                    db=db, name=item["status"], entity_type="Test", commit=False
+                    db=db, name=item["status"], entity_type="Test", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get topic
                 topic = get_or_create_topic(
-                    db=db, name=item["topic"], entity_type="Test", commit=False
+                    db=db, name=item["topic"], entity_type="Test", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get category
                 category = get_or_create_category(
-                    db=db, name=item["category"], entity_type="Test", commit=False
+                    db=db, name=item["category"], entity_type="Test", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get behavior
-                behavior = get_or_create_behavior(db=db, name=item["behavior"], commit=False)
+                behavior = get_or_create_behavior(
+                    db=db, name=item["behavior"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
+                )
 
                 # Create prompt
-                prompt = get_or_create_entity(
-                    db=db,
-                    model=models.Prompt,
-                    entity_data={"content": item["prompt"]},
-                    commit=False,
-                )
+                prompt = get_or_create_entity(db=db, model=models.Prompt, entity_data={"content": item["prompt"]}, organization_id=organization_id, user_id=user_id, commit=False)
 
                 # Create test
                 test = get_or_create_entity(
@@ -216,21 +233,24 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "behavior_id": behavior.id,
                         "priority": item.get("priority", 1),
                     },
-                    commit=False,
+                    organization_id=organization_id, user_id=user_id, commit=False,
                 )
                 created_tests.append(test)
 
             # Process test sets
             print("Processing test sets...")
+            created_test_sets = []
             for item in initial_data.get("test_set", []):
                 # Get test set status
                 status = get_or_create_status(
-                    db=db, name=item["status"], entity_type="TestSet", commit=False
+                    db=db, name=item["status"], entity_type="TestSet", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get license type
                 license_type = get_or_create_type_lookup(
-                    db=db, type_name="LicenseType", type_value=item["license_type"], commit=False
+                    db=db, type_name="LicenseType", type_value=item["license_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Create test set
@@ -245,7 +265,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         "license_type_id": license_type.id,
                         "visibility": item["visibility"],
                         "attributes": item["metadata"],
+                        "user_id": uuid.UUID(user_id),  # Set the creating user
+                        "owner_id": uuid.UUID(user_id),  # Set the owner to the same user
+                        "assignee_id": uuid.UUID(user_id),  # Set the assignee to the same user
+                        "organization_id": uuid.UUID(organization_id),
                     },
+                    organization_id=organization_id,
+                    user_id=user_id,
                     commit=False,
                 )
 
@@ -256,7 +282,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         db.query(models.Test)
                         .filter(
                             models.Test.id == test.id,
-                            models.Test.organization_id == organization_id,
+                            models.Test.organization_id == uuid.UUID(organization_id),
                         )
                         .first()
                     )
@@ -265,28 +291,43 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         values = {
                             "test_id": db_test.id,
                             "test_set_id": test_set.id,
-                            "organization_id": organization_id,
-                            "user_id": user_id,
+                            "organization_id": uuid.UUID(organization_id),
+                            "user_id": uuid.UUID(user_id),
                         }
                         db.execute(test_test_set_association.insert().values(**values))
                         db.flush()
+                
+                # Track test sets to update attributes after associations are complete
+                created_test_sets.append(test_set)
+            
+            # Update test set attributes based on associated tests
+            print("Updating test set attributes...")
+            from rhesis.backend.app.services.test_set import update_test_set_attributes
+            for test_set in created_test_sets:
+                try:
+                    update_test_set_attributes(db=db, test_set_id=str(test_set.id))
+                except Exception as e:
+                    print(f"Warning: Failed to update attributes for test set {test_set.name}: {e}")
 
             # Process metrics
             print("Processing metrics...")
             for item in initial_data.get("metric", []):
                 # Get metric type
                 metric_type = get_or_create_type_lookup(
-                    db=db, type_name="MetricType", type_value=item["metric_type"], commit=False
+                    db=db, type_name="MetricType", type_value=item["metric_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get backend type
                 backend_type = get_or_create_type_lookup(
-                    db=db, type_name="BackendType", type_value=item["backend_type"], commit=False
+                    db=db, type_name="BackendType", type_value=item["backend_type"], 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Get metric status
                 status = get_or_create_status(
-                    db=db, name=item["status"], entity_type="Metric", commit=False
+                    db=db, name=item["status"], entity_type="Metric", 
+                    organization_id=organization_id, user_id=user_id, commit=False
                 )
 
                 # Create metric
@@ -310,22 +351,20 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     "metric_type_id": metric_type.id,
                     "backend_type_id": backend_type.id,
                     "status_id": status.id,
-                    "user_id": user_id,
-                    "owner_id": user_id,
+                    "user_id": uuid.UUID(user_id),
+                    "owner_id": uuid.UUID(user_id),
                 }
 
-                metric = get_or_create_entity(
-                    db=db,
-                    model=models.Metric,
-                    entity_data=metric_data,
-                    commit=False,
-                )
+                metric = get_or_create_entity(db=db, model=models.Metric, entity_data=metric_data, organization_id=organization_id, user_id=user_id, commit=False)
 
                 # Process behavior associations
                 behavior_names = item.get("behaviors", [])
                 for behavior_name in behavior_names:
                     # Get or create the behavior
-                    behavior = get_or_create_behavior(db=db, name=behavior_name, commit=False)
+                    behavior = get_or_create_behavior(
+                        db=db, name=behavior_name, 
+                        organization_id=organization_id, user_id=user_id, commit=False
+                    )
 
                     # Check if association already exists
                     existing_association = db.execute(
@@ -340,28 +379,19 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         association_values = {
                             "behavior_id": behavior.id,
                             "metric_id": metric.id,
-                            "organization_id": organization_id,
-                            "user_id": user_id,
+                            "organization_id": uuid.UUID(organization_id),
+                            "user_id": uuid.UUID(user_id),
                         }
                         db.execute(
                             behavior_metric_association.insert().values(**association_values)
                         )
                         db.flush()
 
-            # Mark organization as initialized
-            org = (
-                db.query(models.Organization)
-                .filter(models.Organization.id == organization_id)
-                .first()
-            )
-            if org:
-                org.is_onboarding_complete = True
-                db.flush()
-
-            db.commit()
+            # Flush all changes to ensure they're persisted
+            db.flush()
 
     except Exception:
-        db.rollback()
+        # Let the calling code handle transaction rollback
         raise
 
 
@@ -575,7 +605,7 @@ def _get_matching_records(db: Session, model, identifiers: set, organization_id:
     """Get records that match the initial data identifiers."""
     query = (
         QueryBuilder(db, model)
-        .with_organization_filter()
+        .with_organization_filter(organization_id)
         .with_custom_filter(lambda q: q.filter(model.organization_id == organization_id))
         .build()
     )
@@ -641,123 +671,119 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
         sorted_models = list(reversed(_sort_models_by_dependencies(models_to_delete)))
         entities_to_delete = set()
 
-        # Set tenant context for the entire operation
-        with maintain_tenant_context(db):
-            # First verify organization state
-            print("\nLooking up organization...")
-            query = db.query(models.Organization).filter(models.Organization.id == organization_id)
-            print(f"SQL Query: {query.statement}")
+        # First verify organization state
+        print("\nLooking up organization...")
+        query = db.query(models.Organization).filter(models.Organization.id == organization_id)
+        print(f"SQL Query: {query.statement}")
 
-            org = query.first()
-            print(f"Organization lookup result: {org}")
-            if org:
-                print(
-                    f"Found organization: ID={org.id}, Name={org.name}, "
-                    f"Onboarding Complete={org.is_onboarding_complete}"
-                )
-
-            if not org:
-                print("Organization not found in database!")
-                print("Checking all organizations in database:")
-                all_orgs = db.query(models.Organization).all()
-                for o in all_orgs:
-                    print(f"Available org: ID={o.id} ({type(o.id)}), Name={o.name}")
-                raise ValueError(f"Organization not found with ID: {organization_id}")
-
-            if not org.is_onboarding_complete:
-                raise ValueError("Organization not initialized yet")
-
-            # Collect entities to delete
-            for model in sorted_models:
-                if model.__name__ in ["User", "Organization"]:
-                    continue
-
-                identifiers = model_data_map.get(model.__name__, set())
-                if not identifiers:
-                    continue
-
-                # Get matching records with eager loading of relationships
-                query = (
-                    QueryBuilder(db, model)
-                    .with_organization_filter()
-                    .with_joinedloads()
-                    .with_custom_filter(
-                        lambda q: q.filter(model.organization_id == organization_id)
-                    )
-                    .build()
-                )
-
-                if model.__name__ == "Test":
-                    records = (
-                        query.join(models.Prompt)
-                        .filter(models.Prompt.content.in_(identifiers))
-                        .all()
-                    )
-                elif model.__name__ == "TypeLookup":
-                    records = query.filter(model.type_value.in_(identifiers)).all()
-                elif hasattr(model, "content"):
-                    records = query.filter(model.content.in_(identifiers)).all()
-                else:
-                    records = query.filter(model.name.in_(identifiers)).all()
-
-                for record in records:
-                    # Add the record itself if it matches
-                    if (
-                        _get_entity_identifier_from_instance(record)
-                        in model_data_map[model.__name__]
-                    ):
-                        entities_to_delete.add(record)
-
-                    # Add nested entities that match initial data
-                    for entity in _get_nested_entities(db, record, organization_id):
-                        if (
-                            entity.__class__.__name__ in model_data_map
-                            and _get_entity_identifier_from_instance(entity)
-                            in model_data_map[entity.__class__.__name__]
-                        ):
-                            entities_to_delete.add(entity)
-
-            # Sort entities for deletion
-            deletion_order = {
-                "Prompt": 0,
-                "Test": 1,
-                "Topic": 2,
-                "Behavior": 2,
-                "Category": 2,
-                "Metric": 2,
-                "TestSet": 3,
-                "Project": 4,
-            }
-            sorted_entities = sorted(
-                entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
+        org = query.first()
+        print(f"Organization lookup result: {org}")
+        if org:
+            print(
+                f"Found organization: ID={org.id}, Name={org.name}, "
+                f"Onboarding Complete={org.is_onboarding_complete}"
             )
 
-            # Delete entities
-            deleted_ids = set()
-            for entity in sorted_entities:
-                if entity.id in deleted_ids:
-                    continue
+        if not org:
+            print("Organization not found in database!")
+            print("Checking all organizations in database:")
+            all_orgs = db.query(models.Organization).all()
+            for o in all_orgs:
+                print(f"Available org: ID={o.id} ({type(o.id)}), Name={o.name}")
+            raise ValueError(f"Organization not found with ID: {organization_id}")
 
-                try:
-                    _delete_entity_associations(db, entity)
-                    db.delete(entity)
-                    deleted_ids.add(entity.id)
-                    db.flush()  # Use flush instead of commit to keep transaction atomic
-                except Exception as e:
-                    print(f"Error deleting {entity.__class__.__name__}: {e}")
-                    continue
+        if not org.is_onboarding_complete:
+            raise ValueError("Organization not initialized yet")
 
-            # Update organization status
-            org = db.query(models.Organization).filter_by(id=organization_id).first()
-            if org:
-                org.is_onboarding_complete = False
-                db.flush()
+        # Collect entities to delete
+        for model in sorted_models:
+            if model.__name__ in ["User", "Organization"]:
+                continue
 
-            # Final commit
-            db.commit()
+            identifiers = model_data_map.get(model.__name__, set())
+            if not identifiers:
+                continue
+
+            # Get matching records with eager loading of relationships
+            query = (
+                QueryBuilder(db, model)
+                .with_organization_filter(organization_id)
+                .with_joinedloads()
+                .with_custom_filter(
+                    lambda q: q.filter(model.organization_id == organization_id)
+                )
+                .build()
+            )
+
+            if model.__name__ == "Test":
+                records = (
+                    query.join(models.Prompt)
+                    .filter(models.Prompt.content.in_(identifiers))
+                    .all()
+                )
+            elif model.__name__ == "TypeLookup":
+                records = query.filter(model.type_value.in_(identifiers)).all()
+            elif hasattr(model, "content"):
+                records = query.filter(model.content.in_(identifiers)).all()
+            else:
+                records = query.filter(model.name.in_(identifiers)).all()
+
+            for record in records:
+                # Add the record itself if it matches
+                if (
+                    _get_entity_identifier_from_instance(record)
+                    in model_data_map[model.__name__]
+                ):
+                    entities_to_delete.add(record)
+
+                # Add nested entities that match initial data
+                for entity in _get_nested_entities(db, record, organization_id):
+                    if (
+                        entity.__class__.__name__ in model_data_map
+                        and _get_entity_identifier_from_instance(entity)
+                        in model_data_map[entity.__class__.__name__]
+                    ):
+                        entities_to_delete.add(entity)
+
+        # Sort entities for deletion
+        deletion_order = {
+            "Prompt": 0,
+            "Test": 1,
+            "Topic": 2,
+            "Behavior": 2,
+            "Category": 2,
+            "Metric": 2,
+            "TestSet": 3,
+            "Project": 4,
+        }
+        sorted_entities = sorted(
+            entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
+        )
+
+        # Delete entities
+        deleted_ids = set()
+        for entity in sorted_entities:
+            if entity.id in deleted_ids:
+                continue
+
+            try:
+                _delete_entity_associations(db, entity)
+                db.delete(entity)
+                deleted_ids.add(entity.id)
+                db.flush()  # Use flush instead of commit to keep transaction atomic
+            except Exception as e:
+                print(f"Error deleting {entity.__class__.__name__}: {e}")
+                continue
+
+        # Update organization status
+        org = db.query(models.Organization).filter_by(id=organization_id).first()
+        if org:
+            org.is_onboarding_complete = False
+            db.flush()
+
+        # Transaction commit/rollback is handled by the session context manager
 
     except Exception as e:
-        db.rollback()
-        print(f"\nError during rollback: {str(e)}")
+        print(f"\nError during operation: {str(e)}")
         print(f"Error type: {type(e)}")
         raise

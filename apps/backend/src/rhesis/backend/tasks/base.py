@@ -8,36 +8,15 @@ from celery import Task
 
 from rhesis.backend.app.database import (
     SessionLocal,
-    set_tenant,
+    get_db,
+    get_db_with_tenant_variables,
 )
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 
 
-def with_tenant_context(func):
-    """
-    Decorator to automatically maintain tenant context in task functions.
-    This ensures all database operations use the proper tenant context.
-    """
-
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        # Get task request for context
-        request = getattr(self, "request", None)
-        organization_id = getattr(request, "organization_id", None)
-        user_id = getattr(request, "user_id", None)
-
-        # Get a database session
-        with self.get_db_session() as db:
-            # Set tenant for this session
-            if organization_id or user_id:
-                set_tenant(db, organization_id, user_id)
-
-            # Add db to kwargs and execute the task function
-            kwargs["db"] = db
-            return func(self, *args, **kwargs)
-
-    return wrapper
+# Task database sessions automatically set PostgreSQL session variables for RLS
+# Use self.get_db_session() for tenant-aware database operations
 
 
 def email_notification(template=None, subject_template=None):
@@ -123,12 +102,12 @@ class BaseTask(Task):
             message: The message to log
             **kwargs: Additional context to include in the log
         """
-        org_id, user_id = self.get_tenant_context()
+        organization_id, user_id = self.get_tenant_context()
         task_id = getattr(self.request, "id", "unknown") if hasattr(self, "request") else "unknown"
 
         context_info = {
             "task_id": task_id,
-            "organization_id": org_id or "unknown",
+            "organization_id": organization_id or "unknown",
             "user_id": user_id or "unknown",
             **kwargs,
         }
@@ -143,22 +122,16 @@ class BaseTask(Task):
 
     @contextmanager
     def get_db_session(self):
-        """Get a database session with the proper tenant context."""
-        db = SessionLocal()
-        try:
-            # Start with a clean session
-            db.expire_all()
-
-            # Get task context
-            org_id, user_id = self.get_tenant_context()
-
-            # Set tenant context if available
-            if org_id or user_id:
-                set_tenant(db, org_id, user_id)
-
+        """
+        Get a database session with tenant context automatically set.
+        
+        Automatically sets PostgreSQL session variables for RLS using the same
+        centralized logic as the router dependencies.
+        """
+        organization_id, user_id = self.get_tenant_context()
+        
+        with get_db_with_tenant_variables(organization_id or '', user_id or '') as db:
             yield db
-        finally:
-            db.close()
 
     def validate_params(self, args, kwargs):
         """Check for organization_id and user_id in headers if not in kwargs."""
@@ -279,7 +252,7 @@ class BaseTask(Task):
 
         return super().before_start(task_id, args, kwargs)
 
-    def _get_user_info(self, user_id: str) -> Tuple[Optional[str], Optional[str]]:
+    def _get_user_info(self, user_id: str, organization_id: str = None) -> Tuple[Optional[str], Optional[str]]:
         """
         Get user email and name for notifications.
 
@@ -293,7 +266,8 @@ class BaseTask(Task):
             from rhesis.backend.app import crud
 
             with self.get_db_session() as db:
-                user = crud.get_user(db, user_id)
+                # Session variables are automatically set by get_db_session()
+                user = crud.get_user(db, user_id, organization_id=organization_id)
                 if user:
                     display_name = (
                         user.display_name
@@ -323,13 +297,13 @@ class BaseTask(Task):
             from rhesis.backend.notifications import EmailTemplate, email_service
 
             # Get user context
-            org_id, user_id = self.get_tenant_context()
+            organization_id, user_id = self.get_tenant_context()
 
             self.log_with_context(
                 "debug",
                 "Email notification process started",
                 status=status,
-                org_id=org_id,
+                organization_id=organization_id,
                 user_id=user_id,
             )
 
@@ -339,7 +313,7 @@ class BaseTask(Task):
 
             # Get user information
             self.log_with_context("debug", f"Looking up user information for user_id: {user_id}")
-            user_email, user_name = self._get_user_info(user_id)
+            user_email, user_name = self._get_user_info(user_id, organization_id)
 
             if not user_email:
                 self.log_with_context("warning", f"No email found for user {user_id}")

@@ -11,9 +11,8 @@ from rhesis.backend.app.constants import (
     ERROR_BULK_CREATE_FAILED,
     EntityType,
 )
-from rhesis.backend.app.database import maintain_tenant_context
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.services.stats import StatsCalculator
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
     get_or_create_status,
@@ -27,30 +26,6 @@ from rhesis.backend.app.utils.uuid_utils import (
 from rhesis.backend.logging import logger
 
 
-def get_test_stats(
-    db: Session,
-    current_user_organization_id: str | None,
-    top: int | None = None,
-    months: int = 6,
-) -> Dict:
-    """
-    Get comprehensive statistics about tests.
-
-    Args:
-        db: Database session
-        current_user_organization_id: Optional organization ID for filtering
-        top: Optional number of top items to show per dimension
-        months: Number of months to include in historical stats (default: 6)
-    """
-    calculator = StatsCalculator(db)
-    return calculator.get_entity_stats(
-        entity_model=models.Test,
-        organization_id=current_user_organization_id,
-        top=top,
-        months=months,
-    )
-
-
 def load_defaults():
     """Load default values from bulk_defaults.json"""
     defaults_path = Path(__file__).parent / "bulk_defaults.json"
@@ -59,15 +34,22 @@ def load_defaults():
 
 
 def _validate_test_set(
-    db: Session, test_set_id: str
+    db: Session, test_set_id: str, organization_id: str = None
 ) -> tuple[models.TestSet | None, Dict[str, Any] | None]:
     """Validate test set exists and return it or error response."""
-    test_set = db.query(models.TestSet).filter(models.TestSet.id == test_set_id).first()
+    query = db.query(models.TestSet).filter(models.TestSet.id == test_set_id)
+    
+    # Apply organization filter if provided (SECURITY CRITICAL)
+    if organization_id:
+        from uuid import UUID
+        query = query.filter(models.TestSet.organization_id == UUID(organization_id))
+    
+    test_set = query.first()
     if not test_set:
         return None, {
             "success": False,
             "total_tests": 0,
-            "message": f"Test set with ID {test_set_id} not found",
+            "message": f"Test set with ID {test_set_id} not found or not accessible",
         }
     return test_set, None
 
@@ -82,8 +64,12 @@ def _categorize_test_ids(
     # Convert input test_ids to a set of strings
     test_id_set = {str(id_).lower() for id_ in test_ids}
 
-    # Find existing tests
-    existing_tests = db.query(models.Test).filter(models.Test.id.in_(test_ids)).all()
+    # Find existing tests AND ensure they belong to the organization (SECURITY CRITICAL)
+    from uuid import UUID
+    existing_tests = db.query(models.Test).filter(
+        models.Test.id.in_(test_ids),
+        models.Test.organization_id == UUID(organization_id)
+    ).all()
     existing_test_ids = {str(test.id).lower() for test in existing_tests}
     missing_test_ids = test_id_set - existing_test_ids
 
@@ -170,8 +156,8 @@ def bulk_create_test_set_associations(
     Bulk create associations between tests and a test set in batches.
     Handles validation of test IDs and existing associations.
     """
-    # First validate the test set exists
-    test_set, error_response = _validate_test_set(db, test_set_id)
+    # First validate the test set exists AND belongs to organization (SECURITY CRITICAL)
+    test_set, error_response = _validate_test_set(db, test_set_id, organization_id)
     if error_response:
         return error_response
 
@@ -252,6 +238,7 @@ def create_entity_with_status(
             db=db,
             name=defaults[entity_type_str]["status"],
             entity_type=EntityType.GENERAL,
+            organization_id=organization_id, user_id=user_id,
         )
         entity_data["status_id"] = status.id
 
@@ -259,6 +246,7 @@ def create_entity_with_status(
         db=db,
         model=model,
         entity_data=entity_data,
+        organization_id=organization_id, user_id=user_id,
     )
 
 
@@ -333,11 +321,13 @@ def create_prompt(
                 db=db,
                 name=defaults["prompt"]["status"],
                 entity_type=EntityType.GENERAL,
+                organization_id=organization_id, user_id=user_id,
             ).id,
             "language_code": prompt_data.get("language_code", defaults["prompt"]["language_code"]),
             "demographic_id": demographic.id if demographic else None,
             "expected_response": prompt_data.get("expected_response"),
         },
+        organization_id=organization_id, user_id=user_id,
     )
 
 
@@ -360,151 +350,155 @@ def bulk_create_tests(
     defaults = load_defaults()
 
     try:
-        with maintain_tenant_context(db):
-            # Get or create required relationships
-            test_type = get_or_create_type_lookup(
+        # Get or create required relationships
+        test_type = get_or_create_type_lookup(
+            db=db,
+            type_name="TestType",
+            type_value=defaults["test"]["test_type"],
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+        test_status = get_or_create_status(
+            db=db,
+            name=defaults["test"]["status"],
+            entity_type=EntityType.TEST,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+        for i, test_data in enumerate(tests_data):
+            logger.debug(f"bulk_create_tests - Processing test {i + 1}/{len(tests_data)}")
+            test_data_dict = prepare_test_data(test_data, defaults)
+            logger.debug(
+                f"bulk_create_tests - test_data_dict after prepare_test_data: {test_data_dict}"
+            )
+            prompt_data = test_data_dict.pop("prompt", {})
+
+            # Create prompt and related entities
+            prompt = create_prompt(
                 db=db,
-                type_name="TestType",
-                type_value=defaults["test"]["test_type"],
+                prompt_data=prompt_data,
+                defaults=defaults,
+                organization_id=organization_id,
+                user_id=user_id,
             )
 
-            test_status = get_or_create_status(
+            # Create topic, behavior, and category
+            topic = create_entity_with_status(
                 db=db,
-                name=defaults["test"]["status"],
-                entity_type=EntityType.TEST,
+                model=models.Topic,
+                name=test_data_dict.pop("topic"),
+                defaults=defaults,
+                entity_type=EntityType.TOPIC,
+                organization_id=organization_id,
+                user_id=user_id,
             )
 
-            for i, test_data in enumerate(tests_data):
-                logger.debug(f"bulk_create_tests - Processing test {i + 1}/{len(tests_data)}")
-                test_data_dict = prepare_test_data(test_data, defaults)
-                logger.debug(
-                    f"bulk_create_tests - test_data_dict after prepare_test_data: {test_data_dict}"
-                )
-                prompt_data = test_data_dict.pop("prompt", {})
+            behavior = create_entity_with_status(
+                db=db,
+                model=models.Behavior,
+                name=test_data_dict.pop("behavior"),
+                defaults=defaults,
+                entity_type=EntityType.BEHAVIOR,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
-                # Create prompt and related entities
-                prompt = create_prompt(
+            category = create_entity_with_status(
+                db=db,
+                model=models.Category,
+                name=test_data_dict.pop("category"),
+                defaults=defaults,
+                entity_type=EntityType.CATEGORY,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+            # Create test with improved owner_id handling
+            original_assignee_id = test_data_dict.get("assignee_id", None)
+            original_owner_id = test_data_dict.get("owner_id", None)
+            logger.debug(
+                f"bulk_create_tests - Original UUID values: "
+                f"assignee_id='{original_assignee_id}', "
+                f"owner_id='{original_owner_id}'"
+            )
+
+            assignee_id = sanitize_uuid_field(test_data_dict.pop("assignee_id", None))
+            owner_id = ensure_owner_id(test_data_dict.pop("owner_id", None), user_id)
+
+            logger.debug(
+                f"bulk_create_tests - Sanitized UUID values: "
+                f"assignee_id='{assignee_id}', "
+                f"owner_id='{owner_id}'"
+            )
+
+            test_params = {
+                "prompt_id": prompt.id,
+                "test_type_id": test_type.id,
+                "topic_id": topic.id,
+                "behavior_id": behavior.id,
+                "category_id": category.id,
+                "status_id": test_status.id
+                if not test_data_dict.get("status")
+                else get_or_create_status(
                     db=db,
-                    prompt_data=prompt_data,
-                    defaults=defaults,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
+                    name=test_data_dict.pop("status"),
+                    entity_type=EntityType.TEST,
+                    organization_id=organization_id, user_id=user_id,
+                ).id,
+                "user_id": user_id,
+                "organization_id": organization_id,
+                "priority": test_data_dict.pop("priority", defaults["test"]["priority"]),
+                "test_configuration": test_data_dict.pop(
+                    "test_configuration", defaults["test"]["test_configuration"]
+                ),
+                "assignee_id": assignee_id,
+                "owner_id": owner_id,
+            }
 
-                # Create topic, behavior, and category
-                topic = create_entity_with_status(
-                    db=db,
-                    model=models.Topic,
-                    name=test_data_dict.pop("topic"),
-                    defaults=defaults,
-                    entity_type=EntityType.TOPIC,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
+            # Clean any remaining UUID fields from the test data dict
+            logger.debug(
+                f"bulk_create_tests - Remaining test_data_dict before cleaning: "
+                f"{test_data_dict}"
+            )
 
-                behavior = create_entity_with_status(
-                    db=db,
-                    model=models.Behavior,
-                    name=test_data_dict.pop("behavior"),
-                    defaults=defaults,
-                    entity_type=EntityType.BEHAVIOR,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
+            for key, value in list(test_data_dict.items()):
+                if key.endswith("_id"):
+                    original_value = value
+                    test_data_dict[key] = sanitize_uuid_field(value)
+                    if original_value != test_data_dict[key]:
+                        logger.debug(
+                            f"bulk_create_tests - Cleaned remaining field {key}: "
+                            f"'{original_value}' -> '{test_data_dict[key]}'"
+                        )
 
-                category = create_entity_with_status(
-                    db=db,
-                    model=models.Category,
-                    name=test_data_dict.pop("category"),
-                    defaults=defaults,
-                    entity_type=EntityType.CATEGORY,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
+            # Add any remaining fields from test_data_dict that weren't explicitly handled
+            remaining_fields = {k: v for k, v in test_data_dict.items() if k not in test_params}
+            logger.debug(f"bulk_create_tests - Remaining fields to add: {remaining_fields}")
+            test_params.update(remaining_fields)
 
-                # Create test with improved owner_id handling
-                original_assignee_id = test_data_dict.get("assignee_id", None)
-                original_owner_id = test_data_dict.get("owner_id", None)
+            # Log final test parameters for debugging UUID issues
+            uuid_params = {k: v for k, v in test_params.items() if k.endswith("_id")}
+            logger.debug(f"bulk_create_tests - Final UUID parameters: {uuid_params}")
+            logger.debug(f"bulk_create_tests - All test parameters: {test_params}")
+
+            try:
+                test = models.Test(**test_params)
+                db.add(test)
+                created_tests.append(test)
                 logger.debug(
-                    f"bulk_create_tests - Original UUID values: "
-                    f"assignee_id='{original_assignee_id}', "
-                    f"owner_id='{original_owner_id}'"
+                    f"bulk_create_tests - Successfully created Test model for test {i + 1}"
                 )
-
-                assignee_id = sanitize_uuid_field(test_data_dict.pop("assignee_id", None))
-                owner_id = ensure_owner_id(test_data_dict.pop("owner_id", None), user_id)
-
-                logger.debug(
-                    f"bulk_create_tests - Sanitized UUID values: "
-                    f"assignee_id='{assignee_id}', "
-                    f"owner_id='{owner_id}'"
+            except Exception as model_error:
+                logger.error(
+                    f"bulk_create_tests - Failed to create Test model for test {i + 1}: "
+                    f"{model_error}"
                 )
-
-                test_params = {
-                    "prompt_id": prompt.id,
-                    "test_type_id": test_type.id,
-                    "topic_id": topic.id,
-                    "behavior_id": behavior.id,
-                    "category_id": category.id,
-                    "status_id": test_status.id
-                    if not test_data_dict.get("status")
-                    else get_or_create_status(
-                        db=db,
-                        name=test_data_dict.pop("status"),
-                        entity_type=EntityType.TEST,
-                    ).id,
-                    "user_id": user_id,
-                    "organization_id": organization_id,
-                    "priority": test_data_dict.pop("priority", defaults["test"]["priority"]),
-                    "test_configuration": test_data_dict.pop(
-                        "test_configuration", defaults["test"]["test_configuration"]
-                    ),
-                    "assignee_id": assignee_id,
-                    "owner_id": owner_id,
-                }
-
-                # Clean any remaining UUID fields from the test data dict
-                logger.debug(
-                    f"bulk_create_tests - Remaining test_data_dict before cleaning: "
-                    f"{test_data_dict}"
+                logger.error(
+                    f"bulk_create_tests - Test parameters that caused error: {test_params}"
                 )
-
-                for key, value in list(test_data_dict.items()):
-                    if key.endswith("_id"):
-                        original_value = value
-                        test_data_dict[key] = sanitize_uuid_field(value)
-                        if original_value != test_data_dict[key]:
-                            logger.debug(
-                                f"bulk_create_tests - Cleaned remaining field {key}: "
-                                f"'{original_value}' -> '{test_data_dict[key]}'"
-                            )
-
-                # Add any remaining fields from test_data_dict that weren't explicitly handled
-                remaining_fields = {k: v for k, v in test_data_dict.items() if k not in test_params}
-                logger.debug(f"bulk_create_tests - Remaining fields to add: {remaining_fields}")
-                test_params.update(remaining_fields)
-
-                # Log final test parameters for debugging UUID issues
-                uuid_params = {k: v for k, v in test_params.items() if k.endswith("_id")}
-                logger.debug(f"bulk_create_tests - Final UUID parameters: {uuid_params}")
-                logger.debug(f"bulk_create_tests - All test parameters: {test_params}")
-
-                try:
-                    test = models.Test(**test_params)
-                    db.add(test)
-                    created_tests.append(test)
-                    logger.debug(
-                        f"bulk_create_tests - Successfully created Test model for test {i + 1}"
-                    )
-                except Exception as model_error:
-                    logger.error(
-                        f"bulk_create_tests - Failed to create Test model for test {i + 1}: "
-                        f"{model_error}"
-                    )
-                    logger.error(
-                        f"bulk_create_tests - Test parameters that caused error: {test_params}"
-                    )
-                    raise
+                raise
 
             db.flush()
 
@@ -518,11 +512,10 @@ def bulk_create_tests(
                     user_id=user_id,
                 )
 
-            db.commit()
-            return created_tests
+        # Transaction commit/rollback is handled by the session context manager
+        return created_tests
 
     except Exception as e:
-        db.rollback()
         error_msg = str(e)
         logger.error(f"Failed to create tests: {error_msg}", exc_info=True)
 
@@ -561,50 +554,49 @@ def create_test_set_associations(
     """
     from rhesis.backend.app.models import TestSet
 
-    # Check if there's an existing transaction and roll it back
-    if db.in_transaction():
-        db.rollback()
+    # Transaction management is handled by the session context manager
 
     try:
-        with maintain_tenant_context(db):
-            # Verify test set exists
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
-            if not test_set:
-                return {
-                    "success": False,
-                    "total_tests": 0,
-                    "message": f"Test set with ID {test_set_id} not found",
-                    "metadata": {
-                        "new_associations": 0,
-                        "existing_associations": 0,
-                        "invalid_associations": 0,
-                        "existing_test_ids": [],
-                        "invalid_test_ids": [],
-                    },
-                }
+        # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
+        from uuid import UUID
+        test_set = db.query(TestSet).filter(
+            TestSet.id == test_set_id,
+            TestSet.organization_id == UUID(organization_id)
+        ).first()
+        if not test_set:
+            return {
+                "success": False,
+                "total_tests": 0,
+                "message": f"Test set with ID {test_set_id} not found or not accessible",
+                "metadata": {
+                    "new_associations": 0,
+                    "existing_associations": 0,
+                    "invalid_associations": 0,
+                    "existing_test_ids": [],
+                    "invalid_test_ids": [],
+                },
+            }
 
-            # Create associations in bulk
-            result = bulk_create_test_set_associations(
-                db=db,
-                test_ids=test_ids,
-                test_set_id=test_set_id,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
+        # Create associations in bulk
+        result = bulk_create_test_set_associations(
+            db=db,
+            test_ids=test_ids,
+            test_set_id=test_set_id,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
-            # Update test set attributes if any new associations were created
-            if result.get("metadata", {}).get("new_associations", 0) > 0:
-                from rhesis.backend.app.services.test_set import update_test_set_attributes
+        # Update test set attributes if any new associations were created
+        if result.get("metadata", {}).get("new_associations", 0) > 0:
+            from rhesis.backend.app.services.test_set import update_test_set_attributes
 
-                update_test_set_attributes(db=db, test_set_id=test_set_id)
+            update_test_set_attributes(db=db, test_set_id=test_set_id)
 
-            # Commit the transaction
-            db.commit()
+        # Transaction commit/rollback is handled by the session context manager
 
-            return result
+        return result
 
     except IntegrityError as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": 0,
@@ -618,7 +610,6 @@ def create_test_set_associations(
             },
         }
     except Exception as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": 0,
@@ -655,71 +646,70 @@ def remove_test_set_associations(
     """
     from rhesis.backend.app.models import TestSet
 
-    # Check if there's an existing transaction and roll it back
-    if db.in_transaction():
-        db.rollback()
+    # Transaction management is handled by the session context manager
 
     try:
-        with maintain_tenant_context(db):
-            # Verify test set exists
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
-            if not test_set:
-                return {
-                    "success": False,
-                    "total_tests": 0,
-                    "removed_associations": 0,
-                    "message": f"Test set with ID {test_set_id} not found",
-                }
-
-            # Check if any of the provided test IDs are actually associated with the test set
-            existing_associations = db.execute(
-                test_test_set_association.select().where(
-                    test_test_set_association.c.test_set_id == test_set_id,
-                    test_test_set_association.c.test_id.in_(test_ids),
-                    test_test_set_association.c.organization_id == organization_id,
-                )
-            ).fetchall()
-
-            if not existing_associations:
-                return {
-                    "success": False,
-                    "total_tests": len(test_ids),
-                    "removed_associations": 0,
-                    "message": "None of the provided test IDs are associated with this test set",
-                }
-
-            # Delete associations
-            result = db.execute(
-                test_test_set_association.delete().where(
-                    test_test_set_association.c.test_set_id == test_set_id,
-                    test_test_set_association.c.test_id.in_(test_ids),
-                    test_test_set_association.c.organization_id == organization_id,
-                )
-            )
-
-            removed_count = result.rowcount
-
-            # Build detailed message
-            message = f"Successfully removed {removed_count} test associations"
-
-            # Update test set attributes if any associations were removed
-            if removed_count > 0:
-                from rhesis.backend.app.services.test_set import update_test_set_attributes
-
-                update_test_set_attributes(db=db, test_set_id=test_set_id)
-
-            # Commit the transaction
-            db.commit()
-
+        # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
+        from uuid import UUID
+        test_set = db.query(TestSet).filter(
+            TestSet.id == test_set_id,
+            TestSet.organization_id == UUID(organization_id)
+        ).first()
+        if not test_set:
             return {
-                "success": True,
-                "total_tests": len(test_ids),
-                "removed_associations": removed_count,
-                "message": message,
+                "success": False,
+                "total_tests": 0,
+                "removed_associations": 0,
+                "message": f"Test set with ID {test_set_id} not found or not accessible",
             }
 
+        # Check if any of the provided test IDs are actually associated with the test set
+        existing_associations = db.execute(
+            test_test_set_association.select().where(
+                test_test_set_association.c.test_set_id == test_set_id,
+                test_test_set_association.c.test_id.in_(test_ids),
+                test_test_set_association.c.organization_id == organization_id,
+            )
+        ).fetchall()
+
+        if not existing_associations:
+            return {
+                "success": False,
+                "total_tests": len(test_ids),
+                "removed_associations": 0,
+                "message": "None of the provided test IDs are associated with this test set",
+            }
+
+        # Delete associations
+        result = db.execute(
+            test_test_set_association.delete().where(
+                test_test_set_association.c.test_set_id == test_set_id,
+                test_test_set_association.c.test_id.in_(test_ids),
+                test_test_set_association.c.organization_id == organization_id,
+            )
+        )
+
+        removed_count = result.rowcount
+
+        # Build detailed message
+        message = f"Successfully removed {removed_count} test associations"
+
+        # Update test set attributes if any associations were removed
+        if removed_count > 0:
+            from rhesis.backend.app.services.test_set import update_test_set_attributes
+
+            update_test_set_attributes(db=db, test_set_id=test_set_id)
+
+        # Transaction commit/rollback is handled by the session context manager
+
+        return {
+            "success": True,
+            "total_tests": len(test_ids),
+            "removed_associations": removed_count,
+            "message": message,
+        }
+
     except Exception as e:
-        db.rollback()
         return {
             "success": False,
             "total_tests": len(test_ids),

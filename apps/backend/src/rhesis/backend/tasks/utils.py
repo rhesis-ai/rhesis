@@ -61,7 +61,7 @@ def get_test_run_by_config(
         return None
 
 
-def get_test_run_by_task_id(db: Session, task_id: str) -> Optional[Any]:
+def get_test_run_by_task_id(db: Session, task_id: str, organization_id: str = None) -> Optional[Any]:
     """
     Get a test run by task ID from attributes.
     This is used to find test runs created by a specific Celery task,
@@ -78,7 +78,7 @@ def get_test_run_by_task_id(db: Session, task_id: str) -> Optional[Any]:
         # Get all test runs and filter by task_id in attributes
         # Note: This is not the most efficient approach, but since we expect
         # few test runs per task, it's acceptable for now
-        test_runs = crud.get_test_runs(db, limit=100)
+        test_runs = crud.get_test_runs(db, limit=100, organization_id=organization_id)
 
         for test_run in test_runs:
             if test_run.attributes and test_run.attributes.get("task_id") == task_id:
@@ -90,7 +90,7 @@ def get_test_run_by_task_id(db: Session, task_id: str) -> Optional[Any]:
 
 
 def increment_test_run_progress(
-    db: Session, test_run_id: str, test_id: str, was_successful: bool = True
+    db: Session, test_run_id: str, test_id: str, was_successful: bool = True, organization_id: str = None, user_id: str = None
 ) -> bool:
     """
     Atomically increment the completed_tests counter in test run attributes.
@@ -113,7 +113,7 @@ def increment_test_run_progress(
         if not test_run_uuid:
             return False
 
-        test_run = crud.get_test_run(db, test_run_uuid)
+        test_run = crud.get_test_run(db, test_run_uuid, organization_id=organization_id, user_id=user_id)
         if not test_run:
             return False
 
@@ -144,7 +144,13 @@ def increment_test_run_progress(
         # Update the test run
         update_data = {"attributes": current_attributes}
 
-        crud.update_test_run(db, test_run.id, crud.schemas.TestRunUpdate(**update_data))
+        crud.update_test_run(
+            db, 
+            test_run.id, 
+            crud.schemas.TestRunUpdate(**update_data),
+            organization_id=str(test_run.organization_id) if test_run.organization_id else None,
+            user_id=str(test_run.user_id) if test_run.user_id else None
+        )
 
         return True
 

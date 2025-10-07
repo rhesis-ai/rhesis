@@ -11,12 +11,13 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.decorators import check_resource_permission
 from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.documents import Document
-from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -34,16 +35,14 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.test_set import generate_and_upload_test_set
+from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 # Create the detailed schema for TestSet and Test
 TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
 router = APIRouter(
-    prefix="/test_sets",
-    tags=["test_sets"],
-    responses={404: {"description": "Not found"}},
+    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found"}}
 )
 
 
@@ -87,13 +86,14 @@ class TestSetGenerationResponse(BaseModel):
     estimated_tests: int
 
 
-def resolve_test_set_or_raise(identifier: str, db: Session) -> TestSet:
+def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str = None) -> TestSet:
     """
     Helper function to resolve a test set by identifier and raise 404 if not found.
 
     Args:
         identifier: The test set identifier (UUID, nano_id, or slug)
         db: The database session
+        organization_id: Organization ID for filtering
 
     Returns:
         The resolved TestSet
@@ -101,7 +101,7 @@ def resolve_test_set_or_raise(identifier: str, db: Session) -> TestSet:
     Raises:
         HTTPException: 404 error if test set is not found
     """
-    db_test_set = crud.resolve_test_set(identifier, db)
+    db_test_set = crud.resolve_test_set(identifier, db, organization_id)
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found with provided identifier")
     return db_test_set
@@ -241,7 +241,7 @@ def determine_test_count(config: TestSetGenerationConfig, requested_count: Optio
 @router.post("/generate", response_model=TestSetGenerationResponse)
 async def generate_test_set(
     request: TestSetGenerationRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -274,7 +274,7 @@ async def generate_test_set(
 
         # Launch the generation task
         task_result = task_launcher(
-            generate_and_upload_test_set,
+            generate_and_save_test_set,
             request.synthesizer_type,  # First positional argument
             current_user=current_user,
             num_tests=test_count,
@@ -310,19 +310,11 @@ async def generate_test_set(
             status_code=500, detail=f"Failed to start test set generation: {str(e)}"
         )
 
-    finally:
-        # Cleanup documents regardless of success or failure
-        if request.documents:
-            handler = DocumentHandler()
-            for doc in request.documents:
-                if doc.path:
-                    await handler.cleanup(doc.path)
-
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
 async def create_test_set_bulk(
     test_set_data: schemas.TestSetBulkCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -388,7 +380,7 @@ async def create_test_set_bulk(
 )
 async def create_test_set(
     test_set: schemas.TestSetCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -419,7 +411,8 @@ async def read_test_sets(
     has_runs: bool | None = Query(
         None, description="Filter test sets by whether they have test runs"
     ),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -442,6 +435,7 @@ async def read_test_sets(
 
     logger.info(f"test_sets endpoint called with has_runs={has_runs}")
 
+    organization_id, user_id = tenant_context
     return crud.get_test_sets(
         db=db,
         skip=skip,
@@ -450,6 +444,8 @@ async def read_test_sets(
         sort_order=sort_order,
         filter=filter,
         has_runs=has_runs,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -458,7 +454,7 @@ def generate_test_set_stats(
     top: Optional[int] = None,
     months: Optional[int] = 6,
     mode: StatsMode = StatsMode.ENTITY,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get statistics about test sets and their tests
@@ -488,20 +484,26 @@ def generate_test_set_stats(
 @check_resource_permission(TestSet, ResourceAction.READ)
 async def read_test_set(
     test_set_identifier: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    return resolve_test_set_or_raise(test_set_identifier, db)
+    organization_id, user_id = tenant_context
+    return resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
 
 @router.delete("/{test_set_id}", response_model=schemas.TestSet)
 @check_resource_permission(TestSet, ResourceAction.DELETE)
 async def delete_test_set(
     test_set_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_test_set = crud.delete_test_set(db, test_set_id=test_set_id)
+    organization_id, user_id = tenant_context
+    db_test_set = crud.delete_test_set(
+        db, test_set_id=test_set_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test_set is None:
         raise HTTPException(status_code=404, detail="Test Set not found")
     return db_test_set
@@ -515,7 +517,7 @@ async def delete_test_set(
 async def update_test_set(
     test_set_id: uuid.UUID,
     test_set: schemas.TestSetUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -550,15 +552,17 @@ async def update_test_set(
 @router.get("/{test_set_identifier}/download", response_class=StreamingResponse)
 def download_test_set_prompts(
     test_set_identifier: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
     try:
         # Resolve test set
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
-        # Get prompts
-        prompts = get_prompts_for_test_set(db, db_test_set.id)
+        # Get prompts with organization filtering (SECURITY CRITICAL)
+        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
         # Check if prompts list is empty before trying to create CSV
         if not prompts:
@@ -586,11 +590,13 @@ def download_test_set_prompts(
 @router.get("/{test_set_identifier}/prompts", response_model=list[schemas.PromptView])
 def get_test_set_prompts(
     test_set_identifier: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
-    return get_prompts_for_test_set(db, db_test_set.id)
+    organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
+    return get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
 
 @router.get("/{test_set_identifier}/tests", response_model=list[TestDetailSchema])
@@ -602,11 +608,13 @@ async def get_test_set_tests(
     order_by: str = "created_at",
     order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all tests associated with a test set."""
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
     items, count = crud.get_test_set_tests(
         db=db,
         test_set_id=db_test_set.id,
@@ -626,7 +634,8 @@ async def execute_test_set(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
     test_configuration_attributes: schemas.TestSetExecutionRequest = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Submit a test set for execution against an endpoint."""
@@ -636,12 +645,15 @@ async def execute_test_set(
         if test_configuration_attributes and test_configuration_attributes.execution_options:
             attributes = test_configuration_attributes.execution_options
 
+        organization_id, user_id = tenant_context
         result = execute_test_set_on_endpoint(
             db=db,
             test_set_identifier=test_set_identifier,
             endpoint_id=endpoint_id,
             current_user=current_user,
             test_configuration_attributes=attributes,
+            organization_id=organization_id,
+            user_id=user_id,
         )
         return result
 
@@ -662,7 +674,7 @@ def generate_test_set_test_stats(
     top: Optional[int] = None,
     months: Optional[int] = 6,
     mode: StatsMode = StatsMode.ENTITY,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get statistics about tests in a specific test set
@@ -675,7 +687,9 @@ def generate_test_set_test_stats(
         db: Database session
         current_user: Current user
     """
-    db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
 
     if mode == StatsMode.ENTITY:
         return get_test_set_stats(
@@ -694,15 +708,17 @@ def generate_test_set_test_stats(
 @router.get("/{test_set_identifier}/prompts/download")
 def download_test_set_prompts_csv(
     test_set_identifier: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
     try:
         # Resolve test set
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db)
+        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
-        # Get prompts
-        prompts = get_prompts_for_test_set(db, db_test_set.id)
+        # Get prompts with organization filtering (SECURITY CRITICAL)
+        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
         try:
             csv_data = prompts_to_csv(prompts)
@@ -732,7 +748,7 @@ def download_test_set_prompts_csv(
 async def associate_tests_with_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkAssociateRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -757,7 +773,7 @@ async def associate_tests_with_test_set(
 async def disassociate_tests_from_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkDisassociateRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """

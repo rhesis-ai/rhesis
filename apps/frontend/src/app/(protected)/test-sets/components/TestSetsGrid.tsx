@@ -438,7 +438,7 @@ export default function TestSetsGrid({
 
     if (selectedRows.length > 0) {
       buttons.push({
-        label: 'Run Test Set',
+        label: selectedRows.length > 1 ? 'Run Test Sets' : 'Run Test Set',
         icon: <PlayArrowIcon />,
         variant: 'contained' as const,
         onClick: handleRunTestSets,

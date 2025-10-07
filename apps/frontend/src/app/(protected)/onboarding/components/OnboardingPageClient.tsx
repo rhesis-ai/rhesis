@@ -26,7 +26,8 @@ type OnboardingStatus =
   | 'idle'
   | 'creating_organization'
   | 'updating_user'
-  | 'loading_initial_data';
+  | 'loading_initial_data'
+  | 'completed';
 
 interface FormData {
   firstName: string;
@@ -136,9 +137,15 @@ export default function OnboardingPageClient({
           const isLocalhost =
             hostname === 'localhost' || hostname === '127.0.0.1';
 
-          const cookieOptions = isLocalhost
-            ? 'path=/; samesite=lax'
-            : `domain=rhesis.ai; path=/; secure; samesite=lax`;
+          // Fix: Use .rhesis.ai (with leading dot) to include all subdomains
+          // or use the current hostname for non-production environments
+          let cookieOptions;
+          if (isLocalhost) {
+            cookieOptions = 'path=/; samesite=lax';
+          } else {
+            // For deployed environments, use no domain (defaults to current hostname for isolation)
+            cookieOptions = `path=/; secure; samesite=lax`;
+          }
 
           document.cookie = `next-auth.session-token=${response.session_token}; ${cookieOptions}`;
         }
@@ -251,6 +258,7 @@ export default function OnboardingPageClient({
           );
 
           if (initDataResponse.status === 'success') {
+            setOnboardingStatus('completed');
             notifications.show('Onboarding completed successfully!', {
               severity: 'success',
             });
@@ -262,6 +270,7 @@ export default function OnboardingPageClient({
           }
         } catch (initError: any) {
           setIsSubmitting(false);
+          setOnboardingStatus('idle');
           console.error('Initial data loading error:', initError);
           notifications.show(
             initError?.message ||
@@ -275,13 +284,12 @@ export default function OnboardingPageClient({
       }
     } catch (error: any) {
       setIsSubmitting(false);
+      setOnboardingStatus('idle');
       console.error('Onboarding error:', error);
       notifications.show(
         error?.message || 'Failed to complete onboarding. Please try again.',
         { severity: 'error' }
       );
-    } finally {
-      setOnboardingStatus('idle');
     }
   };
 

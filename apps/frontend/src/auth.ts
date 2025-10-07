@@ -180,7 +180,11 @@ export const authConfig: NextAuthConfig = {
     },
   },
   events: {
-    async signOut() {},
+    async signOut() {
+      console.log(
+        '[AUTH] NextAuth signOut event triggered - session fully cleared'
+      );
+    },
   },
   pages: {
     signIn: '/',
@@ -194,10 +198,10 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.FRONTEND_ENV === 'production',
+        secure: process.env.FRONTEND_ENV !== 'development',
         maxAge: SESSION_DURATION_SECONDS,
-        domain:
-          process.env.FRONTEND_ENV === 'production' ? 'rhesis.ai' : undefined,
+        // Use undefined domain to isolate sessions per subdomain (prevents cross-environment conflicts)
+        domain: undefined,
       },
     },
   },

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
@@ -24,8 +25,7 @@ from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.gemini_client import (
     create_chat_completion,
     get_chat_response,
-    get_json_response,
-)
+    get_json_response)
 from rhesis.backend.app.services.generation import generate_tests
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
@@ -39,8 +39,7 @@ router = APIRouter(
     prefix="/services",
     tags=["services"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
-)
+    dependencies=[Depends(require_current_user_or_token)])
 
 
 @router.get("/github/contents")
@@ -105,15 +104,12 @@ async def get_ai_chat_response(chat_request: ChatRequest):
                 get_chat_response(
                     messages=[msg.dict() for msg in chat_request.messages],
                     response_format=chat_request.response_format,
-                    stream=True,
-                ),
-                media_type="text/event-stream",
-            )
+                    stream=True),
+                media_type="text/event-stream")
 
         return get_chat_response(
             messages=[msg.dict() for msg in chat_request.messages],
-            response_format=chat_request.response_format,
-        )
+            response_format=chat_request.response_format)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -156,7 +152,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         from rhesis.sdk.models.providers.gemini import GeminiLLM
 
         prompt = request.prompt
-        schema = request.schema
+        schema = request.schema_
 
         model = GeminiLLM()
         response = model.generate(prompt, schema=schema)
@@ -169,9 +165,8 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_current_user_or_token),
-):
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token)):
     """
     Generate test cases using the prompt synthesizer.
 
@@ -206,14 +201,6 @@ async def generate_tests_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    finally:
-        # Cleanup documents regardless of success or failure
-        if documents_sdk:
-            handler = DocumentHandler()
-            for doc in documents_sdk:
-                if doc.path:  # dataclass attribute, not dict key
-                    await handler.cleanup(doc.path)
-
 
 @router.post("/generate/text", response_model=TextResponse)
 async def generate_text(prompt_request: PromptRequest):
@@ -236,8 +223,7 @@ async def generate_text(prompt_request: PromptRequest):
                 response_stream = get_chat_response(
                     messages=messages,
                     response_format="text",  # Explicitly request text format
-                    stream=True,
-                )
+                    stream=True)
 
                 async for chunk in response_stream:
                     if chunk["choices"][0]["delta"]["content"]:
@@ -249,8 +235,7 @@ async def generate_text(prompt_request: PromptRequest):
         response = get_chat_response(
             messages=messages,
             response_format="text",  # Explicitly request text format
-            stream=False,
-        )
+            stream=False)
 
         return TextResponse(text=response)
     except Exception as e:
@@ -258,26 +243,29 @@ async def generate_text(prompt_request: PromptRequest):
 
 
 @router.post("/documents/upload", response_model=DocumentUploadResponse)
-async def upload_document(document: UploadFile = File(...)):
+async def upload_document(
+    document: UploadFile = File(...),
+    tenant_context=Depends(get_tenant_context)
+):
     """
-    Upload a document to temporary storage.
+    Upload a document to persistent storage.
 
-    The document will be saved in a temporary directory with a UUID prefix to avoid
-    naming conflicts.
+    The document will be saved to the configured storage backend (GCS or local filesystem)
+    with a multi-tenant path structure.
     Maximum document size is 5MB.
 
     Args:
         document: The document to upload (multipart/form-data)
+        tenant_context: Tenant context containing organization_id and user_id
 
     Returns:
         DocumentUploadResponse: Contains the full path to the uploaded document
-
-    Note:
-        The document will be saved in the temporary directory and should be cleaned up after use.
-        Use the returned path to reference this document in other endpoints.
     """
+    organization_id, user_id = tenant_context
     handler = DocumentHandler()
-    path = await handler.save_document(document)
+
+    # Use user_id as source_id for now (can be changed to a proper source ID later)
+    path, metadata = await handler.save_document(document, organization_id, user_id)
     return {"path": path}
 
 
@@ -301,10 +289,6 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
 
     Returns:
         ExtractDocumentResponse containing the extracted text content and detected format
-
-    Note:
-        Documents are automatically cleaned up after processing, so the path must
-        point to a recently uploaded document that hasn't been cleaned up yet.
     """
     try:
         # Initialize extractor
@@ -318,8 +302,7 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported file format: {file_extension}. "
-                f"Supported formats: {', '.join(extractor.supported_extensions)}",
-            )
+                f"Supported formats: {', '.join(extractor.supported_extensions)}")
 
         # Prepare document for extraction
         document = Document(name="document", description="Uploaded document", path=request.path)
@@ -337,15 +320,10 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
 
     except FileNotFoundError:
         raise HTTPException(
-            status_code=404, detail="Document not found. It may have been cleaned up already."
+            status_code=404, detail="Document not found. Please check the file path."
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to extract document content: {str(e)}")
-    finally:
-        # Cleanup regardless of success or failure
-        if request.path:
-            handler = DocumentHandler()
-            await handler.cleanup(request.path)
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
