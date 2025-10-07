@@ -38,12 +38,12 @@ export default function DomainSettingsForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (field: keyof typeof formData) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData({ ...formData, [field]: e.target.value });
-    setError(null);
-  };
+  const handleChange =
+    (field: keyof typeof formData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData({ ...formData, [field]: e.target.value });
+      setError(null);
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +53,7 @@ export default function DomainSettingsForm({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const organizationsClient = apiFactory.getOrganizationsClient();
-      
+
       await organizationsClient.updateOrganization(organization.id, {
         domain: formData.domain || undefined,
       });
@@ -109,14 +109,16 @@ export default function DomainSettingsForm({
             value={formData.domain}
             onChange={handleChange('domain')}
             placeholder="example.com"
-            helperText="Your organization's domain for automatic user association"
+            helperText="Your organization&apos;s domain for automatic user association"
           />
         </Grid>
 
         {!organization.is_domain_verified && formData.domain && (
           <Grid item xs={12}>
             <Alert severity="info">
-              After saving your domain, you'll need to verify ownership to enable automatic user association. Contact support for verification instructions.
+              After saving your domain, you&apos;ll need to verify ownership to
+              enable automatic user association. Contact support for
+              verification instructions.
             </Alert>
           </Grid>
         )}
@@ -135,4 +137,3 @@ export default function DomainSettingsForm({
     </Box>
   );
 }
-
