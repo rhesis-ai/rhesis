@@ -15,8 +15,6 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.sdk.services.extractor import DocumentExtractor
-from rhesis.sdk.types import Document
 
 router = APIRouter(
     prefix="/sources",
@@ -263,7 +261,9 @@ async def extract_source_content(
 
     try:
         # Get the source record
-        db_source = crud.get_source(db, source_id=source_id)
+        db_source = crud.get_source(
+            db, source_id=source_id, organization_id=organization_id, user_id=user_id
+        )
         if db_source is None:
             raise HTTPException(status_code=404, detail="Source not found")
 
@@ -272,7 +272,9 @@ async def extract_source_content(
             raise HTTPException(status_code=400, detail="Source has no type specified")
 
         # Get source type details
-        source_type = crud.get_type_lookup(db, db_source.source_type_id)
+        source_type = crud.get_type_lookup(
+            db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
+        )
         if not source_type or source_type.type_value != "Document":
             raise HTTPException(
                 status_code=400,
@@ -285,39 +287,26 @@ async def extract_source_content(
 
         file_path = db_source.source_metadata["file_path"]
 
-        # Initialize DocumentExtractor
-        extractor = DocumentExtractor()
+        # Initialize DocumentHandler
+        handler = DocumentHandler()
 
-        # Get file extension to determine format
-        file_extension = Path(file_path).suffix.lower()
-
-        # Check if format is supported
-        if file_extension not in extractor.supported_extensions:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported file format: {file_extension}. "
-                f"Supported formats: {', '.join(extractor.supported_extensions)}",
-            )
-
-        # Prepare document for extraction
-        document = Document(
-            name=db_source.title, description=db_source.description or "", path=file_path
-        )
-
-        # Extract content
-        extracted_texts = extractor.extract([document])
-
-        # Get the extracted content (there's only one document)
-        content = next(iter(extracted_texts.values()))
+        # Extract content using DocumentHandler
+        content = await handler.extract_document_content(file_path)
 
         # Update the source with extracted content
         update_data = schemas.SourceUpdate(content=content)
-        updated_source = crud.update_source(db, source_id=source_id, source=update_data)
+        updated_source = crud.update_source(
+            db,
+            source_id=source_id,
+            source=update_data,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
         return {
             "source_id": str(source_id),
             "content": content,
-            "format": file_extension.lstrip("."),
+            "format": Path(file_path).suffix.lstrip("."),
             "extracted_at": updated_source.updated_at,
         }
 
@@ -361,7 +350,9 @@ async def get_source_content(
 
     try:
         # Get the source record
-        db_source = crud.get_source(db, source_id=source_id)
+        db_source = crud.get_source(
+            db, source_id=source_id, organization_id=organization_id, user_id=user_id
+        )
         if db_source is None:
             raise HTTPException(status_code=404, detail="Source not found")
 
@@ -370,7 +361,9 @@ async def get_source_content(
             raise HTTPException(status_code=400, detail="Source has no type specified")
 
         # Get source type details
-        source_type = crud.get_type_lookup(db, db_source.source_type_id)
+        source_type = crud.get_type_lookup(
+            db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
+        )
         if not source_type or source_type.type_value != "Document":
             raise HTTPException(
                 status_code=400,
