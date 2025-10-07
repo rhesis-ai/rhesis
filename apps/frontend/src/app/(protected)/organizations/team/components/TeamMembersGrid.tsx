@@ -147,10 +147,12 @@ export default function TeamMembersGrid({
       fetchUsers(skip, paginationModel.pageSize);
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      
+
       // Handle specific error cases
-      const errorMessage = error?.message || 'Failed to remove user from organization. Please try again.';
-      
+      const errorMessage =
+        error?.message ||
+        'Failed to remove user from organization. Please try again.';
+
       notifications.show(errorMessage, {
         severity: 'error',
       });
@@ -312,7 +314,9 @@ export default function TeamMembersGrid({
         title="Remove from Organization"
         message={`Are you sure you want to remove ${userToDelete ? getDisplayName(userToDelete) : ''} from the organization?\n\nThey will lose access to all organization resources but can be re-invited in the future. Their contributions to projects and tests will remain intact.`}
         itemType="user"
-        confirmButtonText={deleting ? 'Removing...' : 'Remove from Organization'}
+        confirmButtonText={
+          deleting ? 'Removing...' : 'Remove from Organization'
+        }
       />
     </Box>
   );

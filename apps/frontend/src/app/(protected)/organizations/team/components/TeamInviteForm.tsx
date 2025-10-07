@@ -171,10 +171,12 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               // Extract the status code and message
               const statusMatch = error.message.match(/API error: (\d+)/);
               const statusCode = statusMatch ? parseInt(statusMatch[1]) : null;
-              
+
               // 400, 409, 422, 429 are expected client/validation errors
-              isExpectedError = statusCode ? [400, 409, 422, 429].includes(statusCode) : false;
-              
+              isExpectedError = statusCode
+                ? [400, 409, 422, 429].includes(statusCode)
+                : false;
+
               // Extract the actual error message after "API error: status -"
               const match = error.message.match(/API error: \d+ - (.+)/);
               if (match && match[1]) {
@@ -204,7 +206,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           } else {
             console.error(`Failed to create user with email ${email}:`, error);
           }
-          
+
           invitationResults.push({
             email,
             success: false,
@@ -239,10 +241,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           .filter((error, index, arr) => arr.indexOf(error) === index); // Get unique errors
 
         let errorSummary = '';
-        if (
-          errorTypes.length === 1 &&
-          errorTypes[0]?.includes('rate limit')
-        ) {
+        if (errorTypes.length === 1 && errorTypes[0]?.includes('rate limit')) {
           errorSummary = 'rate limit exceeded';
         } else if (
           errorTypes.length === 1 &&
@@ -274,10 +273,7 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           .filter((error, index, arr) => arr.indexOf(error) === index); // Get unique errors
 
         let errorMessage = '';
-        if (
-          errorTypes.length === 1 &&
-          errorTypes[0]?.includes('rate limit')
-        ) {
+        if (errorTypes.length === 1 && errorTypes[0]?.includes('rate limit')) {
           // Extract the full rate limit message which is user-friendly
           errorMessage = errorTypes[0];
         } else if (
