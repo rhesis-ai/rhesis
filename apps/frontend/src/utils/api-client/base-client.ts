@@ -183,7 +183,12 @@ export class BaseApiClient {
         });
 
         if (!response.ok) {
-          console.error('[ERROR] [DEBUG] API Response Error:', {
+          // Determine if this is an expected validation error or an unexpected error
+          const isValidationError = [400, 409, 422].includes(response.status);
+          const logLevel = isValidationError ? 'warn' : 'error';
+          const logPrefix = isValidationError ? '[VALIDATION]' : '[ERROR]';
+          
+          console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
             url,
             status: response.status,
             statusText: response.statusText,
@@ -222,7 +227,7 @@ export class BaseApiClient {
             errorMessage = await response.text();
           }
 
-          console.error('[ERROR] [DEBUG] Full error details:', {
+          console[logLevel](`${logPrefix} [DEBUG] Full error details:`, {
             errorMessage,
             errorData,
           });
@@ -286,7 +291,14 @@ export class BaseApiClient {
               `Network error when connecting to ${this.baseUrl}. Please check your connection and ensure the API server is running.`
             );
           }
-          console.error(`API request failed for ${url}:`, error);
+          
+          // Use appropriate log level based on error status
+          const isValidationError = error.status && [400, 409, 422].includes(error.status);
+          if (isValidationError) {
+            console.warn(`API validation error for ${url}:`, error);
+          } else {
+            console.error(`API request failed for ${url}:`, error);
+          }
           throw error;
         }
 

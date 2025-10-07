@@ -162,11 +162,19 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
           return user;
         } catch (error: any) {
           let errorMessage = 'Unknown error';
+          let isExpectedError = false;
 
           // Extract meaningful error messages from different error formats
           if (error?.message) {
             // Handle API error messages that might contain JSON
             if (error.message.includes('API error:')) {
+              // Extract the status code and message
+              const statusMatch = error.message.match(/API error: (\d+)/);
+              const statusCode = statusMatch ? parseInt(statusMatch[1]) : null;
+              
+              // 409 (Conflict) and 400 (Bad Request) are expected validation errors
+              isExpectedError = statusCode === 409 || statusCode === 400;
+              
               // Extract the actual error message after "API error: status -"
               const match = error.message.match(/API error: \d+ - (.+)/);
               if (match && match[1]) {
@@ -190,7 +198,13 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
             errorMessage = error;
           }
 
-          console.error(`Failed to create user with email ${email}:`, error);
+          // Log expected validation errors as warnings, unexpected errors as errors
+          if (isExpectedError) {
+            console.warn(`Invitation validation: ${email} - ${errorMessage}`);
+          } else {
+            console.error(`Failed to create user with email ${email}:`, error);
+          }
+          
           invitationResults.push({
             email,
             success: false,
