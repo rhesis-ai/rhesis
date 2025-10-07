@@ -1,16 +1,12 @@
 import TestSetDetailCharts from './components/TestSetDetailCharts';
 import TestSetTestsGrid from './components/TestSetTestsGrid';
 import TestSetDetailsSection from './components/TestSetDetailsSection';
-import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Added import
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
+import { Box, Grid, Paper } from '@mui/material';
 import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
-import DownloadIcon from '@mui/icons-material/Download';
-import BaseFreesoloAutocomplete from '@/components/common/BaseFreesoloAutocomplete';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
 
 interface TestSetsQueryParams extends Partial<PaginationParams> {

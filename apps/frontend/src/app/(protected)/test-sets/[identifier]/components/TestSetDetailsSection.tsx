@@ -84,6 +84,8 @@ export default function TestSetDetailsSection({
   const [editedDescription, setEditedDescription] = useState(
     testSet.description || ''
   );
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(testSet.name || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { data: session } = useSession();
@@ -96,9 +98,18 @@ export default function TestSetDetailsSection({
     setIsEditingDescription(true);
   };
 
+  const handleEditTitle = () => {
+    setIsEditingTitle(true);
+  };
+
   const handleCancelEdit = () => {
     setIsEditingDescription(false);
     setEditedDescription(testSet.description || '');
+  };
+
+  const handleCancelTitleEdit = () => {
+    setIsEditingTitle(false);
+    setEditedTitle(testSet.name || '');
   };
 
   const handleConfirmEdit = async () => {
@@ -115,11 +126,42 @@ export default function TestSetDetailsSection({
         description: editedDescription,
       });
 
+      // Update the testSet object to reflect the new description
+      testSet.description = editedDescription;
       setIsEditingDescription(false);
-      // Note: In a real app, you might want to refresh the test set data here
-      // or use a state management solution to update the parent component
     } catch (error) {
       console.error('Error updating test set description:', error);
+      // Reset the edited description to the original value on error
+      setEditedDescription(testSet.description || '');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleConfirmTitleEdit = async () => {
+    if (!sessionToken) return;
+
+    setIsUpdating(true);
+    try {
+      const clientFactory: ApiClientFactory = new ApiClientFactory(
+        sessionToken
+      );
+      const testSetsClient = clientFactory.getTestSetsClient();
+
+      await testSetsClient.updateTestSet(testSet.id, {
+        name: editedTitle,
+      });
+
+      // Update the testSet object to reflect the new title
+      testSet.name = editedTitle;
+      setIsEditingTitle(false);
+      
+      // Refresh the page to update breadcrumbs and title
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating test set title:', error);
+      // Reset the edited title to the original value on error
+      setEditedTitle(testSet.name || '');
     } finally {
       setIsUpdating(false);
     }
@@ -163,7 +205,7 @@ export default function TestSetDetailsSection({
   return (
     <>
       {/* Action Buttons */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }} suppressHydrationWarning>
         <Button
           variant="contained"
           color="primary"
@@ -182,11 +224,100 @@ export default function TestSetDetailsSection({
         </Button>
       </Box>
 
-      {/* Description Field */}
+      {/* Test Set Details */}
       <Box sx={{ mb: 3, position: 'relative' }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Test Set Details
         </Typography>
+        
+        {/* Title Field */}
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Title
+        </Typography>
+        {isEditingTitle ? (
+          <TextField
+            fullWidth
+            value={editedTitle}
+            onChange={e => setEditedTitle(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleConfirmTitleEdit();
+              }
+            }}
+            sx={{ mb: 2 }}
+            autoFocus
+          />
+        ) : (
+          <Box sx={{ position: 'relative', mb: 3 }}>
+            <Typography
+              component="pre"
+              variant="body2"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'monospace',
+                bgcolor: 'action.hover',
+                borderRadius: theme => theme.shape.borderRadius * 0.25,
+                padding: 1,
+                paddingRight: theme.spacing(10),
+                wordBreak: 'break-word',
+                minHeight: 'calc(2 * 1.4375em + 2 * 8px)', // Increased height for longer titles
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              {editedTitle}
+            </Typography>
+            <Button
+              startIcon={<EditIcon />}
+              onClick={handleEditTitle}
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                zIndex: 1,
+                backgroundColor: theme =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(0, 0, 0, 0.6)'
+                    : 'rgba(255, 255, 255, 0.8)',
+                '&:hover': {
+                  backgroundColor: theme =>
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(0, 0, 0, 0.8)'
+                      : 'rgba(255, 255, 255, 0.9)',
+                },
+              }}
+            >
+              Edit
+            </Button>
+          </Box>
+        )}
+
+        {/* Title Edit Actions */}
+        {isEditingTitle && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 3 }}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<CancelIcon />}
+              onClick={handleCancelTitleEdit}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<CheckIcon />}
+              onClick={handleConfirmTitleEdit}
+              disabled={isUpdating}
+            >
+              Confirm
+            </Button>
+          </Box>
+        )}
+
+        {/* Description Field */}
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
           Description
         </Typography>
