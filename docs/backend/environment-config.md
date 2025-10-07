@@ -35,7 +35,23 @@ SQLALCHEMY_DB_HOST=localhost
 SQLALCHEMY_DB_NAME=rhesis
 SQLALCHEMY_DATABASE_URL=postgresql://username:password@localhost:5432/rhesis
 SQLALCHEMY_DATABASE_TEST_URL=postgresql://username:password@localhost:5432/rhesis-test
+
+# Database Encryption Configuration (Required)
+DB_ENCRYPTION_KEY=your-32-byte-url-safe-base64-encoded-key
 ```
+
+**Generating an Encryption Key:**
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+**Security Notes:**
+- ⚠️ **Never commit this key to version control**
+- ⚠️ Use different keys for dev, staging, and production
+- ⚠️ Back up production keys securely
+- ⚠️ Store in secure secret management systems (GCP Secret Manager, AWS Secrets Manager, etc.)
+
+See: [Encryption Deployment Guide](./encryption-deployment.md) for detailed setup instructions.
 
 ### Authentication Configuration
 

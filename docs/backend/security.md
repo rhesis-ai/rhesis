@@ -91,6 +91,33 @@ API rate limiting protects against abuse and DoS attacks:
 
 ## Data Security
 
+### Database Field Encryption
+
+Sensitive authentication tokens and API keys are encrypted at rest using Fernet (AES-128-CBC with HMAC):
+
+**Encrypted Fields:**
+- **Endpoint table**: `auth_token`, `client_secret`, `last_token`
+- **Model table**: `key` (LLM provider API keys)
+- **Token table**: `token` (user-generated API tokens)
+
+**Key Features:**
+- Symmetric encryption using `cryptography.fernet` library
+- Transparent encryption/decryption at the ORM layer (SQLAlchemy)
+- Environment-based key management (`DB_ENCRYPTION_KEY`)
+- Zero-downtime data migration support
+- Backward compatibility during migration window
+
+**Benefits:**
+- ✅ Protection against database dumps or backup leaks
+- ✅ Defense against SQL injection exposing credentials
+- ✅ Compliance with security best practices (SOC 2, GDPR)
+- ✅ Useless encrypted data without the encryption key
+
+**Documentation:**
+- [Architecture Decision Record](./database-field-encryption.md)
+- [Deployment Guide](./encryption-deployment.md)
+- [Troubleshooting Guide](./encryption-troubleshooting.md)
+
 ### Password Security
 
 User passwords are managed securely:
