@@ -23,6 +23,7 @@ import {
   ApiIcon,
   TerminalIcon,
   AssignmentIcon,
+  SettingsIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -81,6 +82,12 @@ async function getNavigationItems(
       title: organizationName,
       icon: <BusinessIcon />,
       children: [
+        {
+          kind: 'page',
+          segment: 'settings',
+          title: 'Settings',
+          icon: <SettingsIcon />,
+        },
         {
           kind: 'page',
           segment: 'team',
