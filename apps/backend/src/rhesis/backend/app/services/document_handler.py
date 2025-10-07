@@ -1,3 +1,5 @@
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -88,6 +90,64 @@ class DocumentHandler:
             bool: True if successful, False otherwise
         """
         return await self.storage_service.delete_file(file_path)
+
+    async def extract_document_content(self, file_path: str) -> str:
+        """
+        Extract text content from a document stored in cloud storage.
+
+        Args:
+            file_path: Path to the document in storage
+
+        Returns:
+            str: Extracted text content
+
+        Raises:
+            ValueError: If extraction fails or file format is not supported
+        """
+        from rhesis.sdk.services.extractor import DocumentExtractor
+
+        # Get file content from storage
+        file_content = await self.get_document_content(file_path)
+
+        # Get file extension
+        file_extension = Path(file_path).suffix.lower()
+
+        # Initialize extractor
+        extractor = DocumentExtractor()
+
+        # Check if format is supported
+        if file_extension not in extractor.supported_extensions:
+            raise ValueError(
+                f"Unsupported file format: {file_extension}. "
+                f"Supported formats: {', '.join(extractor.supported_extensions)}"
+            )
+
+        # Create a temporary file with the binary content
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+
+        try:
+            # Use MarkItDown's converter with the temporary file
+            result = extractor.converter.convert_local(temp_file_path)
+
+            # Extract text from result - markitdown returns text_content and markdown
+            if hasattr(result, "text_content") and result.text_content:
+                extracted_text = result.text_content
+            elif hasattr(result, "markdown") and result.markdown:
+                extracted_text = result.markdown
+            else:
+                # Fallback to string representation
+                extracted_text = str(result)
+
+            return extracted_text.strip() if extracted_text else ""
+
+        finally:
+            # Clean up the temporary file immediately
+            try:
+                os.unlink(temp_file_path)
+            except OSError:
+                pass  # File may have already been deleted
 
     def _extract_metadata(self, content: bytes, filename: str, file_path: str) -> dict:
         """Extract file metadata including file path."""
