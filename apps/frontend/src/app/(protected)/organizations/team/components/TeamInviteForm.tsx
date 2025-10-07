@@ -227,6 +227,11 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
         let errorSummary = '';
         if (
           errorTypes.length === 1 &&
+          errorTypes[0]?.includes('already belongs to an organization')
+        ) {
+          errorSummary = `${failedEmails.join(', ')} already belong${failedEmails.length === 1 ? 's' : ''} to another organization`;
+        } else if (
+          errorTypes.length === 1 &&
           errorTypes[0]?.includes('already exists')
         ) {
           errorSummary = `${failedEmails.join(', ')} already exist${failedEmails.length === 1 ? 's' : ''}`;
@@ -251,6 +256,15 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
 
         let errorMessage = '';
         if (
+          errorTypes.length === 1 &&
+          errorTypes[0]?.includes('already belongs to an organization')
+        ) {
+          if (failedEmails.length === 1) {
+            errorMessage = `${failedEmails[0]} already belongs to another organization. They must leave their current organization first.`;
+          } else {
+            errorMessage = `${failedEmails.join(', ')} already belong to another organization. They must leave their current organizations first.`;
+          }
+        } else if (
           errorTypes.length === 1 &&
           errorTypes[0]?.includes('already exists')
         ) {
