@@ -82,7 +82,7 @@ export function TasksAndCommentsWrapper({
   }, [router, entityType, entityId]);
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: 3 }} suppressHydrationWarning>
       {/* Tasks Section */}
       <TasksSection
         entityType={entityType}

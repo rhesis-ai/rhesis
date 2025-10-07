@@ -27,7 +27,7 @@ export default function TestSetTags({
   }, [testSet.tags]);
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%' }} suppressHydrationWarning>
       <BaseTag
         value={tagNames}
         onChange={setTagNames}
