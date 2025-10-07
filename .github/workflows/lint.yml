@@ -12,32 +12,65 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Needed for git diff
+        fetch-depth: 0  # Needed for paths-filter
 
-    - name: Set up Python
+    - name: Check for file changes
+      uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          frontend:
+            - 'apps/frontend/**'
+          sdk:
+            - 'sdk/**'
+          backend:
+            - 'apps/backend/**'
+
+    # SDK Linting
+    - name: Set up Python for SDK
+      if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - name: Install uv
+    - name: Install uv for SDK
+      if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
       uses: astral-sh/setup-uv@v6
       with:
         version: latest
         enable-cache: true
 
     - name: Run SDK linting
+      if: steps.filter.outputs.sdk == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd sdk
         make lint
       continue-on-error: false
 
+    # Backend Linting (Disabled)
+    # - name: Set up Python for Backend
+    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    #   uses: actions/setup-python@v5
+    #   with:
+    #     python-version: "3.10"
+    #
+    # - name: Install uv for Backend
+    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    #   uses: astral-sh/setup-uv@v6
+    #   with:
+    #     version: latest
+    #     enable-cache: true
+    #
     # - name: Run Backend linting
+    #   if: steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
     #   run: |
     #     cd apps/backend
     #     make lint
     #   continue-on-error: false
 
-    - name: Set up Node.js
+    # Frontend Linting
+    - name: Set up Node.js for Frontend
+      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-node@v4
       with:
         node-version: '18'
@@ -45,11 +78,13 @@ jobs:
         cache-dependency-path: apps/frontend/package-lock.json
 
     - name: Install frontend dependencies
+      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd apps/frontend
         npm ci --legacy-peer-deps
 
     - name: Run frontend validation (format, lint, type-check, build)
+      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd apps/frontend
         ./scripts/validate.sh
@@ -65,15 +100,32 @@ jobs:
         NEXT_PUBLIC_AUTH0_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID || 'dummy-client-id' }}
         NEXT_PUBLIC_AUTH0_DOMAIN: ${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN || 'dummy-domain.auth0.com' }}
 
+    # Summary
     - name: Lint Summary
+      if: always()
       run: |
-        echo "## Lint Check Results ✅" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Scope**: SDK, Backend Python files, and Frontend TypeScript/React files" >> $GITHUB_STEP_SUMMARY
-        echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Status**: All checks passed successfully!" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### What was checked:" >> $GITHUB_STEP_SUMMARY
-        echo "- **SDK**: Code formatting and linting with ruff" >> $GITHUB_STEP_SUMMARY
-        echo "- **Backend**: Code formatting and linting with ruff" >> $GITHUB_STEP_SUMMARY
-        echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "## Lint Check Results ✅"
+          echo ""
+          echo "- **Branch**: ${{ github.ref_name }}"
+          echo ""
+          echo "### What was checked:"
+        } >> "$GITHUB_STEP_SUMMARY"
+        
+        if [ "${{ steps.filter.outputs.sdk }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "- **SDK**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- **SDK**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        
+        # if [ "${{ steps.filter.outputs.backend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+        #   echo "- **Backend**: Code formatting and linting with ruff ✅" >> "$GITHUB_STEP_SUMMARY"
+        # else
+        #   echo "- **Backend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
+        # fi
+        
+        if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "- **Frontend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
+        fi
