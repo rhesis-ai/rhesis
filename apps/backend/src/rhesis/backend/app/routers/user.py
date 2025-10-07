@@ -143,11 +143,19 @@ def delete_user(
 
     organization_id, user_id_tenant = tenant_context
     
-    db_user = crud.delete_user(db, user_id=user_id, organization_id=organization_id, user_id_param=user_id_tenant)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return db_user
+    try:
+        db_user = crud.delete_user(
+            db, 
+            target_user_id=user_id, 
+            organization_id=organization_id, 
+            user_id=user_id_tenant
+        )
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return db_user
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{user_id}", response_model=schemas.User)
