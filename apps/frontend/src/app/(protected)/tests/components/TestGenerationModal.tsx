@@ -65,15 +65,8 @@ export default function TestGenerationModal({
     handleNext();
   };
 
-  const handleGenerationTypeSelect = (type: 'manual' | 'ai') => {
-    if (type === 'ai') {
-      setActiveStep(1); // Go to describe step for AI generation
-    } else {
-      // Handle manual generation - redirect or show different flow
-      show('Manual generation would redirect to different flow', {
-        severity: 'info',
-      });
-    }
+  const handleGenerationTypeSelect = (type: 'ai') => {
+    setActiveStep(1); // Go to describe step for AI generation
   };
 
   const handleClose = () => {

@@ -104,55 +104,58 @@ export default function TestConfiguration({
   const [refinementText, setRefinementText] = useState('');
   const hasGeneratedInitialSamples = useRef(false);
 
-  const generateInitialSamples = useCallback(async (desc: string, config: any) => {
-    if (!desc.trim()) return;
+  const generateInitialSamples = useCallback(
+    async (desc: string, config: any) => {
+      if (!desc.trim()) return;
 
-    try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const servicesClient = apiFactory.getServicesClient();
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const servicesClient = apiFactory.getServicesClient();
 
-      const request = {
-        prompt: {
-          project_context: desc,
-          test_behaviors: config.behaviors,
-          test_purposes: config.topics,
-          key_topics: config.categories,
-          specific_requirements: config.scenarios.join(', '),
-          test_type: 'config',
-          output_format: 'json',
-        },
-        num_tests: 5,
-        documents: documents.map(doc => ({
-          name: doc.name,
-          description: doc.description || '',
-          path: doc.path,
-          content: doc.content || '',
-        })),
-      };
+        const request = {
+          prompt: {
+            project_context: desc,
+            test_behaviors: config.behaviors,
+            test_purposes: config.topics,
+            key_topics: config.categories,
+            specific_requirements: config.scenarios.join(', '),
+            test_type: 'config',
+            output_format: 'json',
+          },
+          num_tests: 5,
+          documents: documents.map(doc => ({
+            name: doc.name,
+            description: doc.description || '',
+            path: doc.path,
+            content: doc.content || '',
+          })),
+        };
 
-      setIsGenerating(true);
-      const response = await servicesClient.generateTests(request);
-      setIsGenerating(false);
+        setIsGenerating(true);
+        const response = await servicesClient.generateTests(request);
+        setIsGenerating(false);
 
-      console.log('Initial samples generated:', response);
+        console.log('Initial samples generated:', response);
 
-      const newSamples: TestSample[] = response.tests.map(
-        (test: any, index: number) => ({
-          id: `sample-${index}`,
-          text: test.prompt?.content || test.text || '',
-          behavior: test.behavior || 'Reliability',
-          topic: test.topic || 'General',
-          rating: null,
-          feedback: '',
-        })
-      );
+        const newSamples: TestSample[] = response.tests.map(
+          (test: any, index: number) => ({
+            id: `sample-${index}`,
+            text: test.prompt?.content || test.text || '',
+            behavior: test.behavior || 'Reliability',
+            topic: test.topic || 'General',
+            rating: null,
+            feedback: '',
+          })
+        );
 
-      setSamples(newSamples);
-      hasGeneratedInitialSamples.current = true;
-    } catch (error) {
-      console.error('Failed to generate initial samples:', error);
-    }
-  }, [sessionToken, documents]);
+        setSamples(newSamples);
+        hasGeneratedInitialSamples.current = true;
+      } catch (error) {
+        console.error('Failed to generate initial samples:', error);
+      }
+    },
+    [sessionToken, documents]
+  );
 
   useEffect(() => {
     // Only run once on mount
@@ -389,7 +392,7 @@ export default function TestConfiguration({
   const handleContinue = () => {
     // Store configuration and samples for final step
     sessionStorage.setItem(
-      'testGenerationConfiguration',
+      'testGenerationConfig',
       JSON.stringify(configuration)
     );
     sessionStorage.setItem('testGenerationSamples', JSON.stringify(samples));
@@ -424,8 +427,6 @@ export default function TestConfiguration({
           display: 'flex',
           flexWrap: 'wrap',
           gap: 1,
-          maxHeight: 150,
-          overflow: 'auto',
           mb: 1,
         }}
       >
@@ -436,18 +437,27 @@ export default function TestConfiguration({
             onClick={() => onToggle(item)}
             variant={selectedItems.includes(item) ? 'filled' : 'outlined'}
             sx={theme => {
-              const colorKey = color.split('.')[0] as keyof typeof theme.palette;
+              const colorKey = color.split(
+                '.'
+              )[0] as keyof typeof theme.palette;
               const paletteColor = theme.palette[colorKey] as any;
+              const isSelected = selectedItems.includes(item);
+
               return {
-                backgroundColor: selectedItems.includes(item)
+                backgroundColor: isSelected
                   ? paletteColor?.main
                   : 'transparent',
                 borderColor: paletteColor?.main,
-                color: selectedItems.includes(item)
-                  ? paletteColor?.main
-                  : 'text.primary',
+                color: isSelected
+                  ? paletteColor?.contrastText || 'white'
+                  : paletteColor?.main,
                 '&:hover': {
-                  backgroundColor: paletteColor?.light,
+                  backgroundColor: isSelected
+                    ? paletteColor?.dark
+                    : paletteColor?.light,
+                  color: isSelected
+                    ? paletteColor?.contrastText || 'white'
+                    : paletteColor?.main,
                 },
               };
             }}
@@ -477,7 +487,7 @@ export default function TestConfiguration({
           md={4}
           sx={{ borderRight: 1, borderColor: 'divider' }}
         >
-          <Box sx={{ p: 3, height: '100%', overflow: 'auto' }}>
+          <Box sx={{ p: 3, height: 'calc(100vh - 120px)', overflow: 'auto' }}>
             <Typography variant="h5" gutterBottom>
               Tests Configuration
             </Typography>
@@ -489,7 +499,12 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Behavior Testing',
               configuration.behaviors.length > 0
-                ? configuration.behaviors // Show only AI-generated behaviors
+                ? [
+                    ...new Set([
+                      ...configuration.behaviors,
+                      ...availableBehaviors,
+                    ]),
+                  ] // Show all behaviors (AI-generated + fallback)
                 : availableBehaviors, // Show fallback only if no AI-generated behaviors
               configuration.behaviors,
               'primary',
@@ -499,7 +514,7 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Topics',
               configuration.topics.length > 0
-                ? configuration.topics // Show only AI-generated topics
+                ? [...new Set([...configuration.topics, ...availableTopics])] // Show all topics (AI-generated + fallback)
                 : availableTopics, // Show fallback only if no AI-generated topics
               configuration.topics,
               'secondary',
@@ -509,7 +524,12 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Test Categories',
               configuration.categories.length > 0
-                ? configuration.categories // Show only AI-generated categories
+                ? [
+                    ...new Set([
+                      ...configuration.categories,
+                      ...availableCategories,
+                    ]),
+                  ] // Show all categories (AI-generated + fallback)
                 : availableCategories, // Show fallback only if no AI-generated categories
               configuration.categories,
               'warning',
@@ -519,7 +539,12 @@ export default function TestConfiguration({
             {renderConfigurationSection(
               'Test Scenarios',
               configuration.scenarios.length > 0
-                ? configuration.scenarios // Show only AI-generated scenarios
+                ? [
+                    ...new Set([
+                      ...configuration.scenarios,
+                      ...availableScenarios,
+                    ]),
+                  ] // Show all scenarios (AI-generated + fallback)
                 : availableScenarios, // Show fallback only if no AI-generated scenarios
               configuration.scenarios,
               'success',
@@ -535,16 +560,16 @@ export default function TestConfiguration({
                 {documents.map(doc => (
                   <Box
                     key={doc.id}
-                    sx={{
+                    sx={theme => ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       p: 1,
                       border: 1,
-                      borderColor: 'grey.200',
-                      sx: theme => ({ borderRadius: theme.shape.borderRadius }),
+                      borderColor: 'divider',
+                      borderRadius: theme.shape.borderRadius,
                       mb: 1,
-                    }}
+                    })}
                   >
                     <Typography variant="body2">{doc.name}</Typography>
                     <IconButton size="small">×</IconButton>
@@ -638,13 +663,13 @@ export default function TestConfiguration({
                     <strong>Test Prompt:</strong>
                   </Typography>
                   <Box
-                    sx={{
+                    sx={theme => ({
                       p: 2,
-                      bgcolor: 'primary.50',
-                      sx: theme => ({ borderRadius: theme.shape.borderRadius }),
+                      bgcolor: 'action.hover',
+                      borderRadius: theme.shape.borderRadius,
                       border: '1px solid',
-                      borderColor: 'primary.200',
-                    }}
+                      borderColor: 'primary.main',
+                    })}
                   >
                     <Typography variant="body1">{sample.text}</Typography>
                   </Box>
@@ -655,13 +680,13 @@ export default function TestConfiguration({
                     <strong>Expected Response:</strong>
                   </Typography>
                   <Box
-                    sx={{
+                    sx={theme => ({
                       p: 2,
-                      bgcolor: 'grey.50',
-                      sx: theme => ({ borderRadius: theme.shape.borderRadius }),
+                      bgcolor: 'background.paper',
+                      borderRadius: theme.shape.borderRadius,
                       border: '1px solid',
-                      borderColor: 'grey.200',
-                    }}
+                      borderColor: 'divider',
+                    })}
                   >
                     <Typography variant="body2" color="text.secondary">
                       This is a sample expected response that would be generated

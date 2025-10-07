@@ -185,15 +185,15 @@ export default function ConfirmTestGeneration({
             description: doc.description || '',
             path: doc.path,
             content: doc.content || '',
-          }))
+          })),
         }),
       };
 
       console.log('Test generation request:', {
-      config: generationConfig,
-      samplesCount: generationSamples.length,
-      documentsCount: documents.length,
-    });
+        config: generationConfig,
+        samplesCount: generationSamples.length,
+        documentsCount: documents.length,
+      });
       const response = await testSetsClient.generateTestSet(request);
       console.log('Backend response:', response);
 
@@ -274,7 +274,9 @@ export default function ConfirmTestGeneration({
                     mr: 2,
                   }}
                 >
-                  <DescriptionIcon sx={{ fontSize: 24, color: 'white' }} />
+                  <DescriptionIcon
+                    sx={{ fontSize: 24, color: 'primary.contrastText' }}
+                  />
                 </Box>
                 <Box>
                   <Typography variant="h5" component="h2" fontWeight="bold">
@@ -287,15 +289,23 @@ export default function ConfirmTestGeneration({
               </Box>
 
               <TextField
-                  fullWidth
-                  label="Test Set Name"
-                  value={testSetName}
-                  onChange={e => setTestSetName(e.target.value)}
-                  placeholder="e.g., Insurance AI Compliance Suite"
-                  sx={{ maxWidth: 400 }}
-                  helperText="Enter a name for your test set to enable generation"
-                  required
-                />
+                fullWidth
+                label="Test Set Name"
+                value={testSetName}
+                onChange={e => setTestSetName(e.target.value)}
+                placeholder="e.g., Insurance AI Compliance Suite"
+                sx={{ maxWidth: 400 }}
+                InputProps={{
+                  sx: {
+                    '&::placeholder': {
+                      color: 'text.secondary',
+                      opacity: 1,
+                    },
+                  },
+                }}
+                helperText="Enter a name for your test set to enable generation"
+                required
+              />
             </CardContent>
           </Card>
         </Grid>
@@ -317,7 +327,9 @@ export default function ConfirmTestGeneration({
                     mr: 2,
                   }}
                 >
-                  <CheckCircleIcon sx={{ fontSize: 24, color: 'white' }} />
+                  <CheckCircleIcon
+                    sx={{ fontSize: 24, color: 'success.contrastText' }}
+                  />
                 </Box>
                 <Box>
                   <Typography variant="h5" component="h2" fontWeight="bold">
@@ -432,7 +444,9 @@ export default function ConfirmTestGeneration({
                     mr: 2,
                   }}
                 >
-                  <RefreshIcon sx={{ fontSize: 24, color: 'white' }} />
+                  <RefreshIcon
+                    sx={{ fontSize: 24, color: 'info.contrastText' }}
+                  />
                 </Box>
                 <Box>
                   <Typography variant="h5" component="h2" fontWeight="bold">
@@ -508,7 +522,9 @@ export default function ConfirmTestGeneration({
           onClick={handleGenerate}
           disabled={isGenerating || !testSetName.trim()}
           sx={{ px: 4, py: 1.5 }}
-          title={!testSetName.trim() ? 'Please enter a test set name' : undefined}
+          title={
+            !testSetName.trim() ? 'Please enter a test set name' : undefined
+          }
         >
           {isGenerating ? 'Generating...' : 'Generate Tests'}
         </Button>

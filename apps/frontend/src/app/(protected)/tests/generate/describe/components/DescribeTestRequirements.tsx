@@ -187,7 +187,7 @@ export default function DescribeTestRequirements({
             variant="outlined"
             sx={{
               '& .MuiOutlinedInput-root': {
-                backgroundColor: 'grey.50',
+                backgroundColor: 'background.paper',
               },
             }}
           />
@@ -229,7 +229,7 @@ export default function DescribeTestRequirements({
               p: 4,
               textAlign: 'center',
               border: '2px dashed',
-              borderColor: 'grey.300',
+              borderColor: 'divider',
               cursor: 'pointer',
               transition: 'border-color 0.2s',
               '&:hover': {
@@ -240,7 +240,9 @@ export default function DescribeTestRequirements({
             onDragOver={handleDragOver}
             onClick={() => document.getElementById('file-upload')?.click()}
           >
-            <CloudUploadIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
+            <CloudUploadIcon
+              sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }}
+            />
             <Typography variant="body1" gutterBottom>
               Click to upload or drag and drop files here
             </Typography>
@@ -276,16 +278,16 @@ export default function DescribeTestRequirements({
               {documents.map(doc => (
                 <Box
                   key={doc.id}
-                  sx={{
+                  sx={theme => ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     p: 1,
                     border: 1,
-                    borderColor: 'grey.200',
-                    sx: theme => ({ borderRadius: theme.shape.borderRadius }),
+                    borderColor: 'divider',
+                    borderRadius: theme.shape.borderRadius,
                     mb: 1,
-                  }}
+                  })}
                 >
                   <Typography variant="body2">{doc.name}</Typography>
                   <IconButton
