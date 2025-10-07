@@ -172,8 +172,8 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
               const statusMatch = error.message.match(/API error: (\d+)/);
               const statusCode = statusMatch ? parseInt(statusMatch[1]) : null;
               
-              // 409 (Conflict) and 400 (Bad Request) are expected validation errors
-              isExpectedError = statusCode === 409 || statusCode === 400;
+              // 400, 409, 422, 429 are expected client/validation errors
+              isExpectedError = statusCode ? [400, 409, 422, 429].includes(statusCode) : false;
               
               // Extract the actual error message after "API error: status -"
               const match = error.message.match(/API error: \d+ - (.+)/);
@@ -241,6 +241,11 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
         let errorSummary = '';
         if (
           errorTypes.length === 1 &&
+          errorTypes[0]?.includes('rate limit')
+        ) {
+          errorSummary = 'rate limit exceeded';
+        } else if (
+          errorTypes.length === 1 &&
           errorTypes[0]?.includes('already belongs to an organization')
         ) {
           errorSummary = `${failedEmails.join(', ')} already belong${failedEmails.length === 1 ? 's' : ''} to another organization`;
@@ -270,6 +275,12 @@ export default function TeamInviteForm({ onInvitesSent }: TeamInviteFormProps) {
 
         let errorMessage = '';
         if (
+          errorTypes.length === 1 &&
+          errorTypes[0]?.includes('rate limit')
+        ) {
+          // Extract the full rate limit message which is user-friendly
+          errorMessage = errorTypes[0];
+        } else if (
           errorTypes.length === 1 &&
           errorTypes[0]?.includes('already belongs to an organization')
         ) {

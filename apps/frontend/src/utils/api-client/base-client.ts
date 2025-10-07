@@ -183,10 +183,10 @@ export class BaseApiClient {
         });
 
         if (!response.ok) {
-          // Determine if this is an expected validation error or an unexpected error
-          const isValidationError = [400, 409, 422].includes(response.status);
-          const logLevel = isValidationError ? 'warn' : 'error';
-          const logPrefix = isValidationError ? '[VALIDATION]' : '[ERROR]';
+          // Determine if this is an expected validation/client error or an unexpected server error
+          const isClientError = [400, 409, 422, 429].includes(response.status);
+          const logLevel = isClientError ? 'warn' : 'error';
+          const logPrefix = isClientError ? '[VALIDATION]' : '[ERROR]';
           
           console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
             url,
@@ -231,6 +231,12 @@ export class BaseApiClient {
             errorMessage,
             errorData,
           });
+
+          // Provide user-friendly messages for rate limiting
+          if (response.status === 429) {
+            const rateLimitInfo = errorMessage; // e.g., "10 per 1 hour"
+            errorMessage = `Too many requests. You've exceeded the rate limit (${rateLimitInfo}). Please try again later.`;
+          }
 
           const error = new Error(
             `API error: ${response.status} - ${errorMessage}`
@@ -293,9 +299,9 @@ export class BaseApiClient {
           }
           
           // Use appropriate log level based on error status
-          const isValidationError = error.status && [400, 409, 422].includes(error.status);
-          if (isValidationError) {
-            console.warn(`API validation error for ${url}:`, error);
+          const isClientError = error.status && [400, 409, 422, 429].includes(error.status);
+          if (isClientError) {
+            console.warn(`API client error for ${url}:`, error);
           } else {
             console.error(`API request failed for ${url}:`, error);
           }
