@@ -155,7 +155,7 @@ export default function TestSetDetailsSection({
       // Update the testSet object to reflect the new title
       testSet.name = editedTitle;
       setIsEditingTitle(false);
-      
+
       // Refresh the page to update breadcrumbs and title
       window.location.reload();
     } catch (error) {
@@ -229,7 +229,7 @@ export default function TestSetDetailsSection({
         <Typography variant="h6" sx={{ mb: 2 }}>
           Test Set Details
         </Typography>
-        
+
         {/* Title Field */}
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
           Title
@@ -295,7 +295,9 @@ export default function TestSetDetailsSection({
 
         {/* Title Edit Actions */}
         {isEditingTitle && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 3 }}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 3 }}
+          >
             <Button
               variant="outlined"
               color="error"
