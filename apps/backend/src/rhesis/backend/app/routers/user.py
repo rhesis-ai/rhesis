@@ -49,13 +49,37 @@ async def create_user(
     # Check for existing user with the same email
     existing_user = crud.get_user_by_email(db, user.email)
     if existing_user:
-        raise HTTPException(status_code=409, detail=f"User with email {user.email} already exists")
+        # User already exists - check if they can be re-invited
+        if existing_user.organization_id is not None:
+            # User belongs to another organization
+            raise HTTPException(
+                status_code=409,
+                detail="This user already belongs to an organization. "
+                       "They must leave their current organization before joining yours."
+            )
+        
+        # User exists but has no organization (previously left/removed)
+        # Re-invite them by updating their organization_id
+        existing_user.organization_id = current_user.organization_id
+        
+        # Update other fields from the invitation if provided
+        if user.name:
+            existing_user.name = user.name
+        if user.given_name:
+            existing_user.given_name = user.given_name
+        if user.family_name:
+            existing_user.family_name = user.family_name
+        
+        db.flush()
+        created_user = existing_user
+        send_invite = user.send_invite
+    else:
+        # New user - create them
+        # Extract send_invite flag before creating user (since it's not part of the model)
+        send_invite = user.send_invite
 
-    # Extract send_invite flag before creating user (since it's not part of the model)
-    send_invite = user.send_invite
-
-    # Create the user (crud function will automatically exclude send_invite)
-    created_user = crud.create_user(db=db, user=user)
+        # Create the user (crud function will automatically exclude send_invite)
+        created_user = crud.create_user(db=db, user=user)
 
     # Send invitation email if requested
     if send_invite and email_service.is_configured:
