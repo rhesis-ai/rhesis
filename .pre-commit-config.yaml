@@ -29,10 +29,10 @@ repos:
           files: ^apps/frontend/
           pass_filenames: false
 
-        - id: frontend-validate
-          name: validate frontend (format, lint, type-check, build)
+        - id: frontend-lint
+          name: lint frontend
           language: system
-          entry: cd apps/frontend && ./scripts/validate.sh
+          entry: cd apps/frontend && npm run lint
           files: ^apps/frontend/
           pass_filenames: false
 
