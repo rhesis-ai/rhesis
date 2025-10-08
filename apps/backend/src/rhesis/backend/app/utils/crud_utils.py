@@ -176,6 +176,7 @@ def get_item(
     item_id: uuid.UUID,
     organization_id: str = None,
     user_id: str = None,
+    include_deleted: bool = False,
 ) -> Optional[T]:
     """
     Get a single item by ID with optimized approach - no session variables needed.
@@ -185,9 +186,25 @@ def get_item(
     - No SET LOCAL commands needed
     - No SHOW queries during retrieval
     - Direct tenant context injection
+    
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to retrieve
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+        include_deleted: If True, include soft-deleted records (default: False)
+    
+    Returns:
+        Item or None if not found
     """
+    builder = QueryBuilder(db, model)
+    
+    if include_deleted:
+        builder = builder.with_deleted()
+    
     return (
-        QueryBuilder(db, model)
+        builder
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
@@ -436,7 +453,11 @@ def delete_item(
     user_id: str = None,
 ) -> Optional[T]:
     """
-    Delete an item and return the deleted item with optimized approach - no session variables needed.
+    Soft delete an item by setting deleted_at timestamp and return the deleted item.
+
+    The item will still exist in the database but will be filtered
+    out from normal queries. Use restore_item() to restore it.
+    For permanent deletion, use hard_delete_item().
 
     Performance improvements:
     - Completely bypasses database session variables
@@ -452,33 +473,122 @@ def delete_item(
         user_id: Direct user ID for tenant context
 
     Returns:
-        Deleted database item or None if not found
+        Soft-deleted database item or None if not found
         
     Raises:
         ValueError: If organization_id or user_id is required but not provided
     """
-    # Check if model has organization_id field and it's required
-    columns = inspect(model).columns.keys()
-    model_name = model.__name__
+    item = get_item(db, model, item_id, organization_id, user_id)
     
-    # Skip validation for models that don't require organization context
-    exempt_models = ['User', 'Organization', 'Token']
-    if model_name not in exempt_models:
-        if "organization_id" in columns and not organization_id:
-            raise ValueError(f"organization_id is required for deleting {model_name}")
-    # Get existing item with direct tenant context
-    db_item = get_item(db, model, item_id, organization_id, user_id)
-    if db_item is None:
+    if not item:
         return None
-
-    # Store reference before deletion
-    deleted_item = db_item
-
-    # Delete item - transaction commit is handled by the session context manager
-    db.delete(db_item)
-    db.flush()  # Flush to ensure delete is applied within the transaction
     
-    return deleted_item
+    # Soft delete using the model's method
+    item.soft_delete()
+    db.commit()
+    
+    return item
+
+
+def get_deleted_items(
+    db: Session,
+    model: Type[T],
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: str = "deleted_at",
+    sort_order: str = "desc",
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[T]:
+    """
+    Get only soft-deleted items.
+    
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        sort_by: Field to sort by (default: deleted_at)
+        sort_order: Sort order (default: desc)
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+    
+    Returns:
+        List of soft-deleted items
+    """
+    return (
+        QueryBuilder(db, model)
+        .only_deleted()
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .with_pagination(skip, limit)
+        .with_sorting(sort_by, sort_order)
+        .all()
+    )
+
+
+def restore_item(
+    db: Session,
+    model: Type[T],
+    item_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[T]:
+    """
+    Restore a soft-deleted item.
+    
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to restore
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+    
+    Returns:
+        Restored item or None if not found
+    """
+    # Get the item, including deleted ones
+    item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
+    
+    if item and item.deleted_at:
+        item.restore()
+        db.commit()
+        db.refresh(item)
+    
+    return item
+
+
+def hard_delete_item(
+    db: Session,
+    model: Type[T],
+    item_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> bool:
+    """
+    Permanently delete an item from the database.
+    
+    WARNING: This cannot be undone. Use with caution.
+    
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to delete
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+    
+    Returns:
+        True if deleted, False if not found
+    """
+    # Get item including deleted ones
+    item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
+    
+    if not item:
+        return False
+    
+    db.delete(item)
+    db.commit()
+    return True
 
 
 def count_items(db: Session, model: Type[T], filter: str = None, organization_id: str = None, user_id: str = None) -> int:
