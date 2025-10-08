@@ -451,9 +451,9 @@ def delete_item(
     item_id: uuid.UUID,
     organization_id: str = None,
     user_id: str = None,
-) -> bool:
+) -> Optional[T]:
     """
-    Soft delete an item by setting deleted_at timestamp.
+    Soft delete an item by setting deleted_at timestamp and return the deleted item.
 
     The item will still exist in the database but will be filtered
     out from normal queries. Use restore_item() to restore it.
@@ -473,7 +473,7 @@ def delete_item(
         user_id: Direct user ID for tenant context
 
     Returns:
-        True if soft deleted, False if not found
+        Soft-deleted database item or None if not found
         
     Raises:
         ValueError: If organization_id or user_id is required but not provided
@@ -481,13 +481,13 @@ def delete_item(
     item = get_item(db, model, item_id, organization_id, user_id)
     
     if not item:
-        return False
+        return None
     
     # Soft delete using the model's method
     item.soft_delete()
     db.commit()
     
-    return True
+    return item
 
 
 def get_deleted_items(
