@@ -7,6 +7,7 @@ to provide multiple levels of control over soft delete behavior.
 """
 
 from sqlalchemy import event
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Query
 
 from rhesis.backend.logging import logger
@@ -50,31 +51,32 @@ def setup_soft_delete_listener():
         if hasattr(query, '_soft_delete_filter_applied') and query._soft_delete_filter_applied:
             return query
         
-        # Check if query has LIMIT or OFFSET - if so, skip filtering to avoid SQL errors
-        # These queries are already being filtered by QueryBuilder before limit/offset
-        if (hasattr(query, '_limit') and query._limit is not None) or \
-           (hasattr(query, '_offset') and query._offset is not None):
-            return query
-        
         # Apply soft delete filter to all entities in the query
-        try:
-            for desc in query.column_descriptions:
-                entity = desc.get('entity')
-                if entity is None:
-                    continue
+        for desc in query.column_descriptions:
+            entity = desc.get('entity')
+            if entity is None:
+                continue
+            
+            # Check if entity has deleted_at column (all Base models do)
+            if hasattr(entity, 'deleted_at'):
+                filter_condition = entity.deleted_at.is_(None)
                 
-                # Check if entity has deleted_at column (all Base models do)
-                if hasattr(entity, 'deleted_at'):
-                    # Add filter to exclude soft-deleted records
-                    query = query.filter(entity.deleted_at.is_(None))
-            
-            # Mark that we've applied the filter
-            query._soft_delete_filter_applied = True
-            
-        except Exception as e:
-            # Log at debug level - this is expected for queries with LIMIT/OFFSET already applied
-            # These queries have already been filtered by QueryBuilder before pagination
-            logger.debug(f"Skipping soft delete filter (query has LIMIT/OFFSET): {e}")
+                # Try to use .filter() first (works for most queries)
+                try:
+                    query = query.filter(filter_condition)
+                except InvalidRequestError as e:
+                    # Query already has LIMIT/OFFSET - modify WHERE clause directly
+                    if "LIMIT or OFFSET" in str(e):
+                        try:
+                            if hasattr(query, '_where_criteria'):
+                                # Append to existing WHERE conditions
+                                existing = list(query._where_criteria) if query._where_criteria else []
+                                query._where_criteria = tuple(existing + [filter_condition])
+                                logger.debug("Applied soft delete filter via _where_criteria (query has LIMIT/OFFSET)")
+                        except Exception as inner_e:
+                            logger.warning(f"Could not apply soft delete filter to query with LIMIT/OFFSET: {inner_e}")
+                    else:
+                        logger.debug(f"Error applying soft delete filter: {e}")
         
         return query
     
