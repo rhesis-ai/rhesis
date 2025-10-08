@@ -1,4 +1,4 @@
-import { Box, Grid, Paper, Typography } from '@mui/material';
+import { Box, Grid, Paper, Typography, Button } from '@mui/material';
 import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { auth } from '@/auth';
@@ -8,6 +8,8 @@ import TestRunTestsGrid from './components/TestRunTestsGrid';
 import TestRunDetailsSection from './components/TestRunDetailsSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
+import Link from 'next/link';
+import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -53,69 +55,93 @@ export async function generateMetadata({
 }
 
 export default async function TestRunPage({ params }: { params: any }) {
-  // Ensure params is properly awaited
-  const resolvedParams = await Promise.resolve(params);
-  const identifier = resolvedParams.identifier;
+  try {
+    // Ensure params is properly awaited
+    const resolvedParams = await Promise.resolve(params);
+    const identifier = resolvedParams.identifier;
 
-  const session = await auth();
+    const session = await auth();
 
-  // If no session (like during warmup), redirect to login
-  if (!session?.session_token) {
-    throw new Error('Authentication required');
-  }
+    // If no session (like during warmup), redirect to login
+    if (!session?.session_token) {
+      throw new Error('Authentication required');
+    }
 
-  const apiFactory = new ApiClientFactory(session.session_token);
-  const testRunsClient = apiFactory.getTestRunsClient();
-  const testRun = await testRunsClient.getTestRun(identifier);
+    const apiFactory = new ApiClientFactory(session.session_token);
+    const testRunsClient = apiFactory.getTestRunsClient();
+    const testRun = await testRunsClient.getTestRun(identifier);
 
-  // Define title and breadcrumbs for PageContainer
-  const title = testRun.name || `Test Run ${identifier}`;
-  const breadcrumbs = [
-    { title: 'Test Runs', path: '/test-runs' },
-    { title, path: `/test-runs/${identifier}` },
-  ];
+    // Define title and breadcrumbs for PageContainer
+    const title = testRun.name || `Test Run ${identifier}`;
+    const breadcrumbs = [
+      { title: 'Test Runs', path: '/test-runs' },
+      { title, path: `/test-runs/${identifier}` },
+    ];
 
-  return (
-    <PageContainer title={title} breadcrumbs={breadcrumbs}>
-      <Box sx={{ flexGrow: 1, pt: 3 }}>
-        {/* Charts Section */}
-        <Box sx={{ mb: 4 }}>
-          <TestRunDetailCharts
-            testRunId={identifier}
-            sessionToken={session.session_token}
-          />
-        </Box>
-
-        <Grid container spacing={3}>
-          {/* Main Content Column */}
-          <Grid item xs={12}>
-            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-              <TestRunDetailsSection
-                testRun={testRun}
-                sessionToken={session.session_token}
-              />
-            </Paper>
-
-            {/* Tests Grid Paper */}
-            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-              <TestRunTestsGrid
-                testRunId={identifier}
-                sessionToken={session.session_token}
-              />
-            </Paper>
-
-            {/* Tasks and Comments Section */}
-            <TasksAndCommentsWrapper
-              entityType="TestRun"
-              entityId={testRun.id}
+    return (
+      <PageContainer title={title} breadcrumbs={breadcrumbs}>
+        <Box sx={{ flexGrow: 1, pt: 3 }}>
+          {/* Charts Section */}
+          <Box sx={{ mb: 4 }}>
+            <TestRunDetailCharts
+              testRunId={identifier}
               sessionToken={session.session_token}
-              currentUserId={session.user?.id || ''}
-              currentUserName={session.user?.name || ''}
-              currentUserPicture={session.user?.picture || undefined}
             />
+          </Box>
+
+          <Grid container spacing={3}>
+            {/* Main Content Column */}
+            <Grid item xs={12}>
+              <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+                <TestRunDetailsSection
+                  testRun={testRun}
+                  sessionToken={session.session_token}
+                />
+              </Paper>
+
+              {/* Tests Grid Paper */}
+              <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+                <TestRunTestsGrid
+                  testRunId={identifier}
+                  sessionToken={session.session_token}
+                />
+              </Paper>
+
+              {/* Tasks and Comments Section */}
+              <TasksAndCommentsWrapper
+                entityType="TestRun"
+                entityId={testRun.id}
+                sessionToken={session.session_token}
+                currentUserId={session.user?.id || ''}
+                currentUserName={session.user?.name || ''}
+                currentUserPicture={session.user?.picture || undefined}
+              />
+            </Grid>
           </Grid>
-        </Grid>
-      </Box>
-    </PageContainer>
-  );
+        </Box>
+      </PageContainer>
+    );
+  } catch (error) {
+    const errorMessage = (error as Error).message;
+    return (
+      <PageContainer
+        title="Test Run Details"
+        breadcrumbs={[{ title: 'Test Runs', path: '/test-runs' }]}
+      >
+        <Paper sx={{ p: 3 }}>
+          <Typography color="error">
+            Error loading test run details: {errorMessage}
+          </Typography>
+          <Button
+            component={Link}
+            href="/test-runs"
+            startIcon={<ArrowBackIcon />}
+            sx={{ mt: 2 }}
+          >
+            Back to Test Runs
+          </Button>
+        </Paper>
+      </PageContainer>
+    );
+  }
 }

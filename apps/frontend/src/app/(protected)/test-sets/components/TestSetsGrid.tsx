@@ -514,7 +514,7 @@ export default function TestSetsGrid({
             onConfirm={handleDeleteConfirm}
             isLoading={isDeleting}
             title="Delete Test Sets"
-            message={`Are you sure you want to permanently delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? This action cannot be undone.`}
+            message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
             itemType="test sets"
           />
         </>

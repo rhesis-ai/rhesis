@@ -1108,13 +1108,10 @@ def delete_user(
     db: Session, target_user_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.User]:
     """
-    Soft delete a user by removing them from their organization.
+    Soft delete a user by marking them as deleted and removing them from their organization.
     
-    For users who have created resources (tests, prompts, etc.), we perform a soft delete
-    by setting organization_id to NULL. This preserves audit trails while removing access.
-    
-    For invited users who never logged in (no auth0_id and no associated resources),
-    we can safely perform a hard delete.
+    This preserves audit trails and referential integrity for all user-created resources
+    while removing the user's access to the system.
     
     Args:
         db: Database session
@@ -1123,7 +1120,7 @@ def delete_user(
         user_id: ID of the current user performing the action (for tenant context)
         
     Returns:
-        Deleted/updated user object or None if not found
+        Deleted user object or None if not found
         
     Raises:
         ValueError: If user tries to delete themselves
@@ -1137,18 +1134,15 @@ def delete_user(
     if db_user is None:
         return None
     
-    # Check if this is an invited user who never logged in
-    # They can be safely hard-deleted if they have no Auth0 ID
-    if db_user.auth0_id is None:
-        # Invited user who never logged in - safe to hard delete
-        db.delete(db_user)
-        db.flush()
-        return db_user
+    # Soft delete the user to preserve audit trails and referential integrity
+    db_user.soft_delete()
     
-    # User has logged in or has associated resources - perform soft delete
-    # Remove them from their organization but keep the user record
+    # Also remove them from their organization for backwards compatibility
+    # This ensures existing logic that checks organization_id still works
     db_user.organization_id = None
-    db.flush()
+    
+    db.commit()
+    db.refresh(db_user)
     
     return db_user
 
@@ -1661,7 +1655,12 @@ def update_test(
 def delete_test(
     db: Session, test_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Test]:
-    """Delete a test and update any associated test sets' attributes"""
+    """
+    Soft delete a test and update any associated test sets' attributes.
+    
+    The test is marked as deleted but remains in the database to preserve
+    referential integrity with test runs, results, and other related data.
+    """
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
     # Get the test to be deleted
@@ -1676,19 +1675,17 @@ def delete_test(
 
     affected_test_set_ids = [row.test_set_id for row in test_set_ids]
 
-    # Store a copy of the test before deletion
-    deleted_test = db_test
-
-    # Delete the test (this will also cascade delete the associations)
-    db.delete(db_test)
-    db.flush()
+    # Soft delete the test (preserves referential integrity)
+    db_test.soft_delete()
+    db.commit()
+    db.refresh(db_test)
 
     # Update attributes for all affected test sets
     for test_set_id in affected_test_set_ids:
         update_test_set_attributes(db=db, test_set_id=str(test_set_id))
 
-    # Transaction commit is handled by the session context manager
-    return deleted_test
+    # Return the soft-deleted test
+    return db_test
 
 
 # TestContext CRUD
