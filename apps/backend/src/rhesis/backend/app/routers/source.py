@@ -1,5 +1,4 @@
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -12,10 +11,13 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.services.document_handler import DocumentHandler
+from rhesis.backend.app.services.source import (
+    extract_source_content,
+    get_source_file_content,
+    upload_and_create_source,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.logging import logger
 
 router = APIRouter(
     prefix="/sources",
@@ -169,6 +171,7 @@ async def upload_source(
     - Saves the file using DocumentHandler
     - Creates a Source record with Document source_type_id
     - Populates source_metadata with file information
+    - Extracts content from the uploaded file
 
     Args:
         file: The uploaded file
@@ -179,7 +182,7 @@ async def upload_source(
         current_user: Current authenticated user
 
     Returns:
-        schemas.Source: Created source record with file metadata
+        schemas.Source: Created source record with file metadata and extracted content
 
     Raises:
         HTTPException: If file upload fails or source creation fails
@@ -187,52 +190,14 @@ async def upload_source(
     organization_id, user_id = tenant_context
 
     try:
-        # Get Document source type
-        document_source_type = crud.get_type_lookup_by_name_and_value(
-            db, type_name="SourceType", type_value="Document", organization_id=organization_id
-        )
-        if not document_source_type:
-            raise HTTPException(
-                status_code=500,
-                detail="Document source type not found. Please ensure database is initialized.",
-            )
-
-        # Initialize DocumentHandler
-        handler = DocumentHandler()
-
-        # Save file and get metadata
-        file_metadata = await handler.save_document(
-            document=file,
+        return upload_and_create_source(
+            db=db,
+            file=file,
             organization_id=str(organization_id),
-            source_id=str(uuid.uuid4()),  # Generate unique source ID
-        )
-
-        # Extract content separately
-        extracted_content = None
-        try:
-            extracted_content = await handler.extract_document_content(file_metadata["file_path"])
-        except Exception as e:
-            # Log extraction error but don't fail the upload
-            logger.warning(f"Failed to extract content from {file.filename}: {str(e)}")
-
-        # Create Source record
-        source_data = schemas.SourceCreate(
-            title=title or file.filename,
+            user_id=str(user_id),
+            title=title,
             description=description,
-            source_type_id=document_source_type.id,
-            source_metadata=file_metadata,  # File metadata (size, hash, path, etc.)
-            organization_id=organization_id,
-            user_id=user_id,
-            content=extracted_content,  # Extracted text content
         )
-
-        # Save to database
-        created_source = crud.create_source(
-            db=db, source=source_data, organization_id=organization_id, user_id=user_id
-        )
-
-        return created_source
-
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -240,7 +205,7 @@ async def upload_source(
 
 
 @router.post("/{source_id}/extract")
-async def extract_source_content(
+async def extract_source_content_endpoint(
     source_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -270,62 +235,20 @@ async def extract_source_content(
     organization_id, user_id = tenant_context
 
     try:
-        # Get the source record
-        db_source = crud.get_source(
-            db, source_id=source_id, organization_id=organization_id, user_id=user_id
-        )
-        if db_source is None:
-            raise HTTPException(status_code=404, detail="Source not found")
-
-        # Validate source type is Document
-        if not db_source.source_type_id:
-            raise HTTPException(status_code=400, detail="Source has no type specified")
-
-        # Get source type details
-        source_type = crud.get_type_lookup(
-            db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
-        )
-        if not source_type or source_type.type_value != "Document":
-            raise HTTPException(
-                status_code=400,
-                detail="Only documents support content extraction.",
-            )
-
-        # Check if source has file metadata
-        if not db_source.source_metadata or "file_path" not in db_source.source_metadata:
-            raise HTTPException(status_code=400, detail="Source has no uploaded file")
-
-        file_path = db_source.source_metadata["file_path"]
-
-        # Initialize DocumentHandler
-        handler = DocumentHandler()
-
-        # Extract content using DocumentHandler
-        content = await handler.extract_document_content(file_path)
-
-        # Update the source with extracted content
-        update_data = schemas.SourceUpdate(content=content)
-        updated_source = crud.update_source(
-            db,
+        return extract_source_content(
+            db=db,
             source_id=source_id,
-            source=update_data,
-            organization_id=organization_id,
-            user_id=user_id,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
         )
-
-        return {
-            "source_id": str(source_id),
-            "content": content,
-            "format": Path(file_path).suffix.lstrip("."),
-            "extracted_at": updated_source.updated_at,
-        }
-
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract content: {str(e)}")
     except FileNotFoundError:
         raise HTTPException(
             status_code=404, detail="Source file not found. Please check the file path."
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to extract content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract content: {str(e)}")
 
 
 @router.get("/{source_id}/content")
@@ -359,62 +282,24 @@ async def get_source_content(
     organization_id, user_id = tenant_context
 
     try:
-        # Get the source record
-        db_source = crud.get_source(
-            db, source_id=source_id, organization_id=organization_id, user_id=user_id
+        content, content_type, filename = get_source_file_content(
+            db=db,
+            source_id=source_id,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
         )
-        if db_source is None:
-            raise HTTPException(status_code=404, detail="Source not found")
-
-        # Validate source type is Document
-        if not db_source.source_type_id:
-            raise HTTPException(status_code=400, detail="Source has no type specified")
-
-        # Get source type details
-        source_type = crud.get_type_lookup(
-            db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
-        )
-        if not source_type or source_type.type_value != "Document":
-            raise HTTPException(
-                status_code=400,
-                detail="Source is not a document type. Only documents supported.",
-            )
-
-        # Check if source has file metadata
-        if not db_source.source_metadata or "file_path" not in db_source.source_metadata:
-            raise HTTPException(status_code=400, detail="Source has no uploaded file")
-
-        file_path = db_source.source_metadata["file_path"]
-
-        # Initialize DocumentHandler
-        handler = DocumentHandler()
-
-        # Get file content
-        content = await handler.get_document_content(file_path)
-
-        # Determine content type from file extension
-        file_extension = Path(file_path).suffix.lower()
-        content_type_map = {
-            ".pdf": "application/pdf",
-            ".txt": "text/plain",
-            ".md": "text/markdown",
-            ".html": "text/html",
-            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        }
-        content_type = content_type_map.get(file_extension, "application/octet-stream")
 
         # Return as streaming response
         return StreamingResponse(
             iter([content]),
             media_type=content_type,
             headers={
-                "Content-Disposition": f"attachment; filename={Path(file_path).name}",
+                "Content-Disposition": f"attachment; filename={filename}",
                 "Content-Length": str(len(content)),
             },
         )
-
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError:
         raise HTTPException(
             status_code=404, detail="Source file not found. Please check the file path."
