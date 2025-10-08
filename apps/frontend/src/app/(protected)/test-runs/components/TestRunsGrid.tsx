@@ -391,9 +391,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
       const testRunsClient = clientFactory.getTestRunsClient();
 
       await Promise.all(
-        validSelectedRows.map(id =>
-          testRunsClient.deleteTestRun(id.toString())
-        )
+        validSelectedRows.map(id => testRunsClient.deleteTestRun(id.toString()))
       );
 
       notifications.show(
@@ -507,7 +505,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
         title="Delete Test Runs"
-        message={`Are you sure you want to permanently delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? Don't worry, related data will not be deleted, only ${Array.isArray(selectedRows) && selectedRows.length === 1 ? 'this record' : 'these records'}.`}
         itemType="test runs"
       />
     </>
