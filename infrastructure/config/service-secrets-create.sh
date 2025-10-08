@@ -62,6 +62,10 @@ function show_usage() {
   echo "  FROM_EMAIL                    Email address to use as sender"
   echo "  DEMO_USER_EMAIL               Demo user email address"
   echo "  DEMO_USER_PASSWORD            Demo user password"
+  echo "  STORAGE_PROJECT_ID            Google Cloud Storage project ID"
+  echo "  STORAGE_SERVICE_URI           Google Cloud Storage bucket URI"
+  echo "  STORAGE_SERVICE_ACCOUNT_KEY   Google Cloud Storage service account key JSON"
+  echo "  LOCAL_STORAGE_PATH            Local storage path for temporary files"
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
@@ -218,6 +222,10 @@ SERVICE_VARS=(
   "FROM_EMAIL"
   "DEMO_USER_EMAIL"
   "DEMO_USER_PASSWORD"
+  "STORAGE_PROJECT_ID"
+  "STORAGE_SERVICE_URI"
+  "STORAGE_SERVICE_ACCOUNT_KEY"
+  "LOCAL_STORAGE_PATH"
   
   # Celery worker variables
   "BROKER_URL"
