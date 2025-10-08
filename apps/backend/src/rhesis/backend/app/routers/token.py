@@ -82,7 +82,6 @@ def create_token(
 
 
 @router.get("/", response_model=List[TokenRead])
-@with_count_header(model=models.Token)
 async def read_tokens(
     response: Response,
     skip: int = 0,
@@ -94,6 +93,17 @@ async def read_tokens(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
     """List all active API tokens for the current user"""
+    organization_id, user_id = tenant_context
+    
+    # Set the count header with user-specific token count
+    count = crud.count_user_tokens(
+        db=db,
+        user_id=current_user.id,
+        filter=filter,
+        organization_id=organization_id
+    )
+    response.headers["X-Total-Count"] = str(count)
+    
     return crud.get_user_tokens(
         db=db,
         user_id=current_user.id,
@@ -101,7 +111,8 @@ async def read_tokens(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
-        filter=filter)
+        filter=filter,
+        organization_id=organization_id)
 
 
 @router.get("/{token_id}", response_model=TokenRead)
