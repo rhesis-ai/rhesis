@@ -80,3 +80,7 @@ __all__ = [
     "behavior_metric_association",
     "test_test_set_association",
 ]
+
+# Set up soft delete event listener
+from .soft_delete_events import setup_soft_delete_listener
+setup_soft_delete_listener()
