@@ -72,8 +72,9 @@ def setup_soft_delete_listener():
             query._soft_delete_filter_applied = True
             
         except Exception as e:
-            # Log but don't fail - better to return unfiltered than break queries
-            logger.warning(f"Error applying soft delete filter: {e}")
+            # Log at debug level - this is expected for queries with LIMIT/OFFSET already applied
+            # These queries have already been filtered by QueryBuilder before pagination
+            logger.debug(f"Skipping soft delete filter (query has LIMIT/OFFSET): {e}")
         
         return query
     
