@@ -1,5 +1,6 @@
 # apps/backend/src/rhesis/backend/app/utils/encryption.py
 
+import hashlib
 import os
 from typing import Optional
 from cryptography.fernet import Fernet, InvalidToken
@@ -124,6 +125,32 @@ def is_encrypted(value: Optional[str]) -> bool:
         return value.startswith('gAAAAA')
     except:
         return False
+
+
+def hash_token(token_value: str) -> str:
+    """
+    Create a SHA-256 hash of a token value for fast lookups.
+    
+    This hash is used as a deterministic index for looking up encrypted tokens.
+    Since encryption is non-deterministic (Fernet), we can't query encrypted values directly.
+    Instead, we store a hash alongside the encrypted value for O(1) indexed lookups.
+    
+    Args:
+        token_value: The plaintext token value to hash
+        
+    Returns:
+        Hexadecimal SHA-256 hash (64 characters)
+        
+    Note:
+        - SHA-256 is one-way: hash cannot be reversed to get the original token
+        - Same input always produces same hash (deterministic)
+        - Used for database lookups, not for security validation
+        - The actual token is stored encrypted for security
+    """
+    if not token_value:
+        raise ValueError("Token value cannot be empty")
+    
+    return hashlib.sha256(token_value.encode()).hexdigest()
 
 
 class EncryptedString(TypeDecorator):

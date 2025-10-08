@@ -18,6 +18,7 @@ from rhesis.backend.app.schemas.token import (
     TokenUpdate)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.encryption import hash_token
 
 router = APIRouter(
     prefix="/tokens",
@@ -55,6 +56,7 @@ def create_token(
     token_data = {
         "name": name,
         "token": token_value,
+        "token_hash": hash_token(token_value),
         "token_type": "bearer",
         "token_obfuscated": token_value[:3] + "..." + token_value[-4:],
         "expires_at": (
@@ -216,6 +218,7 @@ def refresh_token(
 
     token_update = TokenUpdate(
         token=new_token_value,
+        token_hash=hash_token(new_token_value),
         token_obfuscated=new_token_value[:3] + "..." + new_token_value[-4:],
         last_refreshed_at=datetime.now(timezone.utc),
         expires_at=expires_at)
