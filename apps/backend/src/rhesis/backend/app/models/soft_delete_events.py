@@ -52,7 +52,8 @@ def setup_soft_delete_listener():
         
         # Check if query has LIMIT or OFFSET - if so, skip filtering to avoid SQL errors
         # These queries are already being filtered by QueryBuilder before limit/offset
-        if query._limit is not None or query._offset is not None:
+        if (hasattr(query, '_limit') and query._limit is not None) or \
+           (hasattr(query, '_offset') and query._offset is not None):
             return query
         
         # Apply soft delete filter to all entities in the query

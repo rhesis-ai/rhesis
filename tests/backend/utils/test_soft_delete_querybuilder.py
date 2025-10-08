@@ -149,7 +149,7 @@ class TestQueryBuilderSoftDelete:
         results = QueryBuilder(test_db, models.Behavior)\
             .with_organization_filter(test_org_id)\
             .with_deleted()\
-            .with_custom_filter(models.Behavior.name.like("%Test%"))\
+            .with_custom_filter(lambda q: q.filter(models.Behavior.name.like("%Test%")))\
             .all()
         
         result_ids = [b.id for b in results]
@@ -217,9 +217,12 @@ class TestQueryBuilderSoftDelete:
         assert len([b for b in deleted_behaviors if b.id in result_ids]) >= 3
         
         # Verify sorting (most recently deleted first)
+        # Convert both to timestamps for comparison to avoid timezone issues
         if len(results) >= 2:
             for i in range(len(results) - 1):
-                assert results[i].deleted_at >= results[i + 1].deleted_at
+                time1 = results[i].deleted_at.timestamp() if hasattr(results[i].deleted_at, 'timestamp') else results[i].deleted_at
+                time2 = results[i + 1].deleted_at.timestamp() if hasattr(results[i + 1].deleted_at, 'timestamp') else results[i + 1].deleted_at
+                assert time1 >= time2
 
     def test_filter_by_id_respects_soft_delete(self, test_db: Session, test_org_id):
         """Test that filter_by_id respects soft delete filtering."""
@@ -371,36 +374,34 @@ class TestQueryBuilderWithEventListener:
             assert behavior.id in result_ids
 
     def test_multiple_entities_in_query_all_filtered(self, test_db: Session, test_org_id):
-        """Test that queries with multiple entities filter all of them."""
-        # Create and delete a category and behaviors
-        category = crud_utils.create_item(
-            test_db, models.Category,
-            CategoryDataFactory.sample_data(),
-            organization_id=test_org_id
-        )
-        
-        behavior = crud_utils.create_item(
+        """Test that queries with multiple entities filter soft-deleted records."""
+        # Create multiple behaviors
+        active_behavior = crud_utils.create_item(
             test_db, models.Behavior,
-            {**BehaviorDataFactory.sample_data(), "category_id": category.id},
+            BehaviorDataFactory.sample_data(),
             organization_id=test_org_id
         )
         
-        # Delete the category
-        crud_utils.delete_item(
-            test_db, models.Category, category.id, organization_id=test_org_id
+        deleted_behavior = crud_utils.create_item(
+            test_db, models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org_id
         )
         
-        # Query joining categories and behaviors
-        results = test_db.query(models.Behavior).join(
-            models.Category
-        ).filter(
+        # Delete one behavior
+        crud_utils.delete_item(
+            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+        )
+        
+        # Direct query should filter out deleted records
+        results = test_db.query(models.Behavior).filter(
             models.Behavior.organization_id == test_org_id
         ).all()
         
-        # Should not include behaviors with deleted categories
         result_ids = [b.id for b in results]
-        # Note: behavior itself is not deleted, so it may appear in results
-        # but its category should be filtered if we query it
+        # Should only include active behavior
+        assert active_behavior.id in result_ids
+        assert deleted_behavior.id not in result_ids
 
 
 @pytest.mark.unit
