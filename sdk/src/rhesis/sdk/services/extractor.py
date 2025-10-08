@@ -76,6 +76,71 @@ class DocumentExtractor:
 
         return extracted_texts
 
+    def extract_from_bytes(self, file_content: bytes, filename: str) -> str:
+        """
+        Extract text from binary file content using Markitdown.
+
+        Args:
+            file_content: Binary content of the file
+            filename: Original filename with extension
+
+        Returns:
+            str: Extracted text from the file
+
+        Raises:
+            ValueError: If the file type is not supported or extraction fails
+        """
+        # Get file extension and check if supported
+        file_extension = Path(filename).suffix.lower()
+        self._validate_file_extension(file_extension)
+
+        # Extract directly from bytes using BytesIO
+        from io import BytesIO
+
+        # Create a BytesIO object from the binary content
+        file_like_object = BytesIO(file_content)
+
+        # Use MarkItDown's convert method (it will dispatch to convert_stream for BytesIO)
+        result = self.converter.convert(file_like_object)
+
+        # Extract text from result
+        return self._extract_text_from_result(result)
+
+    def _extract_text_from_result(self, result) -> str:
+        """
+        Extract text content from MarkItDown result object.
+
+        Args:
+            result: MarkItDown conversion result
+
+        Returns:
+            str: Extracted text content
+        """
+        if hasattr(result, "text_content") and result.text_content:
+            extracted_text = result.text_content
+        elif hasattr(result, "markdown") and result.markdown:
+            extracted_text = result.markdown
+        else:
+            extracted_text = str(result)
+
+        return extracted_text.strip() if extracted_text else ""
+
+    def _validate_file_extension(self, file_extension: str) -> None:
+        """
+        Validate that the file extension is supported.
+
+        Args:
+            file_extension: File extension to validate
+
+        Raises:
+            ValueError: If the file extension is not supported
+        """
+        if file_extension not in self.supported_extensions:
+            raise ValueError(
+                f"Unsupported file type: {file_extension}. "
+                f"Supported types: {', '.join(self.supported_extensions)}"
+            )
+
     def _extract_from_file(self, file_path: str) -> str:
         """
         Extract text from a file using Markitdown.
@@ -96,25 +161,11 @@ class DocumentExtractor:
 
         # Get file extension and check if supported
         file_extension = Path(file_path).suffix.lower()
-        if file_extension not in self.supported_extensions:
-            raise ValueError(
-                f"Unsupported file type: {file_extension}. "
-                f"Supported types: {', '.join(self.supported_extensions)}"
-            )
+        self._validate_file_extension(file_extension)
 
         try:
-            result = self.converter.convert_local(file_path)
-
-            # Extract text from result - markitdown returns text_content and markdown
-            if hasattr(result, "text_content") and result.text_content:
-                extracted_text = result.text_content
-            elif hasattr(result, "markdown") and result.markdown:
-                extracted_text = result.markdown
-            else:
-                # Fallback to string representation
-                extracted_text = str(result)
-
-            return extracted_text.strip() if extracted_text else ""
+            result = self.converter.convert(file_path)
+            return self._extract_text_from_result(result)
         except Exception as e:
             raise ValueError(f"Failed to extract text from {file_path}: {str(e)}")
 
