@@ -380,6 +380,93 @@ class TestCrudOrganizationFiltering:
         result_org2 = crud.get_metric(test_db, metric.id, organization_id=str(org2.id), user_id=str(user2.id))
         assert result_org2 is None
 
+    def test_get_user_tokens_organization_filtering(self, test_db: Session):
+        """🔒 SECURITY: Test that get_user_tokens properly filters by organization"""
+        # Create two separate organizations with different users
+        unique_id = str(uuid.uuid4())[:8]
+        org1, user1, _ = create_test_organization_and_user(
+            test_db, f"Token Test Org 1 {unique_id}", f"user1-{unique_id}@security-test.com", "User One"
+        )
+        org2, user2, _ = create_test_organization_and_user(
+            test_db, f"Token Test Org 2 {unique_id}", f"user2-{unique_id}@security-test.com", "User Two"
+        )
+        
+        # Create tokens in both organizations
+        from rhesis.backend.app.schemas.token import TokenCreate
+        from rhesis.backend.app.auth.token_utils import generate_api_token
+        
+        token_value_1 = generate_api_token()
+        token1 = crud.create_token(
+            db=test_db,
+            token=TokenCreate(
+                name=f"Token in Org 1 {unique_id}",
+                token=token_value_1,
+                token_type="bearer",
+                token_obfuscated=token_value_1[:3] + "..." + token_value_1[-4:],
+                expires_at=None,
+                user_id=user1.id,
+                organization_id=org1.id
+            ),
+            organization_id=str(org1.id),
+            user_id=str(user1.id)
+        )
+        
+        token_value_2 = generate_api_token()
+        token2 = crud.create_token(
+            db=test_db,
+            token=TokenCreate(
+                name=f"Token in Org 2 {unique_id}",
+                token=token_value_2,
+                token_type="bearer",
+                token_obfuscated=token_value_2[:3] + "..." + token_value_2[-4:],
+                expires_at=None,
+                user_id=user2.id,
+                organization_id=org2.id
+            ),
+            organization_id=str(org2.id),
+            user_id=str(user2.id)
+        )
+        
+        # User from org1 should only see their token from org1
+        tokens_org1 = crud.get_user_tokens(
+            db=test_db,
+            user_id=user1.id,
+            organization_id=str(org1.id)
+        )
+        # Filter to only tokens we created in this test
+        test_tokens_org1 = [t for t in tokens_org1 if t.name.startswith(f"Token in Org 1 {unique_id}")]
+        assert len(test_tokens_org1) == 1, f"Expected 1 token for org1, found {len(test_tokens_org1)}: {[t.name for t in tokens_org1]}"
+        assert test_tokens_org1[0].id == token1.id
+        assert test_tokens_org1[0].organization_id == org1.id
+        
+        # User from org2 should only see their token from org2
+        tokens_org2 = crud.get_user_tokens(
+            db=test_db,
+            user_id=user2.id,
+            organization_id=str(org2.id)
+        )
+        # Filter to only tokens we created in this test
+        test_tokens_org2 = [t for t in tokens_org2 if t.name.startswith(f"Token in Org 2 {unique_id}")]
+        assert len(test_tokens_org2) == 1, f"Expected 1 token for org2, found {len(test_tokens_org2)}: {[t.name for t in tokens_org2]}"
+        assert test_tokens_org2[0].id == token2.id
+        assert test_tokens_org2[0].organization_id == org2.id
+        
+        # CRITICAL: User from org1 should NOT see tokens from org2
+        cross_org_tokens = crud.get_user_tokens(
+            db=test_db,
+            user_id=user1.id,
+            organization_id=str(org2.id)
+        )
+        assert len(cross_org_tokens) == 0, "User should not see tokens from other organizations"
+        
+        # Verify count matches the actual number of tokens
+        count_org1 = crud.count_user_tokens(
+            db=test_db,
+            user_id=user1.id,
+            organization_id=str(org1.id)
+        )
+        assert count_org1 == len(tokens_org1), f"Count should match token list length: {count_org1} != {len(tokens_org1)}"
+
 
 @pytest.mark.security
 class TestCrudParameterValidation:
