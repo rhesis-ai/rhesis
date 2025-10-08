@@ -1,5 +1,3 @@
-import os
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -109,45 +107,8 @@ class DocumentHandler:
         # Get file content from storage
         file_content = await self.get_document_content(file_path)
 
-        # Get file extension
-        file_extension = Path(file_path).suffix.lower()
-
-        # Initialize extractor
         extractor = DocumentExtractor()
-
-        # Check if format is supported
-        if file_extension not in extractor.supported_extensions:
-            raise ValueError(
-                f"Unsupported file format: {file_extension}. "
-                f"Supported formats: {', '.join(extractor.supported_extensions)}"
-            )
-
-        # Create a temporary file with the binary content
-        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
-            temp_file.write(file_content)
-            temp_file_path = temp_file.name
-
-        try:
-            # Use MarkItDown's converter with the temporary file
-            result = extractor.converter.convert_local(temp_file_path)
-
-            # Extract text from result - markitdown returns text_content and markdown
-            if hasattr(result, "text_content") and result.text_content:
-                extracted_text = result.text_content
-            elif hasattr(result, "markdown") and result.markdown:
-                extracted_text = result.markdown
-            else:
-                # Fallback to string representation
-                extracted_text = str(result)
-
-            return extracted_text.strip() if extracted_text else ""
-
-        finally:
-            # Clean up the temporary file immediately
-            try:
-                os.unlink(temp_file_path)
-            except OSError:
-                pass  # File may have already been deleted
+        return extractor.extract_from_bytes(file_content, Path(file_path).name)
 
     def _extract_metadata(self, content: bytes, filename: str, file_path: str) -> dict:
         """Extract file metadata including file path."""
