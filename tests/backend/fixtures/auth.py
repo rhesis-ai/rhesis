@@ -233,3 +233,24 @@ def project_entity_type(test_db, test_org_id, authenticated_user_id):
     test_db.commit()
     test_db.refresh(entity_type)
     return entity_type
+
+
+@pytest.fixture
+def secondary_org_id(test_db):
+    """🏢 Secondary organization ID for multi-org testing."""
+    from tests.backend.fixtures.test_setup import create_test_organization_and_user
+    from datetime import datetime
+    import uuid
+    
+    # Create a secondary organization
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    session_suffix = str(uuid.uuid4())[:8]
+    test_org_name = f"Secondary Org {timestamp}_{session_suffix}"
+    test_user_email = f"secondary_{timestamp}_{session_suffix}@rhesis-test.com"
+    test_user_name = "Test Secondary User"
+    
+    organization, user, token = create_test_organization_and_user(
+        test_db, test_org_name, test_user_email, test_user_name
+    )
+    
+    return str(organization.id)
