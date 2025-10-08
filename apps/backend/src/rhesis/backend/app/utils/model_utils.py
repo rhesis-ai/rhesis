@@ -26,9 +26,14 @@ class QueryBuilder:
     def __init__(self, db: Session, model: Type[T]):
         self.db = db
         self.model = model
+        self._include_deleted = False
+        self._only_deleted = False
+        
         # Always create a fresh query to avoid leaking state between requests
         try:
             self.query = db.query(model)
+            # Signal to event listener about soft delete filtering preference
+            self.query._include_soft_deleted = False
         except Exception as e:
             logger.debug(f"Error creating query in QueryBuilder: {e}")
             # If query creation fails, the session may be in a bad state
@@ -59,7 +64,45 @@ class QueryBuilder:
         )
         return self
 
-
+    def with_deleted(self) -> "QueryBuilder":
+        """
+        Include soft-deleted records in the query results.
+        
+        This disables the automatic soft delete filter for this query,
+        allowing both active and deleted records to be returned.
+        
+        Usage:
+            QueryBuilder(db, User).with_deleted().all()
+            
+        Returns:
+            Self for method chaining
+        """
+        self._include_deleted = True
+        # Signal to event listener to NOT filter this query
+        self.query._include_soft_deleted = True
+        return self
+    
+    def only_deleted(self) -> "QueryBuilder":
+        """
+        Only return soft-deleted records.
+        
+        This explicitly filters for records where deleted_at IS NOT NULL,
+        showing only items in the recycle bin.
+        
+        Usage:
+            QueryBuilder(db, User).only_deleted().all()
+            
+        Returns:
+            Self for method chaining
+        """
+        self._only_deleted = True
+        # Signal to event listener to NOT filter this query
+        self.query._include_soft_deleted = True
+        
+        # Apply filter to only show deleted records
+        if hasattr(self.model, 'deleted_at'):
+            self.query = self.query.filter(self.model.deleted_at.isnot(None))
+        return self
 
     def with_organization_filter(self, organization_id: str = None) -> "QueryBuilder":
         """
