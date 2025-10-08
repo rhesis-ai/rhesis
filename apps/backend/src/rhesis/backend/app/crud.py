@@ -1422,6 +1422,37 @@ def get_user_tokens(
     )
 
 
+def count_user_tokens(
+    db: Session,
+    user_id: uuid.UUID,
+    filter: str | None = None,
+    organization_id: str = None,
+) -> int:
+    """Count all active bearer tokens for a user
+    
+    This function applies the same filters as get_user_tokens to ensure
+    the count matches the actual number of tokens the user can see.
+
+    Args:
+        db: Database session
+        user_id: User ID to count tokens for
+        filter: OData filter string
+        organization_id: Organization ID for filtering
+
+    Returns:
+        Count of token objects
+    """
+    query_builder = (
+        QueryBuilder(db, models.Token)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(
+            lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
+        )
+    )
+
+    return query_builder.with_odata_filter(filter).count()
+
+
 def create_token(
     db: Session, token: schemas.TokenCreate, organization_id: str = None, user_id: str = None
 ) -> models.Token:
