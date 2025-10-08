@@ -1109,41 +1109,41 @@ def delete_user(
 ) -> Optional[models.User]:
     """
     Soft delete a user by marking them as deleted and removing them from their organization.
-    
+
     This preserves audit trails and referential integrity for all user-created resources
     while removing the user's access to the system.
-    
+
     Args:
         db: Database session
         target_user_id: ID of user to delete/remove from organization
         organization_id: Organization ID for tenant context
         user_id: ID of the current user performing the action (for tenant context)
-        
+
     Returns:
         Deleted user object or None if not found
-        
+
     Raises:
         ValueError: If user tries to delete themselves
     """
     # Security check: Prevent users from deleting themselves
     if str(target_user_id) == str(user_id):
         raise ValueError("Users cannot remove themselves from the organization")
-    
+
     # Get the user with tenant context
     db_user = get_item(db, models.User, target_user_id, organization_id, user_id)
     if db_user is None:
         return None
-    
+
     # Soft delete the user to preserve audit trails and referential integrity
     db_user.soft_delete()
-    
+
     # Also remove them from their organization for backwards compatibility
     # This ensures existing logic that checks organization_id still works
     db_user.organization_id = None
-    
+
     db.commit()
     db.refresh(db_user)
-    
+
     return db_user
 
 
@@ -1464,16 +1464,26 @@ def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = N
 
 def get_token_by_value(db: Session, token_value: str, organization_id: str = None):
     """Retrieve a token by its value with organization filtering (SECURITY CRITICAL)"""
-    query = db.query(models.Token).filter(models.Token.token == token_value)
+    # Get all tokens (we need to decrypt each one to compare)
+    query = db.query(models.Token)
 
     # Apply organization filtering (SECURITY CRITICAL)
     if organization_id:
         from uuid import UUID
-
         query = query.filter(models.Token.organization_id == UUID(organization_id))
 
-    return query.first()
+    # Get all matching tokens and decrypt to find the right one
+    tokens = query.all()
+    for token in tokens:
+        try:
+            # The EncryptedString will automatically decrypt when accessed
+            if token.token == token_value:
+                return token
+        except Exception as e:
+            # Skip tokens that can't be decrypted
+            continue
 
+    return None
 
 # Organization CRUD
 def get_organization(
@@ -1657,7 +1667,7 @@ def delete_test(
 ) -> Optional[models.Test]:
     """
     Soft delete a test and update any associated test sets' attributes.
-    
+
     The test is marked as deleted but remains in the database to preserve
     referential integrity with test runs, results, and other related data.
     """
