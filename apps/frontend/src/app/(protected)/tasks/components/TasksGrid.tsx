@@ -411,7 +411,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
         title="Delete Tasks"
-        message={`Are you sure you want to permanently delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
         itemType="tasks"
       />
     </Box>
