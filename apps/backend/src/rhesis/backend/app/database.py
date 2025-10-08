@@ -155,12 +155,6 @@ _current_tenant_user_id: ContextVar[Optional[str]] = ContextVar("user_id", defau
 _soft_delete_disabled: ContextVar[bool] = ContextVar("soft_delete_disabled", default=False)
 
 
-# Removed legacy get_current_user_id and get_current_organization_id functions
-# These are no longer needed - use direct parameter passing to CRUD functions
-
-
-# Legacy set_tenant functions removed - use direct parameter passing instead
-
 def clear_tenant_context():
     """Clear the tenant context variables"""
     try:
