@@ -17,6 +17,7 @@ from .organization import router as organization_router
 from .project import router as project_router
 from .prompt import router as prompt_router
 from .prompt_template import router as prompt_template_router
+from .recycle import router as recycle_router
 from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
@@ -108,5 +109,6 @@ routers = sorted(
         model_router,
         task_router,
         task_management_router,
+        recycle_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "")
