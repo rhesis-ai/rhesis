@@ -177,10 +177,14 @@ export default function MetricDetailPage() {
 
         // Populate step refs
         const steps = currentMetric.evaluation_steps?.split('\n---\n') || [''];
-        const stepsWithIds = steps.map((step, index) => ({
-          id: `step-${Date.now()}-${index}`,
-          content: step,
-        }));
+        const stepsWithIds = steps.map((step, index) => {
+          // Remove the "Step X:" prefix if it exists
+          const cleanedStep = step.replace(/^Step \d+:\n?/, '').trim();
+          return {
+            id: `step-${Date.now()}-${index}`,
+            content: cleanedStep,
+          };
+        });
         setStepsWithIds(stepsWithIds);
 
         // Populate step refs after a brief delay to ensure DOM elements exist
@@ -320,8 +324,9 @@ export default function MetricDetailPage() {
 
       // Handle evaluation steps
       if (Array.isArray(dataToSend.evaluation_steps)) {
-        dataToSend.evaluation_steps =
-          dataToSend.evaluation_steps.join('\n---\n');
+        dataToSend.evaluation_steps = dataToSend.evaluation_steps
+          .map((step: string, index: number) => `Step ${index + 1}:\n${step}`)
+          .join('\n---\n');
       }
 
       // Remove tags from the update data as they're handled separately
@@ -848,7 +853,7 @@ export default function MetricDetailPage() {
                               {index + 1}
                             </Typography>
                             <Typography sx={{ whiteSpace: 'pre-wrap' }}>
-                              {step.replace(/^Step \d+:\n/, '')}
+                              {step.replace(/^Step \d+:\n?/, '').trim()}
                             </Typography>
                           </Paper>
                         ))
