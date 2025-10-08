@@ -16,6 +16,7 @@ class TokenBase(Base):
 
 class TokenCreate(TokenBase):
     token: str
+    token_hash: str
     token_obfuscated: str
     user_id: UUID4
     organization_id: Optional[UUID4] = None
@@ -24,6 +25,7 @@ class TokenCreate(TokenBase):
 class TokenUpdate(TokenBase):
     name: Optional[str] = None
     token: Optional[str] = None
+    token_hash: Optional[str] = None
     token_obfuscated: Optional[str] = None
     token_type: Optional[str] = None
     expires_at: Optional[datetime] = None

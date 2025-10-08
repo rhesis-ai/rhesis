@@ -1494,16 +1494,37 @@ def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = N
 
 
 def get_token_by_value(db: Session, token_value: str, organization_id: str = None):
-    """Retrieve a token by its value with organization filtering (SECURITY CRITICAL)"""
-    query = db.query(models.Token).filter(models.Token.token == token_value)
+    """Retrieve a token by its value with organization filtering (SECURITY CRITICAL)
+    
+    Uses SHA-256 hash for efficient O(1) indexed lookup instead of decrypting all tokens.
+    The token hash is deterministic, allowing direct SQL queries, while the token itself
+    remains encrypted for security.
+    """
+    from rhesis.backend.app.utils.encryption import hash_token
+    
+    # Compute hash of incoming token for lookup
+    token_hash_value = hash_token(token_value)
+    
+    # Build query using hash index
+    query = db.query(models.Token).filter(models.Token.token_hash == token_hash_value)
 
     # Apply organization filtering (SECURITY CRITICAL)
     if organization_id:
         from uuid import UUID
-
         query = query.filter(models.Token.organization_id == UUID(organization_id))
 
-    return query.first()
+    # Get token by hash (O(1) with index)
+    token = query.first()
+    
+    # Optional: Verify the decrypted token matches (defense in depth)
+    # This protects against the unlikely case of hash collisions
+    if token and token.token != token_value:
+        # Hash collision detected - this should be extremely rare
+        from rhesis.backend.logging import logger
+        logger.warning(f"Token hash collision detected for token_id={token.id}")
+        return None
+    
+    return token
 
 
 # Organization CRUD
