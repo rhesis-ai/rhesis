@@ -151,6 +151,9 @@ _current_tenant_organization_id: ContextVar[Optional[str]] = ContextVar(
 )
 _current_tenant_user_id: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 
+# Context variable to control soft delete filtering
+_soft_delete_disabled: ContextVar[bool] = ContextVar("soft_delete_disabled", default=False)
+
 
 # Removed legacy get_current_user_id and get_current_organization_id functions
 # These are no longer needed - use direct parameter passing to CRUD functions
@@ -213,6 +216,46 @@ def set_session_variables(db: Session, organization_id: str, user_id: str):
         raise
 
 
+@contextmanager
+def without_soft_delete_filter():
+    """
+    Context manager to temporarily disable soft delete filtering.
+    
+    This allows queries to include soft-deleted records within the context block.
+    Useful for admin operations, data recovery, and debugging.
+    
+    Usage:
+        with without_soft_delete_filter():
+            # Queries here will include soft-deleted records
+            all_users = db.query(User).all()
+            deleted_tests = db.query(Test).filter(Test.deleted_at.isnot(None)).all()
+    
+    Example:
+        # Normal query (excludes deleted)
+        active_users = db.query(User).all()
+        
+        # With context manager (includes deleted)
+        with without_soft_delete_filter():
+            all_users = db.query(User).all()
+    """
+    token = _soft_delete_disabled.set(True)
+    try:
+        yield
+    finally:
+        _soft_delete_disabled.reset(token)
+
+
+def is_soft_delete_disabled() -> bool:
+    """
+    Check if soft delete filtering is currently disabled.
+    
+    This function is used by the event listener and query builder to determine
+    whether to apply soft delete filters.
+    
+    Returns:
+        True if soft delete filtering is disabled, False otherwise
+    """
+    return _soft_delete_disabled.get(False)
 
 
 def init_db():
