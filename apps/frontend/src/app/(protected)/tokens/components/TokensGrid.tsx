@@ -14,12 +14,11 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { DeleteIcon } from '@/components/icons';
+import { DeleteIcon, VpnKeyIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
 import AddIcon from '@mui/icons-material/Add';
 import { GridPaginationModel } from '@mui/x-data-grid';
-import { VpnKeyIcon } from '@/components/icons';
 
 interface TokensGridProps {
   tokens: Token[];
