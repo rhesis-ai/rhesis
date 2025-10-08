@@ -14,13 +14,10 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { DeleteIcon } from '@/components/icons';
+import { DeleteIcon, VpnKeyIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
 import AddIcon from '@mui/icons-material/Add';
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
-import KeyIcon from '@mui/icons-material/Key';
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import { GridPaginationModel } from '@mui/x-data-grid';
 
 interface TokensGridProps {
@@ -158,44 +155,58 @@ export default function TokensGrid({
 
   if (!loading && tokens.length === 0) {
     return (
-      <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
+      <Paper
+        elevation={2}
+        sx={{
+          width: '100%',
+          mb: 2,
+          textAlign: 'center',
+          py: 8,
+          px: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
         <Box
           sx={{
-            textAlign: 'center',
-            py: 8,
-            px: 2,
-            bgcolor: 'background.paper',
-            borderRadius: theme => theme.shape.borderRadius * 0.25,
+            display: 'flex',
+            justifyContent: 'center',
+            mb: 2,
           }}
         >
-          <Typography
-            variant="h5"
-            sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
-          >
-            <RocketLaunchIcon color="primary" />
-            Create your first Rhesis API token!
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 1 }}>
-            You haven&apos;t created any tokens yet. Get started by creating
-            your first token
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            <Box
-              component="span"
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-            >
-              <KeyIcon fontSize="small" color="primary" />
-              Create tokens to interact with the Rhesis API
-            </Box>
-            <Box
-              component="span"
-              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-            >
-              <SportsEsportsIcon fontSize="small" color="primary" />
-              Build amazing integrations and have fun!
-            </Box>
-          </Typography>
+          <VpnKeyIcon
+            sx={{
+              fontSize: 60,
+              color: 'primary.main',
+              opacity: 0.7,
+            }}
+          />
         </Box>
+
+        <Typography
+          variant="h5"
+          sx={{
+            color: 'text.primary',
+            fontWeight: 500,
+          }}
+        >
+          No API tokens yet
+        </Typography>
+
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{
+            maxWidth: 550,
+            mx: 'auto',
+          }}
+        >
+          Create your first API token to start interacting with the Rhesis API.
+          Tokens allow you to authenticate your applications and build powerful
+          integrations.
+        </Typography>
       </Paper>
     );
   }
