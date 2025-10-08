@@ -319,7 +319,7 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
-          STORAGE_SERVICE_ACCOUNT_KEY='${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}',
+          STORAGE_SERVICE_ACCOUNT_KEY=$(echo '${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}' | base64 -d),
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
           EOF
           )"
@@ -378,7 +378,7 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
-          STORAGE_SERVICE_ACCOUNT_KEY='${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}',
+          STORAGE_SERVICE_ACCOUNT_KEY=$(echo '${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}' | base64 -d),
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
           EOF
           )"
@@ -559,7 +559,7 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
-          STORAGE_SERVICE_ACCOUNT_KEY='${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}',
+          STORAGE_SERVICE_ACCOUNT_KEY=$(echo '${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}' | base64 -d),
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
           EOF
           )"
@@ -627,7 +627,7 @@ jobs:
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
-          STORAGE_SERVICE_ACCOUNT_KEY='${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}',
+          STORAGE_SERVICE_ACCOUNT_KEY=$(echo '${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}' | base64 -d),
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
           EOF
           )"
