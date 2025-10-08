@@ -22,7 +22,6 @@ from tests.backend.routes.fixtures.data_factories import (
     BehaviorDataFactory,
     TopicDataFactory,
     CategoryDataFactory,
-    UserDataFactory,
 )
 from tests.backend.routes.endpoints import APIEndpoints
 
