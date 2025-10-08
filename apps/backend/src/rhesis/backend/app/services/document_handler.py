@@ -26,7 +26,10 @@ class DocumentHandler:
         self.max_size = max_size
 
     async def save_document(
-        self, document: UploadFile, organization_id: str, source_id: str
+        self,
+        document: UploadFile,
+        organization_id: str,
+        source_id: str,
     ) -> dict:
         """
         Save uploaded document to persistent storage.
@@ -37,7 +40,7 @@ class DocumentHandler:
             source_id: Source ID for unique file naming
 
         Returns:
-            dict: metadata_dict containing file_path and other metadata
+            dict: File metadata (size, hash, path, etc.)
 
         Raises:
             ValueError: If document size exceeds limit or is empty
