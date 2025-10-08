@@ -210,6 +210,12 @@ class QueryBuilder:
 
     def filter_by_id(self, id: UUID) -> Optional[T]:
         """Filter by ID and return first result"""
+        # Apply soft delete filtering before adding ID filter
+        if not self._include_deleted and not self._only_deleted:
+            # Add soft delete filter if not already including deleted records
+            if hasattr(self.model, 'deleted_at'):
+                self.query = self.query.filter(self.model.deleted_at.is_(None))
+        
         return self.query.filter(self.model.id == id).first()
 
 
