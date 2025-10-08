@@ -8,6 +8,7 @@ Welcome to the Rhesis Backend documentation. This guide provides comprehensive i
 - [Getting Started](./getting-started.md)
 - [Architecture Overview](./architecture.md)
 - [Database Models](./database-models.md)
+- [Soft Deletion](./soft-deletion.md)
 - [API Structure](./api-structure.md)
 - [Test Result Statistics API](./test-result-stats.md)
 - [Authentication](./authentication.md)

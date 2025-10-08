@@ -48,3 +48,33 @@ def authenticated_client(client, rhesis_api_key):
         headers_debug['authorization'] = '***'
     print(f"🔍 DEBUG: Client headers now include: {headers_debug}")
     return client
+
+
+@pytest.fixture
+def superuser_client(test_db, client):
+    """🔑 FastAPI test client with superuser authentication."""
+    from rhesis.backend.app import models
+    from tests.backend.fixtures.test_setup import create_test_organization_and_user
+    from datetime import datetime
+    import uuid
+    
+    # Create a superuser
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    session_suffix = str(uuid.uuid4())[:8]
+    test_org_name = f"Superuser Org {timestamp}_{session_suffix}"
+    test_user_email = f"superuser_{timestamp}_{session_suffix}@rhesis-test.com"
+    test_user_name = "Test Superuser"
+    
+    organization, user, token = create_test_organization_and_user(
+        test_db, test_org_name, test_user_email, test_user_name
+    )
+    
+    # Make the user a superuser
+    user.is_superuser = True
+    test_db.commit()
+    test_db.refresh(user)
+    
+    # Set auth header
+    client.headers.update({"Authorization": f"Bearer {token.token}"})
+    
+    return client

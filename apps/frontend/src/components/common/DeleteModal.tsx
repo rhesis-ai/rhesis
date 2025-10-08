@@ -42,8 +42,8 @@ export function DeleteModal({
   const defaultMessage =
     message ||
     (itemName
-      ? `Are you sure you want to permanently delete the ${itemType} "${itemName}"? This action cannot be undone.`
-      : `Are you sure you want to delete this ${itemType}? This action cannot be undone.`);
+      ? `Are you sure you want to delete the ${itemType} "${itemName}"? Don't worry, related data will not be deleted, only this record.`
+      : `Are you sure you want to delete this ${itemType}? Don't worry, related data will not be deleted, only this record.`);
 
   // Generate default confirm button text if not provided
   const defaultConfirmText =

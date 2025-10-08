@@ -553,7 +553,7 @@ export default function TestsTable({
             onConfirm={handleDeleteConfirm}
             isLoading={isDeleting}
             title="Delete Tests"
-            message={`Are you sure you want to permanently delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? This action cannot be undone.`}
+            message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
             itemType="tests"
           />
         </>
