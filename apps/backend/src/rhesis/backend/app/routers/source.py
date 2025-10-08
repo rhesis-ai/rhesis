@@ -15,6 +15,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.logging import logger
 
 router = APIRouter(
     prefix="/sources",
@@ -200,20 +201,29 @@ async def upload_source(
         handler = DocumentHandler()
 
         # Save file and get metadata
-        metadata = await handler.save_document(
+        file_metadata = await handler.save_document(
             document=file,
             organization_id=str(organization_id),
             source_id=str(uuid.uuid4()),  # Generate unique source ID
         )
+
+        # Extract content separately
+        extracted_content = None
+        try:
+            extracted_content = await handler.extract_document_content(file_metadata["file_path"])
+        except Exception as e:
+            # Log extraction error but don't fail the upload
+            logger.warning(f"Failed to extract content from {file.filename}: {str(e)}")
 
         # Create Source record
         source_data = schemas.SourceCreate(
             title=title or file.filename,
             description=description,
             source_type_id=document_source_type.id,
-            source_metadata=metadata,
+            source_metadata=file_metadata,  # File metadata (size, hash, path, etc.)
             organization_id=organization_id,
             user_id=user_id,
+            content=extracted_content,  # Extracted text content
         )
 
         # Save to database
