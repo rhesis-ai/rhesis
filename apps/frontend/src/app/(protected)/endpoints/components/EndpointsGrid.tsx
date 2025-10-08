@@ -347,7 +347,7 @@ export default function EndpointGrid({
         onConfirm={handleDeleteEndpoints}
         isLoading={deleting}
         title={`Delete Endpoint${selectedRows.length > 1 ? 's' : ''}`}
-        message={`Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
         itemType="endpoints"
       />
     </>
