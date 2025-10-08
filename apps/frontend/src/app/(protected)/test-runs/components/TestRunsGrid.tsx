@@ -33,6 +33,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import TestRunDrawer from './TestRunDrawer';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface ProjectCache {
   [key: string]: string;
@@ -54,6 +55,8 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
   const [totalCount, setTotalCount] = useState<number>(0);
   const [projectNames, setProjectNames] = useState<ProjectCache>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
@@ -370,50 +373,46 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
     [fetchTestRuns]
   );
 
-  // Handle delete selected test runs
-  const handleDeleteTestRuns = useCallback(async () => {
+  // Handle delete selected test runs - opens confirmation modal
+  const handleDeleteSelected = useCallback(() => {
     const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-    if (validSelectedRows.length > 0) {
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const testRunsClient = clientFactory.getTestRunsClient();
-        const statusClient = clientFactory.getStatusClient();
+    if (validSelectedRows.length === 0) return;
+    setDeleteModalOpen(true);
+  }, [selectedRows]);
 
-        // Get the "Deleted" status
-        const statuses = await statusClient.getStatuses({
-          entity_type: 'TestRun',
-        });
-        const deletedStatus = statuses.find(
-          s => s.name.toLowerCase() === 'deleted'
-        );
+  // Confirm deletion and perform the actual delete
+  const handleDeleteConfirm = useCallback(async () => {
+    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
+    if (validSelectedRows.length === 0) return;
 
-        if (!deletedStatus) {
-          throw new Error('Could not find Deleted status');
-        }
+    try {
+      setIsDeleting(true);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testRunsClient = clientFactory.getTestRunsClient();
 
-        await Promise.all(
-          validSelectedRows.map(id =>
-            testRunsClient.updateTestRun(id.toString(), {
-              status_id: deletedStatus.id,
-            })
-          )
-        );
+      await Promise.all(
+        validSelectedRows.map(id =>
+          testRunsClient.deleteTestRun(id.toString())
+        )
+      );
 
-        notifications.show(
-          `Successfully deleted ${validSelectedRows.length} test runs`,
-          { severity: 'success' }
-        );
+      notifications.show(
+        `Successfully deleted ${validSelectedRows.length} test run${validSelectedRows.length === 1 ? '' : 's'}`,
+        { severity: 'success' }
+      );
 
-        // Refresh the data
-        const skip = paginationModel.page * paginationModel.pageSize;
-        await fetchTestRuns(skip, paginationModel.pageSize);
+      // Refresh the data
+      const skip = paginationModel.page * paginationModel.pageSize;
+      await fetchTestRuns(skip, paginationModel.pageSize);
 
-        // Clear selection
-        setSelectedRows([]);
-      } catch (error) {
-        console.error('Error deleting test runs:', error);
-        notifications.show('Failed to delete test runs', { severity: 'error' });
-      }
+      // Clear selection
+      setSelectedRows([]);
+    } catch (error) {
+      console.error('Error deleting test runs:', error);
+      notifications.show('Failed to delete test runs', { severity: 'error' });
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
     }
   }, [
     selectedRows,
@@ -422,6 +421,11 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
     paginationModel,
     fetchTestRuns,
   ]);
+
+  // Cancel deletion
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalOpen(false);
+  }, []);
 
   // Memoized action buttons based on selection
   const actionButtons = useMemo(() => {
@@ -441,12 +445,12 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
-        onClick: handleDeleteTestRuns,
+        onClick: handleDeleteSelected,
       });
     }
 
     return buttons;
-  }, [selectedRows, handleCreateTestRun, handleDeleteTestRuns]);
+  }, [selectedRows, handleCreateTestRun, handleDeleteSelected]);
 
   return (
     <>
@@ -495,6 +499,16 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         onClose={handleDrawerClose}
         sessionToken={sessionToken}
         onSuccess={handleDrawerSuccess}
+      />
+
+      <DeleteModal
+        open={deleteModalOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        title="Delete Test Runs"
+        message={`Are you sure you want to permanently delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? This action cannot be undone.`}
+        itemType="test runs"
       />
     </>
   );
