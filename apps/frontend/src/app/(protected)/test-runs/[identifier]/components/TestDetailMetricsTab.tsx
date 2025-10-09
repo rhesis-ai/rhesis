@@ -70,6 +70,7 @@ export default function TestDetailMetricsTab({
             name: metric.name,
             description: metric.description,
             passed: metricResult.is_successful,
+            result: metricResult,
             fullMetricData: metricResult, // Store the full data
             behaviorName: behavior.name,
           });
