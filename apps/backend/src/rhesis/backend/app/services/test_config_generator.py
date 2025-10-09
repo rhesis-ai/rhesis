@@ -16,11 +16,11 @@ from rhesis.sdk.models.providers.gemini import GeminiLLM
 class TestConfigGeneratorService:
     """Service for generating test configurations from user prompts."""
 
-    def __init__(self, max_sample_size: int = 30):
+    def __init__(self, max_sample_size: int = 20):
         """Initialize the service with template environment.
 
         Args:
-            max_sample_size: Maximum allowed sample size per category (default: 30)
+            max_sample_size: Maximum allowed sample size per category (default: 20)
         """
         self.template_dir = Path(__file__).parent.parent / "templates"
         self.jinja_env = jinja2.Environment(
@@ -38,7 +38,7 @@ class TestConfigGeneratorService:
 
         Args:
             prompt: User description of what they want to test
-            sample_size: Number of items to generate for each category (default: 5, max: 30)
+            sample_size: Number of items to generate for each category (default: 5, max: 20)
 
         Returns:
             TestConfigResponse: Generated test configuration
