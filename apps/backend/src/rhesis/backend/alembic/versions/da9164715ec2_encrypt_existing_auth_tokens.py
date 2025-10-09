@@ -11,7 +11,6 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
 from typing import Union, Sequence
-import rhesis
 import os
 from cryptography.fernet import Fernet
 
