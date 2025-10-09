@@ -190,7 +190,7 @@ async def upload_source(
     organization_id, user_id = tenant_context
 
     try:
-        return upload_and_create_source(
+        return await upload_and_create_source(
             db=db,
             file=file,
             organization_id=str(organization_id),
