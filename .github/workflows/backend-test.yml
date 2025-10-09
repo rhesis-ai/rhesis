@@ -89,7 +89,7 @@ jobs:
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
       STORAGE_SERVICE_URI: ${{ secrets.STORAGE_SERVICE_URI }}
-      STORAGE_SERVICE_ACCOUNT_KEY: $(echo '${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}' | base64 -d)
+      STORAGE_SERVICE_ACCOUNT_KEY: ${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
       LOCAL_STORAGE_PATH: ${{ secrets.LOCAL_STORAGE_PATH }}
     
     services:
