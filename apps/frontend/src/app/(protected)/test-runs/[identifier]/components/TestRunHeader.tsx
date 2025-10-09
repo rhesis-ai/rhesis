@@ -56,11 +56,6 @@ function SummaryCard({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: theme.shadows[4],
-        },
       }}
     >
       <CardContent sx={{ flexGrow: 1, p: 3 }}>
