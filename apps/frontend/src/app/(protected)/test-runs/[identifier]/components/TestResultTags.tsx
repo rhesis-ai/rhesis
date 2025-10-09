@@ -4,43 +4,43 @@ import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import BaseTag from '@/components/common/BaseTag';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
-import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 
-interface TestRunTagsProps {
+interface TestResultTagsProps {
   sessionToken: string;
-  testRun: TestRunDetail;
+  testResult: TestResultDetail;
 }
 
-export default function TestRunTags({
+export default function TestResultTags({
   sessionToken,
-  testRun,
-}: TestRunTagsProps) {
+  testResult,
+}: TestResultTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
 
-  // Initialize and update tag names when testRun changes
+  // Initialize and update tag names when testResult changes
   useEffect(() => {
-    if (testRun.tags) {
-      setTagNames(testRun.tags.map(tag => tag.name));
+    if (testResult.tags) {
+      setTagNames(testResult.tags.map(tag => tag.name));
     }
-  }, [testRun.tags]);
+  }, [testResult.tags]);
 
   return (
     <Box sx={{ width: '100%' }}>
       <BaseTag
         value={tagNames}
         onChange={setTagNames}
-        label="Tags"
+        label="Test Result Tags"
         placeholder="Add tags (press Enter or comma to add)"
-        helperText="These tags help categorize and find this test run"
-        chipColor="default"
+        helperText="Tags help categorize and find this test result"
+        chipColor="primary"
         addOnBlur
         delimiters={[',', 'Enter']}
         size="small"
         margin="normal"
         fullWidth
         sessionToken={sessionToken}
-        entityType={EntityType.TEST_RUN}
-        entity={testRun}
+        entityType={EntityType.TEST_RESULT}
+        entity={testResult}
       />
     </Box>
   );
