@@ -17,12 +17,21 @@ import {
   Typography,
   IconButton,
   Avatar,
+  useTheme,
 } from '@mui/material';
 import { MenuBookIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import TextSnippetIcon from '@mui/icons-material/TextSnippet';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import CodeIcon from '@mui/icons-material/Code';
+import LanguageIcon from '@mui/icons-material/Language';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import SlideshowIcon from '@mui/icons-material/Slideshow';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { convertGridFilterModelToOData } from '@/utils/odata-filter';
@@ -33,23 +42,26 @@ interface SourcesGridProps {
 }
 
 // Helper function to get file type icon and color
-const getFileTypeInfo = (source: Source) => {
+const getFileTypeInfo = (source: Source, theme: any) => {
   const metadata = source.source_metadata || {};
   const fileType = metadata.file_type || 'unknown';
 
-  const typeMap: Record<string, { icon: string; color: string }> = {
-    'pdf': { icon: '📄', color: '#e53e3e' },
-    'docx': { icon: '📝', color: '#3182ce' },
-    'txt': { icon: '📄', color: '#718096' },
-    'csv': { icon: '📊', color: '#38a169' },
-    'json': { icon: '🔧', color: '#d69e2e' },
-    'html': { icon: '🌐', color: '#805ad5' },
-    'xml': { icon: '📋', color: '#dd6b20' },
-    'epub': { icon: '📚', color: '#e53e3e' },
-    'pptx': { icon: '📊', color: '#d69e2e' },
+  const typeMap: Record<string, { icon: React.ReactNode; color: string }> = {
+    'pdf': { icon: <PictureAsPdfIcon />, color: theme.palette.error.main },
+    'docx': { icon: <DescriptionOutlinedIcon />, color: theme.palette.primary.main },
+    'txt': { icon: <TextSnippetIcon />, color: theme.palette.text.secondary },
+    'csv': { icon: <TableChartIcon />, color: theme.palette.success.main },
+    'json': { icon: <CodeIcon />, color: theme.palette.warning.main },
+    'html': { icon: <LanguageIcon />, color: theme.palette.secondary.main },
+    'xml': { icon: <DescriptionOutlinedIcon />, color: theme.palette.info.main },
+    'epub': { icon: <MenuBookOutlinedIcon />, color: theme.palette.error.main },
+    'pptx': { icon: <SlideshowIcon />, color: theme.palette.warning.main },
   };
 
-  return typeMap[fileType.toLowerCase()] || { icon: '📄', color: '#718096' };
+  return typeMap[fileType.toLowerCase()] || {
+    icon: <DescriptionOutlinedIcon />,
+    color: theme.palette.text.secondary
+  };
 };
 
 // Helper function to format file size
@@ -62,7 +74,7 @@ const formatFileSize = (bytes?: number) => {
 };
 
 // Chip container for tags with overflow handling
-const ChipContainer = ({ items }: { items: string[] }) => {
+const ChipContainer = ({ items, theme }: { items: string[]; theme: any }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleItems, setVisibleItems] = useState<string[]>([]);
   const [remainingCount, setRemainingCount] = useState(0);
@@ -132,7 +144,7 @@ const ChipContainer = ({ items }: { items: string[] }) => {
           label={item}
           size="small"
           variant="outlined"
-          sx={{ fontSize: '0.75rem', height: 24 }}
+          sx={{ fontSize: theme.typography.caption.fontSize, height: 24 }}
         />
       ))}
       {remainingCount > 0 && (
@@ -140,7 +152,7 @@ const ChipContainer = ({ items }: { items: string[] }) => {
           label={`+${remainingCount}`}
           size="small"
           variant="outlined"
-          sx={{ fontSize: '0.75rem', height: 24 }}
+          sx={{ fontSize: theme.typography.caption.fontSize, height: 24 }}
         />
       )}
     </Box>
@@ -153,6 +165,7 @@ export default function SourcesGrid({
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const theme = useTheme();
   const isMounted = useRef(true);
 
   // Component state
@@ -195,7 +208,7 @@ export default function SourcesGrid({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_order: 'desc' as const,
         ...(filterString && { filter: filterString }),
       };
 
@@ -279,7 +292,7 @@ export default function SourcesGrid({
       width: 300,
       renderCell: (params) => {
         const source = params.row as Source;
-        const fileInfo = getFileTypeInfo(source);
+        const fileInfo = getFileTypeInfo(source, theme);
 
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -288,7 +301,7 @@ export default function SourcesGrid({
                 width: 32,
                 height: 32,
                 bgcolor: fileInfo.color,
-                fontSize: '1rem',
+                fontSize: theme.typography.body1.fontSize,
               }}
             >
               {fileInfo.icon}
@@ -324,7 +337,7 @@ export default function SourcesGrid({
             label={fileType.toUpperCase()}
             size="small"
             variant="outlined"
-            sx={{ textTransform: 'uppercase', fontSize: '0.7rem' }}
+            sx={{ textTransform: 'uppercase', fontSize: theme.typography.caption.fontSize }}
           />
         );
       },
@@ -364,7 +377,7 @@ export default function SourcesGrid({
       width: 200,
       renderCell: (params) => {
         const source = params.row as Source;
-        return <ChipContainer items={source.tags || []} />;
+        return <ChipContainer items={source.tags || []} theme={theme} />;
       },
     },
     {
@@ -431,24 +444,23 @@ export default function SourcesGrid({
         rows={sources}
         columns={columns}
         loading={loading}
+        serverSidePagination={true}
+        totalRows={totalCount}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
         rowSelectionModel={selectedRows}
         onRowSelectionModelChange={setSelectedRows}
-        filterModel={filterModel}
-        onFilterModelChange={setFilterModel}
-        rowCount={totalCount}
         pageSizeOptions={[10, 25, 50, 100]}
         checkboxSelection
         disableRowSelectionOnClick
         getRowId={(row) => row.id}
         sx={{
           '& .MuiDataGrid-cell': {
-            borderBottom: '1px solid #f0f0f0',
+            borderBottom: `1px solid ${theme.palette.divider}`,
           },
           '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: '#fafafa',
-            borderBottom: '2px solid #e0e0e0',
+            backgroundColor: theme.palette.grey[50],
+            borderBottom: `2px solid ${theme.palette.divider}`,
           },
         }}
       />
@@ -467,7 +479,7 @@ export default function SourcesGrid({
             ? `Are you sure you want to delete "${sourceToDelete.title}"? This action cannot be undone.`
             : ''
         }
-        loading={isDeleting}
+        isLoading={isDeleting}
       />
     </>
   );
