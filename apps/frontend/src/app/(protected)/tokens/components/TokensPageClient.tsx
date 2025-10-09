@@ -242,6 +242,12 @@ export default function TokensPageClient({
         onClose={() => setDeleteTokenId(null)}
         onConfirm={confirmDelete}
         itemType="token"
+        itemName={tokens.find(t => t.id === deleteTokenId)?.name}
+        message={
+          deleteTokenId && tokens.find(t => t.id === deleteTokenId)?.name
+            ? `Are you sure you want to delete the token "${tokens.find(t => t.id === deleteTokenId)?.name}"? This action cannot be undone, and any applications using this token will no longer be able to authenticate.`
+            : `Are you sure you want to delete this token? This action cannot be undone, and any applications using this token will no longer be able to authenticate.`
+        }
       />
     </Box>
   );
