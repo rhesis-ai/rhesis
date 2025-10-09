@@ -388,7 +388,7 @@ export default function BasePieChart({
             margin={{
               top: 5,
               right: 5,
-              bottom: preventLegendOverflow ? 40 : 5,
+              bottom: preventLegendOverflow ? 60 : 5,
               left: 0,
             }}
             height={chartDimensions.adjustedHeight}
