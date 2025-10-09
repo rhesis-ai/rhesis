@@ -15,6 +15,7 @@ class Token(Base, OrganizationMixin):
 
     # Token-specific columns
     token = Column(EncryptedString(), nullable=False)  # Encrypted for security (user-generated tokens)
+    token_hash = Column(String(64), index=True, unique=True, nullable=False)  # SHA-256 hash for lookups
     token_obfuscated = Column(String)
     token_type = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=True)
