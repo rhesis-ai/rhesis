@@ -90,7 +90,9 @@ export default function ComparisonView({
   >(null);
   const [loading, setLoading] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'improved' | 'regressed' | 'unchanged'>('all');
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'improved' | 'regressed' | 'unchanged'
+  >('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Load baseline data when selection changes
@@ -120,7 +122,8 @@ export default function ComparisonView({
 
   // Calculate baseline pass rate from test results
   const baselinePassRate = useMemo(() => {
-    if (!baselineTestResults || baselineTestResults.length === 0) return undefined;
+    if (!baselineTestResults || baselineTestResults.length === 0)
+      return undefined;
     const passed = baselineTestResults.filter(isTestPassed).length;
     return (passed / baselineTestResults.length) * 100;
   }, [baselineTestResults]);
@@ -141,9 +144,9 @@ export default function ComparisonView({
 
     // Match tests by prompt_id or by order
     return currentTestResults.map((current, index) => {
-      const baseline = baselineTestResults.find(
-        b => b.prompt_id === current.prompt_id
-      ) || baselineTestResults[index];
+      const baseline =
+        baselineTestResults.find(b => b.prompt_id === current.prompt_id) ||
+        baselineTestResults[index];
 
       return {
         id: current.id,
@@ -159,10 +162,14 @@ export default function ComparisonView({
     return allComparisonTests.filter(test => {
       // Status filter
       if (statusFilter !== 'all') {
-        const baselinePassed = test.baseline ? isTestPassed(test.baseline) : null;
+        const baselinePassed = test.baseline
+          ? isTestPassed(test.baseline)
+          : null;
         const currentPassed = isTestPassed(test.current);
-        const isImproved = baselinePassed !== null && currentPassed && !baselinePassed;
-        const isRegressed = baselinePassed !== null && !currentPassed && baselinePassed;
+        const isImproved =
+          baselinePassed !== null && currentPassed && !baselinePassed;
+        const isRegressed =
+          baselinePassed !== null && !currentPassed && baselinePassed;
         const isUnchanged = !isImproved && !isRegressed;
 
         if (statusFilter === 'improved' && !isImproved) return false;
@@ -173,10 +180,12 @@ export default function ComparisonView({
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const promptContent = test.current.prompt_id && prompts[test.current.prompt_id]
-          ? prompts[test.current.prompt_id].content.toLowerCase()
-          : '';
-        const responseContent = test.current.test_output?.output?.toLowerCase() || '';
+        const promptContent =
+          test.current.prompt_id && prompts[test.current.prompt_id]
+            ? prompts[test.current.prompt_id].content.toLowerCase()
+            : '';
+        const responseContent =
+          test.current.test_output?.output?.toLowerCase() || '';
         return promptContent.includes(query) || responseContent.includes(query);
       }
 
@@ -186,7 +195,8 @@ export default function ComparisonView({
 
   // Calculate statistics (from all tests, not filtered)
   const stats = useMemo(() => {
-    if (!baselineTestResults) return { improved: 0, regressed: 0, unchanged: 0 };
+    if (!baselineTestResults)
+      return { improved: 0, regressed: 0, unchanged: 0 };
 
     let improved = 0;
     let regressed = 0;
@@ -225,17 +235,20 @@ export default function ComparisonView({
     });
   };
 
-  const getPromptSnippet = (test: TestResultDetail, maxLength: number = 80): string => {
+  const getPromptSnippet = (
+    test: TestResultDetail,
+    maxLength: number = 80
+  ): string => {
     const promptId = test.prompt_id;
     if (!promptId || !prompts[promptId]) {
       return `Test #${test.id.slice(0, 8)}`;
     }
-    
+
     const promptContent = prompts[promptId].content;
     if (promptContent.length <= maxLength) {
       return promptContent;
     }
-    
+
     return promptContent.slice(0, maxLength).trim() + '...';
   };
 
@@ -259,9 +272,7 @@ export default function ComparisonView({
           mb: 4,
         }}
       >
-        <Typography variant="h4">
-          Run Comparison
-        </Typography>
+        <Typography variant="h4">Run Comparison</Typography>
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
@@ -273,7 +284,12 @@ export default function ComparisonView({
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 3 }}>
-            <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                display="block"
+                sx={{ mb: 1 }}
+              >
                 Baseline Run
               </Typography>
               <FormControl fullWidth size="small" sx={{ mb: 2 }}>
@@ -303,11 +319,22 @@ export default function ComparisonView({
               </FormControl>
               {baselineRun && (
                 <>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
                     {formatDate(baselineRun.created_at)}
                   </Typography>
                   {baselinePassRate !== undefined && (
-                    <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      sx={{
+                        mt: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}
+                    >
                       <Typography variant="caption" color="text.secondary">
                         Pass rate:
                       </Typography>
@@ -333,13 +360,23 @@ export default function ComparisonView({
             }}
           >
             <CardContent sx={{ p: 3 }}>
-              <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                display="block"
+                sx={{ mb: 1 }}
+              >
                 Current Run
               </Typography>
               <Typography variant="subtitle2" gutterBottom>
                 {currentTestRun.name || `Run #${currentTestRun.id.slice(0, 8)}`}
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                display="block"
+                sx={{ mb: 2 }}
+              >
                 {formatDate(currentTestRun.created_at)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -353,11 +390,12 @@ export default function ComparisonView({
                   <Typography
                     variant="caption"
                     sx={{
-                      color: currentPassRate > baselinePassRate 
-                        ? theme.palette.success.main 
-                        : currentPassRate < baselinePassRate
-                        ? theme.palette.error.main
-                        : theme.palette.text.secondary,
+                      color:
+                        currentPassRate > baselinePassRate
+                          ? theme.palette.success.main
+                          : currentPassRate < baselinePassRate
+                            ? theme.palette.error.main
+                            : theme.palette.text.secondary,
                       fontWeight: 500,
                     }}
                   >
@@ -387,7 +425,7 @@ export default function ComparisonView({
             size="small"
             placeholder="Search tests..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -454,17 +492,18 @@ export default function ComparisonView({
             color="text.secondary"
             sx={{ display: 'flex', alignItems: 'center' }}
           >
-            {comparisonTests.length} test{comparisonTests.length !== 1 ? 's' : ''}
+            {comparisonTests.length} test
+            {comparisonTests.length !== 1 ? 's' : ''}
           </Typography>
         </Box>
       )}
 
       {/* Statistics */}
       {baselineTestResults && (
-        <Paper 
-          variant="outlined" 
-          sx={{ 
-            p: 2.5, 
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
             mb: 4,
             display: 'flex',
             gap: 4,
@@ -474,37 +513,45 @@ export default function ComparisonView({
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <TrendingUpIcon 
-              fontSize="small" 
-              sx={{ color: theme.palette.success.main }} 
+            <TrendingUpIcon
+              fontSize="small"
+              sx={{ color: theme.palette.success.main }}
             />
             <Box>
               <Typography variant="h6" component="span" sx={{ mr: 0.5 }}>
                 {stats.improved}
               </Typography>
-              <Typography variant="body2" component="span" color="text.secondary">
+              <Typography
+                variant="body2"
+                component="span"
+                color="text.secondary"
+              >
                 improved
               </Typography>
             </Box>
           </Box>
-          
+
           {stats.regressed > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <TrendingDownIcon 
-                fontSize="small" 
-                sx={{ color: theme.palette.error.main }} 
+              <TrendingDownIcon
+                fontSize="small"
+                sx={{ color: theme.palette.error.main }}
               />
               <Box>
                 <Typography variant="h6" component="span" sx={{ mr: 0.5 }}>
                   {stats.regressed}
                 </Typography>
-                <Typography variant="body2" component="span" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  component="span"
+                  color="text.secondary"
+                >
                   regressed
                 </Typography>
               </Box>
             </Box>
           )}
-          
+
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box
               sx={{
@@ -528,7 +575,11 @@ export default function ComparisonView({
               <Typography variant="h6" component="span" sx={{ mr: 0.5 }}>
                 {stats.unchanged}
               </Typography>
-              <Typography variant="body2" component="span" color="text.secondary">
+              <Typography
+                variant="body2"
+                component="span"
+                color="text.secondary"
+              >
                 unchanged
               </Typography>
             </Box>
@@ -540,15 +591,15 @@ export default function ComparisonView({
       {baselineTestResults && (
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              mb: 3
-            }}>
-              <Typography variant="h6">
-                Test-by-Test Comparison
-              </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 3,
+              }}
+            >
+              <Typography variant="h6">Test-by-Test Comparison</Typography>
               <Typography variant="caption" color="text.secondary">
                 Click any test to view details
               </Typography>
@@ -569,12 +620,14 @@ export default function ComparisonView({
                 const isRegressed =
                   baselinePassed !== null && !currentPassed && baselinePassed;
 
-                const baselineMetrics = test.baseline?.test_metrics?.metrics || {};
+                const baselineMetrics =
+                  test.baseline?.test_metrics?.metrics || {};
                 const currentMetrics = test.current.test_metrics?.metrics || {};
-                const baselinePassedCount = Object.values(baselineMetrics).filter(
-                  m => m.is_successful
-                ).length;
-                const baselineTotalCount = Object.values(baselineMetrics).length;
+                const baselinePassedCount = Object.values(
+                  baselineMetrics
+                ).filter(m => m.is_successful).length;
+                const baselineTotalCount =
+                  Object.values(baselineMetrics).length;
                 const currentPassedCount = Object.values(currentMetrics).filter(
                   m => m.is_successful
                 ).length;
@@ -598,113 +651,141 @@ export default function ComparisonView({
                   >
                     <Grid container spacing={0}>
                       {/* Baseline */}
-                      <Grid item xs={12} md={6} sx={{ 
-                        p: 3,
-                        borderRight: { md: 1 },
-                        borderColor: 'divider',
-                        bgcolor: isImproved
-                          ? `${theme.palette.background.default}`
-                          : isRegressed
-                          ? `${theme.palette.background.default}`
-                          : 'transparent',
-                      }}
+                      <Grid
+                        item
+                        xs={12}
+                        md={6}
+                        sx={{
+                          p: 3,
+                          borderRight: { md: 1 },
+                          borderColor: 'divider',
+                          bgcolor: isImproved
+                            ? `${theme.palette.background.default}`
+                            : isRegressed
+                              ? `${theme.palette.background.default}`
+                              : 'transparent',
+                        }}
                       >
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                            {baselinePassed !== null && (
-                              <>
-                                {baselinePassed ? (
-                                  <CheckCircleIcon
-                                    fontSize="small"
-                                    sx={{ color: theme.palette.success.main }}
-                                  />
-                                ) : (
-                                  <CancelIcon
-                                    fontSize="small"
-                                    sx={{ color: theme.palette.error.main }}
-                                  />
-                                )}
-                              </>
-                            )}
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                {getPromptSnippet(test.current)}
-                              </Typography>
-                              <Typography variant="caption" display="block">
-                                {baselinePassed !== null
-                                  ? baselinePassed
-                                    ? 'Passed'
-                                    : 'Failed'
-                                  : 'No data'}{' '}
-                                {baselinePassed !== null &&
-                                  `(${baselinePassedCount}/${baselineTotalCount})`}
-                              </Typography>
-                              {test.baseline && (
-                                <Typography variant="caption" color="text.secondary">
-                                  Score: {getPassRate(test.baseline).toFixed(0)}%
-                                </Typography>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 1,
+                          }}
+                        >
+                          {baselinePassed !== null && (
+                            <>
+                              {baselinePassed ? (
+                                <CheckCircleIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.success.main }}
+                                />
+                              ) : (
+                                <CancelIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.error.main }}
+                                />
                               )}
-                            </Box>
+                            </>
+                          )}
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle2" gutterBottom>
+                              {getPromptSnippet(test.current)}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              {baselinePassed !== null
+                                ? baselinePassed
+                                  ? 'Passed'
+                                  : 'Failed'
+                                : 'No data'}{' '}
+                              {baselinePassed !== null &&
+                                `(${baselinePassedCount}/${baselineTotalCount})`}
+                            </Typography>
+                            {test.baseline && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Score: {getPassRate(test.baseline).toFixed(0)}%
+                              </Typography>
+                            )}
                           </Box>
+                        </Box>
                       </Grid>
 
                       {/* Current */}
-                      <Grid item xs={12} md={6} sx={{ 
-                        p: 3,
-                        bgcolor: isImproved
-                          ? theme.palette.mode === 'light'
-                            ? alpha(theme.palette.success.main, 0.08)
-                            : theme.palette.background.light3
-                          : isRegressed
-                          ? theme.palette.mode === 'light'
-                            ? alpha(theme.palette.error.main, 0.08)
-                            : theme.palette.background.light3
-                          : 'transparent',
-                      }}
+                      <Grid
+                        item
+                        xs={12}
+                        md={6}
+                        sx={{
+                          p: 3,
+                          bgcolor: isImproved
+                            ? theme.palette.mode === 'light'
+                              ? alpha(theme.palette.success.main, 0.08)
+                              : theme.palette.background.light3
+                            : isRegressed
+                              ? theme.palette.mode === 'light'
+                                ? alpha(theme.palette.error.main, 0.08)
+                                : theme.palette.background.light3
+                              : 'transparent',
+                        }}
                       >
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                            {currentPassed ? (
-                              <CheckCircleIcon
-                                fontSize="small"
-                                sx={{ color: theme.palette.success.main }}
-                              />
-                            ) : (
-                              <CancelIcon
-                                fontSize="small"
-                                sx={{ color: theme.palette.error.main }}
-                              />
-                            )}
-                            <Box sx={{ flex: 1 }}>
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                  mb: 0.5,
-                                }}
-                              >
-                                <Typography variant="subtitle2">{getPromptSnippet(test.current)}</Typography>
-                                {isImproved && (
-                                  <TrendingUpIcon
-                                    fontSize="small"
-                                    sx={{ color: theme.palette.success.main }}
-                                  />
-                                )}
-                                {isRegressed && (
-                                  <TrendingDownIcon
-                                    fontSize="small"
-                                    sx={{ color: theme.palette.error.main }}
-                                  />
-                                )}
-                              </Box>
-                              <Typography variant="caption" display="block">
-                                {currentPassed ? 'Passed' : 'Failed'} (
-                                {currentPassedCount}/{currentTotalCount})
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 1,
+                          }}
+                        >
+                          {currentPassed ? (
+                            <CheckCircleIcon
+                              fontSize="small"
+                              sx={{ color: theme.palette.success.main }}
+                            />
+                          ) : (
+                            <CancelIcon
+                              fontSize="small"
+                              sx={{ color: theme.palette.error.main }}
+                            />
+                          )}
+                          <Box sx={{ flex: 1 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                mb: 0.5,
+                              }}
+                            >
+                              <Typography variant="subtitle2">
+                                {getPromptSnippet(test.current)}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                Score: {getPassRate(test.current).toFixed(0)}%
-                              </Typography>
+                              {isImproved && (
+                                <TrendingUpIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.success.main }}
+                                />
+                              )}
+                              {isRegressed && (
+                                <TrendingDownIcon
+                                  fontSize="small"
+                                  sx={{ color: theme.palette.error.main }}
+                                />
+                              )}
                             </Box>
+                            <Typography variant="caption" display="block">
+                              {currentPassed ? 'Passed' : 'Failed'} (
+                              {currentPassedCount}/{currentTotalCount})
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Score: {getPassRate(test.current).toFixed(0)}%
+                            </Typography>
                           </Box>
+                        </Box>
                       </Grid>
                     </Grid>
                   </Paper>
@@ -722,7 +803,7 @@ export default function ComparisonView({
         maxWidth="lg"
         fullWidth
         PaperProps={{
-          sx: { 
+          sx: {
             height: '90vh',
           },
         }}
@@ -736,8 +817,9 @@ export default function ComparisonView({
             }}
           >
             <Typography variant="h6">
-              Test #{comparisonTests.findIndex(t => t.id === selectedTestId) + 1} - Detailed
-              Comparison
+              Test #
+              {comparisonTests.findIndex(t => t.id === selectedTestId) + 1} -
+              Detailed Comparison
             </Typography>
             <IconButton onClick={() => setSelectedTestId(null)} size="small">
               <CloseIcon />
@@ -748,18 +830,32 @@ export default function ComparisonView({
           {selectedTest && (
             <Grid container spacing={3} sx={{ height: '100%' }}>
               {/* Baseline Column */}
-              <Grid item xs={12} md={6} sx={{ 
-                p: 3,
-                borderRight: { md: 1 }, 
-                borderColor: 'divider' 
-              }}>
+              <Grid
+                item
+                xs={12}
+                md={6}
+                sx={{
+                  p: 3,
+                  borderRight: { md: 1 },
+                  borderColor: 'divider',
+                }}
+              >
                 <Box sx={{ mb: 4 }}>
-                  <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    display="block"
+                    gutterBottom
+                  >
                     Baseline Run
                   </Typography>
                   {selectedTest.baseline ? (
                     <>
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
                         {baselineRun && formatDate(baselineRun.created_at)}
                       </Typography>
                       <Chip
@@ -767,24 +863,32 @@ export default function ComparisonView({
                           isTestPassed(selectedTest.baseline)
                             ? `Passed (${
                                 Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics || {}
+                                  selectedTest.baseline.test_metrics?.metrics ||
+                                    {}
                                 ).filter(m => m.is_successful).length
                               }/${
                                 Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics || {}
+                                  selectedTest.baseline.test_metrics?.metrics ||
+                                    {}
                                 ).length
                               })`
                             : `Failed (${
                                 Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics || {}
+                                  selectedTest.baseline.test_metrics?.metrics ||
+                                    {}
                                 ).filter(m => m.is_successful).length
                               }/${
                                 Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics || {}
+                                  selectedTest.baseline.test_metrics?.metrics ||
+                                    {}
                                 ).length
                               })`
                         }
-                        color={isTestPassed(selectedTest.baseline) ? 'success' : 'error'}
+                        color={
+                          isTestPassed(selectedTest.baseline)
+                            ? 'success'
+                            : 'error'
+                        }
                         size="small"
                         sx={{ mt: 1 }}
                       />
@@ -808,10 +912,21 @@ export default function ComparisonView({
                   >
                     {/* Prompt */}
                     <Box sx={{ mb: 3 }}>
-                      <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+                      <Typography
+                        variant="overline"
+                        color="text.secondary"
+                        display="block"
+                        gutterBottom
+                      >
                         Prompt
                       </Typography>
-                      <Paper variant="outlined" sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 2.5,
+                          bgcolor: theme.palette.background.light1,
+                        }}
+                      >
                         <Typography variant="body2">
                           {selectedTest.baseline.prompt_id &&
                           prompts[selectedTest.baseline.prompt_id]
@@ -823,12 +938,24 @@ export default function ComparisonView({
 
                     {/* Response */}
                     <Box sx={{ mb: 3 }}>
-                      <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+                      <Typography
+                        variant="overline"
+                        color="text.secondary"
+                        display="block"
+                        gutterBottom
+                      >
                         Response
                       </Typography>
-                      <Paper variant="outlined" sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 2.5,
+                          bgcolor: theme.palette.background.light1,
+                        }}
+                      >
                         <Typography variant="body2">
-                          {selectedTest.baseline.test_output?.output || 'No response available'}
+                          {selectedTest.baseline.test_output?.output ||
+                            'No response available'}
                         </Typography>
                       </Paper>
                     </Box>
@@ -842,9 +969,13 @@ export default function ComparisonView({
                         .map(metric => ({
                           ...metric,
                           baselineResult:
-                            selectedTest.baseline?.test_metrics?.metrics?.[metric.name],
+                            selectedTest.baseline?.test_metrics?.metrics?.[
+                              metric.name
+                            ],
                           currentResult:
-                            selectedTest.current?.test_metrics?.metrics?.[metric.name],
+                            selectedTest.current?.test_metrics?.metrics?.[
+                              metric.name
+                            ],
                         }))
                         .filter(m => m.baselineResult || m.currentResult);
 
@@ -856,21 +987,22 @@ export default function ComparisonView({
                       const currentPassedCount = behaviorMetrics.filter(
                         m => m.currentResult?.is_successful
                       ).length;
-                      const hasChanges = baselinePassedCount !== currentPassedCount;
+                      const hasChanges =
+                        baselinePassedCount !== currentPassedCount;
 
                       return (
-                        <Accordion 
-                          key={behavior.id} 
-                          sx={{ 
+                        <Accordion
+                          key={behavior.id}
+                          sx={{
                             mb: 2,
                             '&:before': { display: 'none' },
                             boxShadow: 'none',
                             border: 1,
                             borderColor: 'divider',
-                          }} 
+                          }}
                           defaultExpanded={hasChanges}
                         >
-                          <AccordionSummary 
+                          <AccordionSummary
                             expandIcon={<ExpandMoreIcon />}
                             sx={{ py: 2 }}
                           >
@@ -882,7 +1014,9 @@ export default function ComparisonView({
                                 width: '100%',
                               }}
                             >
-                              <Typography variant="body2">{behavior.name}</Typography>
+                              <Typography variant="body2">
+                                {behavior.name}
+                              </Typography>
                               <Chip
                                 label={`${baselinePassedCount}/${behaviorMetrics.length}`}
                                 size="small"
@@ -895,13 +1029,23 @@ export default function ComparisonView({
                             </Box>
                           </AccordionSummary>
                           <AccordionDetails sx={{ p: 3 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 3,
+                              }}
+                            >
                               {behaviorMetrics.map(metric => {
-                                const scoreDiff = 
-                                  metric.currentResult?.score != null && metric.baselineResult?.score != null
-                                    ? Number(metric.currentResult.score) - Number(metric.baselineResult.score)
+                                const scoreDiff =
+                                  metric.currentResult?.score != null &&
+                                  metric.baselineResult?.score != null
+                                    ? Number(metric.currentResult.score) -
+                                      Number(metric.baselineResult.score)
                                     : null;
-                                const hasScoreChange = scoreDiff !== null && Math.abs(scoreDiff) > 0.01;
+                                const hasScoreChange =
+                                  scoreDiff !== null &&
+                                  Math.abs(scoreDiff) > 0.01;
 
                                 return (
                                   <Paper
@@ -909,23 +1053,37 @@ export default function ComparisonView({
                                     variant="outlined"
                                     sx={{ p: 3 }}
                                   >
-                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                    <Box
+                                      sx={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 1,
+                                      }}
+                                    >
                                       {metric.baselineResult?.is_successful ? (
                                         <CheckCircleIcon
                                           fontSize="small"
-                                          sx={{ color: theme.palette.success.main }}
+                                          sx={{
+                                            color: theme.palette.success.main,
+                                          }}
                                         />
                                       ) : (
                                         <CancelIcon
                                           fontSize="small"
-                                          sx={{ color: theme.palette.error.main }}
+                                          sx={{
+                                            color: theme.palette.error.main,
+                                          }}
                                         />
                                       )}
                                       <Box sx={{ flex: 1 }}>
-                                        <Typography variant="subtitle2" gutterBottom>
+                                        <Typography
+                                          variant="subtitle2"
+                                          gutterBottom
+                                        >
                                           {metric.name}
                                         </Typography>
-                                        {metric.baselineResult?.score != null && (
+                                        {metric.baselineResult?.score !=
+                                          null && (
                                           <Box sx={{ mb: 1 }}>
                                             <Box
                                               sx={{
@@ -935,46 +1093,73 @@ export default function ComparisonView({
                                               }}
                                             >
                                               <Typography variant="caption">
-                                                Score: {Number(metric.baselineResult.score).toFixed(2)}
+                                                Score:{' '}
+                                                {Number(
+                                                  metric.baselineResult.score
+                                                ).toFixed(2)}
                                                 {hasScoreChange && (
                                                   <Typography
                                                     component="span"
                                                     variant="caption"
                                                     sx={{
                                                       ml: 0.5,
-                                                      color: scoreDiff! > 0 
-                                                        ? theme.palette.success.main 
-                                                        : theme.palette.error.main,
+                                                      color:
+                                                        scoreDiff! > 0
+                                                          ? theme.palette
+                                                              .success.main
+                                                          : theme.palette.error
+                                                              .main,
                                                       fontWeight: 500,
                                                     }}
                                                   >
-                                                    ({scoreDiff! > 0 ? '+' : ''}{scoreDiff!.toFixed(2)})
+                                                    ({scoreDiff! > 0 ? '+' : ''}
+                                                    {scoreDiff!.toFixed(2)})
                                                   </Typography>
                                                 )}
                                               </Typography>
-                                              {metric.baselineResult.threshold != null && (
+                                              {metric.baselineResult
+                                                .threshold != null && (
                                                 <Typography
                                                   variant="caption"
                                                   color="text.secondary"
                                                 >
-                                                  Threshold: ≥{Number(metric.baselineResult.threshold).toFixed(2)}
+                                                  Threshold: ≥
+                                                  {Number(
+                                                    metric.baselineResult
+                                                      .threshold
+                                                  ).toFixed(2)}
                                                 </Typography>
                                               )}
                                             </Box>
                                             <LinearProgress
                                               variant="determinate"
-                                              value={Number(metric.baselineResult.score) * 100}
-                                              color={metric.baselineResult.is_successful ? 'success' : 'error'}
+                                              value={
+                                                Number(
+                                                  metric.baselineResult.score
+                                                ) * 100
+                                              }
+                                              color={
+                                                metric.baselineResult
+                                                  .is_successful
+                                                  ? 'success'
+                                                  : 'error'
+                                              }
                                               sx={{
                                                 height: 8,
-                                                borderRadius: theme.shape.borderRadius / 4,
-                                                bgcolor: theme.palette.background.light2,
+                                                borderRadius:
+                                                  theme.shape.borderRadius / 4,
+                                                bgcolor:
+                                                  theme.palette.background
+                                                    .light2,
                                               }}
                                             />
                                           </Box>
                                         )}
                                         {metric.baselineResult?.reason && (
-                                          <Typography variant="caption" color="text.secondary">
+                                          <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                          >
                                             {metric.baselineResult.reason}
                                           </Typography>
                                         )}
@@ -1001,13 +1186,29 @@ export default function ComparisonView({
               {/* Current Column */}
               <Grid item xs={12} md={6} sx={{ p: 3 }}>
                 <Box sx={{ mb: 4 }}>
-                  <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    display="block"
+                    gutterBottom
+                  >
                     Current Run
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
                     {formatDate(currentTestRun.created_at)}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mt: 1,
+                    }}
+                  >
                     <Chip
                       label={
                         isTestPassed(selectedTest.current)
@@ -1030,7 +1231,9 @@ export default function ComparisonView({
                               ).length
                             })`
                       }
-                      color={isTestPassed(selectedTest.current) ? 'success' : 'error'}
+                      color={
+                        isTestPassed(selectedTest.current) ? 'success' : 'error'
+                      }
                       size="small"
                     />
                     {selectedTest.baseline && (
@@ -1063,10 +1266,18 @@ export default function ComparisonView({
                 >
                   {/* Prompt */}
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      display="block"
+                      gutterBottom
+                    >
                       Prompt
                     </Typography>
-                    <Paper variant="outlined" sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}>
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}
+                    >
                       <Typography variant="body2">
                         {selectedTest.current.prompt_id &&
                         prompts[selectedTest.current.prompt_id]
@@ -1078,12 +1289,21 @@ export default function ComparisonView({
 
                   {/* Response */}
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      display="block"
+                      gutterBottom
+                    >
                       Response
                     </Typography>
-                    <Paper variant="outlined" sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}>
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}
+                    >
                       <Typography variant="body2">
-                        {selectedTest.current.test_output?.output || 'No response available'}
+                        {selectedTest.current.test_output?.output ||
+                          'No response available'}
                       </Typography>
                     </Paper>
                   </Box>
@@ -1096,8 +1316,14 @@ export default function ComparisonView({
                     const behaviorMetrics = behavior.metrics
                       .map(metric => ({
                         ...metric,
-                        currentResult: selectedTest.current?.test_metrics?.metrics?.[metric.name],
-                        baselineResult: selectedTest.baseline?.test_metrics?.metrics?.[metric.name],
+                        currentResult:
+                          selectedTest.current?.test_metrics?.metrics?.[
+                            metric.name
+                          ],
+                        baselineResult:
+                          selectedTest.baseline?.test_metrics?.metrics?.[
+                            metric.name
+                          ],
                       }))
                       .filter(m => m.currentResult || m.baselineResult);
 
@@ -1109,21 +1335,22 @@ export default function ComparisonView({
                     const baselinePassedCount = behaviorMetrics.filter(
                       m => m.baselineResult?.is_successful
                     ).length;
-                    const hasChanges = currentPassedCount !== baselinePassedCount;
+                    const hasChanges =
+                      currentPassedCount !== baselinePassedCount;
 
                     return (
-                      <Accordion 
-                        key={behavior.id} 
-                        sx={{ 
+                      <Accordion
+                        key={behavior.id}
+                        sx={{
                           mb: 2,
                           '&:before': { display: 'none' },
                           boxShadow: 'none',
                           border: 1,
                           borderColor: 'divider',
-                        }} 
+                        }}
                         defaultExpanded={hasChanges}
                       >
-                        <AccordionSummary 
+                        <AccordionSummary
                           expandIcon={<ExpandMoreIcon />}
                           sx={{ py: 2 }}
                         >
@@ -1135,13 +1362,23 @@ export default function ComparisonView({
                               width: '100%',
                             }}
                           >
-                            <Typography variant="body2">{behavior.name}</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="body2">
+                              {behavior.name}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                              }}
+                            >
                               <Chip
                                 label={`${currentPassedCount}/${behaviorMetrics.length}`}
                                 size="small"
                                 color={
-                                  currentPassedCount === behaviorMetrics.length ? 'success' : 'error'
+                                  currentPassedCount === behaviorMetrics.length
+                                    ? 'success'
+                                    : 'error'
                                 }
                               />
                               {hasChanges && (
@@ -1163,39 +1400,65 @@ export default function ComparisonView({
                           </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ p: 3 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 3,
+                            }}
+                          >
                             {behaviorMetrics.map(metric => {
-                              const scoreDiff = 
-                                metric.currentResult?.score != null && metric.baselineResult?.score != null
-                                  ? Number(metric.currentResult.score) - Number(metric.baselineResult.score)
+                              const scoreDiff =
+                                metric.currentResult?.score != null &&
+                                metric.baselineResult?.score != null
+                                  ? Number(metric.currentResult.score) -
+                                    Number(metric.baselineResult.score)
                                   : null;
-                              const hasScoreChange = scoreDiff !== null && Math.abs(scoreDiff) > 0.01;
-                              const statusChanged = 
-                                metric.baselineResult && metric.currentResult &&
-                                metric.baselineResult.is_successful !== metric.currentResult.is_successful;
+                              const hasScoreChange =
+                                scoreDiff !== null &&
+                                Math.abs(scoreDiff) > 0.01;
+                              const statusChanged =
+                                metric.baselineResult &&
+                                metric.currentResult &&
+                                metric.baselineResult.is_successful !==
+                                  metric.currentResult.is_successful;
 
                               return (
-                                <Paper 
-                                  key={metric.name} 
-                                  variant="outlined" 
-                                  sx={{ 
+                                <Paper
+                                  key={metric.name}
+                                  variant="outlined"
+                                  sx={{
                                     p: 3,
-                                    bgcolor: statusChanged 
-                                      ? (metric.currentResult?.is_successful 
-                                          ? theme.palette.mode === 'light' 
-                                            ? alpha(theme.palette.success.main, 0.08)
-                                            : theme.palette.background.light3
-                                          : theme.palette.mode === 'light' 
-                                            ? alpha(theme.palette.error.main, 0.08)
-                                            : theme.palette.background.light3)
+                                    bgcolor: statusChanged
+                                      ? metric.currentResult?.is_successful
+                                        ? theme.palette.mode === 'light'
+                                          ? alpha(
+                                              theme.palette.success.main,
+                                              0.08
+                                            )
+                                          : theme.palette.background.light3
+                                        : theme.palette.mode === 'light'
+                                          ? alpha(
+                                              theme.palette.error.main,
+                                              0.08
+                                            )
+                                          : theme.palette.background.light3
                                       : 'transparent',
                                   }}
                                 >
-                                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: 1,
+                                    }}
+                                  >
                                     {metric.currentResult?.is_successful ? (
                                       <CheckCircleIcon
                                         fontSize="small"
-                                        sx={{ color: theme.palette.success.main }}
+                                        sx={{
+                                          color: theme.palette.success.main,
+                                        }}
                                       />
                                     ) : (
                                       <CancelIcon
@@ -1204,21 +1467,35 @@ export default function ComparisonView({
                                       />
                                     )}
                                     <Box sx={{ flex: 1 }}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 1,
+                                          mb: 1,
+                                        }}
+                                      >
                                         <Typography variant="subtitle2">
                                           {metric.name}
                                         </Typography>
                                         {statusChanged && (
                                           <>
-                                            {metric.currentResult?.is_successful ? (
+                                            {metric.currentResult
+                                              ?.is_successful ? (
                                               <TrendingUpIcon
                                                 fontSize="small"
-                                                sx={{ color: theme.palette.success.main }}
+                                                sx={{
+                                                  color:
+                                                    theme.palette.success.main,
+                                                }}
                                               />
                                             ) : (
                                               <TrendingDownIcon
                                                 fontSize="small"
-                                                sx={{ color: theme.palette.error.main }}
+                                                sx={{
+                                                  color:
+                                                    theme.palette.error.main,
+                                                }}
                                               />
                                             )}
                                           </>
@@ -1234,46 +1511,70 @@ export default function ComparisonView({
                                             }}
                                           >
                                             <Typography variant="caption">
-                                              Score: {Number(metric.currentResult.score).toFixed(2)}
+                                              Score:{' '}
+                                              {Number(
+                                                metric.currentResult.score
+                                              ).toFixed(2)}
                                               {hasScoreChange && (
                                                 <Typography
                                                   component="span"
                                                   variant="caption"
                                                   sx={{
                                                     ml: 0.5,
-                                                    color: scoreDiff! > 0 
-                                                      ? theme.palette.success.main 
-                                                      : theme.palette.error.main,
+                                                    color:
+                                                      scoreDiff! > 0
+                                                        ? theme.palette.success
+                                                            .main
+                                                        : theme.palette.error
+                                                            .main,
                                                     fontWeight: 500,
                                                   }}
                                                 >
-                                                  ({scoreDiff! > 0 ? '+' : ''}{scoreDiff!.toFixed(2)})
+                                                  ({scoreDiff! > 0 ? '+' : ''}
+                                                  {scoreDiff!.toFixed(2)})
                                                 </Typography>
                                               )}
                                             </Typography>
-                                            {metric.currentResult.threshold != null && (
+                                            {metric.currentResult.threshold !=
+                                              null && (
                                               <Typography
                                                 variant="caption"
                                                 color="text.secondary"
                                               >
-                                                Threshold: ≥{Number(metric.currentResult.threshold).toFixed(2)}
+                                                Threshold: ≥
+                                                {Number(
+                                                  metric.currentResult.threshold
+                                                ).toFixed(2)}
                                               </Typography>
                                             )}
                                           </Box>
                                           <LinearProgress
                                             variant="determinate"
-                                            value={Number(metric.currentResult.score) * 100}
-                                            color={metric.currentResult.is_successful ? 'success' : 'error'}
+                                            value={
+                                              Number(
+                                                metric.currentResult.score
+                                              ) * 100
+                                            }
+                                            color={
+                                              metric.currentResult.is_successful
+                                                ? 'success'
+                                                : 'error'
+                                            }
                                             sx={{
                                               height: 8,
-                                              borderRadius: theme.shape.borderRadius / 4,
-                                              bgcolor: theme.palette.background.light2,
+                                              borderRadius:
+                                                theme.shape.borderRadius / 4,
+                                              bgcolor:
+                                                theme.palette.background.light2,
                                             }}
                                           />
                                         </Box>
                                       )}
                                       {metric.currentResult?.reason && (
-                                        <Typography variant="caption" color="text.secondary">
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                        >
                                           {metric.currentResult.reason}
                                         </Typography>
                                       )}
@@ -1296,4 +1597,3 @@ export default function ComparisonView({
     </Box>
   );
 }
-

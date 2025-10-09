@@ -207,19 +207,19 @@ export default function TestRunMainView({
         const testRunsClient = new ApiClientFactory(
           sessionToken
         ).getTestRunsClient();
-        
+
         const params: any = {
           limit: 50,
           skip: 0,
           sort_by: 'created_at',
           sort_order: 'desc',
         };
-        
+
         // Only add test_configuration_id filter if it exists
         if (testRunData.test_configuration_id) {
           params.test_configuration_id = testRunData.test_configuration_id;
         }
-        
+
         const response = await testRunsClient.getTestRuns(params);
 
         // Filter out current test run
@@ -307,7 +307,11 @@ export default function TestRunMainView({
     <Box>
       {/* Header with Summary Cards - only show when not in comparison mode */}
       {!isComparisonMode && (
-        <TestRunHeader testRun={testRun} testResults={testResults} loading={loading} />
+        <TestRunHeader
+          testRun={testRun}
+          testResults={testResults}
+          loading={loading}
+        />
       )}
 
       {!isComparisonMode ? (

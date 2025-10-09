@@ -178,7 +178,7 @@ function TestListItem({
             >
               {passedMetrics}/{totalMetrics} metrics
             </Typography>
-            
+
             {/* Comments Count */}
             {test.counts?.comments && test.counts.comments > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -188,7 +188,7 @@ function TestListItem({
                 </Typography>
               </Box>
             )}
-            
+
             {/* Tasks Count */}
             {test.counts?.tasks && test.counts.tasks > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
