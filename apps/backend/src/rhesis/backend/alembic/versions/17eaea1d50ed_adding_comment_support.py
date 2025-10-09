@@ -3,7 +3,6 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-import rhesis
 
 # revision identifiers, used by Alembic.
 revision: str = "17eaea1d50ed"

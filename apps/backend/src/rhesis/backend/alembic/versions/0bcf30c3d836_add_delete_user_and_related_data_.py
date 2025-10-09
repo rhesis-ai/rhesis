@@ -1,8 +1,6 @@
 from alembic import op
 import sqlalchemy as sa
 from typing import Union, Sequence
-import rhesis
-
 
 
 # revision identifiers, used by Alembic.
