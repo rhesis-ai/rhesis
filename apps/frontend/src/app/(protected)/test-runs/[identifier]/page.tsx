@@ -5,7 +5,6 @@ import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestRunHeader from './components/TestRunHeader';
 import TestRunMainView from './components/TestRunMainView';
-import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import { UUID } from 'crypto';
@@ -180,25 +179,18 @@ export default async function TestRunPage({ params }: { params: any }) {
           />
 
           {/* Main Split View */}
-          <TestRunMainView
-            testRunId={identifier}
-            sessionToken={session.session_token}
-            testResults={testResults}
-            prompts={promptsMap}
-            behaviors={behaviors}
-          />
-
-          {/* Tasks and Comments Section */}
-          <Box sx={{ mt: 4 }}>
-            <TasksAndCommentsWrapper
-              entityType="TestRun"
-              entityId={testRun.id}
+          <div suppressHydrationWarning>
+            <TestRunMainView
+              testRunId={identifier}
               sessionToken={session.session_token}
+              testResults={testResults}
+              prompts={promptsMap}
+              behaviors={behaviors}
               currentUserId={session.user?.id || ''}
               currentUserName={session.user?.name || ''}
               currentUserPicture={session.user?.picture || undefined}
             />
-          </Box>
+          </div>
         </Box>
       </PageContainer>
     );
