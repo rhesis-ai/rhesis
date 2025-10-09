@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Typography, Grid, Button, Alert, Paper } from '@mui/material';
+import { Box, Typography, Button, Alert, Paper } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
-import AddIcon from '@mui/icons-material/Add';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import UploadIcon from '@mui/icons-material/Upload';
-import Link from 'next/link';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
+import SourcesGrid from './SourcesGrid';
 
 /** Type for alert/snackbar severity */
 type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
@@ -62,7 +61,12 @@ export default function KnowledgeClientWrapper({
   sessionToken,
 }: KnowledgeClientWrapperProps) {
   const [sources, setSources] = useState<Source[]>(initialSources || []);
+  const [refreshKey, setRefreshKey] = useState(0);
   const notifications = useNotifications();
+
+  const handleRefresh = React.useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   // Show error state if no session token
   if (!sessionToken) {
@@ -106,90 +110,23 @@ export default function KnowledgeClientWrapper({
           startIcon={<UploadIcon />}
           // TODO: Add upload functionality
           onClick={() => {
-            notifications.showNotification('Upload functionality coming soon!', 'info');
+            notifications.show('Upload functionality coming soon!', { severity: 'info' });
           }}
         >
           Upload Source
         </Button>
       </Box>
 
-      {/* Sources content area */}
-      <Box sx={{ mb: 4 }}>
-        {Array.isArray(sources) && sources.length > 0 ? (
-          <Grid container spacing={3}>
-            {sources.map(source => (
-              <Grid item key={source.id} xs={12} md={6} lg={4}>
-                <Paper
-                  elevation={1}
-                  sx={{
-                    p: 3,
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    '&:hover': {
-                      elevation: 2,
-                      cursor: 'pointer'
-                    }
-                  }}
-                >
-                  <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-                    {source.title}
-                  </Typography>
-
-                  {source.description && (
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                      {source.description}
-                    </Typography>
-                  )}
-
-                  <Box sx={{ mt: 'auto' }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      Uploaded: {new Date(source.created_at).toLocaleDateString()}
-                    </Typography>
-
-                    {source.tags && source.tags.length > 0 && (
-                      <Box sx={{ mt: 1 }}>
-                        {source.tags.slice(0, 3).map(tag => (
-                          <Typography
-                            key={tag}
-                            variant="caption"
-                            sx={{
-                              mr: 1,
-                              px: 1,
-                              py: 0.5,
-                              bgcolor: 'primary.light',
-                              color: 'primary.contrastText',
-                              borderRadius: 1,
-                              fontSize: '0.7rem'
-                            }}
-                          >
-                            {tag}
-                          </Typography>
-                        ))}
-                        {source.tags.length > 3 && (
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            +{source.tags.length - 3} more
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </Box>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <EmptyStateMessage
-            title="No knowledge sources found"
-            description="Upload your first document, PDF, or text file to start building your knowledge base. Sources help improve your AI model's understanding and responses."
-            icon={
-              <Box sx={{ mb: 2 }}>
-                <UploadIcon sx={{ fontSize: 64, color: 'primary.main', opacity: 0.7 }} />
-              </Box>
-            }
+      {/* Sources grid */}
+      <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
+        <Box sx={{ p: 2 }}>
+          <SourcesGrid
+            sessionToken={sessionToken}
+            onRefresh={handleRefresh}
+            key={`sources-grid-${refreshKey}`}
           />
-        )}
-      </Box>
+        </Box>
+      </Paper>
     </PageContainer>
   );
 }
