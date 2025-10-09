@@ -65,24 +65,22 @@ export default function TestDetailHistoryTab({
 
         // Fetch historical test results for this test
         const results = await testResultsClient.getTestResults({
-          test_id: test.test_id,
+          filter: `test_id eq '${test.test_id}'`,
           limit: 10,
-          offset: 0,
+          skip: 0,
         });
 
         // Get unique test run IDs to fetch their names
         const testRunIds = [
           ...new Set(
-            results.data
-              .filter((r) => r.test_run_id)
-              .map((r) => r.test_run_id!)
+            results.data.filter(r => r.test_run_id).map(r => r.test_run_id!)
           ),
         ];
 
         // Fetch test run details to get actual names
         const testRunsClient = clientFactory.getTestRunsClient();
         const testRunsData = await Promise.allSettled(
-          testRunIds.map((id) => testRunsClient.getTestRun(id))
+          testRunIds.map(id => testRunsClient.getTestRun(id))
         );
 
         // Create a map of test run IDs to names
@@ -90,46 +88,54 @@ export default function TestDetailHistoryTab({
         testRunsData.forEach((result, index) => {
           if (result.status === 'fulfilled') {
             const testRun = result.value;
-            // Use name if available, otherwise use nano_id or the full identifier
-            const displayName = testRun.name || testRun.nano_id || testRun.identifier || testRunIds[index];
+            // Use name if available, otherwise use the test run ID
+            const displayName = testRun.name || testRunIds[index];
             testRunNamesMap.set(testRun.id, displayName);
-            console.log(`Mapped test run ${testRun.id} to name: ${displayName}`);
+            console.log(
+              `Mapped test run ${testRun.id} to name: ${displayName}`
+            );
           } else {
             // If fetch failed, use the ID as fallback
-            console.warn(`Failed to fetch test run ${testRunIds[index]}:`, result.reason);
+            console.warn(
+              `Failed to fetch test run ${testRunIds[index]}:`,
+              result.reason
+            );
             testRunNamesMap.set(testRunIds[index], testRunIds[index]);
           }
         });
 
         // Process results into historical format
-        const historicalData: HistoricalResult[] = results.data.map((result) => {
+        const historicalData: HistoricalResult[] = results.data.map(result => {
           const metrics = result.test_metrics?.metrics || {};
           const metricValues = Object.values(metrics);
-          const passedMetrics = metricValues.filter((m) => m.is_successful).length;
+          const passedMetrics = metricValues.filter(
+            m => m.is_successful
+          ).length;
           const totalMetrics = metricValues.length;
           const passed = totalMetrics > 0 && passedMetrics === totalMetrics;
 
           return {
             id: result.id,
             testRunId: result.test_run_id || 'unknown',
-            testRunName: result.test_run_id 
+            testRunName: result.test_run_id
               ? testRunNamesMap.get(result.test_run_id) || result.test_run_id
               : 'unknown',
             passed,
             passedMetrics,
             totalMetrics,
-            executedAt: result.attributes?.executed_at || result.created_at || new Date().toISOString(),
+            executedAt: result.created_at || new Date().toISOString(),
           };
         });
 
         // Sort by execution date (most recent first)
-        historicalData.sort((a, b) => 
-          new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
+        historicalData.sort(
+          (a, b) =>
+            new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
         );
 
         // Group by test run - only show one result per test run (the most recent one)
         const uniqueByTestRun = new Map<string, HistoricalResult>();
-        historicalData.forEach((item) => {
+        historicalData.forEach(item => {
           if (!uniqueByTestRun.has(item.testRunId)) {
             uniqueByTestRun.set(item.testRunId, item);
           }
@@ -137,8 +143,10 @@ export default function TestDetailHistoryTab({
 
         // Convert back to array and limit to 10
         const dedupedHistory = Array.from(uniqueByTestRun.values())
-          .sort((a, b) => 
-            new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
+          .sort(
+            (a, b) =>
+              new Date(b.executedAt).getTime() -
+              new Date(a.executedAt).getTime()
           )
           .slice(0, 10);
 
@@ -157,7 +165,14 @@ export default function TestDetailHistoryTab({
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          p: 4,
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -198,7 +213,7 @@ export default function TestDetailHistoryTab({
               </TableRow>
             </TableHead>
             <TableBody>
-              {history.map((item) => (
+              {history.map(item => (
                 <TableRow
                   key={item.id}
                   sx={{
@@ -213,7 +228,13 @@ export default function TestDetailHistoryTab({
                 >
                   <TableCell>
                     <Chip
-                      icon={item.passed ? <CheckCircleOutlineIcon /> : <CancelOutlinedIcon />}
+                      icon={
+                        item.passed ? (
+                          <CheckCircleOutlineIcon />
+                        ) : (
+                          <CancelOutlinedIcon />
+                        )
+                      }
                       label={item.passed ? 'Pass' : 'Fail'}
                       size="small"
                       color={item.passed ? 'success' : 'error'}
@@ -247,8 +268,12 @@ export default function TestDetailHistoryTab({
                               className="test-run-name"
                               sx={{
                                 transition: 'color 0.2s',
-                                color: item.testRunId === testRunId ? 'primary.main' : 'text.primary',
-                                fontWeight: item.testRunId === testRunId ? 600 : 400,
+                                color:
+                                  item.testRunId === testRunId
+                                    ? 'primary.main'
+                                    : 'text.primary',
+                                fontWeight:
+                                  item.testRunId === testRunId ? 600 : 400,
                               }}
                             >
                               {item.testRunName}
@@ -262,7 +287,9 @@ export default function TestDetailHistoryTab({
                           </Box>
                         </Link>
                       ) : (
-                        <Typography variant="body2">{item.testRunName}</Typography>
+                        <Typography variant="body2">
+                          {item.testRunName}
+                        </Typography>
                       )}
                       {item.testRunId === testRunId && (
                         <Chip label="Current" size="small" color="primary" />
@@ -304,12 +331,19 @@ export default function TestDetailHistoryTab({
                 <Typography variant="caption" color="text.secondary">
                   Pass Rate
                 </Typography>
-                <Typography variant="h6" color={
-                  (history.filter(h => h.passed).length / history.length) >= 0.8
-                    ? 'success.main'
-                    : 'error.main'
-                }>
-                  {((history.filter(h => h.passed).length / history.length) * 100).toFixed(1)}%
+                <Typography
+                  variant="h6"
+                  color={
+                    history.filter(h => h.passed).length / history.length >= 0.8
+                      ? 'success.main'
+                      : 'error.main'
+                  }
+                >
+                  {(
+                    (history.filter(h => h.passed).length / history.length) *
+                    100
+                  ).toFixed(1)}
+                  %
                 </Typography>
               </Box>
               <Box>
@@ -335,4 +369,3 @@ export default function TestDetailHistoryTab({
     </Box>
   );
 }
-

@@ -47,7 +47,9 @@ export default function TestDetailMetricsTab({
   behaviors,
 }: TestDetailMetricsTabProps) {
   const theme = useTheme();
-  const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>(
+    'all'
+  );
 
   const metricsData = useMemo(() => {
     const testMetrics = test.test_metrics?.metrics || {};
@@ -60,15 +62,14 @@ export default function TestDetailMetricsTab({
       behaviorName: string;
     }> = [];
 
-    behaviors.forEach((behavior) => {
-      behavior.metrics.forEach((metric) => {
+    behaviors.forEach(behavior => {
+      behavior.metrics.forEach(metric => {
         const metricResult = testMetrics[metric.name];
         if (metricResult) {
           allMetrics.push({
             name: metric.name,
             description: metric.description,
             passed: metricResult.is_successful,
-            result: metricResult.result,
             fullMetricData: metricResult, // Store the full data
             behaviorName: behavior.name,
           });
@@ -82,7 +83,7 @@ export default function TestDetailMetricsTab({
   // Filter metrics based on selected status
   const filteredMetrics = useMemo(() => {
     if (filterStatus === 'all') return metricsData;
-    return metricsData.filter((m) => 
+    return metricsData.filter(m =>
       filterStatus === 'passed' ? m.passed : !m.passed
     );
   }, [metricsData, filterStatus]);
@@ -90,7 +91,7 @@ export default function TestDetailMetricsTab({
   // Calculate summary statistics
   const summary: MetricSummary = useMemo(() => {
     const total = metricsData.length;
-    const passed = metricsData.filter((m) => m.passed).length;
+    const passed = metricsData.filter(m => m.passed).length;
     const failed = total - passed;
     const passRate = total > 0 ? (passed / total) * 100 : 0;
 
@@ -101,24 +102,26 @@ export default function TestDetailMetricsTab({
   const behaviorStats = useMemo(() => {
     const stats = new Map<string, { passed: number; total: number }>();
 
-    behaviors.forEach((behavior) => {
+    behaviors.forEach(behavior => {
       const behaviorMetrics = metricsData.filter(
-        (m) => m.behaviorName === behavior.name
+        m => m.behaviorName === behavior.name
       );
-      const passed = behaviorMetrics.filter((m) => m.passed).length;
+      const passed = behaviorMetrics.filter(m => m.passed).length;
       const total = behaviorMetrics.length;
-      
+
       if (total > 0) {
         stats.set(behavior.name, { passed, total });
       }
     });
 
-    const entries = Array.from(stats.entries()).map(([name, { passed, total }]) => ({
-      name,
-      passed,
-      total,
-      rate: (passed / total) * 100,
-    }));
+    const entries = Array.from(stats.entries()).map(
+      ([name, { passed, total }]) => ({
+        name,
+        passed,
+        total,
+        rate: (passed / total) * 100,
+      })
+    );
 
     entries.sort((a, b) => b.rate - a.rate);
 
@@ -134,7 +137,7 @@ export default function TestDetailMetricsTab({
 
   const handleFilterChange = (
     _event: React.MouseEvent<HTMLElement>,
-    newFilter: 'all' | 'passed' | 'failed' | null,
+    newFilter: 'all' | 'passed' | 'failed' | null
   ) => {
     if (newFilter !== null) {
       setFilterStatus(newFilter);
@@ -166,7 +169,11 @@ export default function TestDetailMetricsTab({
             <Grid item xs={12} md={4}>
               <Card>
                 <CardContent>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
                     Best Behavior
                   </Typography>
                   <Typography variant="h6" fontWeight={600} noWrap>
@@ -184,7 +191,11 @@ export default function TestDetailMetricsTab({
             <Grid item xs={12} md={4}>
               <Card>
                 <CardContent>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
                     Worst Behavior
                   </Typography>
                   <Typography variant="h6" fontWeight={600} noWrap>
@@ -221,7 +232,14 @@ export default function TestDetailMetricsTab({
       </Grid>
 
       {/* Filter Toggle */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box
+        sx={{
+          mb: 2,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Typography variant="subtitle2" fontWeight={600}>
           Metrics Breakdown
         </Typography>
@@ -259,7 +277,11 @@ export default function TestDetailMetricsTab({
             {filteredMetrics.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} align="center">
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ py: 2 }}
+                  >
                     No metrics found
                   </Typography>
                 </TableCell>
@@ -276,7 +298,13 @@ export default function TestDetailMetricsTab({
                 >
                   <TableCell>
                     <Chip
-                      icon={metric.passed ? <CheckCircleOutlineIcon /> : <CancelOutlinedIcon />}
+                      icon={
+                        metric.passed ? (
+                          <CheckCircleOutlineIcon />
+                        ) : (
+                          <CancelOutlinedIcon />
+                        )
+                      }
                       label={metric.passed ? 'Pass' : 'Fail'}
                       size="small"
                       color={metric.passed ? 'success' : 'error'}
@@ -284,10 +312,16 @@ export default function TestDetailMetricsTab({
                     />
                   </TableCell>
                   <TableCell>
-                    <Chip label={metric.behaviorName} size="small" variant="outlined" />
+                    <Chip
+                      label={metric.behaviorName}
+                      size="small"
+                      variant="outlined"
+                    />
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
                       <Typography variant="body2" fontWeight={500}>
                         {metric.name}
                       </Typography>
@@ -325,7 +359,11 @@ export default function TestDetailMetricsTab({
                         {metric.fullMetricData.reason}
                       </Typography>
                     ) : (
-                      <Typography variant="caption" color="text.disabled" fontStyle="italic">
+                      <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        fontStyle="italic"
+                      >
                         No reason provided
                       </Typography>
                     )}
@@ -339,4 +377,3 @@ export default function TestDetailMetricsTab({
     </Box>
   );
 }
-
