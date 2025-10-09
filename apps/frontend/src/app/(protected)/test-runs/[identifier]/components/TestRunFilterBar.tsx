@@ -75,7 +75,7 @@ export default function TestRunFilterBar({
 
   const handleBehaviorToggle = (behaviorId: string) => {
     const newBehaviors = filter.selectedBehaviors.includes(behaviorId)
-      ? filter.selectedBehaviors.filter((id) => id !== behaviorId)
+      ? filter.selectedBehaviors.filter(id => id !== behaviorId)
       : [...filter.selectedBehaviors, behaviorId];
 
     onFilterChange({
@@ -91,7 +91,8 @@ export default function TestRunFilterBar({
     });
   };
 
-  const activeFilterCount = filter.selectedBehaviors.length + (filter.statusFilter !== 'all' ? 1 : 0);
+  const activeFilterCount =
+    filter.selectedBehaviors.length + (filter.statusFilter !== 'all' ? 1 : 0);
   const open = Boolean(anchorEl);
 
   return (
@@ -142,7 +143,9 @@ export default function TestRunFilterBar({
           </Button>
           <Button
             onClick={() => handleStatusFilterChange('passed')}
-            variant={filter.statusFilter === 'passed' ? 'contained' : 'outlined'}
+            variant={
+              filter.statusFilter === 'passed' ? 'contained' : 'outlined'
+            }
             startIcon={<CheckCircleOutlineIcon fontSize="small" />}
             sx={{
               ...(filter.statusFilter === 'passed' && {
@@ -157,7 +160,9 @@ export default function TestRunFilterBar({
           </Button>
           <Button
             onClick={() => handleStatusFilterChange('failed')}
-            variant={filter.statusFilter === 'failed' ? 'contained' : 'outlined'}
+            variant={
+              filter.statusFilter === 'failed' ? 'contained' : 'outlined'
+            }
             startIcon={<CancelOutlinedIcon fontSize="small" />}
             sx={{
               ...(filter.statusFilter === 'failed' && {
@@ -187,7 +192,11 @@ export default function TestRunFilterBar({
         )}
 
         {/* Results count */}
-        <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ display: 'flex', alignItems: 'center' }}
+        >
           {filteredTests === totalTests
             ? `${totalTests} tests`
             : `${filteredTests} of ${totalTests} tests`}
@@ -228,7 +237,14 @@ export default function TestRunFilterBar({
           },
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+          }}
+        >
           <Typography variant="subtitle2" fontWeight={600}>
             Filter by Behaviors
           </Typography>
@@ -242,7 +258,7 @@ export default function TestRunFilterBar({
         <Divider sx={{ mb: 2 }} />
 
         <FormGroup>
-          {availableBehaviors.map((behavior) => (
+          {availableBehaviors.map(behavior => (
             <FormControlLabel
               key={behavior.id}
               control={
@@ -252,11 +268,7 @@ export default function TestRunFilterBar({
                   size="small"
                 />
               }
-              label={
-                <Typography variant="body2">
-                  {behavior.name}
-                </Typography>
-              }
+              label={<Typography variant="body2">{behavior.name}</Typography>}
             />
           ))}
         </FormGroup>
@@ -264,4 +276,3 @@ export default function TestRunFilterBar({
     </Box>
   );
 }
-

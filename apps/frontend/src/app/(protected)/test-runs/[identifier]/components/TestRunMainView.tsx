@@ -41,9 +41,11 @@ export default function TestRunMainView({
   const notifications = useNotifications();
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  
+
   // Track only updates to test results (not all test results)
-  const [testResultUpdates, setTestResultUpdates] = useState<Map<string, TestResultDetail>>(new Map());
+  const [testResultUpdates, setTestResultUpdates] = useState<
+    Map<string, TestResultDetail>
+  >(new Map());
 
   // Filter state
   const [filter, setFilter] = useState<FilterState>({
@@ -57,14 +59,14 @@ export default function TestRunMainView({
     if (testResultUpdates.size === 0) {
       return initialTestResults;
     }
-    return initialTestResults.map((test) => 
-      testResultUpdates.get(test.id) || test
+    return initialTestResults.map(
+      test => testResultUpdates.get(test.id) || test
     );
   }, [initialTestResults, testResultUpdates]);
 
   // Get selected test
   const selectedTest = useMemo(() => {
-    return testResults.find((t) => t.id === selectedTestId) || null;
+    return testResults.find(t => t.id === selectedTestId) || null;
   }, [testResults, selectedTestId]);
 
   // Filter tests based on current filter state
@@ -74,7 +76,7 @@ export default function TestRunMainView({
     // Apply search filter
     if (filter.searchQuery) {
       const query = filter.searchQuery.toLowerCase();
-      filtered = filtered.filter((test) => {
+      filtered = filtered.filter(test => {
         const promptContent =
           test.prompt_id && prompts[test.prompt_id]
             ? prompts[test.prompt_id].content.toLowerCase()
@@ -86,28 +88,28 @@ export default function TestRunMainView({
 
     // Apply status filter
     if (filter.statusFilter !== 'all') {
-      filtered = filtered.filter((test) => {
+      filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
         const metricValues = Object.values(metrics);
         const totalMetrics = metricValues.length;
-        const passedMetrics = metricValues.filter((m) => m.is_successful).length;
+        const passedMetrics = metricValues.filter(m => m.is_successful).length;
         const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
-        
+
         return filter.statusFilter === 'passed' ? isPassed : !isPassed;
       });
     }
 
     // Apply behavior filter
     if (filter.selectedBehaviors.length > 0) {
-      filtered = filtered.filter((test) => {
+      filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
-        
+
         // Check if test has at least one metric from selected behaviors
-        return filter.selectedBehaviors.some((behaviorId) => {
-          const behavior = behaviors.find((b) => b.id === behaviorId);
+        return filter.selectedBehaviors.some(behaviorId => {
+          const behavior = behaviors.find(b => b.id === behaviorId);
           if (!behavior) return false;
-          
-          return behavior.metrics.some((metric) => metrics[metric.name]);
+
+          return behavior.metrics.some(metric => metrics[metric.name]);
         });
       });
     }
@@ -121,29 +123,37 @@ export default function TestRunMainView({
   }, []);
 
   // Handle filter changes
-  const handleFilterChange = useCallback((newFilter: FilterState) => {
-    setFilter(newFilter);
-    // If current selected test is not in filtered list, clear selection
-    const testStillVisible = testResults.some((t) => t.id === selectedTestId);
-    if (!testStillVisible) {
-      setSelectedTestId(null);
-    }
-  }, [testResults, selectedTestId]);
+  const handleFilterChange = useCallback(
+    (newFilter: FilterState) => {
+      setFilter(newFilter);
+      // If current selected test is not in filtered list, clear selection
+      const testStillVisible = testResults.some(t => t.id === selectedTestId);
+      if (!testStillVisible) {
+        setSelectedTestId(null);
+      }
+    },
+    [testResults, selectedTestId]
+  );
 
   // Handle test result updates (e.g., when tags change)
-  const handleTestResultUpdate = useCallback((updatedTest: TestResultDetail) => {
-    setTestResultUpdates((prev) => {
-      const newMap = new Map(prev);
-      newMap.set(updatedTest.id, updatedTest);
-      return newMap;
-    });
-  }, []);
+  const handleTestResultUpdate = useCallback(
+    (updatedTest: TestResultDetail) => {
+      setTestResultUpdates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(updatedTest.id, updatedTest);
+        return newMap;
+      });
+    },
+    []
+  );
 
   // Handle download
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
     try {
-      const testRunsClient = new ApiClientFactory(sessionToken).getTestRunsClient();
+      const testRunsClient = new ApiClientFactory(
+        sessionToken
+      ).getTestRunsClient();
       const blob = await testRunsClient.downloadTestRun(testRunId);
 
       // Create download link
@@ -241,4 +251,3 @@ export default function TestRunMainView({
     </Box>
   );
 }
-

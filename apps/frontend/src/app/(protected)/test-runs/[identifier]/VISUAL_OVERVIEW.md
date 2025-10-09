@@ -63,6 +63,7 @@
 ## Key Visual Features
 
 ### 🎨 Color Coding
+
 - **Green** (Success): Pass rates ≥80%, passed tests, passed metrics
 - **Red** (Error): Failed tests, failed metrics, pass rates <50%
 - **Orange** (Warning): Pass rates 50-79%
@@ -72,6 +73,7 @@
 ### ✨ Interactions
 
 #### Hover Effects
+
 ```
 Cards:          Lift up 2px + shadow increase
 Test Items:     Slide right 4px + hover background
@@ -79,6 +81,7 @@ Buttons:        Background color change
 ```
 
 #### Selection States
+
 ```
 Selected Test:  Blue 2px border + elevation 3 + background highlight
 Active Tab:     Blue underline + bold text
@@ -86,6 +89,7 @@ Active Filter:  Contained button style + badge
 ```
 
 #### Loading States
+
 ```
 Summary Cards:  Skeleton loaders (3 animated bars)
 Test List:      5 skeleton items with pulsing animation
@@ -93,6 +97,7 @@ Detail Panel:   Full-panel skeleton with structured blocks
 ```
 
 #### Empty States
+
 ```
 No Tests:       Icon + "No tests found" message
 No Selection:   Large icon + "Select a test" message
@@ -102,6 +107,7 @@ No History:     Table with "No historical data" message
 ## Screen Sizes
 
 ### Desktop (≥900px)
+
 ```
 ┌───────────────────────────────────────────────┐
 │  Cards: 4 columns (25% each)                  │
@@ -111,6 +117,7 @@ No History:     Table with "No historical data" message
 ```
 
 ### Tablet (600-899px)
+
 ```
 ┌────────────────────────────┐
 │  Cards: 2 columns (50%)    │
@@ -121,6 +128,7 @@ No History:     Table with "No historical data" message
 ```
 
 ### Mobile (<600px)
+
 ```
 ┌─────────────────┐
 │  Cards: 1 col   │
@@ -135,7 +143,7 @@ No History:     Table with "No historical data" message
 
 ```
 Page Title (Breadcrumb):  h5, Sora Semibold
-Card Values:             h4, Be Vietnam Pro Semibold  
+Card Values:             h4, Be Vietnam Pro Semibold
 Card Titles:             body2, Be Vietnam Pro Medium
 Tab Labels:              Tab component default
 Section Headers:         subtitle2, Be Vietnam Pro Semibold
@@ -323,6 +331,7 @@ Total New Code:          ~1,570 lines
 ## Comparison: Old vs New
 
 ### Old Design
+
 ```
 - DataGrid with pagination
 - Flat table view
@@ -334,6 +343,7 @@ Total New Code:          ~1,570 lines
 ```
 
 ### New Design
+
 ```
 - List + Detail split view
 - Rich visual indicators
@@ -357,4 +367,3 @@ Total New Code:          ~1,570 lines
 8. **Accessibility**: Better keyboard navigation, ARIA labels
 9. **Modern UI**: Card-based, animated, polished
 10. **Extensibility**: Easy to add new tabs, filters, features
-

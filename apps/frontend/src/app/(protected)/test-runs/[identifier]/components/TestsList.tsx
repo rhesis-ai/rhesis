@@ -49,8 +49,18 @@ function TestListItemSkeleton() {
             <Skeleton variant="text" width="80%" height={20} />
             <Skeleton variant="text" width="60%" height={16} sx={{ mt: 1 }} />
             <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <Skeleton variant="rectangular" width={60} height={20} sx={{ borderRadius: (theme) => theme.shape.borderRadius }} />
-              <Skeleton variant="rectangular" width={60} height={20} sx={{ borderRadius: (theme) => theme.shape.borderRadius }} />
+              <Skeleton
+                variant="rectangular"
+                width={60}
+                height={20}
+                sx={{ borderRadius: theme => theme.shape.borderRadius }}
+              />
+              <Skeleton
+                variant="rectangular"
+                width={60}
+                height={20}
+                sx={{ borderRadius: theme => theme.shape.borderRadius }}
+              />
             </Box>
           </Box>
         </Box>
@@ -71,9 +81,10 @@ function TestListItem({
   const theme = useTheme();
 
   // Truncate prompt content for display
-  const truncatedPrompt = promptContent.length > 100 
-    ? `${promptContent.substring(0, 100)}...` 
-    : promptContent;
+  const truncatedPrompt =
+    promptContent.length > 100
+      ? `${promptContent.substring(0, 100)}...`
+      : promptContent;
 
   return (
     <ListItem disablePadding sx={{ mb: 1 }}>
@@ -82,7 +93,9 @@ function TestListItem({
         sx={{
           width: '100%',
           transition: 'all 0.2s',
-          border: isSelected ? `2px solid ${theme.palette.primary.main}` : '2px solid transparent',
+          border: isSelected
+            ? `2px solid ${theme.palette.primary.main}`
+            : '2px solid transparent',
           '&:hover': {
             elevation: 2,
             transform: 'translateX(4px)',
@@ -101,7 +114,14 @@ function TestListItem({
           }}
         >
           {/* Status Icon and Prompt */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 2,
+              width: '100%',
+            }}
+          >
             <Box
               sx={{
                 flexShrink: 0,
@@ -138,10 +158,18 @@ function TestListItem({
           </Box>
 
           {/* Metrics Summary */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', flexWrap: 'wrap' }}>
-            <Typography 
-              variant="caption" 
-              sx={{ 
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              width: '100%',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
                 color: isPassed ? 'success.main' : 'error.main',
                 fontWeight: 500,
               }}
@@ -168,10 +196,10 @@ export default function TestsList({
 
   // Process tests to determine pass/fail status
   const processedTests = useMemo(() => {
-    return tests.map((test) => {
+    return tests.map(test => {
       const metrics = test.test_metrics?.metrics || {};
       const metricValues = Object.values(metrics);
-      const passedMetrics = metricValues.filter((m) => m.is_successful).length;
+      const passedMetrics = metricValues.filter(m => m.is_successful).length;
       const totalMetrics = metricValues.length;
       const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
 
@@ -196,16 +224,18 @@ export default function TestsList({
       if (processedTests.length === 0) return;
 
       const currentIndex = processedTests.findIndex(
-        (item) => item.test.id === selectedTestId
+        item => item.test.id === selectedTestId
       );
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        const nextIndex = currentIndex < processedTests.length - 1 ? currentIndex + 1 : 0;
+        const nextIndex =
+          currentIndex < processedTests.length - 1 ? currentIndex + 1 : 0;
         onTestSelect(processedTests[nextIndex].test.id);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        const prevIndex = currentIndex > 0 ? currentIndex - 1 : processedTests.length - 1;
+        const prevIndex =
+          currentIndex > 0 ? currentIndex - 1 : processedTests.length - 1;
         onTestSelect(processedTests[prevIndex].test.id);
       }
     };
@@ -285,24 +315,25 @@ export default function TestsList({
       }}
     >
       <List sx={{ py: 0 }}>
-        {processedTests.map(({ test, isPassed, passedMetrics, totalMetrics, promptContent }) => (
-          <Box
-            key={test.id}
-            ref={selectedTestId === test.id ? selectedItemRef : null}
-          >
-            <TestListItem
-              test={test}
-              isSelected={selectedTestId === test.id}
-              onClick={() => onTestSelect(test.id)}
-              promptContent={promptContent}
-              isPassed={isPassed}
-              passedMetrics={passedMetrics}
-              totalMetrics={totalMetrics}
-            />
-          </Box>
-        ))}
+        {processedTests.map(
+          ({ test, isPassed, passedMetrics, totalMetrics, promptContent }) => (
+            <Box
+              key={test.id}
+              ref={selectedTestId === test.id ? selectedItemRef : null}
+            >
+              <TestListItem
+                test={test}
+                isSelected={selectedTestId === test.id}
+                onClick={() => onTestSelect(test.id)}
+                promptContent={promptContent}
+                isPassed={isPassed}
+                passedMetrics={passedMetrics}
+                totalMetrics={totalMetrics}
+              />
+            </Box>
+          )
+        )}
       </List>
     </Box>
   );
 }
-
