@@ -49,6 +49,7 @@ page.tsx (Server Component)
 ## Component Props Reference
 
 ### TestRunHeader
+
 ```typescript
 {
   testRun: TestRunDetail;           // Test run metadata
@@ -58,6 +59,7 @@ page.tsx (Server Component)
 ```
 
 ### TestRunFilterBar
+
 ```typescript
 {
   filter: FilterState;                      // Current filter state
@@ -71,6 +73,7 @@ page.tsx (Server Component)
 ```
 
 ### TestsList
+
 ```typescript
 {
   tests: TestResultDetail[];        // Tests to display
@@ -82,6 +85,7 @@ page.tsx (Server Component)
 ```
 
 ### TestDetailPanel
+
 ```typescript
 {
   test: TestResultDetail | null;    // Selected test (null = none)
@@ -94,6 +98,7 @@ page.tsx (Server Component)
 ```
 
 ### TestRunMainView
+
 ```typescript
 {
   testRunId: string;                // Test run identifier
@@ -108,6 +113,7 @@ page.tsx (Server Component)
 ## State Management
 
 ### TestRunMainView State
+
 ```typescript
 // Test selection
 const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
@@ -124,11 +130,13 @@ const [filter, setFilter] = useState<FilterState>({
 ```
 
 ### TestDetailPanel State
+
 ```typescript
 const [activeTab, setActiveTab] = useState(0); // 0=Overview, 1=Metrics, 2=History
 ```
 
 ### TestDetailHistoryTab State
+
 ```typescript
 const [history, setHistory] = useState<HistoricalResult[]>([]);
 const [loading, setLoading] = useState(true);
@@ -138,6 +146,7 @@ const [error, setError] = useState<string | null>(null);
 ## Data Flow
 
 ### Server → Client
+
 ```
 page.tsx (Server)
   ↓ Fetches test run, results, prompts, behaviors
@@ -150,6 +159,7 @@ TestsList & TestDetailPanel
 ```
 
 ### User Interactions
+
 ```
 User types in search
   ↓ TestRunFilterBar onChange
@@ -166,6 +176,7 @@ User clicks test in list
 ## Styling Patterns
 
 ### Card Pattern
+
 ```typescript
 <Card
   sx={{
@@ -179,6 +190,7 @@ User clicks test in list
 ```
 
 ### Scrollable Container Pattern
+
 ```typescript
 <Box
   sx={{
@@ -203,6 +215,7 @@ User clicks test in list
 ```
 
 ### Status Chip Pattern
+
 ```typescript
 <Chip
   icon={isPassed ? <CheckCircleIcon /> : <CancelIcon />}
@@ -216,31 +229,35 @@ User clicks test in list
 ## Common Calculations
 
 ### Test Pass/Fail Status
+
 ```typescript
 const metrics = test.test_metrics?.metrics || {};
 const metricValues = Object.values(metrics);
 const totalMetrics = metricValues.length;
-const passedMetrics = metricValues.filter((m) => m.is_successful).length;
+const passedMetrics = metricValues.filter(m => m.is_successful).length;
 const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
 ```
 
 ### Pass Rate
+
 ```typescript
 const total = testResults.length;
-const passed = testResults.filter((r) => {
+const passed = testResults.filter(r => {
   const metrics = r.test_metrics?.metrics;
   if (!metrics) return false;
-  return Object.values(metrics).every((m) => m.is_successful);
+  return Object.values(metrics).every(m => m.is_successful);
 }).length;
 const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
 ```
 
 ### Duration Calculation
+
 ```typescript
 const startedAt = testRun.attributes?.started_at;
 const completedAt = testRun.attributes?.completed_at;
 if (startedAt && completedAt) {
-  const diffMs = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  const diffMs =
+    new Date(completedAt).getTime() - new Date(startedAt).getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffSecs = Math.floor((diffMs % 60000) / 1000);
   duration = `${diffMins}m ${diffSecs}s`;
@@ -266,6 +283,7 @@ xl: 1536,   // 1536px+
 ## Performance Tips
 
 ### Use useMemo for Expensive Calculations
+
 ```typescript
 const filteredTests = useMemo(() => {
   // Expensive filtering logic
@@ -273,6 +291,7 @@ const filteredTests = useMemo(() => {
 ```
 
 ### Use useCallback for Event Handlers
+
 ```typescript
 const handleTestSelect = useCallback((testId: string) => {
   setSelectedTestId(testId);
@@ -280,6 +299,7 @@ const handleTestSelect = useCallback((testId: string) => {
 ```
 
 ### Avoid Prop Drilling
+
 - Keep state as close to where it's used as possible
 - Pass only necessary data down
 - Use composition over deep nesting
@@ -287,6 +307,7 @@ const handleTestSelect = useCallback((testId: string) => {
 ## Debugging Tips
 
 ### Check Test Results Structure
+
 ```typescript
 console.log('Test Results:', testResults);
 console.log('First Result:', testResults[0]);
@@ -294,6 +315,7 @@ console.log('Metrics:', testResults[0]?.test_metrics?.metrics);
 ```
 
 ### Verify Filter Logic
+
 ```typescript
 console.log('Filter State:', filter);
 console.log('Filtered Tests:', filteredTests);
@@ -301,6 +323,7 @@ console.log('Filter Count:', filteredTests.length, '/', testResults.length);
 ```
 
 ### Monitor Re-renders
+
 ```typescript
 useEffect(() => {
   console.log('Component rendered with:', { test, selectedTestId });
@@ -310,18 +333,23 @@ useEffect(() => {
 ## Common Issues & Solutions
 
 ### Issue: Selected test not showing
+
 **Solution**: Check if `selectedTestId` matches any test ID in `testResults`
 
 ### Issue: Filters not working
+
 **Solution**: Verify filter logic in `filteredTests` useMemo
 
 ### Issue: Metrics not displaying
+
 **Solution**: Check that behaviors have metrics loaded
 
 ### Issue: History not loading
+
 **Solution**: Verify `test.test_id` exists and API token is valid
 
 ### Issue: Layout breaks on mobile
+
 **Solution**: Check Grid `xs` breakpoint props
 
 ## Future Enhancements
@@ -336,4 +364,3 @@ useEffect(() => {
 8. **Trend Charts**: Historical performance graphs
 9. **Real-time Updates**: WebSocket for live test results
 10. **Bulk Actions**: Select multiple tests for operations
-

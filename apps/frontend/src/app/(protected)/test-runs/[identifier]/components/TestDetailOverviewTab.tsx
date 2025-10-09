@@ -1,13 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import {
-  Box,
-  Typography,
-  Paper,
-  Chip,
-  useTheme,
-} from '@mui/material';
+import { Box, Typography, Paper, Chip, useTheme } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -40,7 +34,7 @@ export default function TestDetailOverviewTab({
     const testMetrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(testMetrics);
     const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter((m) => m.is_successful).length;
+    const passedMetrics = metricValues.filter(m => m.is_successful).length;
     return totalMetrics > 0 && passedMetrics === totalMetrics;
   }, [test]);
 
@@ -53,7 +47,13 @@ export default function TestDetailOverviewTab({
             Test Result
           </Typography>
           <Chip
-            icon={overallPassed ? <CheckCircleOutlineIcon /> : <CancelOutlinedIcon />}
+            icon={
+              overallPassed ? (
+                <CheckCircleOutlineIcon />
+              ) : (
+                <CancelOutlinedIcon />
+              )
+            }
             label={overallPassed ? 'Passed' : 'Failed'}
             color={overallPassed ? 'success' : 'error'}
             sx={{ fontWeight: 600 }}
@@ -117,13 +117,12 @@ export default function TestDetailOverviewTab({
 
       {/* Tags Section */}
       <Box sx={{ mb: 3 }}>
-        <TestResultTags 
-          sessionToken={sessionToken} 
-          testResult={test} 
+        <TestResultTags
+          sessionToken={sessionToken}
+          testResult={test}
           onUpdate={onTestResultUpdate}
         />
       </Box>
     </Box>
   );
 }
-

@@ -90,7 +90,7 @@ export default async function TestRunPage({ params }: { params: any }) {
       });
 
       testResults = [...testResults, ...testResultsResponse.data];
-      
+
       // Check if there are more results
       const totalCount = testResultsResponse.pagination?.totalCount || 0;
       hasMore = testResults.length < totalCount;
@@ -102,16 +102,12 @@ export default async function TestRunPage({ params }: { params: any }) {
 
     // Get unique prompt IDs and fetch prompts
     const promptIds = [
-      ...new Set(
-        testResults
-          .filter((r) => r.prompt_id)
-          .map((r) => r.prompt_id!)
-      ),
+      ...new Set(testResults.filter(r => r.prompt_id).map(r => r.prompt_id!)),
     ];
 
     // Fetch prompts with error handling for individual failures
     const promptsData = await Promise.allSettled(
-      promptIds.map((id) => promptsClient.getPrompt(id))
+      promptIds.map(id => promptsClient.getPrompt(id))
     );
 
     const promptsMap = promptsData.reduce(
@@ -120,7 +116,10 @@ export default async function TestRunPage({ params }: { params: any }) {
           acc[result.value.id] = result.value;
         } else {
           // Log error but continue - use prompt ID as fallback
-          console.warn(`Failed to fetch prompt ${promptIds[index]}:`, result.reason);
+          console.warn(
+            `Failed to fetch prompt ${promptIds[index]}:`,
+            result.reason
+          );
         }
         return acc;
       },
@@ -130,13 +129,14 @@ export default async function TestRunPage({ params }: { params: any }) {
     // Fetch behaviors with metrics for this test run
     let behaviors: any[] = [];
     try {
-      const behaviorsData = await testRunsClient.getTestRunBehaviors(identifier);
+      const behaviorsData =
+        await testRunsClient.getTestRunBehaviors(identifier);
       const behaviorsWithMetrics = await Promise.all(
-        behaviorsData.map(async (behavior) => {
+        behaviorsData.map(async behavior => {
           try {
-            const behaviorMetrics = await (behaviorClient as any).getBehaviorMetrics(
-              behavior.id as UUID
-            );
+            const behaviorMetrics = await (
+              behaviorClient as any
+            ).getBehaviorMetrics(behavior.id as UUID);
             return {
               ...behavior,
               metrics: behaviorMetrics,
@@ -155,7 +155,7 @@ export default async function TestRunPage({ params }: { params: any }) {
       );
 
       behaviors = behaviorsWithMetrics.filter(
-        (behavior) => behavior.metrics.length > 0
+        behavior => behavior.metrics.length > 0
       );
     } catch (error) {
       console.warn('Failed to fetch behaviors:', error);
@@ -173,10 +173,7 @@ export default async function TestRunPage({ params }: { params: any }) {
       <PageContainer title={title} breadcrumbs={breadcrumbs}>
         <Box sx={{ flexGrow: 1, pt: 3 }}>
           {/* Header with Summary Cards */}
-          <TestRunHeader
-            testRun={testRun}
-            testResults={testResults}
-          />
+          <TestRunHeader testRun={testRun} testResults={testResults} />
 
           {/* Main Split View */}
           <div suppressHydrationWarning>

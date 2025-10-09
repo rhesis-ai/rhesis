@@ -74,7 +74,7 @@ function LoadingSkeleton() {
 
 function EmptyState() {
   const theme = useTheme();
-  
+
   return (
     <Box
       sx={{
@@ -223,9 +223,9 @@ export default function TestDetailPanel({
         }}
       >
         <TabPanel value={activeTab} index={0}>
-          <TestDetailOverviewTab 
-            test={test} 
-            prompts={prompts} 
+          <TestDetailOverviewTab
+            test={test}
+            prompts={prompts}
             sessionToken={sessionToken}
             onTestResultUpdate={onTestResultUpdate}
           />
@@ -236,8 +236,8 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <TestDetailHistoryTab 
-            test={test} 
+          <TestDetailHistoryTab
+            test={test}
             testRunId={testRunId}
             sessionToken={sessionToken}
           />
@@ -258,4 +258,3 @@ export default function TestDetailPanel({
     </Paper>
   );
 }
-
