@@ -49,8 +49,8 @@ function TestListItemSkeleton() {
             <Skeleton variant="text" width="80%" height={20} />
             <Skeleton variant="text" width="60%" height={16} sx={{ mt: 1 }} />
             <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <Skeleton variant="rectangular" width={60} height={20} sx={{ borderRadius: 1 }} />
-              <Skeleton variant="rectangular" width={60} height={20} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={60} height={20} sx={{ borderRadius: (theme) => theme.shape.borderRadius }} />
+              <Skeleton variant="rectangular" width={60} height={20} sx={{ borderRadius: (theme) => theme.shape.borderRadius }} />
             </Box>
           </Box>
         </Box>
