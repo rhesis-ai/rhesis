@@ -19,6 +19,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import DownloadIcon from '@mui/icons-material/Download';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import ListIcon from '@mui/icons-material/List';
@@ -34,6 +35,7 @@ interface TestRunFilterBarProps {
   onFilterChange: (filter: FilterState) => void;
   availableBehaviors: Array<{ id: string; name: string }>;
   onDownload: () => void;
+  onCompare: () => void;
   isDownloading?: boolean;
   totalTests: number;
   filteredTests: number;
@@ -44,6 +46,7 @@ export default function TestRunFilterBar({
   onFilterChange,
   availableBehaviors,
   onDownload,
+  onCompare,
   isDownloading = false,
   totalTests,
   filteredTests,
@@ -205,6 +208,14 @@ export default function TestRunFilterBar({
 
       {/* Right side: Actions */}
       <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<CompareArrowsIcon />}
+          onClick={onCompare}
+        >
+          Compare
+        </Button>
         <Button
           size="small"
           variant="outlined"

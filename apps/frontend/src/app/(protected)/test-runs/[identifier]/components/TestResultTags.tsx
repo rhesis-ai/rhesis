@@ -23,8 +23,8 @@ export default function TestResultTags({
   // Initialize and update tag names when testResult changes
   useEffect(() => {
     // Reset tags whenever test result changes (based on ID)
-    // Note: TestResult doesn't have tags property yet - backend support needed
-    const tags = (testResult as any).tags;
+    // TestResult now has tags property via TagsMixin
+    const tags = testResult.tags;
     if (tags && Array.isArray(tags)) {
       setTagNames(tags.map((tag: any) => tag.name));
     } else {

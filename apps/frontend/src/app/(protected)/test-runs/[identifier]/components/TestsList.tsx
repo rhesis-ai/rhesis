@@ -13,6 +13,8 @@ import {
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import ChatIcon from '@mui/icons-material/Chat';
+import TaskIcon from '@mui/icons-material/Task';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 
 interface TestsListProps {
@@ -157,7 +159,7 @@ function TestListItem({
             </Box>
           </Box>
 
-          {/* Metrics Summary */}
+          {/* Metrics Summary and Counts */}
           <Box
             sx={{
               display: 'flex',
@@ -176,6 +178,26 @@ function TestListItem({
             >
               {passedMetrics}/{totalMetrics} metrics
             </Typography>
+            
+            {/* Comments Count */}
+            {test.counts?.comments && test.counts.comments > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <ChatIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
+                <Typography variant="caption" color="text.secondary">
+                  {test.counts.comments}
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Tasks Count */}
+            {test.counts?.tasks && test.counts.tasks > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <TaskIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
+                <Typography variant="caption" color="text.secondary">
+                  {test.counts.tasks}
+                </Typography>
+              </Box>
+            )}
           </Box>
         </ListItemButton>
       </Paper>
