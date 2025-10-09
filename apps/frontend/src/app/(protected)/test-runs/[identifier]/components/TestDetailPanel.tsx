@@ -244,16 +244,15 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={3}>
-          <Box sx={{ p: 3 }}>
-            <TasksAndCommentsWrapper
-              entityType="TestResult"
-              entityId={test.id}
-              sessionToken={sessionToken}
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              currentUserPicture={currentUserPicture}
-            />
-          </Box>
+          <TasksAndCommentsWrapper
+            entityType="TestResult"
+            entityId={test.id}
+            sessionToken={sessionToken}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserPicture={currentUserPicture}
+            elevation={0}
+          />
         </TabPanel>
       </Box>
     </Paper>
