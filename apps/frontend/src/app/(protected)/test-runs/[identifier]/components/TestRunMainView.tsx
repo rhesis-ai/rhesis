@@ -21,20 +21,29 @@ interface TestRunMainViewProps {
     metrics: Array<{ name: string; description?: string }>;
   }>;
   loading?: boolean;
+  currentUserId: string;
+  currentUserName: string;
+  currentUserPicture?: string;
 }
 
 export default function TestRunMainView({
   testRunId,
   sessionToken,
-  testResults,
+  testResults: initialTestResults,
   prompts,
   behaviors,
   loading = false,
+  currentUserId,
+  currentUserName,
+  currentUserPicture,
 }: TestRunMainViewProps) {
   const theme = useTheme();
   const notifications = useNotifications();
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  
+  // Track only updates to test results (not all test results)
+  const [testResultUpdates, setTestResultUpdates] = useState<Map<string, TestResultDetail>>(new Map());
 
   // Filter state
   const [filter, setFilter] = useState<FilterState>({
@@ -42,6 +51,16 @@ export default function TestRunMainView({
     statusFilter: 'all',
     selectedBehaviors: [],
   });
+
+  // Merge prop data with any updates
+  const testResults = useMemo(() => {
+    if (testResultUpdates.size === 0) {
+      return initialTestResults;
+    }
+    return initialTestResults.map((test) => 
+      testResultUpdates.get(test.id) || test
+    );
+  }, [initialTestResults, testResultUpdates]);
 
   // Get selected test
   const selectedTest = useMemo(() => {
@@ -110,6 +129,15 @@ export default function TestRunMainView({
       setSelectedTestId(null);
     }
   }, [testResults, selectedTestId]);
+
+  // Handle test result updates (e.g., when tags change)
+  const handleTestResultUpdate = useCallback((updatedTest: TestResultDetail) => {
+    setTestResultUpdates((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(updatedTest.id, updatedTest);
+      return newMap;
+    });
+  }, []);
 
   // Handle download
   const handleDownload = useCallback(async () => {
@@ -202,6 +230,10 @@ export default function TestRunMainView({
               behaviors={behaviors}
               testRunId={testRunId}
               sessionToken={sessionToken}
+              onTestResultUpdate={handleTestResultUpdate}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
             />
           </Paper>
         </Grid>

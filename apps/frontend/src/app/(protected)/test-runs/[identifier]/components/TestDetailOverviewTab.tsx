@@ -17,12 +17,14 @@ interface TestDetailOverviewTabProps {
   test: TestResultDetail;
   prompts: Record<string, { content: string; name?: string }>;
   sessionToken: string;
+  onTestResultUpdate: (updatedTest: TestResultDetail) => void;
 }
 
 export default function TestDetailOverviewTab({
   test,
   prompts,
   sessionToken,
+  onTestResultUpdate,
 }: TestDetailOverviewTabProps) {
   const theme = useTheme();
 
@@ -117,7 +119,11 @@ export default function TestDetailOverviewTab({
 
       {/* Tags Section */}
       <Box sx={{ mb: 3 }}>
-        <TestResultTags sessionToken={sessionToken} testResult={test} />
+        <TestResultTags 
+          sessionToken={sessionToken} 
+          testResult={test} 
+          onUpdate={onTestResultUpdate}
+        />
       </Box>
     </Box>
   );

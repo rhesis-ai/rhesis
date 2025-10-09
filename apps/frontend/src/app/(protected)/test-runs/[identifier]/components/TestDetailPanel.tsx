@@ -20,6 +20,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface TestDetailPanelProps {
   test: TestResultDetail | null;
@@ -33,6 +34,10 @@ interface TestDetailPanelProps {
   }>;
   testRunId: string;
   sessionToken: string;
+  onTestResultUpdate: (updatedTest: TestResultDetail) => void;
+  currentUserId: string;
+  currentUserName: string;
+  currentUserPicture?: string;
 }
 
 interface TabPanelProps {
@@ -106,6 +111,10 @@ export default function TestDetailPanel({
   behaviors,
   testRunId,
   sessionToken,
+  onTestResultUpdate,
+  currentUserId,
+  currentUserName,
+  currentUserPicture,
 }: TestDetailPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
   const theme = useTheme();
@@ -181,7 +190,13 @@ export default function TestDetailPanel({
             id="test-detail-tab-2"
             aria-controls="test-detail-tabpanel-2"
           />
-          {/* Future: Comments and Tasks tabs can be added here */}
+          <Tab
+            icon={<CommentOutlinedIcon fontSize="small" />}
+            iconPosition="start"
+            label="Tasks & Comments"
+            id="test-detail-tab-3"
+            aria-controls="test-detail-tabpanel-3"
+          />
         </Tabs>
       </Box>
 
@@ -212,6 +227,7 @@ export default function TestDetailPanel({
             test={test} 
             prompts={prompts} 
             sessionToken={sessionToken}
+            onTestResultUpdate={onTestResultUpdate}
           />
         </TabPanel>
 
@@ -225,6 +241,19 @@ export default function TestDetailPanel({
             testRunId={testRunId}
             sessionToken={sessionToken}
           />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={3}>
+          <Box sx={{ p: 3 }}>
+            <TasksAndCommentsWrapper
+              entityType="TestResult"
+              entityId={test.id}
+              sessionToken={sessionToken}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+            />
+          </Box>
         </TabPanel>
       </Box>
     </Paper>
