@@ -23,26 +23,30 @@ export default function TestResultTags({
   // Initialize and update tag names when testResult changes
   useEffect(() => {
     // Reset tags whenever test result changes (based on ID)
-    if (testResult.tags) {
-      setTagNames(testResult.tags.map(tag => tag.name));
+    // Note: TestResult doesn't have tags property yet - backend support needed
+    const tags = (testResult as any).tags;
+    if (tags && Array.isArray(tags)) {
+      setTagNames(tags.map((tag: any) => tag.name));
     } else {
       setTagNames([]);
     }
-  }, [testResult.id, testResult.tags]);
+  }, [testResult.id]);
 
   // Handle tag changes and update parent state
   const handleTagChange = async (newTagNames: string[]) => {
     // Update local state immediately
     setTagNames(newTagNames);
-    
+
     // After BaseTag completes its API calls, fetch the updated test result
     // We use a small delay to ensure API calls have completed
     setTimeout(async () => {
       try {
         const apiFactory = new ApiClientFactory(sessionToken);
         const testResultsClient = apiFactory.getTestResultsClient();
-        const updatedTestResult = await testResultsClient.getTestResult(testResult.id);
-        
+        const updatedTestResult = await testResultsClient.getTestResult(
+          testResult.id
+        );
+
         // Notify parent of the update
         onUpdate(updatedTestResult);
       } catch (error) {
@@ -72,4 +76,3 @@ export default function TestResultTags({
     </Box>
   );
 }
-
