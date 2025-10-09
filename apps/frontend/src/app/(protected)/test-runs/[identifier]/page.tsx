@@ -3,7 +3,6 @@ import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import TestRunHeader from './components/TestRunHeader';
 import TestRunMainView from './components/TestRunMainView';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
@@ -172,13 +171,17 @@ export default async function TestRunPage({ params }: { params: any }) {
     return (
       <PageContainer title={title} breadcrumbs={breadcrumbs}>
         <Box sx={{ flexGrow: 1, pt: 3 }}>
-          {/* Header with Summary Cards */}
-          <TestRunHeader testRun={testRun} testResults={testResults} />
-
           {/* Main Split View */}
           <div suppressHydrationWarning>
             <TestRunMainView
               testRunId={identifier}
+              testRunData={{
+                id: testRun.id,
+                name: testRun.name,
+                created_at: testRun.attributes?.started_at || testRun.created_at || '',
+                test_configuration_id: testRun.test_configuration_id,
+              }}
+              testRun={testRun}
               sessionToken={session.session_token}
               testResults={testResults}
               prompts={promptsMap}
