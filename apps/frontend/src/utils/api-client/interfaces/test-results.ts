@@ -141,6 +141,27 @@ export interface TestResultDetail extends TestResult {
   test_configuration?: TestConfiguration;
   test_run?: TestRun;
   test?: TestReference;
+  tags?: Tag[];
+  comments?: Array<{
+    id: UUID;
+    content: string;
+    user_id: UUID;
+    user_name: string;
+    created_at: string;
+    updated_at: string;
+    emojis?: Record<string, Array<{ user_id: string; user_name: string }>>;
+  }>;
+  tasks?: Array<{
+    id: UUID;
+    title: string;
+    description?: string;
+    status_id?: UUID;
+    assignee_id?: UUID;
+    due_date?: string;
+    completed_at?: string;
+    created_at: string;
+    updated_at: string;
+  }>;
   counts?: {
     comments: number;
     tasks: number;
