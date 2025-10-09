@@ -1956,8 +1956,8 @@ def delete_test_run(
 def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
-    """Get test_result with optimized approach - no session variables needed."""
-    return get_item(db, models.TestResult, test_result_id, organization_id, user_id)
+    """Get test_result with relationships (tags, tasks, comments) using optimized approach - no session variables needed."""
+    return get_item_detail(db, models.TestResult, test_result_id, organization_id, user_id)
 
 
 def get_test_results(
@@ -1970,7 +1970,8 @@ def get_test_results(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestResult]:
-    return get_items(
+    """Get test_results with relationships (tags, tasks, comments) using optimized approach - no session variables needed."""
+    return get_items_detail(
         db,
         models.TestResult,
         skip,
