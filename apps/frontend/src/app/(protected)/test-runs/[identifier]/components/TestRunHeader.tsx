@@ -247,18 +247,16 @@ export default function TestRunHeader({
             }}
           >
             <CardContent sx={{ flexGrow: 1, p: 3 }}>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                fontWeight={500}
-                sx={{ mb: 2 }}
-              >
-                Status
-              </Typography>
-
               <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}
               >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  fontWeight={500}
+                >
+                  Status
+                </Typography>
                 <Chip
                   label={
                     stats.status === 'in_progress' ? 'In Progress' : 'Completed'
@@ -299,11 +297,12 @@ export default function TestRunHeader({
                     }}
                   >
                     <Typography
-                      variant="body2"
+                      variant="subtitle1"
                       className="test-set-name"
                       sx={{
                         transition: 'color 0.2s',
                         color: 'text.secondary',
+                        fontWeight: 500,
                       }}
                     >
                       {testRun.test_configuration.test_set.name ||
@@ -318,7 +317,7 @@ export default function TestRunHeader({
                   </Box>
                 </Link>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="subtitle1" color="text.secondary" fontWeight={500}>
                   {testRun.test_configuration?.test_set?.name ||
                     'Unknown Test Set'}
                 </Typography>
@@ -346,11 +345,12 @@ export default function TestRunHeader({
                     }}
                   >
                     <Typography
-                      variant="caption"
+                      variant="body2"
                       className="endpoint-name"
                       sx={{
                         transition: 'color 0.2s',
                         color: 'text.secondary',
+                        fontWeight: 200,
                       }}
                     >
                       Endpoint:{' '}
@@ -368,8 +368,9 @@ export default function TestRunHeader({
                 </Link>
               ) : (
                 <Typography
-                  variant="caption"
+                  variant="body2"
                   color="text.secondary"
+                  fontWeight={500}
                   sx={{ display: 'block', mt: 1 }}
                 >
                   Endpoint:{' '}
