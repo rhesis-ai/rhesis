@@ -342,7 +342,7 @@ async def generate_test_config(request: TestConfigRequest):
 
     Args:
         request: Contains prompt (description) for test configuration generation and
-            optional sample_size (default: 5, max: 30) for number of items per category
+            optional sample_size (default: 5, max: 20) for number of items per category
 
     Returns:
         TestConfigResponse: JSON containing selected behaviors, topics, test categories,
