@@ -81,7 +81,6 @@ export default function TestDetailOverviewTab({
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
               fontFamily: 'monospace',
-              fontSize: '0.875rem',
             }}
           >
             {promptContent}
@@ -109,7 +108,6 @@ export default function TestDetailOverviewTab({
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
               fontFamily: 'monospace',
-              fontSize: '0.875rem',
             }}
           >
             {responseContent}
