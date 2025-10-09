@@ -248,7 +248,12 @@ export default function TestRunHeader({
           >
             <CardContent sx={{ flexGrow: 1, p: 3 }}>
               <Box
-                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                }}
               >
                 <Typography
                   variant="body2"
@@ -317,7 +322,11 @@ export default function TestRunHeader({
                   </Box>
                 </Link>
               ) : (
-                <Typography variant="subtitle1" color="text.secondary" fontWeight={500}>
+                <Typography
+                  variant="subtitle1"
+                  color="text.secondary"
+                  fontWeight={500}
+                >
                   {testRun.test_configuration?.test_set?.name ||
                     'Unknown Test Set'}
                 </Typography>

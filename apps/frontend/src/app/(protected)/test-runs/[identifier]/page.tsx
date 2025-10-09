@@ -178,7 +178,8 @@ export default async function TestRunPage({ params }: { params: any }) {
               testRunData={{
                 id: testRun.id,
                 name: testRun.name,
-                created_at: testRun.attributes?.started_at || testRun.created_at || '',
+                created_at:
+                  testRun.attributes?.started_at || testRun.created_at || '',
                 test_configuration_id: testRun.test_configuration_id,
               }}
               testRun={testRun}
