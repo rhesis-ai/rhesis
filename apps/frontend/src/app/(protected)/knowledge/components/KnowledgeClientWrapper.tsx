@@ -99,11 +99,15 @@ export default function KnowledgeClientWrapper({
       </Box>
 
       {/* Sources grid */}
-      <SourcesGrid
-        sessionToken={sessionToken}
-        onRefresh={handleRefresh}
-        key={`sources-grid-${refreshKey}`}
-      />
+      <Paper sx={{ width: '100%', mb: 2, mt: 4 }}>
+        <Box sx={{ p: 2 }}>
+          <SourcesGrid
+            sessionToken={sessionToken}
+            onRefresh={handleRefresh}
+            key={`sources-grid-${refreshKey}`}
+          />
+        </Box>
+      </Paper>
     </PageContainer>
   );
 }
