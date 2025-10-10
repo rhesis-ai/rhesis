@@ -17,6 +17,9 @@ export default function OrganizationSettingsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Get organization name for breadcrumbs
+  const organizationName = organization?.name || 'Organization';
+
   const fetchOrganization = useCallback(
     async (showLoading = false) => {
       if (!session?.session_token || !session?.user?.organization_id) {
@@ -56,9 +59,14 @@ export default function OrganizationSettingsPage() {
     fetchOrganization(false);
   }, [fetchOrganization]);
 
+  const breadcrumbs = [
+    { title: organizationName, path: '/organizations' },
+    { title: 'Organization Settings', path: '/organizations/settings' },
+  ];
+
   if (initialLoading) {
     return (
-      <PageContainer title="Overview">
+      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
@@ -68,7 +76,7 @@ export default function OrganizationSettingsPage() {
 
   if (error) {
     return (
-      <PageContainer title="Overview">
+      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
@@ -78,7 +86,7 @@ export default function OrganizationSettingsPage() {
 
   if (!organization) {
     return (
-      <PageContainer title="Overview">
+      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
         <Alert severity="warning" sx={{ mb: 3 }}>
           No organization found. Please contact support.
         </Alert>
@@ -87,7 +95,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <PageContainer title="Overview">
+    <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
       {/* Basic Information Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
