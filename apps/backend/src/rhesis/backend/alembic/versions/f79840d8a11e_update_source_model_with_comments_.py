@@ -4,7 +4,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-import rhesis
 from rhesis.backend.alembic.utils.template_loader import load_type_lookup_template
 
 # revision identifiers, used by Alembic.
