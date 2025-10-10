@@ -26,7 +26,7 @@ COMPONENTS = {
         "apps/chatbot/requirements.txt", "requirements", "apps/chatbot/CHANGELOG.md"
     ),
     "polyphemus": ComponentConfig(
-        "apps/polyphemus/requirements.txt", "requirements", "apps/polyphemus/CHANGELOG.md"
+        "apps/polyphemus/pyproject.toml", "pyproject", "apps/polyphemus/CHANGELOG.md"
     ),
     "sdk": ComponentConfig(
         "sdk/pyproject.toml", "pyproject", "sdk/CHANGELOG.md"
