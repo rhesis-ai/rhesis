@@ -15,6 +15,7 @@ interface TasksAndCommentsWrapperProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  elevation?: number;
 }
 
 export function TasksAndCommentsWrapper({
@@ -24,6 +25,7 @@ export function TasksAndCommentsWrapper({
   currentUserId,
   currentUserName,
   currentUserPicture,
+  elevation = 1,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
   const { createTask, deleteTask } = useTasks({
@@ -82,7 +84,7 @@ export function TasksAndCommentsWrapper({
   }, [router, entityType, entityId]);
 
   return (
-    <Paper sx={{ p: 3 }} suppressHydrationWarning>
+    <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
       {/* Tasks Section */}
       <TasksSection
         entityType={entityType}
