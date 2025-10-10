@@ -380,202 +380,205 @@ export default function TestRunFilterBar({
         PaperProps={{
           sx: {
             p: 0,
-            minWidth: 350,
+            width: 400,
             maxHeight: 600,
-            overflow: 'hidden',
           },
         }}
       >
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        {/* Header */}
+        <Box
+          sx={{
+            p: 2,
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Typography variant="subtitle1" fontWeight={600}>
             Advanced Filters
           </Typography>
+          {hasActiveFilters && (
+            <Button
+              size="small"
+              startIcon={<ClearAllIcon />}
+              onClick={handleClearAllFilters}
+              color="secondary"
+            >
+              Clear All
+            </Button>
+          )}
         </Box>
 
-        <Box sx={{ maxHeight: 500, overflow: 'auto', p: 1 }}>
-          {/* Overrule Status Filter */}
-          <Accordion defaultExpanded>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <GavelIcon fontSize="small" />
-                <Typography variant="subtitle2">Overrule Status</Typography>
-                {filter.overruleFilter !== 'all' && (
-                  <Badge color="primary" variant="dot" />
-                )}
+        {/* Content */}
+        <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
+          <Stack spacing={3}>
+            {/* Overrule Status */}
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <GavelIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Overrule Status
+                </Typography>
               </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <FormControl fullWidth size="small">
-                <Select
-                  value={filter.overruleFilter}
-                  onChange={(e) => handleOverruleFilterChange(e.target.value as any)}
-                >
-                  <MenuItem value="all">All Tests</MenuItem>
-                  <MenuItem value="overruled">Overruled Only</MenuItem>
-                  <MenuItem value="original">Original Judgments Only</MenuItem>
-                </Select>
-              </FormControl>
-            </AccordionDetails>
-          </Accordion>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Chip
+                  label="All"
+                  size="small"
+                  onClick={() => handleOverruleFilterChange('all')}
+                  color={filter.overruleFilter === 'all' ? 'primary' : 'default'}
+                  variant={filter.overruleFilter === 'all' ? 'filled' : 'outlined'}
+                />
+                <Chip
+                  label="Overruled"
+                  size="small"
+                  onClick={() => handleOverruleFilterChange('overruled')}
+                  color={filter.overruleFilter === 'overruled' ? 'primary' : 'default'}
+                  variant={filter.overruleFilter === 'overruled' ? 'filled' : 'outlined'}
+                />
+                <Chip
+                  label="Original"
+                  size="small"
+                  onClick={() => handleOverruleFilterChange('original')}
+                  color={filter.overruleFilter === 'original' ? 'primary' : 'default'}
+                  variant={filter.overruleFilter === 'original' ? 'filled' : 'outlined'}
+                />
+              </Stack>
+            </Box>
 
-          {/* Failed Metrics Filter */}
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CancelOutlinedIcon fontSize="small" />
-                <Typography variant="subtitle2">Failed Metrics</Typography>
-                {filter.selectedFailedMetrics.length > 0 && (
-                  <Badge badgeContent={filter.selectedFailedMetrics.length} color="primary" />
-                )}
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <FormGroup>
-                {availableMetrics?.map(metric => (
-                  <FormControlLabel
-                    key={metric.name}
-                    control={
-                      <Checkbox
-                        checked={filter.selectedFailedMetrics.includes(metric.name)}
-                        onChange={() => handleMetricToggle(metric.name)}
-                        size="small"
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2">{metric.name}</Typography>
-                        {metric.description && (
-                          <Typography variant="caption" color="text.secondary">
-                            {metric.description}
-                          </Typography>
-                        )}
-                      </Box>
-                    }
-                  />
-                ))}
-              </FormGroup>
-            </AccordionDetails>
-          </Accordion>
+            <Divider />
 
-          {/* Comment Activity Filter */}
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CommentOutlinedIcon fontSize="small" />
-                <Typography variant="subtitle2">Comment Activity</Typography>
-                {filter.commentFilter !== 'all' && (
-                  <Badge color="primary" variant="dot" />
-                )}
+            {/* Activity Filters */}
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <CommentOutlinedIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Activity
+                </Typography>
               </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                <Select
-                  value={filter.commentFilter}
-                  onChange={(e) => handleCommentFilterChange(e.target.value as any)}
-                >
-                  <MenuItem value="all">All Tests</MenuItem>
-                  <MenuItem value="with_comments">With Comments</MenuItem>
-                  <MenuItem value="without_comments">Without Comments</MenuItem>
-                  <MenuItem value="range">Comment Count Range</MenuItem>
-                </Select>
-              </FormControl>
               
-              {filter.commentFilter === 'range' && (
-                <Box sx={{ px: 1 }}>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
-                    Comment Count: {filter.commentCountRange.min} - {filter.commentCountRange.max}
-                  </Typography>
-                  <Slider
-                    value={[filter.commentCountRange.min, filter.commentCountRange.max]}
-                    onChange={(_, newValue) => {
-                      const [min, max] = newValue as number[];
-                      handleCommentRangeChange({ min, max });
-                    }}
-                    valueLabelDisplay="auto"
-                    min={0}
-                    max={20}
-                    marks={[
-                      { value: 0, label: '0' },
-                      { value: 10, label: '10' },
-                      { value: 20, label: '20+' },
-                    ]}
-                  />
-                </Box>
-              )}
-            </AccordionDetails>
-          </Accordion>
-
-          {/* Task Activity Filter */}
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TaskAltOutlinedIcon fontSize="small" />
-                <Typography variant="subtitle2">Task Activity</Typography>
-                {filter.taskFilter !== 'all' && (
-                  <Badge color="primary" variant="dot" />
-                )}
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                <Select
-                  value={filter.taskFilter}
-                  onChange={(e) => handleTaskFilterChange(e.target.value as any)}
-                >
-                  <MenuItem value="all">All Tests</MenuItem>
-                  <MenuItem value="with_tasks">With Tasks</MenuItem>
-                  <MenuItem value="without_tasks">Without Tasks</MenuItem>
-                  <MenuItem value="range">Task Count Range</MenuItem>
-                </Select>
-              </FormControl>
-              
-              {filter.taskFilter === 'range' && (
-                <Box sx={{ px: 1 }}>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
-                    Task Count: {filter.taskCountRange.min} - {filter.taskCountRange.max}
-                  </Typography>
-                  <Slider
-                    value={[filter.taskCountRange.min, filter.taskCountRange.max]}
-                    onChange={(_, newValue) => {
-                      const [min, max] = newValue as number[];
-                      handleTaskRangeChange({ min, max });
-                    }}
-                    valueLabelDisplay="auto"
-                    min={0}
-                    max={10}
-                    marks={[
-                      { value: 0, label: '0' },
-                      { value: 5, label: '5' },
-                      { value: 10, label: '10+' },
-                    ]}
-                  />
-                </Box>
-              )}
-            </AccordionDetails>
-          </Accordion>
-
-          {/* Behaviors Filter */}
-          {availableBehaviors.length > 0 && (
-            <Accordion>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ListIcon fontSize="small" />
-                  <Typography variant="subtitle2">Behaviors</Typography>
-                  {filter.selectedBehaviors.length > 0 && (
-                    <Badge badgeContent={filter.selectedBehaviors.length} color="primary" />
-                  )}
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              {/* Comments */}
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Select behaviors to filter by
+                    Comments
+                  </Typography>
+                  <ButtonGroup size="small" variant="outlined">
+                    <Button
+                      onClick={() => handleCommentFilterChange('all')}
+                      variant={filter.commentFilter === 'all' ? 'contained' : 'outlined'}
+                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      onClick={() => handleCommentFilterChange('with_comments')}
+                      variant={filter.commentFilter === 'with_comments' ? 'contained' : 'outlined'}
+                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
+                    >
+                      With
+                    </Button>
+                    <Button
+                      onClick={() => handleCommentFilterChange('without_comments')}
+                      variant={filter.commentFilter === 'without_comments' ? 'contained' : 'outlined'}
+                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
+                    >
+                      Without
+                    </Button>
+                  </ButtonGroup>
+                </Box>
+              </Box>
+
+              {/* Tasks */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Tasks
+                  </Typography>
+                  <ButtonGroup size="small" variant="outlined">
+                    <Button
+                      onClick={() => handleTaskFilterChange('all')}
+                      variant={filter.taskFilter === 'all' ? 'contained' : 'outlined'}
+                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      onClick={() => handleTaskFilterChange('with_tasks')}
+                      variant={filter.taskFilter === 'with_tasks' ? 'contained' : 'outlined'}
+                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
+                    >
+                      With
+                    </Button>
+                    <Button
+                      onClick={() => handleTaskFilterChange('without_tasks')}
+                      variant={filter.taskFilter === 'without_tasks' ? 'contained' : 'outlined'}
+                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
+                    >
+                      Without
+                    </Button>
+                  </ButtonGroup>
+                </Box>
+              </Box>
+            </Box>
+
+            <Divider />
+
+            {/* Failed Metrics */}
+            {availableMetrics && availableMetrics.length > 0 && (
+              <>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <CancelOutlinedIcon fontSize="small" color="action" />
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      Failed Metrics
+                    </Typography>
+                    {filter.selectedFailedMetrics.length > 0 && (
+                      <Chip
+                        label={filter.selectedFailedMetrics.length}
+                        size="small"
+                        color="primary"
+                        sx={{ height: 20, fontSize: '0.7rem' }}
+                      />
+                    )}
+                  </Box>
+                  <FormGroup>
+                    {availableMetrics.map(metric => (
+                      <FormControlLabel
+                        key={metric.name}
+                        control={
+                          <Checkbox
+                            checked={filter.selectedFailedMetrics.includes(metric.name)}
+                            onChange={() => handleMetricToggle(metric.name)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="body2">{metric.name}</Typography>}
+                        sx={{ mb: 0.5 }}
+                      />
+                    ))}
+                  </FormGroup>
+                </Box>
+                <Divider />
+              </>
+            )}
+
+            {/* Behaviors */}
+            {availableBehaviors.length > 0 && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                  <ListIcon fontSize="small" color="action" />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Behaviors
                   </Typography>
                   {filter.selectedBehaviors.length > 0 && (
-                    <Button size="small" onClick={handleClearBehaviors}>
-                      Clear
-                    </Button>
+                    <Chip
+                      label={filter.selectedBehaviors.length}
+                      size="small"
+                      color="primary"
+                      sx={{ height: 20, fontSize: '0.7rem' }}
+                    />
                   )}
                 </Box>
                 <FormGroup>
@@ -590,12 +593,13 @@ export default function TestRunFilterBar({
                         />
                       }
                       label={<Typography variant="body2">{behavior.name}</Typography>}
+                      sx={{ mb: 0.5 }}
                     />
                   ))}
                 </FormGroup>
-              </AccordionDetails>
-            </Accordion>
-          )}
+              </Box>
+            )}
+          </Stack>
         </Box>
       </Popover>
     </Box>
