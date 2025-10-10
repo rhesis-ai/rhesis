@@ -20,6 +20,7 @@ import { ModelsClient } from './models-client';
 import { TagsClient } from './tags-client';
 import { CommentsClient } from './comments-client';
 import { TasksClient } from './tasks-client';
+import { SourcesClient } from './sources-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -28,6 +29,7 @@ export class ApiClientFactory {
   private tagsClient: TagsClient | null = null;
   private commentsClient: CommentsClient | null = null;
   private tasksClient: TasksClient | null = null;
+  private sourcesClient: SourcesClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -134,5 +136,12 @@ export class ApiClientFactory {
       this.tasksClient = new TasksClient(this.sessionToken);
     }
     return this.tasksClient;
+  }
+
+  getSourcesClient(): SourcesClient {
+    if (!this.sourcesClient) {
+      this.sourcesClient = new SourcesClient(this.sessionToken);
+    }
+    return this.sourcesClient;
   }
 }

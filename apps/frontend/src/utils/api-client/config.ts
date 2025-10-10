@@ -39,6 +39,7 @@ export const API_ENDPOINTS = {
   models: '/models',
   comments: '/comments',
   tasks: '/tasks',
+  sources: '/sources',
 } as const;
 
 export const ENTITY_TYPES = {
@@ -59,4 +60,5 @@ export const ENTITY_TYPES = {
   behavior: 'Behavior',
   topic: 'Topic',
   category: 'Category',
+  source: 'Source',
 } as const;
