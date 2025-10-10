@@ -69,15 +69,11 @@ export default function DangerZone({
         Danger Zone
       </Typography>
       <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-        Leaving the organization will remove your access to all projects,
-        tests, and data. Your contributions will remain, but you will no
-        longer be able to access them.
+        Leaving the organization will remove your access to all projects, tests,
+        and data. Your contributions will remain, but you will no longer be able
+        to access them.
       </Typography>
-      <Button
-        variant="outlined"
-        color="error"
-        onClick={handleOpenDialog}
-      >
+      <Button variant="outlined" color="error" onClick={handleOpenDialog}>
         Leave Organization
       </Button>
 
@@ -89,7 +85,10 @@ export default function DangerZone({
         title="Leave Organization"
         message={
           <>
-            Leaving <strong>{organization.name}</strong> will remove your access to all organization data and projects. You will need to be re-invited to rejoin this organization. Your contributions will remain in the organization.
+            Leaving <strong>{organization.name}</strong> will remove your access
+            to all organization data and projects. You will need to be
+            re-invited to rejoin this organization. Your contributions will
+            remain in the organization.
           </>
         }
         confirmButtonText={isLeaving ? 'Leaving...' : 'Leave Organization'}

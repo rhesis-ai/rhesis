@@ -127,7 +127,7 @@ export default function OrganizationSettingsPage() {
           sx={{
             border: '1px solid',
             borderColor: 'error.light',
-            borderRadius: 1,
+            borderRadius: theme => theme.shape.borderRadius,
             p: 3,
             backgroundColor: theme => alpha(theme.palette.error.main, 0.05),
           }}

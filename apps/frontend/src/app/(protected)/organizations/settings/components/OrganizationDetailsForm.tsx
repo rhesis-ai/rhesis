@@ -68,14 +68,14 @@ export default function OrganizationDetailsForm({
 
     // Validate URLs before submitting
     const errors: Record<string, string> = {};
-    
+
     if (formData.website) {
       const websiteValidation = validateUrl(formData.website);
       if (!websiteValidation.isValid) {
         errors.website = websiteValidation.message || '';
       }
     }
-    
+
     if (formData.logo_url) {
       const logoValidation = validateUrl(formData.logo_url);
       if (!logoValidation.isValid) {
@@ -94,8 +94,12 @@ export default function OrganizationDetailsForm({
       const organizationsClient = apiFactory.getOrganizationsClient();
 
       // Normalize URLs before sending
-      const website = formData.website ? normalizeUrl(formData.website) : undefined;
-      const logo_url = formData.logo_url ? normalizeUrl(formData.logo_url) : undefined;
+      const website = formData.website
+        ? normalizeUrl(formData.website)
+        : undefined;
+      const logo_url = formData.logo_url
+        ? normalizeUrl(formData.logo_url)
+        : undefined;
 
       await organizationsClient.updateOrganization(organization.id, {
         name: formData.name,
@@ -108,7 +112,7 @@ export default function OrganizationDetailsForm({
       notifications.show('Organization details updated successfully', {
         severity: 'success',
       });
-      
+
       // Refresh to update navigation with new organization name
       router.refresh();
       onUpdate();
@@ -184,7 +188,9 @@ export default function OrganizationDetailsForm({
             onBlur={handleBlur('logo_url')}
             placeholder="https://example.com/logo.png"
             error={!!fieldErrors.logo_url}
-            helperText={fieldErrors.logo_url || "URL to your organization's logo"}
+            helperText={
+              fieldErrors.logo_url || "URL to your organization's logo"
+            }
           />
         </Grid>
 

@@ -50,9 +50,8 @@ export default function ContactInformationForm({
   const handleBlur = (field: 'email' | 'phone') => () => {
     const value = formData[field];
     if (value) {
-      const validation = field === 'email' 
-        ? validateEmail(value) 
-        : validatePhone(value);
+      const validation =
+        field === 'email' ? validateEmail(value) : validatePhone(value);
       if (!validation.isValid) {
         setFieldErrors({ ...fieldErrors, [field]: validation.message || '' });
       }
@@ -66,14 +65,14 @@ export default function ContactInformationForm({
 
     // Validate email and phone before submitting
     const errors: Record<string, string> = {};
-    
+
     if (formData.email) {
       const emailValidation = validateEmail(formData.email);
       if (!emailValidation.isValid) {
         errors.email = emailValidation.message || '';
       }
     }
-    
+
     if (formData.phone) {
       const phoneValidation = validatePhone(formData.phone);
       if (!phoneValidation.isValid) {
@@ -127,7 +126,9 @@ export default function ContactInformationForm({
             onBlur={handleBlur('email')}
             placeholder="contact@example.com"
             error={!!fieldErrors.email}
-            helperText={fieldErrors.email || "Primary contact email for your organization"}
+            helperText={
+              fieldErrors.email || 'Primary contact email for your organization'
+            }
           />
         </Grid>
 
@@ -140,7 +141,7 @@ export default function ContactInformationForm({
             onBlur={handleBlur('phone')}
             placeholder="+1 (555) 123-4567"
             error={!!fieldErrors.phone}
-            helperText={fieldErrors.phone || "Primary contact phone number"}
+            helperText={fieldErrors.phone || 'Primary contact phone number'}
           />
         </Grid>
 
