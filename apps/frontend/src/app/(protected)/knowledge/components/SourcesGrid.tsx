@@ -387,7 +387,7 @@ export default function SourcesGrid({
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box className={styles.errorContainer}>
         <Typography color="error" variant="h6" gutterBottom>
           Error Loading Sources
         </Typography>

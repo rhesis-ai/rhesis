@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import KnowledgeClientWrapper from './components/KnowledgeClientWrapper';
 import { Box, Typography, Alert, Paper } from '@mui/material';
+import styles from '@/styles/KnowledgePage.module.css';
 
 /**
  * Server component for the Knowledge page
@@ -15,7 +16,7 @@ export default async function KnowledgePage() {
 
     if (!session?.session_token) {
       return (
-        <Paper sx={{ p: 3 }}>
+        <Paper className={styles.errorContainer}>
           <Alert severity="error">
             Authentication required. Please sign in to view knowledge sources.
           </Alert>
@@ -46,7 +47,7 @@ export default async function KnowledgePage() {
 
     // Show error state instead of empty sources
     return (
-      <Paper sx={{ p: 3 }}>
+      <Paper className={styles.errorContainer}>
         <Alert severity="error">
           {error instanceof Error
             ? error.message
