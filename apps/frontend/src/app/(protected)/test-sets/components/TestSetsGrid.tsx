@@ -447,7 +447,7 @@ export default function TestSetsGrid({
       buttons.push({
         label: 'Delete Test Sets',
         icon: <DeleteIcon />,
-        variant: 'contained' as const,
+        variant: 'outlined' as const,
         color: 'error' as const,
         onClick: handleDeleteTestSets,
       });

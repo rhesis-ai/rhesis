@@ -20,6 +20,7 @@ import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { DeleteButton } from '@/components/common/DeleteButton';
 import styles from '@/styles/SourcesGrid.module.css';
 
 interface SourcesGridProps {
@@ -261,9 +262,10 @@ export default function SourcesGrid({
       buttons.push({
         label: 'Delete Sources',
         icon: <DeleteIcon />,
-        variant: 'contained' as const,
+        variant: 'outlined' as const,
+        color: 'error' as const,
         onClick: handleDeleteSources,
-      });
+      } as any);
     }
 
     return buttons;
