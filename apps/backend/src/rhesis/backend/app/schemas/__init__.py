@@ -82,7 +82,16 @@ from .test_configuration import (
     TestConfigurationUpdate,
 )
 from .test_context import TestContext, TestContextBase, TestContextCreate, TestContextUpdate
-from .test_result import TestResult, TestResultBase, TestResultCreate, TestResultUpdate
+from .test_result import (
+    ReviewCreate,
+    ReviewResponse,
+    ReviewTargetCreate,
+    ReviewUpdate,
+    TestResult,
+    TestResultBase,
+    TestResultCreate,
+    TestResultUpdate,
+)
 from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunUpdate
 from .test_set import (
     TestData,
@@ -156,6 +165,10 @@ __all__ = [
     "TestResultBase",
     "TestResultCreate",
     "TestResultUpdate",
+    "ReviewCreate",
+    "ReviewUpdate",
+    "ReviewResponse",
+    "ReviewTargetCreate",
     "TestSet",
     "TestSetBase",
     "TestSetCreate",
