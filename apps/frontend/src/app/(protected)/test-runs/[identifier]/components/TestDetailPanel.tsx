@@ -191,7 +191,6 @@ export default function TestDetailPanel({
               minHeight: 56,
               textTransform: 'none',
               fontWeight: 500,
-              fontSize: '0.9rem',
               color: theme.palette.text.secondary,
               '& .MuiSvgIcon-root': {
                 color: theme.palette.text.secondary,
@@ -213,7 +212,8 @@ export default function TestDetailPanel({
             },
             '& .MuiTabs-indicator': {
               height: 3,
-              borderRadius: '3px 3px 0 0',
+              borderTopLeftRadius: theme.shape.borderRadius,
+              borderTopRightRadius: theme.shape.borderRadius,
             },
           }}
         >
