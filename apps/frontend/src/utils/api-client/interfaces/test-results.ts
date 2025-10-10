@@ -26,6 +26,45 @@ export interface TestOutput {
   session_id: string;
 }
 
+// Test Reviews interfaces
+export interface ReviewUser {
+  user_id: UUID;
+  name: string;
+}
+
+export interface ReviewStatus {
+  status_id: UUID;
+  name: string;
+}
+
+export interface ReviewTarget {
+  type: 'test' | 'metric';
+  reference: string | null;
+}
+
+export interface Review {
+  review_id: UUID;
+  status: ReviewStatus;
+  user: ReviewUser;
+  comments: string;
+  created_at: string;
+  updated_at: string;
+  target: ReviewTarget;
+}
+
+export interface TestReviewsMetadata {
+  last_updated_at: string;
+  last_updated_by: ReviewUser;
+  total_reviews: number;
+  latest_status: ReviewStatus;
+  summary?: string;
+}
+
+export interface TestReviews {
+  metadata: TestReviewsMetadata;
+  reviews: Review[];
+}
+
 // Test Configuration interfaces
 export interface TestSet {
   id: UUID;
@@ -119,6 +158,7 @@ export interface TestResultBase {
   test_id?: UUID;
   status_id?: UUID;
   test_metrics?: TestMetrics;
+  test_reviews?: TestReviews;
   test_output?: TestOutput;
   user_id?: UUID;
   organization_id?: UUID;
