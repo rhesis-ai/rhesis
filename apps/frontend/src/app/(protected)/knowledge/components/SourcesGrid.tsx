@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   GridColDef,
   GridRowSelectionModel,
   GridPaginationModel,
-  GridFilterModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -15,15 +14,11 @@ import {
   Chip,
   Tooltip,
   Typography,
-  IconButton,
   Avatar,
-  useTheme,
 } from '@mui/material';
-import { MenuBookIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
-import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TextSnippetIcon from '@mui/icons-material/TextSnippet';
 import TableChartIcon from '@mui/icons-material/TableChart';
@@ -34,7 +29,7 @@ import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import SlideshowIcon from '@mui/icons-material/Slideshow';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { convertGridFilterModelToOData } from '@/utils/odata-filter';
+import styles from '@/styles/SourcesGrid.module.css';
 
 interface SourcesGridProps {
   sessionToken: string;
@@ -74,7 +69,7 @@ const formatFileSize = (bytes?: number) => {
 };
 
 // Chip container for tags with overflow handling
-const ChipContainer = ({ items, theme }: { items: string[]; theme: any }) => {
+const ChipContainer = ({ items }: { items: string[] }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleItems, setVisibleItems] = useState<string[]>([]);
   const [remainingCount, setRemainingCount] = useState(0);
@@ -110,50 +105,44 @@ const ChipContainer = ({ items, theme }: { items: string[]; theme: any }) => {
         const chipWidth =
           (chip.firstChild as HTMLElement)?.getBoundingClientRect().width || 0;
 
-        if (totalWidth + chipWidth + overflowChipWidth > containerWidth) {
+        if (
+          totalWidth +
+            chipWidth +
+            (i < items.length - 1 ? overflowChipWidth : 0) <=
+          containerWidth - 16
+        ) {
+          // 16px for safety margin
+          totalWidth += chipWidth + 8; // 8px for gap
+          visibleCount++;
+        } else {
           break;
         }
-
-        totalWidth += chipWidth;
-        visibleCount++;
       }
 
-      document.body.removeChild(tempDiv);
-
+      tempDiv.remove();
       setVisibleItems(items.slice(0, visibleCount));
-      setRemainingCount(Math.max(0, items.length - visibleCount));
+      setRemainingCount(items.length - visibleCount);
     };
 
     calculateVisibleChips();
     window.addEventListener('resize', calculateVisibleChips);
-
-    return () => {
-      window.removeEventListener('resize', calculateVisibleChips);
-    };
+    return () => window.removeEventListener('resize', calculateVisibleChips);
   }, [items]);
 
-  if (items.length === 0) {
-    return <Typography variant="body2" color="text.secondary">No tags</Typography>;
-  }
+  if (items.length === 0) return '-';
 
   return (
-    <Box ref={containerRef} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-      {visibleItems.map((item, index) => (
-        <Chip
-          key={index}
-          label={item}
-          size="small"
-          variant="outlined"
-          sx={{ fontSize: theme.typography.caption.fontSize, height: 24 }}
-        />
+    <Box
+      ref={containerRef}
+      className={styles.chipContainer}
+    >
+      {visibleItems.map((item: string) => (
+        <Chip key={item} label={item} size="small" variant="outlined" className={styles.tagChip} />
       ))}
       {remainingCount > 0 && (
-        <Chip
-          label={`+${remainingCount}`}
-          size="small"
-          variant="outlined"
-          sx={{ fontSize: theme.typography.caption.fontSize, height: 24 }}
-        />
+        <Tooltip title={items.slice(visibleItems.length).join(', ')} arrow>
+          <Chip label={`+${remainingCount}`} size="small" variant="outlined" className={styles.overflowChip} />
+        </Tooltip>
       )}
     </Box>
   );
@@ -165,7 +154,6 @@ export default function SourcesGrid({
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const theme = useTheme();
   const isMounted = useRef(true);
 
   // Component state
@@ -178,11 +166,7 @@ export default function SourcesGrid({
     page: 0,
     pageSize: 25,
   });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [sourceToDelete, setSourceToDelete] = useState<Source | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -201,15 +185,11 @@ export default function SourcesGrid({
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
-      // Convert filter model to OData filter string
-      const filterString = convertGridFilterModelToOData(filterModel);
-
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
         sort_order: 'desc' as const,
-        ...(filterString && { filter: filterString }),
       };
 
       const response = await sourcesClient.getSources(apiParams);
@@ -230,7 +210,7 @@ export default function SourcesGrid({
         setLoading(false);
       }
     }
-  }, [sessionToken, paginationModel, filterModel]);
+  }, [sessionToken, paginationModel]);
 
   // Fetch data when dependencies change
   useEffect(() => {
@@ -243,46 +223,83 @@ export default function SourcesGrid({
     onRefresh?.();
   }, [fetchSources, onRefresh]);
 
-  // Handle delete
-  const handleDelete = useCallback(async (source: Source) => {
+  // Handle pagination
+  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
+    setPaginationModel(newModel);
+  }, []);
+
+  // Handle selection change
+  const handleSelectionChange = useCallback((newSelection: GridRowSelectionModel) => {
+    setSelectedRows(newSelection);
+  }, []);
+
+  // Handle delete sources
+  const handleDeleteSources = () => {
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedRows.length === 0) return;
+
     try {
       setIsDeleting(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
-      await sourcesClient.deleteSource(source.id);
-
-      notifications.show(
-        `Source "${source.title}" deleted successfully`,
-        { severity: 'success' }
+      // Delete all selected sources
+      await Promise.all(
+        selectedRows.map(id => sourcesClient.deleteSource(id as any))
       );
 
-      // Refresh the grid
-      handleRefresh();
+      // Show success notification
+      notifications.show(
+        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}`,
+        { severity: 'success', autoHideDuration: 4000 }
+      );
+
+      // Clear selection and refresh data
+      setSelectedRows([]);
+      fetchSources();
     } catch (error) {
-      console.error('Error deleting source:', error);
-      notifications.show(
-        'Failed to delete source. Please try again.',
-        { severity: 'error' }
-      );
+      console.error('Error deleting sources:', error);
+      notifications.show('Failed to delete sources', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
-      setSourceToDelete(null);
     }
-  }, [sessionToken, notifications, handleRefresh]);
+  };
 
-  // Handle view source
-  const handleViewSource = useCallback((source: Source) => {
-    // TODO: Implement source preview modal
-    notifications.show('Source preview coming soon!', { severity: 'info' });
-  }, [notifications]);
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+  };
 
-  // Handle download source
-  const handleDownloadSource = useCallback((source: Source) => {
-    // TODO: Implement file download
-    notifications.show('File download coming soon!', { severity: 'info' });
-  }, [notifications]);
+  // Get action buttons based on selection
+  const getActionButtons = () => {
+    const buttons = [
+      {
+        label: 'Upload Source',
+        icon: <UploadIcon />,
+        variant: 'contained' as const,
+        onClick: () => {
+          notifications.show('Upload functionality coming soon!', { severity: 'info' });
+        },
+      },
+    ];
+
+    if (selectedRows.length > 0) {
+      buttons.push({
+        label: 'Delete Sources',
+        icon: <DeleteIcon />,
+        variant: 'contained' as const,
+        onClick: handleDeleteSources,
+      });
+    }
+
+    return buttons;
+  };
 
   // Column definitions
   const columns: GridColDef[] = [
@@ -292,26 +309,66 @@ export default function SourcesGrid({
       width: 300,
       renderCell: (params) => {
         const source = params.row as Source;
-        const fileInfo = getFileTypeInfo(source, theme);
+        const metadata = source.source_metadata || {};
+        const fileType = metadata.file_type || 'unknown';
+
+        // Get appropriate icon based on file type
+        let icon = <DescriptionOutlinedIcon />;
+        let color = 'primary.main';
+
+        switch (fileType.toLowerCase()) {
+          case 'pdf':
+            icon = <PictureAsPdfIcon />;
+            color = 'error.main';
+            break;
+          case 'docx':
+            icon = <DescriptionOutlinedIcon />;
+            color = 'primary.main';
+            break;
+          case 'txt':
+            icon = <TextSnippetIcon />;
+            color = 'text.secondary';
+            break;
+          case 'csv':
+            icon = <TableChartIcon />;
+            color = 'success.main';
+            break;
+          case 'json':
+            icon = <CodeIcon />;
+            color = 'warning.main';
+            break;
+          case 'html':
+            icon = <LanguageIcon />;
+            color = 'secondary.main';
+            break;
+          case 'xml':
+            icon = <DescriptionOutlinedIcon />;
+            color = 'info.main';
+            break;
+          case 'epub':
+            icon = <MenuBookOutlinedIcon />;
+            color = 'error.main';
+            break;
+          case 'pptx':
+            icon = <SlideshowIcon />;
+            color = 'warning.main';
+            break;
+        }
 
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box className={styles.sourceTitle}>
             <Avatar
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: fileInfo.color,
-                fontSize: theme.typography.body1.fontSize,
-              }}
+              className={styles.sourceIcon}
+              sx={{ bgcolor: color }}
             >
-              {fileInfo.icon}
+              {icon}
             </Avatar>
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            <Box className={styles.sourceContent}>
+              <Typography variant="body2" className={styles.sourceName}>
                 {source.title}
               </Typography>
               {source.description && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" className={styles.sourceDescription}>
                   {source.description.length > 50
                     ? `${source.description.substring(0, 50)}...`
                     : source.description
@@ -337,7 +394,7 @@ export default function SourcesGrid({
             label={fileType.toUpperCase()}
             size="small"
             variant="outlined"
-            sx={{ textTransform: 'uppercase', fontSize: theme.typography.caption.fontSize }}
+            className={styles.fileTypeChip}
           />
         );
       },
@@ -377,50 +434,7 @@ export default function SourcesGrid({
       width: 200,
       renderCell: (params) => {
         const source = params.row as Source;
-        return <ChipContainer items={source.tags || []} theme={theme} />;
-      },
-    },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 120,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        const source = params.row as Source;
-
-        return (
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <Tooltip title="View">
-              <IconButton
-                size="small"
-                onClick={() => handleViewSource(source)}
-              >
-                <VisibilityIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Download">
-              <IconButton
-                size="small"
-                onClick={() => handleDownloadSource(source)}
-              >
-                <DownloadIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton
-                size="small"
-                onClick={() => {
-                  setSourceToDelete(source);
-                  setDeleteModalOpen(true);
-                }}
-                color="error"
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        );
+        return <ChipContainer items={source.tags || []} />;
       },
     },
   ];
@@ -440,46 +454,41 @@ export default function SourcesGrid({
 
   return (
     <>
+      {selectedRows.length > 0 && (
+        <Box className={styles.selectionInfo}>
+          <Typography variant="subtitle1" className={styles.selectionText}>
+            {selectedRows.length} sources selected
+          </Typography>
+        </Box>
+      )}
+
       <BaseDataGrid
-        rows={sources}
         columns={columns}
+        rows={sources}
         loading={loading}
-        serverSidePagination={true}
-        totalRows={totalCount}
+        getRowId={row => row.id}
+        showToolbar={false}
         paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
-        rowSelectionModel={selectedRows}
-        onRowSelectionModelChange={setSelectedRows}
-        pageSizeOptions={[10, 25, 50, 100]}
+        onPaginationModelChange={handlePaginationModelChange}
+        actionButtons={getActionButtons()}
         checkboxSelection
         disableRowSelectionOnClick
-        getRowId={(row) => row.id}
-        sx={{
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          },
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: theme.palette.grey[50],
-            borderBottom: `2px solid ${theme.palette.divider}`,
-          },
-        }}
+        onRowSelectionModelChange={handleSelectionChange}
+        rowSelectionModel={selectedRows}
+        serverSidePagination={true}
+        totalRows={totalCount}
+        pageSizeOptions={[10, 25, 50]}
+        disablePaperWrapper={true}
       />
 
-      {/* Delete Confirmation Modal */}
       <DeleteModal
         open={deleteModalOpen}
-        onClose={() => {
-          setDeleteModalOpen(false);
-          setSourceToDelete(null);
-        }}
-        onConfirm={() => sourceToDelete && handleDelete(sourceToDelete)}
-        title="Delete Source"
-        message={
-          sourceToDelete
-            ? `Are you sure you want to delete "${sourceToDelete.title}"? This action cannot be undone.`
-            : ''
-        }
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
+        title="Delete Sources"
+        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}? This action cannot be undone.`}
+        itemType="sources"
       />
     </>
   );
