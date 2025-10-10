@@ -1,0 +1,127 @@
+name: Create release
+
+on:
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+        
+      - name: Check release config
+        id: check-config
+        run: |
+          if [ ! -f "release_config.json" ]; then
+            echo "Error: release_config.json not found"
+            exit 1
+          fi
+          echo "release_config.json found"
+          
+      - name: Read release config
+        id: read-config
+        run: |
+          # Read JSON and extract bump values
+          PLATFORM_BUMP=$(jq -r '.platform // empty' release_config.json)
+          BACKEND_BUMP=$(jq -r '.backend // empty' release_config.json)
+          FRONTEND_BUMP=$(jq -r '.frontend // empty' release_config.json)
+          
+          # Set as environment variables for this step and subsequent steps
+          echo "PLATFORM_BUMP=$PLATFORM_BUMP" >> $GITHUB_ENV
+          echo "BACKEND_BUMP=$BACKEND_BUMP" >> $GITHUB_ENV
+          echo "FRONTEND_BUMP=$FRONTEND_BUMP" >> $GITHUB_ENV
+          
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv for SDK
+        if: github.event_name == 'workflow_dispatch'
+        uses: astral-sh/setup-uv@v6
+        with:
+            version: latest
+      - name: Set up Git
+        run: |
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Run release script
+        run: |
+          python3 .github/release --bump-config-file release_config.json
+          
+      - name: Commit changes
+        run: |
+          git add .
+          git commit -m "Prepare release"
+          
+      - name: Push release branch
+        run: |
+          git push origin $(git branch --show-current)
+          
+      - name: Create Pull Request
+        run: |
+          BRANCH_NAME=$(git branch --show-current)
+          
+          # Check if version changes JSON file exists
+          if [ ! -f "/tmp/version_changes.json" ]; then
+            echo "Error: /tmp/version_changes.json not found. Cannot create PR without version changes."
+            exit 1
+          fi
+          
+          # Extract version changes dynamically
+          VERSION_CHANGES=$(jq -r 'to_entries | map("\(.key): \(.value)") | join(", ")' /tmp/version_changes.json)
+          
+          # Create title with dynamic version changes
+          PR_TITLE="Release: $VERSION_CHANGES"
+          
+          # Create body with dynamic version changes
+          PR_BODY="This PR contains the automated release changes for:
+          $(jq -r 'to_entries | map("- \(.key | ascii_upcase): \(.value)") | join("\n")' /tmp/version_changes.json)
+          
+
+          ## Before merging
+          - [ ] Run backend and sdk tests
+
+          ## Changes
+          - Version files updated
+          - Changelog updated
+          - Release branch created
+          
+          ⚠️⚠️ THE MERGE OF THIS PR WILL TRIGGER THE RELEASE PROCESS. PLEASE REVIEW THE CHANGES BEFORE MERGING. ⚠️⚠️"
+          
+          gh pr create --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            --base main \
+            --head $BRANCH_NAME
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  backend-deploy:
+    needs: release
+    uses: ./.github/workflows/backend.yml
+    with:
+      environment: stg
+      reason: "Release deployment to staging"
+    secrets: inherit
+
+  frontend-deploy:
+    needs: release
+    uses: ./.github/workflows/frontend.yml
+    with:
+      environment: stg
+      reason: "Release deployment to staging"
+    secrets: inherit
+
+  worker-deploy:
+    needs: release
+    uses: ./.github/workflows/worker.yml
+    with:
+      environment: dev
+      reason: "Release deployment to dev"
+    secrets: inherit

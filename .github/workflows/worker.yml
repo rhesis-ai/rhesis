@@ -37,6 +37,24 @@ on:
         type: string
         default: 'Manual deployment'
 
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for deployment'
+        required: false
+        type: string
+        default: 'Deployment'
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+
+
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'
 
