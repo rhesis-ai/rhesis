@@ -56,7 +56,13 @@ export default function TestDetailReviewsTab({
   };
 
   // Get review status color and icon
-  const getReviewStatusDisplay = (statusName: string) => {
+  const getReviewStatusDisplay = (
+    statusName: string
+  ): {
+    passed: boolean;
+    icon: React.ReactElement;
+    color: 'success' | 'error';
+  } => {
     const name = statusName.toLowerCase();
     const isPassed =
       name.includes('pass') ||
@@ -66,7 +72,7 @@ export default function TestDetailReviewsTab({
     return {
       passed: isPassed,
       icon: isPassed ? <CheckCircleOutlineIcon /> : <CancelOutlinedIcon />,
-      color: isPassed ? 'success' : ('error' as const),
+      color: isPassed ? 'success' : 'error',
     };
   };
 
@@ -140,9 +146,15 @@ export default function TestDetailReviewsTab({
                     );
                     return (
                       <>
-                        {React.cloneElement(display.icon, {
-                          sx: { color: `${display.color}.main`, fontSize: 20 },
-                        })}
+                        {display.passed ? (
+                          <CheckCircleOutlineIcon
+                            sx={{ color: 'success.main', fontSize: 20 }}
+                          />
+                        ) : (
+                          <CancelOutlinedIcon
+                            sx={{ color: 'error.main', fontSize: 20 }}
+                          />
+                        )}
                         <Chip
                           label={lastReview.status.name}
                           size="small"
@@ -262,7 +274,13 @@ export default function TestDetailReviewsTab({
                             />
                           )}
                           <Chip
-                            icon={display.icon}
+                            icon={
+                              display.passed ? (
+                                <CheckCircleOutlineIcon />
+                              ) : (
+                                <CancelOutlinedIcon />
+                              )
+                            }
                             label={review.status.name}
                             size="small"
                             color={display.color}
@@ -347,8 +365,8 @@ export default function TestDetailReviewsTab({
             </Typography>
             <Typography variant="body2" color="text.secondary">
               This test result has not been reviewed by any human evaluators.
-              Use the "Confirm Review" or "Overrule Judgement" actions to add a
-              review.
+              Use the &quot;Confirm Review&quot; or &quot;Overrule
+              Judgement&quot; actions to add a review.
             </Typography>
           </Paper>
         )}
