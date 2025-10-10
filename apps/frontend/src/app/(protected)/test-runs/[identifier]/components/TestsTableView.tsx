@@ -27,6 +27,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CheckIcon from '@mui/icons-material/Check';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDetailPanel from './TestDetailPanel';
@@ -123,6 +124,63 @@ export default function TestsTableView({
       console.log('Review saved successfully:', { testId, overruleData });
     } catch (error) {
       console.error('Failed to refresh test result:', error);
+    }
+  };
+
+  const handleConfirmReview = async (
+    event: React.MouseEvent,
+    test: TestResultDetail
+  ) => {
+    event.stopPropagation();
+
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+      const statusClient = clientFactory.getStatusClient();
+
+      // Get available statuses for TestResult
+      const statuses = await statusClient.getStatuses({
+        entity_type: 'TestResult',
+      });
+
+      // Determine the current automated status
+      const metrics = test.test_metrics?.metrics || {};
+      const metricValues = Object.values(metrics);
+      const totalMetrics = metricValues.length;
+      const passedMetrics = metricValues.filter(m => m.is_successful).length;
+      const automatedPassed =
+        totalMetrics > 0 && passedMetrics === totalMetrics;
+
+      // Find appropriate status ID
+      const statusKeywords = automatedPassed
+        ? ['pass', 'success', 'completed']
+        : ['fail', 'error'];
+      const targetStatus = statuses.find(status =>
+        statusKeywords.some(keyword =>
+          status.name.toLowerCase().includes(keyword)
+        )
+      );
+
+      if (!targetStatus) {
+        console.error('Could not find appropriate status for confirmation');
+        return;
+      }
+
+      // Create a review that matches the automated result
+      await testResultsClient.createReview(
+        test.id,
+        targetStatus.id,
+        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result after manual review.`,
+        { type: 'test', reference: null }
+      );
+
+      // Refresh the test result
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+      onTestResultUpdate(updatedTest);
+
+      console.log('Review confirmed successfully for test:', test.id);
+    } catch (error) {
+      console.error('Failed to confirm review:', error);
     }
   };
 
@@ -574,6 +632,26 @@ export default function TestsTableView({
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
+
+                        {/* Show Confirm Review button only if not already reviewed */}
+                        {!test.last_review && (
+                          <Tooltip title="Confirm Review">
+                            <IconButton
+                              size="small"
+                              onClick={e => handleConfirmReview(e, test)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: alpha(
+                                    theme.palette.success.main,
+                                    0.1
+                                  ),
+                                },
+                              }}
+                            >
+                              <CheckIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
 
                         <Tooltip title="Overrule Judgement">
                           <IconButton
