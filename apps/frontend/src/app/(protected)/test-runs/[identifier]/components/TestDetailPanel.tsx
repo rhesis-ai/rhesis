@@ -123,6 +123,24 @@ export default function TestDetailPanel({
     setActiveTab(newValue);
   };
 
+  // Handle counts change (when comments/tasks are added or deleted)
+  const handleCountsChange = React.useCallback(async () => {
+    if (!test) return;
+    
+    // Refetch the test result to get updated counts
+    try {
+      const { ApiClientFactory } = await import('@/utils/api-client/client-factory');
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = apiFactory.getTestResultsClient();
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+      
+      // Notify parent to update its state
+      onTestResultUpdate(updatedTest);
+    } catch (error) {
+      console.error('Error refetching test result:', error);
+    }
+  }, [test, sessionToken, onTestResultUpdate]);
+
   if (loading) {
     return (
       <Paper
@@ -161,13 +179,43 @@ export default function TestDetailPanel({
       }}
     >
       {/* Tabs Header */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: theme.palette.background.paper }}>
         <Tabs
           value={activeTab}
           onChange={handleTabChange}
           aria-label="test detail tabs"
           variant="scrollable"
           scrollButtons="auto"
+          sx={{
+            '& .MuiTab-root': {
+              minHeight: 56,
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+              color: theme.palette.text.secondary,
+              '& .MuiSvgIcon-root': {
+                color: theme.palette.text.secondary,
+              },
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+                color: theme.palette.text.primary,
+                '& .MuiSvgIcon-root': {
+                  color: theme.palette.text.primary,
+                },
+              },
+              '&.Mui-selected': {
+                backgroundColor: 'transparent',
+                color: theme.palette.primary.main,
+                '& .MuiSvgIcon-root': {
+                  color: theme.palette.primary.main,
+                },
+              },
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderRadius: '3px 3px 0 0',
+            },
+          }}
         >
           <Tab
             icon={<InfoOutlinedIcon fontSize="small" />}
@@ -252,6 +300,7 @@ export default function TestDetailPanel({
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}
             elevation={0}
+            onCountsChange={handleCountsChange}
           />
         </TabPanel>
       </Box>

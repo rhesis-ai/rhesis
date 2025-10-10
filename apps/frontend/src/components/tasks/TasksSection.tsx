@@ -259,6 +259,12 @@ export function TasksSection({
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreateTask}
+            sx={{
+              color: 'white',
+              '& .MuiButton-startIcon': {
+                color: 'white',
+              },
+            }}
           >
             Create Task
           </Button>
