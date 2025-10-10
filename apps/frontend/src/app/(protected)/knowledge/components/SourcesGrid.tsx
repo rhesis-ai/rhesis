@@ -18,6 +18,7 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { ChatIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { DeleteButton } from '@/components/common/DeleteButton';
@@ -382,6 +383,24 @@ export default function SourcesGrid({
       renderCell: (params) => {
         const source = params.row as Source;
         return <ChipContainer items={source.tags || []} />;
+      },
+    },
+    {
+      field: 'counts.comments',
+      headerName: 'Comments',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const source = params.row as Source;
+        const count = source.counts?.comments || 0;
+        if (count === 0) return null;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{count}</Typography>
+          </Box>
+        );
       },
     },
   ];
