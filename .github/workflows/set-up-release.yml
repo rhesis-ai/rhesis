@@ -1,4 +1,4 @@
-name: Set up release
+name: Release - 1. Set up release config
 
 on:
   workflow_dispatch:
