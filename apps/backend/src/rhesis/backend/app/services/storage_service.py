@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from pathlib import Path
@@ -35,8 +36,20 @@ class StorageService:
         """Get file system - cloud storage if configured, otherwise temporary storage."""
         if self.use_cloud_storage:
             try:
-                # Parse service account key from environment variable
-                service_account_info = json.loads(self.service_account_key)
+                # Parse base64-encoded service account key from environment variable
+                # Clean the base64 string (remove whitespace/newlines)
+                clean_base64 = (
+                    self.service_account_key.strip()
+                    .replace("\n", "")
+                    .replace("\r", "")
+                    .replace(" ", "")
+                )
+                decoded_key = base64.b64decode(clean_base64).decode("utf-8")
+
+                # Fix the private key formatting - escape actual newlines in JSON
+                decoded_key = decoded_key.replace("\n", "\\n")
+
+                service_account_info = json.loads(decoded_key)
 
                 # Create credentials object with explicit scopes for GCS
                 credentials = service_account.Credentials.from_service_account_info(
