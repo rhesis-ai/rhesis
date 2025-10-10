@@ -404,7 +404,6 @@ export default function TestsTableView({
                               variant="filled"
                               sx={{
                                 height: 20,
-                                fontSize: '0.7rem',
                                 fontWeight: 600,
                               }}
                             />
@@ -418,7 +417,6 @@ export default function TestsTableView({
                               color="error.main"
                               sx={{
                                 display: 'block',
-                                fontSize: '0.7rem',
                               }}
                             >
                               Failed: {failedMetrics.slice(0, 2).join(', ')}

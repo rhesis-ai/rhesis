@@ -243,7 +243,7 @@ export default function OverruleJudgementDrawer({
           sx={{
             p: 2,
             bgcolor: 'action.hover',
-            borderRadius: 1,
+            borderRadius: theme => theme.shape.borderRadius,
             border: 1,
             borderColor: 'divider',
           }}
@@ -264,7 +264,7 @@ export default function OverruleJudgementDrawer({
           sx={{
             p: 1.5,
             bgcolor: 'action.hover',
-            borderRadius: 1,
+            borderRadius: theme => theme.shape.borderRadius,
             border: 1,
             borderColor: 'divider',
           }}
