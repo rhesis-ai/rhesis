@@ -5,6 +5,7 @@ import { Box, Grid, Paper, useTheme } from '@mui/material';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';
 import TestDetailPanel from './TestDetailPanel';
+import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -54,6 +55,7 @@ export default function TestRunMainView({
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
   const [availableTestRuns, setAvailableTestRuns] = useState<
     Array<{
       id: string;
@@ -326,57 +328,74 @@ export default function TestRunMainView({
             isDownloading={isDownloading}
             totalTests={testResults.length}
             filteredTests={filteredTests.length}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
 
-          {/* Split Panel Layout */}
-          <Grid container spacing={3}>
-            {/* Left: Tests List (33%) */}
-            <Grid item xs={12} md={4}>
-              <Paper
-                sx={{
-                  height: { xs: 400, md: 'calc(100vh - 420px)' },
-                  minHeight: 400,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}
-              >
-                <TestsList
-                  tests={filteredTests}
-                  selectedTestId={selectedTestId}
-                  onTestSelect={handleTestSelect}
-                  loading={loading}
-                  prompts={prompts}
-                />
-              </Paper>
-            </Grid>
+          {/* Conditional Layout based on viewMode */}
+          {viewMode === 'split' ? (
+            <Grid container spacing={3}>
+              {/* Left: Tests List (33%) */}
+              <Grid item xs={12} md={4}>
+                <Paper
+                  sx={{
+                    height: { xs: 780, md: 'calc(100vh - 294px)' },
+                    minHeight: 780,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <TestsList
+                    tests={filteredTests}
+                    selectedTestId={selectedTestId}
+                    onTestSelect={handleTestSelect}
+                    loading={loading}
+                    prompts={prompts}
+                  />
+                </Paper>
+              </Grid>
 
-            {/* Right: Test Detail Panel (67%) */}
-            <Grid item xs={12} md={8}>
-              <Paper
-                sx={{
-                  height: { xs: 600, md: 'calc(100vh - 420px)' },
-                  minHeight: 600,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}
-              >
-                <TestDetailPanel
-                  test={selectedTest}
-                  loading={loading}
-                  prompts={prompts}
-                  behaviors={behaviors}
-                  testRunId={testRunId}
-                  sessionToken={sessionToken}
-                  onTestResultUpdate={handleTestResultUpdate}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  currentUserPicture={currentUserPicture}
-                />
-              </Paper>
+              {/* Right: Test Detail Panel (67%) */}
+              <Grid item xs={12} md={8}>
+                <Paper
+                  sx={{
+                    height: { xs: 780, md: 'calc(100vh - 294px)' },
+                    minHeight: 780,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <TestDetailPanel
+                    test={selectedTest}
+                    loading={loading}
+                    prompts={prompts}
+                    behaviors={behaviors}
+                    testRunId={testRunId}
+                    sessionToken={sessionToken}
+                    onTestResultUpdate={handleTestResultUpdate}
+                    currentUserId={currentUserId}
+                    currentUserName={currentUserName}
+                    currentUserPicture={currentUserPicture}
+                  />
+                </Paper>
+              </Grid>
             </Grid>
-          </Grid>
+          ) : (
+            <TestsTableView
+              tests={filteredTests}
+              prompts={prompts}
+              behaviors={behaviors}
+              testRunId={testRunId}
+              sessionToken={sessionToken}
+              loading={loading}
+              onTestResultUpdate={handleTestResultUpdate}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+            />
+          )}
         </>
       ) : (
         <ComparisonView

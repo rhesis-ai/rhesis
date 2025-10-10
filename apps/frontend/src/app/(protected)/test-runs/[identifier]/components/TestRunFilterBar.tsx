@@ -23,6 +23,8 @@ import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import ListIcon from '@mui/icons-material/List';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import TableRowsIcon from '@mui/icons-material/TableRows';
 
 export interface FilterState {
   searchQuery: string;
@@ -39,6 +41,8 @@ interface TestRunFilterBarProps {
   isDownloading?: boolean;
   totalTests: number;
   filteredTests: number;
+  viewMode?: 'split' | 'table';
+  onViewModeChange?: (mode: 'split' | 'table') => void;
 }
 
 export default function TestRunFilterBar({
@@ -50,6 +54,8 @@ export default function TestRunFilterBar({
   isDownloading = false,
   totalTests,
   filteredTests,
+  viewMode = 'split',
+  onViewModeChange,
 }: TestRunFilterBarProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
@@ -206,8 +212,54 @@ export default function TestRunFilterBar({
         </Typography>
       </Box>
 
-      {/* Right side: Actions */}
-      <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+      {/* Right side: View Mode and Actions */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1,
+          flexShrink: 0,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        {/* View Mode Toggle */}
+        {onViewModeChange && (
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 0.5,
+              alignItems: 'center',
+              mr: 1,
+            }}
+          >
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mr: 0.5, display: { xs: 'none', sm: 'block' } }}
+            >
+              View:
+            </Typography>
+            <ButtonGroup size="small" variant="outlined">
+              <Button
+                onClick={() => onViewModeChange('split')}
+                variant={viewMode === 'split' ? 'contained' : 'outlined'}
+                startIcon={<ViewColumnIcon fontSize="small" />}
+                sx={{ minWidth: 'auto', px: 1.5 }}
+              >
+                Split
+              </Button>
+              <Button
+                onClick={() => onViewModeChange('table')}
+                variant={viewMode === 'table' ? 'contained' : 'outlined'}
+                startIcon={<TableRowsIcon fontSize="small" />}
+                sx={{ minWidth: 'auto', px: 1.5 }}
+              >
+                Table
+              </Button>
+            </ButtonGroup>
+          </Box>
+        )}
+
         <Button
           size="small"
           variant="outlined"
