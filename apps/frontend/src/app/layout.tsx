@@ -104,6 +104,12 @@ async function getNavigationItems(
       icon: <AppsIcon />,
     },
     {
+      kind: 'page',
+      segment: 'knowledge',
+      title: 'Knowledge',
+      icon: <MenuBookIcon />,
+    },
+    {
       kind: 'divider',
     },
     {
@@ -135,12 +141,6 @@ async function getNavigationItems(
       segment: 'test-results',
       title: 'Test Results',
       icon: <AssessmentIcon />,
-    },
-    {
-      kind: 'page',
-      segment: 'knowledge',
-      title: 'Knowledge',
-      icon: <MenuBookIcon />,
     },
     {
       kind: 'page',
