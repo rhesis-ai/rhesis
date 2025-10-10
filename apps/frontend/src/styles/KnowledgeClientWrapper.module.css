@@ -41,17 +41,6 @@
   margin: 0 auto;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.headerTitle {
-  color: var(--mui-palette-text-secondary);
-}
-
 .selectionInfo {
   margin-bottom: 16px;
   display: flex;

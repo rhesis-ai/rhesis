@@ -91,13 +91,6 @@ export default function KnowledgeClientWrapper({
       title="Knowledge"
       breadcrumbs={[{ title: 'Knowledge', path: '/knowledge' }]}
     >
-      {/* Header */}
-      <Box className={styles.header}>
-        <Typography variant="h6" className={styles.headerTitle}>
-          Manage your knowledge sources and documents
-        </Typography>
-      </Box>
-
       {/* Sources grid */}
       <Paper className={styles.gridContainer}>
         <Box className={styles.gridContent}>
