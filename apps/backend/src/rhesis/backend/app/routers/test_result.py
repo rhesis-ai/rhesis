@@ -53,6 +53,11 @@ def create_test_result(
     - No SET LOCAL commands needed
     - No SHOW queries during entity creation
     - Direct tenant context injection
+
+    The test result can include:
+    - test_metrics: Automated metric evaluations
+    - test_reviews: Human feedback with created_at/updated_at timestamps
+    - test_output: The actual test execution output
     """
     organization_id, user_id = tenant_context
 
@@ -368,6 +373,11 @@ def update_test_result(
     - No SET LOCAL commands needed
     - No SHOW queries during update
     - Direct tenant context injection
+
+    Supports updating:
+    - test_metrics: Automated evaluations
+    - test_reviews: Human feedback (add new reviews or edit existing ones with updated_at)
+    - status_id: Overall status of the test result
     """
     organization_id, user_id = tenant_context
     db_test_result = crud.get_test_result(
