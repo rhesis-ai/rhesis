@@ -29,6 +29,7 @@ class TestResultUpdate(TestResultBase):
 
 class TestResult(TestResultBase):
     last_review: Optional[Dict[str, Any]] = None
+    matches_review: bool = False
 
     class Config:
         from_attributes = True

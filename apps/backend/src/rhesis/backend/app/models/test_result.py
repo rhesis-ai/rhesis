@@ -55,3 +55,28 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
         )
 
         return sorted_reviews[0] if sorted_reviews else None
+
+    @property
+    def matches_review(self) -> bool:
+        """
+        Check if the test result's status_id matches the status_id from the latest review.
+
+        Returns:
+            True if the test result status matches the latest review status, False otherwise.
+            Returns False if there are no reviews or if either status is missing.
+        """
+        last_review = self.last_review
+        if not last_review:
+            return False
+
+        # Get the status from the review
+        review_status = last_review.get("status")
+        if not review_status or not isinstance(review_status, dict):
+            return False
+
+        review_status_id = review_status.get("status_id")
+        if not review_status_id or not self.status_id:
+            return False
+
+        # Convert both to strings for comparison (they might be UUID objects or strings)
+        return str(self.status_id) == str(review_status_id)
