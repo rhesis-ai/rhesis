@@ -280,7 +280,7 @@ export default function SourcesGrid({
 
         return (
           <Box className={styles.sourceContent}>
-            <Typography variant="body2" className={styles.sourceName}>
+            <Typography variant="body2">
               {source.title}
             </Typography>
             {source.description && (
@@ -326,7 +326,6 @@ export default function SourcesGrid({
             size="small"
             variant="outlined"
             className={styles.fileTypeChip}
-            color={fileExtension === 'unknown' ? 'default' : 'primary'}
           />
         );
       },
