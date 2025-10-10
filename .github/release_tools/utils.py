@@ -71,56 +71,6 @@ def load_env_var(env_file: Path, var_name: str) -> str:
     return ""
 
 
-def setup_python_env(repo_root: Path) -> bool:
-    """Setup Python environment with TOML support"""
-    # Try to use SDK virtual environment first
-    sdk_venv = repo_root / "sdk" / ".venv" / "bin" / "activate"
-    if sdk_venv.exists():
-        try:
-            import tomli
-            info("Using SDK virtual environment with tomli")
-            return True
-        except ImportError:
-            pass
-    
-    # Check if tomli is available globally
-    try:
-        import tomli
-        info("Using global Python environment with tomli")
-        return True
-    except ImportError:
-        pass
-    
-    # Check if toml is available globally
-    try:
-        import toml
-        info("Using global Python environment with toml")
-        return True
-    except ImportError:
-        pass
-    
-    # Try to install tomli using uv if not already available
-    if command_exists("uv") and (repo_root / "sdk" / "pyproject.toml").exists():
-        info("Installing tomli using uv in SDK environment")
-        try:
-            result = subprocess.run(
-                ["uv", "add", "tomli"], 
-                cwd=repo_root / "sdk",
-                capture_output=True,
-                text=True
-            )
-            if result.returncode == 0:
-                info("Successfully installed tomli using uv")
-                return True
-        except Exception as e:
-            warn(f"Failed to install with uv: {e}")
-    
-    error("No TOML library available. Please install tomli:")
-    error("  - For SDK: cd sdk && uv add tomli")
-    error("  - Globally: pip3 install tomli")
-    return False
-
-
 def check_prerequisites(repo_root: Path, gemini_api_key: Optional[str] = None) -> tuple[bool, str]:
     """Check if all prerequisites are met and return API key"""
     # Check if in git repository
@@ -132,15 +82,12 @@ def check_prerequisites(repo_root: Path, gemini_api_key: Optional[str] = None) -
         return False, ""
     
     # Check for required tools
-    required_tools = ["git", "jq", "python3"]
+    required_tools = ["git", "uv"]
     for tool in required_tools:
         if not command_exists(tool):
             error(f"{tool} is not installed. Please install it first.")
             return False, ""
     
-    # Setup Python environment
-    if not setup_python_env(repo_root):
-        return False, ""
     
     # Check Gemini API key
     api_key = gemini_api_key or ""
