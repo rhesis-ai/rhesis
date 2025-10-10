@@ -1,6 +1,8 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
+  Review,
+  ReviewTarget,
   TestResult,
   TestResultCreate,
   TestResultUpdate,
@@ -181,6 +183,76 @@ export class TestResultsClient extends BaseApiClient {
 
     return this.fetch<TestResultsStats>(url, {
       cache: 'no-store',
+    });
+  }
+
+  // Review Management Methods
+
+  /**
+   * Create a new review for a test result
+   * @param testResultId - The ID of the test result
+   * @param statusId - The status ID for the review
+   * @param comments - Review comments
+   * @param target - Review target (defaults to overall test)
+   */
+  async createReview(
+    testResultId: string,
+    statusId: string,
+    comments: string,
+    target: ReviewTarget = { type: 'test', reference: null }
+  ): Promise<Review> {
+    return this.fetch<Review>(
+      `${API_ENDPOINTS.testResults}/${testResultId}/reviews`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          status_id: statusId,
+          comments,
+          target,
+        }),
+      }
+    );
+  }
+
+  /**
+   * Update an existing review
+   * @param testResultId - The ID of the test result
+   * @param reviewId - The ID of the review to update
+   * @param updates - Partial review updates
+   */
+  async updateReview(
+    testResultId: string,
+    reviewId: string,
+    updates: {
+      status_id?: string;
+      comments?: string;
+      target?: ReviewTarget;
+    }
+  ): Promise<Review> {
+    return this.fetch<Review>(
+      `${API_ENDPOINTS.testResults}/${testResultId}/reviews/${reviewId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }
+    );
+  }
+
+  /**
+   * Delete a review from a test result
+   * @param testResultId - The ID of the test result
+   * @param reviewId - The ID of the review to delete
+   */
+  async deleteReview(
+    testResultId: string,
+    reviewId: string
+  ): Promise<{ message: string; review_id: string; deleted_review: Review }> {
+    return this.fetch<{
+      message: string;
+      review_id: string;
+      deleted_review: Review;
+    }>(`${API_ENDPOINTS.testResults}/${testResultId}/reviews/${reviewId}`, {
+      method: 'DELETE',
     });
   }
 }

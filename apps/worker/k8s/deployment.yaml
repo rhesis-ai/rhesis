@@ -177,6 +177,22 @@ spec:
               name: rhesis-worker-secrets
               key: worker_env
               optional: true
+        # Storage service configuration
+        - name: STORAGE_SERVICE_URI
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: STORAGE_SERVICE_URI
+        - name: STORAGE_SERVICE_ACCOUNT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: STORAGE_SERVICE_ACCOUNT_KEY
+        - name: LOCAL_STORAGE_PATH
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: LOCAL_STORAGE_PATH
         ports:
         - containerPort: 8080
           name: health

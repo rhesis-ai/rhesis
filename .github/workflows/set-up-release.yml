@@ -1,0 +1,124 @@
+name: Set up release
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform_bump:
+        description: 'Platform version bump'
+        required: false
+        type: choice
+        options:
+          - "none"
+          - patch
+          - minor
+          - major
+      backend_bump:
+        description: 'Backend version bump'
+        required: false
+        type: choice
+        options:
+          - "none"
+          - patch
+          - minor
+          - major
+      frontend_bump:
+        description: 'Frontend version bump'
+        required: false
+        type: choice
+        options:
+          - "none"
+          - patch
+          - minor
+          - major
+
+      sdk_bump:
+        description: 'SDK version bump'
+        required: false
+        type: choice
+        options:
+          - "none"
+          - patch
+          - minor
+          - major
+
+      polyphemus_bump:
+        description: 'Polyphemus version bump'
+        required: false
+        type: choice
+        options:
+          - "none"
+          - patch
+          - minor
+          - major
+
+jobs:
+  update-release-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update release config
+        run: |
+          # Create JSON using jq 
+          jq -n \
+            --arg platform "${{ github.event.inputs.platform_bump }}" \
+            --arg backend "${{ github.event.inputs.backend_bump }}" \
+            --arg frontend "${{ github.event.inputs.frontend_bump }}" \
+            --arg sdk "${{ github.event.inputs.sdk_bump }}" \
+            --arg polyphemus "${{ github.event.inputs.polyphemus_bump }}" \
+            '{
+              platform: $platform,
+              backend: $backend,
+              frontend: $frontend,
+              sdk: $sdk,
+              polyphemus: $polyphemus
+            } | with_entries(select(.value != "" and .value != "none"))' > release_config.json
+          
+          # Generate dynamic commit message
+          COMMIT_PARTS=()
+          if [ -n "${{ github.event.inputs.platform_bump }}" ] && [ "${{ github.event.inputs.platform_bump }}" != "none" ]; then
+            COMMIT_PARTS+=("platform - ${{ github.event.inputs.platform_bump }}")
+          fi
+          if [ -n "${{ github.event.inputs.backend_bump }}" ] && [ "${{ github.event.inputs.backend_bump }}" != "none" ]; then
+            COMMIT_PARTS+=("backend - ${{ github.event.inputs.backend_bump }}")
+          fi
+          if [ -n "${{ github.event.inputs.frontend_bump }}" ] && [ "${{ github.event.inputs.frontend_bump }}" != "none" ]; then
+            COMMIT_PARTS+=("frontend - ${{ github.event.inputs.frontend_bump }}")
+          fi
+          if [ -n "${{ github.event.inputs.sdk_bump }}" ] && [ "${{ github.event.inputs.sdk_bump }}" != "none" ]; then
+            COMMIT_PARTS+=("sdk - ${{ github.event.inputs.sdk_bump }}")
+          fi
+          if [ -n "${{ github.event.inputs.polyphemus_bump }}" ] && [ "${{ github.event.inputs.polyphemus_bump }}" != "none" ]; then
+            COMMIT_PARTS+=("polyphemus - ${{ github.event.inputs.polyphemus_bump }}")
+          fi
+          
+        
+          COMMIT_MSG="Update release config: $(printf '%s, ' "${COMMIT_PARTS[@]}" | sed 's/, $//')"
+          PR_TITLE_MSG="$(printf '%s, ' "${COMMIT_PARTS[@]}" | sed 's/, $//')"
+      
+          echo "COMMIT_MESSAGE=$COMMIT_MSG" >> $GITHUB_ENV
+          echo "PR_TITLE_MESSAGE=$PR_TITLE_MSG" >> $GITHUB_ENV
+          
+          echo "Generated release_config.json:"
+          cat release_config.json
+          echo "Commit message: $COMMIT_MSG"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: ${{ env.COMMIT_MESSAGE }}
+          title: "Release Bump: ${{ env.PR_TITLE_MESSAGE }}"
+          body: |
+            ## Release Version Bumps
+            
+            ${{ github.event.inputs.platform_bump != 'none' && format('- **Platform**: {0}', github.event.inputs.platform_bump) || '' }}
+            ${{ github.event.inputs.backend_bump != 'none' && format('- **Backend**: {0}', github.event.inputs.backend_bump) || '' }}
+            ${{ github.event.inputs.frontend_bump != 'none' && format('- **Frontend**: {0}', github.event.inputs.frontend_bump) || '' }}
+            ${{ github.event.inputs.sdk_bump != 'none' && format('- **SDK**: {0}', github.event.inputs.sdk_bump) || '' }}
+            ${{ github.event.inputs.polyphemus_bump != 'none' && format('- **Polyphemus**: {0}', github.event.inputs.polyphemus_bump) || '' }}
+            
+            This PR updates the release configuration with the selected version bumps.
+          branch: release-bump-${{ github.run_number }}
+          delete-branch: true

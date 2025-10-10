@@ -37,6 +37,24 @@ on:
         type: string
         default: 'Manual deployment'
 
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for deployment'
+        required: false
+        type: string
+        default: 'Deployment'
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+
+
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'
 
@@ -270,7 +288,9 @@ jobs:
             --from-literal=BACKEND_ENV="${{ secrets.BACKEND_ENV }}" \
             --from-literal=WORKER_ENV="${{ secrets.WORKER_ENV }}" \
             --from-literal=FRONTEND_URL="${{ secrets.FRONTEND_URL }}" \
-            --from-literal=STORAGE_PROJECT_ID="${{ secrets.STORAGE_PROJECT_ID }}" \
+            --from-literal=STORAGE_SERVICE_URI="${{ secrets.STORAGE_SERVICE_URI }}" \
+            --from-literal=STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }} \
+            --from-literal=LOCAL_STORAGE_PATH="${{ secrets.LOCAL_STORAGE_PATH }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy to GKE
