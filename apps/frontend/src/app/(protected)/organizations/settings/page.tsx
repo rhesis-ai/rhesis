@@ -9,7 +9,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import OrganizationDetailsForm from './components/OrganizationDetailsForm';
 import ContactInformationForm from './components/ContactInformationForm';
-import SubscriptionInfo from './components/SubscriptionInfo';
 import DangerZone from './components/DangerZone';
 
 export default function OrganizationSettingsPage() {
@@ -111,14 +110,6 @@ export default function OrganizationSettingsPage() {
           sessionToken={session?.session_token || ''}
           onUpdate={handleUpdate}
         />
-      </Paper>
-
-      {/* Subscription Information Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Subscription
-        </Typography>
-        <SubscriptionInfo organization={organization} />
       </Paper>
 
       {/* Danger Zone Section */}
