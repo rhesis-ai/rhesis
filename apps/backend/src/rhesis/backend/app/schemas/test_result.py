@@ -13,6 +13,7 @@ class TestResultBase(Base):
     test_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     test_metrics: Optional[Dict[str, Any]] = None
+    test_reviews: Optional[Dict[str, Any]] = None
     test_output: Optional[Union[str, Dict[str, Any]]] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
