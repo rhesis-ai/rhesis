@@ -1,10 +1,12 @@
 from rhesis.backend.app.models.user import User
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -415,3 +417,255 @@ def delete_test_result(
         raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
     return crud.delete_test_result(db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id)
+
+
+# ============================================================================
+# Review Management Routes
+# ============================================================================
+
+
+def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> dict:
+    """Helper to fetch status details for review"""
+    status = db.query(models.Status).filter(
+        models.Status.id == status_id,
+        models.Status.organization_id == organization_id
+    ).first()
+    if not status:
+        raise HTTPException(status_code=404, detail="Status not found")
+    return {"status_id": str(status.id), "name": status.name}
+
+
+def _update_review_metadata(reviews_data: dict, current_user: User, latest_status: dict) -> None:
+    """Helper to update metadata when reviews change"""
+    now = datetime.utcnow().isoformat()
+    reviews_data["metadata"] = {
+        "last_updated_at": now,
+        "last_updated_by": {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email
+        },
+        "total_reviews": len(reviews_data.get("reviews", [])),
+        "latest_status": latest_status,
+        "summary": f"Last updated by {current_user.name or current_user.email}"
+    }
+
+
+@router.post("/{test_result_id}/reviews", response_model=schemas.ReviewResponse)
+def add_review(
+    test_result_id: UUID,
+    review: schemas.ReviewCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    """
+    Add a new review to a test result.
+
+    Creates a new review entry with:
+    - Unique review_id
+    - Current user as reviewer
+    - Created_at and updated_at timestamps
+    - Status and target information
+    - Updates metadata automatically
+    """
+    organization_id, user_id = tenant_context
+
+    # Get the test result
+    db_test_result = crud.get_test_result(
+        db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_test_result is None:
+        raise HTTPException(status_code=404, detail="Test result not found")
+
+    # Get status details
+    status_details = _get_status_details(db, review.status_id, organization_id)
+
+    # Initialize test_reviews if it doesn't exist
+    if not db_test_result.test_reviews:
+        db_test_result.test_reviews = {"metadata": {}, "reviews": []}
+    elif not isinstance(db_test_result.test_reviews, dict):
+        db_test_result.test_reviews = {"metadata": {}, "reviews": []}
+    
+    if "reviews" not in db_test_result.test_reviews:
+        db_test_result.test_reviews["reviews"] = []
+
+    # Create the new review
+    now = datetime.utcnow().isoformat()
+    new_review = {
+        "review_id": str(uuid4()),
+        "status": status_details,
+        "user": {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email
+        },
+        "comments": review.comments,
+        "created_at": now,
+        "updated_at": now,
+        "target": {
+            "type": review.target.type,
+            "reference": review.target.reference
+        }
+    }
+
+    # Add the review
+    db_test_result.test_reviews["reviews"].append(new_review)
+
+    # Update metadata
+    _update_review_metadata(db_test_result.test_reviews, current_user, status_details)
+
+    # Mark as modified for SQLAlchemy
+    flag_modified(db_test_result, "test_reviews")
+
+    # Commit changes
+    db.commit()
+    db.refresh(db_test_result)
+
+    return new_review
+
+
+@router.put("/{test_result_id}/reviews/{review_id}", response_model=schemas.ReviewResponse)
+def update_review(
+    test_result_id: UUID,
+    review_id: str,
+    review: schemas.ReviewUpdate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    """
+    Update an existing review.
+
+    Updates review fields:
+    - status_id (optional)
+    - comments (optional)
+    - target (optional)
+    - Updates updated_at timestamp
+    - Updates metadata automatically
+    """
+    organization_id, user_id = tenant_context
+
+    # Get the test result
+    db_test_result = crud.get_test_result(
+        db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_test_result is None:
+        raise HTTPException(status_code=404, detail="Test result not found")
+
+    # Check if test_reviews exists
+    if not db_test_result.test_reviews or "reviews" not in db_test_result.test_reviews:
+        raise HTTPException(status_code=404, detail="No reviews found for this test result")
+
+    # Find the review to update
+    reviews = db_test_result.test_reviews["reviews"]
+    review_to_update = None
+    review_index = None
+    
+    for idx, rev in enumerate(reviews):
+        if rev.get("review_id") == review_id:
+            review_to_update = rev
+            review_index = idx
+            break
+
+    if review_to_update is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    # Update fields if provided
+    if review.status_id is not None:
+        status_details = _get_status_details(db, review.status_id, organization_id)
+        review_to_update["status"] = status_details
+    
+    if review.comments is not None:
+        review_to_update["comments"] = review.comments
+    
+    if review.target is not None:
+        review_to_update["target"] = {
+            "type": review.target.type,
+            "reference": review.target.reference
+        }
+
+    # Update timestamp
+    review_to_update["updated_at"] = datetime.utcnow().isoformat()
+
+    # Update metadata
+    latest_status = review_to_update["status"]
+    _update_review_metadata(db_test_result.test_reviews, current_user, latest_status)
+
+    # Mark as modified for SQLAlchemy
+    flag_modified(db_test_result, "test_reviews")
+
+    # Commit changes
+    db.commit()
+    db.refresh(db_test_result)
+
+    return review_to_update
+
+
+@router.delete("/{test_result_id}/reviews/{review_id}", response_model=dict)
+def delete_review(
+    test_result_id: UUID,
+    review_id: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token)):
+    """
+    Delete a review from a test result.
+
+    Removes the specified review and updates metadata automatically.
+    Returns confirmation message with deleted review_id.
+    """
+    organization_id, user_id = tenant_context
+
+    # Get the test result
+    db_test_result = crud.get_test_result(
+        db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_test_result is None:
+        raise HTTPException(status_code=404, detail="Test result not found")
+
+    # Check if test_reviews exists
+    if not db_test_result.test_reviews or "reviews" not in db_test_result.test_reviews:
+        raise HTTPException(status_code=404, detail="No reviews found for this test result")
+
+    # Find and remove the review
+    reviews = db_test_result.test_reviews["reviews"]
+    review_index = None
+    
+    for idx, rev in enumerate(reviews):
+        if rev.get("review_id") == review_id:
+            review_index = idx
+            break
+
+    if review_index is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    # Remove the review
+    deleted_review = reviews.pop(review_index)
+
+    # Update metadata if there are remaining reviews
+    if reviews:
+        # Get the latest review's status for metadata
+        latest_review = max(reviews, key=lambda r: r.get("updated_at", r.get("created_at", "")))
+        latest_status = latest_review.get("status", {"status_id": None, "name": "Unknown"})
+        _update_review_metadata(db_test_result.test_reviews, current_user, latest_status)
+    else:
+        # No reviews left, clear metadata
+        db_test_result.test_reviews["metadata"] = {
+            "last_updated_at": datetime.utcnow().isoformat(),
+            "last_updated_by": {
+                "user_id": str(current_user.id),
+                "name": current_user.name or current_user.email
+            },
+            "total_reviews": 0,
+            "latest_status": None,
+            "summary": "All reviews removed"
+        }
+
+    # Mark as modified for SQLAlchemy
+    flag_modified(db_test_result, "test_reviews")
+
+    # Commit changes
+    db.commit()
+
+    return {
+        "message": "Review deleted successfully",
+        "review_id": review_id,
+        "deleted_review": deleted_review
+    }
