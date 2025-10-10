@@ -7,6 +7,8 @@ Each test result can include one or more **reviews**, representing human judgmen
 
 This schema separates **automated metrics** (`test_metrics`) from **human-provided evaluations** (`test_reviews`), enabling clearer data management, traceability, and aggregation.
 
+**Status**: ✅ **Fully Implemented and Tested**
+
 ---
 
 ## Design Goals
@@ -16,6 +18,8 @@ This schema separates **automated metrics** (`test_metrics`) from **human-provid
 - **Granular scope:** Reviews can target specific metrics or the overall test.
 - **Traceability:** Include timestamps, reviewer identity, and status references.
 - **Efficient access:** Include top-level metadata for quick lookups and summaries.
+- **Full CRUD operations:** Create, read, update, and delete reviews via REST API.
+- **Automatic metadata management:** Metadata updates automatically on all operations.
 
 ---
 
@@ -100,17 +104,461 @@ The `test_reviews` field is stored as a JSON object with two parts:
 
 ---
 
-## Implementation Notes
+## Implementation Details
 
-- Store this JSON in a dedicated column (e.g., `test_reviews JSONB`) in the `test_results` table.
-- Update `metadata` automatically when any review is added or edited.
+### Database
+
+**Column**: `test_reviews` (JSONB, nullable)  
+**Table**: `test_result`  
+**Migration**: `f8b3c9d4e5a6_add_test_reviews_column.py`
+
+### Backend Models
+
+**File**: `apps/backend/src/rhesis/backend/app/models/test_result.py`
+
+```python
+class TestResult(Base, ...):
+    test_reviews = Column(JSONB)
+    
+    @property
+    def last_review(self) -> Optional[Dict[str, Any]]:
+        """Returns the most recent review based on updated_at timestamp"""
+        # Returns latest review or None
+    
+    @property
+    def matches_review(self) -> bool:
+        """Check if test result status_id matches latest review status_id"""
+        # Returns True/False
+```
+
+### Pydantic Schemas
+
+**File**: `apps/backend/src/rhesis/backend/app/schemas/test_result.py`
+
+```python
+# Review schemas
+class ReviewTargetCreate(Base):
+    type: str  # "test" or "metric"
+    reference: Optional[str] = None  # metric name or null
+
+class ReviewCreate(Base):
+    status_id: UUID4
+    comments: str
+    target: ReviewTargetCreate
+
+class ReviewUpdate(Base):
+    status_id: Optional[UUID4] = None
+    comments: Optional[str] = None
+    target: Optional[ReviewTargetCreate] = None
+
+class ReviewResponse(Base):
+    review_id: str
+    status: Dict[str, Any]
+    user: Dict[str, Any]
+    comments: str
+    created_at: str
+    updated_at: str
+    target: Dict[str, Any]
+```
+
+---
+
+## API Endpoints
+
+All endpoints follow REST conventions and automatically manage metadata.
+
+### 1. Create Review
+
+**Endpoint**: `POST /test_results/{test_result_id}/reviews`
+
+**Request Body**:
+```json
+{
+  "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
+  "comments": "Test review - looks good after manual inspection",
+  "target": {
+    "type": "test",
+    "reference": null
+  }
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
+  "status": {
+    "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
+    "name": "Pass"
+  },
+  "user": {
+    "user_id": "d7834188-a9aa-410c-a63d-89d6f487aed8",
+    "name": "Harry Cruz"
+  },
+  "comments": "Test review - looks good after manual inspection",
+  "created_at": "2025-10-10T13:18:16.310822",
+  "updated_at": "2025-10-10T13:18:16.310822",
+  "target": {
+    "type": "test",
+    "reference": null
+  }
+}
+```
+
+**Features**:
+- Auto-generates unique `review_id`
+- Sets both `created_at` and `updated_at` to current time
+- Auto-populates user info from authenticated user
+- Fetches and embeds status details from Status model
+- Updates test_reviews metadata automatically
+
+### 2. Update Review
+
+**Endpoint**: `PUT /test_results/{test_result_id}/reviews/{review_id}`
+
+**Request Body** (all fields optional):
+```json
+{
+  "comments": "UPDATED: After further review, this test passes all criteria"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
+  "status": {
+    "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
+    "name": "Pass"
+  },
+  "user": {
+    "user_id": "d7834188-a9aa-410c-a63d-89d6f487aed8",
+    "name": "Harry Cruz"
+  },
+  "comments": "UPDATED: After further review, this test passes all criteria",
+  "created_at": "2025-10-10T13:18:16.310822",
+  "updated_at": "2025-10-10T13:18:41.168149",
+  "target": {
+    "type": "test",
+    "reference": null
+  }
+}
+```
+
+**Features**:
+- Preserves `created_at` timestamp
+- Updates `updated_at` to current time
+- Updates only provided fields
+- Updates metadata automatically
+
+### 3. Delete Review
+
+**Endpoint**: `DELETE /test_results/{test_result_id}/reviews/{review_id}`
+
+**Response** (200 OK):
+```json
+{
+  "message": "Review deleted successfully",
+  "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
+  "deleted_review": {
+    "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
+    "status": {...},
+    "user": {...},
+    "comments": "UPDATED: After further review, this test passes all criteria",
+    "created_at": "2025-10-10T13:18:16.310822",
+    "updated_at": "2025-10-10T13:18:41.168149",
+    "target": {...}
+  }
+}
+```
+
+**Features**:
+- Removes review from reviews array
+- Updates metadata automatically
+- Handles empty state (when last review deleted, sets `latest_status: null`)
+- Returns deleted review data
+
+### 4. Get Test Result with Reviews
+
+**Endpoint**: `GET /test_results/{test_result_id}`
+
+**Response** includes:
+```json
+{
+  "id": "fe647ace-5364-4158-b634-9bc7c53d7905",
+  "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
+  "test_reviews": {
+    "metadata": {
+      "last_updated_at": "2025-10-10T13:18:16.310860",
+      "last_updated_by": {
+        "user_id": "d7834188-a9aa-410c-a63d-89d6f487aed8",
+        "name": "Harry Cruz"
+      },
+      "total_reviews": 1,
+      "latest_status": {
+        "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
+        "name": "Pass"
+      },
+      "summary": "Last updated by Harry Cruz"
+    },
+    "reviews": [
+      {
+        "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
+        "status": {...},
+        "user": {...},
+        "comments": "...",
+        "created_at": "2025-10-10T13:18:16.310822",
+        "updated_at": "2025-10-10T13:18:16.310822",
+        "target": {...}
+      }
+    ]
+  },
+  "last_review": {
+    "review_id": "c370e2d7-f526-41c4-94f0-a6f25735a9b9",
+    "status": {...},
+    "user": {...},
+    "comments": "...",
+    "created_at": "2025-10-10T13:18:16.310822",
+    "updated_at": "2025-10-10T13:18:16.310822",
+    "target": {...}
+  },
+  "matches_review": true
+}
+```
+
+**Derived Properties**:
+- `last_review`: Most recent review by `updated_at` timestamp
+- `matches_review`: Boolean indicating if test result status matches latest review status
+
+---
+
+## Frontend TypeScript Interfaces
+
+**File**: `apps/frontend/src/utils/api-client/interfaces/test-results.ts`
+
+```typescript
+// Review interfaces
+export interface ReviewUser {
+  user_id: UUID;
+  name: string;
+}
+
+export interface ReviewStatus {
+  status_id: UUID;
+  name: string;
+}
+
+export interface ReviewTarget {
+  type: 'test' | 'metric';
+  reference: string | null;
+}
+
+export interface Review {
+  review_id: UUID;
+  status: ReviewStatus;
+  user: ReviewUser;
+  comments: string;
+  created_at: string;
+  updated_at: string;
+  target: ReviewTarget;
+}
+
+export interface TestReviewsMetadata {
+  last_updated_at: string;
+  last_updated_by: ReviewUser;
+  total_reviews: number;
+  latest_status: ReviewStatus;
+  summary?: string;
+}
+
+export interface TestReviews {
+  metadata: TestReviewsMetadata;
+  reviews: Review[];
+}
+
+// Test Result interface includes:
+export interface TestResult extends TestResultBase {
+  id: UUID;
+  created_at: string;
+  updated_at: string;
+  test_reviews?: TestReviews;
+  last_review?: Review;
+  matches_review: boolean;
+}
+```
+
+---
+
+## Frontend Implementation Guide
+
+### 1. Display Reviews
+
+```typescript
+import { TestResult } from '@/utils/api-client/interfaces/test-results';
+
+function ReviewsList({ testResult }: { testResult: TestResult }) {
+  if (!testResult.test_reviews?.reviews.length) {
+    return <div>No reviews yet</div>;
+  }
+
+  return (
+    <div>
+      <h3>Reviews ({testResult.test_reviews.metadata.total_reviews})</h3>
+      {testResult.test_reviews.reviews.map(review => (
+        <ReviewCard key={review.review_id} review={review} />
+      ))}
+    </div>
+  );
+}
+```
+
+### 2. Create Review
+
+```typescript
+async function createReview(testResultId: string, statusId: string, comments: string) {
+  const response = await fetch(
+    `${API_BASE_URL}/test_results/${testResultId}/reviews`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status_id: statusId,
+        comments: comments,
+        target: {
+          type: 'test',
+          reference: null
+        }
+      })
+    }
+  );
+  
+  return await response.json();
+}
+```
+
+### 3. Update Review
+
+```typescript
+async function updateReview(
+  testResultId: string, 
+  reviewId: string, 
+  updates: { comments?: string; status_id?: string }
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/test_results/${testResultId}/reviews/${reviewId}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates)
+    }
+  );
+  
+  return await response.json();
+}
+```
+
+### 4. Delete Review
+
+```typescript
+async function deleteReview(testResultId: string, reviewId: string) {
+  const response = await fetch(
+    `${API_BASE_URL}/test_results/${testResultId}/reviews/${reviewId}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      }
+    }
+  );
+  
+  return await response.json();
+}
+```
+
+### 5. Display Latest Review Badge
+
+```typescript
+function LatestReviewBadge({ testResult }: { testResult: TestResult }) {
+  if (!testResult.last_review) return null;
+
+  return (
+    <div className="badge">
+      <span>Latest Review: {testResult.last_review.status.name}</span>
+      <span>By: {testResult.last_review.user.name}</span>
+      {!testResult.matches_review && (
+        <span className="warning">Status mismatch!</span>
+      )}
+    </div>
+  );
+}
+```
+
+### 6. Status Conflict Detection
+
+```typescript
+function StatusConflictAlert({ testResult }: { testResult: TestResult }) {
+  if (!testResult.last_review || testResult.matches_review) {
+    return null;
+  }
+
+  return (
+    <Alert severity="warning">
+      Test result status does not match the latest review status.
+      Test: {testResult.status?.name} | Review: {testResult.last_review.status.name}
+    </Alert>
+  );
+}
+```
+
+---
+
+## Use Cases
+
+### 1. **Override Automated Metrics**
+A human reviewer disagrees with an automated pass/fail and adds a review with a different status.
+
+### 2. **Multi-Reviewer Workflow**
+Multiple team members review the same test result, each adding their perspective.
+
+### 3. **Metric-Specific Reviews**
+Review specific metrics (e.g., "Answer Relevancy") separately from overall test.
+
+### 4. **Audit Trail**
+Track who reviewed what and when, with full edit history via timestamps.
+
+### 5. **Status Conflict Detection**
+Use `matches_review` to identify cases where human review disagrees with automated result.
+
+---
+
+## Testing
+
+All functionality has been tested and verified:
+
+✅ Create review with auto-generated ID and timestamps  
+✅ Update review with preserved `created_at`  
+✅ Delete review with metadata updates  
+✅ Multiple reviews support  
+✅ Both "test" and "metric" target types  
+✅ Empty state handling  
+✅ Derived properties (`last_review`, `matches_review`)  
+✅ Automatic metadata synchronization  
 
 ---
 
 ## Future Extensions
 
-Potential fields to add later:
-- `confidence`: reviewer confidence score (0–1)
+Potential enhancements:
+- `confidence`: Reviewer confidence score (0–1)
+- `attachments`: File attachments for evidence
+- `review_type`: Categorize reviews (approval, rejection, follow-up)
+- `tags`: Categorize reviews with tags
+- Review workflows and approval chains
 
 ---
-
