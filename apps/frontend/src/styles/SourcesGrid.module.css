@@ -78,3 +78,7 @@
   font-size: 0.75rem;
   height: 24px;
 }
+
+.errorContainer {
+  padding: 24px;
+}

@@ -62,3 +62,42 @@
 .selectionText {
   color: var(--mui-palette-primary-main);
 }
+
+/* Common spacing utilities */
+.padding3 {
+  padding: 24px;
+}
+
+.padding2 {
+  padding: 16px;
+}
+
+.marginBottom3 {
+  margin-bottom: 24px;
+}
+
+.marginBottom2 {
+  margin-bottom: 16px;
+}
+
+.marginTop4 {
+  margin-top: 32px;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.gridContainer {
+  width: 100%;
+  margin-bottom: 16px;
+  margin-top: 32px;
+}
+
+.gridContent {
+  padding: 16px;
+}
+
+.errorContainer {
+  padding: 24px;
+}
