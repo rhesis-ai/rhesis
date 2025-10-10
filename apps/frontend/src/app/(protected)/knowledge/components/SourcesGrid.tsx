@@ -310,6 +310,7 @@ export default function SourcesGrid({
             size="small"
             variant="outlined"
             className={styles.fileTypeChip}
+            color={fileType === 'unknown' ? 'default' : 'primary'}
           />
         );
       },
@@ -336,9 +337,23 @@ export default function SourcesGrid({
       width: 120,
       renderCell: (params) => {
         const source = params.row as Source;
+
+        const formatDate = (dateString: string | null | undefined) => {
+          if (!dateString) return 'Unknown';
+          try {
+            const date = new Date(dateString);
+            return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleDateString();
+          } catch {
+            return 'Invalid date';
+          }
+        };
+
+        // Use uploaded_at from source_metadata
+        const dateToShow = source.source_metadata?.uploaded_at;
+
         return (
           <Typography variant="body2" color="text.secondary">
-            {new Date(source.created_at).toLocaleDateString()}
+            {formatDate(dateToShow)}
           </Typography>
         );
       },
