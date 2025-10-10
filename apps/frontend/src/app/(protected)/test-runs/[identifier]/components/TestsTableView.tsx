@@ -229,8 +229,8 @@ export default function TestsTableView({
         component={Paper}
         elevation={2}
         sx={{
-          maxHeight: 'calc(100vh - 450px)',
-          minHeight: 400,
+          maxHeight: 'calc(100vh - 250px)',
+          minHeight: 800,
         }}
       >
         <Table stickyHeader>

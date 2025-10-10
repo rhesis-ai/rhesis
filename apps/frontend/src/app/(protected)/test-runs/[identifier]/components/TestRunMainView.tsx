@@ -75,6 +75,12 @@ export default function TestRunMainView({
     searchQuery: '',
     statusFilter: 'all',
     selectedBehaviors: [],
+    overruleFilter: 'all',
+    selectedFailedMetrics: [],
+    commentFilter: 'all',
+    commentCountRange: { min: 0, max: 20 },
+    taskFilter: 'all',
+    taskCountRange: { min: 0, max: 10 },
   });
 
   // Merge prop data with any updates
@@ -323,6 +329,7 @@ export default function TestRunMainView({
             filter={filter}
             onFilterChange={handleFilterChange}
             availableBehaviors={behaviors}
+            availableMetrics={behaviors?.flatMap(b => b.metrics) || []}
             onDownload={handleDownload}
             onCompare={handleCompare}
             isDownloading={isDownloading}
