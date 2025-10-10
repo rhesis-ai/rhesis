@@ -1,8 +1,4 @@
- 
 export default {
-  docs: 'Documentation',
-  sdk: {
-    title: 'SDK',
-  }
+  docs: 'Documentation'
 }
  

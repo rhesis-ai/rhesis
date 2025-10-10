@@ -2,9 +2,12 @@ import type { MetaRecord } from 'nextra'
 
 const meta: MetaRecord = {
   index: 'Overview',
-  projects: 'Projects & Collaboration',
-  'tests-generation': 'Tests & Generation',
-  'test-sets-runs': 'Test Sets & Runs',
+  organizations: 'Organizations & Team',
+  projects: 'Projects',
+  endpoints: 'Endpoints',
+  'tests-generation': 'Tests',
+  'test-sets-runs': 'Test Sets',
+  'test-runs': 'Test Runs',
   'test-results': 'Test Results',
   metrics: 'Metrics',
   integrations: 'Integrations'

@@ -1,44 +1,145 @@
 # Metrics
 
-Track performance, coverage, and quality metrics across your testing initiatives.
+Define and manage evaluation criteria for testing AI responses with LLM-based grading.
 
-<Callout type="default">
-  **Performance Tracking**
-  Monitor key metrics, track trends, and gain insights into your testing effectiveness and system performance.
-</Callout>
+## Why Metrics?
 
-## Metrics Overview
+Manual evaluation of AI responses doesn't scale. Metrics automate quality assessment so you can:
 
-Coming soon...
+- **Test at Scale**: Evaluate thousands of responses automatically
+- **Maintain Consistency**: Apply the same evaluation criteria every time
+- **Track Quality**: Measure performance across different dimensions (accuracy, tone, safety)
+- **Catch Regressions**: Detect when AI behavior degrades
+- **Compare Models**: Evaluate different models or configurations objectively
 
-## Key Performance Indicators
+## Understanding Metrics
 
-Coming soon...
+Metrics are evaluation criteria that assess test responses against specific quality dimensions. Each metric uses an LLM model to evaluate test outputs and return a pass/fail result with optional scoring.
 
-## Coverage Metrics
+### What Metrics Contain
 
-Coming soon...
+Each metric has a name and description that identifies what it evaluates. The evaluation configuration specifies which LLM model to use for grading, along with the evaluation prompt, evaluation steps, and reasoning instructions that guide the model's assessment. The score configuration determines whether the metric uses binary scoring (simple pass/fail) or numeric scoring (a range with a threshold for passing), including min/max scores for numeric metrics and an explanation of the scoring logic. You can add tags for categorization and search, and assign metrics to behaviors to organize them into logical groups.
 
-## Quality Metrics
+### Behaviors (Metric Groups)
 
-Coming soon...
+Behaviors are organizational categories that group related metrics. For example:
+- **Accuracy**: Metrics for factual correctness
+- **Tone**: Metrics for appropriate communication style
+- **Safety**: Metrics for harmful content detection
+- **Relevance**: Metrics for on-topic responses
 
-## Custom Metrics
+## Viewing Metrics
 
-Coming soon...
+The Metrics page has two main tabs for different views:
 
-## Dashboards and Visualization
+### Metrics Directory Tab
 
-Coming soon...
+The Directory tab shows all available metrics with powerful filtering options to help you find what you need. Search by metric name or description, filter by evaluation backend type, metric type (Grading, API Call, Custom Code, or Custom Prompt), or score type (binary or numeric). Click any metric card to view its full configuration details, assign it to a behavior, remove it from a behavior, or delete it.
 
-## Alerting and Notifications
+### Selected Metrics Tab
 
-Coming soon...
+The Selected Metrics tab organizes metrics by behaviors, displaying each behavior as a collapsible section with its associated metrics grouped underneath. This view makes it easy to see which metrics are assigned to each behavior category. You can add new behaviors to create additional organizational sections, edit behavior names and descriptions, delete behaviors entirely, remove specific metrics from behaviors, or click any metric to view its details.
+
+## Creating a Metric
+
+Create new metrics using a 3-step wizard:
+
+### Step 1: Metric Information
+
+**Required Fields**:
+- **Name**: Metric identifier
+- **Description**: What the metric evaluates
+
+**Optional Fields**:
+- **Tags**: Categorization labels
+
+### Step 2: Evaluation Configuration
+
+**Model Selection**:
+- Choose LLM model for evaluation (dropdown of available models)
+
+**Evaluation Prompt**:
+- Instructions for the LLM on what to evaluate
+- Describes the evaluation criteria
+
+**Evaluation Steps**:
+- Numbered list of steps the LLM should follow
+- Add multiple steps using "+ Add Step" button
+- Remove steps as needed
+
+**Reasoning**:
+- Instructions for how the LLM should explain its evaluation
+
+### Step 3: Score Configuration & Review
+
+**Score Type**:
+- **Binary**: Simple pass/fail
+- **Numeric**: Score range with threshold
+
+**For Numeric Scores**:
+- **Min Score**: Minimum possible value
+- **Max Score**: Maximum possible value
+- **Threshold**: Minimum score to pass
+
+**Explanation**:
+- Description of how scoring works
+
+**Review**:
+- Summary of all configured settings
+- Edit previous steps if needed
+- Submit to create metric
+
+## Managing Metrics
+
+### Viewing Metric Details
+
+Click any metric to open its detail page, which organizes all configuration information into clear sections. The **General Section** displays the metric's name, description, and editable tags. The **Evaluation Configuration Section** shows which model is used for evaluation, along with the evaluation prompt, steps, and reasoning instructions that guide the assessment. The **Score Configuration Section** presents the score type, min/max values (for numeric metrics), the threshold for passing, and an explanation of how scoring works.
+
+### Editing Metrics
+
+Each section has an "Edit" button. Click it, update fields in the edit drawer, and click "Save".
+
+### Deleting Metrics
+
+Click "Delete Metric" on the detail page and confirm. The metric is permanently removed.
+
+### Assigning Metrics to Behaviors
+
+From the Metrics Directory tab, click "Assign" on a metric card, select a behavior, and the metric appears under that behavior in the Selected Metrics tab. Use the remove button to unassign metrics.
+
+**[SCREENSHOT HERE: Metrics page showing the two-tab layout. Selected Metrics tab visible with behaviors displayed as collapsible sections (e.g., "Accuracy", "Safety", "Tone"), each containing metric cards. Show the "+ Add New Section" button and edit/delete icons on behavior headers.]**
+
+## Managing Behaviors
+
+Create behaviors by clicking "+ Add New Section" on the Selected Metrics tab, entering a name and description, and saving. Edit or delete behaviors using the icons on each behavior section header.
+
+## Filtering Metrics
+
+Available filters in Metrics Directory:
+
+**Search Bar**:
+- Searches metric names and descriptions
+- Real-time filtering
+
+**Backend Filter**:
+- Multi-select dropdown
+- Filter by evaluation backend type
+
+**Metric Type Filter**:
+- Multi-select dropdown
+- Types: Grading, API Call, Custom Code, Custom Prompt
+
+**Score Type Filter**:
+- Multi-select dropdown
+- Options: Binary, Numeric
+
+**Reset Filters**:
+- "Reset Filters" button clears all active filters
 
 ---
 
 <Callout type="default">
   **Next Steps**
-  - Integrate with external tools via [Integrations](/docs/platform/integrations)
-  - Share metrics with your team using [Collaboration](/docs/platform/collaboration)
+  - Use metrics in [Tests](/docs/platform/tests-generation) by assigning them to behaviors
+  - View metric performance in [Test Results](/docs/platform/test-results)
 </Callout>

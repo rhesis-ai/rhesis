@@ -2,9 +2,8 @@ import type { MetaRecord } from 'nextra'
 
 const meta: MetaRecord = {
   index: 'Overview',
-  endpoints: 'API Endpoints',
   'llm-providers': 'LLM Providers',
-  github: 'GitHub Integration'
+  'api-tokens': 'API Tokens'
 }
 
 export default meta
