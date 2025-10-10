@@ -17,6 +17,7 @@ import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
+import TestGenerationModal from './TestGenerationModal';
 import PersonIcon from '@mui/icons-material/Person';
 import TestSetSelectionDialog from './TestSetSelectionDialog';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -56,6 +57,7 @@ export default function TestsTable({
   const [testSetDialogOpen, setTestSetDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [generationModalOpen, setGenerationModalOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -369,8 +371,8 @@ export default function TestsTable({
   }, []);
 
   const generateNewTests = useCallback(() => {
-    router.push('/tests/new-generated');
-  }, [router]);
+    setGenerationModalOpen(true);
+  }, []);
 
   const handleDrawerClose = useCallback(() => {
     setDrawerOpen(false);
@@ -555,6 +557,11 @@ export default function TestsTable({
             title="Delete Tests"
             message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
             itemType="tests"
+          />
+          <TestGenerationModal
+            open={generationModalOpen}
+            onClose={() => setGenerationModalOpen(false)}
+            sessionToken={sessionToken}
           />
         </>
       )}
