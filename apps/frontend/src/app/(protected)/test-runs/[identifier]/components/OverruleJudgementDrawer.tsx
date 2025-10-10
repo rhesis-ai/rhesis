@@ -57,7 +57,9 @@ export default function OverruleJudgementDrawer({
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
     const passedMetrics = metricValues.filter(m => m.is_successful).length;
-    return totalMetrics > 0 && passedMetrics === totalMetrics ? 'passed' : 'failed';
+    return totalMetrics > 0 && passedMetrics === totalMetrics
+      ? 'passed'
+      : 'failed';
   };
 
   const originalStatus = getOriginalStatus();
@@ -66,7 +68,7 @@ export default function OverruleJudgementDrawer({
   useEffect(() => {
     const fetchStatuses = async () => {
       if (!sessionToken || statuses.length > 0) return;
-      
+
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
@@ -127,9 +129,14 @@ export default function OverruleJudgementDrawer({
     if (!test || !sessionToken) return;
 
     // Find the status ID for the new status
-    const statusKeywords = newStatus === 'passed' ? ['pass', 'success', 'completed'] : ['fail', 'error'];
-    const targetStatus = statuses.find(status => 
-      statusKeywords.some(keyword => status.name.toLowerCase().includes(keyword))
+    const statusKeywords =
+      newStatus === 'passed'
+        ? ['pass', 'success', 'completed']
+        : ['fail', 'error'];
+    const targetStatus = statuses.find(status =>
+      statusKeywords.some(keyword =>
+        status.name.toLowerCase().includes(keyword)
+      )
     );
 
     if (!targetStatus) {
@@ -144,7 +151,7 @@ export default function OverruleJudgementDrawer({
       // Create the review via API
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
-      
+
       await testResultsClient.createReview(
         test.id,
         targetStatus.id,
@@ -190,14 +197,14 @@ export default function OverruleJudgementDrawer({
       onClose={handleCancel}
       title="Overrule Test Judgement"
       onSave={handleSave}
-      saveButtonText={submitting ? "Saving..." : "Overrule Judgement"}
+      saveButtonText={submitting ? 'Saving...' : 'Overrule Judgement'}
       error={error}
       width={600}
       loading={submitting || loadingStatuses}
     >
       <Stack spacing={3}>
         {/* Info Alert */}
-        <Alert 
+        <Alert
           severity="warning"
           sx={{
             bgcolor: theme => `${theme.palette.warning.main}0A`,
@@ -206,8 +213,8 @@ export default function OverruleJudgementDrawer({
           }}
         >
           <Typography variant="body2">
-            You are about to overrule the automated test judgement. This action will
-            be recorded and attributed to you.
+            You are about to overrule the automated test judgement. This action
+            will be recorded and attributed to you.
           </Typography>
         </Alert>
 
@@ -219,12 +226,16 @@ export default function OverruleJudgementDrawer({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             {originalStatus === 'passed' ? (
               <>
-                <CheckCircleOutlineIcon sx={{ color: 'success.main', fontSize: 20 }} />
+                <CheckCircleOutlineIcon
+                  sx={{ color: 'success.main', fontSize: 20 }}
+                />
                 <Chip label="Passed" color="success" size="small" />
               </>
             ) : (
               <>
-                <CancelOutlinedIcon sx={{ color: 'error.main', fontSize: 20 }} />
+                <CancelOutlinedIcon
+                  sx={{ color: 'error.main', fontSize: 20 }}
+                />
                 <Chip label="Failed" color="error" size="small" />
               </>
             )}
@@ -326,4 +337,3 @@ export default function OverruleJudgementDrawer({
     </BaseDrawer>
   );
 }
-
