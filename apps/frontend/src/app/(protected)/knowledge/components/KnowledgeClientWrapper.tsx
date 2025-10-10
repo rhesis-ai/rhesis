@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Typography, Button, Alert, Paper } from '@mui/material';
+import { Box, Typography, Alert, Paper } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import UploadIcon from '@mui/icons-material/Upload';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SourcesGrid from './SourcesGrid';
+import styles from '@/styles/KnowledgeClientWrapper.module.css';
 
 /** Type for alert/snackbar severity */
 type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
@@ -28,18 +28,18 @@ function EmptyStateMessage({
   icon,
 }: EmptyStateMessageProps) {
   return (
-    <Paper elevation={2} sx={{ p: 4, textAlign: 'center', mt: 3 }}>
+    <Paper elevation={2} className={styles.emptyState}>
       {icon || (
-        <Box sx={{ mb: 2 }}>
-          <MenuBookIcon sx={{ fontSize: 64, color: 'primary.main', opacity: 0.7 }} />
+        <Box className={styles.iconContainer}>
+          <MenuBookIcon className={styles.primaryIcon} />
         </Box>
       )}
 
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 500 }}>
+      <Typography variant="h5" className={styles.title}>
         {title}
       </Typography>
 
-      <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 400, mx: 'auto' }}>
+      <Typography variant="body1" className={styles.description}>
         {description}
       </Typography>
     </Paper>
@@ -91,42 +91,19 @@ export default function KnowledgeClientWrapper({
       title="Knowledge"
       breadcrumbs={[{ title: 'Knowledge', path: '/knowledge' }]}
     >
-      {/* Header with actions */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 3,
-        }}
-      >
-        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+      {/* Header */}
+      <Box className={styles.header}>
+        <Typography variant="h6" className={styles.headerTitle}>
           Manage your knowledge sources and documents
         </Typography>
-
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<UploadIcon />}
-          // TODO: Add upload functionality
-          onClick={() => {
-            notifications.show('Upload functionality coming soon!', { severity: 'info' });
-          }}
-        >
-          Upload Source
-        </Button>
       </Box>
 
       {/* Sources grid */}
-      <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
-        <Box sx={{ p: 2 }}>
-          <SourcesGrid
-            sessionToken={sessionToken}
-            onRefresh={handleRefresh}
-            key={`sources-grid-${refreshKey}`}
-          />
-        </Box>
-      </Paper>
+      <SourcesGrid
+        sessionToken={sessionToken}
+        onRefresh={handleRefresh}
+        key={`sources-grid-${refreshKey}`}
+      />
     </PageContainer>
   );
 }
