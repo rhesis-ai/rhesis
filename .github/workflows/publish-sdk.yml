@@ -4,7 +4,8 @@ on:
   push:
     tags:
       - 'sdk-v*'  # Trigger on any tag that starts with 'sdk-v'
-  workflow_dispatch:  # Add this to enable manual triggers
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   deploy:
