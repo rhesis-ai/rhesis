@@ -16,6 +16,7 @@ interface TasksAndCommentsWrapperProps {
   currentUserName: string;
   currentUserPicture?: string;
   elevation?: number;
+  onCountsChange?: () => void;
 }
 
 export function TasksAndCommentsWrapper({
@@ -26,6 +27,7 @@ export function TasksAndCommentsWrapper({
   currentUserName,
   currentUserPicture,
   elevation = 1,
+  onCountsChange,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
   const { createTask, deleteTask } = useTasks({
@@ -38,11 +40,13 @@ export function TasksAndCommentsWrapper({
     async (taskData: any) => {
       try {
         await createTask(taskData);
+        // Notify parent that counts have changed
+        onCountsChange?.();
       } catch (error) {
         console.error('Failed to create task:', error);
       }
     },
-    [createTask]
+    [createTask, onCountsChange]
   );
 
   const handleEditTask = useCallback((taskId: string) => {
@@ -54,11 +58,13 @@ export function TasksAndCommentsWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
+        // Notify parent that counts have changed
+        onCountsChange?.();
       } catch (error) {
         console.error('Failed to delete task:', error);
       }
     },
-    [deleteTask]
+    [deleteTask, onCountsChange]
   );
 
   const handleCreateTaskFromComment = useCallback(
@@ -110,6 +116,7 @@ export function TasksAndCommentsWrapper({
         currentUserPicture={currentUserPicture}
         onCreateTask={handleCreateTaskFromComment}
         onCreateTaskFromEntity={handleCreateTaskFromEntity}
+        onCountsChange={onCountsChange}
       />
     </Paper>
   );

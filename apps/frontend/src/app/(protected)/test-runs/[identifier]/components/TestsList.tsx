@@ -180,7 +180,7 @@ function TestListItem({
             </Typography>
 
             {/* Comments Count */}
-            {test.counts?.comments && test.counts.comments > 0 && (
+            {test.counts && test.counts.comments > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <ChatIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
                 <Typography variant="caption" color="text.secondary">
@@ -190,7 +190,7 @@ function TestListItem({
             )}
 
             {/* Tasks Count */}
-            {test.counts?.tasks && test.counts.tasks > 0 && (
+            {test.counts && test.counts.tasks > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TaskIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
                 <Typography variant="caption" color="text.secondary">

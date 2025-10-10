@@ -15,6 +15,7 @@ interface CommentsWrapperProps {
   currentUserPicture?: string;
   onCreateTask?: (commentId: string) => void;
   onCreateTaskFromEntity?: () => void;
+  onCountsChange?: () => void;
 }
 
 export default function CommentsWrapper({
@@ -26,6 +27,7 @@ export default function CommentsWrapper({
   currentUserPicture,
   onCreateTask,
   onCreateTaskFromEntity,
+  onCountsChange,
 }: CommentsWrapperProps) {
   const {
     comments,
@@ -48,6 +50,8 @@ export default function CommentsWrapper({
   // Wrap the functions to match the expected Promise<void> return type
   const handleCreateComment = async (text: string): Promise<void> => {
     await createComment(text);
+    // Notify parent that counts have changed
+    onCountsChange?.();
   };
 
   const handleEditComment = async (
@@ -59,6 +63,8 @@ export default function CommentsWrapper({
 
   const handleDeleteComment = async (commentId: string): Promise<void> => {
     await deleteComment(commentId);
+    // Notify parent that counts have changed
+    onCountsChange?.();
   };
 
   const handleReactToComment = async (
