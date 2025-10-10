@@ -10,6 +10,7 @@ from pathlib import Path
 from .processor import ReleaseProcessor
 from .publish import publish_releases
 from .utils import error
+import json
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
@@ -51,6 +52,8 @@ Publish Mode:
                        help='Skip automatic release branch creation')
     parser.add_argument('--gemini-key', type=str,
                        help='Gemini API key for changelog generation')
+    parser.add_argument('--bump-config-file', type=str,
+                       help='Bump config file')
     parser.add_argument('--publish', action='store_true',
                        help='Create git tags and GitHub releases from current release branch')
     
@@ -119,9 +122,14 @@ def main():
         except Exception as e:
             error(f"Unexpected error during publish: {e}")
             sys.exit(1)
-    
+    if args.bump_config_file:
+        bump_config_file = args.bump_config_file
+        bump_config_file = Path(repo_root, bump_config_file)
+        with open(bump_config_file, 'r') as f:
+            component_bumps = json.load(f)
+    else:
     # Handle regular release mode
-    component_bumps = parse_component_arguments(remaining)
+        component_bumps = parse_component_arguments(remaining)
     
     if not component_bumps:
         if not remaining:  # No arguments provided at all
