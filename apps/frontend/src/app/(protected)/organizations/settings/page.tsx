@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, Typography, Paper, Alert, CircularProgress } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
@@ -9,8 +10,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import OrganizationDetailsForm from './components/OrganizationDetailsForm';
 import ContactInformationForm from './components/ContactInformationForm';
-import DomainSettingsForm from './components/DomainSettingsForm';
-import SubscriptionInfo from './components/SubscriptionInfo';
 import DangerZone from './components/DangerZone';
 
 export default function OrganizationSettingsPage() {
@@ -18,6 +17,9 @@ export default function OrganizationSettingsPage() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Get organization name for breadcrumbs
+  const organizationName = organization?.name || 'Organization';
 
   const fetchOrganization = useCallback(
     async (showLoading = false) => {
@@ -58,9 +60,14 @@ export default function OrganizationSettingsPage() {
     fetchOrganization(false);
   }, [fetchOrganization]);
 
+  const breadcrumbs = [
+    { title: organizationName, path: '/organizations' },
+    { title: 'Organization Settings', path: '/organizations/settings' },
+  ];
+
   if (initialLoading) {
     return (
-      <PageContainer title="Organization Settings">
+      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
@@ -70,7 +77,7 @@ export default function OrganizationSettingsPage() {
 
   if (error) {
     return (
-      <PageContainer title="Organization Settings">
+      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
@@ -80,7 +87,7 @@ export default function OrganizationSettingsPage() {
 
   if (!organization) {
     return (
-      <PageContainer title="Organization Settings">
+      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
         <Alert severity="warning" sx={{ mb: 3 }}>
           No organization found. Please contact support.
         </Alert>
@@ -89,7 +96,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <PageContainer title="Organization Settings">
+    <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
       {/* Basic Information Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
@@ -114,32 +121,22 @@ export default function OrganizationSettingsPage() {
         />
       </Paper>
 
-      {/* Domain Settings Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Domain Settings
-        </Typography>
-        <DomainSettingsForm
-          organization={organization}
-          sessionToken={session?.session_token || ''}
-          onUpdate={handleUpdate}
-        />
-      </Paper>
-
-      {/* Subscription Information Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Subscription
-        </Typography>
-        <SubscriptionInfo organization={organization} />
-      </Paper>
-
       {/* Danger Zone Section */}
       <Paper sx={{ p: 3 }}>
-        <DangerZone
-          organization={organization}
-          sessionToken={session?.session_token || ''}
-        />
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'error.light',
+            borderRadius: theme => theme.shape.borderRadius,
+            p: 3,
+            backgroundColor: theme => alpha(theme.palette.error.main, 0.05),
+          }}
+        >
+          <DangerZone
+            organization={organization}
+            sessionToken={session?.session_token || ''}
+          />
+        </Box>
       </Paper>
     </PageContainer>
   );

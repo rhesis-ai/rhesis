@@ -73,10 +73,16 @@ class GenerateContentRequest(BaseModel):
 
 class TestConfigRequest(BaseModel):
     prompt: str
+    sample_size: int = 5
+
+
+class TestConfigItem(BaseModel):
+    name: str
+    description: str
 
 
 class TestConfigResponse(BaseModel):
-    behaviors: List[str]
-    topics: List[str]
-    categories: List[str]
-    scenarios: List[str]
+    behaviors: List[TestConfigItem]
+    topics: List[TestConfigItem]
+    categories: List[TestConfigItem]
+    scenarios: List[TestConfigItem]
