@@ -46,7 +46,7 @@ export function LayoutContent({
   }, [pathname, protectedSegments]);
 
   return (
-    <SessionProvider session={session}>
+    <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
         <NotificationProvider>
           <Box
