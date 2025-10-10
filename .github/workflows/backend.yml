@@ -317,7 +317,6 @@ jobs:
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
-          STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
@@ -376,7 +375,6 @@ jobs:
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
-          STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
@@ -557,7 +555,6 @@ jobs:
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
-          STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
@@ -625,7 +622,6 @@ jobs:
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
-          STORAGE_PROJECT_ID=${{ secrets.STORAGE_PROJECT_ID }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
           LOCAL_STORAGE_PATH=${{ secrets.LOCAL_STORAGE_PATH }}
