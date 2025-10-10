@@ -84,7 +84,9 @@ export function DeleteModal({
 
   const isConfirmDisabled =
     isLoading ||
-    (requireConfirmation && !!confirmationText && inputValue !== confirmationText);
+    (requireConfirmation &&
+      !!confirmationText &&
+      inputValue !== confirmationText);
 
   return (
     <Dialog
@@ -112,7 +114,10 @@ export function DeleteModal({
             {warningMessage}
           </Alert>
         )}
-        <Typography id="delete-dialog-description" sx={{ mb: requireConfirmation ? 2 : 0 }}>
+        <Typography
+          id="delete-dialog-description"
+          sx={{ mb: requireConfirmation ? 2 : 0 }}
+        >
           {defaultMessage}
         </Typography>
         {requireConfirmation && confirmationText && (
