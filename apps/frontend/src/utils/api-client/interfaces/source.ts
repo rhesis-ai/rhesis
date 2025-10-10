@@ -15,8 +15,6 @@ export interface Source {
   language_code?: string;
   source_metadata?: Record<string, any>;
   tags: string[];
-  created_at: string;
-  updated_at: string;
 
   // References
   source_type?: TypeLookup;
