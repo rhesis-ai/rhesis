@@ -10,6 +10,7 @@ import {
   Grid,
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -25,6 +26,7 @@ export default function OrganizationDetailsForm({
   sessionToken,
   onUpdate,
 }: OrganizationDetailsFormProps) {
+  const router = useRouter();
   const notifications = useNotifications();
   const [formData, setFormData] = useState({
     name: organization.name || '',
@@ -63,6 +65,9 @@ export default function OrganizationDetailsForm({
       notifications.show('Organization details updated successfully', {
         severity: 'success',
       });
+      
+      // Refresh to update navigation with new organization name
+      router.refresh();
       onUpdate();
     } catch (err: any) {
       console.error('Error updating organization:', err);
