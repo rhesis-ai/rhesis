@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, Typography, Paper, Alert, CircularProgress } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
@@ -122,10 +123,20 @@ export default function OrganizationSettingsPage() {
 
       {/* Danger Zone Section */}
       <Paper sx={{ p: 3 }}>
-        <DangerZone
-          organization={organization}
-          sessionToken={session?.session_token || ''}
-        />
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'error.light',
+            borderRadius: 1,
+            p: 3,
+            backgroundColor: theme => alpha(theme.palette.error.main, 0.05),
+          }}
+        >
+          <DangerZone
+            organization={organization}
+            sessionToken={session?.session_token || ''}
+          />
+        </Box>
       </Paper>
     </PageContainer>
   );
