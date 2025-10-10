@@ -302,15 +302,31 @@ export default function SourcesGrid({
       renderCell: (params) => {
         const source = params.row as Source;
         const metadata = source.source_metadata || {};
-        const fileType = metadata.file_type || 'unknown';
+
+        // Extract file extension from original filename
+        const getFileExtension = (filename?: string) => {
+          if (!filename) return 'unknown';
+
+          const ext = filename.split('.').pop()?.toLowerCase();
+          if (!ext) return 'unknown';
+
+          // Handle special cases where we want to normalize extensions
+          const normalizedExt = ext === 'htm' ? 'html' :
+                               ext === 'jpeg' ? 'jpg' :
+                               ext;
+
+          return normalizedExt;
+        };
+
+        const fileExtension = getFileExtension(metadata.original_filename);
 
         return (
           <Chip
-            label={fileType.toUpperCase()}
+            label={fileExtension.toUpperCase()}
             size="small"
             variant="outlined"
             className={styles.fileTypeChip}
-            color={fileType === 'unknown' ? 'default' : 'primary'}
+            color={fileExtension === 'unknown' ? 'default' : 'primary'}
           />
         );
       },
