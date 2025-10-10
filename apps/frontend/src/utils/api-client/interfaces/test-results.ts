@@ -172,6 +172,7 @@ export interface TestResult extends TestResultBase {
   id: UUID;
   created_at: string;
   updated_at: string;
+  last_review?: Review;
 }
 
 export interface TestResultDetail extends TestResult {
