@@ -16,10 +16,12 @@ import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import GavelIcon from '@mui/icons-material/Gavel';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
+import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface TestDetailPanelProps {
@@ -201,20 +203,18 @@ export default function TestDetailPanel({
               fontWeight: 500,
               color: theme.palette.text.secondary,
               '& .MuiSvgIcon-root': {
-                color: theme.palette.text.secondary,
+                color: 'inherit',
               },
-              '&:hover': {
+              '&:hover:not(.Mui-selected)': {
                 backgroundColor: theme.palette.action.hover,
                 color: theme.palette.text.primary,
-                '& .MuiSvgIcon-root': {
-                  color: theme.palette.text.primary,
-                },
               },
               '&.Mui-selected': {
                 backgroundColor: 'transparent',
                 color: theme.palette.primary.main,
+                fontWeight: 600,
                 '& .MuiSvgIcon-root': {
-                  color: theme.palette.primary.main,
+                  color: 'inherit',
                 },
               },
             },
@@ -240,18 +240,25 @@ export default function TestDetailPanel({
             aria-controls="test-detail-tabpanel-1"
           />
           <Tab
+            icon={<GavelIcon fontSize="small" />}
+            iconPosition="start"
+            label="Reviews"
+            id="test-detail-tab-2"
+            aria-controls="test-detail-tabpanel-2"
+          />
+          <Tab
             icon={<HistoryIcon fontSize="small" />}
             iconPosition="start"
             label="History"
-            id="test-detail-tab-2"
-            aria-controls="test-detail-tabpanel-2"
+            id="test-detail-tab-3"
+            aria-controls="test-detail-tabpanel-3"
           />
           <Tab
             icon={<CommentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Tasks & Comments"
-            id="test-detail-tab-3"
-            aria-controls="test-detail-tabpanel-3"
+            id="test-detail-tab-4"
+            aria-controls="test-detail-tabpanel-4"
           />
         </Tabs>
       </Box>
@@ -292,6 +299,10 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
+          <TestDetailReviewsTab test={test} />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={3}>
           <TestDetailHistoryTab
             test={test}
             testRunId={testRunId}
@@ -299,7 +310,7 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={3}>
+        <TabPanel value={activeTab} index={4}>
           <TasksAndCommentsWrapper
             entityType="TestResult"
             entityId={test.id}

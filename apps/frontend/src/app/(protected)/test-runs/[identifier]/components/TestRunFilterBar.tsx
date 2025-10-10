@@ -610,7 +610,13 @@ export default function TestRunFilterBar({
                         label={filter.selectedFailedMetrics.length}
                         size="small"
                         color="primary"
-                        sx={{ height: 20, fontSize: '0.7rem' }}
+                        sx={{
+                          height: 20,
+                          fontSize: theme => theme.typography.caption.fontSize,
+                          '& .MuiChip-label': {
+                            fontSize: 'inherit',
+                          },
+                        }}
                       />
                     )}
                   </Box>
@@ -659,7 +665,13 @@ export default function TestRunFilterBar({
                       label={filter.selectedBehaviors.length}
                       size="small"
                       color="primary"
-                      sx={{ height: 20, fontSize: '0.7rem' }}
+                      sx={{
+                        height: 20,
+                        fontSize: theme => theme.typography.caption.fontSize,
+                        '& .MuiChip-label': {
+                          fontSize: 'inherit',
+                        },
+                      }}
                     />
                   )}
                 </Box>
