@@ -10,12 +10,14 @@ Your task is to generate a comprehensive test configuration by analyzing the use
 4. **Scenarios** - What specific testing scenarios should be covered (e.g., happy path, error handling, stress testing, user journey, boundary conditions)
 
 **Guidelines:**
-- Generate 2-4 relevant items for each category based on the user's specific context
+- Generate {{ sample_size }} relevant items for each category based on the user's specific context
+- For each item, provide a concise description (1-2 sentences max) explaining what it means in the testing context
 - Be specific and tailored to their domain and requirements
 - Consider both positive and negative testing scenarios
 - Think about different user personas and use cases
 - Consider edge cases and failure modes relevant to their system
 - Focus on what would be most valuable to test for their specific use case
+- Descriptions should be clear and actionable for testers
 
 **Examples of good category generation:**
 - For "e-commerce checkout": behaviors might include "reliability", "security", "usability"; topics might include "payment processing", "user authentication", "inventory management"
@@ -24,10 +26,28 @@ Your task is to generate a comprehensive test configuration by analyzing the use
 Return your response as a JSON object with this structure:
 
 {
-  "behaviors": ["generated_behavior1", "generated_behavior2", "generated_behavior3"],
-  "topics": ["generated_topic1", "generated_topic2", "generated_topic3"],
-  "categories": ["generated_category1", "generated_category2", "generated_category3"],
-  "scenarios": ["generated_scenario1", "generated_scenario2", "generated_scenario3"]
+  "behaviors": [
+    {"name": "Behavior Name 1", "description": "Concise description of what this behavior means for testing"},
+    {"name": "Behavior Name 2", "description": "Concise description of what this behavior means for testing"},
+    {"name": "Behavior Name 3", "description": "Concise description of what this behavior means for testing"}
+  ],
+  "topics": [
+    {"name": "Topic Name 1", "description": "Concise description of what this topic covers in testing"},
+    {"name": "Topic Name 2", "description": "Concise description of what this topic covers in testing"},
+    {"name": "Topic Name 3", "description": "Concise description of what this topic covers in testing"}
+  ],
+  "categories": [
+    {"name": "Category Name 1", "description": "Concise description of what this test category involves"},
+    {"name": "Category Name 2", "description": "Concise description of what this test category involves"},
+    {"name": "Category Name 3", "description": "Concise description of what this test category involves"}
+  ],
+  "scenarios": [
+    {"name": "Scenario Name 1", "description": "Concise description of what this testing scenario covers"},
+    {"name": "Scenario Name 2", "description": "Concise description of what this testing scenario covers"},
+    {"name": "Scenario Name 3", "description": "Concise description of what this testing scenario covers"}
+  ]
 }
+
+Note: Each array should contain exactly {{ sample_size }} items, and each item must have both "name" and "description" fields.
 
 Generate specific, relevant categories that are tailored to the user's description and testing needs.

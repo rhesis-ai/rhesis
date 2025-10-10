@@ -5,6 +5,7 @@ Main release processing logic for the Rhesis release tool.
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
+import json
 
 from .config import COMPONENTS, format_component_name
 from .utils import log, info, warn, success, check_prerequisites
@@ -50,7 +51,7 @@ class ReleaseProcessor:
     def process_releases(self) -> bool:
         """Process all releases"""
         log("Starting release process...")
-        
+        version_changes = {}
         # First pass: collect current versions and calculate new versions
         for component, bump_type in self.component_bumps.items():
             current_version = get_current_version(component, self.repo_root)
@@ -63,6 +64,12 @@ class ReleaseProcessor:
             info(f"  Bump type: {bump_type}")
             info(f"  New version: {new_version}")
             print()
+            version_changes[component] = f"{current_version} -> {new_version} ({bump_type})"
+
+        # Save version changes to a JSON file. This will be used to create the PR title and body in
+        # the create-release.yml workflow.
+        with open("/tmp/version_changes.json", "w") as f:
+            json.dump(version_changes, f)
         
         if self.dry_run:
             warn("DRY RUN MODE - No changes will be made")
@@ -73,7 +80,7 @@ class ReleaseProcessor:
             log(f"Processing release for {component} v{new_version}...")
             
             # Update version files
-            if not update_version_file(component, new_version, self.repo_root, self.dry_run):
+            if not update_version_file(component, new_version, self.repo_root, self.dry_run, self.component_bumps):
                 return False
             
             # Get commit history
