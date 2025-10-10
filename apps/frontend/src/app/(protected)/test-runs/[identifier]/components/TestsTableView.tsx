@@ -107,23 +107,30 @@ export default function TestsTableView({
     setOverruleDrawerOpen(true);
   };
 
-  const handleOverruleSave = async (testId: string, overruleData: OverruleData) => {
+  const handleOverruleSave = async (
+    testId: string,
+    overruleData: OverruleData
+  ) => {
     try {
       // Fetch the updated test result from the backend
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const updatedTest = await testResultsClient.getTestResult(testId);
-      
+
       // Update the test in the parent component
       onTestResultUpdate(updatedTest);
-      
+
       console.log('Review saved successfully:', { testId, overruleData });
     } catch (error) {
       console.error('Failed to refresh test result:', error);
     }
   };
 
-  const handleViewDetails = (event: React.MouseEvent, test: TestResultDetail, index: number) => {
+  const handleViewDetails = (
+    event: React.MouseEvent,
+    test: TestResultDetail,
+    index: number
+  ) => {
     event.stopPropagation();
     handleRowClick(test, index);
   };
@@ -151,10 +158,11 @@ export default function TestsTableView({
     // If there's a review, use the review status
     if (lastReview) {
       const reviewStatusName = lastReview.status.name.toLowerCase();
-      const reviewPassed = reviewStatusName.includes('pass') || 
-                          reviewStatusName.includes('success') || 
-                          reviewStatusName.includes('completed');
-      
+      const reviewPassed =
+        reviewStatusName.includes('pass') ||
+        reviewStatusName.includes('success') ||
+        reviewStatusName.includes('completed');
+
       return {
         passed: reviewPassed,
         label: reviewPassed ? 'Passed' : 'Failed',
@@ -200,16 +208,18 @@ export default function TestsTableView({
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        const newIndex = selectedRowIndex === null 
-          ? 0 
-          : Math.min(selectedRowIndex + 1, paginatedTests.length - 1);
+        const newIndex =
+          selectedRowIndex === null
+            ? 0
+            : Math.min(selectedRowIndex + 1, paginatedTests.length - 1);
         setSelectedRowIndex(newIndex);
         setSelectedTest(paginatedTests[newIndex]);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        const newIndex = selectedRowIndex === null 
-          ? paginatedTests.length - 1 
-          : Math.max(selectedRowIndex - 1, 0);
+        const newIndex =
+          selectedRowIndex === null
+            ? paginatedTests.length - 1
+            : Math.max(selectedRowIndex - 1, 0);
         setSelectedRowIndex(newIndex);
         setSelectedTest(paginatedTests[newIndex]);
       } else if (event.key === 'Enter') {
@@ -302,7 +312,9 @@ export default function TestsTableView({
             {loading ? (
               <TableRow>
                 <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
-                  <Typography color="text.secondary">Loading tests...</Typography>
+                  <Typography color="text.secondary">
+                    Loading tests...
+                  </Typography>
                 </TableCell>
               </TableRow>
             ) : paginatedTests.length === 0 ? (
@@ -374,7 +386,14 @@ export default function TestsTableView({
                           gap: 1,
                         }}
                       >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                          }}
+                        >
                           {status.passed ? (
                             <CheckCircleOutlineIcon
                               sx={{
@@ -407,7 +426,11 @@ export default function TestsTableView({
 
                         {status.isOverruled && (
                           <Tooltip
-                            title={status.reviewData ? `Reviewed by ${status.reviewData.reviewer} - ${status.reviewData.comments}` : 'Manually reviewed'}
+                            title={
+                              status.reviewData
+                                ? `Reviewed by ${status.reviewData.reviewer} - ${status.reviewData.comments}`
+                                : 'Manually reviewed'
+                            }
                           >
                             <Chip
                               icon={<GavelIcon sx={{ fontSize: 14 }} />}
@@ -481,7 +504,10 @@ export default function TestsTableView({
                               <CommentOutlinedIcon
                                 sx={{ fontSize: 18, color: 'action.active' }}
                               />
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 {test.counts.comments}
                               </Typography>
                             </Box>
@@ -501,7 +527,10 @@ export default function TestsTableView({
                               <TaskAltOutlinedIcon
                                 sx={{ fontSize: 18, color: 'action.active' }}
                               />
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 {test.counts.tasks}
                               </Typography>
                             </Box>
@@ -510,7 +539,8 @@ export default function TestsTableView({
 
                         {/* Show dash if no activity */}
                         {(!test.counts ||
-                          (test.counts.comments === 0 && test.counts.tasks === 0)) && (
+                          (test.counts.comments === 0 &&
+                            test.counts.tasks === 0)) && (
                           <Typography variant="caption" color="text.disabled">
                             —
                           </Typography>
@@ -544,7 +574,7 @@ export default function TestsTableView({
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        
+
                         <Tooltip title="Overrule Judgement">
                           <IconButton
                             size="small"
@@ -586,7 +616,6 @@ export default function TestsTableView({
           backgroundColor: theme.palette.background.paper,
         }}
       />
-
 
       {/* Detail Drawer */}
       <Drawer
@@ -659,4 +688,3 @@ export default function TestsTableView({
     </Box>
   );
 }
-

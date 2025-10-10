@@ -126,14 +126,16 @@ export default function TestDetailPanel({
   // Handle counts change (when comments/tasks are added or deleted)
   const handleCountsChange = React.useCallback(async () => {
     if (!test) return;
-    
+
     // Refetch the test result to get updated counts
     try {
-      const { ApiClientFactory } = await import('@/utils/api-client/client-factory');
+      const { ApiClientFactory } = await import(
+        '@/utils/api-client/client-factory'
+      );
       const apiFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = apiFactory.getTestResultsClient();
       const updatedTest = await testResultsClient.getTestResult(test.id);
-      
+
       // Notify parent to update its state
       onTestResultUpdate(updatedTest);
     } catch (error) {
@@ -179,7 +181,13 @@ export default function TestDetailPanel({
       }}
     >
       {/* Tabs Header */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', backgroundColor: theme.palette.background.paper }}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          backgroundColor: theme.palette.background.paper,
+        }}
+      >
         <Tabs
           value={activeTab}
           onChange={handleTabChange}

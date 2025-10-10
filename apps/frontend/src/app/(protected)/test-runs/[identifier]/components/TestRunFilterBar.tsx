@@ -121,7 +121,9 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleOverruleFilterChange = (overruleFilter: 'all' | 'overruled' | 'original') => {
+  const handleOverruleFilterChange = (
+    overruleFilter: 'all' | 'overruled' | 'original'
+  ) => {
     onFilterChange({
       ...filter,
       overruleFilter,
@@ -139,7 +141,9 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleCommentFilterChange = (commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range') => {
+  const handleCommentFilterChange = (
+    commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range'
+  ) => {
     onFilterChange({
       ...filter,
       commentFilter,
@@ -153,7 +157,9 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleTaskFilterChange = (taskFilter: 'all' | 'with_tasks' | 'without_tasks' | 'range') => {
+  const handleTaskFilterChange = (
+    taskFilter: 'all' | 'with_tasks' | 'without_tasks' | 'range'
+  ) => {
     onFilterChange({
       ...filter,
       taskFilter,
@@ -179,13 +185,13 @@ export default function TestRunFilterBar({
   };
 
   const activeFilterCount =
-    filter.selectedBehaviors.length + 
+    filter.selectedBehaviors.length +
     (filter.statusFilter !== 'all' ? 1 : 0) +
     (filter.overruleFilter !== 'all' ? 1 : 0) +
     filter.selectedFailedMetrics.length +
     (filter.commentFilter !== 'all' ? 1 : 0) +
     (filter.taskFilter !== 'all' ? 1 : 0);
-  
+
   const hasActiveFilters = activeFilterCount > 0;
   const open = Boolean(anchorEl);
 
@@ -416,7 +422,9 @@ export default function TestRunFilterBar({
           <Stack spacing={3}>
             {/* Overrule Status */}
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
+              >
                 <GavelIcon fontSize="small" color="action" />
                 <Typography variant="subtitle2" fontWeight={600}>
                   Overrule Status
@@ -427,22 +435,38 @@ export default function TestRunFilterBar({
                   label="All"
                   size="small"
                   onClick={() => handleOverruleFilterChange('all')}
-                  color={filter.overruleFilter === 'all' ? 'primary' : 'default'}
-                  variant={filter.overruleFilter === 'all' ? 'filled' : 'outlined'}
+                  color={
+                    filter.overruleFilter === 'all' ? 'primary' : 'default'
+                  }
+                  variant={
+                    filter.overruleFilter === 'all' ? 'filled' : 'outlined'
+                  }
                 />
                 <Chip
                   label="Overruled"
                   size="small"
                   onClick={() => handleOverruleFilterChange('overruled')}
-                  color={filter.overruleFilter === 'overruled' ? 'primary' : 'default'}
-                  variant={filter.overruleFilter === 'overruled' ? 'filled' : 'outlined'}
+                  color={
+                    filter.overruleFilter === 'overruled'
+                      ? 'primary'
+                      : 'default'
+                  }
+                  variant={
+                    filter.overruleFilter === 'overruled'
+                      ? 'filled'
+                      : 'outlined'
+                  }
                 />
                 <Chip
                   label="Original"
                   size="small"
                   onClick={() => handleOverruleFilterChange('original')}
-                  color={filter.overruleFilter === 'original' ? 'primary' : 'default'}
-                  variant={filter.overruleFilter === 'original' ? 'filled' : 'outlined'}
+                  color={
+                    filter.overruleFilter === 'original' ? 'primary' : 'default'
+                  }
+                  variant={
+                    filter.overruleFilter === 'original' ? 'filled' : 'outlined'
+                  }
                 />
               </Stack>
             </Box>
@@ -451,37 +475,60 @@ export default function TestRunFilterBar({
 
             {/* Activity Filters */}
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
+              >
                 <CommentOutlinedIcon fontSize="small" color="action" />
                 <Typography variant="subtitle2" fontWeight={600}>
                   Activity
                 </Typography>
               </Box>
-              
+
               {/* Comments */}
               <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 1,
+                  }}
+                >
                   <Typography variant="body2" color="text.secondary">
                     Comments
                   </Typography>
                   <ButtonGroup size="small" variant="outlined">
                     <Button
                       onClick={() => handleCommentFilterChange('all')}
-                      variant={filter.commentFilter === 'all' ? 'contained' : 'outlined'}
+                      variant={
+                        filter.commentFilter === 'all'
+                          ? 'contained'
+                          : 'outlined'
+                      }
                       sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
                     >
                       All
                     </Button>
                     <Button
                       onClick={() => handleCommentFilterChange('with_comments')}
-                      variant={filter.commentFilter === 'with_comments' ? 'contained' : 'outlined'}
+                      variant={
+                        filter.commentFilter === 'with_comments'
+                          ? 'contained'
+                          : 'outlined'
+                      }
                       sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
                     >
                       With
                     </Button>
                     <Button
-                      onClick={() => handleCommentFilterChange('without_comments')}
-                      variant={filter.commentFilter === 'without_comments' ? 'contained' : 'outlined'}
+                      onClick={() =>
+                        handleCommentFilterChange('without_comments')
+                      }
+                      variant={
+                        filter.commentFilter === 'without_comments'
+                          ? 'contained'
+                          : 'outlined'
+                      }
                       sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
                     >
                       Without
@@ -492,28 +539,45 @@ export default function TestRunFilterBar({
 
               {/* Tasks */}
               <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 1,
+                  }}
+                >
                   <Typography variant="body2" color="text.secondary">
                     Tasks
                   </Typography>
                   <ButtonGroup size="small" variant="outlined">
                     <Button
                       onClick={() => handleTaskFilterChange('all')}
-                      variant={filter.taskFilter === 'all' ? 'contained' : 'outlined'}
+                      variant={
+                        filter.taskFilter === 'all' ? 'contained' : 'outlined'
+                      }
                       sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
                     >
                       All
                     </Button>
                     <Button
                       onClick={() => handleTaskFilterChange('with_tasks')}
-                      variant={filter.taskFilter === 'with_tasks' ? 'contained' : 'outlined'}
+                      variant={
+                        filter.taskFilter === 'with_tasks'
+                          ? 'contained'
+                          : 'outlined'
+                      }
                       sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
                     >
                       With
                     </Button>
                     <Button
                       onClick={() => handleTaskFilterChange('without_tasks')}
-                      variant={filter.taskFilter === 'without_tasks' ? 'contained' : 'outlined'}
+                      variant={
+                        filter.taskFilter === 'without_tasks'
+                          ? 'contained'
+                          : 'outlined'
+                      }
                       sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
                     >
                       Without
@@ -529,7 +593,14 @@ export default function TestRunFilterBar({
             {availableMetrics && availableMetrics.length > 0 && (
               <>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 1.5,
+                    }}
+                  >
                     <CancelOutlinedIcon fontSize="small" color="action" />
                     <Typography variant="subtitle2" fontWeight={600}>
                       Failed Metrics
@@ -549,12 +620,16 @@ export default function TestRunFilterBar({
                         key={metric.name}
                         control={
                           <Checkbox
-                            checked={filter.selectedFailedMetrics.includes(metric.name)}
+                            checked={filter.selectedFailedMetrics.includes(
+                              metric.name
+                            )}
                             onChange={() => handleMetricToggle(metric.name)}
                             size="small"
                           />
                         }
-                        label={<Typography variant="body2">{metric.name}</Typography>}
+                        label={
+                          <Typography variant="body2">{metric.name}</Typography>
+                        }
                         sx={{ mb: 0.5 }}
                       />
                     ))}
@@ -567,7 +642,14 @@ export default function TestRunFilterBar({
             {/* Behaviors */}
             {availableBehaviors.length > 0 && (
               <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 1.5,
+                  }}
+                >
                   <ListIcon fontSize="small" color="action" />
                   <Typography variant="subtitle2" fontWeight={600}>
                     Behaviors
@@ -587,12 +669,16 @@ export default function TestRunFilterBar({
                       key={behavior.id}
                       control={
                         <Checkbox
-                          checked={filter.selectedBehaviors.includes(behavior.id)}
+                          checked={filter.selectedBehaviors.includes(
+                            behavior.id
+                          )}
                           onChange={() => handleBehaviorToggle(behavior.id)}
                           size="small"
                         />
                       }
-                      label={<Typography variant="body2">{behavior.name}</Typography>}
+                      label={
+                        <Typography variant="body2">{behavior.name}</Typography>
+                      }
                       sx={{ mb: 0.5 }}
                     />
                   ))}
