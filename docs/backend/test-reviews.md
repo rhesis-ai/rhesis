@@ -1,4 +1,4 @@
-# Human Reviews Schema for Test Results
+# Human Reviews for Test Results
 
 ## Overview
 
@@ -32,7 +32,7 @@ The `test_reviews` field is stored as a JSON object with two parts:
 
 ---
 
-## ✅ Final JSON Schema
+## JSON Schema
 
 ```json
 {
@@ -109,8 +109,9 @@ The `test_reviews` field is stored as a JSON object with two parts:
 ### Database
 
 **Column**: `test_reviews` (JSONB, nullable)  
-**Table**: `test_result`  
-**Migration**: `f8b3c9d4e5a6_add_test_reviews_column.py`
+**Table**: `test_result`
+
+The column stores the complete review structure as JSON, providing flexibility for complex review scenarios without additional tables.
 
 ### Backend Models
 
@@ -130,6 +131,10 @@ class TestResult(Base, ...):
         """Check if test result status_id matches latest review status_id"""
         # Returns True/False
 ```
+
+**Derived Properties:**
+- `last_review`: Returns the most recent review by `updated_at` timestamp
+- `matches_review`: Boolean indicating if the test result's status_id matches the latest review's status_id
 
 ### Pydantic Schemas
 
@@ -332,192 +337,6 @@ All endpoints follow REST conventions and automatically manage metadata.
 
 ---
 
-## Frontend TypeScript Interfaces
-
-**File**: `apps/frontend/src/utils/api-client/interfaces/test-results.ts`
-
-```typescript
-// Review interfaces
-export interface ReviewUser {
-  user_id: UUID;
-  name: string;
-}
-
-export interface ReviewStatus {
-  status_id: UUID;
-  name: string;
-}
-
-export interface ReviewTarget {
-  type: 'test' | 'metric';
-  reference: string | null;
-}
-
-export interface Review {
-  review_id: UUID;
-  status: ReviewStatus;
-  user: ReviewUser;
-  comments: string;
-  created_at: string;
-  updated_at: string;
-  target: ReviewTarget;
-}
-
-export interface TestReviewsMetadata {
-  last_updated_at: string;
-  last_updated_by: ReviewUser;
-  total_reviews: number;
-  latest_status: ReviewStatus;
-  summary?: string;
-}
-
-export interface TestReviews {
-  metadata: TestReviewsMetadata;
-  reviews: Review[];
-}
-
-// Test Result interface includes:
-export interface TestResult extends TestResultBase {
-  id: UUID;
-  created_at: string;
-  updated_at: string;
-  test_reviews?: TestReviews;
-  last_review?: Review;
-  matches_review: boolean;
-}
-```
-
----
-
-## Frontend Implementation Guide
-
-### 1. Display Reviews
-
-```typescript
-import { TestResult } from '@/utils/api-client/interfaces/test-results';
-
-function ReviewsList({ testResult }: { testResult: TestResult }) {
-  if (!testResult.test_reviews?.reviews.length) {
-    return <div>No reviews yet</div>;
-  }
-
-  return (
-    <div>
-      <h3>Reviews ({testResult.test_reviews.metadata.total_reviews})</h3>
-      {testResult.test_reviews.reviews.map(review => (
-        <ReviewCard key={review.review_id} review={review} />
-      ))}
-    </div>
-  );
-}
-```
-
-### 2. Create Review
-
-```typescript
-async function createReview(testResultId: string, statusId: string, comments: string) {
-  const response = await fetch(
-    `${API_BASE_URL}/test_results/${testResultId}/reviews`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        status_id: statusId,
-        comments: comments,
-        target: {
-          type: 'test',
-          reference: null
-        }
-      })
-    }
-  );
-  
-  return await response.json();
-}
-```
-
-### 3. Update Review
-
-```typescript
-async function updateReview(
-  testResultId: string, 
-  reviewId: string, 
-  updates: { comments?: string; status_id?: string }
-) {
-  const response = await fetch(
-    `${API_BASE_URL}/test_results/${testResultId}/reviews/${reviewId}`,
-    {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updates)
-    }
-  );
-  
-  return await response.json();
-}
-```
-
-### 4. Delete Review
-
-```typescript
-async function deleteReview(testResultId: string, reviewId: string) {
-  const response = await fetch(
-    `${API_BASE_URL}/test_results/${testResultId}/reviews/${reviewId}`,
-    {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }
-    }
-  );
-  
-  return await response.json();
-}
-```
-
-### 5. Display Latest Review Badge
-
-```typescript
-function LatestReviewBadge({ testResult }: { testResult: TestResult }) {
-  if (!testResult.last_review) return null;
-
-  return (
-    <div className="badge">
-      <span>Latest Review: {testResult.last_review.status.name}</span>
-      <span>By: {testResult.last_review.user.name}</span>
-      {!testResult.matches_review && (
-        <span className="warning">Status mismatch!</span>
-      )}
-    </div>
-  );
-}
-```
-
-### 6. Status Conflict Detection
-
-```typescript
-function StatusConflictAlert({ testResult }: { testResult: TestResult }) {
-  if (!testResult.last_review || testResult.matches_review) {
-    return null;
-  }
-
-  return (
-    <Alert severity="warning">
-      Test result status does not match the latest review status.
-      Test: {testResult.status?.name} | Review: {testResult.last_review.status.name}
-    </Alert>
-  );
-}
-```
-
----
-
 ## Use Cases
 
 ### 1. **Override Automated Metrics**
@@ -534,6 +353,39 @@ Track who reviewed what and when, with full edit history via timestamps.
 
 ### 5. **Status Conflict Detection**
 Use `matches_review` to identify cases where human review disagrees with automated result.
+
+---
+
+## Implementation Notes
+
+### Metadata Management
+
+The `metadata` section is automatically updated on every review operation:
+- **Create**: Initializes metadata with first review's information
+- **Update**: Updates `last_updated_at`, `last_updated_by`, and `latest_status`
+- **Delete**: Updates metadata or clears `latest_status` if no reviews remain
+
+### JSONB Column Updates
+
+When modifying reviews, use SQLAlchemy's `flag_modified` to ensure changes are detected:
+
+```python
+from sqlalchemy.orm.attributes import flag_modified
+
+# After modifying test_reviews
+flag_modified(test_result, "test_reviews")
+db.commit()
+```
+
+### Empty State Handling
+
+When the last review is deleted:
+- `reviews` array becomes empty
+- `total_reviews` = 0
+- `latest_status` = null
+- `summary` = "All reviews removed"
+- `last_review` derived property returns None
+- `matches_review` returns False
 
 ---
 
@@ -562,3 +414,4 @@ Potential enhancements:
 - Review workflows and approval chains
 
 ---
+
