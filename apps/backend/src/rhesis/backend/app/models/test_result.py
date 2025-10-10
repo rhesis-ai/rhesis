@@ -1,3 +1,5 @@
+from typing import Any, Dict, Optional
+
 from sqlalchemy import (
     Column,
     ForeignKey,
@@ -28,3 +30,28 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
     status = relationship("Status", back_populates="test_results")
     organization = relationship("Organization", back_populates="test_results")
     test = relationship("Test", back_populates="test_results")
+
+    @property
+    def last_review(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recent review from test_reviews based on updated_at timestamp.
+
+        Returns:
+            The most recent review object, or None if no reviews exist.
+        """
+        if not self.test_reviews or not isinstance(self.test_reviews, dict):
+            return None
+
+        reviews = self.test_reviews.get("reviews", [])
+        if not reviews or not isinstance(reviews, list):
+            return None
+
+        # Sort reviews by updated_at timestamp (most recent first)
+        # Handle cases where updated_at might not exist by falling back to created_at
+        sorted_reviews = sorted(
+            reviews,
+            key=lambda r: r.get("updated_at") or r.get("created_at") or "",
+            reverse=True,
+        )
+
+        return sorted_reviews[0] if sorted_reviews else None

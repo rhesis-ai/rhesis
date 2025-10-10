@@ -28,4 +28,7 @@ class TestResultUpdate(TestResultBase):
 
 
 class TestResult(TestResultBase):
-    pass
+    last_review: Optional[Dict[str, Any]] = None
+
+    class Config:
+        from_attributes = True
