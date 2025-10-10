@@ -75,7 +75,7 @@ export default function KnowledgeClientWrapper({
         title="Knowledge"
         breadcrumbs={[{ title: 'Knowledge', path: '/knowledge' }]}
       >
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" className={styles.marginBottom3}>
           Session expired. Please refresh the page or log in again.
         </Alert>
         <EmptyStateMessage
@@ -99,8 +99,8 @@ export default function KnowledgeClientWrapper({
       </Box>
 
       {/* Sources grid */}
-      <Paper sx={{ width: '100%', mb: 2, mt: 4 }}>
-        <Box sx={{ p: 2 }}>
+      <Paper className={styles.gridContainer}>
+        <Box className={styles.gridContent}>
           <SourcesGrid
             sessionToken={sessionToken}
             onRefresh={handleRefresh}
