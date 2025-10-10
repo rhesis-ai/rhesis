@@ -14,19 +14,10 @@ import {
   Chip,
   Tooltip,
   Typography,
-  Avatar,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import TextSnippetIcon from '@mui/icons-material/TextSnippet';
-import TableChartIcon from '@mui/icons-material/TableChart';
-import CodeIcon from '@mui/icons-material/Code';
-import LanguageIcon from '@mui/icons-material/Language';
-import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
-import SlideshowIcon from '@mui/icons-material/Slideshow';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/SourcesGrid.module.css';
@@ -35,29 +26,6 @@ interface SourcesGridProps {
   sessionToken: string;
   onRefresh?: () => void;
 }
-
-// Helper function to get file type icon and color
-const getFileTypeInfo = (source: Source, theme: any) => {
-  const metadata = source.source_metadata || {};
-  const fileType = metadata.file_type || 'unknown';
-
-  const typeMap: Record<string, { icon: React.ReactNode; color: string }> = {
-    'pdf': { icon: <PictureAsPdfIcon />, color: theme.palette.error.main },
-    'docx': { icon: <DescriptionOutlinedIcon />, color: theme.palette.primary.main },
-    'txt': { icon: <TextSnippetIcon />, color: theme.palette.text.secondary },
-    'csv': { icon: <TableChartIcon />, color: theme.palette.success.main },
-    'json': { icon: <CodeIcon />, color: theme.palette.warning.main },
-    'html': { icon: <LanguageIcon />, color: theme.palette.secondary.main },
-    'xml': { icon: <DescriptionOutlinedIcon />, color: theme.palette.info.main },
-    'epub': { icon: <MenuBookOutlinedIcon />, color: theme.palette.error.main },
-    'pptx': { icon: <SlideshowIcon />, color: theme.palette.warning.main },
-  };
-
-  return typeMap[fileType.toLowerCase()] || {
-    icon: <DescriptionOutlinedIcon />,
-    color: theme.palette.text.secondary
-  };
-};
 
 // Helper function to format file size
 const formatFileSize = (bytes?: number) => {
@@ -309,73 +277,20 @@ export default function SourcesGrid({
       width: 300,
       renderCell: (params) => {
         const source = params.row as Source;
-        const metadata = source.source_metadata || {};
-        const fileType = metadata.file_type || 'unknown';
-
-        // Get appropriate icon based on file type
-        let icon = <DescriptionOutlinedIcon />;
-        let color = 'primary.main';
-
-        switch (fileType.toLowerCase()) {
-          case 'pdf':
-            icon = <PictureAsPdfIcon />;
-            color = 'error.main';
-            break;
-          case 'docx':
-            icon = <DescriptionOutlinedIcon />;
-            color = 'primary.main';
-            break;
-          case 'txt':
-            icon = <TextSnippetIcon />;
-            color = 'text.secondary';
-            break;
-          case 'csv':
-            icon = <TableChartIcon />;
-            color = 'success.main';
-            break;
-          case 'json':
-            icon = <CodeIcon />;
-            color = 'warning.main';
-            break;
-          case 'html':
-            icon = <LanguageIcon />;
-            color = 'secondary.main';
-            break;
-          case 'xml':
-            icon = <DescriptionOutlinedIcon />;
-            color = 'info.main';
-            break;
-          case 'epub':
-            icon = <MenuBookOutlinedIcon />;
-            color = 'error.main';
-            break;
-          case 'pptx':
-            icon = <SlideshowIcon />;
-            color = 'warning.main';
-            break;
-        }
 
         return (
-          <Box className={styles.sourceTitle}>
-            <Avatar
-              className={styles.sourceIcon}
-              sx={{ bgcolor: color }}
-            >
-              {icon}
-            </Avatar>
-            <Box className={styles.sourceContent}>
-              <Typography variant="body2" className={styles.sourceName}>
-                {source.title}
+          <Box className={styles.sourceContent}>
+            <Typography variant="body2" className={styles.sourceName}>
+              {source.title}
+            </Typography>
+            {source.description && (
+              <Typography variant="caption" className={styles.sourceDescription}>
+                {source.description.length > 50
+                  ? `${source.description.substring(0, 50)}...`
+                  : source.description
+                }
               </Typography>
-              {source.description && (
-                <Typography variant="caption" className={styles.sourceDescription}>
-                  {source.description.length > 50
-                    ? `${source.description.substring(0, 50)}...`
-                    : source.description
-                  }
-                </Typography>
-              )}
-            </Box>
+            )}
           </Box>
         );
       },
