@@ -15,13 +15,16 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Status } from '@/utils/api-client/interfaces/status';
 
 interface OverruleJudgementDrawerProps {
   open: boolean;
   onClose: () => void;
   test: TestResultDetail | null;
   currentUserName: string;
-  onSave: (testId: string, overruleData: OverruleData) => void;
+  sessionToken: string;
+  onSave: (testId: string, overruleData: OverruleData) => Promise<void>;
 }
 
 export interface OverruleData {
@@ -37,11 +40,15 @@ export default function OverruleJudgementDrawer({
   onClose,
   test,
   currentUserName,
+  sessionToken,
   onSave,
 }: OverruleJudgementDrawerProps) {
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [loadingStatuses, setLoadingStatuses] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Calculate original test status
   const getOriginalStatus = (): 'passed' | 'failed' => {
@@ -54,6 +61,30 @@ export default function OverruleJudgementDrawer({
   };
 
   const originalStatus = getOriginalStatus();
+
+  // Fetch statuses for TestResult entity type
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      if (!sessionToken || statuses.length > 0) return;
+      
+      try {
+        setLoadingStatuses(true);
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const statusClient = clientFactory.getStatusClient();
+        const fetchedStatuses = await statusClient.getStatuses({
+          entity_type: 'TestResult',
+        });
+        setStatuses(fetchedStatuses);
+      } catch (err) {
+        console.error('Failed to fetch statuses:', err);
+        setError('Failed to load status options');
+      } finally {
+        setLoadingStatuses(false);
+      }
+    };
+
+    fetchStatuses();
+  }, [sessionToken, statuses.length]);
 
   // Reset form when drawer opens or test changes
   useEffect(() => {
@@ -76,7 +107,7 @@ export default function OverruleJudgementDrawer({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!reason.trim()) {
       setError('Please provide a reason for overruling the judgement.');
@@ -93,19 +124,51 @@ export default function OverruleJudgementDrawer({
       return;
     }
 
-    if (!test) return;
+    if (!test || !sessionToken) return;
 
-    // Create overrule data
-    const overruleData: OverruleData = {
-      originalStatus,
-      newStatus,
-      reason: reason.trim(),
-      overruledBy: currentUserName,
-      overruledAt: new Date().toISOString(),
-    };
+    // Find the status ID for the new status
+    const statusKeywords = newStatus === 'passed' ? ['pass', 'success', 'completed'] : ['fail', 'error'];
+    const targetStatus = statuses.find(status => 
+      statusKeywords.some(keyword => status.name.toLowerCase().includes(keyword))
+    );
 
-    onSave(test.id, overruleData);
-    onClose();
+    if (!targetStatus) {
+      setError('Could not find appropriate status. Please try again.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError('');
+
+      // Create the review via API
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+      
+      await testResultsClient.createReview(
+        test.id,
+        targetStatus.id,
+        reason.trim(),
+        { type: 'test', reference: null }
+      );
+
+      // Create overrule data for parent component
+      const overruleData: OverruleData = {
+        originalStatus,
+        newStatus,
+        reason: reason.trim(),
+        overruledBy: currentUserName,
+        overruledAt: new Date().toISOString(),
+      };
+
+      await onSave(test.id, overruleData);
+      onClose();
+    } catch (err) {
+      console.error('Failed to create review:', err);
+      setError('Failed to save review. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -127,9 +190,10 @@ export default function OverruleJudgementDrawer({
       onClose={handleCancel}
       title="Overrule Test Judgement"
       onSave={handleSave}
-      saveButtonText="Overrule Judgement"
+      saveButtonText={submitting ? "Saving..." : "Overrule Judgement"}
       error={error}
       width={600}
+      loading={submitting || loadingStatuses}
     >
       <Stack spacing={3}>
         {/* Info Alert */}
@@ -256,22 +320,6 @@ export default function OverruleJudgementDrawer({
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Date: <strong>{new Date().toLocaleString()}</strong>
-          </Typography>
-        </Box>
-
-        {/* Note about mock */}
-        <Box
-          sx={{
-            p: 1.5,
-            bgcolor: 'action.hover',
-            borderRadius: theme => theme.shape.borderRadius,
-            border: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" fontStyle="italic">
-            Note: This is currently a mock implementation. Backend integration is
-            pending.
           </Typography>
         </Box>
       </Stack>

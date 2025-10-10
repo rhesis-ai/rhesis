@@ -26,7 +26,9 @@ import GavelIcon from '@mui/icons-material/Gavel';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDetailPanel from './TestDetailPanel';
 import OverruleJudgementDrawer, {
   OverruleData,
@@ -74,9 +76,6 @@ export default function TestsTableView({
   const [testToOverrule, setTestToOverrule] = useState<TestResultDetail | null>(
     null
   );
-  const [overruledTests, setOverruledTests] = useState<
-    Map<string, OverruleData>
-  >(new Map());
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -108,17 +107,20 @@ export default function TestsTableView({
     setOverruleDrawerOpen(true);
   };
 
-  const handleOverruleSave = (testId: string, overruleData: OverruleData) => {
-    // Mock implementation - store overrule data in local state
-    setOverruledTests(prev => {
-      const newMap = new Map(prev);
-      newMap.set(testId, overruleData);
-      return newMap;
-    });
-
-    console.log('Mock overrule saved:', { testId, overruleData });
-    // TODO: Replace with actual API call when backend is ready
-    // await apiClient.overruleTestJudgement(testId, overruleData);
+  const handleOverruleSave = async (testId: string, overruleData: OverruleData) => {
+    try {
+      // Fetch the updated test result from the backend
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+      const updatedTest = await testResultsClient.getTestResult(testId);
+      
+      // Update the test in the parent component
+      onTestResultUpdate(updatedTest);
+      
+      console.log('Review saved successfully:', { testId, overruleData });
+    } catch (error) {
+      console.error('Failed to refresh test result:', error);
+    }
   };
 
   const handleViewDetails = (event: React.MouseEvent, test: TestResultDetail, index: number) => {
@@ -126,7 +128,7 @@ export default function TestsTableView({
     handleRowClick(test, index);
   };
 
-  // Calculate test result status (considering overrules)
+  // Calculate test result status (considering reviews from backend)
   const getTestStatus = (test: TestResultDetail) => {
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
@@ -139,21 +141,31 @@ export default function TestsTableView({
         label: 'N/A',
         count: '0/0',
         isOverruled: false,
+        hasConflict: false,
       };
     }
 
     const originalPassed = passedMetrics === totalMetrics;
-    const overruleData = overruledTests.get(test.id);
+    const lastReview = test.last_review;
 
-    // If overruled, use the overruled status
-    if (overruleData) {
+    // If there's a review, use the review status
+    if (lastReview) {
+      const reviewStatusName = lastReview.status.name.toLowerCase();
+      const reviewPassed = reviewStatusName.includes('pass') || 
+                          reviewStatusName.includes('success') || 
+                          reviewStatusName.includes('completed');
+      
       return {
-        passed: overruleData.newStatus === 'passed',
-        label:
-          overruleData.newStatus === 'passed' ? 'Passed' : 'Failed',
+        passed: reviewPassed,
+        label: reviewPassed ? 'Passed' : 'Failed',
         count: `${passedMetrics}/${totalMetrics}`,
         isOverruled: true,
-        overruleData,
+        hasConflict: !test.matches_review,
+        reviewData: {
+          reviewer: lastReview.user.name,
+          comments: lastReview.comments,
+          updated_at: lastReview.updated_at,
+        },
       };
     }
 
@@ -162,6 +174,7 @@ export default function TestsTableView({
       label: originalPassed ? 'Passed' : 'Failed',
       count: `${passedMetrics}/${totalMetrics}`,
       isOverruled: false,
+      hasConflict: false,
     };
   };
 
@@ -394,17 +407,34 @@ export default function TestsTableView({
 
                         {status.isOverruled && (
                           <Tooltip
-                            title={`Overruled by ${status.overruleData?.overruledBy} - ${status.overruleData?.reason}`}
+                            title={status.reviewData ? `Reviewed by ${status.reviewData.reviewer} - ${status.reviewData.comments}` : 'Manually reviewed'}
                           >
                             <Chip
                               icon={<GavelIcon sx={{ fontSize: 14 }} />}
-                              label="Overruled"
+                              label="Reviewed"
                               size="small"
-                              color="warning"
+                              color={status.hasConflict ? 'warning' : 'info'}
                               variant="filled"
                               sx={{
                                 height: 20,
                                 fontWeight: 600,
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+
+                        {status.hasConflict && (
+                          <Tooltip title="Status mismatch: Review status differs from automated test result">
+                            <Chip
+                              icon={<WarningAmberIcon sx={{ fontSize: 14 }} />}
+                              label="Conflict"
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              sx={{
+                                height: 20,
+                                fontWeight: 600,
+                                borderWidth: 1.5,
                               }}
                             />
                           </Tooltip>
@@ -623,6 +653,7 @@ export default function TestsTableView({
         onClose={() => setOverruleDrawerOpen(false)}
         test={testToOverrule}
         currentUserName={currentUserName}
+        sessionToken={sessionToken}
         onSave={handleOverruleSave}
       />
     </Box>
