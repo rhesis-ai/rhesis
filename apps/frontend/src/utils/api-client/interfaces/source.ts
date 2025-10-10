@@ -15,6 +15,10 @@ export interface Source {
   language_code?: string;
   source_metadata?: Record<string, any>;
   tags: string[];
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
 
   // References
   source_type?: TypeLookup;
