@@ -47,10 +47,6 @@
   flex-direction: column;
 }
 
-.sourceName {
-  font-weight: 500;
-}
-
 .sourceDescription {
   color: var(--mui-palette-text-secondary);
   font-size: 0.875rem;
