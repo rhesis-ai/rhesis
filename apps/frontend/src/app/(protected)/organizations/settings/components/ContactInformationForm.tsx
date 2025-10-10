@@ -13,6 +13,7 @@ import { Save as SaveIcon } from '@mui/icons-material';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { validateEmail, validatePhone } from '@/utils/validation';
 
 interface ContactInformationFormProps {
   organization: Organization;
@@ -33,18 +34,58 @@ export default function ContactInformationForm({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleChange =
     (field: keyof typeof formData) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormData({ ...formData, [field]: e.target.value });
       setError(null);
+      // Clear field error on change
+      if (fieldErrors[field]) {
+        setFieldErrors({ ...fieldErrors, [field]: '' });
+      }
     };
+
+  const handleBlur = (field: 'email' | 'phone') => () => {
+    const value = formData[field];
+    if (value) {
+      const validation = field === 'email' 
+        ? validateEmail(value) 
+        : validatePhone(value);
+      if (!validation.isValid) {
+        setFieldErrors({ ...fieldErrors, [field]: validation.message || '' });
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
+
+    // Validate email and phone before submitting
+    const errors: Record<string, string> = {};
+    
+    if (formData.email) {
+      const emailValidation = validateEmail(formData.email);
+      if (!emailValidation.isValid) {
+        errors.email = emailValidation.message || '';
+      }
+    }
+    
+    if (formData.phone) {
+      const phoneValidation = validatePhone(formData.phone);
+      if (!phoneValidation.isValid) {
+        errors.phone = phoneValidation.message || '';
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSaving(false);
+      return;
+    }
 
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
@@ -83,9 +124,10 @@ export default function ContactInformationForm({
             label="Email"
             value={formData.email}
             onChange={handleChange('email')}
-            type="email"
+            onBlur={handleBlur('email')}
             placeholder="contact@example.com"
-            helperText="Primary contact email for your organization"
+            error={!!fieldErrors.email}
+            helperText={fieldErrors.email || "Primary contact email for your organization"}
           />
         </Grid>
 
@@ -95,9 +137,10 @@ export default function ContactInformationForm({
             label="Phone"
             value={formData.phone}
             onChange={handleChange('phone')}
-            type="tel"
+            onBlur={handleBlur('phone')}
             placeholder="+1 (555) 123-4567"
-            helperText="Primary contact phone number"
+            error={!!fieldErrors.phone}
+            helperText={fieldErrors.phone || "Primary contact phone number"}
           />
         </Grid>
 
