@@ -58,7 +58,7 @@ export default function OrganizationSettingsPage() {
 
   if (initialLoading) {
     return (
-      <PageContainer title="Organization Settings">
+      <PageContainer title="Overview">
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
@@ -68,7 +68,7 @@ export default function OrganizationSettingsPage() {
 
   if (error) {
     return (
-      <PageContainer title="Organization Settings">
+      <PageContainer title="Overview">
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
@@ -78,7 +78,7 @@ export default function OrganizationSettingsPage() {
 
   if (!organization) {
     return (
-      <PageContainer title="Organization Settings">
+      <PageContainer title="Overview">
         <Alert severity="warning" sx={{ mb: 3 }}>
           No organization found. Please contact support.
         </Alert>
@@ -87,7 +87,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <PageContainer title="Organization Settings">
+    <PageContainer title="Overview">
       {/* Basic Information Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
