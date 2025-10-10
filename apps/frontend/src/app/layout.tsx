@@ -85,7 +85,7 @@ async function getNavigationItems(
         {
           kind: 'page',
           segment: 'settings',
-          title: 'Settings',
+          title: 'Organization Settings',
           icon: <SettingsIcon />,
         },
         {
