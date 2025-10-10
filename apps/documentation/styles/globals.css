@@ -77,7 +77,7 @@ h1, h2, h3, h4, h5, h6,
   font-family: "Sora", "Be Vietnam Pro", sans-serif !important;
 }
 
-/* Text colors - grey by default */
+/* Light mode text colors - matching frontend theme */
 body,
 .nextra-content,
 .nextra-content p,
@@ -86,20 +86,20 @@ body,
 .nextra-content li,
 .nextra-sidebar a,
 .nextra-nav-container a {
-  color: #3D3D3D !important;
+  color: #3D3D3D !important; /* Frontend theme text.primary */
 }
 
-/* Headings color */
+/* Headings color - matching frontend theme */
 .nextra-content h1,
 .nextra-content h2,
 .nextra-content h3,
 .nextra-content h4,
 .nextra-content h5,
 .nextra-content h6 {
-  color: #3D3D3D !important;
+  color: #3D3D3D !important; /* Frontend theme text.primary */
 }
 
-/* Links - blue only on hover */
+/* Links - matching frontend theme colors */
 .nextra-content a {
   color: #3D3D3D !important;
   text-decoration: none;
@@ -108,18 +108,23 @@ body,
 .nextra-content a:hover,
 .nextra-sidebar a:hover,
 .nextra-nav-container a:hover {
-  color: #2AA1CE !important;
+  color: #2AA1CE !important; /* Frontend theme primary.dark (CTA blue) */
   text-decoration: underline;
 }
 
-/* Active sidebar links */
+/* Active sidebar links - matching frontend theme */
 .nextra-sidebar a[aria-current="page"],
 .nextra-sidebar a[data-active="true"] {
-  background-color: #2AA1CE !important;
+  background-color: #50B9E0 !important; /* Frontend theme primary.main */
   color: white !important;
 }
 
-/* Dark mode */
+/* Hover state for sidebar links */
+.nextra-sidebar a:hover:not([aria-current="page"]):not([data-active="true"]) {
+  background-color: rgba(80, 185, 224, 0.08) !important; /* Frontend theme hover state */
+}
+
+/* Dark mode - matching frontend theme colors */
 [data-theme="dark"] body,
 [data-theme="dark"] .nextra-content,
 [data-theme="dark"] .nextra-content p,
@@ -128,8 +133,67 @@ body,
 [data-theme="dark"] .nextra-content li,
 [data-theme="dark"] .nextra-sidebar a,
 [data-theme="dark"] .nextra-nav-container a {
-  color: #FFFFFF !important; /* Changed from #E6EDF3 to white for better icon visibility */
-  background-color: #0D1117;
+  color: #E6EDF3 !important; /* Frontend theme text.primary for dark mode */
+  background-color: #0D1117; /* Frontend theme background.default */
+}
+
+/* Force sidebar navigation text to match frontend theme */
+[data-theme="dark"] .nextra-sidebar,
+[data-theme="dark"] .nextra-sidebar *,
+[data-theme="dark"] .nextra-sidebar a,
+[data-theme="dark"] .nextra-sidebar span,
+[data-theme="dark"] .nextra-sidebar div {
+  color: #E6EDF3 !important; /* Frontend theme text.primary for dark mode */
+}
+
+/* Ensure submenu items match frontend theme */
+[data-theme="dark"] .nextra-sidebar ul li a,
+[data-theme="dark"] .nextra-sidebar ul li span,
+[data-theme="dark"] .nextra-sidebar .nx-text-gray-500,
+[data-theme="dark"] .nextra-sidebar .nx-text-slate-500,
+[data-theme="dark"] .nextra-sidebar .nx-text-neutral-500 {
+  color: #E6EDF3 !important; /* Frontend theme text.primary for dark mode */
+}
+
+/* Target Nextra's specific navigation classes */
+[data-theme="dark"] .nextra-sidebar .nx-menu-item,
+[data-theme="dark"] .nextra-sidebar .nx-menu-item a,
+[data-theme="dark"] .nextra-sidebar .nx-menu-item span,
+[data-theme="dark"] .nextra-sidebar .nx-menu-item div {
+  color: #E6EDF3 !important; /* Frontend theme text.primary for dark mode */
+}
+
+/* Override any gray text classes in sidebar */
+[data-theme="dark"] .nextra-sidebar [class*="text-gray"],
+[data-theme="dark"] .nextra-sidebar [class*="text-slate"],
+[data-theme="dark"] .nextra-sidebar [class*="text-neutral"] {
+  color: #E6EDF3 !important; /* Frontend theme text.primary for dark mode */
+}
+
+/* Override Nextra's primary text classes that cause readability issues */
+[data-theme="dark"] .nextra-sidebar [class*="text-primary"],
+[data-theme="dark"] .nextra-sidebar .x\:dark\:text-primary-600,
+[data-theme="dark"] .nextra-sidebar .x\:text-primary-800 {
+  color: #E6EDF3 !important; /* Force readable text in dark mode */
+}
+
+/* Target the specific problematic class combination */
+[data-theme="dark"] .nextra-sidebar a.x\:dark\:text-primary-600 {
+  color: #E6EDF3 !important; /* Force readable text for navigation links */
+}
+
+/* Comprehensive override for all Nextra primary color variants in dark mode */
+[data-theme="dark"] .nextra-sidebar a[class*="primary"],
+[data-theme="dark"] .nextra-sidebar span[class*="primary"],
+[data-theme="dark"] .nextra-sidebar div[class*="primary"] {
+  color: #E6EDF3 !important; /* Force readable text for all primary color elements */
+}
+
+/* Also target content area primary colors that might be hard to read */
+[data-theme="dark"] .nextra-content [class*="text-primary-600"],
+[data-theme="dark"] .nextra-content [class*="text-primary-700"],
+[data-theme="dark"] .nextra-content [class*="text-primary-800"] {
+  color: #E6EDF3 !important; /* Force readable text in content area */
 }
 
 [data-theme="dark"] .nextra-content h1,
@@ -138,43 +202,54 @@ body,
 [data-theme="dark"] .nextra-content h4,
 [data-theme="dark"] .nextra-content h5,
 [data-theme="dark"] .nextra-content h6 {
-  color: #E6EDF3 !important;
+  color: #FFFFFF !important; /* Frontend theme headings in dark mode */
 }
 
 [data-theme="dark"] .nextra-content a {
-  color: #E6EDF3 !important;
+  color: #E6EDF3 !important; /* Frontend theme text.primary for dark mode */
 }
 
 [data-theme="dark"] .nextra-content a:hover,
 [data-theme="dark"] .nextra-sidebar a:hover,
 [data-theme="dark"] .nextra-nav-container a:hover {
-  color: #3BC4F2 !important; /* Keep the blue hover color */
+  color: #3BC4F2 !important; /* Frontend theme primary.light (hover blue) */
 }
 
-/* Dark mode backgrounds */
+/* Active sidebar links in dark mode - matching frontend theme */
+[data-theme="dark"] .nextra-sidebar a[aria-current="page"],
+[data-theme="dark"] .nextra-sidebar a[data-active="true"] {
+  background-color: #2AA1CE !important; /* Frontend theme primary.dark (CTA blue) */
+  color: white !important;
+}
+
+/* Hover state for sidebar links in dark mode */
+[data-theme="dark"] .nextra-sidebar a:hover:not([aria-current="page"]):not([data-active="true"]) {
+  background-color: rgba(42, 161, 206, 0.12) !important; /* Frontend theme hover state for dark mode */
+}
+
+/* Dark mode backgrounds - matching frontend theme */
 [data-theme="dark"] body,
 [data-theme="dark"] .nextra-content,
-[data-theme="dark"] .nextra-sidebar,
 [data-theme="dark"] .nextra-nav-container {
-  background-color: #0D1117 !important;
+  background-color: #0D1117 !important; /* Frontend theme background.default */
 }
 
 [data-theme="dark"] .nextra-sidebar {
-  background-color: #161B22 !important;
+  background-color: #161B22 !important; /* Frontend theme background.paper */
 }
 
-/* Code styling */
+/* Code styling - matching frontend theme */
 .nextra-content code {
-  background-color: #E4F2FA !important;
-  color: #2AA1CE !important;
+  background-color: #E4F2FA !important; /* Frontend theme light blue background */
+  color: #2AA1CE !important; /* Frontend theme primary.dark (CTA blue) */
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.875em;
 }
 
 [data-theme="dark"] .nextra-content code {
-  background-color: #1F242B !important;
-  color: #3BC4F2 !important;
+  background-color: #1F242B !important; /* Frontend theme background.light3 */
+  color: #3BC4F2 !important; /* Frontend theme primary.light (hover blue) */
 }
 
 /* Nextra CSS variables for primary colors */
@@ -183,24 +258,24 @@ body,
   --nextra-primary-saturation: 70%;
 }
 
-/* Override Nextra's color variables for better dark mode readability */
+/* Override Nextra's color variables - matching frontend theme */
 [data-theme="dark"] {
-  /* Text colors - following Langfuse approach */
+  /* Primary colors - matching frontend theme */
   --nextra-primary-hue: 200;
   --nextra-primary-saturation: 100%;
   --nextra-primary-lightness: 60%;
   
-  /* Neutral colors for better readability */
-  --x-color-neutral-50: #FFFFFF;   /* Pure white for primary text */
-  --x-color-neutral-100: #F8FAFC;  /* Near white */
-  --x-color-neutral-200: #F1F5F9;  /* Very light gray */
-  --x-color-neutral-300: #E2E8F0;  /* Light gray */
-  --x-color-neutral-400: #FFFFFF;  /* White for navigation links */
-  --x-color-neutral-500: #E6EDF3;  /* Light gray for secondary text */
-  --x-color-neutral-600: #A9B1BB;  /* Medium gray for muted text */
-  --x-color-neutral-700: #64748B;  /* Darker gray */
-  --x-color-neutral-800: #475569;  /* Dark gray */
-  --x-color-neutral-900: #334155;  /* Very dark gray */
+  /* Neutral colors - matching frontend theme text colors */
+  --x-color-neutral-50: #E6EDF3;   /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-100: #E6EDF3;  /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-200: #E6EDF3;  /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-300: #E6EDF3;  /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-400: #E6EDF3;  /* Frontend theme text.primary for dark mode */
+  --x-color-neutral-500: #A9B1BB;  /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-600: #A9B1BB;  /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-700: #A9B1BB;  /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-800: #A9B1BB;  /* Frontend theme text.secondary for dark mode */
+  --x-color-neutral-900: #A9B1BB;  /* Frontend theme text.secondary for dark mode */
 }
 
 /* Apply custom fonts to navbar while keeping default styling */

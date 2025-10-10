@@ -1,0 +1,196 @@
+# Core Concepts
+
+Understanding how the key components of Rhesis work together is essential for effective AI testing. This guide explains the core concepts and their relationships.
+
+## The Testing Workflow
+
+Rhesis follows a natural testing workflow that mirrors how you'd approach testing any AI application:
+
+```
+Organization → Projects → Endpoints + Tests + Metrics → Test Sets → Test Runs → Test Results
+```
+
+Let's break down each component and how they connect.
+
+## Organization
+
+Your **[Organization](/docs/platform/organizations)** is the top-level container for everything in Rhesis. It provides:
+
+- **Data isolation** from other organizations
+- **Team management** with invitations and access control
+- **Shared resources** that all team members can access
+
+Think of your organization as your company or team's workspace. Everything you create—projects, tests, results—belongs to your organization.
+
+## Projects
+
+**[Projects](/docs/platform/projects)** are how you organize testing work for different AI applications. Each project represents a specific application or testing initiative.
+
+**Why separate projects?** When you're testing multiple AI applications (like a chatbot and a content generator), you want to keep their tests, results, and configurations separate. Projects provide this isolation while still allowing you to work within the same organization.
+
+**What lives in a project?**
+- Endpoints specific to that application
+- Tests designed for that application's behavior
+- Test sets and execution results
+- Historical performance data
+
+**Example**: You might have projects like "Customer Support Chatbot", "Email Summarization API", and "Content Generation v2".
+
+## Endpoints
+
+**[Endpoints](/docs/platform/endpoints)** define how to connect to and call your AI application's API. They're the bridge between Rhesis and your AI system.
+
+**Key components of an endpoint:**
+- **URL and protocol** (REST or WebSocket)
+- **Request template** with placeholders for test inputs
+- **Authentication** (API keys, headers)
+- **Response mappings** to extract data from responses
+
+**Why separate endpoints from tests?** This separation provides flexibility. You can:
+- Run the same tests against different models
+- Compare GPT-4 vs Claude by swapping endpoints
+- Test the same AI across development, staging, and production environments
+
+**Relationship with Projects**: Endpoints belong to projects. This means each project has its own set of endpoints specific to the AI applications being tested.
+
+## Tests
+
+**[Tests](/docs/platform/tests-generation)** are individual prompts or inputs you send to your AI application. Each test includes:
+
+- **The prompt** (what you send to the AI)
+- **Metadata** (behavior, topic, category, priority)
+- **Optional expected response** for comparison
+
+**Creating tests:**
+- **Manual**: Write individual tests one at a time
+- **AI-generated**: Generate hundreds or thousands of tests automatically using AI, with document context and iterative feedback
+
+**Organizing tests**: Tests are tagged with behaviors (what you're testing—Accuracy, Safety, Tone), topics (subject matter), and categories for easy filtering and organization.
+
+**Relationship with Projects**: Tests belong to projects, just like endpoints. This keeps tests organized by application.
+
+## Metrics
+
+**[Metrics](/docs/platform/metrics)** are evaluation criteria that automatically assess AI responses. They answer questions like:
+- Is this response accurate?
+- Is the tone appropriate?
+- Does it follow safety guidelines?
+
+**How metrics work:**
+- Each metric uses an LLM to evaluate test responses
+- Returns pass/fail with optional numeric scoring
+- Provides reasoning for the evaluation
+
+**Behaviors**: Metrics are organized into behaviors (like "Accuracy", "Safety", "Compliance"). When you run a test, all metrics in the test's behavior are applied.
+
+**Example**: An "Accuracy" behavior might include metrics like "Factual Correctness", "Numerical Accuracy", and "Citation Validity".
+
+**Relationship with Tests**: Tests specify which behavior they're testing, and the corresponding metrics automatically evaluate the response.
+
+## Test Sets
+
+**[Test Sets](/docs/platform/test-sets-runs)** are collections of tests that execute together. Think of them as test suites.
+
+**Why use test sets?** Running tests one at a time doesn't scale. Test sets let you:
+- Run hundreds of tests with one click
+- Create regression suites
+- Build pre-deployment validation
+- Organize tests by feature or scenario
+
+**What happens in a test set?**
+1. You select a test set and an endpoint
+2. Choose execution mode (parallel or sequential)
+3. Rhesis runs each test through the endpoint
+4. Each response is evaluated by the relevant metrics
+5. Results are aggregated into a test run
+
+**Relationship with Tests**: Test sets contain tests. You can add tests to multiple test sets, and a test can belong to many sets.
+
+## Test Runs
+
+A **[Test Run](/docs/platform/test-runs)** is the result of executing a test set against an endpoint. It's a snapshot of what happened during that execution.
+
+**What's in a test run?**
+- Individual test results (prompt, response, metrics)
+- Execution metadata (duration, timestamp)
+- Pass/fail status for each test and metric
+- Comparison capabilities with baseline runs
+
+**Why are test runs separate?** Because you might run the same test set multiple times—against different endpoints, at different times, or after changes. Each execution creates a new test run, preserving the complete history.
+
+**Key features:**
+- **Detailed analysis**: Drill into each test result
+- **Comparison**: Compare against baseline runs to detect regressions
+- **Filtering**: Search and filter by status, behavior, or content
+- **History**: See how specific tests perform over time
+
+## Test Results
+
+The **[Test Results](/docs/platform/test-results)** dashboard aggregates data from multiple test runs to show trends and patterns.
+
+**Difference from test runs:**
+- **Test Runs**: Individual execution snapshots
+- **Test Results**: Aggregate analytics across multiple executions
+
+**What it shows:**
+- Overall pass rate trends
+- Performance by behavior, category, and topic
+- Timeline of quality metrics
+- Identification of problem areas
+
+## How Everything Connects
+
+Here's the complete picture:
+
+1. **Start with Organization & Project**
+   - Set up your organization and invite team members
+   - Create a project for your AI application
+
+2. **Configure the Basics**
+   - Add [endpoints](/docs/platform/endpoints) to connect to your AI
+   - Define [metrics](/docs/platform/metrics) to evaluate quality
+   - Generate or create [tests](/docs/platform/tests-generation)
+
+3. **Organize and Execute**
+   - Add tests to [test sets](/docs/platform/test-sets-runs)
+   - Run test sets against endpoints
+   - This creates [test runs](/docs/platform/test-runs) with detailed results
+
+4. **Analyze and Improve**
+   - Review [test runs](/docs/platform/test-runs) for detailed debugging
+   - Check [test results](/docs/platform/test-results) dashboard for trends
+   - Compare runs to detect regressions
+   - Generate more tests or adjust metrics as needed
+
+## Example Scenario
+
+Let's walk through a complete example:
+
+**Scenario**: Testing a customer support chatbot
+
+1. **Organization**: "Acme Inc" (your company)
+2. **Project**: "Customer Support Chatbot v2"
+3. **Endpoints**: 
+   - "GPT-4 Production" (connects to OpenAI)
+   - "Claude-3 Staging" (connects to Anthropic)
+4. **Metrics**: 
+   - Accuracy behavior with metrics like "Factual Correctness"
+   - Tone behavior with metrics like "Professional Communication"
+5. **Tests**: Generated 500 tests covering common support scenarios
+6. **Test Sets**:
+   - "Regression Suite" (200 core tests)
+   - "Edge Cases" (100 unusual scenarios)
+7. **Test Runs**: Execute "Regression Suite" against both endpoints
+8. **Test Results**: Compare which model performs better overall
+
+This structure lets you comprehensively test your chatbot, compare different models, track quality over time, and catch regressions before deployment.
+
+---
+
+<Callout type="default">
+  **Ready to Start?**
+  - Set up your first [Project](/docs/platform/projects)
+  - Configure an [Endpoint](/docs/platform/endpoints)
+  - Generate [Tests](/docs/platform/tests-generation) with AI
+</Callout>
+

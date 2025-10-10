@@ -1,0 +1,143 @@
+# Endpoints
+
+Configure and manage API endpoints that your tests execute against.
+
+<Callout type="default">
+  **What are Endpoints?**
+  Endpoints represent the AI services or APIs that you want to test. They define how Rhesis connects to your application, sends test inputs, and receives responses for evaluation.
+</Callout>
+
+## Why Endpoints?
+
+Endpoints enable you to test AI applications without hardcoding API details into every test. They provide:
+
+- **Reusability**: Configure once, use across hundreds of tests
+- **Flexibility**: Switch between models, environments, or providers without changing tests
+- **Comparison**: Run identical tests against different endpoints to compare performance
+- **Version Control**: Track configuration changes and their impact on test results
+- **Security**: Centralize API keys and credentials in one place
+
+## Understanding Endpoints
+
+An endpoint in Rhesis is a complete configuration for calling an external API. When you run tests, Rhesis:
+
+1. Takes your test prompt or input
+2. Formats it according to your endpoint's request template
+3. Sends the request to your API
+4. Receives the response
+5. Evaluates the response against your metrics
+
+Think of endpoints as the bridge between your tests and the AI system you're evaluating.
+
+## Creating an Endpoint
+
+### Manual Configuration
+
+Create an endpoint from scratch with full control over all settings.
+
+Configure the endpoint name, description, project assignment, and environment. Then set up the request by providing the API URL, protocol (REST or WebSocket), and HTTP method.
+
+**Request Headers**
+
+Define authentication and other required headers in JSON format:
+
+```json
+{
+  "Authorization": "Bearer {API_KEY}",
+  "Content-Type": "application/json"
+}
+```
+
+**Request Body Template**
+
+Create a template with placeholders for dynamic values. Rhesis will replace `{input}` with your test prompt:
+
+```json
+{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{input}"
+    }
+  ],
+  "temperature": 0.7
+}
+```
+
+**Response Mappings**
+
+Extract specific values from API responses using JSONPath syntax:
+
+```json
+{
+  "output": "$.choices[0].message.content",
+  "model_used": "$.model",
+  "tokens": "$.usage.total_tokens"
+}
+```
+
+This tells Rhesis where to find the actual response text and any metadata you want to track.
+
+**[SCREENSHOT HERE: Endpoint configuration form showing the Request Body Template editor with JSON syntax highlighting and the Response Mappings section below it. Both should be filled with example OpenAI API configuration.]**
+
+### Importing from Swagger/OpenAPI
+
+Click **Import Swagger**, enter your Swagger/OpenAPI specification URL, and click **Import**. This automatically populates request templates and response structures from your API documentation. You'll still need to fill in authentication details and select which operations to configure.
+
+## Testing Your Endpoint
+
+Before running full test suites, verify your endpoint configuration works correctly. Navigate to the **Test Connection** tab, enter sample input data, and click **Test Endpoint**. Review the response to ensure it returns expected data.
+
+**[SCREENSHOT HERE: Test Connection tab showing the input JSON editor with sample test data, Test Endpoint button, and the response output area displaying a successful API response with formatted JSON.]**
+
+## Managing Endpoints
+
+### Viewing Endpoints
+
+The Endpoints page displays all your configured endpoints organized by project. Each entry shows the project icon and name, the endpoint name, the protocol (REST or WebSocket), and the environment (development, staging, or production). Click any endpoint to view its full configuration and execution history.
+
+### Editing Endpoints
+
+Open the endpoint details page, click **Edit**, modify any configuration fields, and click **Save**. Changes take effect immediately for new test runs.
+
+### Deleting Endpoints
+
+Select one or more endpoints from the grid and click **Delete**. 
+
+<Callout type="warning">
+  **Important**: Deleting an endpoint does not delete associated test configurations or historical test results. Your test data remains intact, but you cannot execute new tests with a deleted endpoint.
+</Callout>
+
+## Using Endpoints in Tests
+
+### Executing Test Sets
+
+When you run a test set, select which endpoint to execute it against, configure the execution mode (parallel or sequential), and click **Run Tests**. Rhesis sends each test's prompt through the endpoint and evaluates responses against your configured metrics.
+
+### Multiple Endpoints
+
+Creating multiple endpoints opens up powerful testing scenarios. You can run the same tests against different AI models to compare their performance, set up separate endpoints for each environment to validate changes before production deployment, configure A/B tests to compare response quality across different settings, or use different endpoints for load and performance testing. Each test run is independent, allowing you to analyze differences in behavior, quality, and performance across your various configurations.
+
+## Environment Management
+
+Organize endpoints by environment to match your deployment workflow.
+
+**Development** endpoints typically point to local or development servers where you can iterate quickly, debug issues, and test configuration changes without any risk to production systems.
+
+**Staging** endpoints connect to pre-production systems for validation, integration testing, and performance verification before promoting changes to production.
+
+**Production** endpoints represent live production APIs. Use these for regression testing and quality monitoring of your deployed AI systems. These endpoints require extra care when modifying.
+
+Environment tags help you quickly identify which endpoints are production-critical and which are safe for experimentation.
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - Test your endpoint configuration using the Test Connection tab
+  - Generate [Tests](/docs/platform/tests-generation) with AI to create comprehensive coverage
+  - Create multiple endpoints to compare models or environments
+  - Define [Metrics](/docs/platform/metrics) to evaluate response quality
+</Callout>
+
