@@ -32,7 +32,7 @@ export async function generateMetadata({
     // If no session (like during warmup), return basic metadata
     if (!session?.session_token) {
       return {
-        title: `Test Set | ${identifier}`,
+        title: `Test Set ${identifier}`,
         description: `Details for Test Set ${identifier}`,
       };
     }
