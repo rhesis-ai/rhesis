@@ -8,10 +8,14 @@ import { useSession } from 'next-auth/react';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import TestsGrid from './components/TestsGrid';
 import TestCharts from './components/TestCharts';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
   const [refreshKey, setRefreshKey] = React.useState(0);
+  
+  // Set document title
+  useDocumentTitle('Tests');
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);

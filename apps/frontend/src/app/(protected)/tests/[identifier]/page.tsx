@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Typography, Box, Paper, Grid, Divider, Button } from '@mui/material';
+import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import Link from 'next/link';
@@ -18,6 +19,57 @@ import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+// Generate metadata for the page
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ identifier: string }>;
+}): Promise<Metadata> {
+  try {
+    const resolvedParams = await params;
+    const identifier = resolvedParams.identifier;
+    const session = (await auth()) as { session_token: string } | null;
+
+    // If no session (like during warmup), return basic metadata
+    if (!session?.session_token) {
+      return {
+        title: `Test ${identifier}`,
+        description: `Details for Test ${identifier}`,
+      };
+    }
+
+    const apiFactory = new ApiClientFactory(session.session_token);
+    const testsClient = apiFactory.getTestsClient();
+    const promptsClient = apiFactory.getPromptsClient();
+    
+    // Get test data
+    const test = await testsClient.getTest(identifier);
+
+    // Get complete prompt data if available
+    if (test.prompt_id) {
+      const promptData = await promptsClient.getPrompt(test.prompt_id);
+      test.prompt = promptData;
+    }
+
+    // Use the same title logic as the page component
+    const content = test.prompt?.content || '';
+    const title = content
+      ? content.length > 45
+        ? `${content.substring(0, 45)}...`
+        : content
+      : test.id;
+
+    return {
+      title,
+      description: `Test details for: ${title}`,
+    };
+  } catch (error) {
+    return {
+      title: 'Test Details',
+    };
+  }
 }
 
 export default async function TestDetailPage({ params }: PageProps) {

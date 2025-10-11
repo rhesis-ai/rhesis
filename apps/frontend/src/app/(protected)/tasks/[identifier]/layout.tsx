@@ -16,30 +16,30 @@ export async function generateMetadata({
     // If no session (like during warmup), return basic metadata
     if (!session?.session_token) {
       return {
-        title: `Project ${identifier}`,
-        description: `Details for Project ${identifier}`,
+        title: `Task ${identifier}`,
+        description: `Details for Task ${identifier}`,
       };
     }
 
     const apiFactory = new ApiClientFactory(session.session_token);
-    const projectsClient = apiFactory.getProjectsClient();
-    const project = await projectsClient.getProject(identifier);
+    const tasksClient = apiFactory.getTasksClient();
+    const task = await tasksClient.getTask(identifier);
 
     return {
-      title: project.name || `Project ${identifier}`,
-      description: `Project details for: ${project.name || identifier}`,
+      title: task.title || `Task ${identifier}`,
+      description: `Task details for: ${task.title || identifier}`,
     };
   } catch (error) {
     return {
-      title: 'Project Details',
+      title: 'Task Details',
     };
   }
 }
 
-export default function ProjectDetailLayout({
+export default function TaskDetailLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return children;
 }
