@@ -43,7 +43,7 @@ export async function generateMetadata({
     const apiFactory = new ApiClientFactory(session.session_token);
     const testsClient = apiFactory.getTestsClient();
     const promptsClient = apiFactory.getPromptsClient();
-    
+
     // Get test data
     const test = await testsClient.getTest(identifier);
 

@@ -13,7 +13,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 export default function TasksPage() {
   const { data: session, status } = useSession();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  
+
   // Set document title
   useDocumentTitle('Tasks');
 

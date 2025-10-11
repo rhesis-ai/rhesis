@@ -10,7 +10,7 @@ export function useDocumentTitle(title: string | null) {
       // Use the same template pattern as the root layout: '%s | Rhesis AI'
       document.title = `${title} | Rhesis AI`;
     }
-    
+
     // Cleanup function to restore default title when component unmounts
     return () => {
       document.title = 'Rhesis AI';
