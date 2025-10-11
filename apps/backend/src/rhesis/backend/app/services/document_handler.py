@@ -26,7 +26,10 @@ class DocumentHandler:
         self.max_size = max_size
 
     async def save_document(
-        self, document: UploadFile, organization_id: str, source_id: str
+        self,
+        document: UploadFile,
+        organization_id: str,
+        source_id: str,
     ) -> dict:
         """
         Save uploaded document to persistent storage.
@@ -37,7 +40,7 @@ class DocumentHandler:
             source_id: Source ID for unique file naming
 
         Returns:
-            dict: metadata_dict containing file_path and other metadata
+            dict: File metadata (size, hash, path, etc.)
 
         Raises:
             ValueError: If document size exceeds limit or is empty
@@ -88,6 +91,27 @@ class DocumentHandler:
             bool: True if successful, False otherwise
         """
         return await self.storage_service.delete_file(file_path)
+
+    async def extract_document_content(self, file_path: str) -> str:
+        """
+        Extract text content from a document stored in cloud storage.
+
+        Args:
+            file_path: Path to the document in storage
+
+        Returns:
+            str: Extracted text content
+
+        Raises:
+            ValueError: If extraction fails or file format is not supported
+        """
+        from rhesis.sdk.services.extractor import DocumentExtractor
+
+        # Get file content from storage
+        file_content = await self.get_document_content(file_path)
+
+        extractor = DocumentExtractor()
+        return extractor.extract_from_bytes(file_content, Path(file_path).name)
 
     def _extract_metadata(self, content: bytes, filename: str, file_path: str) -> dict:
         """Extract file metadata including file path."""

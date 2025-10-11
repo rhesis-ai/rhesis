@@ -269,8 +269,8 @@ async def upload_document(
     handler = DocumentHandler()
 
     # Use user_id as source_id for now (can be changed to a proper source ID later)
-    path, metadata = await handler.save_document(document, organization_id, user_id)
-    return {"path": path}
+    metadata = await handler.save_document(document, organization_id, user_id)
+    return {"path": metadata["file_path"]}
 
 
 @router.post("/documents/extract", response_model=ExtractDocumentResponse)
