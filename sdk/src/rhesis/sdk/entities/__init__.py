@@ -1,7 +1,7 @@
 """
 Rhesis Entities Module.
 
-This module provides the entity classes for interacting with the Rhesis API.
+This module providess the entity classes for interacting with the Rhesis API.
 """
 
 from .base_collection import BaseCollection
