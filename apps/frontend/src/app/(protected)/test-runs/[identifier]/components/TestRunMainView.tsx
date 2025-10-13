@@ -364,13 +364,30 @@ export default function TestRunMainView({
 
           {/* Conditional Layout based on viewMode */}
           {viewMode === 'split' ? (
-            <Grid container spacing={3}>
-              {/* Left: Tests List (33%) */}
-              <Grid item xs={12} md={4}>
-                <Paper
+            <Paper
+              elevation={2}
+              sx={{
+                height: { xs: 900, md: 'calc(100vh - 240px)' },
+                minHeight: 900,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Content Area with Split View */}
+              <Box
+                sx={{
+                  flex: 1,
+                  display: 'flex',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Left: Tests List (33%) */}
+                <Box
                   sx={{
-                    height: { xs: 900, md: 'calc(100vh - 240px)' },
-                    minHeight: 900,
+                    width: { xs: '100%', md: '33.33%' },
+                    borderRight: { md: 1 },
+                    borderColor: 'divider',
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
@@ -383,30 +400,12 @@ export default function TestRunMainView({
                     loading={loading}
                     prompts={prompts}
                   />
-                  <TablePagination
-                    rowsPerPageOptions={[10, 25, 50, 100]}
-                    component="div"
-                    count={filteredTests.length}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    sx={{
-                      borderTop: 1,
-                      borderColor: 'divider',
-                      backgroundColor: theme.palette.background.paper,
-                      flexShrink: 0,
-                    }}
-                  />
-                </Paper>
-              </Grid>
+                </Box>
 
-              {/* Right: Test Detail Panel (67%) */}
-              <Grid item xs={12} md={8}>
-                <Paper
+                {/* Right: Test Detail Panel (67%) */}
+                <Box
                   sx={{
-                    height: { xs: 900, md: 'calc(100vh - 240px)' },
-                    minHeight: 900,
+                    width: { xs: '100%', md: '66.67%' },
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
@@ -424,24 +423,26 @@ export default function TestRunMainView({
                     currentUserName={currentUserName}
                     currentUserPicture={currentUserPicture}
                   />
-                  <TablePagination
-                    rowsPerPageOptions={[10, 25, 50, 100]}
-                    component="div"
-                    count={filteredTests.length}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    sx={{
-                      borderTop: 1,
-                      borderColor: 'divider',
-                      backgroundColor: theme.palette.background.paper,
-                      flexShrink: 0,
-                    }}
-                  />
-                </Paper>
-              </Grid>
-            </Grid>
+                </Box>
+              </Box>
+
+              {/* Shared Pagination at Bottom */}
+              <TablePagination
+                rowsPerPageOptions={[10, 25, 50, 100]}
+                component="div"
+                count={filteredTests.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                sx={{
+                  borderTop: 1,
+                  borderColor: 'divider',
+                  backgroundColor: theme.palette.background.paper,
+                  flexShrink: 0,
+                }}
+              />
+            </Paper>
           ) : (
             <TestsTableView
               tests={filteredTests}
