@@ -116,7 +116,7 @@ jobs:
           5. Give the team time for review and hotfixes. Hotfixes must be merged into
           the release branch.
           6. Once the release branch is approved, it can be merged into main.
-          7. After the merge, you need to run the "Release - 3. Publish and deploy (prd)" workflow.
+          7. After the merge, you need to run the \"Release - 3. Publish and deploy (prd)\" workflow.
           **The workflow must be run on the release branch.** The workflow will deploy the app
           to the production environment and upload the new version of the SDK to PyPI.
 
