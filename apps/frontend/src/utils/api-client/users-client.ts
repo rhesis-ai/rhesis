@@ -98,7 +98,7 @@ export class UsersClient extends BaseApiClient {
    * @example
    * // Update only UI theme
    * await updateUserSettings({ ui: { theme: 'dark' } });
-   * 
+   *
    * // Update generation model
    * await updateUserSettings({
    *   models: {

@@ -29,7 +29,6 @@ def upgrade() -> None:
     - ui: UI preferences (theme, density, sidebar, page size)
     - notifications: Email and in-app notification preferences
     - localization: Language, timezone, date/time formats
-    - editor: Editor preferences
     - privacy: Privacy settings
     
     This enables users to customize their experience and set default models

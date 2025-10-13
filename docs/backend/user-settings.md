@@ -44,11 +44,6 @@ The User model includes a `user_settings` JSONB column that stores user preferen
     "date_format": "YYYY-MM-DD",
     "time_format": "24h"
   },
-  "editor": {
-    "default_model": "uuid-of-model",
-    "auto_save": true,
-    "show_line_numbers": true
-  },
   "privacy": {
     "show_email": false,
     "show_activity": true
@@ -99,10 +94,6 @@ in_app_prefs = user.settings.notifications.in_app
 # Localization
 language = user.settings.localization.language
 timezone = user.settings.localization.timezone
-
-# Editor Settings
-auto_save = user.settings.editor.auto_save
-show_line_numbers = user.settings.editor.show_line_numbers
 
 # Privacy Settings
 show_email = user.settings.privacy.show_email

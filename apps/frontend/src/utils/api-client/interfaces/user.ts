@@ -43,12 +43,6 @@ export interface LocalizationSettings {
   time_format?: '12h' | '24h';
 }
 
-export interface EditorSettings {
-  default_model?: UUID;
-  auto_save?: boolean;
-  show_line_numbers?: boolean;
-}
-
 export interface PrivacySettings {
   show_email?: boolean;
   show_activity?: boolean;
@@ -60,7 +54,6 @@ export interface UserSettings {
   ui?: UISettings;
   notifications?: NotificationSettings;
   localization?: LocalizationSettings;
-  editor?: EditorSettings;
   privacy?: PrivacySettings;
 }
 
@@ -69,7 +62,6 @@ export interface UserSettingsUpdate {
   ui?: UISettings;
   notifications?: NotificationSettings;
   localization?: LocalizationSettings;
-  editor?: EditorSettings;
   privacy?: PrivacySettings;
 }
 
