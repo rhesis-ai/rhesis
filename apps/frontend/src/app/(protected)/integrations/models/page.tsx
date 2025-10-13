@@ -194,6 +194,7 @@ function ConnectionDialog({
     fullError?: string;
   } | null>(null);
   const [showFullError, setShowFullError] = useState(false);
+  const [connectionTested, setConnectionTested] = useState(false);
 
   const isCustomProvider = provider?.type_value === 'vllm';
   const requiresEndpoint = provider
@@ -219,8 +220,15 @@ function ConnectionDialog({
       setError(null);
       setTestResult(null);
       setShowFullError(false);
+      setConnectionTested(false);
     }
   }, [provider]);
+
+  // Reset connection test status when critical fields change
+  useEffect(() => {
+    setConnectionTested(false);
+    setTestResult(null);
+  }, [modelName, apiKey, endpoint]);
 
   const handleAddHeader = () => {
     if (newHeaderKey.trim() && newHeaderValue.trim()) {
@@ -296,6 +304,7 @@ function ConnectionDialog({
           success: true,
           message: result.message,
         });
+        setConnectionTested(true);
       } else {
         // Extract a friendly error message
         const fullError = result.message;
@@ -333,6 +342,13 @@ function ConnectionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Require successful connection test before allowing model creation
+    if (!connectionTested) {
+      setError('Please test the connection before saving the model.');
+      return;
+    }
+
     // Validate required fields
     const isValid =
       provider &&
@@ -359,6 +375,7 @@ function ConnectionDialog({
           key: apiKey,
           tags: [provider.type_value],
           request_headers: requestHeaders,
+          provider_type_id: provider.id, // Set the provider type ID
         };
 
         // Only include endpoint if it's required and has a value
@@ -678,6 +695,7 @@ function ConnectionDialog({
               (isCustomProvider && !providerName) ||
               !apiKey ||
               (requiresEndpoint && !endpoint) ||
+              !connectionTested ||
               loading
             }
             size="large"
