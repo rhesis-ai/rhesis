@@ -16,7 +16,7 @@ import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
-import GavelIcon from '@mui/icons-material/Gavel';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
@@ -239,13 +239,13 @@ export default function TestDetailPanel({
             id="test-detail-tab-1"
             aria-controls="test-detail-tabpanel-1"
           />
-          <Tab
-            icon={<GavelIcon fontSize="small" />}
-            iconPosition="start"
-            label="Reviews"
-            id="test-detail-tab-2"
-            aria-controls="test-detail-tabpanel-2"
-          />
+                  <Tab
+                    icon={<RateReviewIcon fontSize="small" />}
+                    iconPosition="start"
+                    label="Reviews"
+                    id="test-detail-tab-2"
+                    aria-controls="test-detail-tabpanel-2"
+                  />
           <Tab
             icon={<HistoryIcon fontSize="small" />}
             iconPosition="start"
