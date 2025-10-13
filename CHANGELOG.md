@@ -13,6 +13,27 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-10-13
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 1.0.0**
+
+### Summary of Changes
+
+**Backend v1.0.0:**
+- Added Test Reviews: Introduced a system for reviewing test results, including API endpoints, schemas, and documentation.
+- Implemented Soft Delete: Enabled soft deletion for users, tests, and other entities, along with recycle bin management and GDPR compliance features.
+- Enhanced Security: Implemented encryption for sensitive data in Model and Token tables, including endpoint authentication fields.
+- Improved Test Configuration: Enhanced test configuration generation and schema, including a sample size parameter.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Platform Release
