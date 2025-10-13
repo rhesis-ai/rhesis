@@ -260,7 +260,10 @@ function ConnectionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (provider && name && modelName && endpoint && apiKey) {
+    // Endpoint is only required for custom providers (vLLM)
+    const isValid = provider && name && modelName && apiKey && (isCustomProvider ? endpoint : true);
+    
+    if (isValid) {
       setLoading(true);
       setError(null);
       try {
@@ -275,7 +278,7 @@ function ConnectionDialog({
           description: `${isCustomProvider ? providerName : provider.description} Connection`,
           icon: provider.type_value,
           model_name: modelName,
-          endpoint,
+          endpoint: endpoint || undefined, // Only include endpoint if provided
           key: apiKey,
           tags: [provider.type_value],
           request_headers: requestHeaders,
@@ -387,13 +390,13 @@ function ConnectionDialog({
             <TextField
               label="API Endpoint"
               fullWidth
-              required
+              required={isCustomProvider}
               value={endpoint}
               onChange={e => setEndpoint(e.target.value)}
               helperText={
                 isCustomProvider
-                  ? "The full URL of your model's API endpoint"
-                  : 'The API endpoint URL provided by your LLM provider'
+                  ? "Required: The full URL of your model's API endpoint"
+                  : 'Optional: Leave empty to use the default endpoint for this provider'
               }
             />
 
@@ -509,7 +512,7 @@ function ConnectionDialog({
               !name ||
               (!isCustomProvider && !modelName) ||
               (isCustomProvider && !providerName) ||
-              !endpoint ||
+              (isCustomProvider && !endpoint) ||
               !apiKey ||
               loading
             }
