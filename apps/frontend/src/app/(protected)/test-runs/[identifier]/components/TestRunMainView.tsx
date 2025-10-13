@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Box, Grid, Paper, useTheme } from '@mui/material';
+import { Box, Grid, Paper, useTheme, TablePagination } from '@mui/material';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';
 import TestDetailPanel from './TestDetailPanel';
@@ -56,6 +56,8 @@ export default function TestRunMainView({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [availableTestRuns, setAvailableTestRuns] = useState<
     Array<{
       id: string;
@@ -175,6 +177,27 @@ export default function TestRunMainView({
     },
     []
   );
+
+  // Handle pagination
+  const handleChangePage = useCallback((_event: unknown, newPage: number) => {
+    setPage(newPage);
+  }, []);
+
+  const handleChangeRowsPerPage = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setRowsPerPage(parseInt(event.target.value, 10));
+      setPage(0);
+    },
+    []
+  );
+
+  // Paginated tests for split view
+  const paginatedTests = useMemo(() => {
+    return filteredTests.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    );
+  }, [filteredTests, page, rowsPerPage]);
 
   // Handle download
   const handleDownload = useCallback(async () => {
@@ -341,54 +364,79 @@ export default function TestRunMainView({
 
           {/* Conditional Layout based on viewMode */}
           {viewMode === 'split' ? (
-            <Grid container spacing={3}>
-              {/* Left: Tests List (33%) */}
-              <Grid item xs={12} md={4}>
-                <Paper
-                  sx={{
-                    height: { xs: 780, md: 'calc(100vh - 294px)' },
-                    minHeight: 780,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <TestsList
-                    tests={filteredTests}
-                    selectedTestId={selectedTestId}
-                    onTestSelect={handleTestSelect}
-                    loading={loading}
-                    prompts={prompts}
-                  />
-                </Paper>
+            <>
+              <Grid container spacing={3}>
+                {/* Left: Tests List (33%) */}
+                <Grid item xs={12} md={4}>
+                  <Paper
+                    sx={{
+                      height: { xs: 900, md: 'calc(100vh - 240px)' },
+                      minHeight: 900,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <TestsList
+                      tests={paginatedTests}
+                      selectedTestId={selectedTestId}
+                      onTestSelect={handleTestSelect}
+                      loading={loading}
+                      prompts={prompts}
+                    />
+                  </Paper>
+                </Grid>
+
+                {/* Right: Test Detail Panel (67%) */}
+                <Grid item xs={12} md={8}>
+                  <Paper
+                    sx={{
+                      height: { xs: 900, md: 'calc(100vh - 240px)' },
+                      minHeight: 900,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <TestDetailPanel
+                      test={selectedTest}
+                      loading={loading}
+                      prompts={prompts}
+                      behaviors={behaviors}
+                      testRunId={testRunId}
+                      sessionToken={sessionToken}
+                      onTestResultUpdate={handleTestResultUpdate}
+                      currentUserId={currentUserId}
+                      currentUserName={currentUserName}
+                      currentUserPicture={currentUserPicture}
+                    />
+                  </Paper>
+                </Grid>
               </Grid>
 
-              {/* Right: Test Detail Panel (67%) */}
-              <Grid item xs={12} md={8}>
-                <Paper
+              {/* Full-width pagination */}
+              <Paper
+                elevation={2}
+                sx={{
+                  mt: 3,
+                  borderTop: 1,
+                  borderColor: 'divider',
+                }}
+              >
+                <TablePagination
+                  rowsPerPageOptions={[10, 25, 50, 100]}
+                  component="div"
+                  count={filteredTests.length}
+                  rowsPerPage={rowsPerPage}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
                   sx={{
-                    height: { xs: 780, md: 'calc(100vh - 294px)' },
-                    minHeight: 780,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
+                    backgroundColor: theme.palette.background.paper,
                   }}
-                >
-                  <TestDetailPanel
-                    test={selectedTest}
-                    loading={loading}
-                    prompts={prompts}
-                    behaviors={behaviors}
-                    testRunId={testRunId}
-                    sessionToken={sessionToken}
-                    onTestResultUpdate={handleTestResultUpdate}
-                    currentUserId={currentUserId}
-                    currentUserName={currentUserName}
-                    currentUserPicture={currentUserPicture}
-                  />
-                </Paper>
-              </Grid>
-            </Grid>
+                />
+              </Paper>
+            </>
           ) : (
             <TestsTableView
               tests={filteredTests}
