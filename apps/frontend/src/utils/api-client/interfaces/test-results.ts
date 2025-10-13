@@ -1,5 +1,5 @@
 import { UUID } from 'crypto';
-import { UserReference, Organization, Status } from './tests';
+import { UserReference, Organization, Status, Behavior } from './tests';
 import { Tag } from './tag';
 
 // Metric interfaces
@@ -142,12 +142,49 @@ export interface TestRun {
   tags: Tag[];
 }
 
+// Reference interfaces for nested objects in TestReference
+export interface PromptReference {
+  id: UUID;
+  nano_id?: string;
+  content: string;
+  expected_response?: string;
+  user_id?: UUID;
+  organization_id?: UUID;
+  status_id?: UUID;
+  tags?: Tag[];
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
+}
+
+export interface BehaviorReference {
+  id: UUID;
+  nano_id?: string;
+  name: string;
+  description?: string;
+  user_id?: UUID;
+  organization_id?: UUID;
+  status_id?: UUID;
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
+}
+
 export interface TestReference {
   id: UUID;
+  nano_id?: string;
   user_id: UUID;
   organization_id: UUID;
   status_id: UUID;
   tags: Tag[];
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
+  prompt?: PromptReference;
+  behavior?: BehaviorReference;
 }
 
 // Base interface for test results

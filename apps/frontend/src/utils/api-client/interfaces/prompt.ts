@@ -34,6 +34,11 @@ export interface PromptUpdate extends Partial<PromptBase> {}
 // Full prompt entity with id and timestamps
 export interface Prompt extends PromptBase {
   id: UUID;
+  nano_id?: string;
   created_at: string;
   updated_at: string;
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
 }
