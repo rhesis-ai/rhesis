@@ -179,8 +179,8 @@ async function getNavigationItems(
         },
         {
           kind: 'page',
-          segment: 'llm-providers',
-          title: 'LLM Providers',
+          segment: 'models',
+          title: 'Models',
           icon: <SmartToyIcon />,
         },
       ],

@@ -44,7 +44,7 @@ export default function IntegrationsLayout({
   const tabValue = React.useMemo(() => {
     if (pathname.includes('/applications')) return 0;
     if (pathname.includes('/tools')) return 1;
-    if (pathname.includes('/llm-providers')) return 2;
+    if (pathname.includes('/models')) return 2;
     return 0;
   }, [pathname]);
 
@@ -57,7 +57,7 @@ export default function IntegrationsLayout({
         router.push('tools');
         break;
       case 2:
-        router.push('llm-providers');
+        router.push('models');
         break;
     }
   };
@@ -73,7 +73,7 @@ export default function IntegrationsLayout({
         >
           <Tab label="Applications" />
           <Tab label="Tools" />
-          <Tab label="LLM Providers" />
+          <Tab label="Models" />
         </Tabs>
       </Box>
       {children}
