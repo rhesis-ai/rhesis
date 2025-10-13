@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import {
   Box,
   List,
@@ -10,6 +10,7 @@ import {
   Paper,
   Skeleton,
   useTheme,
+  TablePagination,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
@@ -215,6 +216,23 @@ export default function TestsList({
   const theme = useTheme();
   const listContainerRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+    // Scroll to top of list when page changes
+    if (listContainerRef.current) {
+      listContainerRef.current.scrollTop = 0;
+    }
+  };
+
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   // Process tests to determine pass/fail status
   const processedTests = useMemo(() => {
@@ -240,31 +258,39 @@ export default function TestsList({
     });
   }, [tests, prompts]);
 
-  // Handle keyboard navigation
+  // Paginated tests
+  const paginatedTests = useMemo(() => {
+    return processedTests.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    );
+  }, [processedTests, page, rowsPerPage]);
+
+  // Handle keyboard navigation (within current page)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (processedTests.length === 0) return;
+      if (paginatedTests.length === 0) return;
 
-      const currentIndex = processedTests.findIndex(
+      const currentIndex = paginatedTests.findIndex(
         item => item.test.id === selectedTestId
       );
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         const nextIndex =
-          currentIndex < processedTests.length - 1 ? currentIndex + 1 : 0;
-        onTestSelect(processedTests[nextIndex].test.id);
+          currentIndex < paginatedTests.length - 1 ? currentIndex + 1 : 0;
+        onTestSelect(paginatedTests[nextIndex].test.id);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
         const prevIndex =
-          currentIndex > 0 ? currentIndex - 1 : processedTests.length - 1;
-        onTestSelect(processedTests[prevIndex].test.id);
+          currentIndex > 0 ? currentIndex - 1 : paginatedTests.length - 1;
+        onTestSelect(paginatedTests[prevIndex].test.id);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [processedTests, selectedTestId, onTestSelect]);
+  }, [paginatedTests, selectedTestId, onTestSelect]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -278,84 +304,137 @@ export default function TestsList({
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          height: '100%',
-          overflow: 'auto',
-          pr: 1,
-        }}
-      >
-        <List>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <TestListItemSkeleton key={index} />
-          ))}
-        </List>
-      </Box>
+      <>
+        <Box
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            pr: 1,
+          }}
+        >
+          <List>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <TestListItemSkeleton key={index} />
+            ))}
+          </List>
+        </Box>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={tests.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            borderTop: 1,
+            borderColor: 'divider',
+            backgroundColor: theme.palette.background.paper,
+            flexShrink: 0,
+          }}
+        />
+      </>
     );
   }
 
   if (tests.length === 0) {
     return (
-      <Box
-        sx={{
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 4,
-        }}
-      >
-        <Typography variant="body2" color="text.secondary" textAlign="center">
-          No tests found matching your filters
-        </Typography>
-      </Box>
+      <>
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 4,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" textAlign="center">
+            No tests found matching your filters
+          </Typography>
+        </Box>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={tests.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            borderTop: 1,
+            borderColor: 'divider',
+            backgroundColor: theme.palette.background.paper,
+            flexShrink: 0,
+          }}
+        />
+      </>
     );
   }
 
   return (
-    <Box
-      ref={listContainerRef}
-      sx={{
-        height: '100%',
-        overflow: 'auto',
-        pr: 1,
-        // Custom scrollbar styling
-        '&::-webkit-scrollbar': {
-          width: '8px',
-        },
-        '&::-webkit-scrollbar-track': {
-          background: theme.palette.background.default,
-          borderRadius: '4px',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          background: theme.palette.divider,
-          borderRadius: '4px',
-          '&:hover': {
-            background: theme.palette.action.hover,
+    <>
+      <Box
+        ref={listContainerRef}
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          pr: 1,
+          // Custom scrollbar styling
+          '&::-webkit-scrollbar': {
+            width: '8px',
           },
-        },
-      }}
-    >
-      <List sx={{ py: 0 }}>
-        {processedTests.map(
-          ({ test, isPassed, passedMetrics, totalMetrics, promptContent }) => (
-            <Box
-              key={test.id}
-              ref={selectedTestId === test.id ? selectedItemRef : null}
-            >
-              <TestListItem
-                test={test}
-                isSelected={selectedTestId === test.id}
-                onClick={() => onTestSelect(test.id)}
-                promptContent={promptContent}
-                isPassed={isPassed}
-                passedMetrics={passedMetrics}
-                totalMetrics={totalMetrics}
-              />
-            </Box>
-          )
-        )}
-      </List>
-    </Box>
+          '&::-webkit-scrollbar-track': {
+            background: theme.palette.background.default,
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: theme.palette.divider,
+            borderRadius: '4px',
+            '&:hover': {
+              background: theme.palette.action.hover,
+            },
+          },
+        }}
+      >
+        <List sx={{ py: 0 }}>
+          {paginatedTests.map(
+            ({ test, isPassed, passedMetrics, totalMetrics, promptContent }) => (
+              <Box
+                key={test.id}
+                ref={selectedTestId === test.id ? selectedItemRef : null}
+              >
+                <TestListItem
+                  test={test}
+                  isSelected={selectedTestId === test.id}
+                  onClick={() => onTestSelect(test.id)}
+                  promptContent={promptContent}
+                  isPassed={isPassed}
+                  passedMetrics={passedMetrics}
+                  totalMetrics={totalMetrics}
+                />
+              </Box>
+            )
+          )}
+        </List>
+      </Box>
+
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[10, 25, 50, 100]}
+        component="div"
+        count={tests.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        sx={{
+          borderTop: 1,
+          borderColor: 'divider',
+          backgroundColor: theme.palette.background.paper,
+          flexShrink: 0,
+        }}
+      />
+    </>
   );
 }
