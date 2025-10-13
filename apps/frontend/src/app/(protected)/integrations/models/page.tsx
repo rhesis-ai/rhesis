@@ -172,43 +172,40 @@ export default function ModelsPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          Models
-        </Typography>
-        <Typography color="text.secondary">
-          Connect to leading AI model providers to power your evaluation and
-          testing workflows.
-        </Typography>
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-      </Box>
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
+      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ mb: 1 }}>
+            Models
+          </Typography>
+          <Typography color="text.secondary">
+            Connect to leading AI model providers to power your evaluation and
+            testing workflows.
+          </Typography>
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
         </Box>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr', // 1 column on mobile
-              sm: 'repeat(2, 1fr)', // 2 columns on small screens
-              md: 'repeat(3, 1fr)', // 3 columns on medium screens
-              lg: 'repeat(5, 1fr)', // 5 columns on large screens
-              xl: 'repeat(6, 1fr)', // 6 columns on extra large screens
-            },
-            gap: 3,
-            '& > *': {
-              minHeight: '200px',
-              display: 'flex',
-            },
-          }}
-        >
+
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: 3,
+              width: '100%',
+              px: 0,
+            }}
+          >
           {/* Connected Model Cards */}
           {connectedModels.map(model => (
             <ConnectedModelCard
@@ -223,6 +220,7 @@ export default function ModelsPage() {
           <AddModelCard onClick={handleAddLLM} />
         </Box>
       )}
+      </Box>
 
       <ProviderSelectionDialog
         open={providerSelectionOpen}
