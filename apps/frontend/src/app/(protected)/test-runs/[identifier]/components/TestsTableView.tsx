@@ -625,7 +625,7 @@ export default function TestsTableView({
                                 },
                               }}
                             >
-                              <CheckIcon fontSize="small" />
+                              <CheckIcon sx={{ fontSize: 18, color: 'action.active' }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -643,7 +643,7 @@ export default function TestsTableView({
                               },
                             }}
                           >
-                            <RateReviewOutlinedIcon fontSize="small" />
+                            <RateReviewOutlinedIcon sx={{ fontSize: 18, color: 'action.active' }} />
                           </IconButton>
                         </Tooltip>
                       </Box>
