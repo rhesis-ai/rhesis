@@ -282,7 +282,7 @@ def get_user_settings(
 @handle_database_exceptions(entity_name="user settings")
 def update_user_settings(
     settings_update: UserSettingsUpdate,
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context)):
     """
     Update user settings with partial data (deep merge).
@@ -322,9 +322,10 @@ def update_user_settings(
     # Persist changes back to the database column
     db_user.user_settings = db_user.settings.raw
     
-    # Commit the transaction
-    db.commit()
-    db.refresh(db_user)
+    # Mark as modified for SQLAlchemy to track the change
+    db.add(db_user)
+    
+    # Transaction commit is handled automatically by get_db_session context manager
     
     logger.info(f"Updated settings for user {db_user.email}")
     
