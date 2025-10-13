@@ -89,21 +89,14 @@ class ModelConnectionService:
             except Exception as e:
                 # API call failed - likely authentication or network issue
                 logger.warning(f"Model generation test failed: {str(e)}")
-                error_msg = str(e)
-
-                # Provide more specific error messages for common issues
-                if "api key" in error_msg.lower() or "unauthorized" in error_msg.lower():
-                    error_msg = "Invalid API key. Please check your credentials."
-                elif "not found" in error_msg.lower():
-                    error_msg = f"Model '{model_name}' not found for provider '{provider}'."
-                elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
-                    error_msg = (
-                        "Connection failed. Please check the endpoint URL and network connectivity."
-                    )
-
+                
+                # Return the original error message from the provider
+                # Different providers have different error formats, so we keep them as-is
+                error_message = str(e)
+                
                 return ModelConnectionTestResult(
                     success=False,
-                    message=f"Connection test failed: {error_msg}",
+                    message=error_message,
                     provider=provider,
                     model_name=model_name,
                 )
