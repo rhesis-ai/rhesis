@@ -20,6 +20,7 @@ import {
   ListItemText,
   ListItemButton,
   Stack,
+  Chip,
 } from '@mui/material';
 import {
   SiOpenai,
@@ -40,6 +41,10 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { DeleteModal } from '@/components/common/DeleteModal';
+
+// Providers currently supported by the Rhesis SDK
+// Note: 'google' maps to 'gemini' in the SDK
+const SUPPORTED_PROVIDERS = ['openai', 'google', 'ollama', 'huggingface'];
 
 interface ProviderInfo {
   id: string;
@@ -99,17 +104,29 @@ function ProviderSelectionDialog({
     );
   }
 
-  // Sort providers alphabetically by type_value
-  const sortedProviders = [...providers].sort((a, b) =>
-    a.type_value.localeCompare(b.type_value)
-  );
+  // Sort providers: enabled first (alphabetically), then coming soon (alphabetically)
+  const sortedProviders = [...providers].sort((a, b) => {
+    const aSupported = SUPPORTED_PROVIDERS.includes(a.type_value);
+    const bSupported = SUPPORTED_PROVIDERS.includes(b.type_value);
+    
+    // If support status differs, supported comes first
+    if (aSupported !== bSupported) {
+      return bSupported ? 1 : -1;
+    }
+    
+    // Within same support status, sort alphabetically
+    return a.type_value.localeCompare(b.type_value);
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Select LLM Provider</DialogTitle>
+      <DialogTitle>Select Model Provider</DialogTitle>
       <DialogContent>
         <List>
           {sortedProviders.map(provider => {
+            const isSupported = SUPPORTED_PROVIDERS.includes(
+              provider.type_value
+            );
             const providerInfo: ProviderInfo = {
               id: provider.type_value,
               name: provider.description || provider.type_value,
@@ -124,19 +141,48 @@ function ProviderSelectionDialog({
             return (
               <ListItemButton
                 key={provider.id}
-                onClick={() => onSelectProvider(provider)}
+                onClick={() => isSupported && onSelectProvider(provider)}
+                disabled={!isSupported}
                 sx={{
                   borderRadius: theme => theme.shape.borderRadius * 0.25,
                   my: 0.5,
+                  opacity: isSupported ? 1 : 0.5,
+                  cursor: isSupported ? 'pointer' : 'not-allowed',
                   '&:hover': {
-                    backgroundColor: 'action.hover',
+                    backgroundColor: isSupported ? 'action.hover' : 'transparent',
+                  },
+                  '&.Mui-disabled': {
+                    opacity: 0.5,
                   },
                 }}
               >
-                <ListItemIcon>{providerInfo.icon}</ListItemIcon>
+                <ListItemIcon
+                  sx={{ opacity: isSupported ? 1 : 0.4 }}
+                >
+                  {providerInfo.icon}
+                </ListItemIcon>
                 <ListItemText
-                  primary={providerInfo.name}
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography>{providerInfo.name}</Typography>
+                      {!isSupported && (
+                        <Chip
+                          label="Coming Soon"
+                          size="small"
+                          color="default"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                          }}
+                        />
+                      )}
+                    </Box>
+                  }
                   secondary={providerInfo.description}
+                  secondaryTypographyProps={{
+                    sx: { opacity: isSupported ? 1 : 0.6 },
+                  }}
                 />
               </ListItemButton>
             );
@@ -738,10 +784,10 @@ export default function LLMProvidersPage() {
               />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h6" color="text.secondary">
-                  Add LLM
+                  Add Model
                 </Typography>
                 <Typography color="text.secondary" variant="body2">
-                  Connect to a new LLM provider
+                  Connect a new model
                 </Typography>
               </Box>
             </Box>
@@ -756,7 +802,7 @@ export default function LLMProvidersPage() {
                   borderRadius: theme => theme.shape.borderRadius * 0.375,
                 }}
               >
-                Add Provider
+                Add Model
               </Button>
             </Box>
           </Paper>
