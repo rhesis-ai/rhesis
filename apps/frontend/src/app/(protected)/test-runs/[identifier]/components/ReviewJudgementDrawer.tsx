@@ -8,7 +8,6 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Alert,
-  Chip,
   Stack,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -18,6 +17,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
+import StatusChip from '@/components/common/StatusChip';
 
 interface ReviewJudgementDrawerProps {
   open: boolean;
@@ -227,21 +227,12 @@ export default function ReviewJudgementDrawer({
             Original Status
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            {originalStatus === 'passed' ? (
-              <>
-                <CheckCircleOutlineIcon
-                  sx={{ color: 'success.main', fontSize: 20 }}
-                />
-                <Chip label="Passed" color="success" size="small" />
-              </>
-            ) : (
-              <>
-                <CancelOutlinedIcon
-                  sx={{ color: 'error.main', fontSize: 20 }}
-                />
-                <Chip label="Failed" color="error" size="small" />
-              </>
-            )}
+            <StatusChip
+              passed={originalStatus === 'passed'}
+              label={originalStatus === 'passed' ? 'Passed' : 'Failed'}
+              size="small"
+              variant="filled"
+            />
             <Typography variant="body2" color="text.secondary">
               {passedMetrics}/{totalMetrics} metrics passed
             </Typography>

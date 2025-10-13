@@ -15,12 +15,9 @@ import {
   IconButton,
   Tooltip,
   TablePagination,
-  Drawer,
   useTheme,
   alpha,
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
@@ -32,7 +29,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import TestDetailPanel from './TestDetailPanel';
+import TestResultDrawer from './TestResultDrawer';
 import ReviewJudgementDrawer, {
   ReviewData,
 } from './ReviewJudgementDrawer';
@@ -75,6 +72,7 @@ export default function TestsTableView({
   );
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [initialTab, setInitialTab] = useState<number>(0);
   const [overruleDrawerOpen, setOverruleDrawerOpen] = useState(false);
   const [testToOverrule, setTestToOverrule] = useState<TestResultDetail | null>(
     null
@@ -91,9 +89,10 @@ export default function TestsTableView({
     setPage(0);
   };
 
-  const handleRowClick = (test: TestResultDetail, index: number) => {
+  const handleRowClick = (test: TestResultDetail, index: number, tabIndex: number = 0) => {
     setSelectedTest(test);
     setSelectedRowIndex(index);
+    setInitialTab(tabIndex);
     setDrawerOpen(true);
   };
 
@@ -540,12 +539,22 @@ export default function TestsTableView({
                       >
                         {/* Comments Count */}
                         {test.counts && test.counts.comments > 0 && (
-                          <Tooltip title={`${test.counts.comments} comment(s)`}>
+                          <Tooltip title={`${test.counts.comments} comment(s) - Click to view`}>
                             <Box
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(test, index, 4); // Tab index 4 is Tasks & Comments
+                              }}
                               sx={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 0.5,
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                borderRadius: 1,
+                                '&:hover': {
+                                  backgroundColor: theme.palette.action.hover,
+                                },
                               }}
                             >
                               <CommentOutlinedIcon
@@ -563,12 +572,22 @@ export default function TestsTableView({
 
                         {/* Tasks Count */}
                         {test.counts && test.counts.tasks > 0 && (
-                          <Tooltip title={`${test.counts.tasks} task(s)`}>
+                          <Tooltip title={`${test.counts.tasks} task(s) - Click to view`}>
                             <Box
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(test, index, 4); // Tab index 4 is Tasks & Comments
+                              }}
                               sx={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 0.5,
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                borderRadius: 1,
+                                '&:hover': {
+                                  backgroundColor: theme.palette.action.hover,
+                                },
                               }}
                             >
                               <TaskAltOutlinedIcon
@@ -667,64 +686,22 @@ export default function TestsTableView({
         }}
       />
 
-      {/* Detail Drawer */}
-      <Drawer
-        anchor="right"
+      {/* Test Result Drawer */}
+      <TestResultDrawer
         open={drawerOpen}
         onClose={handleCloseDrawer}
-        sx={{
-          zIndex: theme => theme.zIndex.drawer + 1,
-          '& .MuiDrawer-paper': {
-            width: { xs: '100%', sm: '80%', md: '60%', lg: '50%' },
-            maxWidth: '50vw',
-            zIndex: theme => theme.zIndex.drawer + 1,
-          },
-        }}
-      >
-        <Box
-          sx={{
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* Drawer Header */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              p: 2,
-              borderBottom: 1,
-              borderColor: 'divider',
-              backgroundColor: theme.palette.background.paper,
-            }}
-          >
-            <Typography variant="h6">Test Details</Typography>
-            <IconButton onClick={handleCloseDrawer} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-
-          {/* Drawer Content */}
-          <Box sx={{ flex: 1, overflow: 'hidden' }}>
-            {selectedTest && (
-              <TestDetailPanel
-                test={selectedTest}
-                loading={false}
-                prompts={prompts}
-                behaviors={behaviors}
-                testRunId={testRunId}
-                sessionToken={sessionToken}
-                onTestResultUpdate={onTestResultUpdate}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                currentUserPicture={currentUserPicture}
-              />
-            )}
-          </Box>
-        </Box>
-      </Drawer>
+        test={selectedTest}
+        loading={false}
+        prompts={prompts}
+        behaviors={behaviors}
+        testRunId={testRunId}
+        sessionToken={sessionToken}
+        onTestResultUpdate={onTestResultUpdate}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        currentUserPicture={currentUserPicture}
+        initialTab={initialTab}
+      />
 
       {/* Review Judgement Drawer */}
       <ReviewJudgementDrawer

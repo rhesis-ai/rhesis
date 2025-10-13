@@ -41,6 +41,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import RemoveIcon from '@mui/icons-material/Remove';
 import ListIcon from '@mui/icons-material/List';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { MetricStatusChip } from '@/components/common/StatusChip';
 
 interface ComparisonViewProps {
   currentTestRun: {
@@ -747,32 +748,16 @@ export default function ComparisonView({
                               Baseline:
                             </Typography>
                             {baselinePassed !== null && (
-                              <>
-                                {baselinePassed ? (
-                                  <CheckCircleIcon
-                                    sx={{
-                                      fontSize: 16,
-                                      color: theme.palette.success.main,
-                                    }}
-                                  />
-                                ) : (
-                                  <CancelIcon
-                                    sx={{
-                                      fontSize: 16,
-                                      color: theme.palette.error.main,
-                                    }}
-                                  />
-                                )}
-                                <Chip
-                                  label={`${baselinePassed ? 'Passed' : 'Failed'} (${baselinePassedCount}/${baselineTotalCount})`}
-                                  size="small"
-                                  color={baselinePassed ? 'success' : 'error'}
-                                  sx={{ 
-                                    height: 20, 
-                                    fontSize: theme => theme.typography.caption.fontSize 
-                                  }}
-                                />
-                              </>
+                              <MetricStatusChip
+                                passedCount={baselinePassedCount}
+                                totalCount={baselineTotalCount}
+                                size="small"
+                                variant="filled"
+                                sx={{ 
+                                  height: 20, 
+                                  fontSize: theme => theme.typography.caption.fontSize 
+                                }}
+                              />
                             )}
                             {baselinePassed === null && (
                               <Typography
@@ -834,25 +819,11 @@ export default function ComparisonView({
                             >
                               Current:
                             </Typography>
-                            {currentPassed ? (
-                              <CheckCircleIcon
-                                sx={{
-                                  fontSize: 16,
-                                  color: theme.palette.success.main,
-                                }}
-                              />
-                            ) : (
-                              <CancelIcon
-                                sx={{
-                                  fontSize: 16,
-                                  color: theme.palette.error.main,
-                                }}
-                              />
-                            )}
-                            <Chip
-                              label={`${currentPassed ? 'Passed' : 'Failed'} (${currentPassedCount}/${currentTotalCount})`}
+                            <MetricStatusChip
+                              passedCount={currentPassedCount}
+                              totalCount={currentTotalCount}
                               size="small"
-                              color={currentPassed ? 'success' : 'error'}
+                              variant="filled"
                               sx={{ 
                                 height: 20, 
                                 fontSize: theme => theme.typography.caption.fontSize 
@@ -978,38 +949,19 @@ export default function ComparisonView({
                         Baseline Run
                       </Typography>
                       {selectedTest.baseline ? (
-                        <Chip
-                          label={
-                            isTestPassed(selectedTest.baseline)
-                              ? `Passed (${
-                                  Object.values(
-                                    selectedTest.baseline.test_metrics?.metrics ||
-                                      {}
-                                  ).filter(m => m.is_successful).length
-                                }/${
-                                  Object.values(
-                                    selectedTest.baseline.test_metrics?.metrics ||
-                                      {}
-                                  ).length
-                                })`
-                              : `Failed (${
-                                  Object.values(
-                                    selectedTest.baseline.test_metrics?.metrics ||
-                                      {}
-                                  ).filter(m => m.is_successful).length
-                                }/${
-                                  Object.values(
-                                    selectedTest.baseline.test_metrics?.metrics ||
-                                      {}
-                                  ).length
-                                })`
+                        <MetricStatusChip
+                          passedCount={
+                            Object.values(
+                              selectedTest.baseline.test_metrics?.metrics || {}
+                            ).filter(m => m.is_successful).length
                           }
-                          color={
-                            isTestPassed(selectedTest.baseline)
-                              ? 'success'
-                              : 'error'
+                          totalCount={
+                            Object.values(
+                              selectedTest.baseline.test_metrics?.metrics || {}
+                            ).length
                           }
                           size="small"
+                          variant="filled"
                         />
                       ) : (
                         <Chip label="No data" size="small" color="default" />
@@ -1289,32 +1241,19 @@ export default function ComparisonView({
                       >
                         Current Run
                       </Typography>
-                      <Chip
-                        label={
-                          isTestPassed(selectedTest.current)
-                            ? `Passed (${
-                                Object.values(
-                                  selectedTest.current.test_metrics?.metrics || {}
-                                ).filter(m => m.is_successful).length
-                              }/${
-                                Object.values(
-                                  selectedTest.current.test_metrics?.metrics || {}
-                                ).length
-                              })`
-                            : `Failed (${
-                                Object.values(
-                                  selectedTest.current.test_metrics?.metrics || {}
-                                ).filter(m => m.is_successful).length
-                              }/${
-                                Object.values(
-                                  selectedTest.current.test_metrics?.metrics || {}
-                                ).length
-                              })`
+                      <MetricStatusChip
+                        passedCount={
+                          Object.values(
+                            selectedTest.current.test_metrics?.metrics || {}
+                          ).filter(m => m.is_successful).length
                         }
-                        color={
-                          isTestPassed(selectedTest.current) ? 'success' : 'error'
+                        totalCount={
+                          Object.values(
+                            selectedTest.current.test_metrics?.metrics || {}
+                          ).length
                         }
                         size="small"
+                        variant="filled"
                       />
                       {selectedTest.baseline && (
                         <>

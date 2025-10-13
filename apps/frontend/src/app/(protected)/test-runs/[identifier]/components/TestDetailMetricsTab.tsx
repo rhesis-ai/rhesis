@@ -20,10 +20,9 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import StatusChip from '@/components/common/StatusChip';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -296,17 +295,11 @@ export default function TestDetailMetricsTab({
                   }}
                 >
                   <TableCell>
-                    <Chip
-                      icon={
-                        metric.passed ? (
-                          <CheckCircleOutlineIcon />
-                        ) : (
-                          <CancelOutlinedIcon />
-                        )
-                      }
+                    <StatusChip
+                      passed={metric.passed}
                       label={metric.passed ? 'Pass' : 'Fail'}
                       size="small"
-                      color={metric.passed ? 'success' : 'error'}
+                      variant="filled"
                       sx={{ minWidth: 80 }}
                     />
                   </TableCell>
