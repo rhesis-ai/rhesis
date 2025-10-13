@@ -1,4 +1,4 @@
-name: Release - 1. Set up release config
+name: Release - 1. Set up release config  
 
 on:
   workflow_dispatch:
@@ -55,8 +55,24 @@ jobs:
   update-release-config:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Set up Git
+        run: |
+            git config user.name "rheo-app[bot]"
+            git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
+
+
 
       - name: Update release config
         run: |
@@ -104,21 +120,6 @@ jobs:
           cat release_config.json
           echo "Commit message: $COMMIT_MSG"
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: ${{ env.COMMIT_MESSAGE }}
-          title: "Release Bump: ${{ env.PR_TITLE_MESSAGE }}"
-          body: |
-            ## Release Version Bumps
-            
-            ${{ github.event.inputs.platform_bump != 'none' && format('- **Platform**: {0}', github.event.inputs.platform_bump) || '' }}
-            ${{ github.event.inputs.backend_bump != 'none' && format('- **Backend**: {0}', github.event.inputs.backend_bump) || '' }}
-            ${{ github.event.inputs.frontend_bump != 'none' && format('- **Frontend**: {0}', github.event.inputs.frontend_bump) || '' }}
-            ${{ github.event.inputs.sdk_bump != 'none' && format('- **SDK**: {0}', github.event.inputs.sdk_bump) || '' }}
-            ${{ github.event.inputs.polyphemus_bump != 'none' && format('- **Polyphemus**: {0}', github.event.inputs.polyphemus_bump) || '' }}
-            
-            This PR updates the release configuration with the selected version bumps.
-          branch: release-bump-${{ github.run_number }}
-          delete-branch: true
+          git add release_config.json
+          git commit -m "Update release config: $COMMIT_MSG"
+          git push
