@@ -132,7 +132,7 @@ export default async function TestRunPage({ params }: { params: any }) {
       {} as Record<string, any>
     );
     console.log(
-      `[SSR] ✅ Built prompts map with ${Object.keys(promptsMap).length} unique prompts (NO separate API calls!)`
+      `[SSR] Built prompts map with ${Object.keys(promptsMap).length} unique prompts (NO separate API calls!)`
     );
 
     // Fetch behaviors with metrics for this test run

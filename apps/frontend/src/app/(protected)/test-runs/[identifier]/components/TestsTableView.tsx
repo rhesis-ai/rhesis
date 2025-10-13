@@ -570,8 +570,8 @@ export default function TestsTableView({
                                 alignItems: 'center',
                                 gap: 0.5,
                                 cursor: 'pointer',
-                                padding: '2px 4px',
-                                borderRadius: 1,
+                                padding: theme.spacing(0.25, 0.5),
+                                borderRadius: 0.5,
                                 '&:hover': {
                                   backgroundColor: theme.palette.action.hover,
                                 },
@@ -605,8 +605,8 @@ export default function TestsTableView({
                                 alignItems: 'center',
                                 gap: 0.5,
                                 cursor: 'pointer',
-                                padding: '2px 4px',
-                                borderRadius: 1,
+                                padding: theme.spacing(0.25, 0.5),
+                                borderRadius: 0.5,
                                 '&:hover': {
                                   backgroundColor: theme.palette.action.hover,
                                 },
