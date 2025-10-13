@@ -263,153 +263,7 @@ export default function ComparisonView({
 
   return (
     <Box sx={{ pb: 4 }}>
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          mb: 4,
-        }}
-      >
-        <Typography variant="h4">Run Comparison</Typography>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </Box>
-
-      {/* Comparison Headers */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        {/* Baseline Run */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography
-                variant="overline"
-                color="text.secondary"
-                display="block"
-                sx={{ mb: 1 }}
-              >
-                Baseline Run
-              </Typography>
-              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                <InputLabel>Select baseline run</InputLabel>
-                <Select
-                  value={selectedBaselineId}
-                  onChange={e => setSelectedBaselineId(e.target.value)}
-                  label="Select baseline run"
-                >
-                  {availableTestRuns.map(run => (
-                    <MenuItem key={run.id} value={run.id}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          width: '100%',
-                        }}
-                      >
-                        <span>{run.name || `Run #${run.id.slice(0, 8)}`}</span>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatDate(run.created_at)}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              {baselineRun && (
-                <>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                  >
-                    {formatDate(baselineRun.created_at)}
-                  </Typography>
-                  {baselinePassRate !== undefined && (
-                    <Box
-                      sx={{
-                        mt: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="caption" color="text.secondary">
-                        Pass rate:
-                      </Typography>
-                      <Chip
-                        label={`${Math.round(baselinePassRate)}%`}
-                        size="small"
-                      />
-                    </Box>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Current Run */}
-        <Grid item xs={12} md={6}>
-          <Card
-            sx={{
-              bgcolor: theme.palette.background.light2,
-              border: `2px solid ${theme.palette.primary.main}`,
-              height: '100%',
-            }}
-          >
-            <CardContent sx={{ p: 3 }}>
-              <Typography
-                variant="overline"
-                color="text.secondary"
-                display="block"
-                sx={{ mb: 1 }}
-              >
-                Current Run
-              </Typography>
-              <Typography variant="subtitle2" gutterBottom>
-                {currentTestRun.name || `Run #${currentTestRun.id.slice(0, 8)}`}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                display="block"
-                sx={{ mb: 2 }}
-              >
-                {formatDate(currentTestRun.created_at)}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Pass rate:
-                </Typography>
-                <Typography variant="body2" fontWeight={600}>
-                  {currentPassRate}%
-                </Typography>
-                {baselinePassRate !== undefined && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color:
-                        currentPassRate > baselinePassRate
-                          ? theme.palette.success.main
-                          : currentPassRate < baselinePassRate
-                            ? theme.palette.error.main
-                            : theme.palette.text.secondary,
-                      fontWeight: 500,
-                    }}
-                  >
-                    ({currentPassRate > baselinePassRate ? '+' : ''}
-                    {(currentPassRate - baselinePassRate).toFixed(1)}%)
-                  </Typography>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Filter Bar */}
+      {/* Filter Bar with integrated Close Button */}
       {baselineTestResults && (
         <Box
           sx={{
@@ -418,83 +272,113 @@ export default function ComparisonView({
             gap: 2,
             mb: 3,
             alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
           }}
         >
-          {/* Search */}
-          <TextField
-            size="small"
-            placeholder="Search tests..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
+          {/* Left side: Search and Filters */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 2,
+              alignItems: { xs: 'stretch', sm: 'center' },
+              flex: 1,
             }}
-            sx={{ minWidth: { xs: '100%', sm: 250 } }}
-          />
-
-          {/* Status Filter Buttons */}
-          <ButtonGroup size="small" variant="outlined">
-            <Button
-              onClick={() => setStatusFilter('all')}
-              variant={statusFilter === 'all' ? 'contained' : 'outlined'}
-              startIcon={<ListIcon fontSize="small" />}
-            >
-              All
-            </Button>
-            <Button
-              onClick={() => setStatusFilter('improved')}
-              variant={statusFilter === 'improved' ? 'contained' : 'outlined'}
-              startIcon={<TrendingUpIcon fontSize="small" />}
-              sx={{
-                ...(statusFilter === 'improved' && {
-                  bgcolor: theme.palette.success.main,
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: theme.palette.success.dark,
-                  },
-                }),
-              }}
-            >
-              Improved
-            </Button>
-            <Button
-              onClick={() => setStatusFilter('regressed')}
-              variant={statusFilter === 'regressed' ? 'contained' : 'outlined'}
-              startIcon={<TrendingDownIcon fontSize="small" />}
-              sx={{
-                ...(statusFilter === 'regressed' && {
-                  bgcolor: theme.palette.error.main,
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: theme.palette.error.dark,
-                  },
-                }),
-              }}
-            >
-              Regressed
-            </Button>
-            <Button
-              onClick={() => setStatusFilter('unchanged')}
-              variant={statusFilter === 'unchanged' ? 'contained' : 'outlined'}
-              startIcon={<RemoveIcon fontSize="small" />}
-            >
-              Unchanged
-            </Button>
-          </ButtonGroup>
-
-          {/* Results count */}
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ display: 'flex', alignItems: 'center' }}
           >
-            {comparisonTests.length} test
-            {comparisonTests.length !== 1 ? 's' : ''}
-          </Typography>
+            {/* Search */}
+            <TextField
+              size="small"
+              placeholder="Search tests..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ minWidth: { xs: '100%', sm: 250 } }}
+            />
+
+            {/* Status Filter Buttons */}
+            <ButtonGroup size="small" variant="outlined">
+              <Button
+                onClick={() => setStatusFilter('all')}
+                variant={statusFilter === 'all' ? 'contained' : 'outlined'}
+                startIcon={<ListIcon fontSize="small" />}
+              >
+                All
+              </Button>
+              <Button
+                onClick={() => setStatusFilter('improved')}
+                variant={statusFilter === 'improved' ? 'contained' : 'outlined'}
+                startIcon={<TrendingUpIcon fontSize="small" />}
+                sx={{
+                  ...(statusFilter === 'improved' && {
+                    bgcolor: theme.palette.success.main,
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: theme.palette.success.dark,
+                    },
+                  }),
+                }}
+              >
+                Improved
+              </Button>
+              <Button
+                onClick={() => setStatusFilter('regressed')}
+                variant={statusFilter === 'regressed' ? 'contained' : 'outlined'}
+                startIcon={<TrendingDownIcon fontSize="small" />}
+                sx={{
+                  ...(statusFilter === 'regressed' && {
+                    bgcolor: theme.palette.error.main,
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: theme.palette.error.dark,
+                    },
+                  }),
+                }}
+              >
+                Regressed
+              </Button>
+              <Button
+                onClick={() => setStatusFilter('unchanged')}
+                variant={statusFilter === 'unchanged' ? 'contained' : 'outlined'}
+                startIcon={<RemoveIcon fontSize="small" />}
+              >
+                Unchanged
+              </Button>
+            </ButtonGroup>
+
+            {/* Results count */}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: 'flex', alignItems: 'center' }}
+            >
+              {comparisonTests.length} test
+              {comparisonTests.length !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+
+          {/* Right side: Close Button */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+            }}
+          >
+            <Button
+              onClick={onClose}
+              variant="outlined"
+              size="small"
+              startIcon={<CloseIcon />}
+            >
+              Close Comparison
+            </Button>
+          </Box>
         </Box>
       )}
 
@@ -587,6 +471,139 @@ export default function ComparisonView({
         </Paper>
       )}
 
+      {/* Comparison Headers - Moved Here */}
+      {baselineTestResults && (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          {/* Baseline Run */}
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  display="block"
+                  sx={{ mb: 1 }}
+                >
+                  Baseline Run
+                </Typography>
+                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                  <InputLabel>Select baseline run</InputLabel>
+                  <Select
+                    value={selectedBaselineId}
+                    onChange={e => setSelectedBaselineId(e.target.value)}
+                    label="Select baseline run"
+                  >
+                    {availableTestRuns.map(run => (
+                      <MenuItem key={run.id} value={run.id}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                          }}
+                        >
+                          <span>{run.name || `Run #${run.id.slice(0, 8)}`}</span>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(run.created_at)}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                {baselineRun && (
+                  <>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                    >
+                      {formatDate(baselineRun.created_at)}
+                    </Typography>
+                    {baselinePassRate !== undefined && (
+                      <Box
+                        sx={{
+                          mt: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          Pass rate:
+                        </Typography>
+                        <Chip
+                          label={`${Math.round(baselinePassRate)}%`}
+                          size="small"
+                        />
+                      </Box>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Current Run */}
+          <Grid item xs={12} md={6}>
+            <Card
+              sx={{
+                bgcolor: theme.palette.background.light2,
+                border: `2px solid ${theme.palette.primary.main}`,
+                height: '100%',
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  display="block"
+                  sx={{ mb: 1 }}
+                >
+                  Current Run
+                </Typography>
+                <Typography variant="subtitle2" gutterBottom>
+                  {currentTestRun.name || `Run #${currentTestRun.id.slice(0, 8)}`}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                  sx={{ mb: 2 }}
+                >
+                  {formatDate(currentTestRun.created_at)}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Pass rate:
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {currentPassRate}%
+                  </Typography>
+                  {baselinePassRate !== undefined && (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color:
+                          currentPassRate > baselinePassRate
+                            ? theme.palette.success.main
+                            : currentPassRate < baselinePassRate
+                              ? theme.palette.error.main
+                              : theme.palette.text.secondary,
+                        fontWeight: 500,
+                      }}
+                    >
+                      ({currentPassRate > baselinePassRate ? '+' : ''}
+                      {(currentPassRate - baselinePassRate).toFixed(1)}%)
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
       {/* Test-by-Test Comparison */}
       {baselineTestResults && (
         <Card>
@@ -606,7 +623,9 @@ export default function ComparisonView({
             </Box>
             <Box
               sx={{
-                maxHeight: '70vh',
+                // Increase height by 50% if there are 5+ tests to display
+                maxHeight:
+                  comparisonTests.length >= 5 ? 'calc(70vh * 1.5)' : '70vh',
                 overflow: 'auto',
               }}
             >
@@ -633,6 +652,18 @@ export default function ComparisonView({
                 ).length;
                 const currentTotalCount = Object.values(currentMetrics).length;
 
+                // Get full prompt content
+                const promptContent =
+                  test.current.prompt_id && prompts[test.current.prompt_id]
+                    ? prompts[test.current.prompt_id].content
+                    : 'No prompt available';
+
+                // Get responses
+                const baselineResponse =
+                  test.baseline?.test_output?.output || 'No response available';
+                const currentResponse =
+                  test.current.test_output?.output || 'No response available';
+
                 return (
                   <Paper
                     key={test.id}
@@ -649,145 +680,212 @@ export default function ComparisonView({
                     }}
                     onClick={() => setSelectedTestId(test.id)}
                   >
-                    <Grid container spacing={0}>
-                      {/* Baseline */}
-                      <Grid
-                        item
-                        xs={12}
-                        md={6}
+                    <Box>
+                      {/* Prompt Section - Full Width, Inline */}
+                      <Box
                         sx={{
-                          p: 3,
-                          borderRight: { md: 1 },
+                          p: 2,
+                          borderBottom: 1,
                           borderColor: 'divider',
-                          bgcolor: isImproved
-                            ? `${theme.palette.background.default}`
-                            : isRegressed
-                              ? `${theme.palette.background.default}`
-                              : 'transparent',
+                          bgcolor: theme.palette.background.default,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 1,
                         }}
                       >
-                        <Box
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontWeight: 600, flexShrink: 0 }}
+                        >
+                          Prompt:
+                        </Typography>
+                        <Typography
+                          variant="body2"
                           sx={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: 1,
+                            flex: 1,
+                            fontWeight: 500,
                           }}
                         >
-                          {baselinePassed !== null && (
-                            <>
-                              {baselinePassed ? (
-                                <CheckCircleIcon
-                                  fontSize="small"
-                                  sx={{ color: theme.palette.success.main }}
-                                />
-                              ) : (
-                                <CancelIcon
-                                  fontSize="small"
-                                  sx={{ color: theme.palette.error.main }}
-                                />
-                              )}
-                            </>
-                          )}
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2" gutterBottom>
-                              {getPromptSnippet(test.current)}
+                          {promptContent}
+                        </Typography>
+                      </Box>
+
+                      {/* Responses Side by Side */}
+                      <Grid container spacing={0}>
+                        {/* Baseline Response */}
+                        <Grid
+                          item
+                          xs={12}
+                          md={6}
+                          sx={{
+                            p: 2,
+                            borderRight: { md: 1 },
+                            borderColor: 'divider',
+                            bgcolor: isImproved
+                              ? `${theme.palette.background.default}`
+                              : isRegressed
+                                ? `${theme.palette.background.default}`
+                                : 'transparent',
+                          }}
+                        >
+                          {/* Header with Status Inline */}
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              mb: 1,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ fontWeight: 600 }}
+                            >
+                              Baseline:
                             </Typography>
-                            <Typography variant="caption" display="block">
-                              {baselinePassed !== null
-                                ? baselinePassed
-                                  ? 'Passed'
-                                  : 'Failed'
-                                : 'No data'}{' '}
-                              {baselinePassed !== null &&
-                                `(${baselinePassedCount}/${baselineTotalCount})`}
-                            </Typography>
-                            {test.baseline && (
+                            {baselinePassed !== null && (
+                              <>
+                                {baselinePassed ? (
+                                  <CheckCircleIcon
+                                    sx={{
+                                      fontSize: 16,
+                                      color: theme.palette.success.main,
+                                    }}
+                                  />
+                                ) : (
+                                  <CancelIcon
+                                    sx={{
+                                      fontSize: 16,
+                                      color: theme.palette.error.main,
+                                    }}
+                                  />
+                                )}
+                                <Chip
+                                  label={`${baselinePassed ? 'Passed' : 'Failed'} (${baselinePassedCount}/${baselineTotalCount})`}
+                                  size="small"
+                                  color={baselinePassed ? 'success' : 'error'}
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                              </>
+                            )}
+                            {baselinePassed === null && (
                               <Typography
                                 variant="caption"
                                 color="text.secondary"
                               >
-                                Score: {getPassRate(test.baseline).toFixed(0)}%
+                                No data
                               </Typography>
                             )}
                           </Box>
-                        </Box>
-                      </Grid>
 
-                      {/* Current */}
-                      <Grid
-                        item
-                        xs={12}
-                        md={6}
-                        sx={{
-                          p: 3,
-                          bgcolor: isImproved
-                            ? theme.palette.mode === 'light'
-                              ? alpha(theme.palette.success.main, 0.08)
-                              : theme.palette.background.light3
-                            : isRegressed
-                              ? theme.palette.mode === 'light'
-                                ? alpha(theme.palette.error.main, 0.08)
-                                : theme.palette.background.light3
-                              : 'transparent',
-                        }}
-                      >
-                        <Box
+                          {/* Response Text */}
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                            }}
+                          >
+                            {baselineResponse}
+                          </Typography>
+                        </Grid>
+
+                        {/* Current Response */}
+                        <Grid
+                          item
+                          xs={12}
+                          md={6}
                           sx={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: 1,
+                            p: 2,
+                            bgcolor: isImproved
+                              ? theme.palette.mode === 'light'
+                                ? alpha(theme.palette.success.main, 0.08)
+                                : theme.palette.background.light3
+                              : isRegressed
+                                ? theme.palette.mode === 'light'
+                                  ? alpha(theme.palette.error.main, 0.08)
+                                  : theme.palette.background.light3
+                                : 'transparent',
                           }}
                         >
-                          {currentPassed ? (
-                            <CheckCircleIcon
-                              fontSize="small"
-                              sx={{ color: theme.palette.success.main }}
-                            />
-                          ) : (
-                            <CancelIcon
-                              fontSize="small"
-                              sx={{ color: theme.palette.error.main }}
-                            />
-                          )}
-                          <Box sx={{ flex: 1 }}>
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                                mb: 0.5,
-                              }}
-                            >
-                              <Typography variant="subtitle2">
-                                {getPromptSnippet(test.current)}
-                              </Typography>
-                              {isImproved && (
-                                <TrendingUpIcon
-                                  fontSize="small"
-                                  sx={{ color: theme.palette.success.main }}
-                                />
-                              )}
-                              {isRegressed && (
-                                <TrendingDownIcon
-                                  fontSize="small"
-                                  sx={{ color: theme.palette.error.main }}
-                                />
-                              )}
-                            </Box>
-                            <Typography variant="caption" display="block">
-                              {currentPassed ? 'Passed' : 'Failed'} (
-                              {currentPassedCount}/{currentTotalCount})
-                            </Typography>
+                          {/* Header with Status Inline */}
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              mb: 1,
+                              flexWrap: 'wrap',
+                            }}
+                          >
                             <Typography
                               variant="caption"
                               color="text.secondary"
+                              sx={{ fontWeight: 600 }}
                             >
-                              Score: {getPassRate(test.current).toFixed(0)}%
+                              Current:
                             </Typography>
+                            {currentPassed ? (
+                              <CheckCircleIcon
+                                sx={{
+                                  fontSize: 16,
+                                  color: theme.palette.success.main,
+                                }}
+                              />
+                            ) : (
+                              <CancelIcon
+                                sx={{
+                                  fontSize: 16,
+                                  color: theme.palette.error.main,
+                                }}
+                              />
+                            )}
+                            <Chip
+                              label={`${currentPassed ? 'Passed' : 'Failed'} (${currentPassedCount}/${currentTotalCount})`}
+                              size="small"
+                              color={currentPassed ? 'success' : 'error'}
+                              sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                            {isImproved && (
+                              <TrendingUpIcon
+                                sx={{
+                                  fontSize: 16,
+                                  color: theme.palette.success.main,
+                                }}
+                              />
+                            )}
+                            {isRegressed && (
+                              <TrendingDownIcon
+                                sx={{
+                                  fontSize: 16,
+                                  color: theme.palette.error.main,
+                                }}
+                              />
+                            )}
                           </Box>
-                        </Box>
+
+                          {/* Response Text */}
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                            }}
+                          >
+                            {currentResponse}
+                          </Typography>
+                        </Grid>
                       </Grid>
-                    </Grid>
+                    </Box>
                   </Paper>
                 );
               })}
@@ -813,157 +911,132 @@ export default function ComparisonView({
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              alignItems: 'flex-start',
+              gap: 2,
             }}
           >
-            <Typography variant="h6">
-              Test #
-              {comparisonTests.findIndex(t => t.id === selectedTestId) + 1} -
-              Detailed Comparison
+            <Typography variant="h6" sx={{ flex: 1, pr: 2 }}>
+              Test #{comparisonTests.findIndex(t => t.id === selectedTestId) + 1}
+              :{' '}
+              {selectedTest &&
+              selectedTest.current.prompt_id &&
+              prompts[selectedTest.current.prompt_id]
+                ? prompts[selectedTest.current.prompt_id].content
+                : 'No prompt available'}
             </Typography>
-            <IconButton onClick={() => setSelectedTestId(null)} size="small">
+            <IconButton
+              onClick={() => setSelectedTestId(null)}
+              size="small"
+              sx={{ flexShrink: 0 }}
+            >
               <CloseIcon />
             </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
           {selectedTest && (
-            <Grid container spacing={3} sx={{ height: '100%' }}>
-              {/* Baseline Column */}
-              <Grid
-                item
-                xs={12}
-                md={6}
-                sx={{
-                  p: 3,
-                  borderRight: { md: 1 },
-                  borderColor: 'divider',
-                }}
-              >
-                <Box sx={{ mb: 4 }}>
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                    display="block"
-                    gutterBottom
-                  >
-                    Baseline Run
-                  </Typography>
-                  {selectedTest.baseline ? (
-                    <>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        display="block"
-                      >
-                        {baselineRun && formatDate(baselineRun.created_at)}
-                      </Typography>
-                      <Chip
-                        label={
-                          isTestPassed(selectedTest.baseline)
-                            ? `Passed (${
-                                Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics ||
-                                    {}
-                                ).filter(m => m.is_successful).length
-                              }/${
-                                Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics ||
-                                    {}
-                                ).length
-                              })`
-                            : `Failed (${
-                                Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics ||
-                                    {}
-                                ).filter(m => m.is_successful).length
-                              }/${
-                                Object.values(
-                                  selectedTest.baseline.test_metrics?.metrics ||
-                                    {}
-                                ).length
-                              })`
-                        }
-                        color={
-                          isTestPassed(selectedTest.baseline)
-                            ? 'success'
-                            : 'error'
-                        }
-                        size="small"
-                        sx={{ mt: 1 }}
-                      />
-                    </>
-                  ) : (
-                    <Alert severity="info" sx={{ mt: 1 }}>
-                      <Typography variant="caption">
-                        No baseline data for this test
-                      </Typography>
-                    </Alert>
-                  )}
-                </Box>
-
-                {selectedTest.baseline ? (
+            <Box>
+              {/* Responses Side by Side */}
+              <Grid container spacing={0} sx={{ height: 'calc(90vh - 200px)' }}>
+                {/* Baseline Column */}
+                <Grid
+                  item
+                  xs={12}
+                  md={6}
+                  sx={{
+                    borderRight: { md: 1 },
+                    borderColor: 'divider',
+                  }}
+                >
                   <Box
                     sx={{
-                      maxHeight: 'calc(90vh - 200px)',
+                      p: 3,
+                      height: '100%',
                       overflow: 'auto',
-                      pr: 2,
                     }}
                   >
-                    {/* Prompt */}
-                    <Box sx={{ mb: 3 }}>
+                    <Box
+                      sx={{
+                        mb: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        flexWrap: 'wrap',
+                      }}
+                    >
                       <Typography
                         variant="overline"
                         color="text.secondary"
-                        display="block"
-                        gutterBottom
+                        sx={{ fontWeight: 600 }}
                       >
-                        Prompt
+                        Baseline Run
                       </Typography>
-                      <Paper
-                        variant="outlined"
-                        sx={{
-                          p: 2.5,
-                          bgcolor: theme.palette.background.light1,
-                        }}
-                      >
-                        <Typography variant="body2">
-                          {selectedTest.baseline.prompt_id &&
-                          prompts[selectedTest.baseline.prompt_id]
-                            ? prompts[selectedTest.baseline.prompt_id].content
-                            : 'No prompt available'}
-                        </Typography>
-                      </Paper>
+                      {selectedTest.baseline ? (
+                        <Chip
+                          label={
+                            isTestPassed(selectedTest.baseline)
+                              ? `Passed (${
+                                  Object.values(
+                                    selectedTest.baseline.test_metrics?.metrics ||
+                                      {}
+                                  ).filter(m => m.is_successful).length
+                                }/${
+                                  Object.values(
+                                    selectedTest.baseline.test_metrics?.metrics ||
+                                      {}
+                                  ).length
+                                })`
+                              : `Failed (${
+                                  Object.values(
+                                    selectedTest.baseline.test_metrics?.metrics ||
+                                      {}
+                                  ).filter(m => m.is_successful).length
+                                }/${
+                                  Object.values(
+                                    selectedTest.baseline.test_metrics?.metrics ||
+                                      {}
+                                  ).length
+                                })`
+                          }
+                          color={
+                            isTestPassed(selectedTest.baseline)
+                              ? 'success'
+                              : 'error'
+                          }
+                          size="small"
+                        />
+                      ) : (
+                        <Chip label="No data" size="small" color="default" />
+                      )}
                     </Box>
 
-                    {/* Response */}
-                    <Box sx={{ mb: 3 }}>
-                      <Typography
-                        variant="overline"
-                        color="text.secondary"
-                        display="block"
-                        gutterBottom
-                      >
-                        Response
-                      </Typography>
-                      <Paper
-                        variant="outlined"
-                        sx={{
-                          p: 2.5,
-                          bgcolor: theme.palette.background.light1,
-                        }}
-                      >
-                        <Typography variant="body2">
-                          {selectedTest.baseline.test_output?.output ||
-                            'No response available'}
-                        </Typography>
-                      </Paper>
-                    </Box>
+                    {selectedTest.baseline && (
+                      <>
+                        {/* Response */}
+                        <Box sx={{ mb: 3 }}>
+                          <Typography
+                            variant="overline"
+                            color="text.secondary"
+                            display="block"
+                            gutterBottom
+                          >
+                            Response
+                          </Typography>
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              p: 2.5,
+                              bgcolor: theme.palette.background.light1,
+                            }}
+                          >
+                            <Typography variant="body2">
+                              {selectedTest.baseline.test_output?.output ||
+                                'No response available'}
+                            </Typography>
+                          </Paper>
+                        </Box>
 
                     {/* Metrics */}
-                    <Typography variant="h6" sx={{ mb: 3 }}>
-                      Metrics Breakdown
-                    </Typography>
                     {behaviors.map(behavior => {
                       const behaviorMetrics = behavior.metrics
                         .map(metric => ({
@@ -1014,7 +1087,10 @@ export default function ComparisonView({
                                 width: '100%',
                               }}
                             >
-                              <Typography variant="body2">
+                              <Typography
+                                variant="body1"
+                                sx={{ fontWeight: 600 }}
+                              >
                                 {behavior.name}
                               </Typography>
                               <Chip
@@ -1173,145 +1249,112 @@ export default function ComparisonView({
                         </Accordion>
                       );
                     })}
-                  </Box>
-                ) : (
-                  <Box sx={{ p: 2 }}>
-                    <Alert severity="info">
-                      No baseline data available for comparison
-                    </Alert>
-                  </Box>
-                )}
-              </Grid>
-
-              {/* Current Column */}
-              <Grid item xs={12} md={6} sx={{ p: 3 }}>
-                <Box sx={{ mb: 4 }}>
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                    display="block"
-                    gutterBottom
-                  >
-                    Current Run
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                  >
-                    {formatDate(currentTestRun.created_at)}
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      mt: 1,
-                    }}
-                  >
-                    <Chip
-                      label={
-                        isTestPassed(selectedTest.current)
-                          ? `Passed (${
-                              Object.values(
-                                selectedTest.current.test_metrics?.metrics || {}
-                              ).filter(m => m.is_successful).length
-                            }/${
-                              Object.values(
-                                selectedTest.current.test_metrics?.metrics || {}
-                              ).length
-                            })`
-                          : `Failed (${
-                              Object.values(
-                                selectedTest.current.test_metrics?.metrics || {}
-                              ).filter(m => m.is_successful).length
-                            }/${
-                              Object.values(
-                                selectedTest.current.test_metrics?.metrics || {}
-                              ).length
-                            })`
-                      }
-                      color={
-                        isTestPassed(selectedTest.current) ? 'success' : 'error'
-                      }
-                      size="small"
-                    />
-                    {selectedTest.baseline && (
-                      <>
-                        {isTestPassed(selectedTest.current) &&
-                          !isTestPassed(selectedTest.baseline) && (
-                            <TrendingUpIcon
-                              fontSize="small"
-                              sx={{ color: theme.palette.success.main }}
-                            />
-                          )}
-                        {!isTestPassed(selectedTest.current) &&
-                          isTestPassed(selectedTest.baseline) && (
-                            <TrendingDownIcon
-                              fontSize="small"
-                              sx={{ color: theme.palette.error.main }}
-                            />
-                          )}
                       </>
                     )}
                   </Box>
-                </Box>
+                </Grid>
 
-                <Box
-                  sx={{
-                    maxHeight: 'calc(90vh - 200px)',
-                    overflow: 'auto',
-                    pr: 2,
-                  }}
+                {/* Current Column */}
+                <Grid
+                  item
+                  xs={12}
+                  md={6}
                 >
-                  {/* Prompt */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography
-                      variant="overline"
-                      color="text.secondary"
-                      display="block"
-                      gutterBottom
+                  <Box
+                    sx={{
+                      p: 3,
+                      height: '100%',
+                      overflow: 'auto',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        mb: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        flexWrap: 'wrap',
+                      }}
                     >
-                      Prompt
-                    </Typography>
-                    <Paper
-                      variant="outlined"
-                      sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}
-                    >
-                      <Typography variant="body2">
-                        {selectedTest.current.prompt_id &&
-                        prompts[selectedTest.current.prompt_id]
-                          ? prompts[selectedTest.current.prompt_id].content
-                          : 'No prompt available'}
+                      <Typography
+                        variant="overline"
+                        color="text.secondary"
+                        sx={{ fontWeight: 600 }}
+                      >
+                        Current Run
                       </Typography>
-                    </Paper>
-                  </Box>
+                      <Chip
+                        label={
+                          isTestPassed(selectedTest.current)
+                            ? `Passed (${
+                                Object.values(
+                                  selectedTest.current.test_metrics?.metrics || {}
+                                ).filter(m => m.is_successful).length
+                              }/${
+                                Object.values(
+                                  selectedTest.current.test_metrics?.metrics || {}
+                                ).length
+                              })`
+                            : `Failed (${
+                                Object.values(
+                                  selectedTest.current.test_metrics?.metrics || {}
+                                ).filter(m => m.is_successful).length
+                              }/${
+                                Object.values(
+                                  selectedTest.current.test_metrics?.metrics || {}
+                                ).length
+                              })`
+                        }
+                        color={
+                          isTestPassed(selectedTest.current) ? 'success' : 'error'
+                        }
+                        size="small"
+                      />
+                      {selectedTest.baseline && (
+                        <>
+                          {isTestPassed(selectedTest.current) &&
+                            !isTestPassed(selectedTest.baseline) && (
+                              <TrendingUpIcon
+                                fontSize="small"
+                                sx={{ color: theme.palette.success.main }}
+                              />
+                            )}
+                          {!isTestPassed(selectedTest.current) &&
+                            isTestPassed(selectedTest.baseline) && (
+                              <TrendingDownIcon
+                                fontSize="small"
+                                sx={{ color: theme.palette.error.main }}
+                              />
+                            )}
+                        </>
+                      )}
+                    </Box>
 
-                  {/* Response */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography
-                      variant="overline"
-                      color="text.secondary"
-                      display="block"
-                      gutterBottom
-                    >
-                      Response
-                    </Typography>
-                    <Paper
-                      variant="outlined"
-                      sx={{ p: 2.5, bgcolor: theme.palette.background.light1 }}
-                    >
-                      <Typography variant="body2">
-                        {selectedTest.current.test_output?.output ||
-                          'No response available'}
+                    {/* Response */}
+                    <Box sx={{ mb: 3 }}>
+                      <Typography
+                        variant="overline"
+                        color="text.secondary"
+                        display="block"
+                        gutterBottom
+                      >
+                        Response
                       </Typography>
-                    </Paper>
-                  </Box>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 2.5,
+                          bgcolor: theme.palette.background.light1,
+                        }}
+                      >
+                        <Typography variant="body2">
+                          {selectedTest.current.test_output?.output ||
+                            'No response available'}
+                        </Typography>
+                      </Paper>
+                    </Box>
 
                   {/* Metrics */}
-                  <Typography variant="h6" sx={{ mb: 3 }}>
-                    Metrics Breakdown
-                  </Typography>
                   {behaviors.map(behavior => {
                     const behaviorMetrics = behavior.metrics
                       .map(metric => ({
@@ -1362,7 +1405,10 @@ export default function ComparisonView({
                               width: '100%',
                             }}
                           >
-                            <Typography variant="body2">
+                            <Typography
+                              variant="body1"
+                              sx={{ fontWeight: 600 }}
+                            >
                               {behavior.name}
                             </Typography>
                             <Box
@@ -1591,6 +1637,7 @@ export default function ComparisonView({
                 </Box>
               </Grid>
             </Grid>
+            </Box>
           )}
         </DialogContent>
       </Dialog>
