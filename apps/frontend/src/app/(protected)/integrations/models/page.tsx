@@ -164,224 +164,24 @@ function ProviderSelectionDialog({
   );
 }
 
-interface EditModelDialogProps {
-  open: boolean;
-  model: Model | null;
-  onClose: () => void;
-  onUpdate: (modelId: UUID, updates: Partial<ModelCreate>) => Promise<void>;
-}
-
-function EditModelDialog({
-  open,
-  model,
-  onClose,
-  onUpdate,
-}: EditModelDialogProps) {
-  const [name, setName] = useState('');
-  const [modelName, setModelName] = useState('');
-  const [endpoint, setEndpoint] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const requiresEndpoint = model?.provider_type
-    ? PROVIDERS_REQUIRING_ENDPOINT.includes(model.provider_type.type_value)
-    : false;
-
-  // Reset form when dialog opens with new model
-  useEffect(() => {
-    if (model && open) {
-      setName(model.name || '');
-      setModelName(model.model_name || '');
-      setEndpoint(model.endpoint || '');
-      setApiKey(''); // Don't pre-fill API key for security
-      setShowApiKey(false);
-      setError(null);
-    }
-  }, [model, open]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!model) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const updates: Partial<ModelCreate> = {
-        name,
-        model_name: modelName,
-      };
-
-      // Only include endpoint if it's required and has a value
-      if (requiresEndpoint && endpoint && endpoint.trim()) {
-        updates.endpoint = endpoint.trim();
-      }
-
-      // Only include API key if it was changed (not empty)
-      if (apiKey && apiKey.trim()) {
-        updates.key = apiKey.trim();
-      }
-
-      await onUpdate(model.id, updates);
-      onClose();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to update model'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!model) return null;
-
-  const providerIcon = PROVIDER_ICONS[model.icon || 'custom'] || (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
-  );
-  const displayName = model.provider_type?.description || model.provider_type?.type_value || 'Provider';
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {providerIcon}
-          <Box>
-            <Typography variant="h6">Edit {displayName}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Update your connection settings
-            </Typography>
-          </Box>
-        </Box>
-      </DialogTitle>
-
-      <form onSubmit={handleSubmit}>
-        <DialogContent dividers sx={{ pt: 2 }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          <Stack spacing={2}>
-            {/* Basic Configuration */}
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}
-            >
-              Basic Configuration
-            </Typography>
-
-            <TextField
-              label="Connection Name"
-              fullWidth
-              required
-              value={name}
-              onChange={e => setName(e.target.value)}
-              helperText="A friendly name to identify this connection"
-            />
-
-            <TextField
-              label="Model Name"
-              fullWidth
-              required
-              value={modelName}
-              onChange={e => setModelName(e.target.value)}
-              placeholder="e.g., gpt-4, gemini-pro, llama-3-70b"
-              helperText="The specific model identifier from the provider"
-            />
-
-            {/* Connection Details */}
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
-            >
-              Connection Details
-            </Typography>
-
-            {/* Endpoint URL (for self-hosted/local providers) */}
-            {requiresEndpoint && (
-              <TextField
-                label="API Endpoint"
-                fullWidth
-                value={endpoint}
-                onChange={e => setEndpoint(e.target.value)}
-                placeholder={DEFAULT_ENDPOINTS[model.provider_type?.type_value || '']}
-                helperText={
-                  model.provider_type?.type_value === 'ollama'
-                    ? 'The URL where Ollama is running (default: http://localhost:11434)'
-                    : 'The base URL for your self-hosted model endpoint'
-                }
-              />
-            )}
-
-            {/* API Key */}
-            <TextField
-              label="API Key"
-              fullWidth
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="Leave empty to keep current key"
-              helperText={
-                apiKey
-                  ? "New API key will replace the current one"
-                  : `Current key: •••••${model.key.slice(-4)}`
-              }
-              InputProps={{
-                endAdornment: apiKey ? (
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    edge="end"
-                  >
-                    <InfoOutlinedIcon fontSize="small" />
-                  </IconButton>
-                ) : null,
-              }}
-            />
-          </Stack>
-        </DialogContent>
-
-        <DialogActions
-          sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}
-        >
-          <Button onClick={onClose} disabled={loading} size="large">
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={!name || !modelName || (requiresEndpoint && !endpoint) || loading}
-            size="large"
-            sx={{ minWidth: 120 }}
-          >
-            {loading ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={20} color="inherit" /> Updating...
-              </Box>
-            ) : (
-              'Update'
-            )}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
-  );
-}
-
 interface ConnectionDialogProps {
   open: boolean;
   provider: TypeLookup | null;
+  model?: Model | null; // For edit mode
+  mode?: 'create' | 'edit';
   onClose: () => void;
-  onConnect: (providerId: string, modelData: ModelCreate) => Promise<void>;
+  onConnect?: (providerId: string, modelData: ModelCreate) => Promise<void>;
+  onUpdate?: (modelId: UUID, updates: Partial<ModelCreate>) => Promise<void>;
 }
 
 function ConnectionDialog({
   open,
   provider,
+  model,
+  mode = 'create',
   onClose,
   onConnect,
+  onUpdate,
 }: ConnectionDialogProps) {
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
@@ -403,40 +203,65 @@ function ConnectionDialog({
   } | null>(null);
   const [showFullError, setShowFullError] = useState(false);
   const [connectionTested, setConnectionTested] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
+  const isEditMode = mode === 'edit';
   const isCustomProvider = provider?.type_value === 'vllm';
-  const requiresEndpoint = provider
+  
+  // Determine requiresEndpoint from either provider or model
+  const requiresEndpoint = isEditMode && model?.provider_type
+    ? PROVIDERS_REQUIRING_ENDPOINT.includes(model.provider_type.type_value)
+    : provider
     ? PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
     : false;
 
-  // Reset form when dialog opens with new provider
+  // Reset form when dialog opens
   useEffect(() => {
-    if (provider) {
-      setName('');
-      setProviderName('');
-      setModelName('');
-      // Set default endpoint if provider requires it
-      setEndpoint(
-        PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
-          ? DEFAULT_ENDPOINTS[provider.type_value] || ''
-          : ''
-      );
-      setApiKey('');
-      setCustomHeaders({});
-      setNewHeaderKey('');
-      setNewHeaderValue('');
-      setError(null);
-      setTestResult(null);
-      setShowFullError(false);
-      setConnectionTested(false);
+    if (open) {
+      if (isEditMode && model) {
+        // Edit mode: populate with existing model data
+        setName(model.name || '');
+        setModelName(model.model_name || '');
+        setEndpoint(model.endpoint || '');
+        setApiKey(''); // Don't pre-fill API key for security
+        setCustomHeaders(model.request_headers || {});
+        setProviderName('');
+        setError(null);
+        setTestResult(null);
+        setShowFullError(false);
+        setConnectionTested(true); // Skip test requirement in edit mode
+        setShowApiKey(false);
+      } else if (provider) {
+        // Create mode: reset to defaults
+        setName('');
+        setProviderName('');
+        setModelName('');
+        // Set default endpoint if provider requires it
+        setEndpoint(
+          PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
+            ? DEFAULT_ENDPOINTS[provider.type_value] || ''
+            : ''
+        );
+        setApiKey('');
+        setCustomHeaders({});
+        setNewHeaderKey('');
+        setNewHeaderValue('');
+        setError(null);
+        setTestResult(null);
+        setShowFullError(false);
+        setConnectionTested(false);
+        setShowApiKey(false);
+      }
     }
-  }, [provider]);
+  }, [open, provider, model, isEditMode]);
 
-  // Reset connection test status when critical fields change
+  // Reset connection test status when critical fields change (only in create mode)
   useEffect(() => {
-    setConnectionTested(false);
-    setTestResult(null);
-  }, [modelName, apiKey, endpoint]);
+    if (!isEditMode) {
+      setConnectionTested(false);
+      setTestResult(null);
+    }
+  }, [modelName, apiKey, endpoint, isEditMode]);
 
   const handleAddHeader = () => {
     if (newHeaderKey.trim() && newHeaderValue.trim()) {
@@ -551,62 +376,113 @@ function ConnectionDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Require successful connection test before allowing model creation
-    if (!connectionTested) {
-      setError('Please test the connection before saving the model.');
-      return;
-    }
-
-    // Validate required fields
-    const isValid =
-      provider &&
-      name &&
-      modelName &&
-      apiKey &&
-      (!requiresEndpoint || endpoint); // Endpoint required for certain providers
-
-    if (isValid) {
+    if (isEditMode && model && onUpdate) {
+      // Edit mode: update existing model
       setLoading(true);
       setError(null);
       try {
-        const requestHeaders: Record<string, any> = {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          ...customHeaders,
-        };
-
-        const modelData: ModelCreate = {
+        const updates: Partial<ModelCreate> = {
           name,
-          description: `${isCustomProvider ? providerName : provider.description} Connection`,
-          icon: provider.type_value,
           model_name: modelName,
-          key: apiKey,
-          tags: [provider.type_value],
-          request_headers: requestHeaders,
-          provider_type_id: provider.id, // Set the provider type ID
         };
 
         // Only include endpoint if it's required and has a value
         if (requiresEndpoint && endpoint && endpoint.trim()) {
-          modelData.endpoint = endpoint.trim();
+          updates.endpoint = endpoint.trim();
         }
 
-        await onConnect(provider.type_value, modelData);
+        // Only include API key if it was changed (not empty)
+        if (apiKey && apiKey.trim()) {
+          updates.key = apiKey.trim();
+          // Update request headers with new API key
+          updates.request_headers = {
+            ...customHeaders,
+            Authorization: `Bearer ${apiKey.trim()}`,
+            'Content-Type': 'application/json',
+          };
+        } else if (Object.keys(customHeaders).length > 0) {
+          // Update custom headers without changing API key
+          updates.request_headers = {
+            ...model.request_headers,
+            ...customHeaders,
+          };
+        }
+
+        await onUpdate(model.id, updates);
         onClose();
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to connect to provider'
+          err instanceof Error ? err.message : 'Failed to update model'
         );
       } finally {
         setLoading(false);
       }
+    } else {
+      // Create mode: require connection test
+      if (!connectionTested) {
+        setError('Please test the connection before saving the model.');
+        return;
+      }
+
+      // Validate required fields for create mode
+      const isValid =
+        provider &&
+        name &&
+        modelName &&
+        apiKey &&
+        (!requiresEndpoint || endpoint);
+
+      if (isValid && onConnect) {
+        setLoading(true);
+        setError(null);
+        try {
+          const requestHeaders: Record<string, any> = {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            ...customHeaders,
+          };
+
+          const modelData: ModelCreate = {
+            name,
+            description: `${isCustomProvider ? providerName : provider!.description} Connection`,
+            icon: provider!.type_value,
+            model_name: modelName,
+            key: apiKey,
+            tags: [provider!.type_value],
+            request_headers: requestHeaders,
+            provider_type_id: provider!.id,
+          };
+
+          // Only include endpoint if it's required and has a value
+          if (requiresEndpoint && endpoint && endpoint.trim()) {
+            modelData.endpoint = endpoint.trim();
+          }
+
+          await onConnect(provider!.type_value, modelData);
+          onClose();
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to connect to provider'
+          );
+        } finally {
+          setLoading(false);
+        }
+      }
     }
   };
 
-  const providerIcon = PROVIDER_ICONS[provider?.type_value || ''] || (
+  // Determine icon and display name based on mode
+  const providerIconKey = isEditMode && model
+    ? model.icon || model.provider_type?.type_value || 'custom'
+    : provider?.type_value || 'custom';
+  
+  const providerIcon = PROVIDER_ICONS[providerIconKey] || (
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
-  const displayName = isCustomProvider
+  
+  const displayName = isEditMode && model
+    ? model.provider_type?.description || model.provider_type?.type_value || 'Provider'
+    : isCustomProvider
     ? 'Custom Provider'
     : provider?.description || provider?.type_value || 'Provider';
 
@@ -625,10 +501,12 @@ function ConnectionDialog({
           {providerIcon}
           <Box>
             <Typography variant="h6" component="div">
-              Connect to {displayName}
+              {isEditMode ? `Edit ${displayName}` : `Connect to ${displayName}`}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Configure your connection settings below
+              {isEditMode 
+                ? 'Update your connection settings'
+                : 'Configure your connection settings below'}
             </Typography>
           </Box>
         </Box>
@@ -717,41 +595,61 @@ function ConnectionDialog({
               <TextField
                 label="API Key"
                 fullWidth
-                required
-                type="password"
+                required={!isEditMode}
+                type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
+                placeholder={isEditMode ? 'Leave empty to keep current key' : undefined}
                 helperText={
-                  isCustomProvider
+                  isEditMode
+                    ? apiKey
+                      ? "New API key will replace the current one"
+                      : model
+                      ? `Current key: •••••${model.key.slice(-4)}`
+                      : 'Leave empty to keep current key'
+                    : isCustomProvider
                     ? 'Authentication key for your deployment (if required)'
                     : "Your API key from the provider's dashboard"
                 }
-              />
-              <Button
-                onClick={handleTestConnection}
-                variant="outlined"
-                disabled={
-                  !modelName ||
-                  !apiKey ||
-                  (requiresEndpoint && !endpoint) ||
-                  testingConnection ||
-                  loading
-                }
-                startIcon={
-                  testingConnection ? (
-                    <CircularProgress size={16} />
-                  ) : (
-                    <CheckCircleIcon />
-                  )
-                }
-                sx={{ 
-                  minWidth: '120px',
-                  height: '56px',
-                  mt: 0,
+                InputProps={{
+                  endAdornment: isEditMode && apiKey ? (
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      edge="end"
+                    >
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  ) : null,
                 }}
-              >
-                {testingConnection ? 'Testing...' : 'Test'}
-              </Button>
+              />
+              {!isEditMode && (
+                <Button
+                  onClick={handleTestConnection}
+                  variant="outlined"
+                  disabled={
+                    !modelName ||
+                    !apiKey ||
+                    (requiresEndpoint && !endpoint) ||
+                    testingConnection ||
+                    loading
+                  }
+                  startIcon={
+                    testingConnection ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <CheckCircleIcon />
+                    )
+                  }
+                  sx={{ 
+                    minWidth: '120px',
+                    height: '56px',
+                    mt: 0,
+                  }}
+                >
+                  {testingConnection ? 'Testing...' : 'Test'}
+                </Button>
+              )}
             </Box>
 
             {/* Test Connection Result */}
@@ -900,10 +798,10 @@ function ConnectionDialog({
             disabled={
               !name ||
               !modelName ||
-              (isCustomProvider && !providerName) ||
-              !apiKey ||
+              (!isEditMode && isCustomProvider && !providerName) ||
+              (!isEditMode && !apiKey) ||
               (requiresEndpoint && !endpoint) ||
-              !connectionTested ||
+              (!isEditMode && !connectionTested) ||
               loading
             }
             size="large"
@@ -912,10 +810,10 @@ function ConnectionDialog({
             {loading ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircularProgress size={16} />
-                Connecting...
+                {isEditMode ? 'Updating...' : 'Connecting...'}
               </Box>
             ) : (
-              'Connect'
+              isEditMode ? 'Update' : 'Connect'
             )}
           </Button>
         </DialogActions>
@@ -935,7 +833,6 @@ export default function LLMProvidersPage() {
   );
   const [providerSelectionOpen, setProviderSelectionOpen] = useState(false);
   const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [modelToEdit, setModelToEdit] = useState<Model | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
@@ -1009,7 +906,8 @@ export default function LLMProvidersPage() {
   const handleEditClick = (model: Model, event: React.MouseEvent) => {
     event.stopPropagation();
     setModelToEdit(model);
-    setEditDialogOpen(true);
+    setSelectedProvider(model.provider_type || null);
+    setConnectionDialogOpen(true);
   };
 
   const handleUpdate = async (modelId: UUID, updates: Partial<ModelCreate>) => {
@@ -1115,10 +1013,10 @@ export default function LLMProvidersPage() {
                   size="small"
                   onClick={e => handleEditClick(model, e)}
                   sx={{
-                    color: 'primary.main',
+                    color: 'text.secondary',
                     '&:hover': {
-                      backgroundColor: 'primary.light',
-                      color: 'primary.dark',
+                      backgroundColor: 'action.hover',
+                      color: 'text.primary',
                     },
                   }}
                 >
@@ -1142,7 +1040,13 @@ export default function LLMProvidersPage() {
               <Box
                 sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: 'text.secondary', // Subdued gray color like metrics
+                  }}
+                >
                   {PROVIDER_ICONS[model.icon || 'custom'] || (
                     <SmartToyIcon
                       sx={{ fontSize: theme => theme.iconSizes.large }}
@@ -1214,12 +1118,19 @@ export default function LLMProvidersPage() {
             onClick={handleAddLLM}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <AddIcon
+              <Box
                 sx={{
-                  fontSize: theme => theme.iconSizes.large,
-                  color: 'grey.500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'text.secondary',
                 }}
-              />
+              >
+                <AddIcon
+                  sx={{
+                    fontSize: theme => theme.iconSizes.large,
+                  }}
+                />
+              </Box>
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h6" color="text.secondary">
                   Add Model
@@ -1257,20 +1168,14 @@ export default function LLMProvidersPage() {
       <ConnectionDialog
         open={connectionDialogOpen}
         provider={selectedProvider}
+        model={modelToEdit}
+        mode={modelToEdit ? 'edit' : 'create'}
         onClose={() => {
           setConnectionDialogOpen(false);
           setSelectedProvider(null);
-        }}
-        onConnect={handleConnect}
-      />
-
-      <EditModelDialog
-        open={editDialogOpen}
-        model={modelToEdit}
-        onClose={() => {
-          setEditDialogOpen(false);
           setModelToEdit(null);
         }}
+        onConnect={handleConnect}
         onUpdate={handleUpdate}
       />
 
