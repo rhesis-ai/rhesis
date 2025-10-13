@@ -223,7 +223,7 @@ function ConnectionDialog({
         setName(model.name || '');
         setModelName(model.model_name || '');
         setEndpoint(model.endpoint || '');
-        setApiKey(''); // Don't pre-fill API key for security
+        setApiKey('************'); // Show placeholder for existing key
         setCustomHeaders(model.request_headers || {});
         setProviderName('');
         setError(null);
@@ -255,9 +255,14 @@ function ConnectionDialog({
     }
   }, [open, provider, model, isEditMode]);
 
-  // Reset connection test status when critical fields change (only in create mode)
+  // Reset connection test status when critical fields change
   useEffect(() => {
     if (!isEditMode) {
+      // In create mode, always reset when fields change
+      setConnectionTested(false);
+      setTestResult(null);
+    } else if (apiKey && apiKey !== '************') {
+      // In edit mode, reset only if API key was actually changed
       setConnectionTested(false);
       setTestResult(null);
     }
@@ -285,7 +290,12 @@ function ConnectionDialog({
   const { data: session } = useSession();
 
   const handleTestConnection = async () => {
-    if (!provider || !modelName || !apiKey) {
+    // Get provider from either new connection or existing model
+    const currentProvider = isEditMode && model?.provider_type 
+      ? model.provider_type 
+      : provider;
+
+    if (!currentProvider || !modelName || !apiKey || apiKey === '************') {
       setTestResult({
         success: false,
         message: 'Please fill in provider, model name, and API key',
@@ -308,7 +318,7 @@ function ConnectionDialog({
 
     try {
       const requestBody: any = {
-        provider: provider.type_value,
+        provider: currentProvider.type_value,
         model_name: modelName,
         api_key: apiKey,
       };
@@ -348,7 +358,7 @@ function ConnectionDialog({
         if (lowerError.includes('api key') || lowerError.includes('unauthorized')) {
           friendlyMessage = 'Invalid API key. Please check your credentials.';
         } else if (lowerError.includes('not found') || lowerError.includes('404')) {
-          friendlyMessage = `Model '${modelName}' not found for ${provider.type_value}.`;
+          friendlyMessage = `Model '${modelName}' not found for ${currentProvider.type_value}.`;
         } else if (lowerError.includes('quota') || lowerError.includes('rate limit')) {
           friendlyMessage = 'API quota exceeded or rate limit reached.';
         } else if (lowerError.includes('connection') || lowerError.includes('timeout')) {
@@ -391,8 +401,8 @@ function ConnectionDialog({
           updates.endpoint = endpoint.trim();
         }
 
-        // Only include API key if it was changed (not empty)
-        if (apiKey && apiKey.trim()) {
+        // Only include API key if it was changed (not the placeholder)
+        if (apiKey && apiKey.trim() && apiKey !== '************') {
           updates.key = apiKey.trim();
           // Update request headers with new API key
           updates.request_headers = {
@@ -599,20 +609,29 @@ function ConnectionDialog({
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
-                placeholder={isEditMode ? 'Leave empty to keep current key' : undefined}
+                onFocus={e => {
+                  // Clear placeholder when user clicks on field in edit mode
+                  if (isEditMode && apiKey === '************') {
+                    setApiKey('');
+                  }
+                }}
+                onBlur={e => {
+                  // Restore placeholder if field is empty in edit mode
+                  if (isEditMode && !e.target.value) {
+                    setApiKey('************');
+                  }
+                }}
                 helperText={
                   isEditMode
-                    ? apiKey
+                    ? apiKey !== '************' && apiKey !== ''
                       ? "New API key will replace the current one"
-                      : model
-                      ? `Current key: •••••${model.key.slice(-4)}`
-                      : 'Leave empty to keep current key'
+                      : 'Click to update the API key'
                     : isCustomProvider
                     ? 'Authentication key for your deployment (if required)'
                     : "Your API key from the provider's dashboard"
                 }
                 InputProps={{
-                  endAdornment: isEditMode && apiKey ? (
+                  endAdornment: isEditMode && apiKey && apiKey !== '************' ? (
                     <IconButton
                       size="small"
                       onClick={() => setShowApiKey(!showApiKey)}
@@ -623,13 +642,14 @@ function ConnectionDialog({
                   ) : null,
                 }}
               />
-              {!isEditMode && (
+              {(!isEditMode || (isEditMode && apiKey !== '************')) && (
                 <Button
                   onClick={handleTestConnection}
                   variant="outlined"
                   disabled={
                     !modelName ||
                     !apiKey ||
+                    apiKey === '************' ||
                     (requiresEndpoint && !endpoint) ||
                     testingConnection ||
                     loading
@@ -802,6 +822,7 @@ function ConnectionDialog({
               (!isEditMode && !apiKey) ||
               (requiresEndpoint && !endpoint) ||
               (!isEditMode && !connectionTested) ||
+              (isEditMode && apiKey !== '************' && !connectionTested) || // Require test if key changed in edit mode
               loading
             }
             size="large"
@@ -978,8 +999,9 @@ export default function LLMProvidersPage() {
             gridTemplateColumns: {
               xs: '1fr', // 1 column on mobile
               sm: 'repeat(2, 1fr)', // 2 columns on small screens
-              md: 'repeat(4, 1fr)', // 4 columns on medium screens
-              lg: 'repeat(4, 1fr)', // 4 columns on large screens
+              md: 'repeat(3, 1fr)', // 3 columns on medium screens
+              lg: 'repeat(5, 1fr)', // 5 columns on large screens
+              xl: 'repeat(6, 1fr)', // 6 columns on extra large screens
             },
             gap: 3,
             '& > *': {
