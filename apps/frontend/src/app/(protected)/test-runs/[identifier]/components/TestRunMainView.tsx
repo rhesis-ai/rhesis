@@ -145,6 +145,23 @@ export default function TestRunMainView({
       });
     }
 
+    // Apply review status filter
+    if (filter.overruleFilter !== 'all') {
+      filtered = filtered.filter(test => {
+        const hasReview = !!test.last_review;
+        const hasConflict = !test.matches_review;
+
+        if (filter.overruleFilter === 'overruled') {
+          return hasReview;
+        } else if (filter.overruleFilter === 'original') {
+          return !hasReview;
+        } else if (filter.overruleFilter === 'conflicting') {
+          return hasReview && hasConflict;
+        }
+        return true;
+      });
+    }
+
     return filtered;
   }, [testResults, filter, prompts, behaviors]);
 
