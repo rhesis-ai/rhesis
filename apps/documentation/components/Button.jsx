@@ -2,14 +2,14 @@
 
 import React from 'react'
 
-const Button = ({ 
-  children, 
-  variant = 'primary', 
-  size = 'md', 
-  onClick, 
+const Button = ({
+  children,
+  variant = 'primary',
+  size = 'md',
+  onClick,
   disabled = false,
-  className = '', 
-  ...props 
+  className = '',
+  ...props
 }) => {
   const getVariantStyles = () => {
     const variants = {
@@ -94,16 +94,23 @@ const Button = ({
     opacity: disabled ? 0.6 : 1,
     textTransform: 'none',
     ...sizeStyles,
-    color: disabled && variantStyles.disabledColor ? variantStyles.disabledColor : variantStyles.color,
-    background: disabled && variantStyles.disabledBackground ? variantStyles.disabledBackground : variantStyles.background,
-    border: disabled && variantStyles.disabledBorder ? `1px solid ${variantStyles.disabledBorder}` : variantStyles.border,
+    color:
+      disabled && variantStyles.disabledColor ? variantStyles.disabledColor : variantStyles.color,
+    background:
+      disabled && variantStyles.disabledBackground
+        ? variantStyles.disabledBackground
+        : variantStyles.background,
+    border:
+      disabled && variantStyles.disabledBorder
+        ? `1px solid ${variantStyles.disabledBorder}`
+        : variantStyles.border,
   }
 
   return (
     <button
       type="button"
       style={baseStyle}
-      onMouseEnter={(e) => {
+      onMouseEnter={e => {
         if (!disabled && variantStyles.hoverBackground) {
           e.target.style.background = variantStyles.hoverBackground
           if (variantStyles.hoverColor) {
@@ -112,7 +119,7 @@ const Button = ({
           e.target.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         }
       }}
-      onMouseLeave={(e) => {
+      onMouseLeave={e => {
         if (!disabled) {
           e.target.style.background = variantStyles.background
           e.target.style.color = variantStyles.color
@@ -130,26 +137,21 @@ const Button = ({
 }
 
 // Specific button variants as named exports (following Langfuse pattern)
-export const PrimaryButton = (props) => <Button variant="primary" {...props} />
-export const SecondaryButton = (props) => <Button variant="secondary" {...props} />
-export const OutlineButton = (props) => <Button variant="outline" {...props} />
-export const GhostButton = (props) => <Button variant="ghost" {...props} />
+export const PrimaryButton = props => <Button variant="primary" {...props} />
+export const SecondaryButton = props => <Button variant="secondary" {...props} />
+export const OutlineButton = props => <Button variant="outline" {...props} />
+export const GhostButton = props => <Button variant="ghost" {...props} />
 
 // Navbar-specific button that handles its own click logic
 export const NavbarGoToAppButton = () => {
   const handleClick = () => {
-    console.log('Go to app clicked');
+    console.log('Go to app clicked')
     // TODO: Add navigation logic here when ready
   }
 
   return (
     <div className="flex items-center ml-2">
-      <Button 
-        variant="primary" 
-        size="md"
-        onClick={handleClick}
-        aria-label="TO APP"
-      >
+      <Button variant="primary" size="md" onClick={handleClick} aria-label="TO APP">
         Go to app
       </Button>
     </div>

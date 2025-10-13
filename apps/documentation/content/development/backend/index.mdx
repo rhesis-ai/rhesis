@@ -3,8 +3,8 @@
 Welcome to the Rhesis Backend documentation. This section covers the FastAPI-based backend service that powers the Rhesis platform.
 
 <Callout type="default">
-  **Backend Overview**
-  The Rhesis backend is built with **FastAPI** and provides REST APIs, authentication, business logic, and data management for the entire platform.
+  **Backend Overview** The Rhesis backend is built with **FastAPI** and provides REST APIs,
+  authentication, business logic, and data management for the entire platform.
 </Callout>
 
 ## Quick Start
@@ -14,11 +14,9 @@ Welcome to the Rhesis Backend documentation. This section covers the FastAPI-bas
 Before working with the backend, ensure you have:
 
 <Callout type="default">
-  **System Requirements**
-  - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package manager
-  - **PostgreSQL** database (for production)
-  - **Redis** (for caching and background tasks)
-  - **Environment variables** configured
+  **System Requirements** - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package manager -
+  **PostgreSQL** database (for production) - **Redis** (for caching and background tasks) -
+  **Environment variables** configured
 </Callout>
 
 ### Development Setup
@@ -42,11 +40,8 @@ uv run alembic upgrade head
 ```
 
 <Callout type="default">
-  **Development Server**
-  - **URL**: http://localhost:8080
-  - **API Docs**: http://localhost:8080/docs
-  - **ReDoc**: http://localhost:8080/redoc
-  - **Health Check**: http://localhost:8080/health
+  **Development Server** - **URL**: http://localhost:8080 - **API Docs**: http://localhost:8080/docs
+  - **ReDoc**: http://localhost:8080/redoc - **Health Check**: http://localhost:8080/health
 </Callout>
 
 ## Architecture
@@ -83,6 +78,7 @@ uv run alembic upgrade head
 ### Core Components
 
 **Application Structure:**
+
 ```
 apps/backend/
 ├── src/rhesis/backend/
@@ -139,12 +135,10 @@ The backend provides comprehensive REST APIs organized by functionality:
 - **OpenAPI Schema**: http://localhost:8080/openapi.json
 
 <Callout type="default">
-  **API Features**
-  - **Automatic Documentation** - Generated from code and type hints
-  - **Request Validation** - Built-in Pydantic validation
-  - **Response Serialization** - Automatic JSON serialization
-  - **Error Handling** - Consistent error responses
-  - **Rate Limiting** - API rate limiting and throttling
+  **API Features** - **Automatic Documentation** - Generated from code and type hints - **Request
+  Validation** - Built-in Pydantic validation - **Response Serialization** - Automatic JSON
+  serialization - **Error Handling** - Consistent error responses - **Rate Limiting** - API rate
+  limiting and throttling
 </Callout>
 
 ## Authentication & Security
@@ -209,17 +203,20 @@ async def get_tests(
 The backend uses SQLAlchemy ORM with the following core models:
 
 **User Management:**
+
 - `User` - User accounts and profiles
 - `Organization` - Multi-tenant organizations
 - `Role` - User roles and permissions
 
 **Testing:**
+
 - `Project` - Test projects and configurations
 - `Test` - Individual test cases
 - `TestResult` - Test execution results
 - `TestSet` - Collections of related tests
 
 **AI Integration:**
+
 - `Model` - AI model configurations
 - `Prompt` - Prompt templates and versions
 - `Evaluation` - AI evaluation results
@@ -330,12 +327,10 @@ The backend supports multiple deployment strategies:
 ### Performance Considerations
 
 <Callout type="default">
-  **Performance Tips**
-  - **Database Indexing** - Optimize query performance
-  - **Caching** - Redis caching for frequently accessed data
-  - **Connection Pooling** - Database connection management
-  - **Load Balancing** - Distribute traffic across multiple instances
-  - **Monitoring** - Comprehensive logging and metrics
+  **Performance Tips** - **Database Indexing** - Optimize query performance - **Caching** - Redis
+  caching for frequently accessed data - **Connection Pooling** - Database connection management -
+  **Load Balancing** - Distribute traffic across multiple instances - **Monitoring** - Comprehensive
+  logging and metrics
 </Callout>
 
 ## Testing
@@ -408,9 +403,8 @@ logger.info("User authenticated", extra={"user_id": user.id})
 ---
 
 <Callout type="default">
-  **Next Steps**
-  - Explore the [API Reference](/docs/backend/api) for detailed endpoint documentation
-  - Check out [Authentication Guide](/docs/backend/auth) for security implementation
-  - Review [Deployment Guide](/docs/backend/deployment) for production setup
-  - Learn about [Background Tasks](/docs/backend/tasks) for async processing
+  **Next Steps** - Explore the [API Reference](/docs/backend/api) for detailed endpoint
+  documentation - Check out [Authentication Guide](/docs/backend/auth) for security implementation -
+  Review [Deployment Guide](/docs/backend/deployment) for production setup - Learn about [Background
+  Tasks](/docs/backend/tasks) for async processing
 </Callout>

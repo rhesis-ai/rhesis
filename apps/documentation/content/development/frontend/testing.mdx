@@ -3,8 +3,8 @@
 This guide covers testing strategies and implementation for the Rhesis frontend application.
 
 <Callout type="default">
-  **Testing Framework**
-  The frontend uses **Jest** as the test runner and **React Testing Library** for component testing, providing comprehensive unit testing capabilities.
+  **Testing Framework** The frontend uses **Jest** as the test runner and **React Testing Library**
+  for component testing, providing comprehensive unit testing capabilities.
 </Callout>
 
 ## Quick Start
@@ -29,8 +29,8 @@ npm test:ci
 ```
 
 <Callout type="default">
-  **Test Coverage**
-  Target coverage thresholds: **70%** for branches, functions, lines, and statements
+  **Test Coverage** Target coverage thresholds: **70%** for branches, functions, lines, and
+  statements
 </Callout>
 
 ## Testing Configuration
@@ -40,11 +40,11 @@ npm test:ci
 The testing framework is configured in `jest.config.js`:
 
 ```javascript
-const nextJest = require('next/jest');
+const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({
   dir: './',
-});
+})
 
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
@@ -66,12 +66,12 @@ const customJestConfig = {
       branches: 70,
       functions: 70,
       lines: 70,
-      statements: 70
-    }
-  }
-};
+      statements: 70,
+    },
+  },
+}
 
-module.exports = createJestConfig(customJestConfig);
+module.exports = createJestConfig(customJestConfig)
 ```
 
 ### Test Environment Setup
@@ -79,10 +79,10 @@ module.exports = createJestConfig(customJestConfig);
 The test environment is configured in `jest.setup.js`:
 
 ```javascript
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom'
 
 // Set environment variables for tests
-process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';
+process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1'
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
@@ -100,7 +100,7 @@ jest.mock('next/router', () => ({
       isFallback: false,
     }
   },
-}));
+}))
 
 // Mock browser APIs
 Object.defineProperty(window, 'matchMedia', {
@@ -115,13 +115,13 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
   })),
-});
+})
 
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
   disconnect: jest.fn(),
-}));
+}))
 ```
 
 ## Writing Tests
@@ -192,47 +192,47 @@ describe('BaseDrawer', () => {
 Test custom hooks using `@testing-library/react-hooks`:
 
 ```typescript
-import { renderHook, act } from '@testing-library/react';
-import { useTasks } from '../useTasks';
-import { TasksClient } from '@/utils/api-client/tasks-client';
+import { renderHook, act } from '@testing-library/react'
+import { useTasks } from '../useTasks'
+import { TasksClient } from '@/utils/api-client/tasks-client'
 
 // Mock the API client
-jest.mock('@/utils/api-client/tasks-client');
-const mockTasksClient = TasksClient as jest.Mocked<typeof TasksClient>;
+jest.mock('@/utils/api-client/tasks-client')
+const mockTasksClient = TasksClient as jest.Mocked<typeof TasksClient>
 
 describe('useTasks', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-  });
+    jest.clearAllMocks()
+  })
 
   it('should fetch tasks on mount', async () => {
-    const mockTasks = [{ id: '1', name: 'Test Task' }];
-    mockTasksClient.getTasks.mockResolvedValue(mockTasks);
+    const mockTasks = [{ id: '1', name: 'Test Task' }]
+    mockTasksClient.getTasks.mockResolvedValue(mockTasks)
 
-    const { result } = renderHook(() => useTasks());
+    const { result } = renderHook(() => useTasks())
 
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    });
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
 
-    expect(result.current.tasks).toEqual(mockTasks);
-    expect(result.current.isLoading).toBe(false);
-  });
+    expect(result.current.tasks).toEqual(mockTasks)
+    expect(result.current.isLoading).toBe(false)
+  })
 
   it('should handle errors correctly', async () => {
-    const mockError = new Error('API Error');
-    mockTasksClient.getTasks.mockRejectedValue(mockError);
+    const mockError = new Error('API Error')
+    mockTasksClient.getTasks.mockRejectedValue(mockError)
 
-    const { result } = renderHook(() => useTasks());
+    const { result } = renderHook(() => useTasks())
 
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    });
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
 
-    expect(result.current.error).toBe('API Error');
-    expect(result.current.isLoading).toBe(false);
-  });
-});
+    expect(result.current.error).toBe('API Error')
+    expect(result.current.isLoading).toBe(false)
+  })
+})
 ```
 
 ### Utility Function Testing
@@ -240,30 +240,30 @@ describe('useTasks', () => {
 Test utility functions with Jest:
 
 ```typescript
-import { formatDate } from '../date-utils';
+import { formatDate } from '../date-utils'
 
 describe('formatDate', () => {
   it('formats ISO date string correctly', () => {
-    const isoDate = '2024-01-15T10:30:00Z';
-    const formatted = formatDate(isoDate);
+    const isoDate = '2024-01-15T10:30:00Z'
+    const formatted = formatDate(isoDate)
 
-    expect(formatted).toBe('Jan 15, 2024');
-  });
+    expect(formatted).toBe('Jan 15, 2024')
+  })
 
   it('handles invalid date gracefully', () => {
-    const invalidDate = 'invalid-date';
-    const formatted = formatDate(invalidDate);
+    const invalidDate = 'invalid-date'
+    const formatted = formatDate(invalidDate)
 
-    expect(formatted).toBe('Invalid Date');
-  });
+    expect(formatted).toBe('Invalid Date')
+  })
 
   it('formats with custom locale', () => {
-    const isoDate = '2024-01-15T10:30:00Z';
-    const formatted = formatDate(isoDate, 'en-GB');
+    const isoDate = '2024-01-15T10:30:00Z'
+    const formatted = formatDate(isoDate, 'en-GB')
 
-    expect(formatted).toBe('15 Jan 2024');
-  });
-});
+    expect(formatted).toBe('15 Jan 2024')
+  })
+})
 ```
 
 ## Test Utilities
@@ -318,7 +318,7 @@ jest.mock('@/utils/api-client/tasks-client', () => ({
     updateTask: jest.fn(),
     deleteTask: jest.fn(),
   })),
-}));
+}))
 ```
 
 ## Testing Best Practices
@@ -336,6 +336,7 @@ screen.getByRole('button', { name: /submit/i });
 
 // Test error states
 expect(screen.getByText(/error/i)).toBeInTheDocument();`}</code></pre>
+
   </div>
   <div>
     <h3>❌ Avoid These</h3>
@@ -347,6 +348,7 @@ screen.getByClassName('button-submit');
 
 // Don't test internal state
 expect(component.state.isLoading).toBe(true);`}</code></pre>
+
   </div>
 </div>
 
@@ -459,12 +461,14 @@ test:
 process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';`}</code></pre>
   </div>
 
-  <div>
-    <h3>Browser APIs Not Available</h3>
-    <pre><code>{`# Mock in jest.setup.js
+<div>
+  <h3>Browser APIs Not Available</h3>
+  <pre>
+    <code>{`# Mock in jest.setup.js
 global.matchMedia = jest.fn().mockImplementation(query => ({ ... }));
-global.ResizeObserver = jest.fn();`}</code></pre>
-  </div>
+global.ResizeObserver = jest.fn();`}</code>
+  </pre>
+</div>
 
   <div>
     <h3>Async Operations Not Awaited</h3>
@@ -494,9 +498,9 @@ npm test -- --detectOpenHandles
 ---
 
 <Callout type="default">
-  **Resources**
-  - [React Testing Library Docs](https://testing-library.com/docs/react-testing-library/intro/)
-  - [Jest Documentation](https://jestjs.io/docs/getting-started)
-  - [Testing Library Best Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
-  - [Frontend Testing Examples](/docs/development/frontend/testing/examples)
+  **Resources** - [React Testing Library
+  Docs](https://testing-library.com/docs/react-testing-library/intro/) - [Jest
+  Documentation](https://jestjs.io/docs/getting-started) - [Testing Library Best
+  Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) - [Frontend
+  Testing Examples](/docs/development/frontend/testing/examples)
 </Callout>

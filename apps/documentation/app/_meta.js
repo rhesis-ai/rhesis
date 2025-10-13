@@ -1,4 +1,3 @@
 export default {
-  docs: 'Documentation'
+  docs: 'Documentation',
 }
- 

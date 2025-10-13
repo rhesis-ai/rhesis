@@ -9,7 +9,7 @@ import '../styles/globals.css'
 export const metadata = {
   title: {
     template: '%s – Rhesis',
-    default: 'Rhesis Documentation'
+    default: 'Rhesis Documentation',
   },
   description: 'AI-powered testing and evaluation platform',
   icons: {
@@ -50,7 +50,7 @@ export default async function RootLayout({ children }) {
           sidebar={{
             defaultMenuCollapseLevel: 1,
             autoCollapse: true,
-            toggleButton: true
+            toggleButton: true,
           }}
         >
           {children}

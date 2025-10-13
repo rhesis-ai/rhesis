@@ -10,7 +10,7 @@ const meta: MetaRecord = {
   'test-runs': 'Test Runs',
   'test-results': 'Test Results',
   metrics: 'Metrics',
-  integrations: 'Integrations'
+  integrations: 'Integrations',
 }
 
 export default meta

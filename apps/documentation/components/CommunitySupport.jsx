@@ -1,8 +1,8 @@
-"use client"
+'use client'
 
-import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
-import ChatOutlined from '@mui/icons-material/ChatOutlined';
-import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
+import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined'
+import ChatOutlined from '@mui/icons-material/ChatOutlined'
+import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined'
 
 /**
  * CommunitySupport Component
@@ -19,28 +19,27 @@ import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
 const communityItems = [
   {
     icon: MenuBookOutlined,
-    title: "Documentation",
-    description: "Comprehensive guides and API references",
-    link: "/platform",
-    linkText: "Browse Docs →"
+    title: 'Documentation',
+    description: 'Comprehensive guides and API references',
+    link: '/platform',
+    linkText: 'Browse Docs →',
   },
   {
     icon: ChatOutlined,
-    title: "Community",
-    description: "Join discussions and get help from the community",
-    link: "https://github.com/rhesis-ai/rhesis/discussions",
-    linkText: "GitHub Discussions →",
-    external: true
+    title: 'Community',
+    description: 'Join discussions and get help from the community',
+    link: 'https://github.com/rhesis-ai/rhesis/discussions',
+    linkText: 'GitHub Discussions →',
+    external: true,
   },
   {
     icon: WarningAmberOutlined,
-    title: "Issues",
-    description: "Report bugs and request features",
-    link: "https://github.com/rhesis-ai/rhesis/issues",
-    linkText: "GitHub Issues →",
-    external: true
+    title: 'Issues',
+    description: 'Report bugs and request features',
+    link: 'https://github.com/rhesis-ai/rhesis/issues',
+    linkText: 'GitHub Issues →',
+    external: true,
   },
-
 ]
 
 export const CommunitySupport = () => {
@@ -82,7 +81,7 @@ export const CommunitySupport = () => {
       textDecoration: 'none',
       fontWeight: '500',
       transition: 'color 0.2s ease',
-    }
+    },
   }
 
   return (
@@ -109,22 +108,22 @@ export const CommunitySupport = () => {
       </div>
 
       <style jsx>{`
-        [data-theme="dark"] .rhesis-community-support {
+        [data-theme='dark'] .rhesis-community-support {
           --border-color: #374151;
-          --card-bg: #1F2937;
-          --text-primary: #F9FAFB;
-          --text-secondary: #D1D5DB;
+          --card-bg: #1f2937;
+          --text-primary: #f9fafb;
+          --text-secondary: #d1d5db;
         }
 
-        [data-theme="light"] .rhesis-community-support {
+        [data-theme='light'] .rhesis-community-support {
           --border-color: #e5e7eb;
           --card-bg: #ffffff;
           --text-primary: #111827;
-          --text-secondary: #6B7280;
+          --text-secondary: #6b7280;
         }
 
         .community-link:hover {
-          color: #3BC4F2;
+          color: #3bc4f2;
         }
 
         @media (max-width: 768px) {

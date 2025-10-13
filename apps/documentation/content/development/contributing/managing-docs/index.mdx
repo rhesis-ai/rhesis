@@ -3,8 +3,8 @@
 This guide explains how to manage and maintain the Rhesis documentation site built with Nextra.
 
 <Callout type="default">
-  **Documentation Management**
-  Learn how to run the documentation site, add new pages, configure search, and maintain the documentation effectively.
+  **Documentation Management** Learn how to run the documentation site, add new pages, configure
+  search, and maintain the documentation effectively.
 </Callout>
 
 ## Quick Start
@@ -23,6 +23,7 @@ The easiest way to run the documentation is using our CLI tool from the project 
 ```
 
 This command will:
+
 - Navigate to the docs directory automatically
 - Install dependencies if needed
 - Start the development server on port 3001
@@ -75,6 +76,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:3001
 #### Troubleshooting
 
 **Port Conflicts:**
+
 ```bash
 # Check what's using port 3001
 lsof -i :3001
@@ -87,6 +89,7 @@ PORT=3002 npm run dev
 ```
 
 **Dependencies Issues:**
+
 ```bash
 # Clear npm cache
 npm cache clean --force
@@ -97,10 +100,8 @@ npm install
 ```
 
 <Callout type="default">
-  **Documentation URLs**
-  - **Development**: http://localhost:3001
-  - **Production**: After build, served on configured domain
-  - **Search**: Available after build (Pagefind indexing)
+  **Documentation URLs** - **Development**: http://localhost:3001 - **Production**: After build,
+  served on configured domain - **Search**: Available after build (Pagefind indexing)
 </Callout>
 
 ## Project Structure
@@ -138,14 +139,13 @@ touch apps/documentation/app/docs/backend/api.mdx
 
 2. **Add content to the page**:
 
-```mdx
+````mdx
 # API Reference
 
 Welcome to the Rhesis API reference documentation.
 
 <Callout type="default">
-  **API Overview**
-  This page provides comprehensive documentation for all Rhesis API endpoints.
+  **API Overview** This page provides comprehensive documentation for all Rhesis API endpoints.
 </Callout>
 
 ## Authentication
@@ -161,10 +161,12 @@ All API requests require authentication using JWT tokens.
 Retrieve a list of users.
 
 **Parameters:**
+
 - `page` (optional): Page number for pagination
 - `limit` (optional): Number of items per page
 
 **Response:**
+
 ```json
 {
   "data": [
@@ -179,6 +181,7 @@ Retrieve a list of users.
   "pageSize": 20
 }
 ```
+````
 
 ## Error Handling
 
@@ -191,7 +194,8 @@ All endpoints return consistent error responses:
   "details": {}
 }
 ```
-```
+
+````
 
 ### Page Organization
 
@@ -243,7 +247,7 @@ Nextra provides built-in callout components for highlighting information:
   **Error Callout**
   This is an error callout for critical issues.
 </Callout>
-```
+````
 
 ### Grid Layouts
 
@@ -270,7 +274,7 @@ Use CSS Grid for responsive layouts:
 
 Use syntax highlighting for code examples:
 
-```mdx
+````mdx
 ```python
 def create_user(user_data: UserCreate, db: Session) -> User:
     """Create a new user in the database."""
@@ -280,6 +284,7 @@ def create_user(user_data: UserCreate, db: Session) -> User:
     db.refresh(user)
     return user
 ```
+````
 
 ```typescript
 const createUser = async (userData: UserCreate): Promise<User> => {
@@ -287,11 +292,12 @@ const createUser = async (userData: UserCreate): Promise<User> => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData),
-  });
-  return response.json();
-};
+  })
+  return response.json()
+}
 ```
-```
+
+````
 
 ## Configuration
 
@@ -328,7 +334,7 @@ export default {
     text: 'Welcome to Rhesis Documentation'
   },
 }
-```
+````
 
 ### MDX Components
 
@@ -356,8 +362,8 @@ export function useMDXComponents(components) {
 Nextra 4 uses Pagefind for full-text search:
 
 <Callout type="default">
-  **Search Note**
-  Search is only available after building the documentation. During development, you'll see a message indicating that search requires a build.
+  **Search Note** Search is only available after building the documentation. During development,
+  you'll see a message indicating that search requires a build.
 </Callout>
 
 ### Building for Search
@@ -463,28 +469,36 @@ jobs:
 
 ### Markdown Best Practices
 
-```mdx
+````mdx
 # Use proper heading hierarchy
+
 ## Section headings
+
 ### Subsection headings
 
 # Use lists for better readability
+
 - First item
 - Second item
 - Third item
 
 # Use code blocks with language specification
+
 ```python
 def example():
     return "Hello, World!"
 ```
+````
 
 # Use links for navigation
+
 [Backend API](/docs/backend/api)
 
 # Use images with alt text
-![Rhesis Logo](/logo/rhesis-Logo-rgb-main-logo.png "Rhesis Logo")
-```
+
+![Rhesis Logo](/logo/rhesis-Logo-rgb-main-logo.png 'Rhesis Logo')
+
+````
 
 ## Troubleshooting
 
@@ -509,9 +523,10 @@ npm run build
 
 # Check that _pagefind directory exists
 ls public/_pagefind/
-```
+````
 
 **Styling Issues:**
+
 ```bash
 # Clear Next.js cache
 rm -rf .next
@@ -546,12 +561,8 @@ npm run dev
 ### Regular Tasks
 
 <Callout type="default">
-  **Maintenance Checklist**
-  - Update dependencies regularly
-  - Review and update outdated content
-  - Check for broken links
-  - Optimize images and assets
-  - Monitor search functionality
+  **Maintenance Checklist** - Update dependencies regularly - Review and update outdated content -
+  Check for broken links - Optimize images and assets - Monitor search functionality
 </Callout>
 
 ### Content Updates
@@ -585,9 +596,7 @@ git push origin docs/update-api-reference
 ---
 
 <Callout type="default">
-  **Need Help?**
-  If you need assistance with documentation:
-  - Check the [Nextra documentation](https://nextra.site/docs)
-  - Review existing pages for examples
-  - Ask questions in [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
+  **Need Help?** If you need assistance with documentation: - Check the [Nextra
+  documentation](https://nextra.site/docs) - Review existing pages for examples - Ask questions in
+  [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
 </Callout>

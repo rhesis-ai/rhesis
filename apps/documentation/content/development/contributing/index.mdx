@@ -3,8 +3,9 @@
 Thank you for your interest in contributing to Rhesis! This guide will help you get started with contributing to our AI-powered testing and evaluation platform.
 
 <Callout type="default">
-  **Welcome Contributors!**
-  We welcome contributions from developers of all skill levels. Whether you're fixing bugs, adding features, or improving documentation, your contributions help make Rhesis better for everyone.
+  **Welcome Contributors!** We welcome contributions from developers of all skill levels. Whether
+  you're fixing bugs, adding features, or improving documentation, your contributions help make
+  Rhesis better for everyone.
 </Callout>
 
 ## Getting Started
@@ -14,24 +15,23 @@ Thank you for your interest in contributing to Rhesis! This guide will help you 
 Before contributing, make sure you have:
 
 <Callout type="default">
-  **Development Requirements**
-  - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package manager
-  - **Node.js 18+** and npm
-  - **Git** for version control
-  - **Docker** (optional, for containerized development)
-  - **PostgreSQL** (for backend development)
-  - **Redis** (for background tasks)
+  **Development Requirements** - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package
+  manager - **Node.js 18+** and npm - **Git** for version control - **Docker** (optional, for
+  containerized development) - **PostgreSQL** (for backend development) - **Redis** (for background
+  tasks)
 </Callout>
 
 ### Quick Setup
 
 1. **Fork and clone the repository:**
+
    ```bash
    git clone https://github.com/your-username/rhesis.git
    cd rhesis
    ```
 
 2. **Set up your development environment:**
+
    ```bash
    # Install Python dependencies
    uv sync
@@ -42,6 +42,7 @@ Before contributing, make sure you have:
    ```
 
 3. **Configure environment:**
+
    ```bash
    cp .env.example .env
    # Edit .env with your local configuration
@@ -103,12 +104,9 @@ git checkout -b docs/your-doc-update
 ```
 
 <Callout type="default">
-  **Branch Naming Convention**
-  - `feature/` - New features and enhancements
-  - `fix/` - Bug fixes and patches
-  - `docs/` - Documentation updates
-  - `refactor/` - Code refactoring
-  - `test/` - Test improvements
+  **Branch Naming Convention** - `feature/` - New features and enhancements - `fix/` - Bug fixes and
+  patches - `docs/` - Documentation updates - `refactor/` - Code refactoring - `test/` - Test
+  improvements
 </Callout>
 
 ### Making Changes
@@ -131,6 +129,7 @@ git commit -m "docs(readme): update installation instructions"
 ```
 
 **Commit Types:**
+
 - `feat` - New features
 - `fix` - Bug fixes
 - `docs` - Documentation changes
@@ -165,6 +164,7 @@ async def get_user_by_id(user_id: int, db: AsyncSession) -> Optional[User]:
 ```
 
 **Python Standards:**
+
 - **Type Hints**: Use type hints for all function parameters and return values
 - **Docstrings**: Write clear docstrings for all functions and classes
 - **Error Handling**: Use proper exception handling with specific exceptions
@@ -178,10 +178,10 @@ We follow modern JavaScript/TypeScript practices:
 ```typescript
 // Use TypeScript interfaces
 interface User {
-  id: string;
-  email: string;
-  name: string;
-  organizationId: string;
+  id: string
+  email: string
+  name: string
+  organizationId: string
 }
 
 // Use React hooks properly
@@ -190,22 +190,23 @@ const useUser = (userId: string) => {
     queryKey: ['user', userId],
     queryFn: () => api.getUser(userId),
     enabled: !!userId,
-  });
-};
+  })
+}
 
 // Use proper error handling
 const handleSubmit = async (data: FormData) => {
   try {
-    await api.createUser(data);
-    toast.success('User created successfully');
+    await api.createUser(data)
+    toast.success('User created successfully')
   } catch (error) {
-    toast.error('Failed to create user');
-    console.error(error);
+    toast.error('Failed to create user')
+    console.error(error)
   }
-};
+}
 ```
 
 **Frontend Standards:**
+
 - **TypeScript**: Use TypeScript for all new code
 - **React Hooks**: Use hooks for state management and side effects
 - **Error Boundaries**: Implement error boundaries for error handling
@@ -236,6 +237,7 @@ def test_create_user(db_session):
 ```
 
 **Testing Guidelines:**
+
 - **Unit Tests**: Test individual functions and classes
 - **Integration Tests**: Test API endpoints and database interactions
 - **Fixtures**: Use pytest fixtures for test data and setup
@@ -269,6 +271,7 @@ describe('UserForm', () => {
 ```
 
 **Frontend Testing Guidelines:**
+
 - **Component Tests**: Test component behavior and interactions
 - **Integration Tests**: Test component integration with APIs
 - **E2E Tests**: Test complete user workflows
@@ -337,9 +340,11 @@ async def create_user(
 
 ```markdown
 ## Description
+
 Brief description of the changes made.
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Documentation update
@@ -347,11 +352,13 @@ Brief description of the changes made.
 - [ ] Test improvement
 
 ## Testing
+
 - [ ] Unit tests pass
 - [ ] Integration tests pass
 - [ ] Manual testing completed
 
 ## Checklist
+
 - [ ] Code follows style guidelines
 - [ ] Documentation updated
 - [ ] Tests added/updated
@@ -361,11 +368,8 @@ Brief description of the changes made.
 ### Review Process
 
 <Callout type="default">
-  **Review Guidelines**
-  - All PRs require at least one review
-  - Address all review comments before merging
-  - Ensure CI/CD checks pass
-  - Update documentation as needed
+  **Review Guidelines** - All PRs require at least one review - Address all review comments before
+  merging - Ensure CI/CD checks pass - Update documentation as needed
 </Callout>
 
 ## Code Review Guidelines
@@ -405,10 +409,12 @@ When reviewing code, be constructive and specific:
 
 ```markdown
 # Good review comment
+
 Consider using a more descriptive variable name here.
 `user_data` could be `user_creation_payload` to be more specific.
 
 # Bad review comment
+
 This is wrong.
 ```
 
@@ -472,11 +478,8 @@ We provide templates for different types of issues:
 ### Mentorship
 
 <Callout type="default">
-  **New Contributors**
-  - Don't hesitate to ask questions
-  - Start with "good first issue" labels
-  - Join our community discussions
-  - We're here to help you succeed!
+  **New Contributors** - Don't hesitate to ask questions - Start with "good first issue" labels -
+  Join our community discussions - We're here to help you succeed!
 </Callout>
 
 ## Versioning
@@ -510,18 +513,17 @@ We are committed to providing a welcoming and inclusive environment for all cont
 ### Enforcement
 
 <Callout type="default">
-  **Reporting Issues**
-  If you experience or witness unacceptable behavior, please report it to the project maintainers. All reports will be handled with discretion.
+  **Reporting Issues** If you experience or witness unacceptable behavior, please report it to the
+  project maintainers. All reports will be handled with discretion.
 </Callout>
 
 ---
 
 <Callout type="default">
-  **Ready to Contribute?**
-  - Check out our [Development Setup Guide](/docs/development/contributing/development-setup)
-  - Review our [Coding Standards](/docs/development/contributing/coding-standards)
-  - Look for issues labeled "good first issue"
-  - Join our [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
+  **Ready to Contribute?** - Check out our [Development Setup
+  Guide](/docs/development/contributing/development-setup) - Review our [Coding
+  Standards](/docs/development/contributing/coding-standards) - Look for issues labeled "good first
+  issue" - Join our [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
 </Callout>
 
 Thank you for contributing to Rhesis!

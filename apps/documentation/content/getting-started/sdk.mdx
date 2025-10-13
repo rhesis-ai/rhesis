@@ -31,19 +31,13 @@ Keep this key secure and never share it publicly.
 You can configure the SDK either through environment variables or direct configuration:
 
 <Tabs items={['Environment Variables', 'Direct Configuration']}>
-<Tabs.Tab>
-```bash
-export RHESIS_API_KEY="your-api-key"
-export RHESIS_BASE_URL="https://api.rhesis.ai"
-```
-</Tabs.Tab>
-<Tabs.Tab>
-```python
-import rhesis
-rhesis.api_key = "your-api-key"
-rhesis.base_url = "https://api.rhesis.ai"  # optional
-```
-</Tabs.Tab>
+  <Tabs.Tab>
+    ```bash export RHESIS_API_KEY="your-api-key" export RHESIS_BASE_URL="https://api.rhesis.ai" ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```python import rhesis rhesis.api_key = "your-api-key" rhesis.base_url =
+    "https://api.rhesis.ai" # optional ```
+  </Tabs.Tab>
 </Tabs>
 
 ### Basic Usage
@@ -94,6 +88,7 @@ model = get_model("gemini")
 ```
 
 **Supported providers:**
+
 - `gemini` - Google's AI models with multimodal support
 - `openai` - OpenAI models including GPT-4
 - `huggingface` - Open-source models from Hugging Face
@@ -194,8 +189,8 @@ metric = RhesisPromptMetricNumeric(
 ---
 
 <Callout type="default">
-  **Next Steps**
-  - Explore the [Platform Guide](/docs/platform) to understand how SDK integrates with the web interface
-  - Check out [Development](/docs/development/sdk) for advanced SDK usage and API reference
-  - Learn about [Core Concepts](/docs/getting-started/concepts) to understand the overall workflow
+  **Next Steps** - Explore the [Platform Guide](/docs/platform) to understand how SDK integrates
+  with the web interface - Check out [Development](/docs/development/sdk) for advanced SDK usage and
+  API reference - Learn about [Core Concepts](/docs/getting-started/concepts) to understand the
+  overall workflow
 </Callout>

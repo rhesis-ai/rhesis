@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * Footer Component
@@ -24,42 +24,42 @@
 
 const footerData = {
   product: {
-    title: "Product",
+    title: 'Product',
     links: [
-      { name: "Platform", href: "https://app.rhesis.ai", external: true },
-      { name: "SDK", href: "/development/sdk" },
-      { name: "Repository", href: "https://github.com/rhesis-ai/rhesis", external: true },
-    ]
+      { name: 'Platform', href: 'https://app.rhesis.ai', external: true },
+      { name: 'SDK', href: '/development/sdk' },
+      { name: 'Repository', href: 'https://github.com/rhesis-ai/rhesis', external: true },
+    ],
   },
   docs: {
-    title: "Docs",
+    title: 'Docs',
     links: [
-      { name: "Getting started", href: "/getting-started" },
-      { name: "Test Generation", href: "/platform/tests-generation" },
-      { name: "Metrics", href: "/platform/metrics" },
-    ]
+      { name: 'Getting started', href: '/getting-started' },
+      { name: 'Test Generation', href: '/platform/tests-generation' },
+      { name: 'Metrics', href: '/platform/metrics' },
+    ],
   },
   company: {
-    title: "Company",
+    title: 'Company',
     links: [
-      { name: "About us", href: "https://www.rhesis.ai/about", external: true },
-      { name: "Careers", href: "https://www.rhesis.ai/careers", external: true },
-      { name: "Contact us", href: "https://www.rhesis.ai/contact", external: true },
-    ]
-  }
+      { name: 'About us', href: 'https://www.rhesis.ai/about', external: true },
+      { name: 'Careers', href: 'https://www.rhesis.ai/careers', external: true },
+      { name: 'Contact us', href: 'https://www.rhesis.ai/contact', external: true },
+    ],
+  },
 }
 
 const legalLinks = [
-  { name: "Imprint", href: "https://www.rhesis.ai/imprint", external: true },
-  { name: "Privacy", href: "https://www.rhesis.ai/privacy", external: true },
-  { name: "Terms", href: "https://www.rhesis.ai/terms", external: true },
+  { name: 'Imprint', href: 'https://www.rhesis.ai/imprint', external: true },
+  { name: 'Privacy', href: 'https://www.rhesis.ai/privacy', external: true },
+  { name: 'Terms', href: 'https://www.rhesis.ai/terms', external: true },
 ]
 
 export const Footer = ({
   showCopyright = true,
   additionalLinks = [],
   customSections = [],
-  className = ""
+  className = '',
 }) => {
   const currentYear = new Date().getFullYear()
 
@@ -166,7 +166,7 @@ export const Footer = ({
       fontSize: '0.75rem',
       fontFamily: 'Be Vietnam Pro, sans-serif',
       transition: 'color 0.2s ease',
-    }
+    },
   }
 
   return (
@@ -188,28 +188,12 @@ export const Footer = ({
 
             {/* Main footer sections */}
             <div style={styles.grid}>
-            {allSections.map((section, index) => (
-              <div key={index} style={styles.section}>
-                <h3 style={styles.sectionTitle}>{section.title}</h3>
-                <ul style={styles.linkList}>
-                  {section.links.map((link, linkIndex) => (
-                    <li key={linkIndex}>
-                      <a
-                        href={link.href}
-                        target={link.external ? '_blank' : '_self'}
-                        rel={link.external ? 'noopener noreferrer' : undefined}
-                        style={styles.link}
-                        className="footer-link"
-                      >
-                        {link.name}
-                      </a>
-                    </li>
-                  ))}
-                  {/* Add any additional links for this section */}
-                  {additionalLinks
-                    .filter(link => link.section === section.title.toLowerCase())
-                    .map((link, linkIndex) => (
-                      <li key={`additional-${linkIndex}`}>
+              {allSections.map((section, index) => (
+                <div key={index} style={styles.section}>
+                  <h3 style={styles.sectionTitle}>{section.title}</h3>
+                  <ul style={styles.linkList}>
+                    {section.links.map((link, linkIndex) => (
+                      <li key={linkIndex}>
                         <a
                           href={link.href}
                           target={link.external ? '_blank' : '_self'}
@@ -221,9 +205,25 @@ export const Footer = ({
                         </a>
                       </li>
                     ))}
-                </ul>
-              </div>
-            ))}
+                    {/* Add any additional links for this section */}
+                    {additionalLinks
+                      .filter(link => link.section === section.title.toLowerCase())
+                      .map((link, linkIndex) => (
+                        <li key={`additional-${linkIndex}`}>
+                          <a
+                            href={link.href}
+                            target={link.external ? '_blank' : '_self'}
+                            rel={link.external ? 'noopener noreferrer' : undefined}
+                            style={styles.link}
+                            className="footer-link"
+                          >
+                            {link.name}
+                          </a>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -279,7 +279,7 @@ export const Footer = ({
         }
 
         /* Dark theme adjustments */
-        [data-theme="dark"] .rhesis-footer {
+        [data-theme='dark'] .rhesis-footer {
           --border-color: var(--rhesis-primary-light);
           --footer-bg: var(--rhesis-primary-dark);
           --text-primary: #ffffff;
@@ -288,7 +288,7 @@ export const Footer = ({
         }
 
         /* Light theme adjustments */
-        [data-theme="light"] .rhesis-footer {
+        [data-theme='light'] .rhesis-footer {
           --border-color: var(--rhesis-primary-main);
           --footer-bg: var(--rhesis-primary-dark);
           --text-primary: #ffffff;
@@ -315,21 +315,21 @@ export const Footer = ({
 
         /* Responsive design */
         @media (max-width: 768px) {
-          .rhesis-footer div[style*="display: flex"][style*="align-items: flex-start"] {
+          .rhesis-footer div[style*='display: flex'][style*='align-items: flex-start'] {
             flex-direction: column;
             gap: 2rem;
           }
 
-          .rhesis-footer div[style*="grid-template-columns"] {
+          .rhesis-footer div[style*='grid-template-columns'] {
             grid-template-columns: repeat(2, 1fr);
             gap: 1.5rem;
           }
 
-          .rhesis-footer div[style*="flex-direction: column"] {
+          .rhesis-footer div[style*='flex-direction: column'] {
             align-items: flex-start;
           }
 
-          .rhesis-footer div[style*="gap: 1.5rem"] {
+          .rhesis-footer div[style*='gap: 1.5rem'] {
             gap: 1rem;
             flex-direction: column;
             align-items: flex-start;
@@ -337,15 +337,15 @@ export const Footer = ({
         }
 
         @media (max-width: 480px) {
-          .rhesis-footer div[style*="grid-template-columns"] {
+          .rhesis-footer div[style*='grid-template-columns'] {
             grid-template-columns: 1fr;
           }
 
-          .rhesis-footer div[style*="padding: 3rem 1.5rem 2rem"] {
+          .rhesis-footer div[style*='padding: 3rem 1.5rem 2rem'] {
             padding: 2rem 1rem 1.5rem;
           }
 
-          .rhesis-footer div[style*="min-width: 100px"] {
+          .rhesis-footer div[style*='min-width: 100px'] {
             min-width: auto;
             align-items: center;
           }

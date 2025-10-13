@@ -17,12 +17,14 @@ import { FeatureOverview } from '@/components/FeatureOverview'
 ```
 
 **Features displayed:**
+
 - **Test Generation**: AI-powered test scenario creation, domain expert knowledge integration, automated edge case coverage
 - **Endpoints**: REST and WebSocket support, multi-provider LLM integration, real-time testing execution
 - **Evaluation**: LLM-based quality metrics, custom evaluation criteria, detailed performance analytics
 - **Collaborative Platform**: Team-based project management, SDK and API-first architecture, comprehensive test result tracking
 
 **Design:**
+
 - Responsive grid layout (3 columns on desktop, 1 column on mobile)
 - Full-width platform feature card at the bottom
 - Dark mode support using Nextra theme
@@ -30,6 +32,7 @@ import { FeatureOverview } from '@/components/FeatureOverview'
 - Custom fonts (Sora for titles, Be Vietnam Pro for body text)
 
 **Dependencies:**
+
 - None (uses inline SVG icons instead of external icon libraries)
 - Works with Nextra's dark mode out of the box
 
@@ -96,6 +99,7 @@ import Footer from '@/components/Footer'
 ```
 
 **Features:**
+
 - **Product Links**: Platform, SDK, Repository
 - **Documentation Links**: Getting started, Test Generation, Metrics
 - **Company Links**: About us, Careers, Contact us
@@ -106,12 +110,14 @@ import Footer from '@/components/Footer'
 - **Accessibility**: Focus states, proper ARIA labels, keyboard navigation
 
 **Props:**
+
 - `showCopyright` (boolean): Show/hide copyright notice (default: true)
 - `additionalLinks` (array): Add extra links to existing sections
 - `customSections` (array): Add entirely new footer sections
 - `className` (string): Additional CSS classes
 
 **Design:**
+
 - Grid layout that adapts to screen size (3+ columns on desktop, 2 on tablet, 1 on mobile)
 - Consistent with Rhesis brand colors and typography
 - Proper spacing and visual hierarchy
@@ -131,12 +137,14 @@ import Footer from '@/components/Footer'
 Use the CSS custom properties defined in `styles/globals.css`:
 
 **Primary Blues:**
+
 - `--rhesis-primary-main: #50B9E0` (RGB: 80, 185, 224)
 - `--rhesis-primary-light: #97D5EE` (RGB: 151, 213, 238)
 - `--rhesis-primary-dark: #2AA1CE` (CTA Blue)
 - `--rhesis-primary-darker: #3BC4F2` (Hover Blue)
 
 **Backgrounds:**
+
 - `--rhesis-bg-lightest: #f2f9fd`
 - `--rhesis-bg-light: #e4f2fa`
 - `--rhesis-bg-medium: #C2E5F5`
@@ -144,14 +152,17 @@ Use the CSS custom properties defined in `styles/globals.css`:
 - `--rhesis-bg-white: #FFFFFF`
 
 **Text Colors:**
+
 - `--rhesis-text-primary: #3d3d3d` (Main text)
 - `--rhesis-text-dark: #1A1A1A` (RGB: 26, 26, 26)
 
 **CTA Colors:**
+
 - `--rhesis-cta-blue: #2AA1CE`
 - `--rhesis-cta-orange: #FD6E12` (RGB: 253, 110, 18)
 
 **Accent Colors:**
+
 - `--rhesis-accent-yellow: #FDD803` (RGB: 253, 216, 3)
 
 ### Typography
