@@ -23,7 +23,6 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -185,15 +184,6 @@ export default function TestsTableView({
     } catch (error) {
       console.error('Failed to confirm review:', error);
     }
-  };
-
-  const handleViewDetails = (
-    event: React.MouseEvent,
-    test: TestResultDetail,
-    index: number
-  ) => {
-    event.stopPropagation();
-    handleRowClick(test, index);
   };
 
   // Calculate test result status (considering reviews from backend)
@@ -620,23 +610,6 @@ export default function TestsTableView({
                           alignItems: 'center',
                         }}
                       >
-                        <Tooltip title="View Details">
-                          <IconButton
-                            size="small"
-                            onClick={e => handleViewDetails(e, test, index)}
-                            sx={{
-                              '&:hover': {
-                                backgroundColor: alpha(
-                                  theme.palette.primary.main,
-                                  0.1
-                                ),
-                              },
-                            }}
-                          >
-                            <VisibilityOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
                         {/* Show Confirm Review button only if not already reviewed */}
                         {!test.last_review && (
                           <Tooltip title="Confirm Review">
