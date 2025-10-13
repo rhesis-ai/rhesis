@@ -448,22 +448,21 @@ function ConnectionDialog({
               />
             )}
 
-            <TextField
-              label="API Key"
-              fullWidth
-              required
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              helperText={
-                isCustomProvider
-                  ? 'Authentication key for your deployment (if required)'
-                  : "Your API key from the provider's dashboard"
-              }
-            />
-
-            {/* Test Connection Button and Result */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {/* API Key with Test Connection Button */}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <TextField
+                label="API Key"
+                fullWidth
+                required
+                type="password"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                helperText={
+                  isCustomProvider
+                    ? 'Authentication key for your deployment (if required)'
+                    : "Your API key from the provider's dashboard"
+                }
+              />
               <Button
                 onClick={handleTestConnection}
                 variant="outlined"
@@ -481,20 +480,25 @@ function ConnectionDialog({
                     <CheckCircleIcon />
                   )
                 }
-                fullWidth
+                sx={{ 
+                  minWidth: '160px',
+                  height: '56px',
+                  mt: 0,
+                }}
               >
-                {testingConnection ? 'Testing Connection...' : 'Test Connection'}
+                {testingConnection ? 'Testing...' : 'Test Connection'}
               </Button>
-
-              {testResult && (
-                <Alert
-                  severity={testResult.success ? 'success' : 'error'}
-                  sx={{ whiteSpace: 'pre-line' }}
-                >
-                  {testResult.message}
-                </Alert>
-              )}
             </Box>
+
+            {/* Test Connection Result */}
+            {testResult && (
+              <Alert
+                severity={testResult.success ? 'success' : 'error'}
+                sx={{ whiteSpace: 'pre-line' }}
+              >
+                {testResult.message}
+              </Alert>
+            )}
 
             {/* Custom Headers */}
             <Stack spacing={1}>
