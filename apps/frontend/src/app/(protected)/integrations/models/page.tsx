@@ -211,8 +211,11 @@ export default function ModelsPage() {
         mode={modelToEdit ? 'edit' : 'create'}
         onClose={() => {
           setConnectionDialogOpen(false);
-          setSelectedProvider(null);
-          setModelToEdit(null);
+          // Delay clearing state to prevent button text flicker during closing animation
+          setTimeout(() => {
+            setSelectedProvider(null);
+            setModelToEdit(null);
+          }, 200);
         }}
         onConnect={handleConnect}
         onUpdate={handleUpdate}
