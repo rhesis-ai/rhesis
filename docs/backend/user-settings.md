@@ -7,7 +7,7 @@ The User model includes a `user_settings` JSONB column that stores user preferen
 ```json
 {
   "version": 1,
-  "llm_defaults": {
+  "models": {
     "generation": {
       "model_id": "uuid-of-model",
       "fallback_model_id": "uuid-of-fallback-model",
@@ -58,14 +58,16 @@ The User model includes a `user_settings` JSONB column that stores user preferen
 
 ## Usage Examples
 
-### Accessing LLM Model Preferences
+The User model provides a centralized `settings` property that returns a `UserSettingsManager` instance. This provides clean, typed access to all user preferences without cluttering the User model with individual getter/setter methods.
+
+### Accessing Model Preferences
 
 ```python
 from rhesis.backend.app.models import User
 
 # Get user's preferred model for test generation
 user = await get_user(db, user_id)
-generation_model_id = user.get_generation_model_id()
+generation_model_id = user.settings.models.generation.model_id
 
 if generation_model_id:
     model = await get_model(db, generation_model_id)
@@ -73,44 +75,80 @@ if generation_model_id:
 else:
     # Use system default
     model = await get_default_model(db, purpose="generation")
+
+# Access evaluation model
+eval_model_id = user.settings.models.evaluation.model_id
+
+# Access model parameters
+temperature = user.settings.models.generation.temperature
+max_tokens = user.settings.models.generation.max_tokens
 ```
 
-### Getting All Generation Settings
+### Accessing Other Settings
 
 ```python
-# Get all generation-related settings (includes temperature, max_tokens, etc.)
-generation_settings = user.get_generation_settings()
-model_id = generation_settings.get("model_id")
-temperature = generation_settings.get("temperature", 0.7)  # Default to 0.7
-max_tokens = generation_settings.get("max_tokens")
+# UI Settings
+theme = user.settings.ui.theme
+page_size = user.settings.ui.default_page_size
+sidebar_collapsed = user.settings.ui.sidebar_collapsed
+
+# Notification Settings
+email_prefs = user.settings.notifications.email
+in_app_prefs = user.settings.notifications.in_app
+
+# Localization
+language = user.settings.localization.language
+timezone = user.settings.localization.timezone
+
+# Editor Settings
+auto_save = user.settings.editor.auto_save
+show_line_numbers = user.settings.editor.show_line_numbers
+
+# Privacy Settings
+show_email = user.settings.privacy.show_email
 ```
 
 ### Updating User Settings
 
 ```python
 # Update specific settings (deep merge)
-user.update_settings({
-    "llm_defaults": {
+user.settings.update({
+    "models": {
         "generation": {
             "model_id": str(new_model.id),
             "temperature": 0.8
         }
     }
 })
+# Persist changes to database
+user.user_settings = user.settings.raw
 await db.commit()
 ```
 
 ### Partial Updates
 
-The `update_settings` method performs a deep merge, so you can update nested properties without replacing the entire structure:
+The `update` method performs a deep merge, so you can update nested properties without replacing the entire structure:
 
 ```python
 # Only update the theme, everything else remains unchanged
-user.update_settings({
+user.settings.update({
     "ui": {
         "theme": "dark"
     }
 })
+user.user_settings = user.settings.raw
+await db.commit()
+```
+
+### Getting All Settings for a Category
+
+```python
+# Get all generation settings as a dictionary
+all_generation = user.settings.models.generation.all
+# Returns: {"model_id": "...", "temperature": 0.7, "max_tokens": null}
+
+# Access raw settings dictionary
+raw_settings = user.settings.raw
 ```
 
 ## API Endpoints
@@ -176,11 +214,12 @@ The `version` field enables future schema migrations. When updating the schema s
 
 ## Best Practices
 
-1. **Always check for null/missing values**: Use `.get()` with defaults when accessing settings
-2. **Use helper methods**: Prefer `user.get_generation_model_id()` over direct dictionary access
+1. **Use the centralized settings property**: Always access settings via `user.settings.models.generation.model_id` rather than directly accessing `user_settings` dictionary
+2. **Handle None values**: Settings properties return `None` for missing values, so always provide defaults in your logic
 3. **Validate before saving**: Use Pydantic schemas to validate updates before applying
-4. **Partial updates**: Use `update_settings()` for merging rather than replacing entire settings
-5. **Default behavior**: Always have sensible defaults for when settings are not specified
+4. **Partial updates**: Use `user.settings.update()` for merging rather than replacing entire settings
+5. **Persist after updates**: Remember to sync back to the model: `user.user_settings = user.settings.raw` and commit
+6. **Default behavior**: Always have sensible defaults for when settings are not specified
 
 ## Example: Using in Generation Service
 
@@ -192,7 +231,7 @@ async def generate_tests(
     # ... other params
 ):
     # Get user's preferred model or fall back to system default
-    model_id = user.get_generation_model_id()
+    model_id = user.settings.models.generation.model_id
     
     if model_id:
         model = await get_model_by_id(db, model_id)
@@ -203,17 +242,70 @@ async def generate_tests(
         model = await get_system_default_model(db, purpose="generation")
     
     # Get any temperature override from settings
-    settings = user.get_generation_settings()
-    temperature = settings.get("temperature") or model.default_temperature or 0.7
+    temperature = (
+        user.settings.models.generation.temperature 
+        or model.default_temperature 
+        or 0.7
+    )
+    
+    # Get max_tokens if specified
+    max_tokens = user.settings.models.generation.max_tokens
     
     # Use the model and settings for generation
     response = await generate(
         model=model,
         temperature=temperature,
+        max_tokens=max_tokens,
         # ... other params
     )
     
     return response
+```
+
+## Centralized Settings Manager
+
+The `UserSettingsManager` class provides a clean, type-safe interface for accessing settings:
+
+- **Organized by domain**: `user.settings.models`, `user.settings.ui`, etc.
+- **Type conversion**: Automatically converts UUIDs from strings
+- **Default handling**: Returns `None` for missing values (no KeyErrors)
+- **Clean updates**: Deep merge support via `update()` method
+- **No clutter**: Keeps the User model clean and focused
+
+### Architecture Benefits
+
+1. **Single Responsibility**: Settings logic is separate from the User model
+2. **Discoverability**: IDE autocomplete works perfectly (`user.settings.models.generation...`)
+3. **Type Safety**: Properties return proper types (UUID, int, float, bool, str)
+4. **Maintainability**: Easy to add new settings categories without modifying User
+5. **Testability**: Can test settings logic independently
+
+### Adding New Settings
+
+To add a new settings category:
+
+1. Add the category to the default settings structure
+2. Create a new accessor class (e.g., `NewCategoryAccessor`)
+3. Add a property to `UserSettingsManager` that returns the accessor
+4. Update documentation
+
+Example:
+
+```python
+# In user_settings.py
+class FeatureFlagsAccessor:
+    def __init__(self, flags: dict):
+        self._data = flags
+    
+    @property
+    def experimental_mode(self) -> bool:
+        return self._data.get("experimental_mode", False)
+
+# In UserSettingsManager
+@property
+def feature_flags(self) -> FeatureFlagsAccessor:
+    """Access feature flags."""
+    return FeatureFlagsAccessor(self._data.get("feature_flags", {}))
 ```
 
 ## Migration

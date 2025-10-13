@@ -15,8 +15,8 @@ class LLMModelSettings(Base):
     max_tokens: Optional[int] = Field(None, gt=0, description="Max tokens override")
 
 
-class LLMDefaults(Base):
-    """Default LLM models and settings for different use cases"""
+class ModelsSettings(Base):
+    """Model preferences and settings for different use cases"""
     generation: LLMModelSettings = Field(
         default_factory=LLMModelSettings,
         description="Settings for test generation"
@@ -78,7 +78,7 @@ class PrivacySettings(Base):
 class UserSettings(Base):
     """Complete user settings schema"""
     version: int = Field(1, description="Settings schema version")
-    llm_defaults: Optional[LLMDefaults] = Field(default_factory=LLMDefaults)
+    models: Optional[ModelsSettings] = Field(default_factory=ModelsSettings)
     ui: Optional[UISettings] = Field(default_factory=UISettings)
     notifications: Optional[NotificationSettings] = Field(default_factory=NotificationSettings)
     localization: Optional[LocalizationSettings] = Field(default_factory=LocalizationSettings)
@@ -88,7 +88,7 @@ class UserSettings(Base):
 
 class UserSettingsUpdate(Base):
     """Schema for updating user settings (all fields optional for partial updates)"""
-    llm_defaults: Optional[LLMDefaults] = None
+    models: Optional[ModelsSettings] = None
     ui: Optional[UISettings] = None
     notifications: Optional[NotificationSettings] = None
     localization: Optional[LocalizationSettings] = None

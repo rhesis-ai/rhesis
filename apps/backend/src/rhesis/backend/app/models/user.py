@@ -1,10 +1,9 @@
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-from typing import Optional
-import uuid
 
 from rhesis.backend.app.models.guid import GUID
+from rhesis.backend.app.models.user_settings import UserSettingsManager
 
 from .base import Base
 
@@ -26,7 +25,7 @@ class User(Base):
     user_settings = Column(
         JSONB,
         nullable=False,
-        server_default='{"version": 1, "llm_defaults": {"generation": {}, "evaluation": {}}}',
+        server_default='{"version": 1, "models": {"generation": {}, "evaluation": {}}}',
     )  # User preferences and settings
 
     # Relationship to subscriptions
@@ -136,66 +135,30 @@ class User(Base):
                 data["last_login_at"] = datetime.fromisoformat(data["last_login_at"])
         return cls(**data)
 
-    # User settings helper methods
-    def get_generation_model_id(self) -> Optional[uuid.UUID]:
-        """Get the user's preferred model ID for test generation"""
-        if not self.user_settings:
-            return None
-        model_id = self.user_settings.get("llm_defaults", {}).get("generation", {}).get("model_id")
-        if model_id:
-            return uuid.UUID(model_id) if isinstance(model_id, str) else model_id
-        return None
-
-    def get_evaluation_model_id(self) -> Optional[uuid.UUID]:
-        """Get the user's preferred model ID for LLM-as-judge evaluation"""
-        if not self.user_settings:
-            return None
-        model_id = self.user_settings.get("llm_defaults", {}).get("evaluation", {}).get("model_id")
-        if model_id:
-            return uuid.UUID(model_id) if isinstance(model_id, str) else model_id
-        return None
-
-    def get_generation_settings(self) -> dict:
-        """Get all generation-related settings"""
-        if not self.user_settings:
-            return {}
-        return self.user_settings.get("llm_defaults", {}).get("generation", {})
-
-    def get_evaluation_settings(self) -> dict:
-        """Get all evaluation-related settings"""
-        if not self.user_settings:
-            return {}
-        return self.user_settings.get("llm_defaults", {}).get("evaluation", {})
-
-    def update_settings(self, updates: dict) -> None:
+    @property
+    def settings(self) -> UserSettingsManager:
         """
-        Deep merge updates into existing settings.
+        Centralized access to user settings.
         
-        Args:
-            updates: Dictionary of settings to update (will be deep merged)
+        Provides a clean interface for accessing and updating all user preferences.
         
-        Example:
-            user.update_settings({
-                "llm_defaults": {
-                    "generation": {
-                        "model_id": "uuid-string",
-                        "temperature": 0.7
-                    }
+        Usage:
+            # Access model settings
+            model_id = user.settings.models.generation.model_id
+            temperature = user.settings.models.generation.temperature
+            eval_model = user.settings.models.evaluation.model_id
+            
+            # Access UI settings
+            theme = user.settings.ui.theme
+            page_size = user.settings.ui.default_page_size
+            
+            # Update settings
+            user.settings.update({
+                "models": {
+                    "generation": {"model_id": str(model.id), "temperature": 0.7}
                 }
             })
+            # After update, commit to persist changes
+            self.user_settings = user.settings.raw
         """
-        from copy import deepcopy
-
-        current = deepcopy(self.user_settings or {})
-        self.user_settings = self._deep_merge(current, updates)
-
-    @staticmethod
-    def _deep_merge(base: dict, updates: dict) -> dict:
-        """Deep merge two dictionaries"""
-        result = base.copy()
-        for key, value in updates.items():
-            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                result[key] = User._deep_merge(result[key], value)
-            else:
-                result[key] = value
-        return result
+        return UserSettingsManager(self.user_settings)
