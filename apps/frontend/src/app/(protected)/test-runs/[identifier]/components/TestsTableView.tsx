@@ -30,6 +30,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckIcon from '@mui/icons-material/Check';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDetailPanel from './TestDetailPanel';
@@ -444,106 +445,93 @@ export default function TestsTableView({
                       </Tooltip>
                     </TableCell>
 
-                    {/* Evaluation Column */}
+                    {/* Review Column */}
                     <TableCell>
                       <Box
                         sx={{
                           display: 'flex',
-                          flexDirection: 'column',
-                          gap: 1,
+                          alignItems: 'center',
+                          gap: 1.5,
                         }}
                       >
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            flexWrap: 'wrap',
-                          }}
+                        {/* Machine Evaluation Icon */}
+                        <Tooltip
+                          title={`Automated: ${status.label} (${status.count})${
+                            failedMetrics.length > 0
+                              ? ` - Failed: ${failedMetrics.join(', ')}`
+                              : ''
+                          }`}
                         >
-                          {status.passed ? (
-                            <CheckCircleOutlineIcon
-                              sx={{
-                                fontSize: 20,
-                                color: 'success.main',
-                              }}
-                            />
-                          ) : (
-                            <CancelOutlinedIcon
-                              sx={{
-                                fontSize: 20,
-                                color: 'error.main',
-                              }}
-                            />
-                          )}
-                          <Chip
-                            label={status.label}
-                            size="small"
-                            color={status.passed ? 'success' : 'error'}
-                            variant="outlined"
-                          />
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ ml: 0.5 }}
-                          >
-                            {status.count}
-                          </Typography>
-                        </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {status.passed ? (
+                              <CheckIcon
+                                sx={{
+                                  fontSize: 20,
+                                  color: status.hasConflict
+                                    ? 'warning.main'
+                                    : 'success.main',
+                                }}
+                              />
+                            ) : (
+                              <CloseIcon
+                                sx={{
+                                  fontSize: 20,
+                                  color: status.hasConflict
+                                    ? 'warning.main'
+                                    : 'error.main',
+                                }}
+                              />
+                            )}
+                          </Box>
+                        </Tooltip>
 
-                        {status.isOverruled && (
+                        {/* Human Review Icon */}
+                        {status.isOverruled ? (
                           <Tooltip
                             title={
                               status.reviewData
-                                ? `Reviewed by ${status.reviewData.reviewer} - ${status.reviewData.comments}`
+                                ? `Manual Review by ${status.reviewData.reviewer}: ${
+                                    status.reviewData.newStatus === 'passed'
+                                      ? 'Passed'
+                                      : 'Failed'
+                                  } - ${status.reviewData.comments}`
                                 : 'Manually reviewed'
                             }
                           >
-                            <Chip
-                              icon={<RateReviewOutlinedIcon sx={{ fontSize: 14 }} />}
-                              label="Reviewed"
-                              size="small"
-                              color={status.hasConflict ? 'warning' : 'info'}
-                              variant="outlined"
-                              sx={{
-                                height: 20,
-                                fontWeight: 600,
-                              }}
-                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              {status.reviewData?.newStatus === 'passed' ? (
+                                <CheckIcon
+                                  sx={{
+                                    fontSize: 20,
+                                    color: status.hasConflict
+                                      ? 'warning.main'
+                                      : 'success.main',
+                                  }}
+                                />
+                              ) : (
+                                <CloseIcon
+                                  sx={{
+                                    fontSize: 20,
+                                    color: status.hasConflict
+                                      ? 'warning.main'
+                                      : 'error.main',
+                                  }}
+                                />
+                              )}
+                            </Box>
                           </Tooltip>
-                        )}
-
-                        {status.hasConflict && (
-                          <Tooltip title="Status mismatch: Review status differs from automated test result">
-                            <Chip
-                              icon={<WarningAmberIcon sx={{ fontSize: 14 }} />}
-                              label="Conflict"
-                              size="small"
-                              color="warning"
-                              variant="outlined"
-                              sx={{
-                                height: 20,
-                                fontWeight: 600,
-                                borderWidth: 1.5,
-                              }}
-                            />
+                        ) : (
+                          <Tooltip title="No manual review yet">
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <CircleOutlinedIcon
+                                sx={{
+                                  fontSize: 20,
+                                  color: 'action.disabled',
+                                  opacity: 0.3,
+                                }}
+                              />
+                            </Box>
                           </Tooltip>
-                        )}
-
-                        {failedMetrics.length > 0 && !status.isOverruled && (
-                          <Box>
-                            <Typography
-                              variant="caption"
-                              color="error.main"
-                              sx={{
-                                display: 'block',
-                              }}
-                            >
-                              Failed: {failedMetrics.slice(0, 2).join(', ')}
-                              {failedMetrics.length > 2 &&
-                                ` +${failedMetrics.length - 2}`}
-                            </Typography>
-                          </Box>
                         )}
                       </Box>
                     </TableCell>
