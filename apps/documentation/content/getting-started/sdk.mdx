@@ -108,6 +108,28 @@ from rhesis.sdk.models import get_model
 model = get_model("gemini/gemini-2.0-flash")
 ```
 
+The above code is equivalent to:
+
+```python
+from rhesis.sdk.models import get_model
+
+model = get_model(provider="gemini", model_name="gemini-2.0-flash")
+```
+
+### Direct import
+
+Alternatively, you can access models by importing the model class directly. When you provide a model name as an argument, that specific model will be used. If no model name is provided, the default model for that provider will be used.
+
+```python
+from rhesis.sdk.models import GeminiLLM, OllamaLLM
+
+# Use default Ollama model
+ollama_model = OllamaLLM()
+
+# Use specific Gemini model
+gemini_model = GeminiLLM('gemini-2.0-flash')
+```
+
 ### Generate content with models
 
 All models share a consistent interface. The primary function is `generate`, which accepts:
@@ -140,7 +162,7 @@ class CityResponse(BaseModel):
 # Use default Rhesis model
 model = get_model()
 output = model.generate(
-    prompt="The list of 5 biggest cities in Germany?", 
+    prompt="The list of 5 biggest cities in Germany?",
     schema=CityResponse
 )
 ```
@@ -157,7 +179,7 @@ from rhesis.sdk.metrics import RhesisPromptMetricNumeric
 # With synthesizers
 model = get_model("gemini")
 synthesizer = PromptSynthesizer(
-    prompt="Generate tests for the car selling chatbot", 
+    prompt="Generate tests for the car selling chatbot",
     model=model
 )
 
