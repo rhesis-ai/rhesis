@@ -71,13 +71,14 @@ export function ConnectionDialog({
 
   const isEditMode = mode === 'edit';
   const isCustomProvider = provider?.type_value === 'vllm';
-  
+
   // Determine requiresEndpoint from either provider or model
-  const requiresEndpoint = isEditMode && model?.provider_type
-    ? PROVIDERS_REQUIRING_ENDPOINT.includes(model.provider_type.type_value)
-    : provider
-    ? PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
-    : false;
+  const requiresEndpoint =
+    isEditMode && model?.provider_type
+      ? PROVIDERS_REQUIRING_ENDPOINT.includes(model.provider_type.type_value)
+      : provider
+        ? PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
+        : false;
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -155,11 +156,15 @@ export function ConnectionDialog({
 
   const handleTestConnection = async () => {
     // Get provider from either new connection or existing model
-    const currentProvider = isEditMode && model?.provider_type 
-      ? model.provider_type 
-      : provider;
+    const currentProvider =
+      isEditMode && model?.provider_type ? model.provider_type : provider;
 
-    if (!currentProvider || !modelName || !apiKey || apiKey === '************') {
+    if (
+      !currentProvider ||
+      !modelName ||
+      !apiKey ||
+      apiKey === '************'
+    ) {
       setTestResult({
         success: false,
         message: 'Please fill in provider, model name, and API key',
@@ -219,14 +224,27 @@ export function ConnectionDialog({
 
         // Try to extract the most user-friendly part of the error
         const lowerError = fullError.toLowerCase();
-        if (lowerError.includes('api key') || lowerError.includes('unauthorized')) {
+        if (
+          lowerError.includes('api key') ||
+          lowerError.includes('unauthorized')
+        ) {
           friendlyMessage = 'Invalid API key. Please check your credentials.';
-        } else if (lowerError.includes('not found') || lowerError.includes('404')) {
+        } else if (
+          lowerError.includes('not found') ||
+          lowerError.includes('404')
+        ) {
           friendlyMessage = `Model '${modelName}' not found for ${currentProvider.type_value}.`;
-        } else if (lowerError.includes('quota') || lowerError.includes('rate limit')) {
+        } else if (
+          lowerError.includes('quota') ||
+          lowerError.includes('rate limit')
+        ) {
           friendlyMessage = 'API quota exceeded or rate limit reached.';
-        } else if (lowerError.includes('connection') || lowerError.includes('timeout')) {
-          friendlyMessage = 'Connection failed. Check endpoint URL and network.';
+        } else if (
+          lowerError.includes('connection') ||
+          lowerError.includes('timeout')
+        ) {
+          friendlyMessage =
+            'Connection failed. Check endpoint URL and network.';
         }
 
         setTestResult({
@@ -236,7 +254,8 @@ export function ConnectionDialog({
         });
       }
     } catch (err) {
-      const fullError = err instanceof Error ? err.message : 'Unknown error occurred';
+      const fullError =
+        err instanceof Error ? err.message : 'Unknown error occurred';
       setTestResult({
         success: false,
         message: 'Failed to test connection. Please try again.',
@@ -269,7 +288,7 @@ export function ConnectionDialog({
         if (apiKey && apiKey.trim() && apiKey !== '************') {
           updates.key = apiKey.trim();
         }
-        
+
         // Update custom headers if any (Authorization and Content-Type are handled automatically)
         if (Object.keys(customHeaders).length > 0) {
           updates.request_headers = customHeaders;
@@ -279,9 +298,7 @@ export function ConnectionDialog({
         setLoading(false);
         onClose();
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to update model'
-        );
+        setError(err instanceof Error ? err.message : 'Failed to update model');
         setLoading(false);
       }
     } else {
@@ -334,19 +351,23 @@ export function ConnectionDialog({
   };
 
   // Determine icon and display name based on mode
-  const providerIconKey = isEditMode && model
-    ? model.icon || model.provider_type?.type_value || 'custom'
-    : provider?.type_value || 'custom';
-  
+  const providerIconKey =
+    isEditMode && model
+      ? model.icon || model.provider_type?.type_value || 'custom'
+      : provider?.type_value || 'custom';
+
   const providerIcon = PROVIDER_ICONS[providerIconKey] || (
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
-  
-  const displayName = isEditMode && model
-    ? model.provider_type?.description || model.provider_type?.type_value || 'Provider'
-    : isCustomProvider
-    ? 'Custom Provider'
-    : provider?.description || provider?.type_value || 'Provider';
+
+  const displayName =
+    isEditMode && model
+      ? model.provider_type?.description ||
+        model.provider_type?.type_value ||
+        'Provider'
+      : isCustomProvider
+        ? 'Custom Provider'
+        : provider?.description || provider?.type_value || 'Provider';
 
   return (
     <Dialog
@@ -366,7 +387,7 @@ export function ConnectionDialog({
               {isEditMode ? `Edit ${displayName}` : `Connect to ${displayName}`}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {isEditMode 
+              {isEditMode
                 ? 'Update your connection settings'
                 : 'Configure your connection settings below'}
             </Typography>
@@ -476,22 +497,23 @@ export function ConnectionDialog({
                 helperText={
                   isEditMode
                     ? apiKey !== '************' && apiKey !== ''
-                      ? "New API key will replace the current one"
+                      ? 'New API key will replace the current one'
                       : 'Click to update the API key'
                     : isCustomProvider
-                    ? 'Authentication key for your deployment (if required)'
-                    : "Your API key from the provider's dashboard"
+                      ? 'Authentication key for your deployment (if required)'
+                      : "Your API key from the provider's dashboard"
                 }
                 InputProps={{
-                  endAdornment: isEditMode && apiKey && apiKey !== '************' ? (
-                    <IconButton
-                      size="small"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      edge="end"
-                    >
-                      <InfoOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  ) : null,
+                  endAdornment:
+                    isEditMode && apiKey && apiKey !== '************' ? (
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        edge="end"
+                      >
+                        <InfoOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    ) : null,
                 }}
               />
               {(!isEditMode || (isEditMode && apiKey !== '************')) && (
@@ -513,7 +535,7 @@ export function ConnectionDialog({
                       <CheckCircleIcon />
                     )
                   }
-                  sx={{ 
+                  sx={{
                     minWidth: '120px',
                     height: '56px',
                     mt: 0,
@@ -543,32 +565,38 @@ export function ConnectionDialog({
               >
                 <Box>
                   {testResult.message}
-                  {!testResult.success && testResult.fullError && showFullError && (
-                    <Box
-                      sx={{
-                        mt: 2,
-                        pt: 2,
-                        borderTop: '1px solid',
-                        borderColor: 'divider',
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
-                        Technical Details:
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        component="pre"
+                  {!testResult.success &&
+                    testResult.fullError &&
+                    showFullError && (
+                      <Box
                         sx={{
-                          fontSize: theme => theme.typography.caption.fontSize,
-                          overflowX: 'auto',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
+                          mt: 2,
+                          pt: 2,
+                          borderTop: '1px solid',
+                          borderColor: 'divider',
                         }}
                       >
-                        {testResult.fullError}
-                      </Typography>
-                    </Box>
-                  )}
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 600, display: 'block', mb: 1 }}
+                        >
+                          Technical Details:
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          component="pre"
+                          sx={{
+                            fontSize: theme =>
+                              theme.typography.caption.fontSize,
+                            overflowX: 'auto',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {testResult.fullError}
+                        </Typography>
+                      </Box>
+                    )}
                 </Box>
               </Alert>
             )}
@@ -583,7 +611,8 @@ export function ConnectionDialog({
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Add any additional HTTP headers required for your API calls.
-                Authorization and Content-Type headers are handled automatically.
+                Authorization and Content-Type headers are handled
+                automatically.
               </Typography>
 
               {/* Existing Headers */}
@@ -685,8 +714,10 @@ export function ConnectionDialog({
                 <CircularProgress size={16} />
                 {isEditMode ? 'Updating...' : 'Connecting...'}
               </Box>
+            ) : isEditMode ? (
+              'Update'
             ) : (
-              isEditMode ? 'Update' : 'Connect'
+              'Connect'
             )}
           </Button>
         </DialogActions>
@@ -694,4 +725,3 @@ export function ConnectionDialog({
     </Dialog>
   );
 }
-
