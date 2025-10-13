@@ -24,7 +24,7 @@ import {
   TerminalIcon,
   AssignmentIcon,
   SettingsIcon,
-  MenuBookIcon
+  MenuBookIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';

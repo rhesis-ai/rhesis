@@ -9,12 +9,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Source } from '@/utils/api-client/interfaces/source';
-import {
-  Box,
-  Chip,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Box, Chip, Tooltip, Typography } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -35,7 +30,7 @@ const formatFileSize = (bytes?: number) => {
 
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${Math.round(bytes / Math.pow(1024, i) * 100) / 100} ${sizes[i]}`;
+  return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
 };
 
 // Chip container for tags with overflow handling
@@ -102,16 +97,24 @@ const ChipContainer = ({ items }: { items: string[] }) => {
   if (items.length === 0) return '-';
 
   return (
-    <Box
-      ref={containerRef}
-      className={styles.chipContainer}
-    >
+    <Box ref={containerRef} className={styles.chipContainer}>
       {visibleItems.map((item: string) => (
-        <Chip key={item} label={item} size="small" variant="outlined" className={styles.tagChip} />
+        <Chip
+          key={item}
+          label={item}
+          size="small"
+          variant="outlined"
+          className={styles.tagChip}
+        />
       ))}
       {remainingCount > 0 && (
         <Tooltip title={items.slice(visibleItems.length).join(', ')} arrow>
-          <Chip label={`+${remainingCount}`} size="small" variant="outlined" className={styles.overflowChip} />
+          <Chip
+            label={`+${remainingCount}`}
+            size="small"
+            variant="outlined"
+            className={styles.overflowChip}
+          />
         </Tooltip>
       )}
     </Box>
@@ -194,14 +197,20 @@ export default function SourcesGrid({
   }, [fetchSources, onRefresh]);
 
   // Handle pagination
-  const handlePaginationModelChange = useCallback((newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-  }, []);
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+    },
+    []
+  );
 
   // Handle selection change
-  const handleSelectionChange = useCallback((newSelection: GridRowSelectionModel) => {
-    setSelectedRows(newSelection);
-  }, []);
+  const handleSelectionChange = useCallback(
+    (newSelection: GridRowSelectionModel) => {
+      setSelectedRows(newSelection);
+    },
+    []
+  );
 
   // Handle delete sources
   const handleDeleteSources = () => {
@@ -254,7 +263,9 @@ export default function SourcesGrid({
         icon: <UploadIcon />,
         variant: 'contained' as const,
         onClick: () => {
-          notifications.show('Upload functionality coming soon!', { severity: 'info' });
+          notifications.show('Upload functionality coming soon!', {
+            severity: 'info',
+          });
         },
       },
     ];
@@ -278,20 +289,20 @@ export default function SourcesGrid({
       field: 'title',
       headerName: 'Title',
       width: 300,
-      renderCell: (params) => {
+      renderCell: params => {
         const source = params.row as Source;
 
         return (
           <Box className={styles.sourceContent}>
-            <Typography variant="body2">
-              {source.title}
-            </Typography>
+            <Typography variant="body2">{source.title}</Typography>
             {source.description && (
-              <Typography variant="caption" className={styles.sourceDescription}>
+              <Typography
+                variant="caption"
+                className={styles.sourceDescription}
+              >
                 {source.description.length > 50
                   ? `${source.description.substring(0, 50)}...`
-                  : source.description
-                }
+                  : source.description}
               </Typography>
             )}
           </Box>
@@ -302,7 +313,7 @@ export default function SourcesGrid({
       field: 'type',
       headerName: 'Type',
       width: 120,
-      renderCell: (params) => {
+      renderCell: params => {
         const source = params.row as Source;
         const metadata = source.source_metadata || {};
 
@@ -314,9 +325,8 @@ export default function SourcesGrid({
           if (!ext) return 'unknown';
 
           // Handle special cases where we want to normalize extensions
-          const normalizedExt = ext === 'htm' ? 'html' :
-                               ext === 'jpeg' ? 'jpg' :
-                               ext;
+          const normalizedExt =
+            ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
 
           return normalizedExt;
         };
@@ -337,7 +347,7 @@ export default function SourcesGrid({
       field: 'size',
       headerName: 'Size',
       width: 100,
-      renderCell: (params) => {
+      renderCell: params => {
         const source = params.row as Source;
         const metadata = source.source_metadata || {};
         const fileSize = metadata.file_size;
@@ -353,14 +363,16 @@ export default function SourcesGrid({
       field: 'created_at',
       headerName: 'Uploaded',
       width: 120,
-      renderCell: (params) => {
+      renderCell: params => {
         const source = params.row as Source;
 
         const formatDate = (dateString: string | null | undefined) => {
           if (!dateString) return 'Unknown';
           try {
             const date = new Date(dateString);
-            return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleDateString();
+            return isNaN(date.getTime())
+              ? 'Invalid date'
+              : date.toLocaleDateString();
           } catch {
             return 'Invalid date';
           }
@@ -380,7 +392,7 @@ export default function SourcesGrid({
       field: 'tags',
       headerName: 'Tags',
       width: 200,
-      renderCell: (params) => {
+      renderCell: params => {
         const source = params.row as Source;
         return <ChipContainer items={source.tags || []} />;
       },
@@ -391,7 +403,7 @@ export default function SourcesGrid({
       width: 100,
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
+      renderCell: params => {
         const source = params.row as Source;
         const count = source.counts?.comments || 0;
         if (count === 0) return null;
