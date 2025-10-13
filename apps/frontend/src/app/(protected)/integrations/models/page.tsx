@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { DeleteIcon, AddIcon, CloudIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -190,7 +191,9 @@ function ConnectionDialog({
   const [testResult, setTestResult] = useState<{
     success: boolean;
     message: string;
+    fullError?: string;
   } | null>(null);
+  const [showFullError, setShowFullError] = useState(false);
 
   const isCustomProvider = provider?.type_value === 'vllm';
   const requiresEndpoint = provider
@@ -215,6 +218,7 @@ function ConnectionDialog({
       setNewHeaderValue('');
       setError(null);
       setTestResult(null);
+      setShowFullError(false);
     }
   }, [provider]);
 
@@ -259,6 +263,7 @@ function ConnectionDialog({
     setTestingConnection(true);
     setTestResult(null);
     setError(null);
+    setShowFullError(false);
 
     try {
       const response = await fetch(
@@ -280,17 +285,40 @@ function ConnectionDialog({
 
       const result = await response.json();
 
-      setTestResult({
-        success: result.success,
-        message: result.message,
-      });
+      if (result.success) {
+        setTestResult({
+          success: true,
+          message: result.message,
+        });
+      } else {
+        // Extract a friendly error message
+        const fullError = result.message;
+        let friendlyMessage = 'Connection test failed';
+
+        // Try to extract the most user-friendly part of the error
+        const lowerError = fullError.toLowerCase();
+        if (lowerError.includes('api key') || lowerError.includes('unauthorized')) {
+          friendlyMessage = 'Invalid API key. Please check your credentials.';
+        } else if (lowerError.includes('not found') || lowerError.includes('404')) {
+          friendlyMessage = `Model '${modelName}' not found for ${provider.type_value}.`;
+        } else if (lowerError.includes('quota') || lowerError.includes('rate limit')) {
+          friendlyMessage = 'API quota exceeded or rate limit reached.';
+        } else if (lowerError.includes('connection') || lowerError.includes('timeout')) {
+          friendlyMessage = 'Connection failed. Check endpoint URL and network.';
+        }
+
+        setTestResult({
+          success: false,
+          message: friendlyMessage,
+          fullError: fullError,
+        });
+      }
     } catch (err) {
+      const fullError = err instanceof Error ? err.message : 'Unknown error occurred';
       setTestResult({
         success: false,
-        message:
-          err instanceof Error
-            ? err.message
-            : 'Failed to test connection. Please try again.',
+        message: 'Failed to test connection. Please try again.',
+        fullError: fullError,
       });
     } finally {
       setTestingConnection(false);
@@ -481,12 +509,12 @@ function ConnectionDialog({
                   )
                 }
                 sx={{ 
-                  minWidth: '160px',
+                  minWidth: '120px',
                   height: '56px',
                   mt: 0,
                 }}
               >
-                {testingConnection ? 'Testing...' : 'Test Connection'}
+                {testingConnection ? 'Testing...' : 'Test'}
               </Button>
             </Box>
 
@@ -495,8 +523,47 @@ function ConnectionDialog({
               <Alert
                 severity={testResult.success ? 'success' : 'error'}
                 sx={{ whiteSpace: 'pre-line' }}
+                action={
+                  !testResult.success && testResult.fullError ? (
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowFullError(!showFullError)}
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  ) : null
+                }
               >
-                {testResult.message}
+                <Box>
+                  {testResult.message}
+                  {!testResult.success && testResult.fullError && showFullError && (
+                    <Box
+                      sx={{
+                        mt: 2,
+                        pt: 2,
+                        borderTop: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
+                        Technical Details:
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        component="pre"
+                        sx={{
+                          fontSize: '0.7rem',
+                          overflowX: 'auto',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {testResult.fullError}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
               </Alert>
             )}
 
