@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-10-13
+
+### Added
+- Implemented soft delete functionality for users, tests, and other data models, including recycle bin management endpoints for restoring deleted items.
+- Added support for test reviews, including API endpoints for review manipulation, a `test_reviews` column to test results, and derived properties `matches_review` and `last_review` on test results.
+- Implemented encryption for sensitive data in the Model and Token tables, including endpoint authentication fields.
+- Added a hash-based token lookup mechanism for encrypted tokens.
+- Added a "leave organization" feature for users.
+- Added GDPR user anonymization function.
+- Added individual test statistics endpoint.
+
+### Changed
+- Updated CRUD utilities and QueryBuilder to support soft deletion.
+- Enhanced test configuration generation and schema.
+- Refactored test statistics into a dedicated stats module.
+- Re-inviting users who left organizations is now supported.
+
+### Fixed
+- Resolved issues with soft delete filtering in raw queries.
+- Fixed a 500 error on user removal by implementing soft delete.
+- Corrected organization filtering and token count for tokens.
+- Addressed worker-based generation issues.
+- Explicitly set the Gemini model in test generation.
+- Enabled tags, tasks, and comments for test results.
+
+### Removed
+- Removed legacy comment lines in `database.py`.
+- Removed SDK configuration and added a model parameter for test generation.
+- Removed frontend content related to test reviews, moving documentation to the backend.
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Added
