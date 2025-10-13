@@ -5,7 +5,7 @@ export const generateStaticParams = generateStaticParamsFor('mdxPath')
 
 export async function generateMetadata(props) {
   const params = await props.params
-  
+
   try {
     const { metadata } = await importPage(params.mdxPath)
     return metadata
@@ -13,7 +13,7 @@ export async function generateMetadata(props) {
     console.warn('Failed to load metadata for path:', params.mdxPath, error)
     return {
       title: 'Rhesis Documentation',
-      description: 'AI-powered testing and evaluation platform'
+      description: 'AI-powered testing and evaluation platform',
     }
   }
 }
@@ -22,14 +22,9 @@ const Wrapper = getMDXComponents().wrapper
 
 export default async function Page(props) {
   const params = await props.params
-  
+
   try {
-    const {
-      default: MDXContent,
-      toc,
-      metadata,
-      sourceCode
-    } = await importPage(params.mdxPath)
+    const { default: MDXContent, toc, metadata, sourceCode } = await importPage(params.mdxPath)
     return (
       <Wrapper toc={toc} metadata={metadata} sourceCode={sourceCode}>
         <MDXContent {...props} params={params} />

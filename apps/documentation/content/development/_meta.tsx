@@ -6,7 +6,7 @@ const meta: MetaRecord = {
   backend: 'Backend',
   sdk: 'SDK',
   'api-reference': 'API Reference',
-  contributing: 'Contributing'
+  contributing: 'Contributing',
 }
 
 export default meta

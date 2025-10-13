@@ -3,8 +3,8 @@
 This document outlines the coding standards and best practices for the Rhesis project. Following these standards ensures code quality, maintainability, and consistency across the codebase.
 
 <Callout type="default">
-  **Code Quality Matters**
-  Consistent coding standards help us maintain high-quality code, improve collaboration, and reduce bugs. Please follow these guidelines for all contributions.
+  **Code Quality Matters** Consistent coding standards help us maintain high-quality code, improve
+  collaboration, and reduce bugs. Please follow these guidelines for all contributions.
 </Callout>
 
 ## Python Standards
@@ -14,6 +14,7 @@ This document outlines the coding standards and best practices for the Rhesis pr
 We follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) and use [Ruff](https://docs.astral.sh/ruff/) for automatic formatting and linting.
 
 **Basic Rules:**
+
 - **Indentation**: 4 spaces (no tabs)
 - **Line Length**: 88 characters maximum
 - **Naming**: `snake_case` for variables, functions, and modules
@@ -69,19 +70,19 @@ def calculate_test_coverage(
 ) -> float:
     """
     Calculate test coverage percentage from test results.
-    
+
     Args:
         test_results: List of test result dictionaries containing
             status and other test information.
         threshold: Optional minimum coverage threshold. If provided,
             raises ValueError if coverage is below this value.
-            
+
     Returns:
         Coverage percentage as a float between 0.0 and 100.0.
-        
+
     Raises:
         ValueError: If test_results is empty or coverage is below threshold.
-        
+
     Example:
         >>> results = [{'status': 'passed'}, {'status': 'failed'}]
         >>> calculate_test_coverage(results)
@@ -89,20 +90,20 @@ def calculate_test_coverage(
     """
     if not test_results:
         raise ValueError("Test results cannot be empty")
-    
+
     total_tests = len(test_results)
     passed_tests = sum(
-        1 for result in test_results 
+        1 for result in test_results
         if result.get('status') == 'passed'
     )
-    
+
     coverage = (passed_tests / total_tests) * 100
-    
+
     if threshold and coverage < threshold:
         raise ValueError(
             f"Coverage {coverage}% below threshold {threshold}%"
         )
-    
+
     return coverage
 ```
 
@@ -165,17 +166,17 @@ from rhesis.backend.models.user import User
 
 class TestUserService:
     """Test cases for UserService."""
-    
+
     @pytest.fixture
     def mock_db(self):
         """Create a mock database session."""
         return Mock()
-    
+
     @pytest.fixture
     def user_service(self, mock_db):
         """Create UserService instance with mock database."""
         return UserService(mock_db)
-    
+
     def test_create_user_success(self, user_service, mock_db):
         """Test successful user creation."""
         # Arrange
@@ -192,17 +193,17 @@ class TestUserService:
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
         mock_db.refresh.return_value = None
-        
+
         # Act
         result = user_service.create_user(user_data)
-        
+
         # Assert
         assert result.email == "test@example.com"
         assert result.name == "Test User"
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called_once()
         mock_db.refresh.assert_called_once()
-    
+
     def test_create_user_duplicate_email(self, user_service, mock_db):
         """Test user creation with duplicate email raises error."""
         # Arrange
@@ -212,7 +213,7 @@ class TestUserService:
             password="securepassword"
         )
         mock_db.add.side_effect = IntegrityError("", "", "")
-        
+
         # Act & Assert
         with pytest.raises(UserAlreadyExistsError):
             user_service.create_user(user_data)
@@ -225,6 +226,7 @@ class TestUserService:
 We use ESLint and Prettier for code formatting and linting.
 
 **Basic Rules:**
+
 - **Indentation**: 2 spaces
 - **Line Length**: 80 characters maximum
 - **Naming**: `camelCase` for variables and functions
@@ -238,31 +240,29 @@ Use TypeScript for all new code with strict configuration:
 ```typescript
 // Define interfaces for data structures
 interface User {
-  id: string;
-  email: string;
-  name: string;
-  organizationId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  id: string
+  email: string
+  name: string
+  organizationId: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 interface UserCreateRequest {
-  email: string;
-  name: string;
-  password: string;
-  organizationId?: string;
+  email: string
+  name: string
+  password: string
+  organizationId?: string
 }
 
 interface ApiResponse<T> {
-  data: T;
-  message: string;
-  success: boolean;
+  data: T
+  message: string
+  success: boolean
 }
 
 // Use proper typing for functions
-const createUser = async (
-  userData: UserCreateRequest
-): Promise<ApiResponse<User>> => {
+const createUser = async (userData: UserCreateRequest): Promise<ApiResponse<User>> => {
   try {
     const response = await fetch('/api/users', {
       method: 'POST',
@@ -270,18 +270,18 @@ const createUser = async (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(userData),
-    });
-    
+    })
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
-    const result = await response.json();
-    return result;
+
+    const result = await response.json()
+    return result
   } catch (error) {
-    throw new Error(`Failed to create user: ${error.message}`);
+    throw new Error(`Failed to create user: ${error.message}`)
   }
-};
+}
 ```
 
 ### React Components
@@ -345,7 +345,7 @@ export const UserForm: React.FC<UserFormProps> = ({
           disabled={isLoading}
         />
       </div>
-      
+
       <div>
         <label htmlFor="name" className="block text-sm font-medium">
           Name
@@ -360,7 +360,7 @@ export const UserForm: React.FC<UserFormProps> = ({
           disabled={isLoading}
         />
       </div>
-      
+
       <button
         type="submit"
         disabled={isLoading}
@@ -378,8 +378,8 @@ export const UserForm: React.FC<UserFormProps> = ({
 Create reusable custom hooks for common functionality:
 
 ```typescript
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export const useUsers = (organizationId: string) => {
   return useQuery({
@@ -387,55 +387,52 @@ export const useUsers = (organizationId: string) => {
     queryFn: () => api.getUsers(organizationId),
     enabled: !!organizationId,
     staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-};
+  })
+}
 
 export const useCreateUser = () => {
-  const queryClient = useQueryClient();
-  
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: api.createUser,
-    onSuccess: (newUser) => {
+    onSuccess: newUser => {
       // Invalidate and refetch users list
-      queryClient.invalidateQueries(['users', newUser.organizationId]);
-      
-      // Add new user to cache
-      queryClient.setQueryData(
-        ['users', newUser.organizationId],
-        (oldUsers: User[] = []) => [...oldUsers, newUser]
-      );
-    },
-    onError: (error) => {
-      console.error('Failed to create user:', error);
-    },
-  });
-};
+      queryClient.invalidateQueries(['users', newUser.organizationId])
 
-export const useLocalStorage = <T>(
-  key: string,
-  initialValue: T
-): [T, (value: T) => void] => {
+      // Add new user to cache
+      queryClient.setQueryData(['users', newUser.organizationId], (oldUsers: User[] = []) => [
+        ...oldUsers,
+        newUser,
+      ])
+    },
+    onError: error => {
+      console.error('Failed to create user:', error)
+    },
+  })
+}
+
+export const useLocalStorage = <T>(key: string, initialValue: T): [T, (value: T) => void] => {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      const item = window.localStorage.getItem(key)
+      return item ? JSON.parse(item) : initialValue
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
-      return initialValue;
+      console.error(`Error reading localStorage key "${key}":`, error)
+      return initialValue
     }
-  });
+  })
 
   const setValue = (value: T) => {
     try {
-      setStoredValue(value);
-      window.localStorage.setItem(key, JSON.stringify(value));
+      setStoredValue(value)
+      window.localStorage.setItem(key, JSON.stringify(value))
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
+      console.error(`Error setting localStorage key "${key}":`, error)
     }
-  };
+  }
 
-  return [storedValue, setValue];
-};
+  return [storedValue, setValue]
+}
 ```
 
 ### Error Handling
@@ -539,27 +536,28 @@ const handleClick = useCallback(() => {
 ### Security Best Practices
 
 <Callout type="default">
-  **Security Guidelines**
-  - Always validate and sanitize user input
-  - Use parameterized queries to prevent SQL injection
-  - Implement proper authentication and authorization
-  - Keep dependencies updated and scan for vulnerabilities
-  - Never expose sensitive information in logs or error messages
+  **Security Guidelines** - Always validate and sanitize user input - Use parameterized queries to
+  prevent SQL injection - Implement proper authentication and authorization - Keep dependencies
+  updated and scan for vulnerabilities - Never expose sensitive information in logs or error
+  messages
 </Callout>
 
 ### Documentation Standards
 
 **Code Comments:**
+
 - Write comments for complex logic
 - Explain "why" not "what"
 - Keep comments up to date with code changes
 
 **README Files:**
+
 - Include setup instructions
 - Document API usage
 - Provide examples
 
 **API Documentation:**
+
 - Use OpenAPI/Swagger for backend APIs
 - Include request/response examples
 - Document error codes and messages
@@ -625,9 +623,7 @@ When reviewing code, check for:
 ---
 
 <Callout type="default">
-  **Questions?**
-  If you have questions about these coding standards:
-  - Check our [Development Setup Guide](/docs/development/contributing/development-setup)
-  - Ask in [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
-  - Review existing code for examples
+  **Questions?** If you have questions about these coding standards: - Check our [Development Setup
+  Guide](/docs/development/contributing/development-setup) - Ask in [GitHub
+  Discussions](https://github.com/rhesis-ai/rhesis/discussions) - Review existing code for examples
 </Callout>

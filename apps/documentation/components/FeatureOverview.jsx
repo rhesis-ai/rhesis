@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
-import ScienceOutlined from '@mui/icons-material/ScienceOutlined';
-import AnalyticsOutlined from '@mui/icons-material/AnalyticsOutlined';
-import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
-import GroupOutlined from '@mui/icons-material/GroupOutlined';
+import ScienceOutlined from '@mui/icons-material/ScienceOutlined'
+import AnalyticsOutlined from '@mui/icons-material/AnalyticsOutlined'
+import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined'
+import GroupOutlined from '@mui/icons-material/GroupOutlined'
 
 /**
  * FeatureOverview Component
@@ -23,40 +23,40 @@ import GroupOutlined from '@mui/icons-material/GroupOutlined';
 const features = [
   {
     icon: ScienceOutlined,
-    title: "Test Generation",
+    title: 'Test Generation',
     items: [
-      "AI-powered test scenario creation",
-      "Domain expert knowledge integration",
-      "Automated edge case coverage",
+      'AI-powered test scenario creation',
+      'Domain expert knowledge integration',
+      'Automated edge case coverage',
     ],
   },
   {
     icon: DescriptionOutlined,
-    title: "Knowledge Support",
+    title: 'Knowledge Support',
     items: [
-      "Upload and store documents",
-      "Use documents during test generation",
-      "Improve context-based generation",
+      'Upload and store documents',
+      'Use documents during test generation',
+      'Improve context-based generation',
     ],
   },
   {
     icon: AnalyticsOutlined,
-    title: "Evaluation",
+    title: 'Evaluation',
     items: [
-      "LLM-based quality metrics",
-      "Custom evaluation criteria",
-      "Detailed performance analytics",
+      'LLM-based quality metrics',
+      'Custom evaluation criteria',
+      'Detailed performance analytics',
     ],
   },
 ]
 
 const platformFeature = {
   icon: GroupOutlined,
-  title: "Collaborative Platform",
+  title: 'Collaborative Platform',
   items: [
-    "Team-based project management and organization",
-    "SDK and API-first architecture for seamless integration",
-    "Comprehensive test result tracking and comparison tools",
+    'Team-based project management and organization',
+    'SDK and API-first architecture for seamless integration',
+    'Comprehensive test result tracking and comparison tools',
   ],
 }
 
@@ -135,7 +135,7 @@ export const FeatureOverview = () => {
     <div style={styles.container} className="not-prose rhesis-feature-overview">
       {/* Top 3 cards */}
       <div style={styles.gridTop}>
-        {features.map((feature) => (
+        {features.map(feature => (
           <div key={feature.title} style={styles.card}>
             <div style={styles.cardHeader}>
               <feature.icon className="feature-icon" style={styles.icon} />
@@ -170,20 +170,20 @@ export const FeatureOverview = () => {
       </div>
 
       <style jsx>{`
-        [data-theme="dark"] .rhesis-feature-overview {
+        [data-theme='dark'] .rhesis-feature-overview {
           --border-color: #30363d;
-          --card-bg: #161B22;
-          --text-primary: #E6EDF3;
-          --text-secondary: #A9B1BB;
-          --bullet-color: #6B7280;
+          --card-bg: #161b22;
+          --text-primary: #e6edf3;
+          --text-secondary: #a9b1bb;
+          --bullet-color: #6b7280;
         }
 
-        [data-theme="light"] .rhesis-feature-overview {
+        [data-theme='light'] .rhesis-feature-overview {
           --border-color: #e5e7eb;
           --card-bg: #ffffff;
-          --text-primary: #3D3D3D;
-          --text-secondary: #6B7280;
-          --bullet-color: #9CA3AF;
+          --text-primary: #3d3d3d;
+          --text-secondary: #6b7280;
+          --bullet-color: #9ca3af;
         }
 
         @media (max-width: 768px) {

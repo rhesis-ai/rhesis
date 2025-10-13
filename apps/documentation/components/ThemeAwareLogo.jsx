@@ -21,13 +21,15 @@ function ThemeAwareLogo() {
           alt="Rhesis"
           style={{ height: '40px', width: 'auto' }}
         />
-        <span style={{
-          fontFamily: '"Sora", sans-serif',
-          fontWeight: 600,
-          fontSize: '1.1rem',
-          color: '#2AA1CE',
-          whiteSpace: 'nowrap'
-        }}>
+        <span
+          style={{
+            fontFamily: '"Sora", sans-serif',
+            fontWeight: 600,
+            fontSize: '1.1rem',
+            color: '#2AA1CE',
+            whiteSpace: 'nowrap',
+          }}
+        >
           Documentation
         </span>
       </div>
@@ -39,17 +41,19 @@ function ThemeAwareLogo() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <img
-        src={isDark ? "/logo/rhesis-logo-website-white.png" : "/logo/rhesis-logo-website.png"}
+        src={isDark ? '/logo/rhesis-logo-website-white.png' : '/logo/rhesis-logo-website.png'}
         alt="Rhesis"
         style={{ height: '40px', width: 'auto' }}
       />
-      <span style={{
-        fontFamily: '"Sora", sans-serif',
-        fontWeight: 600,
-        fontSize: '1.1rem',
-        color: isDark ? '#3BC4F2' : '#2AA1CE',
-        whiteSpace: 'nowrap'
-      }}>
+      <span
+        style={{
+          fontFamily: '"Sora", sans-serif',
+          fontWeight: 600,
+          fontSize: '1.1rem',
+          color: isDark ? '#3BC4F2' : '#2AA1CE',
+          whiteSpace: 'nowrap',
+        }}
+      >
         Documentation
       </span>
     </div>

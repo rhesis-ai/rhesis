@@ -23,6 +23,7 @@ Each metric has a name and description that identifies what it evaluates. The ev
 ### Behaviors (Metric Groups)
 
 Behaviors are organizational categories that group related metrics. For example:
+
 - **Accuracy**: Metrics for factual correctness
 - **Tone**: Metrics for appropriate communication style
 - **Safety**: Metrics for harmful content detection
@@ -47,44 +48,54 @@ Create new metrics using a 3-step wizard:
 ### Step 1: Metric Information
 
 **Required Fields**:
+
 - **Name**: Metric identifier
 - **Description**: What the metric evaluates
 
 **Optional Fields**:
+
 - **Tags**: Categorization labels
 
 ### Step 2: Evaluation Configuration
 
 **Model Selection**:
+
 - Choose LLM model for evaluation (dropdown of available models)
 
 **Evaluation Prompt**:
+
 - Instructions for the LLM on what to evaluate
 - Describes the evaluation criteria
 
 **Evaluation Steps**:
+
 - Numbered list of steps the LLM should follow
 - Add multiple steps using "+ Add Step" button
 - Remove steps as needed
 
 **Reasoning**:
+
 - Instructions for how the LLM should explain its evaluation
 
 ### Step 3: Score Configuration & Review
 
 **Score Type**:
+
 - **Binary**: Simple pass/fail
 - **Numeric**: Score range with threshold
 
 **For Numeric Scores**:
+
 - **Min Score**: Minimum possible value
 - **Max Score**: Maximum possible value
 - **Threshold**: Minimum score to pass
 
 **Explanation**:
+
 - Description of how scoring works
 
 **Review**:
+
 - Summary of all configured settings
 - Edit previous steps if needed
 - Submit to create metric
@@ -118,28 +129,32 @@ Create behaviors by clicking "+ Add New Section" on the Selected Metrics tab, en
 Available filters in Metrics Directory:
 
 **Search Bar**:
+
 - Searches metric names and descriptions
 - Real-time filtering
 
 **Backend Filter**:
+
 - Multi-select dropdown
 - Filter by evaluation backend type
 
 **Metric Type Filter**:
+
 - Multi-select dropdown
 - Types: Grading, API Call, Custom Code, Custom Prompt
 
 **Score Type Filter**:
+
 - Multi-select dropdown
 - Options: Binary, Numeric
 
 **Reset Filters**:
+
 - "Reset Filters" button clears all active filters
 
 ---
 
 <Callout type="default">
-  **Next Steps**
-  - Use metrics in [Tests](/docs/platform/tests-generation) by assigning them to behaviors
-  - View metric performance in [Test Results](/docs/platform/test-results)
+  **Next Steps** - Use metrics in [Tests](/docs/platform/tests-generation) by assigning them to
+  behaviors - View metric performance in [Test Results](/docs/platform/test-results)
 </Callout>

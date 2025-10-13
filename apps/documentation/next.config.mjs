@@ -8,8 +8,8 @@ const __dirname = path.dirname(__filename)
 const withNextra = nextra({})
 
 export default withNextra({
-  webpack: (config) => {
+  webpack: config => {
     config.resolve.alias['@'] = path.resolve(__dirname)
     return config
-  }
+  },
 })

@@ -3,8 +3,9 @@
 Welcome to the Rhesis Frontend documentation. This section covers the React-based frontend application that provides the user interface for the Rhesis platform.
 
 <Callout type="default">
-  **Frontend Overview**
-  The Rhesis frontend is built with **React 18**, **TypeScript**, and **Next.js 15**, providing a modern, responsive user interface with real-time collaboration features.
+  **Frontend Overview** The Rhesis frontend is built with **React 18**, **TypeScript**, and
+  **Next.js 15**, providing a modern, responsive user interface with real-time collaboration
+  features.
 </Callout>
 
 ## Quick Start
@@ -14,11 +15,8 @@ Welcome to the Rhesis Frontend documentation. This section covers the React-base
 Before working with the frontend, ensure you have:
 
 <Callout type="default">
-  **System Requirements**
-  - **Node.js 18+** and npm
-  - **Backend service** running on port 8080
-  - **Modern browser** with ES6+ support
-  - **Environment variables** configured
+  **System Requirements** - **Node.js 18+** and npm - **Backend service** running on port 8080 -
+  **Modern browser** with ES6+ support - **Environment variables** configured
 </Callout>
 
 ### Development Setup
@@ -39,11 +37,9 @@ npm run dev
 ```
 
 <Callout type="default">
-  **Development Server**
-  - **URL**: http://localhost:3000
-  - **Hot Reload**: Enabled for instant updates
-  - **TypeScript**: Full type checking and IntelliSense
-  - **ESLint**: Code quality and style enforcement
+  **Development Server** - **URL**: http://localhost:3000 - **Hot Reload**: Enabled for instant
+  updates - **TypeScript**: Full type checking and IntelliSense - **ESLint**: Code quality and style
+  enforcement
 </Callout>
 
 ## Architecture
@@ -145,18 +141,18 @@ Using Zustand for lightweight, scalable state management:
 ```typescript
 // Example store
 interface AppState {
-  user: User | null;
-  organization: Organization | null;
-  setUser: (user: User) => void;
-  setOrganization: (org: Organization) => void;
+  user: User | null
+  organization: Organization | null
+  setUser: (user: User) => void
+  setOrganization: (org: Organization) => void
 }
 
-const useAppStore = create<AppState>((set) => ({
+const useAppStore = create<AppState>(set => ({
   user: null,
   organization: null,
-  setUser: (user) => set({ user }),
-  setOrganization: (org) => set({ organization: org }),
-}));
+  setUser: user => set({ user }),
+  setOrganization: org => set({ organization: org }),
+}))
 ```
 
 ### Data Fetching
@@ -165,11 +161,15 @@ React Query for efficient data fetching and caching:
 
 ```typescript
 // Example query
-const { data: tests, isLoading, error } = useQuery({
+const {
+  data: tests,
+  isLoading,
+  error,
+} = useQuery({
   queryKey: ['tests', organizationId],
   queryFn: () => api.getTests(organizationId),
   staleTime: 5 * 60 * 1000, // 5 minutes
-});
+})
 ```
 
 ## Component Library
@@ -205,9 +205,9 @@ The frontend includes a comprehensive component library:
 
 ```typescript
 // Button component
-<Button 
-  variant="primary" 
-  size="lg" 
+<Button
+  variant="primary"
+  size="lg"
   onClick={handleClick}
   loading={isLoading}
 >
@@ -251,13 +251,13 @@ app/
 ```typescript
 // Middleware for route protection
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token');
-  
+  const token = request.cookies.get('auth-token')
+
   if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/auth/signin', request.url));
+    return NextResponse.redirect(new URL('/auth/signin', request.url))
   }
-  
-  return NextResponse.next();
+
+  return NextResponse.next()
 }
 ```
 
@@ -272,16 +272,16 @@ Centralized API client with automatic error handling:
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 10000,
-});
+})
 
 // Request interceptor for authentication
-apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken();
+apiClient.interceptors.request.use(config => {
+  const token = getAuthToken()
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token}`
   }
-  return config;
-});
+  return config
+})
 ```
 
 ### API Hooks
@@ -295,7 +295,7 @@ export function useTests(organizationId: string) {
     queryKey: ['tests', organizationId],
     queryFn: () => api.getTests(organizationId),
     enabled: !!organizationId,
-  });
+  })
 }
 
 // Mutation hook
@@ -303,9 +303,9 @@ export function useCreateTest() {
   return useMutation({
     mutationFn: api.createTest,
     onSuccess: () => {
-      queryClient.invalidateQueries(['tests']);
+      queryClient.invalidateQueries(['tests'])
     },
-  });
+  })
 }
 ```
 
@@ -336,14 +336,14 @@ const colors = {
     900: '#1e3a8a',
   },
   // ... more colors
-};
+}
 
 // Component variants
 const buttonVariants = {
   primary: 'bg-primary-500 text-white hover:bg-primary-600',
   secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200',
   danger: 'bg-red-500 text-white hover:bg-red-600',
-};
+}
 ```
 
 ## Performance Optimization
@@ -450,7 +450,7 @@ import { TestCard } from './TestCard';
 describe('TestCard', () => {
   it('renders test information correctly', () => {
     render(<TestCard test={mockTest} />);
-    
+
     expect(screen.getByText(mockTest.name)).toBeInTheDocument();
     expect(screen.getByText(mockTest.description)).toBeInTheDocument();
   });
@@ -514,9 +514,8 @@ npm run export
 ---
 
 <Callout type="default">
-  **Next Steps**
-  - Explore the [Component Library](/docs/frontend/components) for available UI components
-  - Check out [Authentication Guide](/docs/frontend/auth) for security implementation
-  - Review [State Management](/docs/frontend/state) for data flow patterns
-  - Learn about [API Integration](/docs/frontend/api) for backend communication
+  **Next Steps** - Explore the [Component Library](/docs/frontend/components) for available UI
+  components - Check out [Authentication Guide](/docs/frontend/auth) for security implementation -
+  Review [State Management](/docs/frontend/state) for data flow patterns - Learn about [API
+  Integration](/docs/frontend/api) for backend communication
 </Callout>

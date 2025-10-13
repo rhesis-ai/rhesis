@@ -4,7 +4,7 @@ const meta: MetaRecord = {
   index: 'Home',
   'getting-started': 'Getting Started',
   platform: 'Platform',
-  development: 'Development'
+  development: 'Development',
 }
 
 export default meta

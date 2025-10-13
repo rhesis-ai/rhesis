@@ -1,11 +1,11 @@
-"use client"
+'use client'
 
-import ChatOutlined from '@mui/icons-material/ChatOutlined';
-import BusinessOutlined from '@mui/icons-material/BusinessOutlined';
-import VerifiedUserOutlined from '@mui/icons-material/VerifiedUserOutlined';
-import AnalyticsOutlined from '@mui/icons-material/AnalyticsOutlined';
-import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
-import SchoolOutlined from '@mui/icons-material/SchoolOutlined';
+import ChatOutlined from '@mui/icons-material/ChatOutlined'
+import BusinessOutlined from '@mui/icons-material/BusinessOutlined'
+import VerifiedUserOutlined from '@mui/icons-material/VerifiedUserOutlined'
+import AnalyticsOutlined from '@mui/icons-material/AnalyticsOutlined'
+import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined'
+import SchoolOutlined from '@mui/icons-material/SchoolOutlined'
 
 /**
  * IndustryExamples Component
@@ -21,34 +21,40 @@ import SchoolOutlined from '@mui/icons-material/SchoolOutlined';
 const examples = [
   {
     icon: ChatOutlined,
-    title: "Customer Support",
-    description: "Chatbot in support scenarios - ensuring accurate responses and proper escalation handling"
+    title: 'Customer Support',
+    description:
+      'Chatbot in support scenarios - ensuring accurate responses and proper escalation handling',
   },
   {
     icon: BusinessOutlined,
-    title: "Banking",
-    description: "Financial advisor AI - validating investment recommendations and compliance with regulations"
+    title: 'Banking',
+    description:
+      'Financial advisor AI - validating investment recommendations and compliance with regulations',
   },
   {
     icon: VerifiedUserOutlined,
-    title: "Insurance",
-    description: "Insurance claim processing - automated claim evaluation and fraud detection accuracy"
+    title: 'Insurance',
+    description:
+      'Insurance claim processing - automated claim evaluation and fraud detection accuracy',
   },
   {
     icon: AnalyticsOutlined,
-    title: "Business Intelligence",
-    description: "Executive assistant AI - data analysis, report generation, and strategic insights"
+    title: 'Business Intelligence',
+    description:
+      'Executive assistant AI - data analysis, report generation, and strategic insights',
   },
   {
     icon: ShoppingCartOutlined,
-    title: "E-commerce",
-    description: "Product recommendation engine - testing personalized suggestions and purchase flow accuracy"
+    title: 'E-commerce',
+    description:
+      'Product recommendation engine - testing personalized suggestions and purchase flow accuracy',
   },
   {
     icon: SchoolOutlined,
-    title: "Education",
-    description: "AI tutoring system - validating lesson explanations and adaptive learning responses"
-  }
+    title: 'Education',
+    description:
+      'AI tutoring system - validating lesson explanations and adaptive learning responses',
+  },
 ]
 
 export const IndustryExamples = () => {
@@ -94,7 +100,9 @@ export const IndustryExamples = () => {
       <div style={styles.container} className="not-prose rhesis-industry-examples">
         {examples.map((example, index) => (
           <div key={index} style={styles.card}>
-            <span style={styles.icon}><example.icon style={{ width: 24, height: 24 }} /></span>
+            <span style={styles.icon}>
+              <example.icon style={{ width: 24, height: 24 }} />
+            </span>
             <h3 style={styles.title}>{example.title}</h3>
             <p style={styles.description}>{example.description}</p>
           </div>
@@ -102,18 +110,18 @@ export const IndustryExamples = () => {
       </div>
 
       <style jsx>{`
-        [data-theme="dark"] .rhesis-industry-examples {
+        [data-theme='dark'] .rhesis-industry-examples {
           --border-color: #30363d;
-          --card-bg: #161B22;
-          --text-primary: #E6EDF3;
-          --text-secondary: #A9B1BB;
+          --card-bg: #161b22;
+          --text-primary: #e6edf3;
+          --text-secondary: #a9b1bb;
         }
 
-        [data-theme="light"] .rhesis-industry-examples {
+        [data-theme='light'] .rhesis-industry-examples {
           --border-color: #e5e7eb;
           --card-bg: #ffffff;
-          --text-primary: #3D3D3D;
-          --text-secondary: #6B7280;
+          --text-primary: #3d3d3d;
+          --text-secondary: #6b7280;
         }
 
         @media (max-width: 768px) {
