@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -195,9 +196,10 @@ export default function OverruleJudgementDrawer({
     <BaseDrawer
       open={open}
       onClose={handleCancel}
-      title="Overrule Test Judgement"
+      title="Provide Test Review"
+      titleIcon={<RateReviewOutlinedIcon />}
       onSave={handleSave}
-      saveButtonText={submitting ? 'Saving...' : 'Overrule Judgement'}
+      saveButtonText={submitting ? 'Saving...' : 'Submit Review'}
       error={error}
       width={600}
       loading={submitting || loadingStatuses}
@@ -205,16 +207,16 @@ export default function OverruleJudgementDrawer({
       <Stack spacing={3}>
         {/* Info Alert */}
         <Alert
-          severity="warning"
+          severity="info"
           sx={{
-            bgcolor: theme => `${theme.palette.warning.main}0A`,
+            bgcolor: theme => `${theme.palette.info.main}0A`,
             border: 1,
-            borderColor: 'warning.light',
+            borderColor: 'info.light',
           }}
         >
           <Typography variant="body2">
-            You are about to overrule the automated test judgement. This action
-            will be recorded and attributed to you.
+            You are about to provide a manual review for this test result. This
+            action will be recorded and attributed to you.
           </Typography>
         </Alert>
 
@@ -296,13 +298,13 @@ export default function OverruleJudgementDrawer({
         {/* Reason Field */}
         <Box>
           <Typography variant="body2" fontWeight={600} gutterBottom>
-            Reason for Overrule *
+            Review Comments *
           </Typography>
           <TextField
             fullWidth
             multiline
             rows={4}
-            placeholder="Explain why you are overruling the automated judgement..."
+            placeholder="Provide your reasoning for this review..."
             value={reason}
             onChange={e => {
               setReason(e.target.value);
@@ -327,7 +329,7 @@ export default function OverruleJudgementDrawer({
             Attribution
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Overruled by: <strong>{currentUserName}</strong>
+            Reviewed by: <strong>{currentUserName}</strong>
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Date: <strong>{new Date().toLocaleString()}</strong>

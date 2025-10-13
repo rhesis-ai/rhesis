@@ -22,12 +22,14 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import CloseIcon from '@mui/icons-material/Close';
-import GavelIcon from '@mui/icons-material/Gavel';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckIcon from '@mui/icons-material/Check';
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDetailPanel from './TestDetailPanel';
@@ -342,7 +344,14 @@ export default function TestsTableView({
                   width: '20%',
                 }}
               >
-                Evaluation
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  Review
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, ml: 0.5 }}>
+                    <SmartToyOutlinedIcon fontSize="small" sx={{ fontSize: 16 }} />
+                    <Typography variant="caption" color="text.secondary">/</Typography>
+                    <PersonOutlineIcon fontSize="small" sx={{ fontSize: 16 }} />
+                  </Box>
+                </Box>
               </TableCell>
               <TableCell
                 sx={{
@@ -491,11 +500,11 @@ export default function TestsTableView({
                             }
                           >
                             <Chip
-                              icon={<GavelIcon sx={{ fontSize: 14 }} />}
+                              icon={<RateReviewOutlinedIcon sx={{ fontSize: 14 }} />}
                               label="Reviewed"
                               size="small"
                               color={status.hasConflict ? 'warning' : 'info'}
-                              variant="filled"
+                              variant="outlined"
                               sx={{
                                 height: 20,
                                 fontWeight: 600,
@@ -629,7 +638,7 @@ export default function TestsTableView({
                               },
                             }}
                           >
-                            <VisibilityIcon fontSize="small" />
+                            <VisibilityOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
 
@@ -653,20 +662,20 @@ export default function TestsTableView({
                           </Tooltip>
                         )}
 
-                        <Tooltip title="Overrule Judgement">
+                        <Tooltip title="Provide Review">
                           <IconButton
                             size="small"
                             onClick={e => handleOverruleJudgement(e, test)}
                             sx={{
                               '&:hover': {
                                 backgroundColor: alpha(
-                                  theme.palette.warning.main,
+                                  theme.palette.primary.main,
                                   0.1
                                 ),
                               },
                             }}
                           >
-                            <GavelIcon fontSize="small" />
+                            <RateReviewOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       </Box>
