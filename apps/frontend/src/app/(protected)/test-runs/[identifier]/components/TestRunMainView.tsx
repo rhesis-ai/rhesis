@@ -364,79 +364,84 @@ export default function TestRunMainView({
 
           {/* Conditional Layout based on viewMode */}
           {viewMode === 'split' ? (
-            <>
-              <Grid container spacing={3}>
-                {/* Left: Tests List (33%) */}
-                <Grid item xs={12} md={4}>
-                  <Paper
+            <Grid container spacing={3}>
+              {/* Left: Tests List (33%) */}
+              <Grid item xs={12} md={4}>
+                <Paper
+                  sx={{
+                    height: { xs: 900, md: 'calc(100vh - 240px)' },
+                    minHeight: 900,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <TestsList
+                    tests={paginatedTests}
+                    selectedTestId={selectedTestId}
+                    onTestSelect={handleTestSelect}
+                    loading={loading}
+                    prompts={prompts}
+                  />
+                  <TablePagination
+                    rowsPerPageOptions={[10, 25, 50, 100]}
+                    component="div"
+                    count={filteredTests.length}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
                     sx={{
-                      height: { xs: 900, md: 'calc(100vh - 240px)' },
-                      minHeight: 900,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      overflow: 'hidden',
+                      borderTop: 1,
+                      borderColor: 'divider',
+                      backgroundColor: theme.palette.background.paper,
+                      flexShrink: 0,
                     }}
-                  >
-                    <TestsList
-                      tests={paginatedTests}
-                      selectedTestId={selectedTestId}
-                      onTestSelect={handleTestSelect}
-                      loading={loading}
-                      prompts={prompts}
-                    />
-                  </Paper>
-                </Grid>
-
-                {/* Right: Test Detail Panel (67%) */}
-                <Grid item xs={12} md={8}>
-                  <Paper
-                    sx={{
-                      height: { xs: 900, md: 'calc(100vh - 240px)' },
-                      minHeight: 900,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <TestDetailPanel
-                      test={selectedTest}
-                      loading={loading}
-                      prompts={prompts}
-                      behaviors={behaviors}
-                      testRunId={testRunId}
-                      sessionToken={sessionToken}
-                      onTestResultUpdate={handleTestResultUpdate}
-                      currentUserId={currentUserId}
-                      currentUserName={currentUserName}
-                      currentUserPicture={currentUserPicture}
-                    />
-                  </Paper>
-                </Grid>
+                  />
+                </Paper>
               </Grid>
 
-              {/* Full-width pagination */}
-              <Paper
-                elevation={2}
-                sx={{
-                  mt: 3,
-                  borderTop: 1,
-                  borderColor: 'divider',
-                }}
-              >
-                <TablePagination
-                  rowsPerPageOptions={[10, 25, 50, 100]}
-                  component="div"
-                  count={filteredTests.length}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
+              {/* Right: Test Detail Panel (67%) */}
+              <Grid item xs={12} md={8}>
+                <Paper
                   sx={{
-                    backgroundColor: theme.palette.background.paper,
+                    height: { xs: 900, md: 'calc(100vh - 240px)' },
+                    minHeight: 900,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
                   }}
-                />
-              </Paper>
-            </>
+                >
+                  <TestDetailPanel
+                    test={selectedTest}
+                    loading={loading}
+                    prompts={prompts}
+                    behaviors={behaviors}
+                    testRunId={testRunId}
+                    sessionToken={sessionToken}
+                    onTestResultUpdate={handleTestResultUpdate}
+                    currentUserId={currentUserId}
+                    currentUserName={currentUserName}
+                    currentUserPicture={currentUserPicture}
+                  />
+                  <TablePagination
+                    rowsPerPageOptions={[10, 25, 50, 100]}
+                    component="div"
+                    count={filteredTests.length}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    sx={{
+                      borderTop: 1,
+                      borderColor: 'divider',
+                      backgroundColor: theme.palette.background.paper,
+                      flexShrink: 0,
+                    }}
+                  />
+                </Paper>
+              </Grid>
+            </Grid>
           ) : (
             <TestsTableView
               tests={filteredTests}
