@@ -162,6 +162,40 @@ export default function TestRunMainView({
       });
     }
 
+    // Apply comment filter
+    if (filter.commentFilter !== 'all') {
+      filtered = filtered.filter(test => {
+        const commentCount = test.counts?.comments || 0;
+        
+        if (filter.commentFilter === 'with_comments') {
+          return commentCount > 0;
+        } else if (filter.commentFilter === 'without_comments') {
+          return commentCount === 0;
+        } else if (filter.commentFilter === 'range') {
+          return commentCount >= filter.commentCountRange.min && 
+                 commentCount <= filter.commentCountRange.max;
+        }
+        return true;
+      });
+    }
+
+    // Apply task filter
+    if (filter.taskFilter !== 'all') {
+      filtered = filtered.filter(test => {
+        const taskCount = test.counts?.tasks || 0;
+        
+        if (filter.taskFilter === 'with_tasks') {
+          return taskCount > 0;
+        } else if (filter.taskFilter === 'without_tasks') {
+          return taskCount === 0;
+        } else if (filter.taskFilter === 'range') {
+          return taskCount >= filter.taskCountRange.min && 
+                 taskCount <= filter.taskCountRange.max;
+        }
+        return true;
+      });
+    }
+
     return filtered;
   }, [testResults, filter, prompts, behaviors]);
 

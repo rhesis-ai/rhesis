@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,22 +11,166 @@ import {
   Divider,
   Alert,
   useTheme,
+  Button,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Collapse,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
-import GavelIcon from '@mui/icons-material/Gavel';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Status } from '@/utils/api-client/interfaces/status';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import StatusChip from '@/components/common/StatusChip';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
+  sessionToken: string;
+  onTestResultUpdate: (updatedTest: TestResultDetail) => void;
+  currentUserId: string;
 }
 
 export default function TestDetailReviewsTab({
   test,
+  sessionToken,
+  onTestResultUpdate,
+  currentUserId,
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
+  
+  // Review creation state
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reviewToDelete, setReviewToDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Fetch available statuses
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const statusClient = clientFactory.getStatusClient();
+        const statusList = await statusClient.getStatuses({
+          entity_type: 'TestResult',
+        });
+        setStatuses(statusList);
+      } catch (err) {
+        console.error('Error fetching statuses:', err);
+      }
+    };
+
+    if (showReviewForm) {
+      fetchStatuses();
+    }
+  }, [sessionToken, showReviewForm]);
+
+  // Handle review submission
+  const handleSubmitReview = async () => {
+    if (!reason.trim()) {
+      setError('Please provide a reason for your review.');
+      return;
+    }
+
+    // Find the appropriate status
+    const statusKeywords = newStatus === 'passed' 
+      ? ['pass', 'success', 'completed'] 
+      : ['fail', 'error'];
+    const targetStatus = statuses.find(status =>
+      statusKeywords.some(keyword =>
+        status.name.toLowerCase().includes(keyword)
+      )
+    );
+
+    if (!targetStatus) {
+      setError('Could not find appropriate status. Please try again.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError('');
+
+      // Create the review via API
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+
+      await testResultsClient.createReview(
+        test.id,
+        targetStatus.id,
+        reason.trim(),
+        { type: 'test', reference: null }
+      );
+
+      // Refresh the test result to get updated reviews
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+      onTestResultUpdate(updatedTest);
+
+      // Reset form
+      setReason('');
+      setShowReviewForm(false);
+    } catch (err) {
+      setError('Failed to save review. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelReview = () => {
+    setReason('');
+    setError('');
+    setShowReviewForm(false);
+  };
+
+  // Handle delete review
+  const handleDeleteReview = (review: any) => {
+    setReviewToDelete(review);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!reviewToDelete) return;
+
+    try {
+      setDeleting(true);
+
+      // Delete the review via API
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = clientFactory.getTestResultsClient();
+
+      await testResultsClient.deleteReview(test.id, reviewToDelete.review_id);
+
+      // Refresh the test result to get updated reviews
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+      onTestResultUpdate(updatedTest);
+
+      // Close dialog
+      setDeleteDialogOpen(false);
+      setReviewToDelete(null);
+    } catch (err) {
+      console.error('Error deleting review:', err);
+      // Could add error handling here
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setReviewToDelete(null);
+  };
 
   // Calculate automated status for comparison
   const getAutomatedStatus = () => {
@@ -55,13 +199,11 @@ export default function TestDetailReviewsTab({
     return new Date(dateString).toLocaleString();
   };
 
-  // Get review status color and icon
+  // Get review status
   const getReviewStatusDisplay = (
     statusName: string
   ): {
     passed: boolean;
-    icon: React.ReactElement;
-    color: 'success' | 'error';
   } => {
     const name = statusName.toLowerCase();
     const isPassed =
@@ -71,8 +213,6 @@ export default function TestDetailReviewsTab({
 
     return {
       passed: isPassed,
-      icon: isPassed ? <CheckCircleOutlineIcon /> : <CancelOutlinedIcon />,
-      color: isPassed ? 'success' : 'error',
     };
   };
 
@@ -108,24 +248,12 @@ export default function TestDetailReviewsTab({
                 Automated:
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {automatedStatus.passed ? (
-                  <CheckCircleOutlineIcon
-                    sx={{ color: 'success.main', fontSize: 20 }}
-                  />
-                ) : (
-                  <CancelOutlinedIcon
-                    sx={{ color: 'error.main', fontSize: 20 }}
-                  />
-                )}
-                <Chip
-                  label={automatedStatus.label}
+                <StatusChip
+                  passed={automatedStatus.passed}
+                  label={`${automatedStatus.label} ${automatedStatus.count}`}
                   size="small"
-                  color={automatedStatus.passed ? 'success' : 'error'}
                   variant="outlined"
                 />
-                <Typography variant="caption" color="text.secondary">
-                  ({automatedStatus.count} metrics)
-                </Typography>
               </Box>
             </Box>
 
@@ -146,19 +274,10 @@ export default function TestDetailReviewsTab({
                     );
                     return (
                       <>
-                        {display.passed ? (
-                          <CheckCircleOutlineIcon
-                            sx={{ color: 'success.main', fontSize: 20 }}
-                          />
-                        ) : (
-                          <CancelOutlinedIcon
-                            sx={{ color: 'error.main', fontSize: 20 }}
-                          />
-                        )}
-                        <Chip
+                        <StatusChip
+                          passed={display.passed}
                           label={lastReview.status.name}
                           size="small"
-                          color={display.color}
                           variant="outlined"
                         />
                         {hasConflict && (
@@ -273,19 +392,33 @@ export default function TestDetailReviewsTab({
                               sx={{ mr: 1 }}
                             />
                           )}
-                          <Chip
-                            icon={
-                              display.passed ? (
-                                <CheckCircleOutlineIcon />
-                              ) : (
-                                <CancelOutlinedIcon />
-                              )
-                            }
+                          <StatusChip
+                            passed={display.passed}
                             label={review.status.name}
                             size="small"
-                            color={display.color}
                             variant="outlined"
                           />
+                          {/* Delete button - only show for review owner */}
+                          {review.user.user_id === currentUserId && (
+                            <Tooltip title="Delete review">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteReview(review);
+                                }}
+                                sx={{
+                                  ml: 0.5,
+                                  '&:hover': {
+                                    backgroundColor: theme.palette.error.main + '20',
+                                    color: theme.palette.error.main,
+                                  },
+                                }}
+                              >
+                                <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Box>
                       </Box>
 
@@ -315,13 +448,6 @@ export default function TestDetailReviewsTab({
 
                       {/* Review Metadata */}
                       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                        <Chip
-                          icon={<GavelIcon sx={{ fontSize: 14 }} />}
-                          label={`${review.target.type} review`}
-                          size="small"
-                          variant="outlined"
-                          color="default"
-                        />
                         {review.target.reference && (
                           <Chip
                             label={`Target: ${review.target.reference}`}
@@ -365,52 +491,133 @@ export default function TestDetailReviewsTab({
             </Typography>
             <Typography variant="body2" color="text.secondary">
               This test result has not been reviewed by any human evaluators.
-              Use the &quot;Confirm Review&quot; or &quot;Overrule
-              Judgement&quot; actions to add a review.
             </Typography>
           </Paper>
         )}
+
+        {/* Add Review Section */}
+        <Box sx={{ mt: 3 }}>
+          {!showReviewForm ? (
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setShowReviewForm(true)}
+              fullWidth
+              sx={{ py: 1.5 }}
+            >
+              Add Review
+            </Button>
+          ) : (
+            <Collapse in={showReviewForm}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 3,
+                  backgroundColor: theme.palette.background.default,
+                  border: `1px solid ${theme.palette.primary.light}`,
+                }}
+              >
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Add Your Review
+                </Typography>
+
+                {/* Status Toggle */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                    Review Status
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={newStatus}
+                    exclusive
+                    onChange={(_, value) => value && setNewStatus(value)}
+                    size="small"
+                    fullWidth
+                  >
+                    <ToggleButton
+                      value="passed"
+                      sx={{
+                        '&.Mui-selected': {
+                          backgroundColor: theme.palette.success.main,
+                          color: theme.palette.success.contrastText,
+                          '&:hover': {
+                            backgroundColor: theme.palette.success.dark,
+                          },
+                        },
+                      }}
+                    >
+                      <CheckCircleOutlineIcon sx={{ mr: 1, fontSize: 18 }} />
+                      Pass
+                    </ToggleButton>
+                    <ToggleButton
+                      value="failed"
+                      sx={{
+                        '&.Mui-selected': {
+                          backgroundColor: theme.palette.error.main,
+                          color: theme.palette.error.contrastText,
+                          '&:hover': {
+                            backgroundColor: theme.palette.error.dark,
+                          },
+                        },
+                      }}
+                    >
+                      <CancelOutlinedIcon sx={{ mr: 1, fontSize: 18 }} />
+                      Fail
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+
+                {/* Comments */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                    Comments
+                  </Typography>
+                  <TextField
+                    multiline
+                    rows={4}
+                    fullWidth
+                    placeholder="Explain your review decision..."
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    error={!!error}
+                    helperText={error}
+                  />
+                </Box>
+
+                {/* Actions */}
+                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                  <Button
+                    onClick={handleCancelReview}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleSubmitReview}
+                    disabled={submitting || !reason.trim()}
+                  >
+                    {submitting ? 'Submitting...' : 'Submit Review'}
+                  </Button>
+                </Stack>
+              </Paper>
+            </Collapse>
+          )}
+        </Box>
       </Box>
 
-      {/* Review Summary */}
-      {test.test_reviews?.metadata && (
-        <>
-          <Divider sx={{ my: 3 }} />
-          <Box>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Summary
-            </Typography>
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 2,
-                backgroundColor: theme.palette.background.default,
-              }}
-            >
-              <Stack spacing={1}>
-                <Typography variant="body2">
-                  <strong>Total Reviews:</strong>{' '}
-                  {test.test_reviews.metadata.total_reviews}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Last Updated:</strong>{' '}
-                  {formatDate(test.test_reviews.metadata.last_updated_at)}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Last Reviewer:</strong>{' '}
-                  {test.test_reviews.metadata.last_updated_by.name}
-                </Typography>
-                {test.test_reviews.metadata.summary && (
-                  <Typography variant="body2">
-                    <strong>Summary:</strong>{' '}
-                    {test.test_reviews.metadata.summary}
-                  </Typography>
-                )}
-              </Stack>
-            </Paper>
-          </Box>
-        </>
-      )}
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        isLoading={deleting}
+        title="Delete Review"
+        itemType="review"
+        message="Are you sure you want to delete this review? This action cannot be undone."
+        confirmButtonText="Delete Review"
+        showTopBorder={true}
+      />
+
     </Box>
   );
 }

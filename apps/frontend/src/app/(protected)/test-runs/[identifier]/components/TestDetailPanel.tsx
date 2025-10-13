@@ -7,7 +7,6 @@ import {
   Tabs,
   Tab,
   Typography,
-  Divider,
   Skeleton,
   useTheme,
 } from '@mui/material';
@@ -15,7 +14,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
-import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
@@ -239,13 +237,13 @@ export default function TestDetailPanel({
             id="test-detail-tab-1"
             aria-controls="test-detail-tabpanel-1"
           />
-                  <Tab
-                    icon={<RateReviewIcon fontSize="small" />}
-                    iconPosition="start"
-                    label="Reviews"
-                    id="test-detail-tab-2"
-                    aria-controls="test-detail-tabpanel-2"
-                  />
+          <Tab
+            icon={<RateReviewIcon fontSize="small" />}
+            iconPosition="start"
+            label="Reviews"
+            id="test-detail-tab-2"
+            aria-controls="test-detail-tabpanel-2"
+          />
           <Tab
             icon={<HistoryIcon fontSize="small" />}
             iconPosition="start"
@@ -299,7 +297,12 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <TestDetailReviewsTab test={test} />
+          <TestDetailReviewsTab 
+            test={test} 
+            sessionToken={sessionToken}
+            onTestResultUpdate={onTestResultUpdate}
+            currentUserId={currentUserId}
+          />
         </TabPanel>
 
         <TabPanel value={activeTab} index={3}>
