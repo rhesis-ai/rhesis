@@ -1,7 +1,8 @@
-import { Footer, Layout, Navbar } from 'nextra-theme-docs'
+import { Layout, Navbar } from 'nextra-theme-docs'
 import { Banner, Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
 import ThemeAwareLogo from '../components/ThemeAwareLogo'
+import Footer from '../components/Footer'
 import 'nextra-theme-docs/style.css'
 import '../styles/globals.css'
 
@@ -14,12 +15,12 @@ export const metadata = {
   icons: {
     icon: [
       {
-        url: '/rhesis-logo-favicon.svg',
+        url: '/logo/rhesis-logo-favicon.svg',
         type: 'image/svg+xml',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/rhesis-logo-favicon-white.svg',
+        url: '/logo/rhesis-logo-favicon-white.svg',
         type: 'image/svg+xml',
         media: '(prefers-color-scheme: dark)',
       },
@@ -35,18 +36,14 @@ const navbar = (
   />
 )
 
-const footer = (
-  <Footer>
-    © 2025 Rhesis AI GmbH. Made in Germany.
-  </Footer>
-)
+const footer = <Footer />
 
 export default async function RootLayout({ children }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head />
       <body>
-        <Layout 
+        <Layout
           navbar={navbar}
           footer={footer}
           pageMap={await getPageMap()}

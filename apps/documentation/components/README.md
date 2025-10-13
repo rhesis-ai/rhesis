@@ -50,6 +50,73 @@ import Button, { PrimaryButton, SecondaryButton } from '@/components/Button'
 
 A logo component that automatically switches between light and dark variants based on the current theme.
 
+### Footer
+
+A comprehensive, reusable footer component that matches the main Rhesis website structure with proper theming and responsive design.
+
+**Usage in MDX files:**
+
+```mdx
+import Footer from '@/components/Footer'
+
+<Footer />
+```
+
+**Usage with customization:**
+
+```jsx
+import Footer from '@/components/Footer'
+
+// Basic usage
+<Footer />
+
+// With additional links
+<Footer
+  additionalLinks={[
+    { name: "Custom Link", href: "/custom", section: "product" },
+    { name: "Legal Link", href: "/legal", section: "legal", external: true }
+  ]}
+/>
+
+// With custom sections
+<Footer
+  customSections={[
+    {
+      title: "Resources",
+      links: [
+        { name: "Blog", href: "/blog" },
+        { name: "Tutorials", href: "/tutorials" }
+      ]
+    }
+  ]}
+/>
+
+// Hide copyright
+<Footer showCopyright={false} />
+```
+
+**Features:**
+- **Product Links**: Platform, SDK, Repository
+- **Documentation Links**: Getting started, Test Generation, Metrics
+- **Company Links**: About us, Careers, Contact us
+- **Legal Links**: Imprint, Privacy, Terms
+- **Responsive Design**: Adapts to mobile, tablet, and desktop screens
+- **Theme Support**: Automatic light/dark mode with proper contrast
+- **Extensible**: Add custom sections and links via props
+- **Accessibility**: Focus states, proper ARIA labels, keyboard navigation
+
+**Props:**
+- `showCopyright` (boolean): Show/hide copyright notice (default: true)
+- `additionalLinks` (array): Add extra links to existing sections
+- `customSections` (array): Add entirely new footer sections
+- `className` (string): Additional CSS classes
+
+**Design:**
+- Grid layout that adapts to screen size (3+ columns on desktop, 2 on tablet, 1 on mobile)
+- Consistent with Rhesis brand colors and typography
+- Proper spacing and visual hierarchy
+- Hover effects and smooth transitions
+
 ## Creating New Components
 
 1. Create your component file in this directory
@@ -59,15 +126,42 @@ A logo component that automatically switches between light and dark variants bas
 
 ## Styling Guidelines
 
-- Use Rhesis brand colors:
-  - Primary Blue: `#2AA1CE`
-  - Primary Light: `#50B9E0`
-  - Primary Dark: `#3BC4F2`
-  - Secondary Orange: `#FD6E12`
-  - Accent Yellow: `#FDD803`
-- Use brand fonts:
-  - Headings: Sora
-  - Body text: Be Vietnam Pro
+### Rhesis Brand Colors
+
+Use the CSS custom properties defined in `styles/globals.css`:
+
+**Primary Blues:**
+- `--rhesis-primary-main: #50B9E0` (RGB: 80, 185, 224)
+- `--rhesis-primary-light: #97D5EE` (RGB: 151, 213, 238)
+- `--rhesis-primary-dark: #2AA1CE` (CTA Blue)
+- `--rhesis-primary-darker: #3BC4F2` (Hover Blue)
+
+**Backgrounds:**
+- `--rhesis-bg-lightest: #f2f9fd`
+- `--rhesis-bg-light: #e4f2fa`
+- `--rhesis-bg-medium: #C2E5F5`
+- `--rhesis-bg-blue: #97D5EE`
+- `--rhesis-bg-white: #FFFFFF`
+
+**Text Colors:**
+- `--rhesis-text-primary: #3d3d3d` (Main text)
+- `--rhesis-text-dark: #1A1A1A` (RGB: 26, 26, 26)
+
+**CTA Colors:**
+- `--rhesis-cta-blue: #2AA1CE`
+- `--rhesis-cta-orange: #FD6E12` (RGB: 253, 110, 18)
+
+**Accent Colors:**
+- `--rhesis-accent-yellow: #FDD803` (RGB: 253, 216, 3)
+
+### Typography
+
+- **Headings**: Sora font family
+- **Body text**: Be Vietnam Pro font family
+
+### Best Practices
+
 - Support both light and dark modes
 - Use CSS variables for theme-aware styling
 - Follow responsive design patterns (mobile-first)
+- Use `var(--rhesis-*)` for consistent brand colors

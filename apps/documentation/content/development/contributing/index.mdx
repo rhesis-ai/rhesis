@@ -35,7 +35,7 @@ Before contributing, make sure you have:
    ```bash
    # Install Python dependencies
    uv sync
-   
+
    # Install Node.js dependencies
    cd apps/frontend && npm install
    cd ../docs && npm install
@@ -227,9 +227,9 @@ def test_create_user(db_session):
         password="securepassword",
         name="Test User"
     )
-    
+
     user = create_user(user_data, db_session)
-    
+
     assert user.email == "test@example.com"
     assert user.name == "Test User"
     assert user.id is not None
@@ -254,13 +254,13 @@ describe('UserForm', () => {
   it('submits form data correctly', async () => {
     const mockSubmit = jest.fn();
     render(<UserForm onSubmit={mockSubmit} />);
-    
+
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'test@example.com' },
     });
-    
+
     fireEvent.click(screen.getByText('Submit'));
-    
+
     expect(mockSubmit).toHaveBeenCalledWith({
       email: 'test@example.com',
     });
@@ -283,21 +283,21 @@ All code should be well-documented:
 ```python
 class UserService:
     """Service for user management operations."""
-    
+
     def __init__(self, db: Session):
         """Initialize the service with a database session."""
         self.db = db
-    
+
     def create_user(self, user_data: UserCreate) -> User:
         """
         Create a new user in the system.
-        
+
         Args:
             user_data: User creation data
-            
+
         Returns:
             The created user object
-            
+
         Raises:
             UserAlreadyExistsError: If user with email already exists
         """
@@ -317,7 +317,7 @@ async def create_user(
 ):
     """
     Create a new user.
-    
+
     This endpoint allows administrators to create new user accounts
     in the system.
     """
@@ -405,7 +405,7 @@ When reviewing code, be constructive and specific:
 
 ```markdown
 # Good review comment
-Consider using a more descriptive variable name here. 
+Consider using a more descriptive variable name here.
 `user_data` could be `user_creation_payload` to be more specific.
 
 # Bad review comment
@@ -524,4 +524,4 @@ We are committed to providing a welcoming and inclusive environment for all cont
   - Join our [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
 </Callout>
 
-Thank you for contributing to Rhesis! 🚀
+Thank you for contributing to Rhesis!
