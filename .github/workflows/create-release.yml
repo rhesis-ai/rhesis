@@ -1,4 +1,4 @@
-name: Create release
+name: Release - 2. Create and deploy (stg)
 
 on:
   workflow_dispatch:  # Allows manual triggering
@@ -43,7 +43,6 @@ jobs:
           python-version: '3.11'
 
       - name: Install uv for SDK
-        if: github.event_name == 'workflow_dispatch'
         uses: astral-sh/setup-uv@v6
         with:
             version: latest
@@ -58,6 +57,7 @@ jobs:
           
       - name: Commit changes
         run: |
+          rm -rf release_config.json
           git add .
           git commit -m "Prepare release"
           
@@ -94,7 +94,7 @@ jobs:
           - Changelog updated
           - Release branch created
           
-          ⚠️⚠️ THE MERGE OF THIS PR WILL TRIGGER THE RELEASE PROCESS. PLEASE REVIEW THE CHANGES BEFORE MERGING. ⚠️⚠️"
+          "
           
           gh pr create --title "$PR_TITLE" \
             --body "$PR_BODY" \

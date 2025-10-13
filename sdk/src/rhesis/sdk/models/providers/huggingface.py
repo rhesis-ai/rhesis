@@ -158,6 +158,8 @@ class HuggingFaceLLM(BaseLLM):
             messages = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
             inputs = self.tokenizer(messages, return_tensors="pt").to(self.device)
 
+        kwargs.pop("schema", None)
+
         # generate response
         output_ids = self.model.generate(
             **inputs,

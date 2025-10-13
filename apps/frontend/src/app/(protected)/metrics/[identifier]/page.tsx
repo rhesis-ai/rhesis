@@ -35,6 +35,7 @@ import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { User } from '@/utils/api-client/interfaces/user';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -78,6 +79,9 @@ export default function MetricDetailPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
+
+  // Set document title dynamically
+  useDocumentTitle(metric?.name || null);
 
   // Refs for uncontrolled text fields
   const nameRef = useRef<HTMLInputElement>(null);
