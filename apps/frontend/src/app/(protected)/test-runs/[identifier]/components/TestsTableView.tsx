@@ -122,10 +122,8 @@ export default function TestsTableView({
 
       // Update the test in the parent component
       onTestResultUpdate(updatedTest);
-
-      console.log('Review saved successfully:', { testId, reviewData });
     } catch (error) {
-      console.error('Failed to refresh test result:', error);
+      // Error handling - could be logged to monitoring service
     }
   };
 
@@ -164,7 +162,6 @@ export default function TestsTableView({
       );
 
       if (!targetStatus) {
-        console.error('Could not find appropriate status for confirmation');
         return;
       }
 
@@ -179,10 +176,8 @@ export default function TestsTableView({
       // Refresh the test result
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
-
-      console.log('Review confirmed successfully for test:', test.id);
     } catch (error) {
-      console.error('Failed to confirm review:', error);
+      // Error handling - could be logged to monitoring service
     }
   };
 
