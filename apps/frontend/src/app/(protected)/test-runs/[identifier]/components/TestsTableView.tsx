@@ -230,10 +230,12 @@ export default function TestsTableView({
         count: `${passedMetrics}/${totalMetrics}`,
         isOverruled: true,
         hasConflict: !test.matches_review,
+        automatedPassed: originalPassed, // Keep original automated result
         reviewData: {
           reviewer: lastReview.user.name,
           comments: lastReview.comments,
           updated_at: lastReview.updated_at,
+          newStatus: reviewPassed ? 'passed' : 'failed',
         },
       };
     }
@@ -244,6 +246,7 @@ export default function TestsTableView({
       count: `${passedMetrics}/${totalMetrics}`,
       isOverruled: false,
       hasConflict: false,
+      automatedPassed: originalPassed, // Same as passed when no review
     };
   };
 
@@ -456,14 +459,16 @@ export default function TestsTableView({
                       >
                         {/* Machine Evaluation Icon */}
                         <Tooltip
-                          title={`Automated: ${status.label} (${status.count})${
+                          title={`Automated: ${
+                            status.automatedPassed ? 'Passed' : 'Failed'
+                          } (${status.count})${
                             failedMetrics.length > 0
                               ? ` - Failed: ${failedMetrics.join(', ')}`
                               : ''
                           }`}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {status.passed ? (
+                            {status.automatedPassed ? (
                               <CheckIcon
                                 sx={{
                                   fontSize: 20,
