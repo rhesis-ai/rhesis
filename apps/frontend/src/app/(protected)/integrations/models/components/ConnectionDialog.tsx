@@ -293,7 +293,7 @@ export function ConnectionDialog({
         updates.request_headers = customHeaders;
 
         await onUpdate(model.id, updates);
-        setLoading(false);
+        // Don't reset loading state - let dialog close with "Updating..." text
         onClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update model');
@@ -336,7 +336,7 @@ export function ConnectionDialog({
           }
 
           await onConnect(provider!.type_value, modelData);
-          setLoading(false);
+          // Don't reset loading state - let dialog close with "Connecting..." text
           onClose();
         } catch (err) {
           setError(
@@ -375,12 +375,6 @@ export function ConnectionDialog({
       fullWidth
       PaperProps={{
         sx: { borderRadius: theme => theme.shape.borderRadius * 0.5 },
-      }}
-      TransitionProps={{
-        onExited: () => {
-          // Only clear state after dialog animation completes
-          // This prevents the button text from changing during closing
-        },
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
