@@ -30,9 +30,7 @@ import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
-import ReviewJudgementDrawer, {
-  ReviewData,
-} from './ReviewJudgementDrawer';
+import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -89,7 +87,11 @@ export default function TestsTableView({
     setPage(0);
   };
 
-  const handleRowClick = (test: TestResultDetail, index: number, tabIndex: number = 0) => {
+  const handleRowClick = (
+    test: TestResultDetail,
+    index: number,
+    tabIndex: number = 0
+  ) => {
     setSelectedTest(test);
     setSelectedRowIndex(index);
     setInitialTab(tabIndex);
@@ -109,10 +111,7 @@ export default function TestsTableView({
     setOverruleDrawerOpen(true);
   };
 
-  const handleOverruleSave = async (
-    testId: string,
-    reviewData: ReviewData
-  ) => {
+  const handleOverruleSave = async (testId: string, reviewData: ReviewData) => {
     try {
       // Fetch the updated test result from the backend
       const clientFactory = new ApiClientFactory(sessionToken);
@@ -333,11 +332,30 @@ export default function TestsTableView({
                   textAlign: 'center',
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 0.5,
+                  }}
+                >
                   Review
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, ml: 0.5 }}>
-                    <SmartToyOutlinedIcon fontSize="small" sx={{ fontSize: 16 }} />
-                    <Typography variant="caption" color="text.secondary">/</Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.25,
+                      ml: 0.5,
+                    }}
+                  >
+                    <SmartToyOutlinedIcon
+                      fontSize="small"
+                      sx={{ fontSize: 16 }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      /
+                    </Typography>
                     <PersonOutlineIcon fontSize="small" sx={{ fontSize: 16 }} />
                   </Box>
                 </Box>
@@ -539,9 +557,11 @@ export default function TestsTableView({
                       >
                         {/* Comments Count */}
                         {test.counts && test.counts.comments > 0 && (
-                          <Tooltip title={`${test.counts.comments} comment(s) - Click to view`}>
+                          <Tooltip
+                            title={`${test.counts.comments} comment(s) - Click to view`}
+                          >
                             <Box
-                              onClick={(e) => {
+                              onClick={e => {
                                 e.stopPropagation();
                                 handleRowClick(test, index, 4); // Tab index 4 is Tasks & Comments
                               }}
@@ -572,9 +592,11 @@ export default function TestsTableView({
 
                         {/* Tasks Count */}
                         {test.counts && test.counts.tasks > 0 && (
-                          <Tooltip title={`${test.counts.tasks} task(s) - Click to view`}>
+                          <Tooltip
+                            title={`${test.counts.tasks} task(s) - Click to view`}
+                          >
                             <Box
-                              onClick={(e) => {
+                              onClick={e => {
                                 e.stopPropagation();
                                 handleRowClick(test, index, 4); // Tab index 4 is Tasks & Comments
                               }}
@@ -639,7 +661,9 @@ export default function TestsTableView({
                                 },
                               }}
                             >
-                              <CheckIcon sx={{ fontSize: 18, color: 'action.active' }} />
+                              <CheckIcon
+                                sx={{ fontSize: 18, color: 'action.active' }}
+                              />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -657,7 +681,9 @@ export default function TestsTableView({
                               },
                             }}
                           >
-                            <RateReviewOutlinedIcon sx={{ fontSize: 18, color: 'action.active' }} />
+                            <RateReviewOutlinedIcon
+                              sx={{ fontSize: 18, color: 'action.active' }}
+                            />
                           </IconButton>
                         </Tooltip>
                       </Box>

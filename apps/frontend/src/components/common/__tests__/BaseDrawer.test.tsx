@@ -38,7 +38,12 @@ describe('BaseDrawer', () => {
 
   it('uses custom close button text when provided', () => {
     render(
-      <BaseDrawer open={true} onClose={mockOnClose} title="Test Drawer" closeButtonText="Close">
+      <BaseDrawer
+        open={true}
+        onClose={mockOnClose}
+        title="Test Drawer"
+        closeButtonText="Close"
+      >
         <div>Test Content</div>
       </BaseDrawer>
     );

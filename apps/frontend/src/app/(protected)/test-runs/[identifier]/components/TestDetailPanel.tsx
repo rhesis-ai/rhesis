@@ -297,8 +297,8 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <TestDetailReviewsTab 
-            test={test} 
+          <TestDetailReviewsTab
+            test={test}
             sessionToken={sessionToken}
             onTestResultUpdate={onTestResultUpdate}
             currentUserId={currentUserId}

@@ -23,6 +23,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -43,7 +45,7 @@ export default function TestDetailReviewsTab({
   currentUserId,
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
-  
+
   // Review creation state
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
@@ -51,7 +53,7 @@ export default function TestDetailReviewsTab({
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  
+
   // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reviewToDelete, setReviewToDelete] = useState<any>(null);
@@ -85,9 +87,10 @@ export default function TestDetailReviewsTab({
     }
 
     // Find the appropriate status
-    const statusKeywords = newStatus === 'passed' 
-      ? ['pass', 'success', 'completed'] 
-      : ['fail', 'error'];
+    const statusKeywords =
+      newStatus === 'passed'
+        ? ['pass', 'success', 'completed']
+        : ['fail', 'error'];
     const targetStatus = statuses.find(status =>
       statusKeywords.some(keyword =>
         status.name.toLowerCase().includes(keyword)
@@ -403,14 +406,15 @@ export default function TestDetailReviewsTab({
                             <Tooltip title="Delete review">
                               <IconButton
                                 size="small"
-                                onClick={(e) => {
+                                onClick={e => {
                                   e.stopPropagation();
                                   handleDeleteReview(review);
                                 }}
                                 sx={{
                                   ml: 0.5,
                                   '&:hover': {
-                                    backgroundColor: theme.palette.error.main + '20',
+                                    backgroundColor:
+                                      theme.palette.error.main + '20',
                                     color: theme.palette.error.main,
                                   },
                                 }}
@@ -577,7 +581,7 @@ export default function TestDetailReviewsTab({
                     fullWidth
                     placeholder="Explain your review decision..."
                     value={reason}
-                    onChange={(e) => setReason(e.target.value)}
+                    onChange={e => setReason(e.target.value)}
                     error={!!error}
                     helperText={error}
                   />
@@ -585,10 +589,7 @@ export default function TestDetailReviewsTab({
 
                 {/* Actions */}
                 <Stack direction="row" spacing={2} justifyContent="flex-end">
-                  <Button
-                    onClick={handleCancelReview}
-                    disabled={submitting}
-                  >
+                  <Button onClick={handleCancelReview} disabled={submitting}>
                     Cancel
                   </Button>
                   <Button
@@ -617,7 +618,6 @@ export default function TestDetailReviewsTab({
         confirmButtonText="Delete Review"
         showTopBorder={true}
       />
-
     </Box>
   );
 }
