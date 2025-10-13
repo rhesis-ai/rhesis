@@ -9,11 +9,26 @@ jobs:
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
         
+      - name: Set up Git
+        run: |
+            git config user.name "rheo-app[bot]"
+            git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
+
+
       - name: Check release config
         id: check-config
         run: |
@@ -101,7 +116,8 @@ jobs:
             --base main \
             --head $BRANCH_NAME
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+
   backend-deploy:
     needs: release
     uses: ./.github/workflows/backend.yml
