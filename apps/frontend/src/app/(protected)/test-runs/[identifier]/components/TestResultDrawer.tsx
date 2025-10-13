@@ -1,14 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Box,
-  Tabs,
-  Tab,
-  Typography,
-  Skeleton,
-  useTheme,
-} from '@mui/material';
+import { Box, Tabs, Tab, Typography, Skeleton, useTheme } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
@@ -297,8 +290,8 @@ export default function TestResultDrawer({
           </TabPanel>
 
           <TabPanel value={activeTab} index={2}>
-            <TestDetailReviewsTab 
-              test={test} 
+            <TestDetailReviewsTab
+              test={test}
               sessionToken={sessionToken}
               onTestResultUpdate={onTestResultUpdate}
               currentUserId={currentUserId}

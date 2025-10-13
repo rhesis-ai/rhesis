@@ -455,10 +455,14 @@ export default function TestRunFilterBar({
                   size="small"
                   onClick={() => handleOverruleFilterChange('conflicting')}
                   color={
-                    filter.overruleFilter === 'conflicting' ? 'warning' : 'default'
+                    filter.overruleFilter === 'conflicting'
+                      ? 'warning'
+                      : 'default'
                   }
                   variant={
-                    filter.overruleFilter === 'conflicting' ? 'filled' : 'outlined'
+                    filter.overruleFilter === 'conflicting'
+                      ? 'filled'
+                      : 'outlined'
                   }
                 />
               </Stack>

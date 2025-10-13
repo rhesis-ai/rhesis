@@ -127,7 +127,9 @@ export default function ReviewJudgementDrawer({
     // If there's already a review, allow changing back to original (updating the review)
     const hasExistingReview = !!test.last_review;
     if (newStatus === originalStatus && !hasExistingReview) {
-      setError('New status must be different from the automated result. Use "Confirm Review" to agree with the automated result.');
+      setError(
+        'New status must be different from the automated result. Use "Confirm Review" to agree with the automated result.'
+      );
       return;
     }
 

@@ -67,19 +67,22 @@ export default async function TestRunPage({ params }: { params: any }) {
     const apiFactory = new ApiClientFactory(session.session_token);
     const testRunsClient = apiFactory.getTestRunsClient();
     const testResultsClient = apiFactory.getTestResultsClient();
-    const promptsClient = apiFactory.getPromptsClient();
     const behaviorClient = apiFactory.getBehaviorClient();
 
     // Fetch test run details
     const testRun = await testRunsClient.getTestRun(identifier);
 
     // Fetch all test results for this test run in batches (API limit is 100)
+    // The backend now includes nested prompt and behavior objects, eliminating the need for separate API calls
     let testResults: any[] = [];
     let skip = 0;
     const batchSize = 100;
     let hasMore = true;
 
     while (hasMore) {
+      console.log(
+        `[SSR] Fetching test results batch: skip=${skip}, limit=${batchSize}`
+      );
       const testResultsResponse = await testResultsClient.getTestResults({
         filter: `test_run_id eq '${identifier}'`,
         limit: batchSize,
@@ -88,6 +91,9 @@ export default async function TestRunPage({ params }: { params: any }) {
         sort_order: 'desc',
       });
 
+      console.log(
+        `[SSR] Received ${testResultsResponse.data.length} test results, total so far: ${testResults.length + testResultsResponse.data.length}`
+      );
       testResults = [...testResults, ...testResultsResponse.data];
 
       // Check if there are more results
@@ -99,30 +105,34 @@ export default async function TestRunPage({ params }: { params: any }) {
       if (skip > 10000) break;
     }
 
-    // Get unique prompt IDs and fetch prompts
-    const promptIds = [
-      ...new Set(testResults.filter(r => r.prompt_id).map(r => r.prompt_id!)),
-    ];
-
-    // Fetch prompts with error handling for individual failures
-    const promptsData = await Promise.allSettled(
-      promptIds.map(id => promptsClient.getPrompt(id))
+    // Build prompts map from nested data in test results (optimized - no separate API calls needed!)
+    console.log(
+      `[SSR] Building prompts map from ${testResults.length} test results using nested data`
     );
-
-    const promptsMap = promptsData.reduce(
-      (acc, result, index) => {
-        if (result.status === 'fulfilled') {
-          acc[result.value.id] = result.value;
-        } else {
-          // Log error but continue - use prompt ID as fallback
+    const promptsMap = testResults.reduce(
+      (acc, testResult) => {
+        // Use nested prompt data if available
+        if (testResult.test?.prompt) {
+          acc[testResult.test.prompt.id] = {
+            id: testResult.test.prompt.id,
+            content: testResult.test.prompt.content,
+            expected_response: testResult.test.prompt.expected_response,
+            nano_id: testResult.test.prompt.nano_id,
+            counts: testResult.test.prompt.counts,
+          };
+        }
+        // Fallback: if prompt_id exists but nested data is not available (backward compatibility)
+        else if (testResult.prompt_id && !acc[testResult.prompt_id]) {
           console.warn(
-            `Failed to fetch prompt ${promptIds[index]}:`,
-            result.reason
+            `[SSR] Prompt ${testResult.prompt_id} not found in nested data for test result ${testResult.id}`
           );
         }
         return acc;
       },
       {} as Record<string, any>
+    );
+    console.log(
+      `[SSR] ✅ Built prompts map with ${Object.keys(promptsMap).length} unique prompts (NO separate API calls!)`
     );
 
     // Fetch behaviors with metrics for this test run
