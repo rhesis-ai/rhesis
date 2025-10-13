@@ -62,13 +62,6 @@ class LocalizationSettings(BaseModel):
     time_format: Optional[str] = Field(None, description="Preferred time format: '12h' or '24h'")
 
 
-class EditorSettings(BaseModel):
-    """Editor preferences"""
-    default_model: Optional[UUID4] = Field(None, description="Default model for editor")
-    auto_save: Optional[bool] = Field(None, description="Enable auto-save")
-    show_line_numbers: Optional[bool] = Field(None, description="Show line numbers in editor")
-
-
 class PrivacySettings(BaseModel):
     """Privacy preferences"""
     show_email: Optional[bool] = Field(None, description="Show email to other users")
@@ -84,7 +77,6 @@ class UserSettings(BaseModel):
     ui: Optional[UISettings] = Field(default_factory=UISettings)
     notifications: Optional[NotificationSettings] = Field(default_factory=NotificationSettings)
     localization: Optional[LocalizationSettings] = Field(default_factory=LocalizationSettings)
-    editor: Optional[EditorSettings] = Field(default_factory=EditorSettings)
     privacy: Optional[PrivacySettings] = Field(default_factory=PrivacySettings)
 
 
@@ -96,7 +88,6 @@ class UserSettingsUpdate(BaseModel):
     ui: Optional[UISettings] = None
     notifications: Optional[NotificationSettings] = None
     localization: Optional[LocalizationSettings] = None
-    editor: Optional[EditorSettings] = None
     privacy: Optional[PrivacySettings] = None
 
 

@@ -72,11 +72,6 @@ class UserSettingsManager:
         return LocalizationSettingsAccessor(self._data.get("localization", {}))
 
     @property
-    def editor(self) -> "EditorSettingsAccessor":
-        """Access editor settings."""
-        return EditorSettingsAccessor(self._data.get("editor", {}))
-
-    @property
     def privacy(self) -> "PrivacySettingsAccessor":
         """Access privacy settings."""
         return PrivacySettingsAccessor(self._data.get("privacy", {}))
@@ -237,31 +232,6 @@ class LocalizationSettingsAccessor:
     def time_format(self) -> Optional[str]:
         """Get preferred time format."""
         return self._data.get("time_format")
-
-
-class EditorSettingsAccessor:
-    """Accessor for editor settings."""
-
-    def __init__(self, editor_settings: dict):
-        self._data = editor_settings
-
-    @property
-    def default_model(self) -> Optional[uuid.UUID]:
-        """Get default editor model ID."""
-        model_id = self._data.get("default_model")
-        if model_id:
-            return uuid.UUID(model_id) if isinstance(model_id, str) else model_id
-        return None
-
-    @property
-    def auto_save(self) -> Optional[bool]:
-        """Get auto-save setting."""
-        return self._data.get("auto_save")
-
-    @property
-    def show_line_numbers(self) -> Optional[bool]:
-        """Get show line numbers setting."""
-        return self._data.get("show_line_numbers")
 
 
 class PrivacySettingsAccessor:

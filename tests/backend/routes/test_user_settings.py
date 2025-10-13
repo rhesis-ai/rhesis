@@ -101,10 +101,6 @@ class TestUserSettingsRoutes:
                 "date_format": "YYYY-MM-DD",
                 "time_format": "24h"
             },
-            "editor": {
-                "auto_save": True,
-                "show_line_numbers": True
-            },
             "privacy": {
                 "show_email": False,
                 "show_activity": True
@@ -131,7 +127,6 @@ class TestUserSettingsRoutes:
         assert "ui" in data
         assert "notifications" in data
         assert "localization" in data
-        assert "editor" in data
         assert "privacy" in data
         
         # Verify version
@@ -252,9 +247,6 @@ class TestUserSettingsRoutes:
                 "email": {
                     "test_run_complete": False
                 }
-            },
-            "editor": {
-                "auto_save": True
             }
         }
         
@@ -264,7 +256,6 @@ class TestUserSettingsRoutes:
         data = response.json()
         assert data["ui"]["theme"] == "dark"
         assert data["notifications"]["email"]["test_run_complete"] == False
-        assert data["editor"]["auto_save"] == True
     
     def test_patch_settings_preserves_version(self, authenticated_client, settings_endpoint):
         """✅ Test PATCH settings preserves version field"""
@@ -407,7 +398,6 @@ class TestUserSettingsRoutes:
         assert data["models"]["generation"]["temperature"] == complete_settings["models"]["generation"]["temperature"]
         assert data["notifications"]["email"]["test_run_complete"] == complete_settings["notifications"]["email"]["test_run_complete"]
         assert data["localization"]["language"] == complete_settings["localization"]["language"]
-        assert data["editor"]["auto_save"] == complete_settings["editor"]["auto_save"]
         assert data["privacy"]["show_email"] == complete_settings["privacy"]["show_email"]
     
     # === UUID HANDLING TESTS ===
@@ -436,15 +426,11 @@ class TestUserSettingsRoutes:
         """✅ Test PATCH settings handles multiple UUIDs correctly"""
         gen_uuid = str(uuid.uuid4())
         eval_uuid = str(uuid.uuid4())
-        editor_uuid = str(uuid.uuid4())
         
         update_data = {
             "models": {
                 "generation": {"model_id": gen_uuid},
                 "evaluation": {"model_id": eval_uuid}
-            },
-            "editor": {
-                "default_model": editor_uuid
             }
         }
         
@@ -455,7 +441,6 @@ class TestUserSettingsRoutes:
         
         assert data["models"]["generation"]["model_id"] == gen_uuid
         assert data["models"]["evaluation"]["model_id"] == eval_uuid
-        assert data["editor"]["default_model"] == editor_uuid
     
     # === REGRESSION TESTS ===
     
