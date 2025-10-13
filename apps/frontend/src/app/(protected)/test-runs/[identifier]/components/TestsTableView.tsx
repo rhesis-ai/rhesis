@@ -571,7 +571,7 @@ export default function TestsTableView({
                                 gap: 0.5,
                                 cursor: 'pointer',
                                 padding: theme.spacing(0.25, 0.5),
-                                borderRadius: 0.5,
+                                borderRadius: theme.shape.borderRadius / 8,
                                 '&:hover': {
                                   backgroundColor: theme.palette.action.hover,
                                 },
@@ -606,7 +606,7 @@ export default function TestsTableView({
                                 gap: 0.5,
                                 cursor: 'pointer',
                                 padding: theme.spacing(0.25, 0.5),
-                                borderRadius: 0.5,
+                                borderRadius: theme.shape.borderRadius / 8,
                                 '&:hover': {
                                   backgroundColor: theme.palette.action.hover,
                                 },
