@@ -29,9 +29,10 @@ const MetricsIcon = ({ className = "" }) => (
   </svg>
 )
 
-const EndpointsIcon = ({ className = "" }) => (
+const KnowledgeIcon = ({ className = "" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-6 4h6m-6-8h1" />
   </svg>
 )
 
@@ -52,12 +53,12 @@ const features = [
     ],
   },
   {
-    icon: EndpointsIcon,
-    title: "Endpoints",
+    icon: KnowledgeIcon,
+    title: "Knowledge Support",
     items: [
-      "REST and WebSocket support",
-      "Multi-provider LLM integration",
-      "Real-time testing execution",
+      "Upload and store documents",
+      "Use documents during test generation",
+      "Improve context-based generation",
     ],
   },
   {
@@ -115,6 +116,8 @@ export const FeatureOverview = () => {
     icon: {
       width: '1.25rem',
       height: '1.25rem',
+      minWidth: '1.25rem',
+      minHeight: '1.25rem',
       color: '#2AA1CE', // Rhesis primary blue
       flexShrink: 0,
     },
