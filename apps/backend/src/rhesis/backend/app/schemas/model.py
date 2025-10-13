@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic import UUID4, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict
 
 from .base import Base
 from .status import Status
@@ -59,5 +59,22 @@ class Model(ModelBase):
     assignee: Optional[User] = None
     tags: Optional[List[Tag]] = []
 
-    model_config = ConfigDict(
-from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TestModelConnectionRequest(BaseModel):
+    """Schema for testing a model connection before creating it"""
+
+    provider: str
+    model_name: str
+    api_key: str
+    endpoint: Optional[str] = None
+
+
+class TestModelConnectionResponse(BaseModel):
+    """Schema for the model connection test response"""
+
+    success: bool
+    message: str
+    provider: str
+    model_name: str

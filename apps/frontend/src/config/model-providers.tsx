@@ -25,11 +25,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 export const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
 
 // Providers that require custom endpoint URLs (self-hosted or local)
-export const PROVIDERS_REQUIRING_ENDPOINT = [
-  'ollama',
-  'vllm',
-  'huggingface',
-];
+export const PROVIDERS_REQUIRING_ENDPOINT = ['ollama', 'vllm', 'huggingface'];
 
 // Default endpoints for providers that need them
 export const DEFAULT_ENDPOINTS: Record<string, string> = {
@@ -65,4 +61,3 @@ export interface ProviderInfo {
   description: string;
   icon: React.ReactNode;
 }
-

@@ -73,12 +73,12 @@ function ProviderSelectionDialog({
   const sortedProviders = [...providers].sort((a, b) => {
     const aSupported = SUPPORTED_PROVIDERS.includes(a.type_value);
     const bSupported = SUPPORTED_PROVIDERS.includes(b.type_value);
-    
+
     // If support status differs, supported comes first
     if (aSupported !== bSupported) {
       return bSupported ? 1 : -1;
     }
-    
+
     // Within same support status, sort alphabetically
     return a.type_value.localeCompare(b.type_value);
   });
@@ -114,16 +114,16 @@ function ProviderSelectionDialog({
                   opacity: isSupported ? 1 : 0.5,
                   cursor: isSupported ? 'pointer' : 'not-allowed',
                   '&:hover': {
-                    backgroundColor: isSupported ? 'action.hover' : 'transparent',
+                    backgroundColor: isSupported
+                      ? 'action.hover'
+                      : 'transparent',
                   },
                   '&.Mui-disabled': {
                     opacity: 0.5,
                   },
                 }}
               >
-                <ListItemIcon
-                  sx={{ opacity: isSupported ? 1 : 0.4 }}
-                >
+                <ListItemIcon sx={{ opacity: isSupported ? 1 : 0.4 }}>
                   {providerInfo.icon}
                 </ListItemIcon>
                 <ListItemText
@@ -186,6 +186,11 @@ function ConnectionDialog({
   const [newHeaderValue, setNewHeaderValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const isCustomProvider = provider?.type_value === 'vllm';
   const requiresEndpoint = provider
@@ -209,6 +214,7 @@ function ConnectionDialog({
       setNewHeaderKey('');
       setNewHeaderValue('');
       setError(null);
+      setTestResult(null);
     }
   }, [provider]);
 
