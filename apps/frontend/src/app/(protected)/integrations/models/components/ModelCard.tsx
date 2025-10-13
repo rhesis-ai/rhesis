@@ -6,6 +6,7 @@ import {
   Typography,
   Button,
   IconButton,
+  Chip,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -102,7 +103,8 @@ export function ConnectedModelCard({
                   ml: -0.5,
                   mt: -1.5,
                   fontSize: 16,
-                  color: 'success.main',
+                  color: 'primary.main',
+                  opacity: 0.7,
                 }}
               />
             </Box>
@@ -142,23 +144,22 @@ export function ConnectedModelCard({
             Model: {model.model_name}
           </Typography>
 
-          {/* Connected button */}
-          <Button
-            fullWidth
-            variant="contained"
-            color="success"
+          {/* Connected status */}
+          <Chip
+            icon={<CheckCircleIcon />}
+            label="Connected"
             size="small"
-            disableElevation
-            disableRipple
+            variant="outlined"
             sx={{
-              textTransform: 'none',
-              borderRadius: theme => theme.shape.borderRadius * 0.375,
-              pointerEvents: 'none',
-              cursor: 'default',
+              width: '100%',
+              '& .MuiChip-icon': {
+                color: 'primary.main',
+                opacity: 0.7,
+              },
+              borderColor: 'divider',
+              color: 'text.secondary',
             }}
-          >
-            Connected
-          </Button>
+          />
         </Box>
       </CardContent>
     </Card>
