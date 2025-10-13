@@ -108,17 +108,13 @@ jobs:
           
 
           ## How the release process works
-          1. The current pull request contains the version changes in the configuration files and
-          changelogs
+          1. The current pull request contains the version changes in the configuration files and changelogs
           2. Review the generated changelogs
           3. Check if the version changes are correct
           4. Check if the SDK and backend tests pass
-          5. Give the team time for review and hotfixes. Hotfixes must be merged into
-          the release branch.
+          5. Give the team time for review and hotfixes. Hotfixes must be merged into the release branch.
           6. Once the release branch is approved, it can be merged into main.
-          7. After the merge, you need to run the \"Release - 3. Publish and deploy (prd)\" workflow.
-          **The workflow must be run on the release branch.** The workflow will deploy the app
-          to the production environment and upload the new version of the SDK to PyPI.
+          7. After the merge, you need to run the \"Release - 3. Publish and deploy (prd)\" workflow.  **The workflow must be run on the release branch.** The workflow will deploy the app to the production environment and upload the new version of the SDK to PyPI.
 
 
 
