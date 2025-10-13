@@ -34,30 +34,30 @@ export default function IntegrationsLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  // Redirect to applications if on the root integrations path
+  // Redirect to models if on the root integrations path
   React.useEffect(() => {
     if (pathname === '/integrations') {
-      router.replace('/integrations/applications');
+      router.replace('/integrations/models');
     }
   }, [pathname, router]);
 
   const tabValue = React.useMemo(() => {
-    if (pathname.includes('/applications')) return 0;
-    if (pathname.includes('/tools')) return 1;
-    if (pathname.includes('/models')) return 2;
+    if (pathname.includes('/models')) return 0;
+    if (pathname.includes('/applications')) return 1;
+    if (pathname.includes('/tools')) return 2;
     return 0;
   }, [pathname]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     switch (newValue) {
       case 0:
-        router.push('applications');
+        router.push('models');
         break;
       case 1:
-        router.push('tools');
+        router.push('applications');
         break;
       case 2:
-        router.push('models');
+        router.push('tools');
         break;
     }
   };
@@ -71,9 +71,9 @@ export default function IntegrationsLayout({
           aria-label="integration tabs"
           sx={{ px: 3 }}
         >
+          <Tab label="Models" />
           <Tab label="Applications" />
           <Tab label="Tools" />
-          <Tab label="Models" />
         </Tabs>
       </Box>
       {children}
