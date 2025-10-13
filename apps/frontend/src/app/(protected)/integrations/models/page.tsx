@@ -1074,9 +1074,6 @@ export default function LLMProvidersPage() {
                 <Typography variant="body2" color="text.secondary">
                   Model: {model.model_name}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  API Key: •••••{model.key.slice(-4)}
-                </Typography>
               </Box>
 
               <Box sx={{ mt: 'auto' }}>
