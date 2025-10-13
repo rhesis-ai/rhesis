@@ -767,7 +767,10 @@ export default function ComparisonView({
                                   label={`${baselinePassed ? 'Passed' : 'Failed'} (${baselinePassedCount}/${baselineTotalCount})`}
                                   size="small"
                                   color={baselinePassed ? 'success' : 'error'}
-                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                  sx={{ 
+                                    height: 20, 
+                                    fontSize: theme => theme.typography.caption.fontSize 
+                                  }}
                                 />
                               </>
                             )}
@@ -850,7 +853,10 @@ export default function ComparisonView({
                               label={`${currentPassed ? 'Passed' : 'Failed'} (${currentPassedCount}/${currentTotalCount})`}
                               size="small"
                               color={currentPassed ? 'success' : 'error'}
-                              sx={{ height: 20, fontSize: '0.7rem' }}
+                              sx={{ 
+                                height: 20, 
+                                fontSize: theme => theme.typography.caption.fontSize 
+                              }}
                             />
                             {isImproved && (
                               <TrendingUpIcon
