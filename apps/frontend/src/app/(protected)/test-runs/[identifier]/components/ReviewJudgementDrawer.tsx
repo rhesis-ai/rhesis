@@ -79,7 +79,6 @@ export default function ReviewJudgementDrawer({
         });
         setStatuses(fetchedStatuses);
       } catch (err) {
-        console.error('Failed to fetch statuses:', err);
         setError('Failed to load status options');
       } finally {
         setLoadingStatuses(false);
@@ -175,7 +174,6 @@ export default function ReviewJudgementDrawer({
       await onSave(test.id, reviewData);
       onClose();
     } catch (err) {
-      console.error('Failed to create review:', err);
       setError('Failed to save review. Please try again.');
     } finally {
       setSubmitting(false);
