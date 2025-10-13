@@ -1,3 +1,36 @@
+/* Rhesis Brand Colors */
+:root {
+  /* Primary Blues */
+  --rhesis-primary-main: #50B9E0;        /* RGB: 80, 185, 224 */
+  --rhesis-primary-light: #97D5EE;       /* RGB: 151, 213, 238 */
+  --rhesis-primary-dark: #2AA1CE;        /* CTA Blue */
+  --rhesis-primary-darker: #3BC4F2;      /* Hover Blue */
+
+  /* Backgrounds */
+  --rhesis-bg-lightest: #f2f9fd;
+  --rhesis-bg-light: #e4f2fa;
+  --rhesis-bg-medium: #C2E5F5;
+  --rhesis-bg-blue: #97D5EE;
+  --rhesis-bg-white: #FFFFFF;
+
+  /* Text Colors */
+  --rhesis-text-primary: #3d3d3d;        /* Main text color */
+  --rhesis-text-dark: #1A1A1A;           /* RGB: 26, 26, 26 */
+
+  /* CTA Colors */
+  --rhesis-cta-blue: #2AA1CE;
+  --rhesis-cta-orange: #FD6E12;          /* RGB: 253, 110, 18 */
+
+  /* Accent Colors */
+  --rhesis-accent-yellow: #FDD803;       /* RGB: 253, 216, 3 */
+}
+
+/* Dark mode brand colors */
+[data-theme="dark"] {
+  --rhesis-text-primary: #E6EDF3;
+  --rhesis-text-dark: #FFFFFF;
+}
+
 /* Local Font Definitions */
 @font-face {
   font-family: 'Be Vietnam Pro';
@@ -124,6 +157,21 @@ body,
   background-color: rgba(80, 185, 224, 0.08) !important; /* Frontend theme hover state */
 }
 
+/* Remove/hide sidebar submenu borders */
+.nextra-sidebar ul[class*="before:bg-gray"],
+.nextra-sidebar ul.x\:before\:bg-gray-200,
+.nextra-sidebar ul[class*="before:absolute"] {
+  position: relative;
+}
+
+.nextra-sidebar ul[class*="before:bg-gray"]::before,
+.nextra-sidebar ul.x\:before\:bg-gray-200::before,
+.nextra-sidebar ul[class*="before:absolute"]::before {
+  background-color: transparent !important;
+  border: none !important;
+  width: 0 !important;
+}
+
 /* Dark mode - matching frontend theme colors */
 [data-theme="dark"] body,
 [data-theme="dark"] .nextra-content,
@@ -189,10 +237,10 @@ body,
   color: #E6EDF3 !important; /* Force readable text for all primary color elements */
 }
 
-/* Also target content area primary colors that might be hard to read */
-[data-theme="dark"] .nextra-content [class*="text-primary-600"],
-[data-theme="dark"] .nextra-content [class*="text-primary-700"],
-[data-theme="dark"] .nextra-content [class*="text-primary-800"] {
+/* Also target content area primary colors that might be hard to read - but NOT TOC */
+[data-theme="dark"] .nextra-content [class*="text-primary-600"]:not(.nextra-toc *):not(.nextra-toc a),
+[data-theme="dark"] .nextra-content [class*="text-primary-700"]:not(.nextra-toc *):not(.nextra-toc a),
+[data-theme="dark"] .nextra-content [class*="text-primary-800"]:not(.nextra-toc *):not(.nextra-toc a) {
   color: #E6EDF3 !important; /* Force readable text in content area */
 }
 
@@ -225,6 +273,37 @@ body,
 /* Hover state for sidebar links in dark mode */
 [data-theme="dark"] .nextra-sidebar a:hover:not([aria-current="page"]):not([data-active="true"]) {
   background-color: rgba(42, 161, 206, 0.12) !important; /* Frontend theme hover state for dark mode */
+}
+
+/* Remove/hide sidebar submenu borders in dark mode */
+[data-theme="dark"] .nextra-sidebar ul[class*="before:bg-neutral"],
+[data-theme="dark"] .nextra-sidebar ul.x\:dark\:before\:bg-neutral-800,
+[data-theme="dark"] .nextra-sidebar ul[class*="before:absolute"] {
+  position: relative;
+}
+
+[data-theme="dark"] .nextra-sidebar ul[class*="before:bg-neutral"]::before,
+[data-theme="dark"] .nextra-sidebar ul.x\:dark\:before\:bg-neutral-800::before,
+[data-theme="dark"] .nextra-sidebar ul[class*="before:absolute"]::before {
+  background-color: transparent !important;
+  border: none !important;
+  width: 0 !important;
+}
+
+/* Light mode backgrounds - clean white */
+body,
+.nextra-content,
+.nextra-nav-container {
+  background-color: #FFFFFF !important; /* Clean white background */
+}
+
+.nextra-sidebar {
+  background-color: #FFFFFF !important; /* Clean white sidebar */
+  border-right: 0px !important; /* Remove border */
+}
+
+.nextra-sidebar-footer {
+  background-color: #FFFFFF !important; /* Clean white sidebar footer */
 }
 
 /* Dark mode backgrounds - matching frontend theme */
@@ -264,7 +343,7 @@ body,
   --nextra-primary-hue: 200;
   --nextra-primary-saturation: 100%;
   --nextra-primary-lightness: 60%;
-  
+
   /* Neutral colors - matching frontend theme text colors */
   --x-color-neutral-50: #E6EDF3;   /* Frontend theme text.primary for dark mode */
   --x-color-neutral-100: #E6EDF3;  /* Frontend theme text.primary for dark mode */
@@ -286,5 +365,125 @@ body,
   font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
+/* Ensure all main content areas have clean white background */
+.nextra-content main,
+.nextra-content article,
+.nextra-content section,
+.nextra-content .nx-prose {
+  background-color: #FFFFFF !important;
+}
 
+/* Override any default grey backgrounds */
+html,
+html body {
+  background-color: #FFFFFF !important;
+}
 
+/* Ensure navbar is also white */
+.nextra-navbar {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Table of Contents (On This Page) Styling */
+.nextra-toc li a,
+nav[aria-labelledby="toc-heading"] a,
+.nextra-toc-content a {
+  color: #3d3d3d !important;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.nextra-toc li a:hover,
+nav[aria-labelledby="toc-heading"] a:hover,
+.nextra-toc-content a:hover {
+  color: #2AA1CE !important;
+}
+
+/* Active/highlighted TOC item (currently scrolled to) */
+.nextra-toc li a[data-active="true"],
+.nextra-toc li a.active,
+.nextra-toc a[aria-current="true"],
+nav[aria-labelledby="toc-heading"] a[data-active="true"],
+.nextra-toc a.nx-text-primary-600,
+.nextra-toc a[class*="text-primary"],
+nav[class*="toc"] a[class*="text-primary"],
+aside nav a[class*="text-primary"],
+.nx-toc a[class*="text-primary"] {
+  color: #2AA1CE !important;
+  font-weight: 600;
+}
+
+/* Dark mode TOC */
+[data-theme="dark"] .nextra-toc li a,
+[data-theme="dark"] nav[aria-labelledby="toc-heading"] a,
+[data-theme="dark"] .nextra-toc-content a {
+  color: #E6EDF3 !important;
+}
+
+[data-theme="dark"] .nextra-toc li a:hover,
+[data-theme="dark"] nav[aria-labelledby="toc-heading"] a:hover,
+[data-theme="dark"] .nextra-toc-content a:hover {
+  color: #3BC4F2 !important;
+}
+
+/* Active/highlighted TOC item in dark mode */
+[data-theme="dark"] .nextra-toc li a[data-active="true"],
+[data-theme="dark"] .nextra-toc li a.active,
+[data-theme="dark"] .nextra-toc a[aria-current="true"],
+[data-theme="dark"] nav[aria-labelledby="toc-heading"] a[data-active="true"],
+[data-theme="dark"] .nextra-toc a.nx-text-primary-600,
+[data-theme="dark"] .nextra-toc a[class*="text-primary"],
+[data-theme="dark"] nav[class*="toc"] a[class*="text-primary"],
+[data-theme="dark"] aside nav a[class*="text-primary"],
+[data-theme="dark"] .nx-toc a[class*="text-primary"] {
+  color: #3BC4F2 !important;
+  font-weight: 600;
+}
+
+/* Rhesis Brand Button Styles */
+.btn-rhesis-primary {
+  background-color: #2AA1CE !important;
+  color: white !important;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.btn-rhesis-primary:hover {
+  background-color: #3BC4F2 !important;
+  color: white !important;
+}
+
+.btn-rhesis-secondary {
+  background-color: #FFFFFF !important;
+  border: 2px solid #2AA1CE !important;
+  color: #3d3d3d !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-rhesis-secondary:hover {
+  background-color: #f2f9fd !important;
+  color: #2AA1CE !important;
+  text-decoration: none !important;
+}
+
+/* Dark mode button styles */
+[data-theme="dark"] .btn-rhesis-primary {
+  background-color: #2AA1CE !important;
+  color: white !important;
+}
+
+[data-theme="dark"] .btn-rhesis-primary:hover {
+  background-color: #3BC4F2 !important;
+  color: white !important;
+}
+
+[data-theme="dark"] .btn-rhesis-secondary {
+  background-color: #161B22 !important;
+  border: 2px solid #2AA1CE !important;
+  color: #E6EDF3 !important;
+}
+
+[data-theme="dark"] .btn-rhesis-secondary:hover {
+  background-color: #1F242B !important;
+  color: #3BC4F2 !important;
+}

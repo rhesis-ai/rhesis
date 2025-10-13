@@ -1,6 +1,10 @@
 'use client'
 
 import React from 'react'
+import ScienceOutlined from '@mui/icons-material/ScienceOutlined';
+import AnalyticsOutlined from '@mui/icons-material/AnalyticsOutlined';
+import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
+import GroupOutlined from '@mui/icons-material/GroupOutlined';
 
 /**
  * FeatureOverview Component
@@ -16,35 +20,9 @@ import React from 'react'
  * ```
  */
 
-// Simple SVG icon components (replacing lucide-react dependency)
-const TestIcon = ({ className = "", style = {} }) => (
-  <svg className={className} style={style} width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-  </svg>
-)
-
-const MetricsIcon = ({ className = "", style = {} }) => (
-  <svg className={className} style={style} width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-)
-
-const KnowledgeIcon = ({ className = "", style = {} }) => (
-  <svg className={className} style={style} width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-6 4h6m-6-8h1" />
-  </svg>
-)
-
-const CollaborationIcon = ({ className = "", style = {} }) => (
-  <svg className={className} style={style} width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-  </svg>
-)
-
 const features = [
   {
-    icon: TestIcon,
+    icon: ScienceOutlined,
     title: "Test Generation",
     items: [
       "AI-powered test scenario creation",
@@ -53,7 +31,7 @@ const features = [
     ],
   },
   {
-    icon: KnowledgeIcon,
+    icon: DescriptionOutlined,
     title: "Knowledge Support",
     items: [
       "Upload and store documents",
@@ -62,7 +40,7 @@ const features = [
     ],
   },
   {
-    icon: MetricsIcon,
+    icon: AnalyticsOutlined,
     title: "Evaluation",
     items: [
       "LLM-based quality metrics",
@@ -73,7 +51,7 @@ const features = [
 ]
 
 const platformFeature = {
-  icon: CollaborationIcon,
+  icon: GroupOutlined,
   title: "Collaborative Platform",
   items: [
     "Team-based project management and organization",
@@ -114,7 +92,7 @@ export const FeatureOverview = () => {
       marginBottom: '1rem',
     },
     icon: {
-      color: '#2AA1CE', // Rhesis primary blue
+      color: 'var(--text-primary, #3D3D3D)', // Use text color for neutrality
       flexShrink: 0,
     },
     title: {
@@ -140,7 +118,7 @@ export const FeatureOverview = () => {
     bullet: {
       width: '0.375rem',
       height: '0.375rem',
-      backgroundColor: '#2AA1CE', // Rhesis primary blue
+      backgroundColor: 'var(--bullet-color, #9CA3AF)', // Subtle gray for bullets
       borderRadius: '50%',
       marginTop: '0.5rem',
       flexShrink: 0,
@@ -197,6 +175,7 @@ export const FeatureOverview = () => {
           --card-bg: #161B22;
           --text-primary: #E6EDF3;
           --text-secondary: #A9B1BB;
+          --bullet-color: #6B7280;
         }
 
         [data-theme="light"] .rhesis-feature-overview {
@@ -204,6 +183,7 @@ export const FeatureOverview = () => {
           --card-bg: #ffffff;
           --text-primary: #3D3D3D;
           --text-secondary: #6B7280;
+          --bullet-color: #9CA3AF;
         }
 
         @media (max-width: 768px) {
