@@ -30,7 +30,7 @@ export interface ModelCreate {
   description?: string;
   icon?: string;
   model_name: string;
-  endpoint: string;
+  endpoint?: string;
   key: string;
   request_headers?: Record<string, any>;
   tags: string[];

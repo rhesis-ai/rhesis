@@ -212,7 +212,6 @@ function ConnectionDialog({
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
-  const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(
     {}
@@ -230,7 +229,6 @@ function ConnectionDialog({
       setName('');
       setProviderName('');
       setModelName('');
-      setEndpoint('');
       setApiKey('');
       setCustomHeaders({});
       setNewHeaderKey('');
@@ -260,10 +258,7 @@ function ConnectionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Endpoint is only required for custom providers (vLLM)
-    const isValid = provider && name && modelName && apiKey && (isCustomProvider ? endpoint : true);
-    
-    if (isValid) {
+    if (provider && name && modelName && apiKey) {
       setLoading(true);
       setError(null);
       try {
@@ -278,7 +273,6 @@ function ConnectionDialog({
           description: `${isCustomProvider ? providerName : provider.description} Connection`,
           icon: provider.type_value,
           model_name: modelName,
-          endpoint: endpoint || undefined, // Only include endpoint if provided
           key: apiKey,
           tags: [provider.type_value],
           request_headers: requestHeaders,
@@ -386,19 +380,6 @@ function ConnectionDialog({
             >
               Connection Details
             </Typography>
-
-            <TextField
-              label="API Endpoint"
-              fullWidth
-              required={isCustomProvider}
-              value={endpoint}
-              onChange={e => setEndpoint(e.target.value)}
-              helperText={
-                isCustomProvider
-                  ? "Required: The full URL of your model's API endpoint"
-                  : 'Optional: Leave empty to use the default endpoint for this provider'
-              }
-            />
 
             <TextField
               label="API Key"
@@ -510,9 +491,8 @@ function ConnectionDialog({
             variant="contained"
             disabled={
               !name ||
-              (!isCustomProvider && !modelName) ||
+              !modelName ||
               (isCustomProvider && !providerName) ||
-              (isCustomProvider && !endpoint) ||
               !apiKey ||
               loading
             }
