@@ -47,6 +47,15 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 // Note: Database has 'google' but SDK uses 'gemini' internally
 const SUPPORTED_PROVIDERS = ['openai', 'google', 'ollama'];
 
+// Providers that require custom endpoint URLs (self-hosted or local)
+const PROVIDERS_REQUIRING_ENDPOINT = ['ollama', 'vllm', 'huggingface'];
+
+// Default endpoints for providers that need them
+const DEFAULT_ENDPOINTS: Record<string, string> = {
+  ollama: 'http://localhost:11434',
+  vllm: 'http://localhost:8000',
+};
+
 interface ProviderInfo {
   id: string;
   name: string;
@@ -213,6 +222,7 @@ function ConnectionDialog({
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
+  const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(
     {}
@@ -223,6 +233,9 @@ function ConnectionDialog({
   const [error, setError] = useState<string | null>(null);
 
   const isCustomProvider = provider?.type_value === 'vllm';
+  const requiresEndpoint = provider
+    ? PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
+    : false;
 
   // Reset form when dialog opens with new provider
   useEffect(() => {
@@ -230,6 +243,12 @@ function ConnectionDialog({
       setName('');
       setProviderName('');
       setModelName('');
+      // Set default endpoint if provider requires it
+      setEndpoint(
+        PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
+          ? DEFAULT_ENDPOINTS[provider.type_value] || ''
+          : ''
+      );
       setApiKey('');
       setCustomHeaders({});
       setNewHeaderKey('');
@@ -259,7 +278,15 @@ function ConnectionDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (provider && name && modelName && apiKey) {
+    // Validate required fields
+    const isValid =
+      provider &&
+      name &&
+      modelName &&
+      apiKey &&
+      (!requiresEndpoint || endpoint); // Endpoint required for certain providers
+
+    if (isValid) {
       setLoading(true);
       setError(null);
       try {
@@ -277,6 +304,7 @@ function ConnectionDialog({
           key: apiKey,
           tags: [provider.type_value],
           request_headers: requestHeaders,
+          ...(requiresEndpoint && endpoint ? { endpoint } : {}), // Include endpoint if required
         };
         await onConnect(provider.type_value, modelData);
         onClose();
@@ -381,6 +409,23 @@ function ConnectionDialog({
             >
               Connection Details
             </Typography>
+
+            {/* Endpoint URL (for self-hosted/local providers) */}
+            {requiresEndpoint && (
+              <TextField
+                label="API Endpoint"
+                fullWidth
+                required
+                value={endpoint}
+                onChange={e => setEndpoint(e.target.value)}
+                placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
+                helperText={
+                  provider?.type_value === 'ollama'
+                    ? 'The URL where Ollama is running (default: http://localhost:11434)'
+                    : 'The base URL for your self-hosted model endpoint'
+                }
+              />
+            )}
 
             <TextField
               label="API Key"
@@ -495,6 +540,7 @@ function ConnectionDialog({
               !modelName ||
               (isCustomProvider && !providerName) ||
               !apiKey ||
+              (requiresEndpoint && !endpoint) ||
               loading
             }
             size="large"
