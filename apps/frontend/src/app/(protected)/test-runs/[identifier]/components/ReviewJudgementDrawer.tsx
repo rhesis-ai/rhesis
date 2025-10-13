@@ -113,7 +113,7 @@ export default function ReviewJudgementDrawer({
   const handleSave = async () => {
     // Validation
     if (!reason.trim()) {
-      setError('Please provide a reason for overruling the judgement.');
+      setError('Please provide a reason for the review.');
       return;
     }
 
@@ -122,12 +122,15 @@ export default function ReviewJudgementDrawer({
       return;
     }
 
-    if (newStatus === originalStatus) {
-      setError('New status must be different from the original status.');
+    if (!test || !sessionToken) return;
+
+    // Only prevent matching original status if there's NO existing review
+    // If there's already a review, allow changing back to original (updating the review)
+    const hasExistingReview = !!test.last_review;
+    if (newStatus === originalStatus && !hasExistingReview) {
+      setError('New status must be different from the automated result. Use "Confirm Review" to agree with the automated result.');
       return;
     }
-
-    if (!test || !sessionToken) return;
 
     // Find the status ID for the new status
     const statusKeywords =
