@@ -25,12 +25,14 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import EditIcon from '@mui/icons-material/Edit';
 import { DeleteIcon, AddIcon, CloudIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { UUID } from 'crypto';
 import {
   SUPPORTED_PROVIDERS,
   PROVIDERS_REQUIRING_ENDPOINT,
@@ -158,6 +160,212 @@ function ProviderSelectionDialog({
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
       </DialogActions>
+    </Dialog>
+  );
+}
+
+interface EditModelDialogProps {
+  open: boolean;
+  model: Model | null;
+  onClose: () => void;
+  onUpdate: (modelId: UUID, updates: Partial<ModelCreate>) => Promise<void>;
+}
+
+function EditModelDialog({
+  open,
+  model,
+  onClose,
+  onUpdate,
+}: EditModelDialogProps) {
+  const [name, setName] = useState('');
+  const [modelName, setModelName] = useState('');
+  const [endpoint, setEndpoint] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const requiresEndpoint = model?.provider_type
+    ? PROVIDERS_REQUIRING_ENDPOINT.includes(model.provider_type.type_value)
+    : false;
+
+  // Reset form when dialog opens with new model
+  useEffect(() => {
+    if (model && open) {
+      setName(model.name || '');
+      setModelName(model.model_name || '');
+      setEndpoint(model.endpoint || '');
+      setApiKey(''); // Don't pre-fill API key for security
+      setShowApiKey(false);
+      setError(null);
+    }
+  }, [model, open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!model) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const updates: Partial<ModelCreate> = {
+        name,
+        model_name: modelName,
+      };
+
+      // Only include endpoint if it's required and has a value
+      if (requiresEndpoint && endpoint && endpoint.trim()) {
+        updates.endpoint = endpoint.trim();
+      }
+
+      // Only include API key if it was changed (not empty)
+      if (apiKey && apiKey.trim()) {
+        updates.key = apiKey.trim();
+      }
+
+      await onUpdate(model.id, updates);
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to update model'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!model) return null;
+
+  const providerIcon = PROVIDER_ICONS[model.icon || 'custom'] || (
+    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
+  );
+  const displayName = model.provider_type?.description || model.provider_type?.type_value || 'Provider';
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {providerIcon}
+          <Box>
+            <Typography variant="h6">Edit {displayName}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Update your connection settings
+            </Typography>
+          </Box>
+        </Box>
+      </DialogTitle>
+
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers sx={{ pt: 2 }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          <Stack spacing={2}>
+            {/* Basic Configuration */}
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}
+            >
+              Basic Configuration
+            </Typography>
+
+            <TextField
+              label="Connection Name"
+              fullWidth
+              required
+              value={name}
+              onChange={e => setName(e.target.value)}
+              helperText="A friendly name to identify this connection"
+            />
+
+            <TextField
+              label="Model Name"
+              fullWidth
+              required
+              value={modelName}
+              onChange={e => setModelName(e.target.value)}
+              placeholder="e.g., gpt-4, gemini-pro, llama-3-70b"
+              helperText="The specific model identifier from the provider"
+            />
+
+            {/* Connection Details */}
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
+            >
+              Connection Details
+            </Typography>
+
+            {/* Endpoint URL (for self-hosted/local providers) */}
+            {requiresEndpoint && (
+              <TextField
+                label="API Endpoint"
+                fullWidth
+                value={endpoint}
+                onChange={e => setEndpoint(e.target.value)}
+                placeholder={DEFAULT_ENDPOINTS[model.provider_type?.type_value || '']}
+                helperText={
+                  model.provider_type?.type_value === 'ollama'
+                    ? 'The URL where Ollama is running (default: http://localhost:11434)'
+                    : 'The base URL for your self-hosted model endpoint'
+                }
+              />
+            )}
+
+            {/* API Key */}
+            <TextField
+              label="API Key"
+              fullWidth
+              type={showApiKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="Leave empty to keep current key"
+              helperText={
+                apiKey
+                  ? "New API key will replace the current one"
+                  : `Current key: •••••${model.key.slice(-4)}`
+              }
+              InputProps={{
+                endAdornment: apiKey ? (
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    edge="end"
+                  >
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                ) : null,
+              }}
+            />
+          </Stack>
+        </DialogContent>
+
+        <DialogActions
+          sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}
+        >
+          <Button onClick={onClose} disabled={loading} size="large">
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={!name || !modelName || (requiresEndpoint && !endpoint) || loading}
+            size="large"
+            sx={{ minWidth: 120 }}
+          >
+            {loading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={20} color="inherit" /> Updating...
+              </Box>
+            ) : (
+              'Update'
+            )}
+          </Button>
+        </DialogActions>
+      </form>
     </Dialog>
   );
 }
@@ -727,6 +935,8 @@ export default function LLMProvidersPage() {
   );
   const [providerSelectionOpen, setProviderSelectionOpen] = useState(false);
   const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [modelToEdit, setModelToEdit] = useState<Model | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
 
@@ -791,6 +1001,28 @@ export default function LLMProvidersPage() {
 
       const model = await modelsClient.createModel(modelData);
       setConnectedModels(prev => [...prev, model]);
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleEditClick = (model: Model, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setModelToEdit(model);
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdate = async (modelId: UUID, updates: Partial<ModelCreate>) => {
+    if (!session?.session_token) return;
+
+    try {
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const modelsClient = apiFactory.getModelsClient();
+
+      const updatedModel = await modelsClient.updateModel(modelId, updates);
+      setConnectedModels(prev =>
+        prev.map(model => (model.id === modelId ? updatedModel : model))
+      );
     } catch (err) {
       throw err;
     }
@@ -870,22 +1102,42 @@ export default function LLMProvidersPage() {
                 minHeight: 'inherit', // Inherit the minimum height from parent
               }}
             >
-              <IconButton
-                size="small"
-                onClick={e => handleDeleteClick(model, e)}
+              <Box
                 sx={{
                   position: 'absolute',
                   top: 8,
                   right: 8,
-                  color: 'error.main',
-                  '&:hover': {
-                    backgroundColor: 'error.light',
-                    color: 'error.main',
-                  },
+                  display: 'flex',
+                  gap: 0.5,
                 }}
               >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={e => handleEditClick(model, e)}
+                  sx={{
+                    color: 'primary.main',
+                    '&:hover': {
+                      backgroundColor: 'primary.light',
+                      color: 'primary.dark',
+                    },
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={e => handleDeleteClick(model, e)}
+                  sx={{
+                    color: 'error.main',
+                    '&:hover': {
+                      backgroundColor: 'error.light',
+                      color: 'error.main',
+                    },
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
 
               <Box
                 sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
@@ -1010,6 +1262,16 @@ export default function LLMProvidersPage() {
           setSelectedProvider(null);
         }}
         onConnect={handleConnect}
+      />
+
+      <EditModelDialog
+        open={editDialogOpen}
+        model={modelToEdit}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setModelToEdit(null);
+        }}
+        onUpdate={handleUpdate}
       />
 
       <DeleteModal
