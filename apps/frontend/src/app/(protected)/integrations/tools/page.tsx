@@ -11,17 +11,18 @@ export default function ToolsPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          Development Tools
-        </Typography>
-        <Typography color="text.secondary">
-          Connect your monitoring, logging, and analytics tools to enhance your
-          development workflow.
-        </Typography>
-      </Box>
+      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ mb: 1 }}>
+            Development Tools
+          </Typography>
+          <Typography color="text.secondary">
+            Connect your monitoring, logging, and analytics tools to enhance your
+            development workflow.
+          </Typography>
+        </Box>
 
-      <Stack spacing={3}>
+        <Stack spacing={3}>
         {/* Add Tool Card */}
         <Paper
           sx={{
@@ -69,6 +70,7 @@ export default function ToolsPage() {
           </Box>
         </Paper>
       </Stack>
+      </Box>
     </Box>
   );
 }
