@@ -1003,37 +1003,38 @@ export default function LLMProvidersPage() {
               <Box
                 sx={{
                   position: 'absolute',
-                  top: 8,
-                  right: 8,
+                  top: theme => theme.spacing(1),
+                  right: theme => theme.spacing(1),
                   display: 'flex',
-                  gap: 0.5,
+                  gap: theme => theme.spacing(0.5),
+                  zIndex: 1,
                 }}
               >
                 <IconButton
                   size="small"
                   onClick={e => handleEditClick(model, e)}
                   sx={{
-                    color: 'text.secondary',
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                      color: 'text.primary',
+                    padding: '2px',
+                    '& .MuiSvgIcon-root': {
+                      fontSize: theme => theme?.typography?.helperText?.fontSize || '0.75rem',
+                      color: 'currentColor',
                     },
                   }}
                 >
-                  <EditIcon fontSize="small" />
+                  <EditIcon fontSize="inherit" />
                 </IconButton>
                 <IconButton
                   size="small"
                   onClick={e => handleDeleteClick(model, e)}
                   sx={{
-                    color: 'error.main',
-                    '&:hover': {
-                      backgroundColor: 'error.light',
-                      color: 'error.main',
+                    padding: '2px',
+                    '& .MuiSvgIcon-root': {
+                      fontSize: theme => theme?.typography?.helperText?.fontSize || '0.75rem',
+                      color: 'currentColor',
                     },
                   }}
                 >
-                  <DeleteIcon fontSize="small" />
+                  <DeleteIcon fontSize="inherit" />
                 </IconButton>
               </Box>
 
