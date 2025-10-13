@@ -4,7 +4,6 @@ import {
   Card,
   CardContent,
   Typography,
-  Button,
   IconButton,
   Chip,
 } from '@mui/material';
@@ -234,17 +233,20 @@ export function AddModelCard({ onClick }: AddModelCardProps) {
             {/* Empty space for alignment */}
           </Typography>
 
-          <Button
-            fullWidth
-            variant="outlined"
+          <Chip
+            icon={<AddIcon />}
+            label="New"
             size="small"
+            variant="outlined"
             sx={{
-              textTransform: 'none',
-              borderRadius: theme => theme.shape.borderRadius * 0.375,
+              width: '100%',
+              '& .MuiChip-icon': {
+                color: 'text.secondary',
+              },
+              borderColor: 'divider',
+              color: 'text.secondary',
             }}
-          >
-            Add Model
-          </Button>
+          />
         </Box>
       </CardContent>
     </Card>
