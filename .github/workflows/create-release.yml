@@ -2,6 +2,12 @@ name: Release - 2. Create and deploy (stg)
 
 on:
   workflow_dispatch:  # Allows manual triggering
+  schedule:
+    # The time is in UTC. 7:04 UTC = 10:04 CET. Need to be adjusted after the time change
+    # The workflow is scheduled not to be on the full hour, because full hours are busy
+    # for GitHub Actions and delays can be expected.
+    - cron: '4 7 * * 4' 
+
 
 jobs:
   release:
@@ -101,8 +107,20 @@ jobs:
           $(jq -r 'to_entries | map("- \(.key | ascii_upcase): \(.value)") | join("\n")' /tmp/version_changes.json)
           
 
-          ## Before merging
-          - [ ] Run backend and sdk tests
+          ## How the release process works
+          1. The current pull request contains the version changes in the configuration files and
+          changelogs
+          2. Review the generated changelogs
+          3. Check if the version changes are correct
+          4. Check if the SDK and backend tests pass
+          5. Give the team time for review and hotfixes. Hotfixes must be merged into
+          the release branch.
+          6. Once the release branch is approved, it can be merged into main.
+          7. After the merge, you need to run the "Release - 3. Publish and deploy (prd)" workflow.
+          **The workflow must be run on the release branch.** The workflow will deploy the app
+          to the production environment and upload the new version of the SDK to PyPI.
+
+
 
           ## Changes
           - Version files updated
