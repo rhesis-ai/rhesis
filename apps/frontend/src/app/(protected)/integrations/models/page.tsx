@@ -43,8 +43,9 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { DeleteModal } from '@/components/common/DeleteModal';
 
 // Providers currently supported by the Rhesis SDK
-// Note: 'google' maps to 'gemini' in the SDK
-const SUPPORTED_PROVIDERS = ['openai', 'google', 'ollama', 'huggingface'];
+// These must match the keys in PROVIDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
+// Note: Database has 'google' but SDK uses 'gemini' internally
+const SUPPORTED_PROVIDERS = ['openai', 'google', 'ollama'];
 
 interface ProviderInfo {
   id: string;
@@ -544,6 +545,7 @@ export default function LLMProvidersPage() {
         // Load provider types first
         const types = await typeLookupClient.getTypeLookups({
           $filter: "type_name eq 'ProviderType'",
+          limit: 100, // Fetch all providers (default is 10)
         });
         console.log('Provider types loaded:', types);
         setProviderTypes(types);
