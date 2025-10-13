@@ -1,5 +1,6 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs'
 import { Callout } from 'nextra/components'
+import { FeatureOverview } from './components/FeatureOverview'
 
 // Get the default MDX components
 const themeComponents = getThemeComponents()
@@ -11,5 +12,7 @@ export function useMDXComponents(components) {
     ...components,
     // Add the Callout component for Nextra 4
     Callout,
+    // Add custom Rhesis components
+    FeatureOverview,
   }
 }
