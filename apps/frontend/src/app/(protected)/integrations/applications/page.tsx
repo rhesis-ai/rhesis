@@ -11,16 +11,17 @@ export default function IntegrationsPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          Connect Your Tools
-        </Typography>
-        <Typography color="text.secondary">
-          Enhance your workflow by integrating with your favorite services.
-        </Typography>
-      </Box>
+      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ mb: 1 }}>
+            Connect Your Tools
+          </Typography>
+          <Typography color="text.secondary">
+            Enhance your workflow by integrating with your favorite services.
+          </Typography>
+        </Box>
 
-      <Stack spacing={3}>
+        <Stack spacing={3}>
         {/* Add Application Card */}
         <Paper
           sx={{
@@ -68,6 +69,7 @@ export default function IntegrationsPage() {
           </Box>
         </Paper>
       </Stack>
+      </Box>
     </Box>
   );
 }
