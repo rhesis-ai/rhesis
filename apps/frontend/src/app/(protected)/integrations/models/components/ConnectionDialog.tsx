@@ -667,6 +667,18 @@ export function ConnectionDialog({
               </Alert>
             )}
 
+            {/* Connection Test Required Message */}
+            {!isEditMode && !connectionTested && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Please test the connection before saving the model configuration.
+              </Alert>
+            )}
+            {isEditMode && apiKey !== '************' && !connectionTested && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Please test the connection with the new API key before updating.
+              </Alert>
+            )}
+
             {/* Custom Headers */}
             <Stack spacing={1}>
               <Typography
@@ -826,7 +838,13 @@ export function ConnectionDialog({
               loading
             }
             size="large"
-            sx={{ minWidth: 120 }}
+            sx={{
+              minWidth: 120,
+              '&.Mui-disabled': {
+                backgroundColor: 'action.disabledBackground',
+                color: 'action.disabled',
+              },
+            }}
           >
             {loading ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
