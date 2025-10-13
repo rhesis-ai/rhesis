@@ -70,8 +70,8 @@ async def upload_and_create_source(
     handler = SourceHandler()
 
     # Save file and get metadata
-    file_metadata = await handler.save_document(
-        document=file,
+    file_metadata = await handler.save_source(
+        file=file,
         organization_id=organization_id,
         source_id=str(uuid.uuid4()),  # Generate unique source ID
     )
@@ -79,7 +79,7 @@ async def upload_and_create_source(
     # Extract content separately
     extracted_content = None
     try:
-        extracted_content = await handler.extract_document_content(file_metadata["file_path"])
+        extracted_content = await handler.extract_source_content(file_metadata["file_path"])
     except Exception as e:
         # Log extraction error but don't fail the upload
         logger.warning(f"Failed to extract content from {file.filename}: {str(e)}")
@@ -172,7 +172,7 @@ async def extract_source_content(
     handler = SourceHandler()
 
     # Extract content using SourceHandler
-    content = await handler.extract_document_content(file_path)
+    content = await handler.extract_source_content(file_path)
 
     # Update the source with extracted content
     update_data = schemas.SourceUpdate(content=content)
@@ -217,7 +217,7 @@ async def get_source_file_content(
     handler = SourceHandler()
 
     # Get file content
-    content = await handler.get_document_content(file_path)
+    content = await handler.get_source_content(file_path)
 
     # Determine content type from file extension
     file_extension = Path(file_path).suffix.lower()

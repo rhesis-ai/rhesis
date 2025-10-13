@@ -25,17 +25,17 @@ class SourceHandler:
         self.storage_service = storage_service or StorageService()
         self.max_size = max_size
 
-    async def save_document(
+    async def save_source(
         self,
-        document: UploadFile,
+        file: UploadFile,
         organization_id: str,
         source_id: str,
     ) -> dict:
         """
-        Save uploaded document to persistent storage.
+        Save uploaded source to persistent storage.
 
         Args:
-            document: FastAPI UploadFile object
+            file: FastAPI UploadFile object
             organization_id: Organization ID for multi-tenant storage
             source_id: Source ID for unique file naming
 
@@ -43,61 +43,59 @@ class SourceHandler:
             dict: File metadata (size, hash, path, etc.)
 
         Raises:
-            ValueError: If document size exceeds limit or is empty
+            ValueError: If source size exceeds limit or is empty
         """
-        if not document.filename or not document.filename.strip():
-            raise ValueError("Document has no name")
+        if not file.filename or not file.filename.strip():
+            raise ValueError("Source has no name")
 
-        # Read document content to check size
-        content = await document.read()
+        # Read source content to check size
+        content = await file.read()
         if len(content) > self.max_size:
-            raise ValueError(f"Document size exceeds limit of {self.max_size} bytes")
+            raise ValueError(f"Source size exceeds limit of {self.max_size} bytes")
         if len(content) == 0:
-            raise ValueError("Document is empty")
+            raise ValueError("Source is empty")
 
         # Generate file path
-        file_path = self.storage_service.get_file_path(
-            organization_id, source_id, document.filename
-        )
+        file_path = self.storage_service.get_file_path(organization_id, source_id, file.filename)
 
         # Save to storage
         await self.storage_service.save_file(content, file_path)
 
         # Get metadata including file_path
-        metadata = self._extract_metadata(content, document.filename, file_path)
+        metadata = self._extract_metadata(content, file.filename, file_path)
 
         return metadata
 
-    async def get_document_content(self, file_path: str) -> bytes:
+    async def get_source_content(self, file_path: str) -> bytes:
         """
-        Retrieve document content from storage.
+        Retrieve source content from storage.
 
         Args:
-            file_path: Path to the document in storage
+            file_path: Path to the source in storage
 
         Returns:
-            bytes: Document content
+            bytes: Source content
         """
         return await self.storage_service.get_file(file_path)
 
-    async def delete_document(self, file_path: str) -> bool:
+    async def delete_source(self, file_path: str) -> bool:
         """
-        Delete document from storage.
+        Delete source from storage.
 
         Args:
-            file_path: Path to the document in storage
+            file_path: Path to the source in storage
 
         Returns:
             bool: True if successful, False otherwise
         """
         return await self.storage_service.delete_file(file_path)
 
-    async def extract_document_content(self, file_path: str) -> str:
+    async def extract_source_content(self, file_path: str) -> str:
         """
-        Extract text content from a document stored in cloud storage.
+        Extract text content from a source stored in cloud storage.
 
         Args:
-            file_path: Path to the document in storage
+            file_path: Path to the source in storage
 
         Returns:
             str: Extracted text content
@@ -108,7 +106,7 @@ class SourceHandler:
         from rhesis.sdk.services.extractor import DocumentExtractor
 
         # Get file content from storage
-        file_content = await self.get_document_content(file_path)
+        file_content = await self.get_source_content(file_path)
 
         extractor = DocumentExtractor()
         return extractor.extract_from_bytes(file_content, Path(file_path).name)
