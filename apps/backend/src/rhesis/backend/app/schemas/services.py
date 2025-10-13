@@ -86,17 +86,3 @@ class TestConfigResponse(BaseModel):
     topics: List[TestConfigItem]
     categories: List[TestConfigItem]
     scenarios: List[TestConfigItem]
-
-
-class TestModelConnectionRequest(BaseModel):
-    provider: str
-    model_name: str
-    api_key: str
-    endpoint: Optional[str] = None
-
-
-class TestModelConnectionResponse(BaseModel):
-    success: bool
-    message: str
-    provider: str
-    model_name: str

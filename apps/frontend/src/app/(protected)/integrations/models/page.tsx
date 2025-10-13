@@ -237,6 +237,8 @@ function ConnectionDialog({
     });
   };
 
+  const { data: session } = useSession();
+
   const handleTestConnection = async () => {
     if (!provider || !modelName || !apiKey) {
       setTestResult({
@@ -246,24 +248,26 @@ function ConnectionDialog({
       return;
     }
 
+    if (!session?.session_token) {
+      setTestResult({
+        success: false,
+        message: 'No session token available',
+      });
+      return;
+    }
+
     setTestingConnection(true);
     setTestResult(null);
     setError(null);
 
     try {
-      const session = useSession();
-      if (!session?.data?.session_token) {
-        throw new Error('No session token available');
-      }
-
-      const apiFactory = new ApiClientFactory(session.data.session_token);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/models/test-connection`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.data.session_token}`,
+            Authorization: `Bearer ${session.session_token}`,
           },
           body: JSON.stringify({
             provider: provider.type_value,
@@ -457,6 +461,40 @@ function ConnectionDialog({
                   : "Your API key from the provider's dashboard"
               }
             />
+
+            {/* Test Connection Button and Result */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <Button
+                onClick={handleTestConnection}
+                variant="outlined"
+                disabled={
+                  !modelName ||
+                  !apiKey ||
+                  (requiresEndpoint && !endpoint) ||
+                  testingConnection ||
+                  loading
+                }
+                startIcon={
+                  testingConnection ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <CheckCircleIcon />
+                  )
+                }
+                fullWidth
+              >
+                {testingConnection ? 'Testing Connection...' : 'Test Connection'}
+              </Button>
+
+              {testResult && (
+                <Alert
+                  severity={testResult.success ? 'success' : 'error'}
+                  sx={{ whiteSpace: 'pre-line' }}
+                >
+                  {testResult.message}
+                </Alert>
+              )}
+            </Box>
 
             {/* Custom Headers */}
             <Stack spacing={1}>
