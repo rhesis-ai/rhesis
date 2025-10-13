@@ -376,6 +376,12 @@ export function ConnectionDialog({
       PaperProps={{
         sx: { borderRadius: theme => theme.shape.borderRadius * 0.5 },
       }}
+      TransitionProps={{
+        onExited: () => {
+          // Only clear state after dialog animation completes
+          // This prevents the button text from changing during closing
+        },
+      }}
     >
       <DialogTitle sx={{ pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
