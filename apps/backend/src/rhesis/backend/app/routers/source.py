@@ -235,7 +235,7 @@ async def extract_source_content_endpoint(
     organization_id, user_id = tenant_context
 
     try:
-        return extract_source_content(
+        return await extract_source_content(
             db=db,
             source_id=source_id,
             organization_id=str(organization_id),
