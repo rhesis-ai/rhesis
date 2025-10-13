@@ -13,43 +13,6 @@ from .config import COMPONENTS, PLATFORM_VERSION_FILE
 from .utils import success, error, warn, info
 
 
-def _check_virtual_environments() -> Optional[str]:
-    """Check for common virtual environment setups and return activation hint"""
-    hints = []
-    
-    # Check for UV virtual environment in common locations
-    venv_locations = [
-        (Path(".venv"), "source .venv/bin/activate"),
-        (Path("../.venv"), "source ../.venv/bin/activate"),
-        (Path("venv"), "source venv/bin/activate"),
-        (Path("../venv"), "source ../venv/bin/activate"),
-    ]
-    
-    for venv_path, activation_cmd in venv_locations:
-        if venv_path.exists() and (venv_path / "bin" / "activate").exists():
-            hints.append(f"Virtual environment detected at {venv_path.resolve()}. Run: {activation_cmd}")
-            break  # Use the first one found
-    
-    # Check for conda environment file
-    if Path("environment.yml").exists() or Path("environment.yaml").exists():
-        hints.append("Conda environment file detected. Run: conda env create -f environment.yml && conda activate <env-name>")
-    
-    # Check for Poetry
-    if Path("pyproject.toml").exists():
-        try:
-            with open("pyproject.toml", 'r') as f:
-                content = f.read()
-                if "[tool.poetry]" in content:
-                    hints.append("Poetry project detected. Run: poetry install && poetry shell")
-        except Exception:
-            pass
-    
-    # Check for requirements files
-    if Path("requirements.txt").exists():
-        hints.append("Requirements file detected. Run: pip install -r requirements.txt")
-    
-    # Return the most specific hint first
-    return hints[0] if hints else None
 
 
 def get_current_version(component: str, repo_root: Path) -> str:
@@ -84,70 +47,6 @@ def get_current_version(component: str, repo_root: Path) -> str:
         raise
     
     return "0.1.0"
-
-
-def _try_install_toml_libraries() -> bool:
-    """Try to automatically install TOML parsing libraries"""
-    from .utils import warn, info, error
-    
-    info("Attempting to automatically install TOML libraries...")
-    
-    # Try different installation methods
-    install_commands = [
-        ["pip", "install", "tomli", "tomli-w"],
-        ["pip3", "install", "tomli", "tomli-w"],
-        ["python", "-m", "pip", "install", "tomli", "tomli-w"],
-        ["python3", "-m", "pip", "install", "tomli", "tomli-w"],
-    ]
-    
-    for cmd in install_commands:
-        try:
-            info(f"Trying: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
-            if result.returncode == 0:
-                info("Successfully installed TOML libraries!")
-                
-                # Verify installation worked
-                try:
-                    import tomli
-                    info("TOML libraries verified and ready to use.")
-                    return True
-                except ImportError:
-                    warn("Installation completed but libraries not accessible. May need to restart.")
-                    return False
-            else:
-                warn(f"Command failed: {result.stderr.strip()}")
-                
-        except subprocess.TimeoutExpired:
-            warn(f"Installation timed out: {' '.join(cmd)}")
-        except FileNotFoundError:
-            continue  # Try next command
-        except Exception as e:
-            warn(f"Installation failed: {e}")
-    
-    # Try conda as fallback
-    try:
-        info("Trying conda installation...")
-        result = subprocess.run(["conda", "install", "-y", "tomli", "tomli-w"], 
-                              capture_output=True, text=True, timeout=60)
-        if result.returncode == 0:
-            info("Successfully installed TOML libraries via conda!")
-            try:
-                import tomli
-                return True
-            except ImportError:
-                warn("Conda installation completed but libraries not accessible.")
-                return False
-    except Exception:
-        pass
-    
-    error("Failed to automatically install TOML libraries.")
-    error("Please install manually with one of:")
-    error("  pip install tomli tomli-w")
-    error("  conda install tomli tomli-w")
-    error("  uv pip install tomli tomli-w")
-    return False
 
 
 def _get_pyproject_version(config_path: Path) -> str:
