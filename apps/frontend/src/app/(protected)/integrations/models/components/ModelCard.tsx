@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Paper, Typography, Button, IconButton } from '@mui/material';
+import { Box, Card, CardContent, Typography, Button, IconButton } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EditIcon from '@mui/icons-material/Edit';
@@ -19,113 +19,144 @@ export function ConnectedModelCard({
   onDelete,
 }: ConnectedModelCardProps) {
   return (
-    <Paper
+    <Card
       sx={{
-        p: 3,
-        width: '100%',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        minHeight: 'inherit',
       }}
     >
-      {/* Action buttons */}
-      <Box
+      <CardContent
         sx={{
-          position: 'absolute',
-          top: theme => theme.spacing(1),
-          right: theme => theme.spacing(1),
+          flexGrow: 1,
           display: 'flex',
-          gap: theme => theme.spacing(0.5),
-          zIndex: 1,
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          pb: 2,
+          pt: 3,
         }}
       >
-        <IconButton
-          size="small"
-          onClick={e => onEdit(model, e)}
-          sx={{
-            padding: '2px',
-            '& .MuiSvgIcon-root': {
-              fontSize: theme =>
-                theme?.typography?.helperText?.fontSize || '0.75rem',
-              color: 'currentColor',
-            },
-          }}
-        >
-          <EditIcon fontSize="inherit" />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={e => onDelete(model, e)}
-          sx={{
-            padding: '2px',
-            '& .MuiSvgIcon-root': {
-              fontSize: theme =>
-                theme?.typography?.helperText?.fontSize || '0.75rem',
-              color: 'currentColor',
-            },
-          }}
-        >
-          <DeleteIcon fontSize="inherit" />
-        </IconButton>
-      </Box>
-
-      {/* Model header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        {/* Action buttons */}
         <Box
           sx={{
+            position: 'absolute',
+            top: theme => theme.spacing(1),
+            right: theme => theme.spacing(1),
             display: 'flex',
-            alignItems: 'center',
-            color: 'text.secondary',
+            gap: theme => theme.spacing(0.5),
+            zIndex: 1,
           }}
         >
-          {PROVIDER_ICONS[model.icon || 'custom'] || (
-            <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
-          )}
-          <CheckCircleIcon
+          <IconButton
+            size="small"
+            onClick={e => onEdit(model, e)}
             sx={{
-              ml: -1,
-              mt: -2,
-              fontSize: 16,
-              color: 'success.main',
+              padding: '2px',
+              '& .MuiSvgIcon-root': {
+                fontSize: theme =>
+                  theme?.typography?.helperText?.fontSize || '0.75rem',
+                color: 'currentColor',
+              },
             }}
-          />
+          >
+            <EditIcon fontSize="inherit" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={e => onDelete(model, e)}
+            sx={{
+              padding: '2px',
+              '& .MuiSvgIcon-root': {
+                fontSize: theme =>
+                  theme?.typography?.helperText?.fontSize || '0.75rem',
+                color: 'currentColor',
+              },
+            }}
+          >
+            <DeleteIcon fontSize="inherit" />
+          </IconButton>
         </Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6">{model.name}</Typography>
-          <Typography color="text.secondary" variant="body2">
+
+        <Box>
+          {/* Model header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+            <Box
+              sx={{
+                mr: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                color: 'primary.main',
+              }}
+            >
+              {PROVIDER_ICONS[model.icon || 'custom'] || (
+                <SmartToyIcon />
+              )}
+              <CheckCircleIcon
+                sx={{
+                  ml: -0.5,
+                  mt: -1.5,
+                  fontSize: 16,
+                  color: 'success.main',
+                }}
+              />
+            </Box>
+            <Typography
+              variant="subtitle1"
+              component="div"
+              sx={{
+                fontWeight: 500,
+                lineHeight: 1.2,
+              }}
+            >
+              {model.name}
+            </Typography>
+          </Box>
+
+          {/* Model description and details */}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 'auto', minHeight: '2.5em' }}
+          >
             {model.description}
           </Typography>
         </Box>
-      </Box>
 
-      {/* Model details */}
-      <Box sx={{ mt: 1, mb: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Model: {model.model_name}
-        </Typography>
-      </Box>
+        <Box sx={{ mt: 2 }}>
+          {/* Model name */}
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              display: 'block',
+              mb: 1.5,
+              minHeight: '1.5em',
+            }}
+          >
+            Model: {model.model_name}
+          </Typography>
 
-      {/* Connected button */}
-      <Box sx={{ mt: 'auto' }}>
-        <Button
-          fullWidth
-          variant="contained"
-          color="success"
-          size="small"
-          disableElevation
-          disableRipple
-          sx={{
-            textTransform: 'none',
-            borderRadius: theme => theme.shape.borderRadius * 0.375,
-            pointerEvents: 'none',
-            cursor: 'default',
-          }}
-        >
-          Connected
-        </Button>
-      </Box>
-    </Paper>
+          {/* Connected button */}
+          <Button
+            fullWidth
+            variant="contained"
+            color="success"
+            size="small"
+            disableElevation
+            disableRipple
+            sx={{
+              textTransform: 'none',
+              borderRadius: theme => theme.shape.borderRadius * 0.375,
+              pointerEvents: 'none',
+              cursor: 'default',
+            }}
+          >
+            Connected
+          </Button>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -135,16 +166,14 @@ interface AddModelCardProps {
 
 export function AddModelCard({ onClick }: AddModelCardProps) {
   return (
-    <Paper
+    <Card
       sx={{
-        p: 3,
-        width: '100%',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'action.hover',
         cursor: 'pointer',
         transition: 'all 0.2s',
-        minHeight: 'inherit',
         '&:hover': {
           bgcolor: 'action.selected',
           transform: 'translateY(-2px)',
@@ -152,42 +181,75 @@ export function AddModelCard({ onClick }: AddModelCardProps) {
       }}
       onClick={onClick}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            color: 'text.secondary',
-          }}
-        >
-          <AddIcon
-            sx={{
-              fontSize: theme => theme.iconSizes.large,
-              color: 'text.secondary',
-            }}
-          />
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6">Add Model</Typography>
-          <Typography color="text.secondary" variant="body2">
+      <CardContent
+        sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          pb: 2,
+          pt: 3,
+        }}
+      >
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+            <Box
+              sx={{
+                mr: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                color: 'primary.main',
+              }}
+            >
+              <AddIcon />
+            </Box>
+            <Typography
+              variant="subtitle1"
+              component="div"
+              sx={{
+                fontWeight: 500,
+                lineHeight: 1.2,
+              }}
+            >
+              Add Model
+            </Typography>
+          </Box>
+
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 'auto', minHeight: '2.5em' }}
+          >
             Connect a new model
           </Typography>
         </Box>
-      </Box>
 
-      <Box sx={{ mt: 'auto' }}>
-        <Button
-          fullWidth
-          variant="outlined"
-          size="small"
-          sx={{
-            textTransform: 'none',
-            borderRadius: theme => theme.shape.borderRadius * 0.375,
-          }}
-        >
-          Add Model
-        </Button>
-      </Box>
-    </Paper>
+        <Box sx={{ mt: 2 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              display: 'block',
+              mb: 1.5,
+              minHeight: '1.5em',
+            }}
+          >
+            {/* Empty space for alignment */}
+          </Typography>
+
+          <Button
+            fullWidth
+            variant="outlined"
+            size="small"
+            sx={{
+              textTransform: 'none',
+              borderRadius: theme => theme.shape.borderRadius * 0.375,
+            }}
+          >
+            Add Model
+          </Button>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }
