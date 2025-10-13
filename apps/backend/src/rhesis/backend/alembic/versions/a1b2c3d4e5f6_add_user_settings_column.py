@@ -23,7 +23,7 @@ def upgrade() -> None:
     
     The user_settings column stores user preferences as JSONB with structure:
     - version: Schema version for future migrations
-    - llm_defaults: Default LLM models for generation and evaluation
+    - models: Model preferences for generation and evaluation
       - generation: Settings for test generation (model_id, temperature, etc.)
       - evaluation: Settings for LLM-as-judge evaluation
     - ui: UI preferences (theme, density, sidebar, page size)
@@ -32,7 +32,7 @@ def upgrade() -> None:
     - editor: Editor preferences
     - privacy: Privacy settings
     
-    This enables users to customize their experience and set default LLM models
+    This enables users to customize their experience and set default models
     for different use cases.
     """
     # Add user_settings column with default structure
@@ -42,7 +42,7 @@ def upgrade() -> None:
             'user_settings',
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default='{"version": 1, "llm_defaults": {"generation": {}, "evaluation": {}}}'
+            server_default='{"version": 1, "models": {"generation": {}, "evaluation": {}}}'
         )
     )
 
