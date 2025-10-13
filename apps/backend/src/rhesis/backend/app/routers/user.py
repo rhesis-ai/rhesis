@@ -143,6 +143,72 @@ async def read_users(
     )
 
 
+@router.get("/settings", response_model=UserSettings)
+def get_user_settings(
+    current_user: User = Depends(require_current_user_or_token_without_context)):
+    """
+    Get current user's settings.
+    
+    Returns the user's preferences including model defaults, UI settings,
+    notifications, localization, editor, and privacy preferences.
+    """
+    return current_user.user_settings
+
+
+@router.patch("/settings", response_model=UserSettings)
+@handle_database_exceptions(entity_name="user settings")
+def update_user_settings(
+    settings_update: UserSettingsUpdate,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context)):
+    """
+    Update user settings with partial data (deep merge).
+    
+    Only send the fields you want to change. The update will be deep merged
+    into existing settings, so you can update nested properties without
+    replacing the entire settings object.
+    
+    Example request body to update generation model:
+    {
+        "models": {
+            "generation": {
+                "model_id": "550e8400-e29b-41d4-a716-446655440000",
+                "temperature": 0.7
+            }
+        }
+    }
+    
+    Example request body to update UI theme:
+    {
+        "ui": {
+            "theme": "dark"
+        }
+    }
+    """
+    # Get the user from database
+    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Convert Pydantic model to dict, excluding None values for partial updates
+    settings_dict = settings_update.model_dump(exclude_none=True)
+    
+    # Update settings using the centralized manager (deep merge)
+    db_user.settings.update(settings_dict)
+    
+    # Persist changes back to the database column
+    db_user.user_settings = db_user.settings.raw
+    
+    # Mark as modified for SQLAlchemy to track the change
+    db.add(db_user)
+    
+    # Transaction commit is handled automatically by get_db_session context manager
+    
+    logger.info(f"Updated settings for user {db_user.email}")
+    
+    return db_user.user_settings
+
+
 @router.get("/{user_id}", response_model=schemas.User)
 def read_user(
     user_id: uuid.UUID,
@@ -264,69 +330,3 @@ def update_user(
         )
 
     return updated_user
-
-
-@router.get("/settings", response_model=UserSettings)
-def get_user_settings(
-    current_user: User = Depends(require_current_user_or_token_without_context)):
-    """
-    Get current user's settings.
-    
-    Returns the user's preferences including model defaults, UI settings,
-    notifications, localization, editor, and privacy preferences.
-    """
-    return current_user.user_settings
-
-
-@router.patch("/settings", response_model=UserSettings)
-@handle_database_exceptions(entity_name="user settings")
-def update_user_settings(
-    settings_update: UserSettingsUpdate,
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context)):
-    """
-    Update user settings with partial data (deep merge).
-    
-    Only send the fields you want to change. The update will be deep merged
-    into existing settings, so you can update nested properties without
-    replacing the entire settings object.
-    
-    Example request body to update generation model:
-    {
-        "models": {
-            "generation": {
-                "model_id": "550e8400-e29b-41d4-a716-446655440000",
-                "temperature": 0.7
-            }
-        }
-    }
-    
-    Example request body to update UI theme:
-    {
-        "ui": {
-            "theme": "dark"
-        }
-    }
-    """
-    # Get the user from database
-    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Convert Pydantic model to dict, excluding None values for partial updates
-    settings_dict = settings_update.model_dump(exclude_none=True)
-    
-    # Update settings using the centralized manager (deep merge)
-    db_user.settings.update(settings_dict)
-    
-    # Persist changes back to the database column
-    db_user.user_settings = db_user.settings.raw
-    
-    # Mark as modified for SQLAlchemy to track the change
-    db.add(db_user)
-    
-    # Transaction commit is handled automatically by get_db_session context manager
-    
-    logger.info(f"Updated settings for user {db_user.email}")
-    
-    return db_user.user_settings
