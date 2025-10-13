@@ -22,53 +22,53 @@ export default function IntegrationsPage() {
         </Box>
 
         <Stack spacing={3}>
-        {/* Add Application Card */}
-        <Paper
-          sx={{
-            p: 3,
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: 'action.hover',
-            position: 'relative',
-          }}
-        >
-          <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
-            <Chip label="Coming soon" size="small" variant="outlined" />
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <AddIcon
-              sx={{
-                fontSize: theme => theme.iconSizes.large,
-                color: 'grey.500',
-              }}
-            />
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="h6" color="text.secondary">
-                Add Application
-              </Typography>
-              <Typography color="text.secondary" variant="body2">
-                Connect to your development and productivity tools
-              </Typography>
+          {/* Add Application Card */}
+          <Paper
+            sx={{
+              p: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              bgcolor: 'action.hover',
+              position: 'relative',
+            }}
+          >
+            <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
+              <Chip label="Coming soon" size="small" variant="outlined" />
             </Box>
-          </Box>
 
-          <Box sx={{ mt: 'auto' }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              size="small"
-              disabled
-              sx={{
-                textTransform: 'none',
-                borderRadius: theme => theme.shape.borderRadius * 1.5,
-              }}
-            >
-              Add Application
-            </Button>
-          </Box>
-        </Paper>
-      </Stack>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <AddIcon
+                sx={{
+                  fontSize: theme => theme.iconSizes.large,
+                  color: 'grey.500',
+                }}
+              />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="h6" color="text.secondary">
+                  Add Application
+                </Typography>
+                <Typography color="text.secondary" variant="body2">
+                  Connect to your development and productivity tools
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ mt: 'auto' }}>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                disabled
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: theme => theme.shape.borderRadius * 1.5,
+                }}
+              >
+                Add Application
+              </Button>
+            </Box>
+          </Paper>
+        </Stack>
       </Box>
     </Box>
   );

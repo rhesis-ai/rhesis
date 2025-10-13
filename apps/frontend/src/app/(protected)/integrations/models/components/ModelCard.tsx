@@ -1,5 +1,12 @@
 import React from 'react';
-import { Box, Card, CardContent, Typography, Button, IconButton } from '@mui/material';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  IconButton,
+} from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EditIcon from '@mui/icons-material/Edit';
@@ -89,9 +96,7 @@ export function ConnectedModelCard({
                 color: 'primary.main',
               }}
             >
-              {PROVIDER_ICONS[model.icon || 'custom'] || (
-                <SmartToyIcon />
-              )}
+              {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon />}
               <CheckCircleIcon
                 sx={{
                   ml: -0.5,
