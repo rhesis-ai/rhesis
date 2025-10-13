@@ -22,65 +22,21 @@ import {
   Stack,
   Chip,
 } from '@mui/material';
-import {
-  SiOpenai,
-  SiGoogle,
-  SiAmazon,
-  SiHuggingface,
-  SiOllama,
-  SiReplicate,
-} from '@icons-pack/react-simple-icons';
-import AnthropicIcon from '@mui/icons-material/Psychology';
-import CohereLogo from '@mui/icons-material/AutoFixHigh';
-import MistralIcon from '@mui/icons-material/AcUnit';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { DeleteIcon, AddIcon, CloudIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { DeleteModal } from '@/components/common/DeleteModal';
-
-// Providers currently supported by the Rhesis SDK
-// These must match the keys in PROVIDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
-const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
-
-// Providers that require custom endpoint URLs (self-hosted or local)
-const PROVIDERS_REQUIRING_ENDPOINT = ['ollama', 'vllm', 'huggingface'];
-
-// Default endpoints for providers that need them
-const DEFAULT_ENDPOINTS: Record<string, string> = {
-  ollama: 'http://localhost:11434',
-  vllm: 'http://localhost:8000',
-};
-
-interface ProviderInfo {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-const PROVIDER_ICONS: Record<string, React.ReactNode> = {
-  anthropic: (
-    <AnthropicIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
-  ),
-  cohere: <CohereLogo sx={{ fontSize: theme => theme.iconSizes.large }} />,
-  gemini: <SiGoogle className="h-8 w-8" />,
-  groq: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
-  huggingface: <SiHuggingface className="h-8 w-8" />,
-  meta: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
-  mistral: <MistralIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
-  ollama: <SiOllama className="h-8 w-8" />,
-  openai: <SiOpenai className="h-8 w-8" />,
-  perplexity: (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
-  ),
-  replicate: <SiReplicate className="h-8 w-8" />,
-  together: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
-  vllm: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
-};
+import {
+  SUPPORTED_PROVIDERS,
+  PROVIDERS_REQUIRING_ENDPOINT,
+  DEFAULT_ENDPOINTS,
+  PROVIDER_ICONS,
+  type ProviderInfo,
+} from '@/config/model-providers';
 
 interface ProviderSelectionDialogProps {
   open: boolean;
