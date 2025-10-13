@@ -13,6 +13,23 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-10-13
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 1.0.0**
+
+### Summary of Changes
+
+**Backend v1.0.0:**
+Key changes include: feat(api): add nested prompt and behavior to test results endpoint, docs: move test reviews to backend docs and remove frontend content....
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Platform Release

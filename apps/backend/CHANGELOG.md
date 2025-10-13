@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-10-13
+
+### Changed
+
+- feat(api): add nested prompt and behavior to test results endpoint
+- docs: move test reviews to backend docs and remove frontend content
+- docs: comprehensive test_reviews implementation guide
+- fix(backend): export review schemas from schemas module
+- feat(backend): add review manipulation routes
+- feat: add matches_review derived property to test results
+- feat: add last_review derived property to test results
+- docs(backend): update API documentation for test_reviews
+- feat(backend): add test_reviews column to test results
+- docs(backend): add test_reviews schema documentation
+- Merge pull request #535 from rhesis-ai/feat/add-sample-size-parameter-test-config
+- Merge pull request #538 from rhesis-ai/fix/test-results-detail
+- fix: enable tags, tasks, and comments for test results
+- fix: remove unused 'import rhesis' from Alembic migrations
+- fix: update maximum sample size for test configuration generation
+- refactor: enhance test configuration generation and schema
+- feat: implement hash-based token lookup for encrypted tokens
+- fix(tokens): add organization filtering and accurate token count
+- fix(schemas): migrate Source schema to Pydantic V2 ConfigDict
+- fix: Update delete_test and delete_user to use soft deletion
+- chore: remove legacy comment lines in database.py
+- fix: properly filter soft-deleted records in raw queries with .first()
+- chore: change soft delete filter skip log level to DEBUG
+- fix: resolve soft delete filtering and test issues
+- fix: skip soft delete filter for queries with LIMIT/OFFSET
+- feat: add recycle bin management endpoints
+- fix: maintain backward compatibility for delete_item return type
+- feat: update CRUD utilities for soft deletion
+- feat: enhance QueryBuilder with soft delete methods
+- feat: add SQLAlchemy event listener for automatic soft delete filtering
+- feat: add soft delete context variable control
+- feat: add soft delete database migration
+- feat: add soft delete support to Base model
+- feat: implement leave organization feature
+- feat(db): add user deletion procedure that preserves organization
+- feat(db): add hard delete procedure for user and organization data
+- feat(db): add GDPR user anonymization function
+- feat(users): support re-inviting users who left organizations
+- fix(users): implement soft delete to resolve 500 error on user removal
+- feat: add Alembic migration to encrypt existing sensitive data (#500)
+- feat: add encryption to Model and Token tables (#499, #498)
+- feat: add encryption to Endpoint model authentication fields (#498)
+- feat: implement core encryption infrastructure (#497)
+- Merge pull request #505 from rhesis-ai/fix/worker-based-generation-issue
+- feat(stats): add individual test stats endpoint
+- refactor(stats): move test stats to dedicated stats module
+- fix(backend): explicitly set gemini model in test generation
+- refactor(backend): remove SDK configuration and add model parameter
+
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Added
