@@ -559,7 +559,7 @@ export function ConnectionDialog({
                         variant="caption"
                         component="pre"
                         sx={{
-                          fontSize: '0.7rem',
+                          fontSize: theme => theme.typography.caption.fontSize,
                           overflowX: 'auto',
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',

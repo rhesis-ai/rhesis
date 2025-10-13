@@ -120,7 +120,7 @@ export function ProviderSelectionDialog({
                           color="default"
                           sx={{
                             height: 20,
-                            fontSize: '0.7rem',
+                            fontSize: theme => theme.typography.caption.fontSize,
                             fontWeight: 500,
                           }}
                         />
