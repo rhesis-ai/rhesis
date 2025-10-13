@@ -44,8 +44,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 
 // Providers currently supported by the Rhesis SDK
 // These must match the keys in PROVIDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
-// Note: Database has 'google' but SDK uses 'gemini' internally
-const SUPPORTED_PROVIDERS = ['openai', 'google', 'ollama'];
+const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
 
 // Providers that require custom endpoint URLs (self-hosted or local)
 const PROVIDERS_REQUIRING_ENDPOINT = ['ollama', 'vllm', 'huggingface'];
@@ -68,7 +67,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <AnthropicIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
   ),
   cohere: <CohereLogo sx={{ fontSize: theme => theme.iconSizes.large }} />,
-  google: <SiGoogle className="h-8 w-8" />,
+  gemini: <SiGoogle className="h-8 w-8" />,
   groq: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   huggingface: <SiHuggingface className="h-8 w-8" />,
   meta: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
