@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.schemas.user import UserSettings, UserSettingsUpdate
@@ -190,19 +191,22 @@ def update_user_settings(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Convert Pydantic model to dict, excluding None values for partial updates
-    settings_dict = settings_update.model_dump(exclude_none=True)
+    # Convert Pydantic model to dict, excluding None values, with UUIDs as strings
+    settings_dict = settings_update.model_dump(exclude_none=True, mode='json')
+    
+    # Get the settings manager instance (property creates new instance each time!)
+    settings_manager = db_user.settings
     
     # Update settings using the centralized manager (deep merge)
-    db_user.settings.update(settings_dict)
+    settings_manager.update(settings_dict)
     
-    # Persist changes back to the database column
-    db_user.user_settings = db_user.settings.raw
+    # Persist changes back to the database column using the SAME manager instance
+    db_user.user_settings = settings_manager.raw
     
-    # Mark as modified for SQLAlchemy to track the change
-    db.add(db_user)
+    # Flag the JSONB column as modified so SQLAlchemy tracks the change
+    flag_modified(db_user, "user_settings")
     
-    # Transaction commit is handled automatically by get_db_session context manager
+    # Transaction commit is handled automatically by get_tenant_db_session context manager
     
     logger.info(f"Updated settings for user {db_user.email}")
     
