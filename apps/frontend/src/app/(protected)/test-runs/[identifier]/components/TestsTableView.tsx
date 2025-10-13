@@ -327,7 +327,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '30%',
+                  width: '28%',
                 }}
               >
                 Prompt
@@ -336,7 +336,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '30%',
+                  width: '38%',
                 }}
               >
                 Response
@@ -345,10 +345,11 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '20%',
+                  width: '12%',
+                  textAlign: 'center',
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                   Review
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, ml: 0.5 }}>
                     <SmartToyOutlinedIcon fontSize="small" sx={{ fontSize: 16 }} />
@@ -371,7 +372,7 @@ export default function TestsTableView({
                 sx={{
                   backgroundColor: theme.palette.background.paper,
                   fontWeight: 600,
-                  width: '10%',
+                  width: '12%',
                   textAlign: 'center',
                 }}
               >
@@ -449,11 +450,12 @@ export default function TestsTableView({
                     </TableCell>
 
                     {/* Review Column */}
-                    <TableCell>
+                    <TableCell align="center">
                       <Box
                         sx={{
                           display: 'flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: 1.5,
                         }}
                       >
