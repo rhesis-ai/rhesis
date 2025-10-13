@@ -273,7 +273,7 @@ function ConnectionDialog({
             provider: provider.type_value,
             model_name: modelName,
             api_key: apiKey,
-            ...(requiresEndpoint && endpoint ? { endpoint } : {}),
+            endpoint: requiresEndpoint && endpoint ? endpoint : null,
           }),
         }
       );
