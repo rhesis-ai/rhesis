@@ -8,10 +8,14 @@ import { useSession } from 'next-auth/react';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import TasksGrid from './components/TasksGrid';
 import TasksCharts from './components/TasksCharts';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function TasksPage() {
   const { data: session, status } = useSession();
   const [refreshKey, setRefreshKey] = React.useState(0);
+
+  // Set document title
+  useDocumentTitle('Tasks');
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
