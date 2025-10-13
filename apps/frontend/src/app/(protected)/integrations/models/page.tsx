@@ -419,12 +419,12 @@ function ConnectionDialog({
         }
 
         await onUpdate(model.id, updates);
+        setLoading(false);
         onClose();
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to update model'
         );
-      } finally {
         setLoading(false);
       }
     } else {
@@ -469,12 +469,12 @@ function ConnectionDialog({
           }
 
           await onConnect(provider!.type_value, modelData);
+          setLoading(false);
           onClose();
         } catch (err) {
           setError(
             err instanceof Error ? err.message : 'Failed to connect to provider'
           );
-        } finally {
           setLoading(false);
         }
       }
