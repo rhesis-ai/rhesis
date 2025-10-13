@@ -386,8 +386,6 @@ export default function TestRunMainView({
                 <Box
                   sx={{
                     width: { xs: '100%', md: '33.33%' },
-                    borderRight: { md: 1 },
-                    borderColor: theme.palette.mode === 'dark' ? 'divider' : theme.palette.grey[200],
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
