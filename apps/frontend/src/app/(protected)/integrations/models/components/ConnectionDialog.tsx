@@ -268,18 +268,11 @@ export function ConnectionDialog({
         // Only include API key if it was changed (not the placeholder)
         if (apiKey && apiKey.trim() && apiKey !== '************') {
           updates.key = apiKey.trim();
-          // Update request headers with new API key
-          updates.request_headers = {
-            ...customHeaders,
-            Authorization: `Bearer ${apiKey.trim()}`,
-            'Content-Type': 'application/json',
-          };
-        } else if (Object.keys(customHeaders).length > 0) {
-          // Update custom headers without changing API key
-          updates.request_headers = {
-            ...model.request_headers,
-            ...customHeaders,
-          };
+        }
+        
+        // Update custom headers if any (Authorization and Content-Type are handled automatically)
+        if (Object.keys(customHeaders).length > 0) {
+          updates.request_headers = customHeaders;
         }
 
         await onUpdate(model.id, updates);
@@ -310,12 +303,6 @@ export function ConnectionDialog({
         setLoading(true);
         setError(null);
         try {
-          const requestHeaders: Record<string, any> = {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            ...customHeaders,
-          };
-
           const modelData: ModelCreate = {
             name,
             description: `${isCustomProvider ? providerName : provider!.description} Connection`,
@@ -323,7 +310,8 @@ export function ConnectionDialog({
             model_name: modelName,
             key: apiKey,
             tags: [provider!.type_value],
-            request_headers: requestHeaders,
+            // Only store custom headers (Authorization and Content-Type are handled automatically by SDK)
+            request_headers: customHeaders,
             provider_type_id: provider!.id,
           };
 
@@ -595,7 +583,7 @@ export function ConnectionDialog({
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Add any additional HTTP headers required for your API calls.
-                Authorization header is automatically included.
+                Authorization and Content-Type headers are handled automatically.
               </Typography>
 
               {/* Existing Headers */}
