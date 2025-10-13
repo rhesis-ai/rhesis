@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import UUID4, Field, ConfigDict, field_validator
+from pydantic import UUID4, Field, ConfigDict, field_validator, BaseModel
 
 from rhesis.backend.app.schemas import Base
 
 
-# User Settings schemas
-class LLMModelSettings(Base):
+# User Settings schemas - use BaseModel instead of Base since these are not DB models
+class LLMModelSettings(BaseModel):
     """Settings for a specific LLM use case (generation or evaluation)"""
     model_id: Optional[UUID4] = Field(None, description="ID of the preferred Model")
     fallback_model_id: Optional[UUID4] = Field(None, description="ID of fallback Model if primary fails")
@@ -15,19 +15,19 @@ class LLMModelSettings(Base):
     max_tokens: Optional[int] = Field(None, gt=0, description="Max tokens override")
 
 
-class ModelsSettings(Base):
+class ModelsSettings(BaseModel):
     """Model preferences and settings for different use cases"""
-    generation: LLMModelSettings = Field(
+    generation: Optional[LLMModelSettings] = Field(
         default_factory=LLMModelSettings,
         description="Settings for test generation"
     )
-    evaluation: LLMModelSettings = Field(
+    evaluation: Optional[LLMModelSettings] = Field(
         default_factory=LLMModelSettings,
         description="Settings for LLM-as-judge evaluation"
     )
 
 
-class UISettings(Base):
+class UISettings(BaseModel):
     """UI preferences"""
     theme: Optional[str] = Field(None, description="UI theme: 'light', 'dark', or 'auto'")
     density: Optional[str] = Field(None, description="UI density: 'compact', 'comfortable', or 'spacious'")
@@ -35,26 +35,26 @@ class UISettings(Base):
     default_page_size: Optional[int] = Field(None, gt=0, le=100, description="Default pagination size")
 
 
-class EmailNotificationSettings(Base):
+class EmailNotificationSettings(BaseModel):
     """Email notification preferences"""
     test_run_complete: Optional[bool] = None
     test_failures: Optional[bool] = None
     weekly_summary: Optional[bool] = None
 
 
-class InAppNotificationSettings(Base):
+class InAppNotificationSettings(BaseModel):
     """In-app notification preferences"""
     test_run_complete: Optional[bool] = None
     mentions: Optional[bool] = None
 
 
-class NotificationSettings(Base):
+class NotificationSettings(BaseModel):
     """Notification preferences"""
     email: Optional[EmailNotificationSettings] = Field(default_factory=EmailNotificationSettings)
     in_app: Optional[InAppNotificationSettings] = Field(default_factory=InAppNotificationSettings)
 
 
-class LocalizationSettings(Base):
+class LocalizationSettings(BaseModel):
     """Localization preferences"""
     language: Optional[str] = Field(None, description="Preferred language code (e.g., 'en', 'es')")
     timezone: Optional[str] = Field(None, description="User timezone (e.g., 'UTC', 'America/New_York')")
@@ -62,21 +62,23 @@ class LocalizationSettings(Base):
     time_format: Optional[str] = Field(None, description="Preferred time format: '12h' or '24h'")
 
 
-class EditorSettings(Base):
+class EditorSettings(BaseModel):
     """Editor preferences"""
     default_model: Optional[UUID4] = Field(None, description="Default model for editor")
     auto_save: Optional[bool] = Field(None, description="Enable auto-save")
     show_line_numbers: Optional[bool] = Field(None, description="Show line numbers in editor")
 
 
-class PrivacySettings(Base):
+class PrivacySettings(BaseModel):
     """Privacy preferences"""
     show_email: Optional[bool] = Field(None, description="Show email to other users")
     show_activity: Optional[bool] = Field(None, description="Show activity status")
 
 
-class UserSettings(Base):
+class UserSettings(BaseModel):
     """Complete user settings schema"""
+    model_config = ConfigDict(extra='forbid')
+    
     version: int = Field(1, description="Settings schema version")
     models: Optional[ModelsSettings] = Field(default_factory=ModelsSettings)
     ui: Optional[UISettings] = Field(default_factory=UISettings)
@@ -86,8 +88,10 @@ class UserSettings(Base):
     privacy: Optional[PrivacySettings] = Field(default_factory=PrivacySettings)
 
 
-class UserSettingsUpdate(Base):
+class UserSettingsUpdate(BaseModel):
     """Schema for updating user settings (all fields optional for partial updates)"""
+    model_config = ConfigDict(extra='forbid')
+    
     models: Optional[ModelsSettings] = None
     ui: Optional[UISettings] = None
     notifications: Optional[NotificationSettings] = None
