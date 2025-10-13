@@ -237,6 +237,62 @@ function ConnectionDialog({
     });
   };
 
+  const handleTestConnection = async () => {
+    if (!provider || !modelName || !apiKey) {
+      setTestResult({
+        success: false,
+        message: 'Please fill in provider, model name, and API key',
+      });
+      return;
+    }
+
+    setTestingConnection(true);
+    setTestResult(null);
+    setError(null);
+
+    try {
+      const session = useSession();
+      if (!session?.data?.session_token) {
+        throw new Error('No session token available');
+      }
+
+      const apiFactory = new ApiClientFactory(session.data.session_token);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/models/test-connection`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.data.session_token}`,
+          },
+          body: JSON.stringify({
+            provider: provider.type_value,
+            model_name: modelName,
+            api_key: apiKey,
+            ...(requiresEndpoint && endpoint ? { endpoint } : {}),
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      setTestResult({
+        success: result.success,
+        message: result.message,
+      });
+    } catch (err) {
+      setTestResult({
+        success: false,
+        message:
+          err instanceof Error
+            ? err.message
+            : 'Failed to test connection. Please try again.',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Validate required fields
