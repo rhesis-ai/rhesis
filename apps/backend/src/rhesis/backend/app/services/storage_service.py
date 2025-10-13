@@ -45,10 +45,6 @@ class StorageService:
                     .replace(" ", "")
                 )
                 decoded_key = base64.b64decode(clean_base64).decode("utf-8")
-
-                # Fix the private key formatting - escape actual newlines in JSON
-                decoded_key = decoded_key.replace("\n", "\\n")
-
                 service_account_info = json.loads(decoded_key)
 
                 # Create credentials object with explicit scopes for GCS
