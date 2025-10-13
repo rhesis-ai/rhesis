@@ -163,9 +163,7 @@ export function AddModelCard({ onClick }: AddModelCardProps) {
           <AddIcon
             sx={{
               fontSize: theme => theme.iconSizes.large,
-              border: 2,
-              borderRadius: '50%', // Required for circular border
-              borderColor: 'text.secondary',
+              color: 'text.secondary',
             }}
           />
         </Box>
@@ -193,4 +191,3 @@ export function AddModelCard({ onClick }: AddModelCardProps) {
     </Paper>
   );
 }
-
