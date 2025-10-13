@@ -98,15 +98,6 @@ export function ConnectedModelCard({
               }}
             >
               {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon />}
-              <CheckCircleIcon
-                sx={{
-                  ml: -0.5,
-                  mt: -1.5,
-                  fontSize: 16,
-                  color: 'primary.main',
-                  opacity: 0.7,
-                }}
-              />
             </Box>
             <Typography
               variant="subtitle1"
