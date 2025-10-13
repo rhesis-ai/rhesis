@@ -36,8 +36,16 @@ export interface Status {
 
 export interface Behavior {
   id: UUID;
+  nano_id?: string;
   name: string;
   description?: string;
+  user_id?: UUID;
+  organization_id?: UUID;
+  status_id?: UUID;
+  counts?: {
+    comments: number;
+    tasks: number;
+  };
 }
 
 export interface Category {
