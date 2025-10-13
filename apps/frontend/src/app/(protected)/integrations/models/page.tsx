@@ -106,7 +106,10 @@ export default function ModelsPage() {
     }
   };
 
-  const handleConnect = async (providerId: string, modelData: ModelCreate): Promise<Model> => {
+  const handleConnect = async (
+    providerId: string,
+    modelData: ModelCreate
+  ): Promise<Model> => {
     if (!session?.session_token) {
       throw new Error('No session token');
     }
@@ -206,20 +209,20 @@ export default function ModelsPage() {
               px: 0,
             }}
           >
-          {/* Connected Model Cards */}
-          {connectedModels.map(model => (
-            <ConnectedModelCard
-              key={model.id}
-              model={model}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteClick}
-            />
-          ))}
+            {/* Connected Model Cards */}
+            {connectedModels.map(model => (
+              <ConnectedModelCard
+                key={model.id}
+                model={model}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+              />
+            ))}
 
-          {/* Add Model Card */}
-          <AddModelCard onClick={handleAddLLM} />
-        </Box>
-      )}
+            {/* Add Model Card */}
+            <AddModelCard onClick={handleAddLLM} />
+          </Box>
+        )}
       </Box>
 
       <ProviderSelectionDialog

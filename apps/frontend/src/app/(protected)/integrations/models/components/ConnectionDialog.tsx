@@ -108,10 +108,12 @@ export function ConnectionDialog({
         setConnectionTested(true); // Skip test requirement in edit mode
         setShowApiKey(false);
         setLoading(false); // Reset loading state
-        
+
         // Check if this model is set as default in user settings
-        const isDefaultGeneration = userSettings?.models?.generation?.model_id === model.id;
-        const isDefaultEvaluation = userSettings?.models?.evaluation?.model_id === model.id;
+        const isDefaultGeneration =
+          userSettings?.models?.generation?.model_id === model.id;
+        const isDefaultEvaluation =
+          userSettings?.models?.evaluation?.model_id === model.id;
         setDefaultForGeneration(isDefaultGeneration || false);
         setDefaultForEvaluation(isDefaultEvaluation || false);
       } else if (provider) {
@@ -350,7 +352,7 @@ export function ConnectionDialog({
         if (apiKey && apiKey.trim() && apiKey !== '************') {
           updates.key = apiKey.trim();
         }
-        
+
         // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
         updates.request_headers = customHeaders;
 
@@ -759,14 +761,15 @@ export function ConnectionDialog({
                 Default Model Settings
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Set this model as the default for test generation or evaluation tasks.
+                Set this model as the default for test generation or evaluation
+                tasks.
               </Typography>
               <Stack spacing={1}>
                 <FormControlLabel
                   control={
                     <Switch
                       checked={defaultForGeneration}
-                      onChange={(e) => setDefaultForGeneration(e.target.checked)}
+                      onChange={e => setDefaultForGeneration(e.target.checked)}
                     />
                   }
                   label={
@@ -784,7 +787,7 @@ export function ConnectionDialog({
                   control={
                     <Switch
                       checked={defaultForEvaluation}
-                      onChange={(e) => setDefaultForEvaluation(e.target.checked)}
+                      onChange={e => setDefaultForEvaluation(e.target.checked)}
                     />
                   }
                   label={
