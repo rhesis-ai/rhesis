@@ -290,17 +290,6 @@ export default function TestRunFilterBar({
             </Button>
           </Badge>
         )}
-
-        {/* Results count */}
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ display: 'flex', alignItems: 'center' }}
-        >
-          {filteredTests === totalTests
-            ? `${totalTests} tests`
-            : `${filteredTests} of ${totalTests} tests`}
-        </Typography>
       </Box>
 
       {/* Right side: View Mode and Actions */}
