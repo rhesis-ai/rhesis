@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 from .base import Base
 from .status import Status
@@ -68,7 +68,7 @@ class TestModelConnectionRequest(BaseModel):
     provider: str
     model_name: str
     api_key: str
-    endpoint: Optional[str] = None
+    endpoint: Optional[str] = Field(default=None, description="Optional endpoint URL for self-hosted providers")
 
 
 class TestModelConnectionResponse(BaseModel):
