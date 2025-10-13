@@ -13,6 +13,9 @@ import {
   CircularProgress,
   Alert,
   Stack,
+  Switch,
+  FormControlLabel,
+  Divider,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -21,21 +24,25 @@ import { DeleteIcon, AddIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
 import {
   PROVIDERS_REQUIRING_ENDPOINT,
   DEFAULT_ENDPOINTS,
   PROVIDER_ICONS,
 } from '@/config/model-providers';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 interface ConnectionDialogProps {
   open: boolean;
   provider: TypeLookup | null;
   model?: Model | null; // For edit mode
   mode?: 'create' | 'edit';
+  userSettings?: UserSettings | null; // Current user settings
   onClose: () => void;
-  onConnect?: (providerId: string, modelData: ModelCreate) => Promise<void>;
+  onConnect?: (providerId: string, modelData: ModelCreate) => Promise<Model>;
   onUpdate?: (modelId: UUID, updates: Partial<ModelCreate>) => Promise<void>;
+  onUserSettingsUpdate?: () => Promise<void>; // Callback to refresh user settings
 }
 
 export function ConnectionDialog({
@@ -43,9 +50,11 @@ export function ConnectionDialog({
   provider,
   model,
   mode = 'create',
+  userSettings,
   onClose,
   onConnect,
   onUpdate,
+  onUserSettingsUpdate,
 }: ConnectionDialogProps) {
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
@@ -68,6 +77,8 @@ export function ConnectionDialog({
   const [showFullError, setShowFullError] = useState(false);
   const [connectionTested, setConnectionTested] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [defaultForGeneration, setDefaultForGeneration] = useState(false);
+  const [defaultForEvaluation, setDefaultForEvaluation] = useState(false);
 
   const isEditMode = mode === 'edit';
   const isCustomProvider = provider?.type_value === 'vllm';
@@ -96,6 +107,12 @@ export function ConnectionDialog({
         setShowFullError(false);
         setConnectionTested(true); // Skip test requirement in edit mode
         setShowApiKey(false);
+        
+        // Check if this model is set as default in user settings
+        const isDefaultGeneration = userSettings?.models?.generation?.model_id === model.id;
+        const isDefaultEvaluation = userSettings?.models?.evaluation?.model_id === model.id;
+        setDefaultForGeneration(isDefaultGeneration || false);
+        setDefaultForEvaluation(isDefaultEvaluation || false);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
@@ -116,9 +133,11 @@ export function ConnectionDialog({
         setShowFullError(false);
         setConnectionTested(false);
         setShowApiKey(false);
+        setDefaultForGeneration(false);
+        setDefaultForEvaluation(false);
       }
     }
-  }, [open, provider, model, isEditMode]);
+  }, [open, provider, model, isEditMode, userSettings]);
 
   // Reset connection test status when critical fields change
   useEffect(() => {
@@ -153,6 +172,47 @@ export function ConnectionDialog({
   };
 
   const { data: session } = useSession();
+
+  // Helper function to update user settings for default models
+  const updateUserSettingsDefaults = async (modelId: UUID) => {
+    if (!session?.session_token) return;
+
+    try {
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const usersClient = apiFactory.getUsersClient();
+      const updates: any = {
+        models: {},
+      };
+
+      // Update generation default if toggle is on
+      if (defaultForGeneration) {
+        updates.models.generation = { model_id: modelId };
+      } else if (userSettings?.models?.generation?.model_id === modelId) {
+        // If toggle is off and this model was previously the default, clear it
+        updates.models.generation = {};
+      }
+
+      // Update evaluation default if toggle is on
+      if (defaultForEvaluation) {
+        updates.models.evaluation = { model_id: modelId };
+      } else if (userSettings?.models?.evaluation?.model_id === modelId) {
+        // If toggle is off and this model was previously the default, clear it
+        updates.models.evaluation = {};
+      }
+
+      // Only update if there are changes
+      if (Object.keys(updates.models).length > 0) {
+        await usersClient.updateUserSettings(updates);
+        // Refresh user settings in parent
+        if (onUserSettingsUpdate) {
+          await onUserSettingsUpdate();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update user settings:', err);
+      // Don't throw - we don't want to block model creation/update if settings fail
+    }
+  };
 
   const handleTestConnection = async () => {
     // Get provider from either new connection or existing model
@@ -293,6 +353,8 @@ export function ConnectionDialog({
         updates.request_headers = customHeaders;
 
         await onUpdate(model.id, updates);
+        // Update user settings for default models
+        await updateUserSettingsDefaults(model.id);
         // Don't reset loading state - let dialog close with "Updating..." text
         onClose();
       } catch (err) {
@@ -335,7 +397,9 @@ export function ConnectionDialog({
             modelData.endpoint = endpoint.trim();
           }
 
-          await onConnect(provider!.type_value, modelData);
+          const createdModel = await onConnect(provider!.type_value, modelData);
+          // Update user settings for default models
+          await updateUserSettingsDefaults(createdModel.id);
           // Don't reset loading state - let dialog close with "Connecting..." text
           onClose();
         } catch (err) {
@@ -682,6 +746,58 @@ export function ConnectionDialog({
                 </Stack>
               </Paper>
             </Stack>
+
+            {/* Default Model Settings */}
+            <Box sx={{ mt: 3 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}
+              >
+                Default Model Settings
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Set this model as the default for test generation or evaluation tasks.
+              </Typography>
+              <Stack spacing={1}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={defaultForGeneration}
+                      onChange={(e) => setDefaultForGeneration(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        Default for Test Generation
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Use this model when generating new test cases
+                      </Typography>
+                    </Box>
+                  }
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={defaultForEvaluation}
+                      onChange={(e) => setDefaultForEvaluation(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        Default for Evaluation (LLM as Judge)
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Use this model when running metrics and evaluations
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
 

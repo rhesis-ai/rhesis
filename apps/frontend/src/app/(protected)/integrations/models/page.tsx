@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
 import {
@@ -19,6 +20,7 @@ export default function ModelsPage() {
   const { data: session } = useSession();
   const [connectedModels, setConnectedModels] = useState<Model[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
@@ -42,6 +44,7 @@ export default function ModelsPage() {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
         const typeLookupClient = apiFactory.getTypeLookupClient();
+        const usersClient = apiFactory.getUsersClient();
 
         // Load provider types first
         const types = await typeLookupClient.getTypeLookups({
@@ -50,6 +53,14 @@ export default function ModelsPage() {
         });
         console.log('Provider types loaded:', types);
         setProviderTypes(types);
+
+        // Load user settings
+        try {
+          const settings = await usersClient.getUserSettings();
+          setUserSettings(settings);
+        } catch (err) {
+          console.error('Failed to load user settings:', err);
+        }
 
         // Then load connected models
         try {
@@ -82,8 +93,23 @@ export default function ModelsPage() {
     setConnectionDialogOpen(true);
   };
 
-  const handleConnect = async (providerId: string, modelData: ModelCreate) => {
+  const refreshUserSettings = async () => {
     if (!session?.session_token) return;
+
+    try {
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const usersClient = apiFactory.getUsersClient();
+      const settings = await usersClient.getUserSettings();
+      setUserSettings(settings);
+    } catch (err) {
+      console.error('Failed to refresh user settings:', err);
+    }
+  };
+
+  const handleConnect = async (providerId: string, modelData: ModelCreate): Promise<Model> => {
+    if (!session?.session_token) {
+      throw new Error('No session token');
+    }
 
     try {
       const apiFactory = new ApiClientFactory(session.session_token);
@@ -91,6 +117,7 @@ export default function ModelsPage() {
 
       const model = await modelsClient.createModel(modelData);
       setConnectedModels(prev => [...prev, model]);
+      return model;
     } catch (err) {
       throw err;
     }
@@ -209,6 +236,7 @@ export default function ModelsPage() {
         provider={selectedProvider}
         model={modelToEdit}
         mode={modelToEdit ? 'edit' : 'create'}
+        userSettings={userSettings}
         onClose={() => {
           setConnectionDialogOpen(false);
           // Delay clearing state to prevent button text flicker during closing animation
@@ -219,6 +247,7 @@ export default function ModelsPage() {
         }}
         onConnect={handleConnect}
         onUpdate={handleUpdate}
+        onUserSettingsUpdate={refreshUserSettings}
       />
 
       <DeleteModal
