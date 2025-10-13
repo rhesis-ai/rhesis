@@ -146,6 +146,7 @@ async def read_users(
 
 @router.get("/settings", response_model=UserSettings)
 def get_user_settings(
+    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context)):
     """
     Get current user's settings.
@@ -153,7 +154,12 @@ def get_user_settings(
     Returns the user's preferences including model defaults, UI settings,
     notifications, localization, editor, and privacy preferences.
     """
-    return current_user.user_settings
+    # Query from database to ensure fresh data
+    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return db_user.user_settings
 
 
 @router.patch("/settings", response_model=UserSettings)

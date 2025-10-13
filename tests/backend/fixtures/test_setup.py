@@ -23,6 +23,7 @@ from rhesis.backend.app.schemas import UserCreate, OrganizationCreate
 from rhesis.backend.app.schemas.token import TokenCreate
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.auth.token_utils import generate_api_token
+from rhesis.backend.app.utils.encryption import hash_token
 
 
 def get_test_database_session() -> Session:
@@ -126,6 +127,7 @@ def create_test_api_token(
     token_data = TokenCreate(
         name=name,
         token=token_value,
+        token_hash=hash_token(token_value),
         token_type="bearer",
         token_obfuscated=token_value[:3] + "..." + token_value[-4:],
         expires_at=None,  # No expiration for test token
