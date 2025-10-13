@@ -11,61 +11,25 @@ import sys
 import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
+import re 
 from .config import COMPONENTS, PLATFORM_VERSION_FILE, format_component_name
 from .version import get_current_version
 from .utils import info, warn, error, success, log
 
 
-def _try_auto_environment_setup() -> bool:
-    """Try to automatically set up the correct environment"""
-    # Check if we're already in a virtual environment
-    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        return False  # Already in virtual env, but still having issues
+
+def find_repository_root() -> Path:
+    """Find the repository root directory"""
+    repo_root = Path.cwd()
+    while repo_root != repo_root.parent:
+        if (repo_root / '.git').exists():
+            break
+        repo_root = repo_root.parent
+    else:
+        error("Not in a git repository")
+        sys.exit(1)
     
-    # Check for UV virtual environment in common locations
-    venv_locations = [
-        Path(".venv"),           # Project root
-        Path("../.venv"),        # Parent directory (common with UV)
-        Path("venv"),            # Alternative name
-        Path("../venv"),         # Parent alternative
-    ]
-    
-    for venv_path in venv_locations:
-        if venv_path.exists() and (venv_path / "bin" / "activate").exists():
-            warn(f"Virtual environment detected at: {venv_path.resolve()}")
-            warn("Attempting to auto-run in virtual environment...")
-            
-            # Try to re-run the current command in the virtual environment
-            try:
-                # Get the current command arguments
-                current_cmd = sys.argv
-                script_path = current_cmd[0]
-                args = current_cmd[1:]
-                
-                # Build the command to run in the virtual environment
-                venv_python = venv_path / "bin" / "python3"
-                if not venv_python.exists():
-                    venv_python = venv_path / "bin" / "python"
-                
-                if not venv_python.exists():
-                    warn(f"Virtual environment Python not found in: {venv_path}")
-                    continue
-                
-                cmd = [str(venv_python), script_path] + args
-                
-                info(f"Auto-running in virtual environment...")
-                info(f"Command: {' '.join(cmd)}")
-                
-                # Execute in the virtual environment
-                result = subprocess.run(cmd, cwd=os.getcwd())
-                sys.exit(result.returncode)
-                
-            except Exception as e:
-                warn(f"Failed to auto-activate virtual environment at {venv_path}: {e}")
-                continue
-    
-    return False
+    return repo_root
 
 
 def get_current_branch() -> Optional[str]:
@@ -80,88 +44,31 @@ def get_current_branch() -> Optional[str]:
         return None
 
 
-def parse_release_branch_components(branch_name: str, repo_root: Path) -> Dict[str, str]:
+def get_components_version(branch_name: str, repo_root: Path) -> Dict[str, str]:
     """Parse component versions from a release branch name"""
     components_versions = {}
     
-    if not branch_name.startswith("release/"):
-        return components_versions
-    
-    # Handle different branch naming patterns
-    release_part = branch_name.replace("release/", "")
-    
-    if release_part.startswith("v"):
-        # Platform release: release/v1.0.0
-        platform_version = release_part[1:]  # Remove 'v'
-        components_versions["platform"] = platform_version
-        
-        # For platform releases, include all components at their current versions
-        for component in COMPONENTS.keys():
-            try:
-                current_version = get_current_version(component, repo_root)
-                if current_version and current_version != "0.1.0":  # Skip default versions
-                    components_versions[component] = current_version
-                elif current_version == "0.1.0":
-                    info(f"Component {component} has default version 0.1.0 - skipping")
-            except Exception as e:
-                if "TOML parser not available" in str(e):
-                    # Re-raise TOML parser errors to trigger auto-environment setup
-                    raise e
-                warn(f"Failed to get version for component {component}: {e}")
-                warn(f"Skipping component {component} due to version detection failure")
-                continue
-                
-    elif "-v" in release_part:
-        # Component release: release/backend-v1.0.0 or release/multi-v1.0.0
-        if release_part.startswith("multi-"):
-            # Multi-component release
-            version = release_part.replace("multi-v", "")
-            if version:
-                # Try to determine which components have this version
-                for component in COMPONENTS.keys():
-                    try:
-                        current_version = get_current_version(component, repo_root)
-                        if current_version == version:
-                            components_versions[component] = version
-                    except Exception:
-                        continue
-        else:
-            # Single component release
-            parts = release_part.split("-v")
-            if len(parts) == 2:
-                component, version = parts
-                if component in COMPONENTS or component == "platform":
-                    components_versions[component] = version
-    
-    # If we couldn't parse from branch name, fall back to reading current versions
-    if not components_versions:
-        warn(f"Could not parse components from branch name: {branch_name}")
-        warn("Falling back to reading current versions from files")
-        
-        # Check all components for versions different from default
-        for component in COMPONENTS.keys():
-            try:
-                current_version = get_current_version(component, repo_root)
-                if current_version and current_version != "0.1.0":
-                    components_versions[component] = current_version
-                elif current_version == "0.1.0":
-                    info(f"Component {component} has default version 0.1.0 - skipping")
-            except Exception as e:
-                if "TOML parser not available" in str(e):
-                    # Re-raise TOML parser errors to trigger auto-environment setup
-                    raise e
-                warn(f"Failed to get version for component {component}: {e}")
-                warn(f"Skipping component {component} due to version detection failure")
-                continue
-        
-        # Check platform version
+    # Check all components for versions different from default
+    for component in COMPONENTS.keys():
         try:
-            platform_version = get_current_version("platform", repo_root)
-            if platform_version and platform_version != "0.0.0":
-                components_versions["platform"] = platform_version
+            current_version = get_current_version(component, repo_root)
+            if current_version and current_version != "0.1.0":
+                components_versions[component] = current_version
+            elif current_version == "0.1.0":
+                info(f"Component {component} has default version 0.1.0 - skipping")
         except Exception as e:
-            warn(f"Failed to get platform version: {e}")
-            warn("Skipping platform due to version detection failure")
+            warn(f"Failed to get version for component {component}: {e}")
+            warn(f"Skipping component {component} due to version detection failure")
+            continue
+    
+    # Check platform version
+    try:
+        platform_version = get_current_version("platform", repo_root)
+        if platform_version and platform_version != "0.0.0":
+            components_versions["platform"] = platform_version
+    except Exception as e:
+        warn(f"Failed to get platform version: {e}")
+        warn("Skipping platform due to version detection failure")
     
     return components_versions
 
@@ -232,6 +139,23 @@ def create_and_push_tag(component: str, version: str, dry_run: bool = False) -> 
         return False
 
 
+def get_changelog_content(changelog_path: Path) -> str:
+# Read the changelog file
+    with open(changelog_path, 'r', encoding='utf-8') as file:
+        content = file.read()
+
+    # Extract the first version section (latest) using regex
+    # Pattern breakdown:
+    # ^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n  - matches version header like "## [0.4.0] - 2025-10-10"
+    # (.*?)  - captures all content after the header (non-greedy)
+    # (?=\n## \[|\Z)  - stops at next version header or end of file (positive lookahead)
+    pattern = r'^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n(.*?)(?=\n## \[|\Z)'
+    match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
+    changelog_content = match.group(3)
+    return changelog_content
+
+
+
 def create_github_release(component: str, version: str, tag_name: str, dry_run: bool = False, set_as_latest: bool = False) -> bool:
     """Create a GitHub release for a component"""
     if dry_run:
@@ -244,11 +168,16 @@ def create_github_release(component: str, version: str, tag_name: str, dry_run: 
         result = subprocess.run(["which", "gh"], capture_output=True)
         if result.returncode == 0:
             # Use GitHub CLI
+            repo_root = find_repository_root()
             release_title = f"{format_component_name(component)} v{version}"
+            if component == "platform":
+                changelog_content = get_changelog_content(repo_root / "CHANGELOG.md")
+            else:
+                changelog_content = get_changelog_content(repo_root / COMPONENTS[component].changelog_path)
             cmd = [
                 "gh", "release", "create", tag_name,
                 "--title", release_title,
-                "--generate-notes"
+                "--notes", changelog_content
             ]
             
             # Add latest flag for platform releases
@@ -311,8 +240,12 @@ def confirm_publish_action(components_to_publish: Dict[str, str], remote_tags: L
         return False
     
     print()
-    response = input("Do you want to proceed with publishing? (y/N): ").strip().lower()
-    return response == 'y'
+    if os.environ.get('GITHUB_ACTIONS') == 'true':
+        info("Publishing in GitHub Actions - skipping confirmation")
+        return True
+    else:
+        response = input("Do you want to proceed with publishing? (y/N): ").strip().lower()
+        return response == 'y'
 
 
 def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
@@ -330,58 +263,21 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
         error("Failed to get current branch")
         return False
     
+    if not current_branch.startswith("release/"):
+        error("Not on a release branch")
+        return False
+    
     info(f"Current branch: {current_branch}")
     
     # Parse components from branch
     try:
-        components_to_publish = parse_release_branch_components(current_branch, repo_root)
+        components_version = get_components_version(current_branch, repo_root)
     except Exception as e:
-        if "TOML parser not available" in str(e):
-            error("Environment setup issue detected!")
-            
-            # Try automatic environment setup first
-            if _try_auto_environment_setup():
-                return True  # Script will re-run in correct environment
-            
-            # If auto-environment setup failed, try installing libraries directly
-            from .version import _try_install_toml_libraries
-            warn("Attempting to install TOML libraries in current environment...")
-            
-            if _try_install_toml_libraries():
-                info("TOML libraries installed successfully! Retrying component detection...")
-                try:
-                    components_to_publish = parse_release_branch_components(current_branch, repo_root)
-                    # If successful, continue with the rest of the function below
-                except Exception as retry_e:
-                    error(f"Still failed after installing libraries: {retry_e}")
-                    return False
-            else:
-                # Manual instructions as final fallback
-                error("Automatic installation failed. Please set up your environment manually:")
-                error("1. Activate your virtual environment:")
-                error("   source .venv/bin/activate  # for UV")
-                error("   conda activate <env-name>  # for Conda") 
-                error("   poetry shell               # for Poetry")
-                error("2. Install required libraries:")
-                error("   pip install tomli tomli-w")
-                error("3. Re-run the release command")
-                return False
-        else:
-            error(f"Failed to parse release components: {e}")
-            return False
-    
-    # Check if we successfully got components (either initially or after auto-installation)
-    if 'components_to_publish' not in locals():
-        error("Failed to detect components for publishing")
+        error(f"Failed to parse release components: {e}")
         return False
     
-    if not components_to_publish:
-        error("No components found to publish")
-        error("Make sure you're on a release branch (release/...)")
-        return False
-    
-    log("Found components to publish:")
-    for component, version in components_to_publish.items():
+    log("Current components version:")
+    for component, version in components_version.items():
         info(f"  {component}: v{version}")
     
     # Get remote tags
@@ -396,7 +292,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
     platform_version = None
     other_components = []
     
-    for component, version in components_to_publish.items():
+    for component, version in components_version.items():
         tag_name = generate_tag_name(component, version)
         if tag_name not in remote_tags:
             if component == "platform":
@@ -430,7 +326,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
         return True
     
     # Ask for confirmation
-    if not confirm_publish_action(components_to_publish, remote_tags):
+    if not confirm_publish_action(components_version, remote_tags):
         info("Publish cancelled by user")
         return False
     

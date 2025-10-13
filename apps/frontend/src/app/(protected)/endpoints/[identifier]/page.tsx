@@ -7,6 +7,7 @@ import { PageContainer } from '@toolpad/core';
 import { useEffect, useState } from 'react';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 // Update the interface to match Next.js generated types
 interface PageProps {
@@ -29,6 +30,9 @@ export default function EndpointPage({ params, searchParams }: PageProps) {
   const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Set document title dynamically
+  useDocumentTitle(endpoint?.name || null);
 
   useEffect(() => {
     const fetchEndpoint = async () => {
