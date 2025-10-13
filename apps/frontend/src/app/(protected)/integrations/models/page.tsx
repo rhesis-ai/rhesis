@@ -592,11 +592,11 @@ export default function LLMProvidersPage() {
     <Box sx={{ p: 3 }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ mb: 1 }}>
-          LLM Providers
+          Models
         </Typography>
         <Typography color="text.secondary">
-          Connect to leading AI providers to power your evaluation and testing
-          workflows.
+          Connect to leading AI model providers to power your evaluation and
+          testing workflows.
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
