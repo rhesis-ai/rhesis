@@ -34,7 +34,7 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import ListIcon from '@mui/icons-material/List';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import TableRowsIcon from '@mui/icons-material/TableRows';
-import GavelIcon from '@mui/icons-material/Gavel';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
@@ -43,7 +43,7 @@ export interface FilterState {
   searchQuery: string;
   statusFilter: 'all' | 'passed' | 'failed';
   selectedBehaviors: string[];
-  overruleFilter: 'all' | 'overruled' | 'original';
+  overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting';
   selectedFailedMetrics: string[];
   commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range';
   commentCountRange: { min: number; max: number };
@@ -122,7 +122,7 @@ export default function TestRunFilterBar({
   };
 
   const handleOverruleFilterChange = (
-    overruleFilter: 'all' | 'overruled' | 'original'
+    overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting'
   ) => {
     onFilterChange({
       ...filter,
@@ -312,13 +312,6 @@ export default function TestRunFilterBar({
               mr: 1,
             }}
           >
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mr: 0.5, display: { xs: 'none', sm: 'block' } }}
-            >
-              View:
-            </Typography>
             <ButtonGroup size="small" variant="outlined">
               <Button
                 onClick={() => onViewModeChange('split')}
@@ -409,14 +402,14 @@ export default function TestRunFilterBar({
         {/* Content */}
         <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
           <Stack spacing={3}>
-            {/* Overrule Status */}
+            {/* Review Status */}
             <Box>
               <Box
                 sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
               >
-                <GavelIcon fontSize="small" color="action" />
+                <RateReviewIcon fontSize="small" color="action" />
                 <Typography variant="subtitle2" fontWeight={600}>
-                  Overrule Status
+                  Review Status
                 </Typography>
               </Box>
               <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -432,7 +425,7 @@ export default function TestRunFilterBar({
                   }
                 />
                 <Chip
-                  label="Overruled"
+                  label="Reviewed"
                   size="small"
                   onClick={() => handleOverruleFilterChange('overruled')}
                   color={
@@ -447,7 +440,7 @@ export default function TestRunFilterBar({
                   }
                 />
                 <Chip
-                  label="Original"
+                  label="Not Reviewed"
                   size="small"
                   onClick={() => handleOverruleFilterChange('original')}
                   color={
@@ -455,6 +448,17 @@ export default function TestRunFilterBar({
                   }
                   variant={
                     filter.overruleFilter === 'original' ? 'filled' : 'outlined'
+                  }
+                />
+                <Chip
+                  label="Conflicting"
+                  size="small"
+                  onClick={() => handleOverruleFilterChange('conflicting')}
+                  color={
+                    filter.overruleFilter === 'conflicting' ? 'warning' : 'default'
+                  }
+                  variant={
+                    filter.overruleFilter === 'conflicting' ? 'filled' : 'outlined'
                   }
                 />
               </Stack>
