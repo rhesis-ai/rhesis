@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Metrics | Rhesis AI',
+  title: 'Metrics',
 };
 
 export default function MetricsLayout({

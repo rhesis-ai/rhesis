@@ -27,7 +27,7 @@ export async function generateMetadata({
     // If no session (like during warmup), return basic metadata
     if (!session?.session_token) {
       return {
-        title: `Test Run | ${identifier}`,
+        title: `Test Run ${identifier}`,
         description: `Details for Test Run ${identifier}`,
       };
     }
@@ -37,11 +37,11 @@ export async function generateMetadata({
     const testRun = await testRunsClient.getTestRun(resolvedParams.identifier);
 
     return {
-      title: `Test Run | ${identifier}`,
-      description: `Details for Test Run ${identifier}`,
+      title: testRun.name || identifier,
+      description: `Details for Test Run ${testRun.name || identifier}`,
       openGraph: {
-        title: `Test Run | ${identifier}`,
-        description: `Details for Test Run ${identifier}`,
+        title: testRun.name || identifier,
+        description: `Details for Test Run ${testRun.name || identifier}`,
       },
     };
   } catch (error) {

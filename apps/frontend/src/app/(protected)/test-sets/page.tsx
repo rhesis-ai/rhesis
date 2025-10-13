@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Metadata } from 'next';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -7,6 +8,10 @@ import TestSetsCharts from './components/TestSetsCharts';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { PageContainer } from '@toolpad/core/PageContainer';
+
+export const metadata: Metadata = {
+  title: 'Test Sets',
+};
 
 export default async function TestSetsPage() {
   try {
