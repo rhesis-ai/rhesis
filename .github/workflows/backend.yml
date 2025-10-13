@@ -275,7 +275,7 @@ jobs:
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
-              --vpc-connector=redis-connector \
+              --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
               --vpc-egress=private-ranges-only \
               --region=${{ env.REGION }} \
               --platform=managed \
@@ -335,7 +335,7 @@ jobs:
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:latest \
               --project=${{ env.PROJECT_ID }} \
-              --vpc-connector=redis-connector \
+              --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
               --vpc-egress=private-ranges-only \
               --region=${{ env.REGION }} \
               --platform=managed \
@@ -505,7 +505,7 @@ jobs:
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
             --project=${{ env.PROJECT_ID }} \
-            --vpc-connector=redis-connector \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
@@ -571,7 +571,7 @@ jobs:
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
             --project=${{ env.PROJECT_ID }} \
-            --vpc-connector=redis-connector \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
