@@ -266,6 +266,17 @@ function ConnectionDialog({
     setShowFullError(false);
 
     try {
+      const requestBody: any = {
+        provider: provider.type_value,
+        model_name: modelName,
+        api_key: apiKey,
+      };
+
+      // Only include endpoint if it's required and has a value
+      if (requiresEndpoint && endpoint && endpoint.trim()) {
+        requestBody.endpoint = endpoint.trim();
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/models/test-connection`,
         {
@@ -274,12 +285,7 @@ function ConnectionDialog({
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.session_token}`,
           },
-          body: JSON.stringify({
-            provider: provider.type_value,
-            model_name: modelName,
-            api_key: apiKey,
-            endpoint: requiresEndpoint && endpoint ? endpoint : null,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -353,8 +359,13 @@ function ConnectionDialog({
           key: apiKey,
           tags: [provider.type_value],
           request_headers: requestHeaders,
-          ...(requiresEndpoint && endpoint ? { endpoint } : {}), // Include endpoint if required
         };
+
+        // Only include endpoint if it's required and has a value
+        if (requiresEndpoint && endpoint && endpoint.trim()) {
+          modelData.endpoint = endpoint.trim();
+        }
+
         await onConnect(provider.type_value, modelData);
         onClose();
       } catch (err) {
