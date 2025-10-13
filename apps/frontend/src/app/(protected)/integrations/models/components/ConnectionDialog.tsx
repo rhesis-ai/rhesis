@@ -288,11 +288,9 @@ export function ConnectionDialog({
         if (apiKey && apiKey.trim() && apiKey !== '************') {
           updates.key = apiKey.trim();
         }
-
-        // Update custom headers if any (Authorization and Content-Type are handled automatically)
-        if (Object.keys(customHeaders).length > 0) {
-          updates.request_headers = customHeaders;
-        }
+        
+        // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
+        updates.request_headers = customHeaders;
 
         await onUpdate(model.id, updates);
         setLoading(false);
