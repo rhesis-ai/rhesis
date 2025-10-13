@@ -35,7 +35,7 @@ class RhesisPromptMetric(RhesisMetricBase):
         threshold: Optional[float] = None,
         reference_score: Optional[str] = None,
         threshold_operator: Union[ThresholdOperator, str] = None,
-        provider: str = "google",
+        provider: str = "gemini",
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         metric_type="rag",
@@ -115,13 +115,13 @@ class RhesisPromptMetric(RhesisMetricBase):
         self.evaluation_examples = evaluation_examples
         self.provider = provider
 
-        # Prepare call params (for Google provider, API key is handled via environment variables)
+        # Prepare call params (for Gemini provider, API key is handled via environment variables)
         self.additional_params = kwargs.copy()
 
-        # For Google provider, set the API key as environment variable if provided
-        if self.api_key and self.provider == "google":
+        # For Gemini provider, set the API key as environment variable if provided
+        if self.api_key and self.provider == "gemini":
             os.environ["GEMINI_API_KEY"] = self.api_key
-        elif self.api_key and self.provider != "google":
+        elif self.api_key and self.provider != "gemini":
             # For other providers, pass API key as parameter
             self.additional_params["api_key"] = self.api_key
 
