@@ -34,9 +34,9 @@ import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDetailPanel from './TestDetailPanel';
-import OverruleJudgementDrawer, {
-  OverruleData,
-} from './OverruleJudgementDrawer';
+import ReviewJudgementDrawer, {
+  ReviewData,
+} from './ReviewJudgementDrawer';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -113,7 +113,7 @@ export default function TestsTableView({
 
   const handleOverruleSave = async (
     testId: string,
-    overruleData: OverruleData
+    reviewData: ReviewData
   ) => {
     try {
       // Fetch the updated test result from the backend
@@ -124,7 +124,7 @@ export default function TestsTableView({
       // Update the test in the parent component
       onTestResultUpdate(updatedTest);
 
-      console.log('Review saved successfully:', { testId, overruleData });
+      console.log('Review saved successfully:', { testId, reviewData });
     } catch (error) {
       console.error('Failed to refresh test result:', error);
     }
@@ -173,7 +173,7 @@ export default function TestsTableView({
       await testResultsClient.createReview(
         test.id,
         targetStatus.id,
-        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result after manual review.`,
+        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
         { type: 'test', reference: null }
       );
 
@@ -495,7 +495,7 @@ export default function TestsTableView({
                           <Tooltip
                             title={
                               status.reviewData
-                                ? `Manual Review by ${status.reviewData.reviewer}: ${
+                                ? `Human review by ${status.reviewData.reviewer}: ${
                                     status.reviewData.newStatus === 'passed'
                                       ? 'Passed'
                                       : 'Failed'
@@ -756,8 +756,8 @@ export default function TestsTableView({
         </Box>
       </Drawer>
 
-      {/* Overrule Judgement Drawer */}
-      <OverruleJudgementDrawer
+      {/* Review Judgement Drawer */}
+      <ReviewJudgementDrawer
         open={overruleDrawerOpen}
         onClose={() => setOverruleDrawerOpen(false)}
         test={testToOverrule}

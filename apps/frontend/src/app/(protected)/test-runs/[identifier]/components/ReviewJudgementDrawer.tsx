@@ -19,16 +19,16 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 
-interface OverruleJudgementDrawerProps {
+interface ReviewJudgementDrawerProps {
   open: boolean;
   onClose: () => void;
   test: TestResultDetail | null;
   currentUserName: string;
   sessionToken: string;
-  onSave: (testId: string, overruleData: OverruleData) => Promise<void>;
+  onSave: (testId: string, reviewData: ReviewData) => Promise<void>;
 }
 
-export interface OverruleData {
+export interface ReviewData {
   originalStatus: 'passed' | 'failed';
   newStatus: 'passed' | 'failed';
   reason: string;
@@ -36,14 +36,14 @@ export interface OverruleData {
   overruledAt: string;
 }
 
-export default function OverruleJudgementDrawer({
+export default function ReviewJudgementDrawer({
   open,
   onClose,
   test,
   currentUserName,
   sessionToken,
   onSave,
-}: OverruleJudgementDrawerProps) {
+}: ReviewJudgementDrawerProps) {
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -160,8 +160,8 @@ export default function OverruleJudgementDrawer({
         { type: 'test', reference: null }
       );
 
-      // Create overrule data for parent component
-      const overruleData: OverruleData = {
+      // Create review data for parent component
+      const reviewData: ReviewData = {
         originalStatus,
         newStatus,
         reason: reason.trim(),
@@ -169,7 +169,7 @@ export default function OverruleJudgementDrawer({
         overruledAt: new Date().toISOString(),
       };
 
-      await onSave(test.id, overruleData);
+      await onSave(test.id, reviewData);
       onClose();
     } catch (err) {
       console.error('Failed to create review:', err);
