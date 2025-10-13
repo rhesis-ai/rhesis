@@ -15,7 +15,7 @@ class Model(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, TasksMixin
     description = Column(Text)
     icon = Column(String)
     model_name = Column(String, nullable=False)
-    endpoint = Column(String, nullable=False)
+    endpoint = Column(String, nullable=True)  # Optional for cloud providers (OpenAI, Gemini, etc.)
     key = Column(EncryptedString(), nullable=False)  # Encrypted for security (LLM provider API keys)
     request_headers = Column(JSON)
 
