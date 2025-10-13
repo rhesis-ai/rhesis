@@ -107,6 +107,7 @@ export function ConnectionDialog({
         setShowFullError(false);
         setConnectionTested(true); // Skip test requirement in edit mode
         setShowApiKey(false);
+        setLoading(false); // Reset loading state
         
         // Check if this model is set as default in user settings
         const isDefaultGeneration = userSettings?.models?.generation?.model_id === model.id;
@@ -135,6 +136,7 @@ export function ConnectionDialog({
         setShowApiKey(false);
         setDefaultForGeneration(false);
         setDefaultForEvaluation(false);
+        setLoading(false); // Reset loading state
       }
     }
   }, [open, provider, model, isEditMode, userSettings]);
