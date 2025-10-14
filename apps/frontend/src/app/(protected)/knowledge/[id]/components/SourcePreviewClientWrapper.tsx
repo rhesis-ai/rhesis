@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Alert, Paper, Button, Chip, IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Typography, Alert, Paper, Button, Chip, IconButton, Tooltip, ToggleButton, ToggleButtonGroup, Collapse } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -12,6 +12,9 @@ import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import CodeIcon from '@mui/icons-material/Code';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { useRouter } from 'next/navigation';
 import styles from '@/styles/SourcePreview.module.css';
 
@@ -33,6 +36,7 @@ export default function SourcePreviewClientWrapper({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'formatted' | 'raw'>('formatted');
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
   const notifications = useNotifications();
   const router = useRouter();
 
@@ -86,6 +90,23 @@ export default function SourcePreviewClientWrapper({
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy text:', error);
+      notifications.show('Failed to copy content', {
+        severity: 'error',
+        autoHideDuration: 2000,
+      });
+    }
+  };
+
+  const handleCopyContentBlock = async () => {
+    const contentToCopy = viewMode === 'formatted' ? formattedContent : content;
+    try {
+      await navigator.clipboard.writeText(contentToCopy);
+      notifications.show('Content copied to clipboard', {
+        severity: 'success',
+        autoHideDuration: 2000,
+      });
+    } catch (error) {
+      console.error('Failed to copy content:', error);
       notifications.show('Failed to copy content', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -279,36 +300,66 @@ export default function SourcePreviewClientWrapper({
         )}
 
         {!loading && !error && content && (
-          <>
-            <Box className={styles.contentControls}>
-              <ToggleButtonGroup
-                value={viewMode}
-                exclusive
-                onChange={handleViewModeChange}
-                size="small"
-                aria-label="view mode"
-              >
-                <ToggleButton value="formatted" aria-label="formatted view">
-                  <FormatAlignLeftIcon fontSize="small" />
-                  <Typography variant="caption" sx={{ ml: 0.5 }}>
-                    Formatted
-                  </Typography>
-                </ToggleButton>
-                <ToggleButton value="raw" aria-label="raw view">
-                  <CodeIcon fontSize="small" />
-                  <Typography variant="caption" sx={{ ml: 0.5 }}>
-                    Raw
-                  </Typography>
-                </ToggleButton>
-              </ToggleButtonGroup>
+          <Box className={styles.contentBlock}>
+            {/* Content Block Header */}
+            <Box className={styles.contentBlockHeader}>
+              <Box className={styles.contentBlockTitle}>
+                <InsertDriveFileOutlined className={styles.documentIcon} />
+                <Typography variant="body2" color="text.secondary">
+                  {source.title || 'Document Content'}
+                </Typography>
+              </Box>
+              <Box className={styles.contentBlockActions}>
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={handleViewModeChange}
+                  size="small"
+                  aria-label="view mode"
+                >
+                  <ToggleButton value="formatted" aria-label="formatted view">
+                    <FormatAlignLeftIcon fontSize="small" />
+                    <Typography variant="caption" sx={{ ml: 0.5 }}>
+                      Formatted
+                    </Typography>
+                  </ToggleButton>
+                  <ToggleButton value="raw" aria-label="raw view">
+                    <CodeIcon fontSize="small" />
+                    <Typography variant="caption" sx={{ ml: 0.5 }}>
+                      Raw
+                    </Typography>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+                <Tooltip title="Copy Content">
+                  <IconButton
+                    size="small"
+                    onClick={handleCopyContentBlock}
+                    className={styles.copyButton}
+                  >
+                    <ContentCopyIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={isContentExpanded ? "Collapse" : "Expand"}>
+                  <IconButton
+                    size="small"
+                    onClick={() => setIsContentExpanded(!isContentExpanded)}
+                    className={styles.expandButton}
+                  >
+                    {isContentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
 
-            <Box className={styles.contentWrapper}>
-              <pre className={styles.contentText}>
-                {viewMode === 'formatted' ? formattedContent : content}
-              </pre>
-            </Box>
-          </>
+            {/* Content Block Body */}
+            <Collapse in={isContentExpanded}>
+              <Box className={styles.contentBlockBody}>
+                <pre className={styles.contentText}>
+                  {viewMode === 'formatted' ? formattedContent : content}
+                </pre>
+              </Box>
+            </Collapse>
+          </Box>
         )}
 
         {!loading && !error && !content && (
