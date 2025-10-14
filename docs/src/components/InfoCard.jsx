@@ -121,46 +121,12 @@ export const InfoCard = ({
   )
 
   return (
-    <>
-      <div
-        style={styles.card}
-        className={`info-card ${hasLink ? 'info-card-linked' : ''} ${className}`}
-      >
-        <CardContent />
-      </div>
-
-      <style jsx>{`
-        [data-theme='dark'] .info-card,
-        .dark .info-card {
-          --border-color: #2c2c2c;
-          --card-bg: #161b22;
-          --text-primary: #e6edf3;
-          --text-secondary: #a9b1bb;
-          --text-tertiary: #6b7280;
-          --accent-color: #fd6e12;
-          --icon-bg: rgba(253, 110, 18, 0.1);
-        }
-
-        [data-theme='light'] .info-card {
-          --border-color: #e5e7eb;
-          --card-bg: #ffffff;
-          --text-primary: #3d3d3d;
-          --text-secondary: #6b7280;
-          --text-tertiary: #9ca3af;
-          --accent-color: #fd6e12;
-          --icon-bg: #fff5f0;
-        }
-
-        .info-card-linked:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .info-card-link:hover {
-          color: #3bc4f2;
-        }
-      `}</style>
-    </>
+    <div
+      style={styles.card}
+      className={`info-card ${hasLink ? 'info-card-linked' : ''} ${className}`}
+    >
+      <CardContent />
+    </div>
   )
 }
 

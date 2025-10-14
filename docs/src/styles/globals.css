@@ -166,13 +166,15 @@ body,
 /* Active sidebar links - matching frontend theme */
 .nextra-sidebar a[aria-current='page'],
 .nextra-sidebar a[data-active='true'] {
-  background-color: #50b9e0 !important; /* Frontend theme primary.main */
-  color: white !important;
+  background-color: rgba(80, 185, 224, 0.15) !important; /* Visible blue background for active */
+  color: #2aa1ce !important; /* CTA blue text */
+  font-weight: 500;
 }
 
 /* Hover state for sidebar links */
 .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']) {
-  background-color: rgba(80, 185, 224, 0.08) !important; /* Frontend theme hover state */
+  background-color: rgba(80, 185, 224, 0.08) !important; /* Subtle hover state */
+  color: #2aa1ce !important; /* CTA blue text on hover */
 }
 
 /* Remove/hide sidebar submenu borders */
@@ -192,93 +194,140 @@ body,
 
 /* Dark mode - matching frontend theme colors */
 [data-theme='dark'] body,
+.dark body {
+  color: #e6edf3 !important;
+  background-color: #0d1117; /* Frontend theme background.default */
+}
+
 [data-theme='dark'] .nextra-content,
+.dark .nextra-content,
 [data-theme='dark'] .nextra-content p,
+.dark .nextra-content p,
 [data-theme='dark'] .nextra-content div,
+.dark .nextra-content div,
 [data-theme='dark'] .nextra-content span,
 [data-theme='dark'] .nextra-content li,
+.dark .nextra-content span,
+.dark .nextra-content li {
+  color: #e6edf3 !important;
+}
+
+/* Dark mode navbar links - no background boxes */
+[data-theme='dark'] .nextra-nav-container a,
+.dark .nextra-nav-container a {
+  color: #e6edf3 !important;
+  background-color: transparent !important;
+}
+
+/* Dark mode sidebar links - transparent background by default */
 [data-theme='dark'] .nextra-sidebar a,
-[data-theme='dark'] .nextra-nav-container a {
-  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
-  background-color: #0d1117; /* Frontend theme background.default */
+.dark .nextra-sidebar a {
+  background-color: transparent !important;
 }
 
 /* Force sidebar navigation text to match frontend theme */
 [data-theme='dark'] .nextra-sidebar,
+.dark .nextra-sidebar,
 [data-theme='dark'] .nextra-sidebar *,
+.dark .nextra-sidebar *,
 [data-theme='dark'] .nextra-sidebar a,
+.dark .nextra-sidebar a,
 [data-theme='dark'] .nextra-sidebar span,
-[data-theme='dark'] .nextra-sidebar div {
+.dark .nextra-sidebar span,
+[data-theme='dark'] .nextra-sidebar div,
+.dark .nextra-sidebar div {
   color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Ensure submenu items match frontend theme */
 [data-theme='dark'] .nextra-sidebar ul li a,
+.dark .nextra-sidebar ul li a,
 [data-theme='dark'] .nextra-sidebar ul li span,
+.dark .nextra-sidebar ul li span,
 [data-theme='dark'] .nextra-sidebar .nx-text-gray-500,
+.dark .nextra-sidebar .nx-text-gray-500,
 [data-theme='dark'] .nextra-sidebar .nx-text-slate-500,
-[data-theme='dark'] .nextra-sidebar .nx-text-neutral-500 {
+.dark .nextra-sidebar .nx-text-slate-500,
+[data-theme='dark'] .nextra-sidebar .nx-text-neutral-500,
+.dark .nextra-sidebar .nx-text-neutral-500 {
   color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Target Nextra's specific navigation classes */
 [data-theme='dark'] .nextra-sidebar .nx-menu-item,
+.dark .nextra-sidebar .nx-menu-item,
 [data-theme='dark'] .nextra-sidebar .nx-menu-item a,
+.dark .nextra-sidebar .nx-menu-item a,
 [data-theme='dark'] .nextra-sidebar .nx-menu-item span,
-[data-theme='dark'] .nextra-sidebar .nx-menu-item div {
+.dark .nextra-sidebar .nx-menu-item span,
+[data-theme='dark'] .nextra-sidebar .nx-menu-item div,
+.dark .nextra-sidebar .nx-menu-item div {
   color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Override any gray text classes in sidebar */
 [data-theme='dark'] .nextra-sidebar [class*='text-gray'],
+.dark .nextra-sidebar [class*='text-gray'],
 [data-theme='dark'] .nextra-sidebar [class*='text-slate'],
-[data-theme='dark'] .nextra-sidebar [class*='text-neutral'] {
+.dark .nextra-sidebar [class*='text-slate'],
+[data-theme='dark'] .nextra-sidebar [class*='text-neutral'],
+.dark .nextra-sidebar [class*='text-neutral'] {
   color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
 }
 
 /* Override Nextra's primary text classes that cause readability issues */
 [data-theme='dark'] .nextra-sidebar [class*='text-primary'],
+.dark .nextra-sidebar [class*='text-primary'],
 [data-theme='dark'] .nextra-sidebar .x\:dark\:text-primary-600,
-[data-theme='dark'] .nextra-sidebar .x\:text-primary-800 {
+.dark .nextra-sidebar .x\:dark\:text-primary-600,
+[data-theme='dark'] .nextra-sidebar .x\:text-primary-800,
+.dark .nextra-sidebar .x\:text-primary-800 {
   color: #e6edf3 !important; /* Force readable text in dark mode */
 }
 
 /* Target the specific problematic class combination */
-[data-theme='dark'] .nextra-sidebar a.x\:dark\:text-primary-600 {
+[data-theme='dark'] .nextra-sidebar a.x\:dark\:text-primary-600,
+.dark .nextra-sidebar a.x\:dark\:text-primary-600 {
   color: #e6edf3 !important; /* Force readable text for navigation links */
 }
 
 /* Comprehensive override for all Nextra primary color variants in dark mode */
 [data-theme='dark'] .nextra-sidebar a[class*='primary'],
+.dark .nextra-sidebar a[class*='primary'],
 [data-theme='dark'] .nextra-sidebar span[class*='primary'],
-[data-theme='dark'] .nextra-sidebar div[class*='primary'] {
+.dark .nextra-sidebar span[class*='primary'],
+[data-theme='dark'] .nextra-sidebar div[class*='primary'],
+.dark .nextra-sidebar div[class*='primary'] {
   color: #e6edf3 !important; /* Force readable text for all primary color elements */
 }
 
 /* Also target content area primary colors that might be hard to read - but NOT TOC */
 [data-theme='dark']
+.dark
   .nextra-content
   [class*='text-primary-600']:not(.nextra-toc *):not(.nextra-toc a),
 [data-theme='dark']
+.dark
   .nextra-content
   [class*='text-primary-700']:not(.nextra-toc *):not(.nextra-toc a),
 [data-theme='dark']
+.dark
   .nextra-content
   [class*='text-primary-800']:not(.nextra-toc *):not(.nextra-toc a) {
   color: #e6edf3 !important; /* Force readable text in content area */
 }
 
 [data-theme='dark'] .nextra-content h1,
-[data-theme='dark'] .nextra-content h2,
-[data-theme='dark'] .nextra-content h3,
-[data-theme='dark'] .nextra-content h4,
-[data-theme='dark'] .nextra-content h5,
-[data-theme='dark'] .nextra-content h6,
 .dark .nextra-content h1,
+[data-theme='dark'] .nextra-content h2,
 .dark .nextra-content h2,
+[data-theme='dark'] .nextra-content h3,
 .dark .nextra-content h3,
+[data-theme='dark'] .nextra-content h4,
 .dark .nextra-content h4,
+[data-theme='dark'] .nextra-content h5,
 .dark .nextra-content h5,
+[data-theme='dark'] .nextra-content h6,
 .dark .nextra-content h6 {
   color: #ffffff !important; /* Frontend theme headings in dark mode */
 }
@@ -289,10 +338,10 @@ body,
 }
 
 [data-theme='dark'] .nextra-content a:hover,
-[data-theme='dark'] .nextra-sidebar a:hover,
-[data-theme='dark'] .nextra-nav-container a:hover,
 .dark .nextra-content a:hover,
+[data-theme='dark'] .nextra-sidebar a:hover,
 .dark .nextra-sidebar a:hover,
+[data-theme='dark'] .nextra-nav-container a:hover,
 .dark .nextra-nav-container a:hover {
   color: #3bc4f2 !important; /* Frontend theme primary.light (hover blue) */
 }
@@ -300,33 +349,35 @@ body,
 /* Active sidebar links in dark mode - matching frontend theme */
 [data-theme='dark'] .nextra-sidebar a[aria-current='page'],
 [data-theme='dark'] .nextra-sidebar a[data-active='true'],
-.dark .nextra-sidebar a[aria-current='page'],
 .dark .nextra-sidebar a[data-active='true'] {
-  background-color: #2aa1ce !important; /* Frontend theme primary.dark (CTA blue) */
-  color: white !important;
+  background-color: rgba(42, 161, 206, 0.2) !important; /* Visible blue background for active */
+  color: #3bc4f2 !important; /* Brighter blue text */
+  font-weight: 500;
 }
 
 /* Hover state for sidebar links in dark mode */
 [data-theme='dark'] .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']),
 .dark .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']) {
-  background-color: rgba(
-    42,
-    161,
-    206,
-    0.12
-  ) !important; /* Frontend theme hover state for dark mode */
+  background-color: rgba(42, 161, 206, 0.12) !important; /* Subtle blue background for hover */
+  color: #3bc4f2 !important; /* Brighter blue text on hover */
 }
 
 /* Remove/hide sidebar submenu borders in dark mode */
 [data-theme='dark'] .nextra-sidebar ul[class*='before:bg-neutral'],
+.dark .nextra-sidebar ul[class*='before:bg-neutral'],
 [data-theme='dark'] .nextra-sidebar ul.x\:dark\:before\:bg-neutral-800,
-[data-theme='dark'] .nextra-sidebar ul[class*='before:absolute'] {
+.dark .nextra-sidebar ul.x\:dark\:before\:bg-neutral-800,
+[data-theme='dark'] .nextra-sidebar ul[class*='before:absolute'],
+.dark .nextra-sidebar ul[class*='before:absolute'] {
   position: relative;
 }
 
 [data-theme='dark'] .nextra-sidebar ul[class*='before:bg-neutral']::before,
+.dark .nextra-sidebar ul[class*='before:bg-neutral']::before,
 [data-theme='dark'] .nextra-sidebar ul.x\:dark\:before\:bg-neutral-800::before,
-[data-theme='dark'] .nextra-sidebar ul[class*='before:absolute']::before {
+.dark .nextra-sidebar ul.x\:dark\:before\:bg-neutral-800::before,
+[data-theme='dark'] .nextra-sidebar ul[class*='before:absolute']::before,
+.dark .nextra-sidebar ul[class*='before:absolute']::before {
   background-color: transparent !important;
   border: none !important;
   width: 0 !important;
@@ -350,10 +401,10 @@ body,
 
 /* Dark mode backgrounds - matching frontend theme */
 [data-theme='dark'] body,
-[data-theme='dark'] .nextra-content,
-[data-theme='dark'] .nextra-nav-container,
 .dark body,
+[data-theme='dark'] .nextra-content,
 .dark .nextra-content,
+[data-theme='dark'] .nextra-nav-container,
 .dark .nextra-nav-container {
   background-color: #0d1117 !important; /* Frontend theme background.default */
 }
@@ -361,6 +412,36 @@ body,
 [data-theme='dark'] .nextra-sidebar,
 .dark .nextra-sidebar {
   background-color: #161b22 !important; /* Frontend theme background.paper */
+}
+
+[data-theme='dark'] .nextra-sidebar-footer,
+.dark .nextra-sidebar-footer {
+  background-color: #161b22 !important; /* Frontend theme background.paper */
+}
+
+/* Target the specific sidebar footer with Nextra classes */
+[data-theme='dark'] .x\:bg-nextra-bg,
+.dark .x\:bg-nextra-bg,
+[data-theme='dark'] div[class*="bg-nextra-bg"],
+.dark div[class*="bg-nextra-bg"] {
+  background-color: #161b22 !important; /* Frontend theme background.paper */
+}
+
+/* Sidebar footer buttons styling in dark mode */
+[data-theme='dark'] .nextra-sidebar-footer button,
+.dark .nextra-sidebar-footer button,
+[data-theme='dark'] .nextra-sidebar button,
+.dark .nextra-sidebar button {
+  background-color: transparent !important;
+  color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
+}
+
+[data-theme='dark'] .nextra-sidebar-footer button:hover,
+.dark .nextra-sidebar-footer button:hover,
+[data-theme='dark'] .nextra-sidebar button:hover,
+.dark .nextra-sidebar button:hover {
+  background-color: rgba(42, 161, 206, 0.12) !important; /* Frontend theme hover state */
+  color: #3bc4f2 !important; /* Frontend theme primary.light */
 }
 
 /* Code styling - matching frontend theme */
@@ -434,8 +515,8 @@ html body {
 
 /* Dark mode html/body backgrounds */
 [data-theme='dark'] html,
-[data-theme='dark'] html body,
 .dark html,
+[data-theme='dark'] html body,
 .dark html body {
   background-color: #0d1117 !important;
 }
@@ -484,27 +565,42 @@ aside nav a[class*='text-primary'],
 
 /* Dark mode TOC */
 [data-theme='dark'] .nextra-toc li a,
+.dark .nextra-toc li a,
 [data-theme='dark'] nav[aria-labelledby='toc-heading'] a,
-[data-theme='dark'] .nextra-toc-content a {
+.dark nav[aria-labelledby='toc-heading'] a,
+[data-theme='dark'] .nextra-toc-content a,
+.dark .nextra-toc-content a {
   color: #e6edf3 !important;
 }
 
 [data-theme='dark'] .nextra-toc li a:hover,
+.dark .nextra-toc li a:hover,
 [data-theme='dark'] nav[aria-labelledby='toc-heading'] a:hover,
-[data-theme='dark'] .nextra-toc-content a:hover {
+.dark nav[aria-labelledby='toc-heading'] a:hover,
+[data-theme='dark'] .nextra-toc-content a:hover,
+.dark .nextra-toc-content a:hover {
   color: #3bc4f2 !important;
 }
 
 /* Active/highlighted TOC item in dark mode */
 [data-theme='dark'] .nextra-toc li a[data-active='true'],
+.dark .nextra-toc li a[data-active='true'],
 [data-theme='dark'] .nextra-toc li a.active,
+.dark .nextra-toc li a.active,
 [data-theme='dark'] .nextra-toc a[aria-current='true'],
+.dark .nextra-toc a[aria-current='true'],
 [data-theme='dark'] nav[aria-labelledby='toc-heading'] a[data-active='true'],
+.dark nav[aria-labelledby='toc-heading'] a[data-active='true'],
 [data-theme='dark'] .nextra-toc a.nx-text-primary-600,
+.dark .nextra-toc a.nx-text-primary-600,
 [data-theme='dark'] .nextra-toc a[class*='text-primary'],
+.dark .nextra-toc a[class*='text-primary'],
 [data-theme='dark'] nav[class*='toc'] a[class*='text-primary'],
+.dark nav[class*='toc'] a[class*='text-primary'],
 [data-theme='dark'] aside nav a[class*='text-primary'],
-[data-theme='dark'] .nx-toc a[class*='text-primary'] {
+.dark aside nav a[class*='text-primary'],
+[data-theme='dark'] .nx-toc a[class*='text-primary'],
+.dark .nx-toc a[class*='text-primary'] {
   color: #3bc4f2 !important;
   font-weight: 600;
 }
@@ -535,23 +631,27 @@ aside nav a[class*='text-primary'],
 }
 
 /* Dark mode button styles */
-[data-theme='dark'] .btn-rhesis-primary {
+[data-theme='dark'] .btn-rhesis-primary,
+.dark .btn-rhesis-primary {
   background-color: #2aa1ce !important;
   color: white !important;
 }
 
-[data-theme='dark'] .btn-rhesis-primary:hover {
+[data-theme='dark'] .btn-rhesis-primary:hover,
+.dark .btn-rhesis-primary:hover {
   background-color: #3bc4f2 !important;
   color: white !important;
 }
 
-[data-theme='dark'] .btn-rhesis-secondary {
+[data-theme='dark'] .btn-rhesis-secondary,
+.dark .btn-rhesis-secondary {
   background-color: #161b22 !important;
   border: 2px solid #2aa1ce !important;
   color: #e6edf3 !important;
 }
 
-[data-theme='dark'] .btn-rhesis-secondary:hover {
+[data-theme='dark'] .btn-rhesis-secondary:hover,
+.dark .btn-rhesis-secondary:hover {
   background-color: #1f242b !important;
   color: #3bc4f2 !important;
 }
@@ -585,4 +685,100 @@ aside nav a[class*='text-primary'],
 
 .rhesis-codeblock .terminal-value {
   color: #E5E7EB;
+}
+
+/* InfoCard Component Styles */
+.info-card {
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --text-primary: #3d3d3d;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --accent-color: #fd6e12;
+  --icon-bg: #fff5f0;
+}
+
+[data-theme='dark'] .info-card,
+.dark .info-card {
+  --border-color: #2c2c2c !important;
+  --card-bg: #161b22 !important;
+  --text-primary: #e6edf3 !important;
+  --text-secondary: #a9b1bb !important;
+  --text-tertiary: #6b7280 !important;
+  --accent-color: #fd6e12 !important;
+  --icon-bg: rgba(253, 110, 18, 0.1) !important;
+}
+
+.info-card-linked:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.info-card-link:hover {
+  color: #3bc4f2 !important;
+}
+
+/* InfoCardHorizontal Component Styles */
+.info-card-horizontal {
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --text-primary: #3d3d3d;
+  --text-secondary: #6b7280;
+  --accent-color: #fd6e12;
+  --icon-bg: #fff5f0;
+}
+
+[data-theme='dark'] .info-card-horizontal,
+.dark .info-card-horizontal {
+  --border-color: #2c2c2c !important;
+  --card-bg: #161b22 !important;
+  --text-primary: #e6edf3 !important;
+  --text-secondary: #a9b1bb !important;
+  --accent-color: #fd6e12 !important;
+  --icon-bg: rgba(253, 110, 18, 0.1) !important;
+}
+
+.info-card-horizontal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 640px) {
+  .info-card-horizontal {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
+
+/* FeatureOverview Component Styles */
+.rhesis-feature-overview .featuresGrid > div:nth-child(4) {
+  grid-column: 1 / 2;
+  grid-column-start: 1;
+  margin-left: 25%;
+}
+
+.rhesis-feature-overview .featuresGrid > div:nth-child(5) {
+  grid-column: 2 / 3;
+  margin-right: 25%;
+}
+
+@media (max-width: 900px) {
+  .rhesis-feature-overview .featuresGrid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    max-width: 600px !important;
+  }
+
+  .rhesis-feature-overview .featuresGrid > div:nth-child(4),
+  .rhesis-feature-overview .featuresGrid > div:nth-child(5) {
+    grid-column: auto;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .rhesis-feature-overview .featuresGrid {
+    grid-template-columns: 1fr !important;
+  }
 }

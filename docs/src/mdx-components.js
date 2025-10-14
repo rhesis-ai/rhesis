@@ -5,6 +5,8 @@ import { IndustryExamples } from './components/IndustryExamples'
 import { CommunitySupport } from './components/CommunitySupport'
 import { CodeBlock } from './components/CodeBlock'
 import { ButtonGroup } from './components/ButtonGroup'
+import { FileTree } from './components/FileTree'
+import { ThemeAwareImage } from './components/ThemeAwareImage'
 
 // Get the default MDX components
 const themeComponents = getThemeComponents()
@@ -23,5 +25,7 @@ export function useMDXComponents(components) {
     CommunitySupport,
     CodeBlock,
     ButtonGroup,
+    FileTree,
+    ThemeAwareImage,
   }
 }
