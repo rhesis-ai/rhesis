@@ -9,6 +9,8 @@ from typing import AsyncGenerator, Dict, Iterator, List, Union
 from google import genai
 from google.genai import errors
 
+from rhesis.backend.app.constants import DEFAULT_MODEL_NAME
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -19,7 +21,6 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY = 1  # seconds
 MAX_RETRY_DELAY = 10  # seconds
-DEFAULT_MODEL = "gemini-2.0-flash-001"
 
 
 def get_client():
@@ -34,7 +35,7 @@ def get_client():
 
 def _get_model_name(client):
     """Get the appropriate model name based on environment variables."""
-    return os.getenv("GEMINI_MODEL_NAME", DEFAULT_MODEL)
+    return os.getenv("GEMINI_MODEL_NAME", DEFAULT_MODEL_NAME)
 
 
 def _with_retries(func, *args, **kwargs):
