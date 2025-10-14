@@ -391,6 +391,11 @@
             "type_name": "TaskPriority",
             "type_value": "High",
             "description": "High priority task"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "Document",
+            "description": "Source type for knowledge sources"
         }
     ],
     "behavior": [
