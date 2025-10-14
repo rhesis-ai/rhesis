@@ -79,6 +79,8 @@ async def upload_and_create_source(
         file=file,
         organization_id=organization_id,
         source_id=str(uuid.uuid4()),  # Generate unique source ID
+        user_id=user_id,  # Pass user_id for uploader name in metadata
+        db_session=db,  # Pass database session for user lookup
     )
 
     # Extract content separately

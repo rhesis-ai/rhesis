@@ -17,6 +17,8 @@ class BaseSourceHandler(ABC):
         file: UploadFile,
         organization_id: str,
         source_id: str,
+        user_id: str = None,
+        db_session=None,
     ) -> dict:
         """
         Save uploaded source to persistent storage.
@@ -25,6 +27,8 @@ class BaseSourceHandler(ABC):
             file: FastAPI UploadFile object
             organization_id: Organization ID for multi-tenant storage
             source_id: Source ID for unique file naming
+            user_id: User ID who uploaded the file (optional)
+            db_session: Database session for user lookup (optional)
 
         Returns:
             dict: File metadata (size, hash, path, etc.)

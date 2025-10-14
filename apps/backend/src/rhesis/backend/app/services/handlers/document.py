@@ -32,6 +32,8 @@ class DocumentHandler(BaseSourceHandler):
         file: UploadFile,
         organization_id: str,
         source_id: str,
+        user_id: str = None,
+        db_session=None,
     ) -> dict:
         """
         Save uploaded source to persistent storage.
@@ -40,6 +42,8 @@ class DocumentHandler(BaseSourceHandler):
             file: FastAPI UploadFile object
             organization_id: Organization ID for multi-tenant storage
             source_id: Source ID for unique file naming
+            user_id: User ID who uploaded the file (optional)
+            db_session: Database session for user lookup (optional)
 
         Returns:
             dict: File metadata (size, hash, path, etc.)
@@ -63,8 +67,10 @@ class DocumentHandler(BaseSourceHandler):
         # Save to storage
         await self.storage_service.save_file(content, file_path)
 
-        # Get metadata including file_path
-        metadata = self._extract_metadata(content, file.filename, file_path)
+        # Get metadata including file_path and uploader name
+        metadata = self._extract_metadata(
+            content, file.filename, file_path, user_id, organization_id, db_session
+        )
 
         return metadata
 
@@ -113,9 +119,17 @@ class DocumentHandler(BaseSourceHandler):
         extractor = DocumentExtractor()
         return extractor.extract_from_bytes(file_content, Path(file_path).name)
 
-    def _extract_metadata(self, content: bytes, filename: str, file_path: str) -> dict:
-        """Extract file metadata including file path."""
-        return {
+    def _extract_metadata(
+        self,
+        content: bytes,
+        filename: str,
+        file_path: str,
+        user_id: str = None,
+        organization_id: str = None,
+        db_session=None,
+    ) -> dict:
+        """Extract file metadata including file path and uploader name."""
+        metadata = {
             "file_size": len(content),
             "file_hash": self._calculate_file_hash(content),
             "uploaded_at": str(datetime.now(timezone.utc)),
@@ -123,6 +137,16 @@ class DocumentHandler(BaseSourceHandler):
             "file_type": self._get_mime_type(filename),
             "file_path": file_path,
         }
+
+        # Add uploader name if available
+        if user_id and db_session:
+            from rhesis.backend.app import crud
+
+            user = crud.get_user(db_session, user_id=user_id, organization_id=organization_id)
+            if user and user.name:
+                metadata["uploader_name"] = user.name
+
+        return metadata
 
     def _calculate_file_hash(self, content: bytes) -> str:
         """Calculate SHA-256 hash of file content."""
