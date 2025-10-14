@@ -21,8 +21,8 @@ Before working with the frontend, ensure you have:
 
 ### Development Setup
 
-```bash
-# Navigate to frontend directory
+<CodeBlock filename="setup.sh" language="bash">
+{`# Navigate to frontend directory
 cd apps/frontend
 
 # Install dependencies
@@ -33,8 +33,8 @@ cp ../../.env.example .env.local
 # Edit .env.local with your configuration
 
 # Start development server
-npm run dev
-```
+npm run dev`}
+</CodeBlock>
 
 <Callout type="default">
   **Development Server** - **URL**: http://localhost:3000 - **Hot Reload**: Enabled for instant
@@ -75,25 +75,102 @@ npm run dev
 
 ### Application Structure
 
-```
-apps/frontend/
-├── src/
-│   ├── app/                    # Next.js App Router pages
-│   │   ├── (protected)/        # Authenticated routes
-│   │   ├── auth/               # Authentication pages
-│   │   └── layout.tsx          # Root layout
-│   ├── components/             # Reusable React components
-│   │   ├── common/             # Shared components
-│   │   ├── forms/              # Form components
-│   │   └── layout/             # Layout components
-│   ├── hooks/                  # Custom React hooks
-│   ├── lib/                    # Utility libraries
-│   ├── stores/                 # Zustand state stores
-│   └── types/                  # TypeScript type definitions
-├── public/                     # Static assets
-├── tailwind.config.js          # Tailwind CSS configuration
-└── package.json               # Dependencies and scripts
-```
+<FileTree
+  title="Application Structure"
+  data={[
+    {
+      name: "apps/frontend",
+      type: "folder",
+      children: [
+        {
+          name: "src",
+          type: "folder",
+          children: [
+            {
+              name: "app",
+              type: "folder",
+              description: "Next.js App Router pages",
+              children: [
+                {
+                  name: "(protected)",
+                  type: "folder",
+                  description: "Authenticated routes"
+                },
+                {
+                  name: "auth",
+                  type: "folder",
+                  description: "Authentication pages"
+                },
+                {
+                  name: "layout.tsx",
+                  type: "file",
+                  description: "Root layout"
+                }
+              ]
+            },
+            {
+              name: "components",
+              type: "folder",
+              description: "Reusable React components",
+              children: [
+                {
+                  name: "common",
+                  type: "folder",
+                  description: "Shared components"
+                },
+                {
+                  name: "forms",
+                  type: "folder",
+                  description: "Form components"
+                },
+                {
+                  name: "layout",
+                  type: "folder",
+                  description: "Layout components"
+                }
+              ]
+            },
+            {
+              name: "hooks",
+              type: "folder",
+              description: "Custom React hooks"
+            },
+            {
+              name: "lib",
+              type: "folder",
+              description: "Utility libraries"
+            },
+            {
+              name: "stores",
+              type: "folder",
+              description: "Zustand state stores"
+            },
+            {
+              name: "types",
+              type: "folder",
+              description: "TypeScript type definitions"
+            }
+          ]
+        },
+        {
+          name: "public",
+          type: "folder",
+          description: "Static assets"
+        },
+        {
+          name: "tailwind.config.js",
+          type: "file",
+          description: "Tailwind CSS configuration"
+        },
+        {
+          name: "package.json",
+          type: "file",
+          description: "Dependencies and scripts"
+        }
+      ]
+    }
+  ]}
+/>
 
 ## Core Features
 
@@ -101,15 +178,15 @@ apps/frontend/
 
 The frontend implements a comprehensive authentication system:
 
-```typescript
-// Authentication hook
+<CodeBlock filename="auth.tsx" language="typescript">
+{`// Authentication hook
 const { user, login, logout, isLoading } = useAuth();
 
 // Protected route wrapper
 <ProtectedRoute>
   <Dashboard />
-</ProtectedRoute>
-```
+</ProtectedRoute>`}
+</CodeBlock>
 
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
   <div>
@@ -159,8 +236,8 @@ const useAppStore = create<AppState>(set => ({
 
 React Query for efficient data fetching and caching:
 
-```typescript
-// Example query
+<CodeBlock filename="useQuery.ts" language="typescript">
+{`// Example query
 const {
   data: tests,
   isLoading,
@@ -169,8 +246,8 @@ const {
   queryKey: ['tests', organizationId],
   queryFn: () => api.getTests(organizationId),
   staleTime: 5 * 60 * 1000, // 5 minutes
-})
-```
+})`}
+</CodeBlock>
 
 ## Component Library
 
@@ -203,8 +280,8 @@ The frontend includes a comprehensive component library:
 
 ### Component Examples
 
-```typescript
-// Button component
+<CodeBlock filename="components.tsx" language="typescript">
+{`// Button component
 <Button
   variant="primary"
   size="lg"
@@ -222,8 +299,8 @@ The frontend includes a comprehensive component library:
 >
   <FormField name="name" label="Test Name" />
   <FormField name="description" label="Description" />
-</Form>
-```
+</Form>`}
+</CodeBlock>
 
 ## Routing & Navigation
 

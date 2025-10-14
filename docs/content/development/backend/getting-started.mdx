@@ -13,76 +13,76 @@ Before you begin, make sure you have the following installed:
 
 ## Clone the Repository
 
-```bash
-git clone <repository_url>
-cd rhesis
-```
+<CodeBlock filename="clone-repo.sh" language="bash">
+{`git clone <repository_url>
+cd rhesis`}
+</CodeBlock>
 
 ## Environment Setup
 
 1. Navigate to the backend directory:
 
-```bash
-cd apps/backend
-```
+<CodeBlock filename="navigate.sh" language="bash">
+{`cd apps/backend`}
+</CodeBlock>
 
 2. Create a Python virtual environment:
 
-```bash
-python -m venv .venv
-```
+<CodeBlock filename="create-venv.sh" language="bash">
+{`python -m venv .venv`}
+</CodeBlock>
 
 3. Activate the virtual environment:
 
 On Linux/macOS:
-```bash
-source .venv/bin/activate
-```
+<CodeBlock filename="activate-venv-unix.sh" language="bash">
+{`source .venv/bin/activate`}
+</CodeBlock>
 
 On Windows:
-```bash
-.venv\Scripts\activate
-```
+<CodeBlock filename="activate-venv-windows.sh" language="bash">
+{`.venv\Scripts\activate`}
+</CodeBlock>
 
 4. Install dependencies using UV:
 
-```bash
-uv pip install -e .
-```
+<CodeBlock filename="install-deps.sh" language="bash">
+{`uv pip install -e .`}
+</CodeBlock>
 
 ## Database Setup
 
 1. Create a PostgreSQL database:
 
-```bash
-createdb rhesis
-```
+<CodeBlock filename="create-db.sh" language="bash">
+{`createdb rhesis`}
+</CodeBlock>
 
 2. Create a `.env` file based on the provided template:
 
-```bash
-cp .env.example .env
-```
+<CodeBlock filename="setup-env.sh" language="bash">
+{`cp .env.example .env`}
+</CodeBlock>
 
 3. Update the database connection string in `.env`:
 
-```
-SQLALCHEMY_DATABASE_URL=postgresql://username:password@localhost:5432/rhesis
-```
+<CodeBlock filename=".env" language="bash">
+{`SQLALCHEMY_DATABASE_URL=postgresql://username:password@localhost:5432/rhesis`}
+</CodeBlock>
 
 4. Run database migrations:
 
-```bash
-alembic upgrade head
-```
+<CodeBlock filename="migrate-db.sh" language="bash">
+{`alembic upgrade head`}
+</CodeBlock>
 
 ## Running the Application
 
 1. Start the FastAPI server:
 
-```bash
-uvicorn rhesis.backend.app.main:app --reload
-```
+<CodeBlock filename="start-server.sh" language="bash">
+{`uvicorn rhesis.backend.app.main:app --reload`}
+</CodeBlock>
 
 The API will be available at http://localhost:8000
 
@@ -95,9 +95,9 @@ The API will be available at http://localhost:8000
 
 1. Start a Celery worker:
 
-```bash
-celery -A rhesis.backend.worker worker --loglevel=info
-```
+<CodeBlock filename="start-celery.sh" language="bash">
+{`celery -A rhesis.backend.worker worker --loglevel=info`}
+</CodeBlock>
 
 ## Development Workflow
 
@@ -105,23 +105,23 @@ celery -A rhesis.backend.worker worker --loglevel=info
 
 Format code using ruff:
 
-```bash
-uv run --all-groups ruff format .
-```
+<CodeBlock filename="format-code.sh" language="bash">
+{`uv run --all-groups ruff format .`}
+</CodeBlock>
 
 ### Linting
 
 Run the linter:
 
-```bash
-uv run --all-groups ruff check .
-```
+<CodeBlock filename="lint-check.sh" language="bash">
+{`uv run --all-groups ruff check .`}
+</CodeBlock>
 
 Fix linting issues automatically:
 
-```bash
-uv run --all-groups ruff check --fix .
-```
+<CodeBlock filename="lint-fix.sh" language="bash">
+{`uv run --all-groups ruff check --fix .`}
+</CodeBlock>
 
 ### Running Tests
 

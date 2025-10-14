@@ -8,8 +8,8 @@ The Rhesis backend uses Celery to handle asynchronous background tasks. This all
 
 The Celery application is configured in `worker.py`:
 
-```python
-import os
+<CodeBlock filename="worker.py" language="python">
+{`import os
 from celery import Celery
 from dotenv import load_dotenv
 
@@ -31,15 +31,15 @@ app.conf.update(
 )
 
 # Auto-discover tasks without loading config files
-app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
-```
+app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)`}
+</CodeBlock>
 
 The application uses PostgreSQL as both the broker and result backend:
 
-```
-BROKER_URL=sqla+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
-CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
-```
+<CodeBlock filename=".env" language="bash">
+{`BROKER_URL=sqla+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance
+CELERY_RESULT_BACKEND=db+postgresql://celery-user:password@/celery?host=/cloudsql/project-id:region:instance`}
+</CodeBlock>
 
 ## Base Task Class
 
@@ -317,15 +317,15 @@ ENV CELERY_WORKER_CONCURRENCY=8 \
 
 The worker startup script applies these configurations:
 
-```bash
-# Start Celery worker with configuration from environment variables
+<CodeBlock filename="start-worker.sh" language="bash">
+{`# Start Celery worker with configuration from environment variables
 celery -A rhesis.backend.worker.app worker \
-    --loglevel=${CELERY_WORKER_LOGLEVEL:-INFO} \
-    --concurrency=${CELERY_WORKER_CONCURRENCY:-8} \
-    --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \
-    --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} \
-    ${CELERY_WORKER_OPTS}
-```
+    --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
+    --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \
+    --prefetch-multiplier=\${CELERY_WORKER_PREFETCH_MULTIPLIER:-4} \
+    --max-tasks-per-child=\${CELERY_WORKER_MAX_TASKS_PER_CHILD:-1000} \
+    \${CELERY_WORKER_OPTS}`}
+</CodeBlock>
 
 Optional monitoring is available through Flower:
 

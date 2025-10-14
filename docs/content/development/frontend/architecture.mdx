@@ -22,28 +22,118 @@ This document provides a high-level overview of the Rhesis frontend architecture
 
 The frontend codebase follows a modular architecture organized by feature and responsibility:
 
-```
-src/
-├── app/                  # Next.js App Router with route groups
-│   ├── (protected)/      # Authentication-protected routes
-│   ├── api/              # API routes
-│   ├── auth/             # Authentication pages
-│   └── ...               # Other routes
-├── components/           # Shared UI components
-│   ├── common/           # Reusable components (charts, tables, etc.)
-│   ├── layout/           # Layout components
-│   ├── navigation/       # Navigation components
-│   ├── providers/        # Context providers
-│   ├── auth/             # Authentication components
-│   └── ...               # Feature-specific components
-├── utils/                # Utility functions and services
-│   ├── api-client/       # API client implementation with typed interfaces
-│   └── ...               # Other utilities
-├── actions/              # Server actions
-├── types/                # TypeScript type definitions
-├── styles/               # Theme configuration
-└── constants/            # Application constants
-```
+<FileTree
+  title="Frontend Project Structure"
+  data={[
+    {
+      name: "src",
+      type: "folder",
+      children: [
+        {
+          name: "app",
+          type: "folder",
+          description: "Next.js App Router with route groups",
+          children: [
+            {
+              name: "(protected)",
+              type: "folder",
+              description: "Authentication-protected routes"
+            },
+            {
+              name: "api",
+              type: "folder",
+              description: "API routes"
+            },
+            {
+              name: "auth",
+              type: "folder",
+              description: "Authentication pages"
+            },
+            {
+              name: "...",
+              type: "folder",
+              description: "Other routes"
+            }
+          ]
+        },
+        {
+          name: "components",
+          type: "folder",
+          description: "Shared UI components",
+          children: [
+            {
+              name: "common",
+              type: "folder",
+              description: "Reusable components (charts, tables, etc.)"
+            },
+            {
+              name: "layout",
+              type: "folder",
+              description: "Layout components"
+            },
+            {
+              name: "navigation",
+              type: "folder",
+              description: "Navigation components"
+            },
+            {
+              name: "providers",
+              type: "folder",
+              description: "Context providers"
+            },
+            {
+              name: "auth",
+              type: "folder",
+              description: "Authentication components"
+            },
+            {
+              name: "...",
+              type: "folder",
+              description: "Feature-specific components"
+            }
+          ]
+        },
+        {
+          name: "utils",
+          type: "folder",
+          description: "Utility functions and services",
+          children: [
+            {
+              name: "api-client",
+              type: "folder",
+              description: "API client implementation with typed interfaces"
+            },
+            {
+              name: "...",
+              type: "folder",
+              description: "Other utilities"
+            }
+          ]
+        },
+        {
+          name: "actions",
+          type: "folder",
+          description: "Server actions"
+        },
+        {
+          name: "types",
+          type: "folder",
+          description: "TypeScript type definitions"
+        },
+        {
+          name: "styles",
+          type: "folder",
+          description: "Theme configuration"
+        },
+        {
+          name: "constants",
+          type: "folder",
+          description: "Application constants"
+        }
+      ]
+    }
+  ]}
+/>
 
 ## Key Architectural Patterns
 

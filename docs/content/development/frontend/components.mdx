@@ -6,15 +6,47 @@ This document provides an overview of the reusable components available in the R
 
 Components are organized in the following directory structure:
 
-```
-src/components/
-├── common/           # Reusable components used across features
-├── layout/           # Layout components (header, footer, etc.)
-├── navigation/       # Navigation components (sidebar, navbar, etc.)
-├── providers/        # Context providers
-├── auth/             # Authentication components
-└── [feature]/        # Feature-specific components
-```
+<FileTree
+  title="Component Organization"
+  data={[
+    {
+      name: "src/components",
+      type: "folder",
+      children: [
+        {
+          name: "common",
+          type: "folder",
+          description: "Reusable components used across features"
+        },
+        {
+          name: "layout",
+          type: "folder",
+          description: "Layout components (header, footer, etc.)"
+        },
+        {
+          name: "navigation",
+          type: "folder",
+          description: "Navigation components (sidebar, navbar, etc.)"
+        },
+        {
+          name: "providers",
+          type: "folder",
+          description: "Context providers"
+        },
+        {
+          name: "auth",
+          type: "folder",
+          description: "Authentication components"
+        },
+        {
+          name: "[feature]",
+          type: "folder",
+          description: "Feature-specific components"
+        }
+      ]
+    }
+  ]}
+/>
 
 ## Core Components
 
@@ -25,22 +57,22 @@ src/components/
 The main application layout wrapper used for authenticated pages.
 
 **Usage:**
-```tsx
-<AppLayout>
+<CodeBlock filename="AppLayout.tsx" language="typescript">
+{`<AppLayout>
   <YourPageContent />
-</AppLayout>
-```
+</AppLayout>`}
+</CodeBlock>
 
 #### `AuthLayout`
 
 Layout for authentication pages (login, register, etc.).
 
 **Usage:**
-```tsx
-<AuthLayout>
+<CodeBlock filename="AuthLayout.tsx" language="typescript">
+{`<AuthLayout>
   <LoginForm />
-</AuthLayout>
-```
+</AuthLayout>`}
+</CodeBlock>
 
 ### Navigation Components
 
@@ -187,8 +219,8 @@ Interactive flow chart using React Flow.
 
 When using components from the library, import them directly from their respective directories:
 
-```tsx
-import { TextField, Button } from '@/components/common/form';
+<CodeBlock filename="MyPage.tsx" language="typescript">
+{`import { TextField, Button } from '@/components/common/form';
 import { Card } from '@/components/common/data-display';
 import { AppLayout } from '@/components/layout';
 
@@ -201,8 +233,8 @@ export default function MyPage() {
       </Card>
     </AppLayout>
   );
-}
-```
+}`}
+</CodeBlock>
 
 ## Component Best Practices
 

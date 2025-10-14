@@ -27,12 +27,12 @@ Token-based authentication is used for API access:
 
 The application integrates with Auth0 for identity management:
 
-```python
-AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
+<CodeBlock filename="auth0-config.py" language="python">
+{`AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
 AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
 AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
-AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")
-```
+AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")`}
+</CodeBlock>
 
 ### Login Flow
 
@@ -43,8 +43,8 @@ AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")
 5. Backend exchanges the code for tokens
 6. User information is stored in the session
 
-```python
-@router.get("/login")
+<CodeBlock filename="auth-login-flow.py" language="python">
+{`@router.get("/login")
 async def login(request: Request):
     redirect_uri = request.url_for("auth_callback")
     return await oauth.auth0.authorize_redirect(request, redirect_uri)
@@ -60,15 +60,15 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
     # Create or update user in database
     # ...
 
-    return RedirectResponse(url=FRONTEND_URL)
-```
+    return RedirectResponse(url=FRONTEND_URL)`}
+</CodeBlock>
 
 ## Authentication Middleware
 
 The application uses a custom route class to enforce authentication requirements:
 
-```python
-class AuthenticatedAPIRoute(APIRoute):
+<CodeBlock filename="auth-middleware.py" language="python">
+{`class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
         if self.path in public_routes:
             # No auth required
@@ -77,8 +77,8 @@ class AuthenticatedAPIRoute(APIRoute):
             # Both session and token auth accepted
             return [Depends(require_current_user_or_token)]
         # Default to session-only auth
-        return [Depends(require_current_user)]
-```
+        return [Depends(require_current_user)]`}
+</CodeBlock>
 
 ## Authentication Dependencies
 
