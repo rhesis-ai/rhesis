@@ -1,0 +1,125 @@
+.headerContainer {
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.sourceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sourceTitle {
+  font-weight: 600;
+  margin: 0;
+  word-break: break-word;
+}
+
+.fileTypeChip {
+  flex-shrink: 0;
+}
+
+.description {
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.metadataRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.tagsContainer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.contentContainer {
+  padding: 24px;
+  min-height: 400px;
+}
+
+.contentControls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.loadingContainer,
+.emptyContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.errorAlert {
+  margin-bottom: 16px;
+}
+
+.contentWrapper {
+  max-height: 70vh;
+  overflow: auto;
+  border: 1px solid var(--mui-palette-divider);
+  border-radius: 8px;
+  background-color: var(--mui-palette-background-default);
+}
+
+.contentText {
+  margin: 0;
+  padding: 16px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--mui-palette-text-primary);
+  background-color: transparent;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionButtons {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .metadataRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .titleRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}

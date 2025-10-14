@@ -212,6 +212,15 @@ export default function SourcesGrid({
     []
   );
 
+  // Handle row click to navigate to preview
+  const handleRowClick = useCallback(
+    (params: any) => {
+      const sourceId = params.id;
+      router.push(`/knowledge/${sourceId}`);
+    },
+    [router]
+  );
+
   // Handle delete sources
   const handleDeleteSources = () => {
     setDeleteModalOpen(true);
@@ -457,6 +466,7 @@ export default function SourcesGrid({
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
+        onRowClick={handleRowClick}
       />
 
       <DeleteModal
