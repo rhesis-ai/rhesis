@@ -4,11 +4,10 @@ from .document import DocumentHandler
 # Registry mapping source type values to handler classes
 HANDLER_REGISTRY = {
     "Document": DocumentHandler,
-    # Future: "Website": WebsiteHandler,
-    # Future: "API": APIHandler,
-    # Future: "Database": DatabaseHandler,
-    # Future: "Code": CodeHandler,
-    # Future: "Manual": ManualHandler,
+    # Future handlers can be added here:
+    # "Website": WebsiteHandler,
+    # "API": APIHandler,
+    # "Notion": NotionHandler,
 }
 
 
@@ -38,5 +37,17 @@ def get_source_handler(source_type: str, **kwargs) -> BaseSourceHandler:
     """
     handler_class = HANDLER_REGISTRY.get(source_type)
     if handler_class is None:
-        raise ValueError(f"Source type '{source_type}' not supported")
+        available_types = list(HANDLER_REGISTRY.keys())
+        raise ValueError(
+            f"Source type '{source_type}' not supported. Available types: {available_types}"
+        )
     return handler_class(**kwargs)
+
+
+def get_available_source_types() -> list[str]:
+    """Get list of all available source types.
+
+    Returns:
+        list[str]: List of available source type values
+    """
+    return list(HANDLER_REGISTRY.keys())
