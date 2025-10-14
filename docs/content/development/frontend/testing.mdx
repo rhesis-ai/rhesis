@@ -11,8 +11,8 @@ This guide covers testing strategies and implementation for the Rhesis frontend 
 
 ### Running Tests
 
-```bash
-# Navigate to frontend directory
+<CodeBlock filename="test-commands.sh" language="bash">
+{`# Navigate to frontend directory
 cd apps/frontend
 
 # Run all tests
@@ -25,8 +25,8 @@ npm run test:watch
 npm run test:coverage
 
 # Run tests in CI mode
-npm test:ci
-```
+npm test:ci`}
+</CodeBlock>
 
 <Callout type="default">
   **Test Coverage** Target coverage thresholds: **70%** for branches, functions, lines, and
@@ -39,8 +39,8 @@ npm test:ci
 
 The testing framework is configured in `jest.config.js`:
 
-```javascript
-const nextJest = require('next/jest')
+<CodeBlock filename="jest.config.js" language="javascript">
+{`const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({
   dir: './',
@@ -71,8 +71,8 @@ const customJestConfig = {
   },
 }
 
-module.exports = createJestConfig(customJestConfig)
-```
+module.exports = createJestConfig(customJestConfig)`}
+</CodeBlock>
 
 ### Test Environment Setup
 
@@ -354,24 +354,93 @@ expect(component.state.isLoading).toBe(true);`}</code></pre>
 
 ### Test Organization
 
-```
-src/
-├── components/
-│   └── Button/
-│       ├── Button.tsx
-│       ├── Button.test.tsx  # Co-located tests
-│       └── index.ts
-├── hooks/
-│   ├── useAuth.ts
-│   └── useAuth.test.ts       # Hook tests
-├── utils/
-│   ├── formatDate.ts
-│   └── formatDate.test.ts    # Utility tests
-└── __tests__/
-    ├── integration/          # Integration tests
-    ├── setup/               # Test setup files
-    └── README.md            # Test documentation
-```
+<FileTree
+  title="Test Organization"
+  data={[
+    {
+      name: "src",
+      type: "folder",
+      children: [
+        {
+          name: "components",
+          type: "folder",
+          children: [
+            {
+              name: "Button",
+              type: "folder",
+              children: [
+                {
+                  name: "Button.tsx",
+                  type: "file"
+                },
+                {
+                  name: "Button.test.tsx",
+                  type: "file",
+                  description: "Co-located tests"
+                },
+                {
+                  name: "index.ts",
+                  type: "file"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: "hooks",
+          type: "folder",
+          children: [
+            {
+              name: "useAuth.ts",
+              type: "file"
+            },
+            {
+              name: "useAuth.test.ts",
+              type: "file",
+              description: "Hook tests"
+            }
+          ]
+        },
+        {
+          name: "utils",
+          type: "folder",
+          children: [
+            {
+              name: "formatDate.ts",
+              type: "file"
+            },
+            {
+              name: "formatDate.test.ts",
+              type: "file",
+              description: "Utility tests"
+            }
+          ]
+        },
+        {
+          name: "__tests__",
+          type: "folder",
+          children: [
+            {
+              name: "integration",
+              type: "folder",
+              description: "Integration tests"
+            },
+            {
+              name: "setup",
+              type: "folder",
+              description: "Test setup files"
+            },
+            {
+              name: "README.md",
+              type: "file",
+              description: "Test documentation"
+            }
+          ]
+        }
+      ]
+    }
+  ]}
+/>
 
 ### Coverage Guidelines
 

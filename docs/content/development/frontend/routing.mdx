@@ -15,31 +15,147 @@ The Rhesis frontend uses Next.js App Router, which provides a file-system based 
 
 The main route structure is organized as follows:
 
-```
-src/app/
-├── (protected)/            # Route group for authenticated pages
-│   ├── dashboard/          # Dashboard route
-│   │   └── page.tsx        # Dashboard page component
-│   ├── projects/           # Projects route
-│   │   ├── [id]/           # Dynamic project route
-│   │   │   └── page.tsx    # Project detail page
-│   │   └── page.tsx        # Projects list page
-│   ├── tests/              # Tests route
-│   │   ├── [id]/           # Dynamic test route
-│   │   │   └── page.tsx    # Test detail page
-│   │   └── page.tsx        # Tests list page
-│   └── layout.tsx          # Protected layout with auth check
-├── api/                    # API routes
-│   └── [...]/              # API endpoints
-├── auth/                   # Authentication routes
-│   ├── login/              # Login route
-│   │   └── page.tsx        # Login page
-│   ├── register/           # Register route
-│   │   └── page.tsx        # Register page
-│   └── layout.tsx          # Auth layout
-├── layout.tsx              # Root layout
-└── page.tsx                # Home page
-```
+<FileTree
+  title="App Router Structure"
+  data={[
+    {
+      name: "src/app",
+      type: "folder",
+      children: [
+        {
+          name: "(protected)",
+          type: "folder",
+          description: "Route group for authenticated pages",
+          children: [
+            {
+              name: "dashboard",
+              type: "folder",
+              description: "Dashboard route",
+              children: [
+                {
+                  name: "page.tsx",
+                  type: "file",
+                  description: "Dashboard page component"
+                }
+              ]
+            },
+            {
+              name: "projects",
+              type: "folder",
+              description: "Projects route",
+              children: [
+                {
+                  name: "[id]",
+                  type: "folder",
+                  description: "Dynamic project route",
+                  children: [
+                    {
+                      name: "page.tsx",
+                      type: "file",
+                      description: "Project detail page"
+                    }
+                  ]
+                },
+                {
+                  name: "page.tsx",
+                  type: "file",
+                  description: "Projects list page"
+                }
+              ]
+            },
+            {
+              name: "tests",
+              type: "folder",
+              description: "Tests route",
+              children: [
+                {
+                  name: "[id]",
+                  type: "folder",
+                  description: "Dynamic test route",
+                  children: [
+                    {
+                      name: "page.tsx",
+                      type: "file",
+                      description: "Test detail page"
+                    }
+                  ]
+                },
+                {
+                  name: "page.tsx",
+                  type: "file",
+                  description: "Tests list page"
+                }
+              ]
+            },
+            {
+              name: "layout.tsx",
+              type: "file",
+              description: "Protected layout with auth check"
+            }
+          ]
+        },
+        {
+          name: "api",
+          type: "folder",
+          description: "API routes",
+          children: [
+            {
+              name: "[...]",
+              type: "folder",
+              description: "API endpoints"
+            }
+          ]
+        },
+        {
+          name: "auth",
+          type: "folder",
+          description: "Authentication routes",
+          children: [
+            {
+              name: "login",
+              type: "folder",
+              description: "Login route",
+              children: [
+                {
+                  name: "page.tsx",
+                  type: "file",
+                  description: "Login page"
+                }
+              ]
+            },
+            {
+              name: "register",
+              type: "folder",
+              description: "Register route",
+              children: [
+                {
+                  name: "page.tsx",
+                  type: "file",
+                  description: "Register page"
+                }
+              ]
+            },
+            {
+              name: "layout.tsx",
+              type: "file",
+              description: "Auth layout"
+            }
+          ]
+        },
+        {
+          name: "layout.tsx",
+          type: "file",
+          description: "Root layout"
+        },
+        {
+          name: "page.tsx",
+          type: "file",
+          description: "Home page"
+        }
+      ]
+    }
+  ]}
+/>
 
 ## Route Groups
 
@@ -74,22 +190,22 @@ Layouts are used to share UI between multiple pages. Our application uses severa
 
 For client-side navigation, use the Next.js `Link` component:
 
-```tsx
-import Link from 'next/link';
+<CodeBlock filename="navigation.tsx" language="typescript">
+{`import Link from 'next/link';
 
-<Link href="/projects">Projects</Link>
-```
+<Link href="/projects">Projects</Link>`}
+</CodeBlock>
 
 ### Programmatic Navigation
 
 For programmatic navigation, use the `useRouter` hook:
 
-```tsx
-import { useRouter } from 'next/navigation';
+<CodeBlock filename="programmatic-navigation.tsx" language="typescript">
+{`import { useRouter } from 'next/navigation';
 
 const router = useRouter();
-router.push('/projects');
-```
+router.push('/projects');`}
+</CodeBlock>
 
 ## Route Protection
 
@@ -108,14 +224,14 @@ Dynamic routes use parameters in the URL, defined with brackets notation:
 
 Access parameters in the page component:
 
-```tsx
-// app/(protected)/projects/[id]/page.tsx
+<CodeBlock filename="dynamic-route.tsx" language="typescript">
+{`// app/(protected)/projects/[id]/page.tsx
 export default function ProjectPage({ params }: { params: { id: string } }) {
   const { id } = params;
   // Use the ID to fetch project data
   return <div>Project {id}</div>;
-}
-```
+}`}
+</CodeBlock>
 
 ## Loading States
 

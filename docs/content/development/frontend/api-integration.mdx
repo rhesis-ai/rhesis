@@ -27,28 +27,88 @@ All frontend requests are routed through the Rhesis backend API, which provides 
 
 The API client is implemented in `src/utils/api-client/`:
 
-```
-src/utils/api-client/
-├── index.ts              # Main export file
-├── client.ts             # Base API client implementation
-├── endpoints/            # API endpoint definitions
-│   ├── auth.ts           # Authentication endpoints
-│   ├── projects.ts       # Projects endpoints
-│   ├── tests.ts          # Tests endpoints
-│   └── ...               # Other endpoint groups
-└── types/                # API type definitions
-    ├── auth.ts           # Authentication types
-    ├── projects.ts       # Projects types
-    ├── tests.ts          # Tests types
-    └── ...               # Other type groups
-```
+<FileTree
+  title="API Client Structure"
+  data={[
+    {
+      name: "src/utils/api-client",
+      type: "folder",
+      children: [
+        {
+          name: "index.ts",
+          type: "file",
+          description: "Main export file"
+        },
+        {
+          name: "client.ts",
+          type: "file",
+          description: "Base API client implementation"
+        },
+        {
+          name: "endpoints",
+          type: "folder",
+          description: "API endpoint definitions",
+          children: [
+            {
+              name: "auth.ts",
+              type: "file",
+              description: "Authentication endpoints"
+            },
+            {
+              name: "projects.ts",
+              type: "file",
+              description: "Projects endpoints"
+            },
+            {
+              name: "tests.ts",
+              type: "file",
+              description: "Tests endpoints"
+            },
+            {
+              name: "...",
+              type: "file",
+              description: "Other endpoint groups"
+            }
+          ]
+        },
+        {
+          name: "types",
+          type: "folder",
+          description: "API type definitions",
+          children: [
+            {
+              name: "auth.ts",
+              type: "file",
+              description: "Authentication types"
+            },
+            {
+              name: "projects.ts",
+              type: "file",
+              description: "Projects types"
+            },
+            {
+              name: "tests.ts",
+              type: "file",
+              description: "Tests types"
+            },
+            {
+              name: "...",
+              type: "file",
+              description: "Other type groups"
+            }
+          ]
+        }
+      ]
+    }
+  ]}
+/>
 
 ### Base Client
 
 The base client is implemented in `src/utils/api-client/client.ts` and handles communication with the Rhesis backend API:
 
-```tsx
-import { getTokens } from '@/auth';
+<CodeBlock filename="client.ts" language="typescript">
+{`import { getTokens } from '@/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -68,7 +128,7 @@ export async function apiClient<T>(
 
   // Add authentication header if tokens exist
   if (tokens?.accessToken) {
-    headers.append('Authorization', `Bearer ${tokens.accessToken}`);
+    headers.append('Authorization', \`Bearer \${tokens.accessToken}\`);
   }
 
   // Add content type if not present
@@ -76,7 +136,7 @@ export async function apiClient<T>(
     headers.append('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(\`\${API_BASE_URL}\${endpoint}\`, {
     ...options,
     headers,
   });
@@ -102,8 +162,8 @@ export async function apiClient<T>(
   }
 
   return data;
-}
-```
+}`}
+</CodeBlock>
 
 ### Endpoint Definitions
 
@@ -318,10 +378,10 @@ export async function deleteProject(id: string) {
 
 The Rhesis backend API URL is configured in environment variables:
 
-```
-# .env.local
-NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
-```
+<CodeBlock filename=".env.local" language="bash">
+{`# .env.local
+NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai`}
+</CodeBlock>
 
 For local development, you might point to a local instance of the Rhesis backend:
 

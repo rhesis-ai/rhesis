@@ -21,8 +21,8 @@ Before working with the backend, ensure you have:
 
 ### Development Setup
 
-```bash
-# Navigate to backend directory
+<CodeBlock filename="backend-setup.sh" language="bash">
+{`# Navigate to backend directory
 cd apps/backend
 
 # Install dependencies
@@ -36,8 +36,8 @@ cp ../../.env.example .env
 uv run alembic upgrade head
 
 # Start development server
-./start.sh
-```
+./start.sh`}
+</CodeBlock>
 
 <Callout type="default">
   **Development Server** - **URL**: http://localhost:8080 - **API Docs**: http://localhost:8080/docs
@@ -79,8 +79,8 @@ uv run alembic upgrade head
 
 **Application Structure:**
 
-```
-apps/backend/
+<CodeBlock filename="backend-structure.txt" language="text">
+{`apps/backend/
 ├── src/rhesis/backend/
 │   ├── app/
 │   │   ├── main.py          # FastAPI application entry point
@@ -92,8 +92,8 @@ apps/backend/
 │   ├── alembic/             # Database migration scripts
 │   └── tests/               # Test suite
 ├── start.sh                 # Development startup script
-└── pyproject.toml          # Python dependencies
-```
+└── pyproject.toml          # Python dependencies`}
+</CodeBlock>
 
 ## API Structure
 
@@ -147,15 +147,15 @@ The backend provides comprehensive REST APIs organized by functionality:
 
 The backend uses JWT (JSON Web Tokens) for stateless authentication:
 
-```python
-# Example JWT token structure
+<CodeBlock filename="jwt-token.json" language="javascript">
+{`// Example JWT token structure
 {
   "sub": "user_id",
   "org_id": "organization_id",
   "permissions": ["read", "write"],
   "exp": 1640995200
-}
-```
+}`}
+</CodeBlock>
 
 ### Security Features
 
@@ -186,15 +186,15 @@ The backend uses JWT (JSON Web Tokens) for stateless authentication:
 
 Organizations provide data isolation and user management:
 
-```python
-# Organization-based data access
+<CodeBlock filename="organization-access.py" language="python">
+{`# Organization-based data access
 @router.get("/tests/")
 async def get_tests(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    return get_tests_for_organization(db, current_user.organization_id)
-```
+    return get_tests_for_organization(db, current_user.organization_id)`}
+</CodeBlock>
 
 ## Database Models
 
@@ -227,14 +227,14 @@ The backend uses SQLAlchemy ORM with the following core models:
 
 Long-running operations are handled by Celery workers:
 
-```python
-# Example background task
+<CodeBlock filename="celery-task.py" language="python">
+{`# Example background task
 @celery_app.task
 def process_test_results(test_id: int):
     """Process and analyze test results asynchronously."""
     # Long-running analysis
-    pass
-```
+    pass`}
+</CodeBlock>
 
 ### Task Types
 
@@ -265,8 +265,8 @@ def process_test_results(test_id: int):
 
 ### Local Development
 
-```bash
-# Start development server
+<CodeBlock filename="development-commands.sh" language="bash">
+{`# Start development server
 cd apps/backend
 ./start.sh
 
@@ -277,15 +277,15 @@ uv run pytest
 uv run ruff check .
 
 # Format code
-uv run ruff format .
-```
+uv run ruff format .`}
+</CodeBlock>
 
 ### Environment Configuration
 
 Key environment variables:
 
-```bash
-# Database
+<CodeBlock filename=".env" language="bash">
+{`# Database
 DATABASE_URL=postgresql://user:pass@localhost/rhesis
 
 # Authentication
@@ -296,8 +296,8 @@ JWT_ALGORITHM=HS256
 REDIS_URL=redis://localhost:6379
 
 # External Services
-OPENAI_API_KEY=your-openai-key
-```
+OPENAI_API_KEY=your-openai-key`}
+</CodeBlock>
 
 ## Deployment
 
@@ -339,8 +339,8 @@ The backend supports multiple deployment strategies:
 
 The backend includes comprehensive testing:
 
-```bash
-# Run all tests
+<CodeBlock filename="testing-commands.sh" language="bash">
+{`# Run all tests
 uv run pytest
 
 # Run with coverage
@@ -348,8 +348,8 @@ uv run pytest --cov=rhesis.backend
 
 # Run specific test categories
 uv run pytest tests/api/
-uv run pytest tests/services/
-```
+uv run pytest tests/services/`}
+</CodeBlock>
 
 ### Test Categories
 
