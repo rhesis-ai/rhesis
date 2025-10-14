@@ -144,12 +144,12 @@ export default function SourcePreviewClientWrapper({
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid date';
 
-      // Use consistent formatting that doesn't depend on locale
+      // Use consistent DD/MM/YYYY formatting
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
 
-      return `${year}-${month}-${day}`;
+      return `${day}/${month}/${year}`;
     } catch {
       return 'Invalid date';
     }
