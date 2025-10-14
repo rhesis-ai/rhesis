@@ -1,3 +1,8 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { FileTree } from '@/components/FileTree'
+import { ArchitectureOverview } from '@/components/ArchitectureOverview'
+import { DevelopmentResourcesGrid } from '@/components/DevelopmentResourcesGrid'
+
 # Development
 
 Technical documentation for developers working with Rhesis.
@@ -9,52 +14,469 @@ Technical documentation for developers working with Rhesis.
 
 ## Development Resources
 
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-  <div>
-    <h3>Development Setup</h3>
-    <p>Complete guide to setting up your development environment for contributing to Rhesis.</p>
-  </div>
-  <div>
-    <h3>API Reference</h3>
-    <p>Comprehensive REST API documentation with endpoints, authentication, and examples.</p>
-  </div>
-  <div>
-    <h3>Contributing</h3>
-    <p>Guidelines and processes for contributing to the Rhesis project.</p>
-  </div>
-  <div>
-    <h3>Coding Standards</h3>
-    <p>Code style guidelines and best practices for Python, TypeScript, and other languages.</p>
-  </div>
-  <div>
-    <h3>Frontend (Platform)</h3>
-    <p>React-based frontend architecture, components, and development patterns.</p>
-  </div>
-  <div>
-    <h3>Backend</h3>
-    <p>FastAPI backend service architecture, database models, and API implementation.</p>
-  </div>
-  <div>
-    <h3>SDK</h3>
-    <p>Python SDK documentation for integrating Rhesis into your applications.</p>
-  </div>
-</div>
+<DevelopmentResourcesGrid />
 
 ## Architecture Overview
 
-Rhesis is built with modern technologies and follows best practices for scalability, maintainability, and performance:
+Rhesis is built with modern technologies and follows best practices for scalability, maintainability, and performance.
 
-- **Backend**: FastAPI with SQLAlchemy ORM, PostgreSQL, and Redis
-- **Frontend**: React 18 with TypeScript, Next.js 15, and Tailwind CSS
-- **SDK**: Comprehensive Python SDK for easy integration
-- **Infrastructure**: Docker, Kubernetes, and cloud-native deployment options
+<ArchitectureOverview />
+
+### Technology Stack
+
+**Backend**: FastAPI with SQLAlchemy ORM, PostgreSQL, and Redis
+
+<CodeBlock
+  filename="backend/app/api/routes/tests.py"
+  language="python"
+>
+{`from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.db.session import get_db
+from app.models.test import Test
+from app.schemas.test import TestCreate, TestResponse
+
+router = APIRouter()
+
+@router.post("/tests", response_model=TestResponse)
+async def create_test(
+    test: TestCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new test case."""
+    db_test = Test(**test.dict())
+    db.add(db_test)
+    db.commit()
+    db.refresh(db_test)
+    return db_test`}
+</CodeBlock>
+
+**Frontend**: React 18 with TypeScript, Next.js 15, and Tailwind CSS
+
+<CodeBlock
+  filename="platform/src/components/TestCard.tsx"
+  language="javascript"
+>
+{`import React from 'react'
+import { Test } from '@/types/test'
+
+interface TestCardProps {
+  test: Test
+  onSelect: (id: string) => void
+}
+
+export const TestCard: React.FC<TestCardProps> = ({ test, onSelect }) => {
+  return (
+    <div className="border rounded-lg p-4 hover:shadow-lg transition">
+      <h3 className="text-lg font-semibold">{test.name}</h3>
+      <p className="text-gray-600">{test.description}</p>
+      <button
+        onClick={() => onSelect(test.id)}
+        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded"
+      >
+        View Details
+      </button>
+    </div>
+  )
+}`}
+</CodeBlock>
+
+**SDK**: Comprehensive Python SDK for easy integration
+
+<CodeBlock
+  filename="example_sdk_usage.py"
+  language="python"
+>
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+# Initialize the client
+client = RhesisClient(
+    api_key="your-api-key",
+    base_url="https://api.rhesis.ai"
+)
+
+# Create a prompt synthesizer
+synthesizer = PromptSynthesizer(client=client)
+
+# Generate test cases
+test_cases = synthesizer.synthesize(
+    behavior="Reliability",
+    domain="Healthcare",
+    count=10
+)
+
+for test in test_cases:
+    print(f"Test: {test.prompt}")
+    print(f"Expected: {test.expected_behavior}")`}
+</CodeBlock>
+
+**Infrastructure**: Docker, Kubernetes, and cloud-native deployment options
+
+<CodeBlock
+  filename="docker-compose.yml"
+  language="text"
+>
+{`version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: rhesis
+      POSTGRES_USER: rhesis
+      POSTGRES_PASSWORD: rhesis
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://rhesis:rhesis@postgres:5432/rhesis
+      REDIS_URL: redis://redis:6379`}
+</CodeBlock>
+
+## Project Structure
+
+<FileTree
+  title="Rhesis Repository Structure"
+  data={[
+    {
+      name: 'backend/',
+      type: 'folder',
+      description: 'FastAPI backend service',
+      children: [
+        { name: 'app/', type: 'folder', description: 'Application code' },
+        { name: 'tests/', type: 'folder', description: 'Backend tests' },
+        { name: 'alembic/', type: 'folder', description: 'Database migrations' },
+        { name: 'pyproject.toml', type: 'file', description: 'Python dependencies' }
+      ]
+    },
+    {
+      name: 'platform/',
+      type: 'folder',
+      description: 'React frontend application',
+      children: [
+        { name: 'src/', type: 'folder', description: 'Source code' },
+        { name: 'public/', type: 'folder', description: 'Static assets' },
+        { name: 'package.json', type: 'file', description: 'Node dependencies' }
+      ]
+    },
+    {
+      name: 'worker/',
+      type: 'folder',
+      description: 'Celery background workers',
+      children: [
+        { name: 'tasks/', type: 'folder', description: 'Task definitions' },
+        { name: 'pyproject.toml', type: 'file', description: 'Python dependencies' }
+      ]
+    },
+    {
+      name: 'chatbot/',
+      type: 'folder',
+      description: 'AI chatbot application',
+      children: [
+        { name: 'src/', type: 'folder', description: 'Chatbot source code' }
+      ]
+    },
+    {
+      name: 'sdk/',
+      type: 'folder',
+      description: 'Python SDK',
+      children: [
+        { name: 'rhesis/', type: 'folder', description: 'SDK package' },
+        { name: 'tests/', type: 'folder', description: 'SDK tests' },
+        { name: 'pyproject.toml', type: 'file', description: 'Python dependencies' }
+      ]
+    },
+    {
+      name: 'docs/',
+      type: 'folder',
+      description: 'Documentation site',
+      children: [
+        { name: 'content/', type: 'folder', description: 'Documentation pages' },
+        { name: 'src/', type: 'folder', description: 'Site components' }
+      ]
+    },
+    {
+      name: 'docker-compose.yml',
+      type: 'file',
+      description: 'Local development setup'
+    },
+    {
+      name: 'README.md',
+      type: 'file',
+      description: 'Project overview'
+    }
+  ]}
+/>
+
+### Backend Structure
+
+<FileTree
+  title="backend/ - FastAPI Service"
+  data={[
+    {
+      name: 'app/',
+      type: 'folder',
+      description: 'Main application code',
+      children: [
+        {
+          name: 'api/',
+          type: 'folder',
+          description: 'API routes and endpoints',
+          children: [
+            { name: 'routes/', type: 'folder', description: 'Route handlers' },
+            { name: 'deps.py', type: 'file', description: 'Dependency injection' }
+          ]
+        },
+        {
+          name: 'models/',
+          type: 'folder',
+          description: 'SQLAlchemy models',
+          children: [
+            { name: 'test.py', type: 'file', description: 'Test model' },
+            { name: 'user.py', type: 'file', description: 'User model' },
+            { name: 'project.py', type: 'file', description: 'Project model' }
+          ]
+        },
+        {
+          name: 'schemas/',
+          type: 'folder',
+          description: 'Pydantic schemas',
+          children: [
+            { name: 'test.py', type: 'file', description: 'Test schemas' },
+            { name: 'user.py', type: 'file', description: 'User schemas' }
+          ]
+        },
+        { name: 'core/', type: 'folder', description: 'Core config and security' },
+        { name: 'db/', type: 'folder', description: 'Database session and utils' },
+        { name: 'services/', type: 'folder', description: 'Business logic' },
+        { name: 'main.py', type: 'file', description: 'Application entry point' }
+      ]
+    },
+    { name: 'tests/', type: 'folder', description: 'Test suite' },
+    { name: 'alembic/', type: 'folder', description: 'Database migrations' },
+    { name: 'pyproject.toml', type: 'file', description: 'Dependencies and config' }
+  ]}
+/>
+
+### Frontend Structure
+
+<FileTree
+  title="platform/ - React Application"
+  data={[
+    {
+      name: 'src/',
+      type: 'folder',
+      description: 'Source code',
+      children: [
+        {
+          name: 'components/',
+          type: 'folder',
+          description: 'Reusable components',
+          children: [
+            { name: 'TestCard.tsx', type: 'file', description: 'Test card component' },
+            { name: 'Button.tsx', type: 'file', description: 'Button component' },
+            { name: 'Modal.tsx', type: 'file', description: 'Modal component' }
+          ]
+        },
+        {
+          name: 'pages/',
+          type: 'folder',
+          description: 'Next.js pages',
+          children: [
+            { name: 'index.tsx', type: 'file', description: 'Home page' },
+            { name: 'tests/', type: 'folder', description: 'Test pages' },
+            { name: 'projects/', type: 'folder', description: 'Project pages' }
+          ]
+        },
+        {
+          name: 'hooks/',
+          type: 'folder',
+          description: 'Custom React hooks',
+          children: [
+            { name: 'useApi.ts', type: 'file', description: 'API hook' },
+            { name: 'useAuth.ts', type: 'file', description: 'Auth hook' }
+          ]
+        },
+        { name: 'types/', type: 'folder', description: 'TypeScript types' },
+        { name: 'utils/', type: 'folder', description: 'Utility functions' },
+        { name: 'styles/', type: 'folder', description: 'Global styles' }
+      ]
+    },
+    { name: 'public/', type: 'folder', description: 'Static assets' },
+    { name: 'package.json', type: 'file', description: 'Node dependencies' },
+    { name: 'tsconfig.json', type: 'file', description: 'TypeScript config' },
+    { name: 'next.config.js', type: 'file', description: 'Next.js config' }
+  ]}
+/>
 
 ## Getting Started with Development
 
+### Quick Start
+
+Clone the repository and set up your development environment:
+
+<CodeBlock
+  filename="Terminal"
+  language="bash"
+  isTerminal={true}
+>
+{`# Clone the repository
+git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+
+# Install uv (Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Start the development environment
+docker-compose up -d
+
+# Install backend dependencies
+cd backend
+uv sync
+
+# Run backend tests
+uv run pytest`}
+</CodeBlock>
+
+### Development Workflow
+
 1. **[Development Setup](/docs/development/contributing/development-setup)** - Set up your local development environment
-2. **[API Reference](/docs/development/api-reference)** - Explore the REST API capabilities
+2. **[Backend API Structure](/docs/development/backend/api-structure)** - Explore the REST API architecture
 3. **[Contributing Guide](/docs/development/contributing)** - Learn how to contribute effectively
 4. **[Coding Standards](/docs/development/contributing/coding-standards)** - Follow our code quality guidelines
+
+### Running Tests
+
+**Backend Tests**
+
+<CodeBlock
+  filename="Terminal"
+  language="bash"
+  isTerminal={true}
+>
+{`# Run all backend tests
+cd backend
+uv run pytest
+
+# Run with coverage
+uv run pytest --cov=app --cov-report=html
+
+# Run specific test file
+uv run pytest tests/test_api.py
+
+# Run tests in watch mode
+uv run pytest-watch`}
+</CodeBlock>
+
+**Frontend Tests**
+
+<CodeBlock
+  filename="Terminal"
+  language="bash"
+  isTerminal={true}
+>
+{`# Run all frontend tests
+cd platform
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run tests with coverage
+npm test -- --coverage
+
+# Run end-to-end tests
+npm run test:e2e`}
+</CodeBlock>
+
+### Common Development Commands
+
+**Database Migrations**
+
+<CodeBlock
+  filename="Terminal"
+  language="bash"
+  isTerminal={true}
+>
+{`# Create a new migration
+cd backend
+uv run alembic revision --autogenerate -m "Add new table"
+
+# Apply migrations
+uv run alembic upgrade head
+
+# Rollback migration
+uv run alembic downgrade -1
+
+# View migration history
+uv run alembic history`}
+</CodeBlock>
+
+**Code Quality**
+
+<CodeBlock
+  filename="Terminal"
+  language="bash"
+  isTerminal={true}
+>
+{`# Format Python code
+cd backend
+uv run ruff format .
+
+# Lint Python code
+uv run ruff check .
+
+# Type check Python code
+uv run mypy app
+
+# Format TypeScript code
+cd platform
+npm run format
+
+# Lint TypeScript code
+npm run lint`}
+</CodeBlock>
+
+### Environment Configuration
+
+Create a `.env` file in the backend directory:
+
+<CodeBlock
+  filename="backend/.env"
+  language="bash"
+>
+{`# Database
+DATABASE_URL=postgresql://rhesis:rhesis@localhost:5432/rhesis
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# API Keys
+OPENAI_API_KEY=your-openai-key
+ANTHROPIC_API_KEY=your-anthropic-key
+
+# Security
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Environment
+ENVIRONMENT=development
+DEBUG=true`}
+</CodeBlock>
 
 ---
 

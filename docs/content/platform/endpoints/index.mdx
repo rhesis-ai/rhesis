@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Endpoints
 
 Configure and manage API endpoints that your tests execute against.
@@ -42,19 +44,25 @@ Configure the endpoint name, description, project assignment, and environment. T
 
 Define authentication and other required headers in JSON format:
 
-```json
-{
+<CodeBlock
+  filename="headers.json"
+  language="json"
+>
+{`{
   "Authorization": "Bearer {API_KEY}",
   "Content-Type": "application/json"
-}
-```
+}`}
+</CodeBlock>
 
 **Request Body Template**
 
 Create a template with placeholders for dynamic values. Rhesis will replace `{input}` with your test prompt:
 
-```json
-{
+<CodeBlock
+  filename="request-body.json"
+  language="json"
+>
+{`{
   "model": "gpt-4",
   "messages": [
     {
@@ -63,20 +71,23 @@ Create a template with placeholders for dynamic values. Rhesis will replace `{in
     }
   ],
   "temperature": 0.7
-}
-```
+}`}
+</CodeBlock>
 
 **Response Mappings**
 
 Extract specific values from API responses using JSONPath syntax:
 
-```json
-{
+<CodeBlock
+  filename="response-mappings.json"
+  language="json"
+>
+{`{
   "output": "$.choices[0].message.content",
   "model_used": "$.model",
   "tokens": "$.usage.total_tokens"
-}
-```
+}`}
+</CodeBlock>
 
 This tells Rhesis where to find the actual response text and any metadata you want to track.
 

@@ -754,6 +754,48 @@ aside nav a[class*='text-primary'],
   }
 }
 
+/* Platform Features Compact Styles */
+.platform-features-compact {
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.platform-features-compact .info-card-horizontal {
+  padding: 0.75rem !important;
+  gap: 0.75rem !important;
+}
+
+.platform-features-compact .info-card-horizontal:hover {
+  transform: none !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+}
+
+.platform-features-compact .info-card-horizontal h3 {
+  font-size: 0.9375rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.platform-features-compact .info-card-horizontal p {
+  font-size: 0.8125rem !important;
+  line-height: 1.4 !important;
+}
+
+.platform-features-compact .info-card-horizontal > div:first-child {
+  width: 2rem !important;
+  height: 2rem !important;
+}
+
+.platform-features-compact .info-card-horizontal > div:first-child svg {
+  font-size: 1rem !important;
+}
+
+@media (max-width: 768px) {
+  .platform-features-compact {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* FeatureOverview Component Styles */
 
 @media (max-width: 900px) {
@@ -877,4 +919,57 @@ div[class*="callout"] strong {
   --nextra-callout-default-border: #2AA1CE !important;
   --nextra-callout-default-bg: rgba(42, 161, 206, 0.08) !important;
   --nextra-callout-default-icon: #2AA1CE !important;
+}
+
+/* Table Component Styles */
+.rhesis-table {
+  --table-border: #e5e7eb;
+  --table-border-dark: #d1d5db;
+  --table-wrapper-bg: #ffffff;
+  --table-header-bg: #f9fafb;
+  --text-primary: #3d3d3d;
+  --code-bg: #f3f4f6;
+  --code-text: #2aa1ce;
+}
+
+[data-theme='dark'] .rhesis-table,
+.dark .rhesis-table {
+  --table-border: #2c2c2c;
+  --table-border-dark: #3d3d3d;
+  --table-wrapper-bg: #161b22;
+  --table-header-bg: #1f242b;
+  --text-primary: #e6edf3;
+  --code-bg: #1f242b;
+  --code-text: #3bc4f2;
+}
+
+.rhesis-table .table-row-striped {
+  background-color: rgba(249, 250, 251, 0.5);
+}
+
+[data-theme='dark'] .rhesis-table .table-row-striped,
+.dark .rhesis-table .table-row-striped {
+  background-color: rgba(31, 36, 43, 0.5);
+}
+
+.rhesis-table .table-row-hoverable:hover {
+  background-color: rgba(42, 161, 206, 0.05);
+  cursor: default;
+}
+
+[data-theme='dark'] .rhesis-table .table-row-hoverable:hover,
+.dark .rhesis-table .table-row-hoverable:hover {
+  background-color: rgba(59, 196, 242, 0.08);
+}
+
+/* Responsive table styling */
+@media (max-width: 768px) {
+  .rhesis-table table {
+    font-size: 0.875rem;
+  }
+
+  .rhesis-table th,
+  .rhesis-table td {
+    padding: 0.625rem 0.75rem;
+  }
 }
