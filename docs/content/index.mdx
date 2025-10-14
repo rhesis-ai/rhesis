@@ -1,0 +1,95 @@
+# Rhesis Documentation
+
+**Gen AI Testing. Collaborative. Adaptive.**
+
+From "I hope this works" to "I know this works." Rhesis brings your whole team together—developers, domain experts, legal, and marketing—to create comprehensive testing that ensures your Gen AI applications work exactly as intended before users see them.
+
+![Rhesis AI Dashboard](/screenshots/rhesis-ai-dashboard.png)
+
+<ButtonGroup
+  primaryText="Get Started →"
+  primaryHref="/getting-started"
+  secondaryText="Learn Core Concepts →"
+  secondaryHref="/getting-started/concepts"
+/>
+
+## Why Rhesis?
+
+You spent weeks or months building something innovative. Don't let inadequate testing ruin the release. Traditional testing approaches fail with Gen AI because responses are non-deterministic, quality is subjective, and edge cases are infinite. Rhesis brings together technical and domain expertise to create testing that's as sophisticated as your Gen AI architecture.
+
+<FeatureOverview />
+
+## Built for Teams, know what you ship!
+
+Advanced testing architecture, collaborative by design. Rhesis works with any Gen AI system and integrates seamlessly into your existing development workflow.
+
+<IndustryExamples />
+
+## Quick Start
+
+### Option 1: Use the cloud platform (fastest)
+
+Get started in minutes at [app.rhesis.ai](https://app.rhesis.ai):
+
+1. **Create a free account**
+2. **Start generating test scenarios collaboratively**
+3. **Invite your team to define requirements together**
+
+### Option 2: Use the SDK
+
+Install and configure the Python SDK:
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install rhesis-sdk`}
+</CodeBlock>
+
+<details>
+<summary>**Quick example**</summary>
+
+<CodeBlock filename="app.py" language="python">
+{`import rhesis
+from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
+
+# Configuration
+rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"  # Get from app.rhesis.ai settings
+rhesis.base_url = "https://api.rhesis.ai"  # optional
+
+synthesizer = PromptSynthesizer(
+  "Generate test cases for a doctor appointment scheduling chatbot"
+)
+
+test_set = synthesizer.generate(num_tests=4)
+
+for test in test_set.tests:
+  print("-" * 40)
+  print(f"Prompt: {test['prompt']['content']}")
+  print(f"Behavior: {test['behavior']}")
+  print(f"Category: {test['category']}")
+  print(f"Topic: {test['topic']}")
+
+# Example output:
+# ----------------------------------------
+# Prompt: Schedule an appointment for me next week with Dr. Smith.
+# Behavior: Reliability
+# Category: Harmless
+# Topic: Appointment Scheduling`}
+</CodeBlock>
+
+</details>
+
+### Option 3: Run locally with Docker
+
+Clone and run the full platform locally:
+
+<CodeBlock filename="terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+cp .env.example .env.docker
+docker compose --env-file .env.docker up -d`}
+</CodeBlock>
+
+Visit [http://localhost:3000](http://localhost:3000) to access your local instance.
+
+## Community & Support
+
+<CommunitySupport />
