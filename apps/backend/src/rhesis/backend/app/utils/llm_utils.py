@@ -5,6 +5,7 @@ Helper functions for managing user-configured LLM models for different purposes
 (generation, evaluation, etc.)
 """
 
+import logging
 from typing import Union
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,8 @@ from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
@@ -85,11 +88,17 @@ def _get_user_model(
         Always uses user.organization_id for model lookup to prevent privilege escalation.
         Never accepts organization_id as a parameter that could be manipulated.
     """
+    logger.info(f"[LLM_UTILS] Getting {model_type} model for user_id={user.id}, email={user.email}, org_id={user.organization_id}")
+    
     # Get the appropriate model settings based on type
     model_settings = getattr(user.settings.models, model_type)
     model_id = model_settings.model_id
     
+    logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
+    
     if model_id:
+        logger.info(f"[LLM_UTILS] User has configured model, fetching from database...")
+        
         # SECURITY: Always use user's organization_id - never accept external organization_id
         model = crud.get_model(
             db=db, 
@@ -101,11 +110,20 @@ def _get_user_model(
             # Get provider configuration
             provider = model.provider_type.type_value
             model_name = model.model_name
-            api_key = model.key  # Decrypted automatically by EncryptedString
+            api_key_preview = f"{model.key[:8]}..." if model.key else "None"
+            
+            logger.info(f"[LLM_UTILS] Found configured model: name={model.name}, provider={provider}, model_name={model_name}, api_key={api_key_preview}")
             
             # Use SDK's get_model to create configured instance
-            return get_model(provider=provider, model_name=model_name, api_key=api_key)
+            configured_model = get_model(provider=provider, model_name=model_name, api_key=model.key)
+            logger.info(f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: {type(configured_model).__name__}")
+            return configured_model
+        else:
+            logger.warning(f"[LLM_UTILS] Model with id={model_id} not found or has no provider_type")
+    else:
+        logger.info(f"[LLM_UTILS] No configured model found in user settings")
     
     # Fall back to default
+    logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
     return default_model
 
