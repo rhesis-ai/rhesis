@@ -279,7 +279,8 @@ export const Footer = ({
         }
 
         /* Dark theme adjustments */
-        [data-theme='dark'] .rhesis-footer {
+        [data-theme='dark'] .rhesis-footer,
+        .dark .rhesis-footer {
           --border-color: var(--rhesis-primary-light);
           --footer-bg: var(--rhesis-primary-dark);
           --text-primary: #ffffff;

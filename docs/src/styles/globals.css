@@ -26,7 +26,8 @@
 }
 
 /* Dark mode brand colors */
-[data-theme='dark'] {
+[data-theme='dark'],
+.dark {
   --rhesis-text-primary: #e6edf3;
   --rhesis-text-dark: #ffffff;
 }
@@ -272,29 +273,42 @@ body,
 [data-theme='dark'] .nextra-content h3,
 [data-theme='dark'] .nextra-content h4,
 [data-theme='dark'] .nextra-content h5,
-[data-theme='dark'] .nextra-content h6 {
+[data-theme='dark'] .nextra-content h6,
+.dark .nextra-content h1,
+.dark .nextra-content h2,
+.dark .nextra-content h3,
+.dark .nextra-content h4,
+.dark .nextra-content h5,
+.dark .nextra-content h6 {
   color: #ffffff !important; /* Frontend theme headings in dark mode */
 }
 
-[data-theme='dark'] .nextra-content a {
+[data-theme='dark'] .nextra-content a,
+.dark .nextra-content a {
   color: #e6edf3 !important; /* Frontend theme text.primary for dark mode */
 }
 
 [data-theme='dark'] .nextra-content a:hover,
 [data-theme='dark'] .nextra-sidebar a:hover,
-[data-theme='dark'] .nextra-nav-container a:hover {
+[data-theme='dark'] .nextra-nav-container a:hover,
+.dark .nextra-content a:hover,
+.dark .nextra-sidebar a:hover,
+.dark .nextra-nav-container a:hover {
   color: #3bc4f2 !important; /* Frontend theme primary.light (hover blue) */
 }
 
 /* Active sidebar links in dark mode - matching frontend theme */
 [data-theme='dark'] .nextra-sidebar a[aria-current='page'],
-[data-theme='dark'] .nextra-sidebar a[data-active='true'] {
+[data-theme='dark'] .nextra-sidebar a[data-active='true'],
+.dark .nextra-sidebar a[aria-current='page'],
+.dark .nextra-sidebar a[data-active='true'] {
   background-color: #2aa1ce !important; /* Frontend theme primary.dark (CTA blue) */
   color: white !important;
 }
 
 /* Hover state for sidebar links in dark mode */
-[data-theme='dark'] .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']) {
+[data-theme='dark'] .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']),
+.dark .nextra-sidebar a:hover:not([aria-current='page']):not([data-active='true']) {
   background-color: rgba(
     42,
     161,
@@ -337,11 +351,15 @@ body,
 /* Dark mode backgrounds - matching frontend theme */
 [data-theme='dark'] body,
 [data-theme='dark'] .nextra-content,
-[data-theme='dark'] .nextra-nav-container {
+[data-theme='dark'] .nextra-nav-container,
+.dark body,
+.dark .nextra-content,
+.dark .nextra-nav-container {
   background-color: #0d1117 !important; /* Frontend theme background.default */
 }
 
-[data-theme='dark'] .nextra-sidebar {
+[data-theme='dark'] .nextra-sidebar,
+.dark .nextra-sidebar {
   background-color: #161b22 !important; /* Frontend theme background.paper */
 }
 
@@ -354,7 +372,8 @@ body,
   font-size: 0.875em;
 }
 
-[data-theme='dark'] .nextra-content code {
+[data-theme='dark'] .nextra-content code,
+.dark .nextra-content code {
   background-color: #1f242b !important; /* Frontend theme background.light3 */
   color: #3bc4f2 !important; /* Frontend theme primary.light (hover blue) */
 }
@@ -366,7 +385,8 @@ body,
 }
 
 /* Override Nextra's color variables - matching frontend theme */
-[data-theme='dark'] {
+[data-theme='dark'],
+.dark {
   /* Primary colors - matching frontend theme */
   --nextra-primary-hue: 200;
   --nextra-primary-saturation: 100%;
@@ -412,10 +432,25 @@ html body {
   background-color: #ffffff !important;
 }
 
+/* Dark mode html/body backgrounds */
+[data-theme='dark'] html,
+[data-theme='dark'] html body,
+.dark html,
+.dark html body {
+  background-color: #0d1117 !important;
+}
+
 /* Ensure navbar is also white */
 .nextra-navbar {
   background-color: #ffffff !important;
   border-bottom: 1px solid #e5e7eb;
+}
+
+/* Dark mode navbar */
+[data-theme='dark'] .nextra-navbar,
+.dark .nextra-navbar {
+  background-color: #161b22 !important;
+  border-bottom: 1px solid #2c2c2c;
 }
 
 /* Table of Contents (On This Page) Styling */
