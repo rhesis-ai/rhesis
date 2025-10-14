@@ -1,3 +1,4 @@
+import urllib.parse
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
@@ -294,7 +295,9 @@ async def get_source_content(
             iter([content]),
             media_type=content_type,
             headers={
-                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Disposition": (
+                    f"attachment; filename*=UTF-8''{urllib.parse.quote(filename)}"
+                ),
                 "Content-Length": str(len(content)),
             },
         )
