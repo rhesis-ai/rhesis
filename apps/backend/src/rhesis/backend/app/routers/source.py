@@ -168,7 +168,7 @@ async def upload_source(
     Upload a file and create a Source record of type 'Document'.
 
     This endpoint combines file upload with Source creation:
-    - Saves the file using SourceHandler
+    - Saves the file using handler
     - Creates a Source record with Document source_type_id
     - Populates source_metadata with file information
     - Extracts content from the uploaded file
