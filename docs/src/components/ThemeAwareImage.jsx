@@ -47,12 +47,23 @@ export const ThemeAwareImage = ({ lightSrc, darkSrc, alt, className = '' }) => {
   const isDark = resolvedTheme === 'dark' || theme === 'dark'
 
   return (
-    <img
-      src={isDark ? darkSrc : lightSrc}
-      alt={alt}
+    <div
       className={className}
-      style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
-    />
+      style={{
+        backdropFilter: isDark ? 'drop-shadow(0 4px 8px rgba(255, 255, 255, 0.1))' : 'none',
+        filter: isDark ? 'drop-shadow(0 4px 12px rgba(255, 255, 255, 0.15)) drop-shadow(0 2px 4px rgba(255, 255, 255, 0.1))' : 'none'
+      }}
+    >
+      <img
+        src={isDark ? darkSrc : lightSrc}
+        alt={alt}
+        style={{
+          width: '100%',
+          height: 'auto',
+          borderRadius: '8px'
+        }}
+      />
+    </div>
   )
 }
 

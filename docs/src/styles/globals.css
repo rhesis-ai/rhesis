@@ -670,7 +670,10 @@ aside nav a[class*='text-primary'],
 }
 
 .rhesis-codeblock .code-comment {
-  color: #A9B1BB;
+  color: #6B7280;
+  opacity: 0.8;
+  font-style: italic;
+  font-weight: 400;
 }
 
 .rhesis-codeblock .terminal-separator {
@@ -752,16 +755,6 @@ aside nav a[class*='text-primary'],
 }
 
 /* FeatureOverview Component Styles */
-.rhesis-feature-overview .featuresGrid > div:nth-child(4) {
-  grid-column: 1 / 2;
-  grid-column-start: 1;
-  margin-left: 25%;
-}
-
-.rhesis-feature-overview .featuresGrid > div:nth-child(5) {
-  grid-column: 2 / 3;
-  margin-right: 25%;
-}
 
 @media (max-width: 900px) {
   .rhesis-feature-overview .featuresGrid {
@@ -769,16 +762,119 @@ aside nav a[class*='text-primary'],
     max-width: 600px !important;
   }
 
-  .rhesis-feature-overview .featuresGrid > div:nth-child(4),
-  .rhesis-feature-overview .featuresGrid > div:nth-child(5) {
-    grid-column: auto;
-    margin-left: 0;
-    margin-right: 0;
-  }
 }
 
 @media (max-width: 600px) {
   .rhesis-feature-overview .featuresGrid {
     grid-template-columns: 1fr !important;
   }
+}
+
+/* Callout Component Styles */
+/* Override Nextra's default callout styling to use our theme blue */
+/* Try multiple selector patterns to ensure we catch the right elements */
+
+/* Nextra 3.x style selectors */
+.nextra-callout[data-type="default"],
+.nextra-callout.nx-callout-default,
+.nx-callout[data-type="default"],
+.nx-callout.nx-callout-default {
+  border-color: #2AA1CE !important;
+  background-color: rgba(42, 161, 206, 0.1) !important;
+}
+
+.nextra-callout[data-type="default"] .nextra-callout-icon,
+.nextra-callout.nx-callout-default .nextra-callout-icon,
+.nx-callout[data-type="default"] .nx-callout-icon,
+.nx-callout.nx-callout-default .nx-callout-icon {
+  color: #2AA1CE !important;
+}
+
+/* Generic callout selectors */
+.callout[data-type="default"],
+.callout.default,
+.callout.callout-default {
+  border-color: #2AA1CE !important;
+  background-color: rgba(42, 161, 206, 0.1) !important;
+}
+
+.callout[data-type="default"] .callout-icon,
+.callout.default .callout-icon,
+.callout.callout-default .callout-icon {
+  color: #2AA1CE !important;
+}
+
+/* Broad selector to catch any default callout */
+[class*="callout"][class*="default"] {
+  border-color: #2AA1CE !important;
+  background-color: rgba(42, 161, 206, 0.1) !important;
+}
+
+[class*="callout"][class*="default"] [class*="icon"] {
+  color: #2AA1CE !important;
+}
+
+/* Very aggressive selector - target any element that looks like a default callout */
+div[class*="callout"]:not([class*="error"]):not([class*="warning"]):not([class*="info"]) {
+  border-color: #2AA1CE !important;
+  background-color: rgba(42, 161, 206, 0.1) !important;
+}
+
+div[class*="callout"]:not([class*="error"]):not([class*="warning"]):not([class*="info"]) svg {
+  color: #2AA1CE !important;
+}
+
+/* Target the specific green color and override it */
+div[class*="callout"] {
+  border-color: #2AA1CE !important;
+  background-color: rgba(42, 161, 206, 0.08) !important;
+  --callout-border: #2AA1CE !important;
+  --callout-bg: rgba(42, 161, 206, 0.08) !important;
+  --callout-icon: #2AA1CE !important;
+}
+
+div[class*="callout"] svg {
+  color: #2AA1CE !important;
+}
+
+/* Fix typography and styling */
+div[class*="callout"] p {
+  font-family: 'Be Vietnam Pro', sans-serif !important;
+  font-size: 0.9375rem !important;
+  line-height: 1.6 !important;
+  color: var(--text-primary, #3D3D3D) !important;
+  margin: 0 !important;
+}
+
+div[class*="callout"] strong {
+  font-weight: 600 !important;
+  color: var(--text-primary, #3D3D3D) !important;
+}
+
+/* Dark mode styling for callouts */
+[data-theme='dark'] div[class*="callout"] p,
+.dark div[class*="callout"] p {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] div[class*="callout"] strong,
+.dark div[class*="callout"] strong {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] div[class*="callout"] a,
+.dark div[class*="callout"] a {
+  color: #60a5fa !important; /* Light blue for links in dark mode */
+}
+
+[data-theme='dark'] div[class*="callout"] a:hover,
+.dark div[class*="callout"] a:hover {
+  color: #93c5fd !important; /* Lighter blue on hover */
+}
+
+/* Override any CSS custom properties that might be used */
+:root {
+  --nextra-callout-default-border: #2AA1CE !important;
+  --nextra-callout-default-bg: rgba(42, 161, 206, 0.08) !important;
+  --nextra-callout-default-icon: #2AA1CE !important;
 }

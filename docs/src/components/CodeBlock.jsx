@@ -52,10 +52,22 @@ export const CodeBlock = ({
         '<span class="terminal-separator">$&</span>'
       )
 
+      // Highlight comments (lines starting with #)
+      terminalCode = terminalCode.replace(
+        /^#.*$/gm,
+        '<span class="code-comment">$&</span>'
+      )
+
       // Highlight labels and values in one pass to avoid conflicts
       terminalCode = terminalCode.replace(
         /^([A-Za-z][A-Za-z\s]*?):\s*(.+)$/gm,
         '<span class="terminal-label">$1:</span> <span class="terminal-value">$2</span>'
+      )
+
+      // Highlight common bash commands (only at the beginning of lines or after whitespace)
+      terminalCode = terminalCode.replace(
+        /^(\s*)(cd|ls|mkdir|rm|cp|mv|git|npm|pip|docker|curl|wget|grep|find|cat|echo|export|source|uv|\.\/rh)(\s|$)/gm,
+        '$1<span class="code-keyword">$2</span>$3'
       )
 
       return terminalCode
@@ -151,7 +163,7 @@ export const CodeBlock = ({
       fontFamily: "'Fira Code', 'Monaco', 'Consolas', monospace",
       background: '#161B22',
       borderRadius: '8px',
-      marginBottom: '20px',
+      margin: '24px 0',
       overflow: 'hidden',
       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25)',
       border: isTerminal ? '1px solid #2C2C2C' : 'none'
