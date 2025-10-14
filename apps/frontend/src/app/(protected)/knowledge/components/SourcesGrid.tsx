@@ -403,6 +403,29 @@ export default function SourcesGrid({
       },
     },
     {
+      field: 'uploader',
+      headerName: 'Added by',
+      width: 150,
+      renderCell: params => {
+        const source = params.row as Source;
+        const uploaderName = source.source_metadata?.uploader_name;
+
+        if (!uploaderName) {
+          return (
+            <Typography variant="body2" color="text.secondary">
+              Unknown
+            </Typography>
+          );
+        }
+
+        return (
+          <Typography variant="body2" color="text.secondary">
+            {uploaderName}
+          </Typography>
+        );
+      },
+    },
+    {
       field: 'tags',
       headerName: 'Tags',
       width: 200,

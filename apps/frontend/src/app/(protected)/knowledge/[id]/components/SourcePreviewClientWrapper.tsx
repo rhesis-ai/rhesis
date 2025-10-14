@@ -216,6 +216,13 @@ export default function SourcePreviewClientWrapper({
               <Typography variant="caption" color="text.secondary">
                 Size: {formatFileSize(source.source_metadata?.file_size)}
               </Typography>
+              {source.source_metadata?.uploader_name && (
+                <Box className={styles.ownerContainer}>
+                  <Typography variant="caption" color="text.secondary">
+                    Added by: {source.source_metadata.uploader_name}
+                  </Typography>
+                </Box>
+              )}
               {source.tags && source.tags.length > 0 && (
                 <Box className={styles.tagsContainer}>
                   <Typography variant="caption" color="text.secondary">
