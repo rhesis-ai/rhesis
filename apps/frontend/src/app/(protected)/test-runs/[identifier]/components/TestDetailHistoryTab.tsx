@@ -16,13 +16,12 @@ import {
   Alert,
   useTheme,
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { formatDate } from '@/utils/date';
+import StatusChip from '@/components/common/StatusChip';
 
 interface TestDetailHistoryTabProps {
   test: TestResultDetail;
@@ -227,17 +226,11 @@ export default function TestDetailHistoryTab({
                   }}
                 >
                   <TableCell>
-                    <Chip
-                      icon={
-                        item.passed ? (
-                          <CheckCircleOutlineIcon />
-                        ) : (
-                          <CancelOutlinedIcon />
-                        )
-                      }
+                    <StatusChip
+                      passed={item.passed}
                       label={item.passed ? 'Pass' : 'Fail'}
                       size="small"
-                      color={item.passed ? 'success' : 'error'}
+                      variant="filled"
                       sx={{ minWidth: 80 }}
                     />
                   </TableCell>

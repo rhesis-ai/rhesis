@@ -24,6 +24,34 @@ describe('BaseDrawer', () => {
     expect(screen.getByText('Cancel')).toBeInTheDocument();
   });
 
+  it('renders without header when showHeader is false', () => {
+    render(
+      <BaseDrawer open={true} onClose={mockOnClose} showHeader={false}>
+        <div>Test Content</div>
+      </BaseDrawer>
+    );
+
+    expect(screen.queryByText('Test Drawer')).not.toBeInTheDocument();
+    expect(screen.getByText('Test Content')).toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
+
+  it('uses custom close button text when provided', () => {
+    render(
+      <BaseDrawer
+        open={true}
+        onClose={mockOnClose}
+        title="Test Drawer"
+        closeButtonText="Close"
+      >
+        <div>Test Content</div>
+      </BaseDrawer>
+    );
+
+    expect(screen.getByText('Close')).toBeInTheDocument();
+    expect(screen.queryByText('Cancel')).not.toBeInTheDocument();
+  });
+
   it('does not render when closed', () => {
     render(
       <BaseDrawer open={false} onClose={mockOnClose} title="Test Drawer">

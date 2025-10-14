@@ -2,10 +2,9 @@
 
 import React, { useMemo } from 'react';
 import { Box, Typography, Paper, Chip, useTheme } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
+import StatusChip from '@/components/common/StatusChip';
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
@@ -46,16 +45,11 @@ export default function TestDetailOverviewTab({
           <Typography variant="h6" fontWeight={600}>
             Test Result
           </Typography>
-          <Chip
-            icon={
-              overallPassed ? (
-                <CheckCircleOutlineIcon />
-              ) : (
-                <CancelOutlinedIcon />
-              )
-            }
+          <StatusChip
+            passed={overallPassed}
             label={overallPassed ? 'Passed' : 'Failed'}
-            color={overallPassed ? 'success' : 'error'}
+            size="medium"
+            variant="filled"
             sx={{ fontWeight: 600 }}
           />
         </Box>
