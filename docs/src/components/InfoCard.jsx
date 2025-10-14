@@ -130,8 +130,9 @@ export const InfoCard = ({
       </div>
 
       <style jsx>{`
-        [data-theme='dark'] .info-card {
-          --border-color: #30363d;
+        [data-theme='dark'] .info-card,
+        .dark .info-card {
+          --border-color: #2c2c2c;
           --card-bg: #161b22;
           --text-primary: #e6edf3;
           --text-secondary: #a9b1bb;
