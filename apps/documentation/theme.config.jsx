@@ -133,6 +133,7 @@ export default {
         media="(prefers-color-scheme: dark)"
       />
       <script
+        key="favicon-script"
         dangerouslySetInnerHTML={{
           __html: `
           (function() {

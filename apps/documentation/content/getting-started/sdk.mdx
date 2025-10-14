@@ -1,5 +1,5 @@
 import { Steps } from 'nextra/components'
-import { Tabs } from 'nextra/components'
+import { Callout } from 'nextra/components'
 
 # Python SDK
 
@@ -30,15 +30,21 @@ Keep this key secure and never share it publicly.
 
 You can configure the SDK either through environment variables or direct configuration:
 
-<Tabs items={['Environment Variables', 'Direct Configuration']}>
-  <Tabs.Tab>
-    ```bash export RHESIS_API_KEY="your-api-key" export RHESIS_BASE_URL="https://api.rhesis.ai" ```
-  </Tabs.Tab>
-  <Tabs.Tab>
-    ```python import rhesis rhesis.api_key = "your-api-key" rhesis.base_url =
-    "https://api.rhesis.ai" # optional ```
-  </Tabs.Tab>
-</Tabs>
+**Environment Variables:**
+
+```bash
+export RHESIS_API_KEY="your-api-key"
+export RHESIS_BASE_URL="https://api.rhesis.ai"
+```
+
+**Direct Configuration:**
+
+```python
+import rhesis
+
+rhesis.api_key = "your-api-key"
+rhesis.base_url = "https://api.rhesis.ai"  # optional
+```
 
 ### Basic Usage
 
