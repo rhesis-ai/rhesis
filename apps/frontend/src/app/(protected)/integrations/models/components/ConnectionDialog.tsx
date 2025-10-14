@@ -668,13 +668,13 @@ export function ConnectionDialog({
             )}
 
             {/* Connection Test Required Message */}
-            {!isEditMode && !connectionTested && (
+            {!isEditMode && !connectionTested && !testResult && (
               <Alert severity="info" sx={{ mt: 2 }}>
                 Please test the connection before saving the model
                 configuration.
               </Alert>
             )}
-            {isEditMode && apiKey !== '************' && !connectionTested && (
+            {isEditMode && apiKey !== '************' && !connectionTested && !testResult && (
               <Alert severity="info" sx={{ mt: 2 }}>
                 Please test the connection with the new API key before updating.
               </Alert>
