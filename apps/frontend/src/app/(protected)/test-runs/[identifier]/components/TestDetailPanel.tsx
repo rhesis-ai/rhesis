@@ -7,7 +7,6 @@ import {
   Tabs,
   Tab,
   Typography,
-  Divider,
   Skeleton,
   useTheme,
 } from '@mui/material';
@@ -15,11 +14,12 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
-import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
+import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface TestDetailPanelProps {
@@ -123,6 +123,26 @@ export default function TestDetailPanel({
     setActiveTab(newValue);
   };
 
+  // Handle counts change (when comments/tasks are added or deleted)
+  const handleCountsChange = React.useCallback(async () => {
+    if (!test) return;
+
+    // Refetch the test result to get updated counts
+    try {
+      const { ApiClientFactory } = await import(
+        '@/utils/api-client/client-factory'
+      );
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testResultsClient = apiFactory.getTestResultsClient();
+      const updatedTest = await testResultsClient.getTestResult(test.id);
+
+      // Notify parent to update its state
+      onTestResultUpdate(updatedTest);
+    } catch (error) {
+      console.error('Error refetching test result:', error);
+    }
+  }, [test, sessionToken, onTestResultUpdate]);
+
   if (loading) {
     return (
       <Paper
@@ -161,13 +181,47 @@ export default function TestDetailPanel({
       }}
     >
       {/* Tabs Header */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          backgroundColor: theme.palette.background.paper,
+        }}
+      >
         <Tabs
           value={activeTab}
           onChange={handleTabChange}
           aria-label="test detail tabs"
           variant="scrollable"
           scrollButtons="auto"
+          sx={{
+            '& .MuiTab-root': {
+              minHeight: 56,
+              textTransform: 'none',
+              fontWeight: 500,
+              color: theme.palette.text.secondary,
+              '& .MuiSvgIcon-root': {
+                color: 'inherit',
+              },
+              '&:hover:not(.Mui-selected)': {
+                backgroundColor: theme.palette.action.hover,
+                color: theme.palette.text.primary,
+              },
+              '&.Mui-selected': {
+                backgroundColor: 'transparent',
+                color: theme.palette.primary.main,
+                fontWeight: 600,
+                '& .MuiSvgIcon-root': {
+                  color: 'inherit',
+                },
+              },
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderTopLeftRadius: theme.shape.borderRadius,
+              borderTopRightRadius: theme.shape.borderRadius,
+            },
+          }}
         >
           <Tab
             icon={<InfoOutlinedIcon fontSize="small" />}
@@ -184,18 +238,25 @@ export default function TestDetailPanel({
             aria-controls="test-detail-tabpanel-1"
           />
           <Tab
+            icon={<RateReviewIcon fontSize="small" />}
+            iconPosition="start"
+            label="Reviews"
+            id="test-detail-tab-2"
+            aria-controls="test-detail-tabpanel-2"
+          />
+          <Tab
             icon={<HistoryIcon fontSize="small" />}
             iconPosition="start"
             label="History"
-            id="test-detail-tab-2"
-            aria-controls="test-detail-tabpanel-2"
+            id="test-detail-tab-3"
+            aria-controls="test-detail-tabpanel-3"
           />
           <Tab
             icon={<CommentOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Tasks & Comments"
-            id="test-detail-tab-3"
-            aria-controls="test-detail-tabpanel-3"
+            id="test-detail-tab-4"
+            aria-controls="test-detail-tabpanel-4"
           />
         </Tabs>
       </Box>
@@ -236,6 +297,15 @@ export default function TestDetailPanel({
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
+          <TestDetailReviewsTab
+            test={test}
+            sessionToken={sessionToken}
+            onTestResultUpdate={onTestResultUpdate}
+            currentUserId={currentUserId}
+          />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={3}>
           <TestDetailHistoryTab
             test={test}
             testRunId={testRunId}
@@ -243,7 +313,7 @@ export default function TestDetailPanel({
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={3}>
+        <TabPanel value={activeTab} index={4}>
           <TasksAndCommentsWrapper
             entityType="TestResult"
             entityId={test.id}
@@ -252,6 +322,7 @@ export default function TestDetailPanel({
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}
             elevation={0}
+            onCountsChange={handleCountsChange}
           />
         </TabPanel>
       </Box>

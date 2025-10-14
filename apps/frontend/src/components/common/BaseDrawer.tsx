@@ -10,16 +10,19 @@ import {
   // Divider // Keep or remove based on whether header/footer have borders
 } from '@mui/material';
 
-interface BaseDrawerProps {
+export interface BaseDrawerProps {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title?: string;
+  titleIcon?: React.ReactNode;
   children: React.ReactNode;
   loading?: boolean;
   onSave?: () => void;
   error?: string;
   saveButtonText?: string;
-  width?: number | string; // Add width prop
+  closeButtonText?: string;
+  width?: number | string;
+  showHeader?: boolean;
 }
 
 // Utility function to filter out duplicates and invalid entries
@@ -51,12 +54,15 @@ export default function BaseDrawer({
   open,
   onClose,
   title,
+  titleIcon,
   children,
   loading = false,
   onSave,
   error,
   saveButtonText = 'Save Changes',
-  width = 600, // Default width
+  closeButtonText = 'Cancel',
+  width = 600,
+  showHeader = true,
 }: BaseDrawerProps) {
   return (
     <Drawer
@@ -100,16 +106,20 @@ export default function BaseDrawer({
         },
       }}
     >
-      {/* Optional: Re-introduce explicit Header/Content/Footer Box structure if desired */}
-      {/* Header */}
-      <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="h6">{title}</Typography>
-      </Box>
+      {/* Header - conditionally rendered */}
+      {showHeader && (
+        <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            {titleIcon}
+            <Typography variant="h6">{title}</Typography>
+          </Stack>
+        </Box>
+      )}
 
       {/* Content */}
       <Box
         sx={{
-          p: 3,
+          p: showHeader ? 3 : 0,
           flex: 1,
           overflowY: 'auto',
         }}
@@ -133,7 +143,7 @@ export default function BaseDrawer({
         )}
         <Stack direction="row" spacing={2} justifyContent="flex-end">
           <Button onClick={onClose} disabled={loading}>
-            Cancel
+            {closeButtonText}
           </Button>
           {onSave && (
             <Button variant="contained" onClick={onSave} disabled={loading}>

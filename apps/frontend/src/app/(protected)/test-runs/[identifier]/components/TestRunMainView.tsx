@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Box, Grid, Paper, useTheme } from '@mui/material';
+import { Box, Grid, Paper, useTheme, TablePagination } from '@mui/material';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';
 import TestDetailPanel from './TestDetailPanel';
+import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -54,6 +55,9 @@ export default function TestRunMainView({
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [availableTestRuns, setAvailableTestRuns] = useState<
     Array<{
       id: string;
@@ -73,6 +77,12 @@ export default function TestRunMainView({
     searchQuery: '',
     statusFilter: 'all',
     selectedBehaviors: [],
+    overruleFilter: 'all',
+    selectedFailedMetrics: [],
+    commentFilter: 'all',
+    commentCountRange: { min: 0, max: 20 },
+    taskFilter: 'all',
+    taskCountRange: { min: 0, max: 10 },
   });
 
   // Merge prop data with any updates
@@ -135,6 +145,61 @@ export default function TestRunMainView({
       });
     }
 
+    // Apply review status filter
+    if (filter.overruleFilter !== 'all') {
+      filtered = filtered.filter(test => {
+        const hasReview = !!test.last_review;
+        const hasConflict = !test.matches_review;
+
+        if (filter.overruleFilter === 'overruled') {
+          return hasReview;
+        } else if (filter.overruleFilter === 'original') {
+          return !hasReview;
+        } else if (filter.overruleFilter === 'conflicting') {
+          return hasReview && hasConflict;
+        }
+        return true;
+      });
+    }
+
+    // Apply comment filter
+    if (filter.commentFilter !== 'all') {
+      filtered = filtered.filter(test => {
+        const commentCount = test.counts?.comments || 0;
+
+        if (filter.commentFilter === 'with_comments') {
+          return commentCount > 0;
+        } else if (filter.commentFilter === 'without_comments') {
+          return commentCount === 0;
+        } else if (filter.commentFilter === 'range') {
+          return (
+            commentCount >= filter.commentCountRange.min &&
+            commentCount <= filter.commentCountRange.max
+          );
+        }
+        return true;
+      });
+    }
+
+    // Apply task filter
+    if (filter.taskFilter !== 'all') {
+      filtered = filtered.filter(test => {
+        const taskCount = test.counts?.tasks || 0;
+
+        if (filter.taskFilter === 'with_tasks') {
+          return taskCount > 0;
+        } else if (filter.taskFilter === 'without_tasks') {
+          return taskCount === 0;
+        } else if (filter.taskFilter === 'range') {
+          return (
+            taskCount >= filter.taskCountRange.min &&
+            taskCount <= filter.taskCountRange.max
+          );
+        }
+        return true;
+      });
+    }
+
     return filtered;
   }, [testResults, filter, prompts, behaviors]);
 
@@ -167,6 +232,27 @@ export default function TestRunMainView({
     },
     []
   );
+
+  // Handle pagination
+  const handleChangePage = useCallback((_event: unknown, newPage: number) => {
+    setPage(newPage);
+  }, []);
+
+  const handleChangeRowsPerPage = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setRowsPerPage(parseInt(event.target.value, 10));
+      setPage(0);
+    },
+    []
+  );
+
+  // Paginated tests for split view
+  const paginatedTests = useMemo(() => {
+    return filteredTests.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    );
+  }, [filteredTests, page, rowsPerPage]);
 
   // Handle download
   const handleDownload = useCallback(async () => {
@@ -321,62 +407,109 @@ export default function TestRunMainView({
             filter={filter}
             onFilterChange={handleFilterChange}
             availableBehaviors={behaviors}
+            availableMetrics={behaviors?.flatMap(b => b.metrics) || []}
             onDownload={handleDownload}
             onCompare={handleCompare}
             isDownloading={isDownloading}
             totalTests={testResults.length}
             filteredTests={filteredTests.length}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
 
-          {/* Split Panel Layout */}
-          <Grid container spacing={3}>
-            {/* Left: Tests List (33%) */}
-            <Grid item xs={12} md={4}>
-              <Paper
+          {/* Conditional Layout based on viewMode */}
+          {viewMode === 'split' ? (
+            <Paper
+              elevation={2}
+              sx={{
+                height: { xs: 900, md: 'calc(100vh - 240px)' },
+                minHeight: 900,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Content Area with Split View */}
+              <Box
                 sx={{
-                  height: { xs: 400, md: 'calc(100vh - 420px)' },
-                  minHeight: 400,
+                  flex: 1,
                   display: 'flex',
-                  flexDirection: 'column',
                   overflow: 'hidden',
                 }}
               >
-                <TestsList
-                  tests={filteredTests}
-                  selectedTestId={selectedTestId}
-                  onTestSelect={handleTestSelect}
-                  loading={loading}
-                  prompts={prompts}
-                />
-              </Paper>
-            </Grid>
+                {/* Left: Tests List (33%) */}
+                <Box
+                  sx={{
+                    width: { xs: '100%', md: '33.33%' },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <TestsList
+                    tests={paginatedTests}
+                    selectedTestId={selectedTestId}
+                    onTestSelect={handleTestSelect}
+                    loading={loading}
+                    prompts={prompts}
+                  />
+                </Box>
 
-            {/* Right: Test Detail Panel (67%) */}
-            <Grid item xs={12} md={8}>
-              <Paper
+                {/* Right: Test Detail Panel (67%) */}
+                <Box
+                  sx={{
+                    width: { xs: '100%', md: '66.67%' },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <TestDetailPanel
+                    test={selectedTest}
+                    loading={loading}
+                    prompts={prompts}
+                    behaviors={behaviors}
+                    testRunId={testRunId}
+                    sessionToken={sessionToken}
+                    onTestResultUpdate={handleTestResultUpdate}
+                    currentUserId={currentUserId}
+                    currentUserName={currentUserName}
+                    currentUserPicture={currentUserPicture}
+                  />
+                </Box>
+              </Box>
+
+              {/* Shared Pagination at Bottom */}
+              <TablePagination
+                rowsPerPageOptions={[10, 25, 50, 100]}
+                component="div"
+                count={filteredTests.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
                 sx={{
-                  height: { xs: 600, md: 'calc(100vh - 420px)' },
-                  minHeight: 600,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
+                  borderTop: 1,
+                  borderColor: 'divider',
+                  backgroundColor: theme.palette.background.paper,
+                  flexShrink: 0,
                 }}
-              >
-                <TestDetailPanel
-                  test={selectedTest}
-                  loading={loading}
-                  prompts={prompts}
-                  behaviors={behaviors}
-                  testRunId={testRunId}
-                  sessionToken={sessionToken}
-                  onTestResultUpdate={handleTestResultUpdate}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  currentUserPicture={currentUserPicture}
-                />
-              </Paper>
-            </Grid>
-          </Grid>
+              />
+            </Paper>
+          ) : (
+            <TestsTableView
+              tests={filteredTests}
+              prompts={prompts}
+              behaviors={behaviors}
+              testRunId={testRunId}
+              sessionToken={sessionToken}
+              loading={loading}
+              onTestResultUpdate={handleTestResultUpdate}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+            />
+          )}
         </>
       ) : (
         <ComparisonView

@@ -49,13 +49,12 @@ export function useTestRunData({
 
       const apiFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = apiFactory.getTestResultsClient();
-      const promptsClient = apiFactory.getPromptsClient();
       const testRunsClient = apiFactory.getTestRunsClient();
 
       // Calculate skip based on pagination model
       const skip = paginationModel.page * paginationModel.pageSize;
 
-      // Fetch test results with pagination parameters
+      // Fetch test results with pagination parameters (now includes nested prompt and behavior data)
       const response = await testResultsClient.getTestResults({
         filter: `test_run_id eq '${testRunId}'`,
         skip: skip,
@@ -67,24 +66,25 @@ export function useTestRunData({
       const results = response.data;
       setTotalCount(response.pagination.totalCount);
 
-      // Get unique prompt IDs
-      const promptIds = [
-        ...new Set(
-          results
-            .filter((r: TestResultDetail) => r.prompt_id)
-            .map((r: TestResultDetail) => r.prompt_id!)
-        ),
-      ];
-
-      // Fetch all prompts in parallel
-      const promptsData = await Promise.all(
-        promptIds.map((id: string) => promptsClient.getPrompt(id))
-      );
-
-      // Create a map of prompt ID to prompt data
-      const promptsMap = promptsData.reduce(
-        (acc, prompt) => {
-          acc[prompt.id] = prompt;
+      // Build prompts map from nested data in test results (optimized - no separate API calls needed!)
+      const promptsMap = results.reduce(
+        (acc, testResult: TestResultDetail) => {
+          // Use nested prompt data if available
+          if (testResult.test?.prompt) {
+            acc[testResult.test.prompt.id] = {
+              id: testResult.test.prompt.id,
+              content: testResult.test.prompt.content,
+              expected_response: testResult.test.prompt.expected_response,
+              nano_id: testResult.test.prompt.nano_id,
+              counts: testResult.test.prompt.counts,
+            } as Prompt;
+          }
+          // Fallback: if prompt_id exists but nested data is not available (backward compatibility)
+          else if (testResult.prompt_id && !acc[testResult.prompt_id]) {
+            console.warn(
+              `Prompt ${testResult.prompt_id} not found in nested data for test result ${testResult.id}`
+            );
+          }
           return acc;
         },
         {} as Record<string, Prompt>
