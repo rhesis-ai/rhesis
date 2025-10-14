@@ -6,6 +6,7 @@ import AnalyticsOutlined from '@mui/icons-material/AnalyticsOutlined'
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined'
 import ChangeCircleOutlined from '@mui/icons-material/ChangeCircleOutlined'
 import IntegrationInstructionsOutlined from '@mui/icons-material/IntegrationInstructionsOutlined'
+import GroupWorkOutlined from '@mui/icons-material/GroupWorkOutlined'
 import { InfoCard } from './InfoCard'
 
 /**
@@ -48,6 +49,11 @@ const features = [
     title: 'Integrations',
     description: 'Works with your existing stack',
   },
+  {
+    icon: GroupWorkOutlined,
+    title: 'Reviews',
+    description: 'Team coordination via reviews, tasks & comments',
+  },
 ]
 
 export const FeatureOverview = () => {
@@ -61,7 +67,7 @@ export const FeatureOverview = () => {
     },
     featuresGrid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(3, 1fr)',
+      gridTemplateColumns: 'repeat(3, 1fr)', // 3 equal columns
       gap: '1.5rem',
       maxWidth: '900px',
       margin: '0 auto',
