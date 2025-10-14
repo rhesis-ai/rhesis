@@ -80,6 +80,25 @@ class StorageService:
             storage_dir.mkdir(parents=True, exist_ok=True)
             return str(storage_dir / f"{source_id}_{filename}")
 
+    def _get_local_path(self, file_path: str) -> str:
+        """Convert cloud storage path to local storage path.
+
+        Args:
+            file_path: Cloud storage path (e.g., "bucket_name/org_id/source_id_filename")
+
+        Returns:
+            str: Local file path
+        """
+        if self.use_cloud_storage and "/" in file_path:
+            # Extract the path after bucket name (e.g., "org_id/source_id_filename")
+            path_parts = file_path.split("/", 1)
+            if len(path_parts) > 1:
+                relative_path = path_parts[1]
+                return str(Path(self.storage_path) / relative_path)
+
+        # If it's already a local path or malformed cloud path, return as-is
+        return file_path
+
     async def save_file(self, content: bytes, file_path: str) -> str:
         """Save file content to storage."""
         with self.fs.open(file_path, "wb") as f:
@@ -87,9 +106,35 @@ class StorageService:
         return file_path
 
     async def get_file(self, file_path: str) -> bytes:
-        """Retrieve file content from storage."""
-        with self.fs.open(file_path, "rb") as f:
-            return f.read()
+        """Retrieve file content from storage with hybrid lookup.
+
+        First tries cloud storage (if configured), then falls back to local storage.
+        This allows for gradual migration from local to cloud storage.
+        """
+        # Try cloud storage first (if configured)
+        if self.use_cloud_storage:
+            try:
+                with self.fs.open(file_path, "rb") as f:
+                    content = f.read()
+                    logger.debug(f"Retrieved file from cloud storage: {file_path}")
+                    return content
+            except FileNotFoundError:
+                logger.debug(f"File not found in cloud storage, checking local: {file_path}")
+            except Exception as e:
+                logger.warning(f"Error accessing cloud storage for {file_path}: {str(e)}")
+
+        # Try local storage
+        local_path = self._get_local_path(file_path)
+        if os.path.exists(local_path):
+            try:
+                with open(local_path, "rb") as f:
+                    content = f.read()
+                    logger.debug(f"Retrieved file from local storage: {local_path}")
+                    return content
+            except Exception as e:
+                logger.error(f"Error reading local file {local_path}: {str(e)}")
+
+        raise FileNotFoundError(f"File not found in cloud or local storage: {file_path}")
 
     async def delete_file(self, file_path: str) -> bool:
         """Delete file from storage."""
@@ -100,15 +145,90 @@ class StorageService:
             return False
 
     def file_exists(self, file_path: str) -> bool:
-        """Check if file exists in storage."""
-        try:
-            return self.fs.exists(file_path)
-        except Exception:
-            return False
+        """Check if file exists in storage with hybrid lookup.
+
+        Checks both cloud storage (if configured) and local storage.
+        """
+        # Check cloud storage first (if configured)
+        if self.use_cloud_storage:
+            try:
+                if self.fs.exists(file_path):
+                    logger.debug(f"File exists in cloud storage: {file_path}")
+                    return True
+            except Exception as e:
+                logger.warning(f"Error checking cloud storage for {file_path}: {str(e)}")
+
+        # Check local storage
+        local_path = self._get_local_path(file_path)
+        if os.path.exists(local_path):
+            logger.debug(f"File exists in local storage: {local_path}")
+            return True
+
+        logger.debug(f"File not found in cloud or local storage: {file_path}")
+        return False
 
     def get_file_size(self, file_path: str) -> Optional[int]:
-        """Get file size in bytes."""
+        """Get file size in bytes with hybrid lookup."""
+        # Try cloud storage first (if configured)
+        if self.use_cloud_storage:
+            try:
+                size = self.fs.size(file_path)
+                if size is not None:
+                    logger.debug(f"File size from cloud storage: {file_path} ({size} bytes)")
+                    return size
+            except Exception as e:
+                logger.warning(
+                    f"Error getting file size from cloud storage for {file_path}: {str(e)}"
+                )
+
+        # Try local storage
+        local_path = self._get_local_path(file_path)
+        if os.path.exists(local_path):
+            try:
+                size = os.path.getsize(local_path)
+                logger.debug(f"File size from local storage: {local_path} ({size} bytes)")
+                return size
+            except Exception as e:
+                logger.error(f"Error getting local file size for {local_path}: {str(e)}")
+
+        return None
+
+    async def migrate_file_to_cloud(self, file_path: str) -> bool:
+        """Migrate a file from local storage to cloud storage.
+
+        This is useful for gradually moving files from local to cloud storage.
+
+        Args:
+            file_path: Cloud storage path where the file should be stored
+
+        Returns:
+            bool: True if migration was successful, False otherwise
+        """
+        if not self.use_cloud_storage:
+            logger.warning("Cloud storage not configured, cannot migrate file")
+            return False
+
+        local_path = self._get_local_path(file_path)
+        if not os.path.exists(local_path):
+            logger.warning(f"Local file not found for migration: {local_path}")
+            return False
+
         try:
-            return self.fs.size(file_path)
-        except Exception:
-            return None
+            # Read local file
+            with open(local_path, "rb") as f:
+                content = f.read()
+
+            # Save to cloud storage
+            await self.save_file(content, file_path)
+
+            # Verify cloud storage
+            if self.fs.exists(file_path):
+                logger.info(f"Successfully migrated file to cloud storage: {file_path}")
+                return True
+            else:
+                logger.error(f"File migration failed - not found in cloud storage: {file_path}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error migrating file {local_path} to cloud storage: {str(e)}")
+            return False
