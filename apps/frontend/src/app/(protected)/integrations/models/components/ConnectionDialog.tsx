@@ -670,7 +670,8 @@ export function ConnectionDialog({
             {/* Connection Test Required Message */}
             {!isEditMode && !connectionTested && (
               <Alert severity="info" sx={{ mt: 2 }}>
-                Please test the connection before saving the model configuration.
+                Please test the connection before saving the model
+                configuration.
               </Alert>
             )}
             {isEditMode && apiKey !== '************' && !connectionTested && (
