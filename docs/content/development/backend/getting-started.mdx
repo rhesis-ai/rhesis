@@ -1,0 +1,164 @@
+# Getting Started with Rhesis Backend
+
+This guide will help you set up and run the Rhesis backend on your local machine for development purposes.
+
+## Prerequisites
+
+Before you begin, make sure you have the following installed:
+
+- Python 3.10 or higher
+- PostgreSQL 13 or higher
+- [UV](https://github.com/astral-sh/uv) package installer
+- Git
+
+## Clone the Repository
+
+<CodeBlock filename="clone-repo.sh" language="bash">
+{`git clone <repository_url>
+cd rhesis`}
+</CodeBlock>
+
+## Environment Setup
+
+1. Navigate to the backend directory:
+
+<CodeBlock filename="navigate.sh" language="bash">
+{`cd apps/backend`}
+</CodeBlock>
+
+2. Create a Python virtual environment:
+
+<CodeBlock filename="create-venv.sh" language="bash">
+{`python -m venv .venv`}
+</CodeBlock>
+
+3. Activate the virtual environment:
+
+On Linux/macOS:
+<CodeBlock filename="activate-venv-unix.sh" language="bash">
+{`source .venv/bin/activate`}
+</CodeBlock>
+
+On Windows:
+<CodeBlock filename="activate-venv-windows.sh" language="bash">
+{`.venv\Scripts\activate`}
+</CodeBlock>
+
+4. Install dependencies using UV:
+
+<CodeBlock filename="install-deps.sh" language="bash">
+{`uv pip install -e .`}
+</CodeBlock>
+
+## Database Setup
+
+1. Create a PostgreSQL database:
+
+<CodeBlock filename="create-db.sh" language="bash">
+{`createdb rhesis`}
+</CodeBlock>
+
+2. Create a `.env` file based on the provided template:
+
+<CodeBlock filename="setup-env.sh" language="bash">
+{`cp .env.example .env`}
+</CodeBlock>
+
+3. Update the database connection string in `.env`:
+
+<CodeBlock filename=".env" language="bash">
+{`SQLALCHEMY_DATABASE_URL=postgresql://username:password@localhost:5432/rhesis`}
+</CodeBlock>
+
+4. Run database migrations:
+
+<CodeBlock filename="migrate-db.sh" language="bash">
+{`alembic upgrade head`}
+</CodeBlock>
+
+## Running the Application
+
+1. Start the FastAPI server:
+
+<CodeBlock filename="start-server.sh" language="bash">
+{`uvicorn rhesis.backend.app.main:app --reload`}
+</CodeBlock>
+
+The API will be available at http://localhost:8000
+
+2. Open the API documentation:
+
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+## Running Background Tasks
+
+1. Start a Celery worker:
+
+<CodeBlock filename="start-celery.sh" language="bash">
+{`celery -A rhesis.backend.worker worker --loglevel=info`}
+</CodeBlock>
+
+## Development Workflow
+
+### Code Formatting
+
+Format code using ruff:
+
+<CodeBlock filename="format-code.sh" language="bash">
+{`uv run --all-groups ruff format .`}
+</CodeBlock>
+
+### Linting
+
+Run the linter:
+
+<CodeBlock filename="lint-check.sh" language="bash">
+{`uv run --all-groups ruff check .`}
+</CodeBlock>
+
+Fix linting issues automatically:
+
+<CodeBlock filename="lint-fix.sh" language="bash">
+{`uv run --all-groups ruff check --fix .`}
+</CodeBlock>
+
+### Running Tests
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+## Authentication Setup
+
+For local development, you can use Auth0 or set up a mock authentication system.
+
+### Auth0 Configuration
+
+1. Create an Auth0 application at https://auth0.com/
+2. Update the Auth0 configuration in your `.env` file:
+
+```
+AUTH0_DOMAIN=your-domain.auth0.com
+AUTH0_AUDIENCE=your-audience
+AUTH0_CLIENT_ID=your-client-id
+AUTH0_CLIENT_SECRET=your-client-secret
+AUTH0_SECRET_KEY=your-secret-key
+```
+
+## API Endpoints
+
+Once the application is running, you can explore the available endpoints through the Swagger UI at http://localhost:8000/docs.
+
+## Next Steps
+
+Now that you have the backend running, you can:
+
+1. Create your first organization and user
+2. Explore the API endpoints
+3. Set up the frontend application to interact with the backend
+4. Start developing new features
+
+For more detailed information about the backend architecture and components, refer to the other documentation files in this directory.

@@ -1,0 +1,575 @@
+# Frontend Testing
+
+This guide covers testing strategies and implementation for the Rhesis frontend application.
+
+<Callout type="default">
+  **Testing Framework** The frontend uses **Jest** as the test runner and **React Testing Library**
+  for component testing, providing comprehensive unit testing capabilities.
+</Callout>
+
+## Quick Start
+
+### Running Tests
+
+<CodeBlock filename="test-commands.sh" language="bash">
+{`# Navigate to frontend directory
+cd apps/frontend
+
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in CI mode
+npm test:ci`}
+</CodeBlock>
+
+<Callout type="default">
+  **Test Coverage** Target coverage thresholds: **70%** for branches, functions, lines, and
+  statements
+</Callout>
+
+## Testing Configuration
+
+### Jest Setup
+
+The testing framework is configured in `jest.config.js`:
+
+<CodeBlock filename="jest.config.js" language="javascript">
+{`const nextJest = require('next/jest')
+
+const createJestConfig = nextJest({
+  dir: './',
+})
+
+const customJestConfig = {
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  testEnvironment: 'jsdom',
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/index.ts',
+    '!src/app/layout.tsx',
+    '!src/app/page.tsx',
+    '!src/auth.ts',
+    '!src/middleware.ts',
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
+}
+
+module.exports = createJestConfig(customJestConfig)`}
+</CodeBlock>
+
+### Test Environment Setup
+
+The test environment is configured in `jest.setup.js`:
+
+```javascript
+import '@testing-library/jest-dom'
+
+// Set environment variables for tests
+process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1'
+
+// Mock Next.js router
+jest.mock('next/router', () => ({
+  useRouter() {
+    return {
+      route: '/',
+      pathname: '',
+      query: {},
+      asPath: '',
+      push: jest.fn(),
+      events: {
+        on: jest.fn(),
+        off: jest.fn(),
+      },
+      isFallback: false,
+    }
+  },
+}))
+
+// Mock browser APIs
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+})
+
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}))
+```
+
+## Writing Tests
+
+### Component Testing
+
+Use React Testing Library to test component behavior and user interactions:
+
+```typescript
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import BaseDrawer from '../BaseDrawer';
+import '@testing-library/jest-dom';
+
+describe('BaseDrawer', () => {
+  const mockOnClose = jest.fn();
+  const mockOnSave = jest.fn();
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders with open state', () => {
+    render(
+      <BaseDrawer open={true} onClose={mockOnClose} title="Test Drawer">
+        <div>Test Content</div>
+      </BaseDrawer>
+    );
+
+    expect(screen.getByText('Test Drawer')).toBeInTheDocument();
+    expect(screen.getByText('Test Content')).toBeInTheDocument();
+  });
+
+  it('calls onClose when Cancel button is clicked', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BaseDrawer open={true} onClose={mockOnClose} title="Test Drawer">
+        <div>Test Content</div>
+      </BaseDrawer>
+    );
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables buttons when loading is true', () => {
+    render(
+      <BaseDrawer
+        open={true}
+        onClose={mockOnClose}
+        onSave={mockOnSave}
+        title="Test Drawer"
+        loading={true}
+      >
+        <div>Test Content</div>
+      </BaseDrawer>
+    );
+
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
+  });
+});
+```
+
+### Hook Testing
+
+Test custom hooks using `@testing-library/react-hooks`:
+
+```typescript
+import { renderHook, act } from '@testing-library/react'
+import { useTasks } from '../useTasks'
+import { TasksClient } from '@/utils/api-client/tasks-client'
+
+// Mock the API client
+jest.mock('@/utils/api-client/tasks-client')
+const mockTasksClient = TasksClient as jest.Mocked<typeof TasksClient>
+
+describe('useTasks', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('should fetch tasks on mount', async () => {
+    const mockTasks = [{ id: '1', name: 'Test Task' }]
+    mockTasksClient.getTasks.mockResolvedValue(mockTasks)
+
+    const { result } = renderHook(() => useTasks())
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
+    expect(result.current.tasks).toEqual(mockTasks)
+    expect(result.current.isLoading).toBe(false)
+  })
+
+  it('should handle errors correctly', async () => {
+    const mockError = new Error('API Error')
+    mockTasksClient.getTasks.mockRejectedValue(mockError)
+
+    const { result } = renderHook(() => useTasks())
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
+    expect(result.current.error).toBe('API Error')
+    expect(result.current.isLoading).toBe(false)
+  })
+})
+```
+
+### Utility Function Testing
+
+Test utility functions with Jest:
+
+```typescript
+import { formatDate } from '../date-utils'
+
+describe('formatDate', () => {
+  it('formats ISO date string correctly', () => {
+    const isoDate = '2024-01-15T10:30:00Z'
+    const formatted = formatDate(isoDate)
+
+    expect(formatted).toBe('Jan 15, 2024')
+  })
+
+  it('handles invalid date gracefully', () => {
+    const invalidDate = 'invalid-date'
+    const formatted = formatDate(invalidDate)
+
+    expect(formatted).toBe('Invalid Date')
+  })
+
+  it('formats with custom locale', () => {
+    const isoDate = '2024-01-15T10:30:00Z'
+    const formatted = formatDate(isoDate, 'en-GB')
+
+    expect(formatted).toBe('15 Jan 2024')
+  })
+})
+```
+
+## Test Utilities
+
+### Custom Test Utils
+
+Use custom test utilities for consistent test setup:
+
+```typescript
+// src/__mocks__/test-utils.tsx
+import { render, RenderOptions } from '@testing-library/react';
+import { ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Mock QueryClient for testing
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
+
+export const renderWithProviders = (
+  ui: ReactElement,
+  options?: RenderOptions
+) => {
+  const queryClient = createTestQueryClient();
+
+  const providers = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+
+  return render(ui, { wrapper: providers, ...options });
+};
+
+export * from '@testing-library/react';
+```
+
+### Mock Implementations
+
+Create mock implementations for API clients:
+
+```typescript
+// Mock API client
+jest.mock('@/utils/api-client/tasks-client', () => ({
+  TasksClient: jest.fn().mockImplementation(() => ({
+    getTasks: jest.fn(),
+    createTask: jest.fn(),
+    updateTask: jest.fn(),
+    deleteTask: jest.fn(),
+  })),
+}))
+```
+
+## Testing Best Practices
+
+### Test Structure
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div>
+    <h3>✅ Good Practices</h3>
+    <pre><code>{`// Test user behavior, not implementation
+expect(screen.getByRole('button')).toBeInTheDocument();
+
+// Use semantic queries
+screen.getByRole('button', { name: /submit/i });
+
+// Test error states
+expect(screen.getByText(/error/i)).toBeInTheDocument();`}</code></pre>
+
+  </div>
+  <div>
+    <h3>❌ Avoid These</h3>
+    <pre><code>{`// Don't test implementation details
+expect(wrapper.find('.my-button')).toHaveLength(1);
+
+// Avoid fragile queries
+screen.getByClassName('button-submit');
+
+// Don't test internal state
+expect(component.state.isLoading).toBe(true);`}</code></pre>
+
+  </div>
+</div>
+
+### Test Organization
+
+<FileTree
+  title="Test Organization"
+  data={[
+    {
+      name: "src",
+      type: "folder",
+      children: [
+        {
+          name: "components",
+          type: "folder",
+          children: [
+            {
+              name: "Button",
+              type: "folder",
+              children: [
+                {
+                  name: "Button.tsx",
+                  type: "file"
+                },
+                {
+                  name: "Button.test.tsx",
+                  type: "file",
+                  description: "Co-located tests"
+                },
+                {
+                  name: "index.ts",
+                  type: "file"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: "hooks",
+          type: "folder",
+          children: [
+            {
+              name: "useAuth.ts",
+              type: "file"
+            },
+            {
+              name: "useAuth.test.ts",
+              type: "file",
+              description: "Hook tests"
+            }
+          ]
+        },
+        {
+          name: "utils",
+          type: "folder",
+          children: [
+            {
+              name: "formatDate.ts",
+              type: "file"
+            },
+            {
+              name: "formatDate.test.ts",
+              type: "file",
+              description: "Utility tests"
+            }
+          ]
+        },
+        {
+          name: "__tests__",
+          type: "folder",
+          children: [
+            {
+              name: "integration",
+              type: "folder",
+              description: "Integration tests"
+            },
+            {
+              name: "setup",
+              type: "folder",
+              description: "Test setup files"
+            },
+            {
+              name: "README.md",
+              type: "file",
+              description: "Test documentation"
+            }
+          ]
+        }
+      ]
+    }
+  ]}
+/>
+
+### Coverage Guidelines
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  <div>
+    <h3>Unit Tests</h3>
+    <p>Component and utility function testing</p>
+    <strong>Target: 80%+</strong>
+  </div>
+  <div>
+    <h3>Integration Tests</h3>
+    <p>Hook and API integration testing</p>
+    <strong>Target: 70%+</strong>
+  </div>
+  <div>
+    <h3>Critical Paths</h3>
+    <p>Authentication and core workflows</p>
+    <strong>Target: 90%+</strong>
+  </div>
+  <div>
+    <h3>Edge Cases</h3>
+    <p>Error handling and boundary conditions</p>
+    <strong>Target: 60%+</strong>
+  </div>
+</div>
+
+## Integration with CI/CD
+
+### Pre-commit Hooks
+
+Tests run automatically before commits through the validation script:
+
+```bash
+# apps/frontend/scripts/validate.sh
+echo "🔍 Running tests..."
+npm test -- --passWithNoTests --watchAll=false
+TEST_EXIT_CODE=$?
+
+# Validation continues with other checks...
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+  echo "✗ Tests failed"
+  exit 1
+fi
+```
+
+### GitHub Actions
+
+Automated testing in CI/CD pipeline:
+
+```yaml
+# .github/workflows/frontend.yml
+test:
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'apps/frontend/package-lock.json'
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: ./apps/frontend
+
+    - name: Run tests
+      run: npm run test:ci
+      working-directory: ./apps/frontend
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./apps/frontend/coverage/lcov.info
+```
+
+## Troubleshooting
+
+### Common Issues
+
+<div className="space-y-4">
+  <div>
+    <h3>Environment Variables Missing</h3>
+    <pre><code>{`# Add to jest.setup.js
+process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';`}</code></pre>
+  </div>
+
+<div>
+  <h3>Browser APIs Not Available</h3>
+  <pre>
+    <code>{`# Mock in jest.setup.js
+global.matchMedia = jest.fn().mockImplementation(query => ({ ... }));
+global.ResizeObserver = jest.fn();`}</code>
+  </pre>
+</div>
+
+  <div>
+    <h3>Async Operations Not Awaited</h3>
+    <pre><code>{`// Use act() for async operations
+await act(async () => {
+  await new Promise(resolve => setTimeout(resolve, 0));
+});`}</code></pre>
+  </div>
+</div>
+
+### Debug Tips
+
+```bash
+# Run tests with verbose output
+npm test -- --verbose
+
+# Run specific test file
+npm test Button.test.tsx
+
+# Run tests matching pattern
+npm test -- --testNamePattern="should render"
+
+# Debug failing test
+npm test -- --detectOpenHandles
+```
+
+---
+
+<Callout type="default">
+  **Resources** - [React Testing Library
+  Docs](https://testing-library.com/docs/react-testing-library/intro/) - [Jest
+  Documentation](https://jestjs.io/docs/getting-started) - [Testing Library Best
+  Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) - [Frontend
+  Testing Examples](/docs/development/frontend/testing/examples)
+</Callout>

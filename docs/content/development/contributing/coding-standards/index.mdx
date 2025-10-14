@@ -1,0 +1,629 @@
+# Coding Standards
+
+This document outlines the coding standards and best practices for the Rhesis project. Following these standards ensures code quality, maintainability, and consistency across the codebase.
+
+<Callout type="default">
+  **Code Quality Matters** Consistent coding standards help us maintain high-quality code, improve
+  collaboration, and reduce bugs. Please follow these guidelines for all contributions.
+</Callout>
+
+## Python Standards
+
+### Code Style
+
+We follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) and use [Ruff](https://docs.astral.sh/ruff/) for automatic formatting and linting.
+
+**Basic Rules:**
+
+- **Indentation**: 4 spaces (no tabs)
+- **Line Length**: 88 characters maximum
+- **Naming**: `snake_case` for variables, functions, and modules
+- **Classes**: `PascalCase` for class names
+- **Constants**: `UPPER_CASE` for constants
+
+### Type Hints
+
+All functions should include type hints:
+
+```python
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+
+def create_user(
+    user_data: UserCreate,
+    db: Session,
+    organization_id: Optional[int] = None
+) -> User:
+    """Create a new user in the database."""
+    user = User(
+        email=user_data.email,
+        name=user_data.name,
+        organization_id=organization_id
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+async def get_users_by_organization(
+    org_id: int,
+    db: AsyncSession,
+    limit: int = 100
+) -> List[User]:
+    """Retrieve users for a specific organization."""
+    result = await db.execute(
+        select(User)
+        .where(User.organization_id == org_id)
+        .limit(limit)
+    )
+    return result.scalars().all()
+```
+
+### Docstrings
+
+Use Google-style docstrings for all functions and classes:
+
+```python
+def calculate_test_coverage(
+    test_results: List[Dict[str, Any]],
+    threshold: Optional[float] = None
+) -> float:
+    """
+    Calculate test coverage percentage from test results.
+
+    Args:
+        test_results: List of test result dictionaries containing
+            status and other test information.
+        threshold: Optional minimum coverage threshold. If provided,
+            raises ValueError if coverage is below this value.
+
+    Returns:
+        Coverage percentage as a float between 0.0 and 100.0.
+
+    Raises:
+        ValueError: If test_results is empty or coverage is below threshold.
+
+    Example:
+        >>> results = [{'status': 'passed'}, {'status': 'failed'}]
+        >>> calculate_test_coverage(results)
+        50.0
+    """
+    if not test_results:
+        raise ValueError("Test results cannot be empty")
+
+    total_tests = len(test_results)
+    passed_tests = sum(
+        1 for result in test_results
+        if result.get('status') == 'passed'
+    )
+
+    coverage = (passed_tests / total_tests) * 100
+
+    if threshold and coverage < threshold:
+        raise ValueError(
+            f"Coverage {coverage}% below threshold {threshold}%"
+        )
+
+    return coverage
+```
+
+### Error Handling
+
+Use specific exceptions and proper error handling:
+
+```python
+from rhesis.backend.core.exceptions import (
+    UserNotFoundError,
+    ValidationError,
+    DatabaseError
+)
+
+def get_user_by_id(user_id: int, db: Session) -> User:
+    """Retrieve a user by ID with proper error handling."""
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise UserNotFoundError(f"User with ID {user_id} not found")
+        return user
+    except SQLAlchemyError as e:
+        raise DatabaseError(f"Database error: {str(e)}") from e
+    except Exception as e:
+        raise ValidationError(f"Unexpected error: {str(e)}") from e
+```
+
+### Testing Standards
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Unit Tests</h3>
+    <p>Test individual functions and methods in isolation.</p>
+  </div>
+  <div>
+    <h3>Integration Tests</h3>
+    <p>Test component interactions and API endpoints.</p>
+  </div>
+  <div>
+    <h3>Fixtures</h3>
+    <p>Use pytest fixtures for test data and setup.</p>
+  </div>
+  <div>
+    <h3>Coverage</h3>
+    <p>Maintain 90%+ test coverage for new code.</p>
+  </div>
+  <div>
+    <h3>Mocking</h3>
+    <p>Mock external dependencies and services.</p>
+  </div>
+</div>
+
+**Example Test:**
+
+```python
+import pytest
+from unittest.mock import Mock, patch
+from rhesis.backend.services.user_service import UserService
+from rhesis.backend.models.user import User
+
+class TestUserService:
+    """Test cases for UserService."""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create a mock database session."""
+        return Mock()
+
+    @pytest.fixture
+    def user_service(self, mock_db):
+        """Create UserService instance with mock database."""
+        return UserService(mock_db)
+
+    def test_create_user_success(self, user_service, mock_db):
+        """Test successful user creation."""
+        # Arrange
+        user_data = UserCreate(
+            email="test@example.com",
+            name="Test User",
+            password="securepassword"
+        )
+        mock_user = User(
+            id=1,
+            email="test@example.com",
+            name="Test User"
+        )
+        mock_db.add.return_value = None
+        mock_db.commit.return_value = None
+        mock_db.refresh.return_value = None
+
+        # Act
+        result = user_service.create_user(user_data)
+
+        # Assert
+        assert result.email == "test@example.com"
+        assert result.name == "Test User"
+        mock_db.add.assert_called_once()
+        mock_db.commit.assert_called_once()
+        mock_db.refresh.assert_called_once()
+
+    def test_create_user_duplicate_email(self, user_service, mock_db):
+        """Test user creation with duplicate email raises error."""
+        # Arrange
+        user_data = UserCreate(
+            email="existing@example.com",
+            name="Test User",
+            password="securepassword"
+        )
+        mock_db.add.side_effect = IntegrityError("", "", "")
+
+        # Act & Assert
+        with pytest.raises(UserAlreadyExistsError):
+            user_service.create_user(user_data)
+```
+
+## JavaScript/TypeScript Standards
+
+### Code Style
+
+We use ESLint and Prettier for code formatting and linting.
+
+**Basic Rules:**
+
+- **Indentation**: 2 spaces
+- **Line Length**: 80 characters maximum
+- **Naming**: `camelCase` for variables and functions
+- **Components**: `PascalCase` for React components
+- **Constants**: `UPPER_SNAKE_CASE` for constants
+
+### TypeScript Usage
+
+Use TypeScript for all new code with strict configuration:
+
+```typescript
+// Define interfaces for data structures
+interface User {
+  id: string
+  email: string
+  name: string
+  organizationId: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface UserCreateRequest {
+  email: string
+  name: string
+  password: string
+  organizationId?: string
+}
+
+interface ApiResponse<T> {
+  data: T
+  message: string
+  success: boolean
+}
+
+// Use proper typing for functions
+const createUser = async (userData: UserCreateRequest): Promise<ApiResponse<User>> => {
+  try {
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    throw new Error(`Failed to create user: ${error.message}`)
+  }
+}
+```
+
+### React Components
+
+Follow React best practices and hooks:
+
+```typescript
+import React, { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+
+interface UserFormProps {
+  onSubmit: (userData: UserCreateRequest) => void;
+  initialData?: Partial<User>;
+  isLoading?: boolean;
+}
+
+export const UserForm: React.FC<UserFormProps> = ({
+  onSubmit,
+  initialData,
+  isLoading = false,
+}) => {
+  const [formData, setFormData] = useState<UserCreateRequest>({
+    email: initialData?.email || '',
+    name: initialData?.name || '',
+    password: '',
+  });
+
+  const handleInputChange = useCallback(
+    (field: keyof UserCreateRequest) => (
+      event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: event.target.value,
+      }));
+    },
+    []
+  );
+
+  const handleSubmit = useCallback(
+    (event: React.FormEvent) => {
+      event.preventDefault();
+      onSubmit(formData);
+    },
+    [formData, onSubmit]
+  );
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={handleInputChange('email')}
+          required
+          className="mt-1 block w-full rounded-md border-gray-300"
+          disabled={isLoading}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium">
+          Name
+        </label>
+        <input
+          id="name"
+          type="text"
+          value={formData.name}
+          onChange={handleInputChange('name')}
+          required
+          className="mt-1 block w-full rounded-md border-gray-300"
+          disabled={isLoading}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={isLoading}
+        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+      >
+        {isLoading ? 'Creating...' : 'Create User'}
+      </button>
+    </form>
+  );
+};
+```
+
+### Custom Hooks
+
+Create reusable custom hooks for common functionality:
+
+```typescript
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+export const useUsers = (organizationId: string) => {
+  return useQuery({
+    queryKey: ['users', organizationId],
+    queryFn: () => api.getUsers(organizationId),
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export const useCreateUser = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: api.createUser,
+    onSuccess: newUser => {
+      // Invalidate and refetch users list
+      queryClient.invalidateQueries(['users', newUser.organizationId])
+
+      // Add new user to cache
+      queryClient.setQueryData(['users', newUser.organizationId], (oldUsers: User[] = []) => [
+        ...oldUsers,
+        newUser,
+      ])
+    },
+    onError: error => {
+      console.error('Failed to create user:', error)
+    },
+  })
+}
+
+export const useLocalStorage = <T>(key: string, initialValue: T): [T, (value: T) => void] => {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key)
+      return item ? JSON.parse(item) : initialValue
+    } catch (error) {
+      console.error(`Error reading localStorage key "${key}":`, error)
+      return initialValue
+    }
+  })
+
+  const setValue = (value: T) => {
+    try {
+      setStoredValue(value)
+      window.localStorage.setItem(key, JSON.stringify(value))
+    } catch (error) {
+      console.error(`Error setting localStorage key "${key}":`, error)
+    }
+  }
+
+  return [storedValue, setValue]
+}
+```
+
+### Error Handling
+
+Implement proper error boundaries and error handling:
+
+```typescript
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback || (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+            <h2 className="text-lg font-semibold text-red-800">
+              Something went wrong
+            </h2>
+            <p className="text-red-600">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
+          </div>
+        )
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+## General Best Practices
+
+### Code Organization
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>File Structure</h3>
+    <p>Organize files logically and consistently.</p>
+  </div>
+  <div>
+    <h3>Separation of Concerns</h3>
+    <p>Keep functions and components focused and single-purpose.</p>
+  </div>
+  <div>
+    <h3>DRY Principle</h3>
+    <p>Don't Repeat Yourself - extract common functionality.</p>
+  </div>
+  <div>
+    <h3>SOLID Principles</h3>
+    <p>Follow object-oriented design principles.</p>
+  </div>
+  <div>
+    <h3>Clean Code</h3>
+    <p>Write readable, self-documenting code.</p>
+  </div>
+</div>
+
+### Performance Considerations
+
+```typescript
+// Use React.memo for expensive components
+const ExpensiveComponent = React.memo<Props>(({ data }) => {
+  return <div>{/* Expensive rendering logic */}</div>;
+});
+
+// Use useMemo for expensive calculations
+const expensiveValue = useMemo(() => {
+  return performExpensiveCalculation(data);
+}, [data]);
+
+// Use useCallback for function props
+const handleClick = useCallback(() => {
+  // Handle click logic
+}, [dependencies]);
+```
+
+### Security Best Practices
+
+<Callout type="default">
+  **Security Guidelines** - Always validate and sanitize user input - Use parameterized queries to
+  prevent SQL injection - Implement proper authentication and authorization - Keep dependencies
+  updated and scan for vulnerabilities - Never expose sensitive information in logs or error
+  messages
+</Callout>
+
+### Documentation Standards
+
+**Code Comments:**
+
+- Write comments for complex logic
+- Explain "why" not "what"
+- Keep comments up to date with code changes
+
+**README Files:**
+
+- Include setup instructions
+- Document API usage
+- Provide examples
+
+**API Documentation:**
+
+- Use OpenAPI/Swagger for backend APIs
+- Include request/response examples
+- Document error codes and messages
+
+## Pre-commit Hooks
+
+We use pre-commit hooks to enforce code quality:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.0.0
+    hooks:
+      - id: eslint
+        files: \.(js|ts|tsx)$
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+```
+
+## Code Review Checklist
+
+When reviewing code, check for:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Functionality</h3>
+    <p>Does the code work as intended?</p>
+  </div>
+  <div>
+    <h3>Code Quality</h3>
+    <p>Is the code readable and maintainable?</p>
+  </div>
+  <div>
+    <h3>Testing</h3>
+    <p>Are there adequate tests?</p>
+  </div>
+  <div>
+    <h3>Documentation</h3>
+    <p>Is the code well-documented?</p>
+  </div>
+  <div>
+    <h3>Performance</h3>
+    <p>Are there performance implications?</p>
+  </div>
+  <div>
+    <h3>Security</h3>
+    <p>Are there security concerns?</p>
+  </div>
+</div>
+
+---
+
+<Callout type="default">
+  **Questions?** If you have questions about these coding standards: - Check our [Development Setup
+  Guide](/docs/development/contributing/development-setup) - Ask in [GitHub
+  Discussions](https://github.com/rhesis-ai/rhesis/discussions) - Review existing code for examples
+</Callout>

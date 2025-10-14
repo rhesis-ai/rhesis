@@ -159,24 +159,24 @@ async def test_async_endpoint(async_client):
 test('button calls onClick when clicked', async () => {
   const user = userEvent.setup();
   const mockOnClick = jest.fn();
-  
+
   render(<Button onClick={mockOnClick}>Click me</Button>);
-  
+
   // Use semantic queries (getByRole, getByLabelText, getByText)
   await user.click(screen.getByRole('button', { name: /click me/i }));
-  
+
   expect(mockOnClick).toHaveBeenCalledTimes(1);
 });
 
 // ✅ GOOD: Test loading and error states
 test('shows loading spinner while submitting', async () => {
   const user = userEvent.setup();
-  
+
   render(<LoginForm onSubmit={mockSubmit} />);
-  
+
   await user.type(screen.getByLabelText(/email/i), 'test@example.com');
   await user.click(screen.getByRole('button', { name: /sign in/i }));
-  
+
   expect(screen.getByLabelText(/loading/i)).toBeInTheDocument();
 });
 
@@ -199,7 +199,7 @@ const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } }
   });
-  
+
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -240,7 +240,7 @@ export const handlers = [
   rest.get('/api/test-sets', (req, res, ctx) => {
     return res(ctx.json([{ id: '1', name: 'Banking Tests' }]));
   }),
-  
+
   rest.post('/api/test-sets', (req, res, ctx) => {
     return res(ctx.status(201), ctx.json({ id: 'new-id' }));
   }),
@@ -273,10 +273,10 @@ test('component is accessible', async () => {
 test('supports keyboard navigation', async () => {
   const user = userEvent.setup();
   render(<Button onClick={mockClick}>Save</Button>);
-  
+
   await user.tab(); // Focus the button
   await user.keyboard('{Enter}'); // Activate with keyboard
-  
+
   expect(mockClick).toHaveBeenCalled();
 });
 ```
@@ -309,10 +309,10 @@ test('supports keyboard navigation', async () => {
 def test_sdk_handles_api_error():
     with requests_mock.Mocker() as m:
         m.get('https://api.rhesis.ai/test-sets', status_code=500)
-        
+
         client = RhesisClient(api_key="test-key")
         result = client.get_test_sets()
-        
+
         assert result.success is False
         assert "500" in result.error_message
 ```
@@ -358,7 +358,7 @@ useEffect(() => {
     // Logic that depends on state
     return users.find(u => u.id === tokenUserId)?.id;
   };
-  
+
   const userId = getCurrentUserId();
   // Use userId...
 }, [sessionToken, users]); // Only essential dependencies
@@ -394,7 +394,7 @@ useEffect(() => {
     disableCloseOnSelect
     disableClearable
     freeSolo
-    renderTags={(value, getTagProps) => 
+    renderTags={(value, getTagProps) =>
       value.map((option, index) => (
         <Chip
           {...getTagProps({ index })}
@@ -451,7 +451,7 @@ useEffect(() => {
   - Core functionality tests in feature-specific subdirectories
   - Integration tests in dedicated `integration/` folders
   - Shared utilities and fixtures in appropriate locations
-- **Shared resources**: 
+- **Shared resources**:
   - Component-specific fixtures: `tests/{component}/conftest.py`
   - Cross-component utilities: `tests/shared/`
   - Test data factories: `tests/shared/factories/`
@@ -636,3 +636,53 @@ When a user mentions creating/modifying code, suggest the appropriate test locat
 - **Follow the established directory structure** - Group tests by architectural layer/functionality
 - **Suggest creating subdirectories** when new test categories are needed
 - **Recommend shared utilities** when test code becomes repetitive across components
+
+# Rhesis Documentation Cursor Rules
+
+## Material-UI Icons in MDX Files
+
+**Problem**: MDX files cannot directly import Material-UI icons due to module resolution issues.
+
+**Solution**: Always create a separate JSX component to handle icon imports, then use that component in MDX files.
+
+### Pattern to Follow:
+
+1. **Create a JSX component** in `/docs/src/components/` that imports the MUI icons:
+   ```jsx
+   'use client'
+
+   import React from 'react'
+   import IconName from '@mui/icons-material/IconName'
+   import { InfoCardHorizontal } from './InfoCardHorizontal'
+
+   export const MyComponent = () => {
+     return (
+       <InfoCardHorizontal icon={IconName} title="..." description="..." />
+     )
+   }
+   ```
+
+2. **Register the component** in `/docs/src/mdx-components.js`:
+   ```js
+   import { MyComponent } from './components/MyComponent'
+
+   export function useMDXComponents(components) {
+     return {
+       ...themeComponents,
+       ...components,
+       MyComponent,
+     }
+   }
+   ```
+
+3. **Use in MDX files** without any imports:
+   ```mdx
+   <MyComponent />
+   ```
+
+### Examples:
+- `FeatureOverview.jsx` - Imports MUI icons, exports component
+- `ArchitectureOverview.jsx` - Imports MUI icons, exports component
+- `PlatformFeatures.jsx` - Imports MUI icons, exports component
+
+**Never** try to import `@mui/icons-material/*` directly in `.mdx` files.
