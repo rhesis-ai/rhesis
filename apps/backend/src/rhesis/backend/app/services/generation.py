@@ -1,55 +1,17 @@
 import asyncio
 from functools import partial
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
+from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.synthesizers import (
     ConfigSynthesizer,
     DocumentSynthesizer,
     GenerationConfig,
 )
 from rhesis.sdk.types import Document
-
-
-def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
-    """
-    Get the user's configured default generation model or fall back to DEFAULT_GENERATION_MODEL.
-    
-    Args:
-        db: Database session
-        user: Current user (organization_id is extracted from user for security)
-    
-    Returns:
-        Either a string (provider name) or a configured BaseLLM instance
-    """
-    # Check if user has a default generation model set
-    model_id = user.settings.models.generation.model_id
-    
-    if model_id:
-        # SECURITY: Always use user's organization_id - never accept external organization_id
-        model = crud.get_model(
-            db=db, 
-            model_id=model_id, 
-            organization_id=str(user.organization_id)
-        )
-        
-        if model and model.provider_type:
-            # Get provider type value (e.g., "openai", "gemini")
-            provider = model.provider_type.type_value
-            model_name = model.model_name
-            api_key = model.key  # Decrypted automatically by EncryptedString
-            
-            # Use SDK's get_model to create configured instance
-            return get_model(provider=provider, model_name=model_name, api_key=api_key)
-    
-    # Fall back to default
-    return DEFAULT_GENERATION_MODEL
 
 
 async def generate_tests(
