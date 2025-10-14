@@ -84,7 +84,7 @@ class TestModelConnectionRequest(BaseModel):
         """Ensure endpoint is either None or a non-empty string"""
         if v is not None and (not isinstance(v, str) or not v.strip()):
             raise ValueError('Endpoint must be a valid non-empty URL if provided')
-        return v
+        return v if v is None else v.strip()
 
 
 class TestModelConnectionResponse(BaseModel):
