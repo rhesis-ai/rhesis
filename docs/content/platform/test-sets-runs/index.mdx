@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Test Sets
 
 Organize tests into collections and execute them against endpoints.
@@ -73,8 +75,11 @@ Click "Download Test Set" to export the test set as a CSV file containing all te
 
 Use the Rhesis Python SDK to load test sets programmatically:
 
-```python
-from rhesis.entities import TestSet
+<CodeBlock
+  filename="load_test_set.py"
+  language="python"
+>
+{`from rhesis.entities import TestSet
 
 # Load as pandas DataFrame
 test_set = TestSet(id="test-set-id")
@@ -82,8 +87,8 @@ df = test_set.load()
 
 # Or download CSV directly
 test_set = TestSet(id="test-set-id")
-test_set.download()  # Downloads to current directory
-```
+test_set.download()  # Downloads to current directory`}
+</CodeBlock>
 
 ## Test Set Details
 

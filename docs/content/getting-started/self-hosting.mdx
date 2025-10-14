@@ -1,5 +1,5 @@
 import { CodeBlock } from '@/components/CodeBlock'
-import { ChecklistRtl, Computer, Rocket, Science, Storage, Memory, Dns, NetworkCheck, Loop, Settings, Terminal, MonitorHeart, Build, Database, Warning, Security, Backup, Help, MenuBook } from '@mui/icons-material'
+import { Table } from '@/components/Table'
 
 # Self-hosting
 
@@ -7,23 +7,27 @@ This guide will help you run the entire Rhesis platform using Docker Compose for
 
 > **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker compose` command.
 
-## <ChecklistRtl /> Prerequisites
+## Prerequisites
 
 - Docker Desktop installed and running
 - Git (to clone the repository)
 - Ports 3000, 8080, 8081, 5432, and 6379 available on your system
 
-## <Computer /> System Requirements
+## System Requirements
 
-### <Science /> Development Environment
+### Development Environment
 For local development, testing, and evaluation:
 
-| Resource | Minimum | Recommended |
-|----------|---------|-------------|
-| **RAM** | 4 GB | 6 GB |
-| **Storage** | 8 GB free | 15 GB free |
-| **CPU** | 2 cores | 4 cores |
-| **Network** | Stable internet | Broadband |
+<Table
+  headers={['Resource', 'Minimum', 'Recommended']}
+  rows={[
+    ['RAM', '4 GB', '6 GB'],
+    ['Storage', '8 GB free', '15 GB free'],
+    ['CPU', '2 cores', '4 cores'],
+    ['Network', 'Stable internet', 'Broadband'],
+  ]}
+  align={['left', 'center', 'center']}
+/>
 
 **Development Notes:**
 - Includes hot-reload and development tools
@@ -31,15 +35,19 @@ For local development, testing, and evaluation:
 - Smaller dataset for testing
 - Debug logging enabled
 
-### <Rocket /> Production Environment
+### Production Environment
 For production deployment with real users:
 
-| Resource | Minimum | Recommended | High-Scale |
-|----------|---------|-------------|------------|
-| **RAM** | 8 GB | 16 GB | 32 GB+ |
-| **Storage** | 20 GB SSD | 50 GB SSD | 100 GB+ SSD |
-| **CPU** | 4 cores | 8 cores | 16+ cores |
-| **Network** | 50 Mbps | 100 Mbps | 1 Gbps+ |
+<Table
+  headers={['Resource', 'Minimum', 'Recommended', 'High-Scale']}
+  rows={[
+    ['RAM', '8 GB', '16 GB', '32 GB+'],
+    ['Storage', '20 GB SSD', '50 GB SSD', '100 GB+ SSD'],
+    ['CPU', '4 cores', '8 cores', '16+ cores'],
+    ['Network', '50 Mbps', '100 Mbps', '1 Gbps+'],
+  ]}
+  align={['left', 'center', 'center', 'center']}
+/>
 
 **Production Notes:**
 - Optimized builds without development overhead
@@ -51,26 +59,34 @@ For production deployment with real users:
 
 **Memory Usage by Environment:**
 
-| Service | Development | Production |
-|---------|-------------|------------|
-| **PostgreSQL** | ~256 MB | ~1-2 GB |
-| **Redis** | ~50 MB | ~500 MB - 1 GB |
-| **Backend** | ~150 MB | ~500 MB - 1 GB |
-| **Worker** | ~200 MB | ~1-2 GB |
-| **Frontend** | ~100 MB | ~200-400 MB |
-| **Docker Overhead** | ~300 MB | ~500 MB - 1 GB |
-| **Total Estimated** | **~1.1 GB** | **~3.7-7.1 GB** |
+<Table
+  headers={['Service', 'Development', 'Production']}
+  rows={[
+    ['PostgreSQL', '~256 MB', '~1-2 GB'],
+    ['Redis', '~50 MB', '~500 MB - 1 GB'],
+    ['Backend', '~150 MB', '~500 MB - 1 GB'],
+    ['Worker', '~200 MB', '~1-2 GB'],
+    ['Frontend', '~100 MB', '~200-400 MB'],
+    ['Docker Overhead', '~300 MB', '~500 MB - 1 GB'],
+    ['**Total Estimated**', '**~1.1 GB**', '**~3.7-7.1 GB**'],
+  ]}
+  align={['left', 'right', 'right']}
+/>
 
 **Storage Requirements:**
 
-| Component | Development | Production |
-|-----------|-------------|------------|
-| **Application Code** | ~2 GB | ~2 GB |
-| **Database** | ~500 MB | ~5-50 GB+ |
-| **Docker Images** | ~3 GB | ~3-4 GB |
-| **Logs & Cache** | ~500 MB | ~2-10 GB |
-| **Working Space** | ~1 GB | ~3-5 GB |
-| **Total Estimated** | **~7 GB** | **~15-75 GB+** |
+<Table
+  headers={['Component', 'Development', 'Production']}
+  rows={[
+    ['Application Code', '~2 GB', '~2 GB'],
+    ['Database', '~500 MB', '~5-50 GB+'],
+    ['Docker Images', '~3 GB', '~3-4 GB'],
+    ['Logs & Cache', '~500 MB', '~2-10 GB'],
+    ['Working Space', '~1 GB', '~3-5 GB'],
+    ['**Total Estimated**', '**~7 GB**', '**~15-75 GB+**'],
+  ]}
+  align={['left', 'right', 'right']}
+/>
 
 ### Performance Characteristics
 
@@ -80,12 +96,12 @@ For production deployment with real users:
 - **Idle**: Minimal CPU during low activity periods
 
 **Scaling Factors:**
-- 🤖 **AI Operations**: Memory spikes during model inference
-- 👥 **Concurrent Users**: ~50-100 MB RAM per active user
-- 📈 **Database Growth**: Storage scales with user data and analytics
-- 🔄 **Background Tasks**: CPU-intensive during batch processing
+- **AI Operations**: Memory spikes during model inference
+- **Concurrent Users**: ~50-100 MB RAM per active user
+- **Database Growth**: Storage scales with user data and analytics
+- **Background Tasks**: CPU-intensive during batch processing
 
-### 🔄 Docker Compose Version Note
+### Docker Compose Version Note
 
 **Why `docker compose` instead of `docker-compose`?**
 
@@ -93,27 +109,27 @@ For production deployment with real users:
 - **`docker compose` (V2)**: The modern version integrated into Docker CLI, written in Go with better performance
 
 If you encounter errors with `docker-compose`, you're likely using the deprecated V1. Switch to `docker compose` (V2) for:
-- ✅ Better performance and reliability
-- ✅ Active maintenance and security updates
-- ✅ Support for newer Docker features
-- ✅ Improved integration with Docker CLI
+- Better performance and reliability
+- Active maintenance and security updates
+- Support for newer Docker features
+- Improved integration with Docker CLI
 
-## 🚀 Quick Start
+## Quick Start
 
-1. **📥 Clone the repository**
+1. **Clone the repository**
 
 <CodeBlock filename="Terminal" language="bash">
 {`git clone <repository-url>
 cd rhesis`}
 </CodeBlock>
 
-2. **📄 Copy environment variables**
+2. **Copy environment variables**
 
 <CodeBlock filename="Terminal" language="bash">
 {`cp .env.example .env.docker`}
 </CodeBlock>
 
-3. **⚙️ Configure environment variables**
+3. **Configure environment variables**
 
    Edit the `.env.docker` file and update the following configurations:
    - Auth0 configuration
@@ -124,32 +140,36 @@ cd rhesis`}
    - NextAuth.js configuration
    - Any other environment variables as needed
 
-4. **🚀 Start all services**
+4. **Start all services**
 
 <CodeBlock filename="Terminal" language="bash">
 {`docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
-5. **🌐 Access the applications**
-   - 🌐 **Frontend**: http://localhost:3000
-   - 📡 **Backend API**: http://localhost:8080/docs
-   - ⚙️ **Worker Health**: http://localhost:8081/health/basic
+5. **Access the applications**
+   - **Frontend**: http://localhost:3000
+   - **Backend API**: http://localhost:8080/docs
+   - **Worker Health**: http://localhost:8081/health/basic
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
-### 🔧 Services
+### Services
 
 The Rhesis platform consists of several interconnected services:
 
-| Service | Port | Description | Health Check |
-|---------|------|-------------|--------------|
-| **PostgreSQL** | 5432 | Primary database | `pg_isready` |
-| **Redis** | 6379 | Cache & message broker | `redis-cli ping` |
-| **Backend** | 8080 | FastAPI application | `curl /health` |
-| **Worker** | 8081 | Celery background tasks | `curl /health/basic` |
-| **Frontend** | 3000 | Next.js application | `curl /api/auth/session` |
+<Table
+  headers={['Service', 'Port', 'Description', 'Health Check']}
+  rows={[
+    ['PostgreSQL', '5432', 'Primary database', '`pg_isready`'],
+    ['Redis', '6379', 'Cache & message broker', '`redis-cli ping`'],
+    ['Backend', '8080', 'FastAPI application', '`curl /health`'],
+    ['Worker', '8081', 'Celery background tasks', '`curl /health/basic`'],
+    ['Frontend', '3000', 'Next.js application', '`curl /api/auth/session`'],
+  ]}
+  align={['left', 'center', 'left', 'left']}
+/>
 
-### 🔗 Service Dependencies
+### Service Dependencies
 
 <CodeBlock filename="Architecture Diagram" isTerminal={true}>
 {`Frontend → Backend → PostgreSQL
@@ -157,15 +177,15 @@ The Rhesis platform consists of several interconnected services:
            Redis ← Worker`}
 </CodeBlock>
 
-## 🗄️ Automated Database Setup
+## Automated Database Setup
 
 **No manual database setup required!** The system automatically handles:
 
-- ✅ PostgreSQL database and user creation
-- ✅ Database ownership and permissions setup
-- ✅ Automatic Alembic migration execution
-- ✅ Table and relationship creation
-- ✅ Migration status checking (prevents duplicate migrations)
+- PostgreSQL database and user creation
+- Database ownership and permissions setup
+- Automatic Alembic migration execution
+- Table and relationship creation
+- Migration status checking (prevents duplicate migrations)
 
 The backend container startup process:
 1. Waits for PostgreSQL to be ready
@@ -173,13 +193,13 @@ The backend container startup process:
 3. Runs all pending migrations
 4. Starts the FastAPI application
 
-## 🔐 Environment Configuration
+## Environment Configuration
 
 ### Required Environment Variables
 
 Update your `.env.docker` file with the following configurations:
 
-#### 🔒 Authentication & Security
+#### Authentication & Security
 These variables configure user authentication and security for the platform:
 
 <CodeBlock filename=".env.docker" language="bash">
@@ -208,7 +228,7 @@ NEXT_PUBLIC_AUTH0_DOMAIN=your-auth0-domain
 NEXT_PUBLIC_AUTH0_CLIENT_ID=your-auth0-client-id`}
 </CodeBlock>
 
-#### 🔑 OAuth Providers (Optional)
+#### OAuth Providers (Optional)
 Additional authentication providers for user login options:
 
 <CodeBlock filename=".env.docker" language="bash">
@@ -218,7 +238,7 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret`}
 </CodeBlock>
 
-#### 📧 Email Configuration (Optional)
+#### Email Configuration (Optional)
 Required for sending system emails, notifications, and user communications:
 
 <CodeBlock filename=".env.docker" language="bash">
@@ -231,7 +251,7 @@ SMTP_PASSWORD=your_smtp_password
 FROM_EMAIL=your_from_email`}
 </CodeBlock>
 
-#### 🤖 AI Model Configuration (Optional)
+#### AI Model Configuration (Optional)
 Configure AI providers for natural language processing and content generation:
 
 <CodeBlock filename=".env.docker" language="bash">
@@ -254,13 +274,13 @@ OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 OPENAI_MODEL_NAME=gpt-4o`}
 </CodeBlock>
 
-> 💡 **Note**: At least one AI provider configuration is recommended for full platform functionality. You can choose between Gemini, Azure OpenAI, or OpenAI based on your preferences and requirements.
+> **Note**: At least one AI provider configuration is recommended for full platform functionality. You can choose between Gemini, Azure OpenAI, or OpenAI based on your preferences and requirements.
 
-## 🛠️ Management Commands
+## Management Commands
 
-### 🎛️ Service Management
+### Service Management
 
-**▶️ Start services:**
+**Start services:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Start all services in detached mode
@@ -270,17 +290,17 @@ docker compose --env-file .env.docker up -d
 docker compose --env-file .env.docker up`}
 </CodeBlock>
 
-**⏹️ Stop services:**
+**Stop services:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Stop all services
 docker compose down
 
-# Stop and remove volumes (⚠️ deletes all data)
+# Stop and remove volumes (WARNING: deletes all data)
 docker compose down -v`}
 </CodeBlock>
 
-**🔄 Restart services:**
+**Restart services:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Restart all services
@@ -290,9 +310,9 @@ docker compose --env-file .env.docker restart
 docker compose --env-file .env.docker restart backend`}
 </CodeBlock>
 
-### 📊 Monitoring and Logs
+### Monitoring and Logs
 
-**📋 View logs:**
+**View logs:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# All services
@@ -307,16 +327,16 @@ docker compose logs worker
 docker compose logs -f backend`}
 </CodeBlock>
 
-**✅ Check service status:**
+**Check service status:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# View running containers and their status
 docker compose ps`}
 </CodeBlock>
 
-### 🔨 Building and Updates
+### Building and Updates
 
-**🏗️ Rebuild services:**
+**Rebuild services:**
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Rebuild all services
@@ -329,7 +349,7 @@ docker compose --env-file .env.docker build backend
 docker compose --env-file .env.docker up -d --build`}
 </CodeBlock>
 
-### 💾 Database Operations
+### Database Operations
 
 The database is automatically managed, but you can access it directly if needed:
 
@@ -347,11 +367,11 @@ docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic upgrade hea
 docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic history"`}
 </CodeBlock>
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
-### ⚠️ Common Issues
+### Common Issues
 
-**🗄️ Database Migration Problems:**
+**Database Migration Problems:**
 
 1. Check migration status:
 
@@ -365,14 +385,14 @@ docker exec rhesis-backend bash -c "cd src/rhesis/backend && alembic history"`}
 {`docker compose logs backend | grep -i migration`}
 </CodeBlock>
 
-3. Reset database (⚠️ deletes all data):
+3. Reset database (WARNING: deletes all data):
 
 <CodeBlock filename="Terminal" language="bash">
 {`docker compose down -v
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
-**🏥 Service Health Issues:**
+**Service Health Issues:**
 
 1. Check service status:
 
@@ -392,7 +412,7 @@ docker compose --env-file .env.docker up -d`}
 {`docker stats`}
 </CodeBlock>
 
-**🔌 Port Conflicts:**
+**Port Conflicts:**
 
 If you encounter port conflicts, you can modify the ports in `docker compose.yml` or stop conflicting services:
 
@@ -404,28 +424,28 @@ lsof -i :3000
 kill -9 <PID>`}
 </CodeBlock>
 
-### ⚡ Performance Optimization
+### Performance Optimization
 
-**💻 Resource Allocation:**
+**Resource Allocation:**
 - Ensure Docker has at least 4GB RAM allocated
 - Monitor disk space usage with `docker system df`
 - Clean up unused resources with `docker system prune`
 
-**🗄️ Database Performance:**
+**Database Performance:**
 - Monitor PostgreSQL logs: `docker compose logs postgres`
 - Check connection counts and slow queries
 
-### 🛡️ Security Considerations
+### Security Considerations
 
-- 🔐 Change default passwords in production
-- 🔑 Use strong JWT secrets
-- 🧱 Configure proper firewall rules
-- 🔒 Keep environment variables secure
-- 🔄 Regularly update Docker images
+- Change default passwords in production
+- Use strong JWT secrets
+- Configure proper firewall rules
+- Keep environment variables secure
+- Regularly update Docker images
 
-## 💾 Backup and Recovery
+## Backup and Recovery
 
-### 🗄️ Database Backup
+### Database Backup
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Create database backup
@@ -435,7 +455,7 @@ docker exec rhesis-postgres pg_dump -U rhesis-user rhesis-db > backup.sql
 docker exec -i rhesis-postgres psql -U rhesis-user -d rhesis-db < backup.sql`}
 </CodeBlock>
 
-### 📦 Full System Backup
+### Full System Backup
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Stop services
@@ -449,9 +469,9 @@ docker run --rm -v rhesis_redis_data:/data -v $(pwd):/backup alpine tar czf /bac
 docker compose --env-file .env.docker up -d`}
 </CodeBlock>
 
-## 🆘 Support and Resources
+## Support and Resources
 
-### 💬 Getting Help
+### Getting Help
 
 If you encounter issues:
 
@@ -461,7 +481,7 @@ If you encounter issues:
 4. Check if ports are available and not in use
 5. Review the [main documentation](README.md) for additional guidance
 
-### 📚 Additional Resources
+### Additional Resources
 
 - [Backend Documentation](backend/README.md)
 - [Frontend Documentation](frontend/README.md)

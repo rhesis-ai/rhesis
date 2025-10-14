@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # API Tokens
 
 Generate and manage API tokens for programmatic access to Rhesis.
@@ -58,20 +60,26 @@ Click the delete icon on the token row and confirm. The token is permanently del
 
 Include the token in the Authorization header:
 
-```bash
-curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  https://api.rhesis.com/v1/tests
-```
+<CodeBlock
+  filename="Terminal"
+  language="bash"
+>
+{`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
+  https://api.rhesis.com/v1/tests`}
+</CodeBlock>
 
 ### With Python SDK
 
 Initialize the SDK with your token:
 
-```python
-from rhesis import RhesisClient
+<CodeBlock
+  filename="client.py"
+  language="python"
+>
+{`from rhesis import RhesisClient
 
-client = RhesisClient(api_token="YOUR_TOKEN_HERE")
-```
+client = RhesisClient(api_token="YOUR_TOKEN_HERE")`}
+</CodeBlock>
 
 See [Python SDK](/docs/development/sdk) for complete usage documentation.
 

@@ -9,6 +9,8 @@ import { ButtonGroup } from './components/ButtonGroup'
 import { FileTree } from './components/FileTree'
 import { ThemeAwareImage } from './components/ThemeAwareImage'
 import { InfoCardHorizontal } from './components/InfoCardHorizontal'
+import { PlatformFeatures } from './components/PlatformFeatures'
+import { AdvancedCapabilities } from './components/AdvancedCapabilities'
 
 // Get the default MDX components
 const themeComponents = getThemeComponents()
@@ -31,5 +33,7 @@ export function useMDXComponents(components) {
     FileTree,
     ThemeAwareImage,
     InfoCardHorizontal,
+    PlatformFeatures,
+    AdvancedCapabilities,
   }
 }
