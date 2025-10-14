@@ -9,6 +9,8 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_context, get_db_session, get_tenant_db_session
+from rhesis.backend.app.schemas.model import TestModelConnectionRequest, TestModelConnectionResponse
+from rhesis.backend.app.services.model_connection import ModelConnectionService
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -43,6 +45,41 @@ def create_model(
     """
     organization_id, user_id = tenant_context
     return crud.create_model(db=db, model=model, organization_id=organization_id, user_id=user_id)
+
+
+@router.post("/test-connection", response_model=TestModelConnectionResponse)
+async def test_model_connection_endpoint(
+    request: TestModelConnectionRequest,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Test a model connection before saving it.
+
+    This endpoint validates that:
+    1. The provider is supported by the SDK
+    2. The API key is valid
+    3. The model can be initialized successfully
+    4. A simple generation call works (for full validation)
+
+    Args:
+        request: Contains provider, model_name, api_key, and optional endpoint
+
+    Returns:
+        TestModelConnectionResponse: Success status and message
+    """
+    result = ModelConnectionService.test_connection(
+        provider=request.provider,
+        model_name=request.model_name,
+        api_key=request.api_key,
+        endpoint=request.endpoint,
+    )
+
+    return TestModelConnectionResponse(
+        success=result.success,
+        message=result.message,
+        provider=result.provider,
+        model_name=result.model_name,
+    )
 
 
 @router.get("/", response_model=List[ModelDetailSchema])
