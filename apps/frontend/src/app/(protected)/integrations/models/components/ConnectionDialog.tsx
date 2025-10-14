@@ -192,16 +192,16 @@ export function ConnectionDialog({
       if (defaultForGeneration) {
         updates.models.generation = { model_id: modelId };
       } else if (userSettings?.models?.generation?.model_id === modelId) {
-        // If toggle is off and this model was previously the default, clear it
-        updates.models.generation = {};
+        // If toggle is off and this model was previously the default, clear it by setting model_id to null
+        updates.models.generation = { model_id: null };
       }
 
       // Update evaluation default if toggle is on
       if (defaultForEvaluation) {
         updates.models.evaluation = { model_id: modelId };
       } else if (userSettings?.models?.evaluation?.model_id === modelId) {
-        // If toggle is off and this model was previously the default, clear it
-        updates.models.evaluation = {};
+        // If toggle is off and this model was previously the default, clear it by setting model_id to null
+        updates.models.evaluation = { model_id: null };
       }
 
       // Only update if there are changes
