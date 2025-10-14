@@ -4,6 +4,60 @@ This directory contains reusable React components for the Rhesis documentation s
 
 ## Available Components
 
+### InfoCard
+
+A reusable card component with consistent styling for displaying features, examples, or other informational content with icons. The component automatically adapts based on whether it includes a link.
+
+**Usage:**
+
+```jsx
+import { InfoCard } from '@/components/InfoCard'
+
+// Basic card (no hover effect, no arrow)
+<InfoCard
+  icon={ScienceOutlined}
+  title="Test Generation"
+  description="Automated scenario creation at scale"
+/>
+
+// Linked card (with hover effect and arrow icon)
+<InfoCard
+  icon={ChatOutlined}
+  title="Community"
+  description="Join discussions and get help"
+  link="https://github.com/rhesis-ai/rhesis/discussions"
+  linkText="GitHub Discussions →"
+  external={true}
+/>
+```
+
+**Props:**
+
+- `icon` (Component, required): MUI icon component to display
+- `title` (string, required): Card title
+- `description` (string, required): Card description text
+- `link` (string, optional): Optional link URL
+- `linkText` (string, optional): Optional link text
+- `external` (boolean, optional): Whether link is external (default: false)
+- `children` (ReactNode, optional): Optional custom content instead of description
+- `className` (string, optional): Additional CSS classes
+
+**Features:**
+
+- Consistent orange circular icon backgrounds (#FD6E12)
+- Dark mode support
+- **Conditional behavior based on link presence:**
+  - **With link**: Shows arrow icon (↗) next to title, enables hover effect (lift and shadow)
+  - **Without link**: No arrow icon, no hover effect (static card)
+- Centered text alignment
+- Responsive design
+
+**Used by:**
+
+- `FeatureOverview`
+- `IndustryExamples`
+- `CommunitySupport`
+
 ### FeatureOverview
 
 A visually appealing overview card component that showcases Rhesis platform features.

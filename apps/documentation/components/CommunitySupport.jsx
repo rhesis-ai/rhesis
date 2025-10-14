@@ -3,6 +3,7 @@
 import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined'
 import ChatOutlined from '@mui/icons-material/ChatOutlined'
 import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined'
+import { InfoCard } from './InfoCard'
 
 /**
  * CommunitySupport Component
@@ -50,82 +51,25 @@ export const CommunitySupport = () => {
       gap: '1.5rem',
       margin: '2rem 0',
     },
-    card: {
-      textAlign: 'center',
-      padding: '1.5rem',
-      border: '1px solid',
-      borderColor: 'var(--border-color, #e5e7eb)',
-      borderRadius: '0.5rem',
-      backgroundColor: 'var(--card-bg, #ffffff)',
-    },
-    title: {
-      fontSize: '1.125rem',
-      fontWeight: '600',
-      fontFamily: 'Sora, sans-serif',
-      color: 'var(--text-primary, #111827)',
-      margin: '0.5rem 0',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '0.5rem',
-    },
-    description: {
-      fontSize: '0.875rem',
-      color: 'var(--text-secondary, #6B7280)',
-      lineHeight: '1.5',
-      fontFamily: 'Be Vietnam Pro, sans-serif',
-      margin: '0 0 1rem 0',
-    },
-    link: {
-      color: '#2AA1CE',
-      textDecoration: 'none',
-      fontWeight: '500',
-      transition: 'color 0.2s ease',
-    },
   }
 
   return (
     <>
       <div style={styles.container} className="not-prose rhesis-community-support">
         {communityItems.map((item, index) => (
-          <div key={index} style={styles.card}>
-            <h3 style={styles.title}>
-              <item.icon style={{ width: 24, height: 24 }} />
-              {item.title}
-            </h3>
-            <p style={styles.description}>{item.description}</p>
-            <a
-              href={item.link}
-              target={item.external ? '_blank' : '_self'}
-              rel={item.external ? 'noopener noreferrer' : undefined}
-              style={styles.link}
-              className="community-link"
-            >
-              {item.linkText}
-            </a>
-          </div>
+          <InfoCard
+            key={index}
+            icon={item.icon}
+            title={item.title}
+            description={item.description}
+            link={item.link}
+            linkText={item.linkText}
+            external={item.external}
+          />
         ))}
       </div>
 
       <style jsx>{`
-        [data-theme='dark'] .rhesis-community-support {
-          --border-color: #374151;
-          --card-bg: #1f2937;
-          --text-primary: #f9fafb;
-          --text-secondary: #d1d5db;
-        }
-
-        [data-theme='light'] .rhesis-community-support {
-          --border-color: #e5e7eb;
-          --card-bg: #ffffff;
-          --text-primary: #111827;
-          --text-secondary: #6b7280;
-        }
-
-        .community-link:hover {
-          color: #3bc4f2;
-        }
-
         @media (max-width: 768px) {
           .rhesis-community-support {
             grid-template-columns: 1fr;
