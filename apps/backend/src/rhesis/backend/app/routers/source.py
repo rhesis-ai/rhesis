@@ -282,7 +282,7 @@ async def get_source_content(
     organization_id, user_id = tenant_context
 
     try:
-        content, content_type, filename = get_source_file_content(
+        content, content_type, filename = await get_source_file_content(
             db=db,
             source_id=source_id,
             organization_id=str(organization_id),
