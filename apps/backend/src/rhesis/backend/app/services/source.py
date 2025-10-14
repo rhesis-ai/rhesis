@@ -6,7 +6,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.services.source_handler import SourceHandler
+from rhesis.backend.app.services.handlers import get_source_handler
 from rhesis.backend.logging import logger
 
 
@@ -45,7 +45,7 @@ async def upload_and_create_source(
 
     This function handles the complete workflow:
     - Validates file and gets Document source type
-    - Saves file using SourceHandler
+    - Saves file using handler
     - Extracts content from the file
     - Creates Source record with metadata and content
 
@@ -66,8 +66,8 @@ async def upload_and_create_source(
     # Get Document source type
     document_source_type = get_document_source_type(db, organization_id)
 
-    # Initialize SourceHandler (uses cloud storage)
-    handler = SourceHandler()
+    # Initialize handler (uses hybrid cloud/local storage)
+    handler = get_source_handler("Document")
 
     # Save file and get metadata
     file_metadata = await handler.save_source(
@@ -168,10 +168,10 @@ async def extract_source_content(
     # Validate source
     db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
 
-    # Initialize SourceHandler
-    handler = SourceHandler()
+    # Initialize handler
+    handler = get_source_handler("Document")
 
-    # Extract content using SourceHandler
+    # Extract content using handler
     content = await handler.extract_source_content(file_path)
 
     # Update the source with extracted content
@@ -213,8 +213,8 @@ async def get_source_file_content(
     # Validate source
     db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
 
-    # Initialize SourceHandler
-    handler = SourceHandler()
+    # Initialize handler
+    handler = get_source_handler("Document")
 
     # Get file content
     content = await handler.get_source_content(file_path)
