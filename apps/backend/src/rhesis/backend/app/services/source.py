@@ -10,26 +10,25 @@ from rhesis.backend.app.services.handlers import get_source_handler
 from rhesis.backend.logging import logger
 
 
-def get_document_source_type(db: Session, organization_id: str) -> models.TypeLookup:
+# not only document, but also other source types
+# retrieve the source type by id
+def get_source_type_by_value(
+    db: Session, organization_id: str, source_type_value: str
+) -> Optional[models.TypeLookup]:
     """
-    Get the Document source type, creating it if it doesn't exist.
+    Get a specific source type by its value.
 
     Args:
         db: Database session
         organization_id: Organization ID for tenant context
+        source_type_value: The source type value (e.g., "Document", "Website")
 
     Returns:
-        TypeLookup: Document source type
-
-    Raises:
-        ValueError: If Document source type cannot be found or created
+        TypeLookup: The source type, or None if not found
     """
-    document_source_type = crud.get_type_lookup_by_name_and_value(
-        db, type_name="SourceType", type_value="Document", organization_id=organization_id
+    return crud.get_type_lookup_by_name_and_value(
+        db, type_name="SourceType", type_value=source_type_value, organization_id=organization_id
     )
-    if not document_source_type:
-        raise ValueError("Document source type not found. Please ensure database is initialized.")
-    return document_source_type
 
 
 async def upload_and_create_source(
@@ -37,15 +36,16 @@ async def upload_and_create_source(
     file: UploadFile,
     organization_id: str,
     user_id: str,
+    source_type_value: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
 ) -> models.Source:
     """
-    Upload a file and create a Source record of type 'Document'.
+    Upload a file and create a Source record with the specified source type.
 
     This function handles the complete workflow:
-    - Validates file and gets Document source type
-    - Saves file using handler
+    - Validates file and gets source type
+    - Saves file using appropriate handler
     - Extracts content from the file
     - Creates Source record with metadata and content
 
@@ -54,6 +54,7 @@ async def upload_and_create_source(
         file: The uploaded file
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
+        source_type_value: Type of source (e.g., "Document", "Website") - defaults to "Document"
         title: Optional title for the source (defaults to filename)
         description: Optional description for the source
 
@@ -63,11 +64,15 @@ async def upload_and_create_source(
     Raises:
         ValueError: If file validation fails or source creation fails
     """
-    # Get Document source type
-    document_source_type = get_document_source_type(db, organization_id)
+    # Get the specified source type
+    source_type = get_source_type_by_value(db, organization_id, source_type_value)
+    if not source_type:
+        raise ValueError(
+            f"Source type '{source_type_value}' not found. Please ensure database is initialized."
+        )
 
-    # Initialize handler (uses hybrid cloud/local storage)
-    handler = get_source_handler("Document")
+    # Initialize handler based on source type
+    handler = get_source_handler(source_type_value)
 
     # Save file and get metadata
     file_metadata = await handler.save_source(
@@ -88,7 +93,7 @@ async def upload_and_create_source(
     source_data = schemas.SourceCreate(
         title=title or file.filename,
         description=description,
-        source_type_id=document_source_type.id,
+        source_type_id=source_type.id,  # Use the dynamic source type
         source_metadata=file_metadata,  # File metadata (size, hash, path, etc.)
         organization_id=organization_id,
         user_id=user_id,
@@ -136,8 +141,8 @@ def validate_source_for_extraction(
     source_type = crud.get_type_lookup(
         db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
     )
-    if not source_type or source_type.type_value != "Document":
-        raise ValueError("Only documents support content extraction.")
+    if not source_type:
+        raise ValueError("Source type not found.")
 
     # Check if source has file metadata
     if not db_source.source_metadata or "file_path" not in db_source.source_metadata:
@@ -168,8 +173,15 @@ async def extract_source_content(
     # Validate source
     db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
 
-    # Initialize handler
-    handler = get_source_handler("Document")
+    # Get source type to determine handler
+    source_type = crud.get_type_lookup(
+        db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
+    )
+    if not source_type:
+        raise ValueError("Source type not found.")
+
+    # Initialize handler based on source type
+    handler = get_source_handler(source_type.type_value)
 
     # Extract content using handler
     content = await handler.extract_source_content(file_path)
@@ -213,8 +225,15 @@ async def get_source_file_content(
     # Validate source
     db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
 
-    # Initialize handler
-    handler = get_source_handler("Document")
+    # Get source type to determine handler
+    source_type = crud.get_type_lookup(
+        db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
+    )
+    if not source_type:
+        raise ValueError("Source type not found.")
+
+    # Initialize handler based on source type
+    handler = get_source_handler(source_type.type_value)
 
     # Get file content
     content = await handler.get_source_content(file_path)
