@@ -8,6 +8,7 @@ import {
 } from './interfaces/source';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';
+import { joinUrl } from '../url';
 
 // Default pagination settings
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -72,6 +73,76 @@ export class SourcesClient extends BaseApiClient {
       headers: {
         // Don't set Content-Type, let browser set it with boundary for multipart/form-data
       },
+    });
+  }
+
+  async getSourceContent(id: UUID): Promise<string> {
+    return this.fetchText(`${API_ENDPOINTS.sources}/${id}/content`);
+  }
+
+  protected async fetchText(
+    endpoint: keyof typeof API_ENDPOINTS | string,
+    options: RequestInit = {}
+  ): Promise<string> {
+    const path =
+      API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const url = joinUrl(this.baseUrl, path);
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      let errorMessage = '';
+      let errorData: any;
+
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          errorData = await response.json();
+          if (errorData.detail) {
+            errorMessage = Array.isArray(errorData.detail)
+              ? errorData.detail
+                  .map(
+                    (err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`
+                  )
+                  .join(', ')
+              : errorData.detail;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = JSON.stringify(errorData, null, 2);
+          }
+        } else {
+          errorMessage = await response.text();
+        }
+      } catch (parseError) {
+        errorMessage = await response.text();
+      }
+
+      const error = new Error(
+        `API error: ${response.status} - ${errorMessage}`
+      ) as Error & {
+        status?: number;
+        data?: any;
+      };
+      error.status = response.status;
+      error.data = errorData;
+      throw error;
+    }
+
+    return response.text();
+  }
+
+  async extractSourceContent(id: UUID): Promise<{ content: string; metadata: any }> {
+    return this.fetch<{ content: string; metadata: any }>(`${API_ENDPOINTS.sources}/${id}/extract`, {
+      method: 'POST',
     });
   }
 }
