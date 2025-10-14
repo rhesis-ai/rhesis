@@ -1,7 +1,9 @@
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.models.guid import GUID
+from rhesis.backend.app.models.user_settings import UserSettingsManager
 
 from .base import Base
 
@@ -20,6 +22,11 @@ class User(Base):
     auth0_id = Column(String, nullable=True)
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
     last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in
+    user_settings = Column(
+        JSONB,
+        nullable=False,
+        server_default='{"version": 1, "models": {"generation": {}, "evaluation": {}}}',
+    )  # User preferences and settings
 
     # Relationship to subscriptions
     subscriptions = relationship("Subscription", back_populates="user")
@@ -127,3 +134,31 @@ class User(Base):
             if isinstance(data["last_login_at"], str):
                 data["last_login_at"] = datetime.fromisoformat(data["last_login_at"])
         return cls(**data)
+
+    @property
+    def settings(self) -> UserSettingsManager:
+        """
+        Centralized access to user settings.
+        
+        Provides a clean interface for accessing and updating all user preferences.
+        
+        Usage:
+            # Access model settings
+            model_id = user.settings.models.generation.model_id
+            temperature = user.settings.models.generation.temperature
+            eval_model = user.settings.models.evaluation.model_id
+            
+            # Access UI settings
+            theme = user.settings.ui.theme
+            page_size = user.settings.ui.default_page_size
+            
+            # Update settings
+            user.settings.update({
+                "models": {
+                    "generation": {"model_id": str(model.id), "temperature": 0.7}
+                }
+            })
+            # After update, commit to persist changes
+            self.user_settings = user.settings.raw
+        """
+        return UserSettingsManager(self.user_settings)

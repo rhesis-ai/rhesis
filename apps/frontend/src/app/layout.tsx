@@ -167,6 +167,12 @@ async function getNavigationItems(
       children: [
         {
           kind: 'page',
+          segment: 'models',
+          title: 'Models',
+          icon: <SmartToyIcon />,
+        },
+        {
+          kind: 'page',
           segment: 'applications',
           title: 'Applications',
           icon: <GridViewIcon />,
@@ -176,12 +182,6 @@ async function getNavigationItems(
           segment: 'tools',
           title: 'Tools',
           icon: <TerminalIcon />,
-        },
-        {
-          kind: 'page',
-          segment: 'llm-providers',
-          title: 'LLM Providers',
-          icon: <SmartToyIcon />,
         },
       ],
     },
