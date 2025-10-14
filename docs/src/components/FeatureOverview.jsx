@@ -71,7 +71,7 @@ export const FeatureOverview = () => {
   return (
     <div style={styles.container} className="not-prose rhesis-feature-overview">
       {/* Features Grid */}
-      <div style={styles.featuresGrid}>
+      <div style={styles.featuresGrid} className="featuresGrid">
         {features.map(feature => (
           <InfoCard
             key={feature.title}
@@ -81,39 +81,6 @@ export const FeatureOverview = () => {
           />
         ))}
       </div>
-
-      <style jsx>{`
-        .rhesis-feature-overview .featuresGrid > div:nth-child(4) {
-          grid-column: 1 / 2;
-          grid-column-start: 1;
-          margin-left: 25%;
-        }
-
-        .rhesis-feature-overview .featuresGrid > div:nth-child(5) {
-          grid-column: 2 / 3;
-          margin-right: 25%;
-        }
-
-        @media (max-width: 900px) {
-          .rhesis-feature-overview .featuresGrid {
-            grid-template-columns: repeat(2, 1fr);
-            max-width: 600px;
-          }
-
-          .rhesis-feature-overview .featuresGrid > div:nth-child(4),
-          .rhesis-feature-overview .featuresGrid > div:nth-child(5) {
-            grid-column: auto;
-            margin-left: 0;
-            margin-right: 0;
-          }
-        }
-
-        @media (max-width: 600px) {
-          .rhesis-feature-overview .featuresGrid {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </div>
   )
 }

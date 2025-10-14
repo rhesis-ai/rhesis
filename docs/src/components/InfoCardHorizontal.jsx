@@ -80,54 +80,18 @@ export const InfoCardHorizontal = ({
   }
 
   return (
-    <>
-      <div
-        style={styles.card}
-        className={`info-card-horizontal ${className}`}
-      >
-        <div style={styles.iconWrapper}>
-          <Icon style={styles.icon} />
-        </div>
-        <div style={styles.content}>
-          <h3 style={styles.title}>{title}</h3>
-          {children || <p style={styles.description}>{description}</p>}
-        </div>
+    <div
+      style={styles.card}
+      className={`info-card-horizontal ${className}`}
+    >
+      <div style={styles.iconWrapper}>
+        <Icon style={styles.icon} />
       </div>
-
-      <style jsx>{`
-        [data-theme='dark'] .info-card-horizontal,
-        .dark .info-card-horizontal {
-          --border-color: #2c2c2c;
-          --card-bg: #161b22;
-          --text-primary: #e6edf3;
-          --text-secondary: #a9b1bb;
-          --accent-color: #fd6e12;
-          --icon-bg: rgba(253, 110, 18, 0.1);
-        }
-
-        [data-theme='light'] .info-card-horizontal {
-          --border-color: #e5e7eb;
-          --card-bg: #ffffff;
-          --text-primary: #3d3d3d;
-          --text-secondary: #6b7280;
-          --accent-color: #fd6e12;
-          --icon-bg: #fff5f0;
-        }
-
-        .info-card-horizontal:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        @media (max-width: 640px) {
-          .info-card-horizontal {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-          }
-        }
-      `}</style>
-    </>
+      <div style={styles.content}>
+        <h3 style={styles.title}>{title}</h3>
+        {children || <p style={styles.description}>{description}</p>}
+      </div>
+    </div>
   )
 }
 
