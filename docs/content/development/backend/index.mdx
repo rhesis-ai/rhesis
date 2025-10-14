@@ -1,0 +1,410 @@
+# Backend Documentation
+
+Welcome to the Rhesis Backend documentation. This section covers the FastAPI-based backend service that powers the Rhesis platform.
+
+<Callout type="default">
+  **Backend Overview** The Rhesis backend is built with **FastAPI** and provides REST APIs,
+  authentication, business logic, and data management for the entire platform.
+</Callout>
+
+## Quick Start
+
+### Prerequisites
+
+Before working with the backend, ensure you have:
+
+<Callout type="default">
+  **System Requirements** - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package manager -
+  **PostgreSQL** database (for production) - **Redis** (for caching and background tasks) -
+  **Environment variables** configured
+</Callout>
+
+### Development Setup
+
+<CodeBlock filename="backend-setup.sh" language="bash">
+{`# Navigate to backend directory
+cd apps/backend
+
+# Install dependencies
+uv sync
+
+# Set up environment
+cp ../../.env.example .env
+# Edit .env with your configuration
+
+# Run database migrations
+uv run alembic upgrade head
+
+# Start development server
+./start.sh`}
+</CodeBlock>
+
+<Callout type="default">
+  **Development Server** - **URL**: http://localhost:8080 - **API Docs**: http://localhost:8080/docs
+  - **ReDoc**: http://localhost:8080/redoc - **Health Check**: http://localhost:8080/health
+</Callout>
+
+## Architecture
+
+### System Overview
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>FastAPI Application</h3>
+    <p>Modern, fast web framework for building APIs with automatic documentation.</p>
+  </div>
+  <div>
+    <h3>SQLAlchemy ORM</h3>
+    <p>Database abstraction layer with migration support via Alembic.</p>
+  </div>
+  <div>
+    <h3>Celery Workers</h3>
+    <p>Background task processing for long-running operations.</p>
+  </div>
+  <div>
+    <h3>Authentication</h3>
+    <p>JWT-based authentication with role-based access control.</p>
+  </div>
+  <div>
+    <h3>Multi-tenancy</h3>
+    <p>Organizational isolation and data separation.</p>
+  </div>
+  <div>
+    <h3>API Gateway</h3>
+    <p>RESTful API endpoints with OpenAPI documentation.</p>
+  </div>
+</div>
+
+### Core Components
+
+**Application Structure:**
+
+<CodeBlock filename="backend-structure.txt" language="text">
+{`apps/backend/
+├── src/rhesis/backend/
+│   ├── app/
+│   │   ├── main.py          # FastAPI application entry point
+│   │   ├── api/             # API route definitions
+│   │   ├── core/            # Core configuration and settings
+│   │   ├── models/          # SQLAlchemy database models
+│   │   ├── services/        # Business logic services
+│   │   └── utils/           # Utility functions
+│   ├── alembic/             # Database migration scripts
+│   └── tests/               # Test suite
+├── start.sh                 # Development startup script
+└── pyproject.toml          # Python dependencies`}
+</CodeBlock>
+
+## API Structure
+
+### RESTful Endpoints
+
+The backend provides comprehensive REST APIs organized by functionality:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Authentication</h3>
+    <p>User registration, login, and JWT token management.</p>
+  </div>
+  <div>
+    <h3>Organizations</h3>
+    <p>Multi-tenant organization management and isolation.</p>
+  </div>
+  <div>
+    <h3>Projects</h3>
+    <p>Project creation, management, and configuration.</p>
+  </div>
+  <div>
+    <h3>Tests</h3>
+    <p>Test case management and execution tracking.</p>
+  </div>
+  <div>
+    <h3>Test Results</h3>
+    <p>Results storage, analysis, and reporting.</p>
+  </div>
+  <div>
+    <h3>Users</h3>
+    <p>User profile and permission management.</p>
+  </div>
+</div>
+
+### API Documentation
+
+- **Interactive Docs**: http://localhost:8080/docs (Swagger UI)
+- **Alternative Docs**: http://localhost:8080/redoc (ReDoc)
+- **OpenAPI Schema**: http://localhost:8080/openapi.json
+
+<Callout type="default">
+  **API Features** - **Automatic Documentation** - Generated from code and type hints - **Request
+  Validation** - Built-in Pydantic validation - **Response Serialization** - Automatic JSON
+  serialization - **Error Handling** - Consistent error responses - **Rate Limiting** - API rate
+  limiting and throttling
+</Callout>
+
+## Authentication & Security
+
+### JWT Authentication
+
+The backend uses JWT (JSON Web Tokens) for stateless authentication:
+
+<CodeBlock filename="jwt-token.json" language="javascript">
+{`// Example JWT token structure
+{
+  "sub": "user_id",
+  "org_id": "organization_id",
+  "permissions": ["read", "write"],
+  "exp": 1640995200
+}`}
+</CodeBlock>
+
+### Security Features
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>JWT Tokens</h3>
+    <p>Stateless authentication with configurable expiration.</p>
+  </div>
+  <div>
+    <h3>Role-Based Access</h3>
+    <p>Granular permissions and role management.</p>
+  </div>
+  <div>
+    <h3>API Rate Limiting</h3>
+    <p>Protection against abuse and DDoS attacks.</p>
+  </div>
+  <div>
+    <h3>CORS Configuration</h3>
+    <p>Cross-origin resource sharing policies.</p>
+  </div>
+  <div>
+    <h3>Input Validation</h3>
+    <p>Comprehensive request validation and sanitization.</p>
+  </div>
+</div>
+
+### Multi-tenancy
+
+Organizations provide data isolation and user management:
+
+<CodeBlock filename="organization-access.py" language="python">
+{`# Organization-based data access
+@router.get("/tests/")
+async def get_tests(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return get_tests_for_organization(db, current_user.organization_id)`}
+</CodeBlock>
+
+## Database Models
+
+### Core Entities
+
+The backend uses SQLAlchemy ORM with the following core models:
+
+**User Management:**
+
+- `User` - User accounts and profiles
+- `Organization` - Multi-tenant organizations
+- `Role` - User roles and permissions
+
+**Testing:**
+
+- `Project` - Test projects and configurations
+- `Test` - Individual test cases
+- `TestResult` - Test execution results
+- `TestSet` - Collections of related tests
+
+**AI Integration:**
+
+- `Model` - AI model configurations
+- `Prompt` - Prompt templates and versions
+- `Evaluation` - AI evaluation results
+
+## Background Tasks
+
+### Celery Integration
+
+Long-running operations are handled by Celery workers:
+
+<CodeBlock filename="celery-task.py" language="python">
+{`# Example background task
+@celery_app.task
+def process_test_results(test_id: int):
+    """Process and analyze test results asynchronously."""
+    # Long-running analysis
+    pass`}
+</CodeBlock>
+
+### Task Types
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Test Execution</h3>
+    <p>Asynchronous test case execution and monitoring.</p>
+  </div>
+  <div>
+    <h3>Result Analysis</h3>
+    <p>AI-powered analysis of test results and insights.</p>
+  </div>
+  <div>
+    <h3>Report Generation</h3>
+    <p>Automated report generation and export.</p>
+  </div>
+  <div>
+    <h3>Data Processing</h3>
+    <p>Batch processing of large datasets.</p>
+  </div>
+  <div>
+    <h3>Email Notifications</h3>
+    <p>Asynchronous email delivery and notifications.</p>
+  </div>
+</div>
+
+## Development Workflow
+
+### Local Development
+
+<CodeBlock filename="development-commands.sh" language="bash">
+{`# Start development server
+cd apps/backend
+./start.sh
+
+# Run tests
+uv run pytest
+
+# Run linting
+uv run ruff check .
+
+# Format code
+uv run ruff format .`}
+</CodeBlock>
+
+### Environment Configuration
+
+Key environment variables:
+
+<CodeBlock filename=".env" language="bash">
+{`# Database
+DATABASE_URL=postgresql://user:pass@localhost/rhesis
+
+# Authentication
+SECRET_KEY=your-secret-key
+JWT_ALGORITHM=HS256
+
+# Redis (for Celery)
+REDIS_URL=redis://localhost:6379
+
+# External Services
+OPENAI_API_KEY=your-openai-key`}
+</CodeBlock>
+
+## Deployment
+
+### Production Deployment
+
+The backend supports multiple deployment strategies:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Docker Deployment</h3>
+    <p>Containerized deployment with Docker and Docker Compose.</p>
+  </div>
+  <div>
+    <h3>Kubernetes</h3>
+    <p>Scalable deployment on Kubernetes clusters.</p>
+  </div>
+  <div>
+    <h3>Cloud Platforms</h3>
+    <p>Deployment on AWS, GCP, or Azure cloud platforms.</p>
+  </div>
+  <div>
+    <h3>Self-hosted</h3>
+    <p>Traditional server deployment with nginx and gunicorn.</p>
+  </div>
+</div>
+
+### Performance Considerations
+
+<Callout type="default">
+  **Performance Tips** - **Database Indexing** - Optimize query performance - **Caching** - Redis
+  caching for frequently accessed data - **Connection Pooling** - Database connection management -
+  **Load Balancing** - Distribute traffic across multiple instances - **Monitoring** - Comprehensive
+  logging and metrics
+</Callout>
+
+## Testing
+
+### Test Suite
+
+The backend includes comprehensive testing:
+
+<CodeBlock filename="testing-commands.sh" language="bash">
+{`# Run all tests
+uv run pytest
+
+# Run with coverage
+uv run pytest --cov=rhesis.backend
+
+# Run specific test categories
+uv run pytest tests/api/
+uv run pytest tests/services/`}
+</CodeBlock>
+
+### Test Categories
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Unit Tests</h3>
+    <p>Individual function and class testing.</p>
+  </div>
+  <div>
+    <h3>Integration Tests</h3>
+    <p>API endpoint and database integration testing.</p>
+  </div>
+  <div>
+    <h3>Authentication Tests</h3>
+    <p>JWT and permission testing.</p>
+  </div>
+  <div>
+    <h3>Performance Tests</h3>
+    <p>Load testing and performance validation.</p>
+  </div>
+</div>
+
+## Monitoring & Observability
+
+### Health Checks
+
+```bash
+# Health check endpoint
+GET /health
+
+# Response
+{
+  "status": "healthy",
+  "database": "connected",
+  "redis": "connected",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+### Logging
+
+Structured logging with configurable levels:
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+logger.info("User authenticated", extra={"user_id": user.id})
+```
+
+---
+
+<Callout type="default">
+  **Next Steps** - Explore the [API Reference](/docs/backend/api) for detailed endpoint
+  documentation - Check out [Authentication Guide](/docs/backend/auth) for security implementation -
+  Review [Deployment Guide](/docs/backend/deployment) for production setup - Learn about [Background
+  Tasks](/docs/backend/tasks) for async processing
+</Callout>

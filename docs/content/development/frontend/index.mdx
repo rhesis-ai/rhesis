@@ -1,0 +1,598 @@
+# Frontend Documentation
+
+Welcome to the Rhesis Frontend documentation. This section covers the React-based frontend application that provides the user interface for the Rhesis platform.
+
+<Callout type="default">
+  **Frontend Overview** The Rhesis frontend is built with **React 18**, **TypeScript**, and
+  **Next.js 15**, providing a modern, responsive user interface with real-time collaboration
+  features.
+</Callout>
+
+## Quick Start
+
+### Prerequisites
+
+Before working with the frontend, ensure you have:
+
+<Callout type="default">
+  **System Requirements** - **Node.js 18+** and npm - **Backend service** running on port 8080 -
+  **Modern browser** with ES6+ support - **Environment variables** configured
+</Callout>
+
+### Development Setup
+
+<CodeBlock filename="setup.sh" language="bash">
+{`# Navigate to frontend directory
+cd apps/frontend
+
+# Install dependencies
+npm install
+
+# Set up environment
+cp ../../.env.example .env.local
+# Edit .env.local with your configuration
+
+# Start development server
+npm run dev`}
+</CodeBlock>
+
+<Callout type="default">
+  **Development Server** - **URL**: http://localhost:3000 - **Hot Reload**: Enabled for instant
+  updates - **TypeScript**: Full type checking and IntelliSense - **ESLint**: Code quality and style
+  enforcement
+</Callout>
+
+## Architecture
+
+### Technology Stack
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>React 18</h3>
+    <p>Modern React with hooks, concurrent features, and suspense.</p>
+  </div>
+  <div>
+    <h3>TypeScript</h3>
+    <p>Type-safe JavaScript with advanced IDE support.</p>
+  </div>
+  <div>
+    <h3>Next.js 15</h3>
+    <p>Full-stack React framework with App Router.</p>
+  </div>
+  <div>
+    <h3>Tailwind CSS</h3>
+    <p>Utility-first CSS framework for rapid styling.</p>
+  </div>
+  <div>
+    <h3>Zustand</h3>
+    <p>Lightweight state management for React.</p>
+  </div>
+  <div>
+    <h3>React Query</h3>
+    <p>Data fetching and caching library.</p>
+  </div>
+</div>
+
+### Application Structure
+
+<FileTree
+  title="Application Structure"
+  data={[
+    {
+      name: "apps/frontend",
+      type: "folder",
+      children: [
+        {
+          name: "src",
+          type: "folder",
+          children: [
+            {
+              name: "app",
+              type: "folder",
+              description: "Next.js App Router pages",
+              children: [
+                {
+                  name: "(protected)",
+                  type: "folder",
+                  description: "Authenticated routes"
+                },
+                {
+                  name: "auth",
+                  type: "folder",
+                  description: "Authentication pages"
+                },
+                {
+                  name: "layout.tsx",
+                  type: "file",
+                  description: "Root layout"
+                }
+              ]
+            },
+            {
+              name: "components",
+              type: "folder",
+              description: "Reusable React components",
+              children: [
+                {
+                  name: "common",
+                  type: "folder",
+                  description: "Shared components"
+                },
+                {
+                  name: "forms",
+                  type: "folder",
+                  description: "Form components"
+                },
+                {
+                  name: "layout",
+                  type: "folder",
+                  description: "Layout components"
+                }
+              ]
+            },
+            {
+              name: "hooks",
+              type: "folder",
+              description: "Custom React hooks"
+            },
+            {
+              name: "lib",
+              type: "folder",
+              description: "Utility libraries"
+            },
+            {
+              name: "stores",
+              type: "folder",
+              description: "Zustand state stores"
+            },
+            {
+              name: "types",
+              type: "folder",
+              description: "TypeScript type definitions"
+            }
+          ]
+        },
+        {
+          name: "public",
+          type: "folder",
+          description: "Static assets"
+        },
+        {
+          name: "tailwind.config.js",
+          type: "file",
+          description: "Tailwind CSS configuration"
+        },
+        {
+          name: "package.json",
+          type: "file",
+          description: "Dependencies and scripts"
+        }
+      ]
+    }
+  ]}
+/>
+
+## Core Features
+
+### Authentication System
+
+The frontend implements a comprehensive authentication system:
+
+<CodeBlock filename="auth.tsx" language="typescript">
+{`// Authentication hook
+const { user, login, logout, isLoading } = useAuth();
+
+// Protected route wrapper
+<ProtectedRoute>
+  <Dashboard />
+</ProtectedRoute>`}
+</CodeBlock>
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>JWT Authentication</h3>
+    <p>Secure token-based authentication with automatic refresh.</p>
+  </div>
+  <div>
+    <h3>Role-Based Access</h3>
+    <p>UI components adapt based on user permissions.</p>
+  </div>
+  <div>
+    <h3>Multi-tenant Support</h3>
+    <p>Organization-based data isolation and management.</p>
+  </div>
+  <div>
+    <h3>Social Login</h3>
+    <p>Integration with OAuth providers (Google, GitHub).</p>
+  </div>
+  <div>
+    <h3>Session Management</h3>
+    <p>Automatic session handling and timeout management.</p>
+  </div>
+</div>
+
+### State Management
+
+Using Zustand for lightweight, scalable state management:
+
+```typescript
+// Example store
+interface AppState {
+  user: User | null
+  organization: Organization | null
+  setUser: (user: User) => void
+  setOrganization: (org: Organization) => void
+}
+
+const useAppStore = create<AppState>(set => ({
+  user: null,
+  organization: null,
+  setUser: user => set({ user }),
+  setOrganization: org => set({ organization: org }),
+}))
+```
+
+### Data Fetching
+
+React Query for efficient data fetching and caching:
+
+<CodeBlock filename="useQuery.ts" language="typescript">
+{`// Example query
+const {
+  data: tests,
+  isLoading,
+  error,
+} = useQuery({
+  queryKey: ['tests', organizationId],
+  queryFn: () => api.getTests(organizationId),
+  staleTime: 5 * 60 * 1000, // 5 minutes
+})`}
+</CodeBlock>
+
+## Component Library
+
+### Common Components
+
+The frontend includes a comprehensive component library:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>UI Components</h3>
+    <p>Buttons, inputs, modals, and other basic UI elements.</p>
+  </div>
+  <div>
+    <h3>Layout Components</h3>
+    <p>Headers, sidebars, and page layout structures.</p>
+  </div>
+  <div>
+    <h3>Form Components</h3>
+    <p>Form builders, validators, and submission handlers.</p>
+  </div>
+  <div>
+    <h3>Data Display</h3>
+    <p>Tables, charts, and data visualization components.</p>
+  </div>
+  <div>
+    <h3>Navigation</h3>
+    <p>Breadcrumbs, menus, and routing components.</p>
+  </div>
+</div>
+
+### Component Examples
+
+<CodeBlock filename="components.tsx" language="typescript">
+{`// Button component
+<Button
+  variant="primary"
+  size="lg"
+  onClick={handleClick}
+  loading={isLoading}
+>
+  Create Test
+</Button>
+
+// Form component
+<Form
+  schema={testSchema}
+  onSubmit={handleSubmit}
+  defaultValues={defaultValues}
+>
+  <FormField name="name" label="Test Name" />
+  <FormField name="description" label="Description" />
+</Form>`}
+</CodeBlock>
+
+## Routing & Navigation
+
+### App Router Structure
+
+Next.js 15 App Router provides file-based routing:
+
+```
+app/
+├── page.tsx                    # Home page (/)
+├── auth/
+│   ├── signin/page.tsx         # Sign in (/auth/signin)
+│   └── signout/page.tsx        # Sign out (/auth/signout)
+├── (protected)/                # Protected route group
+│   ├── dashboard/page.tsx      # Dashboard (/dashboard)
+│   ├── tests/
+│   │   ├── page.tsx           # Tests list (/tests)
+│   │   └── [id]/page.tsx      # Test detail (/tests/123)
+│   └── settings/page.tsx       # Settings (/settings)
+└── layout.tsx                  # Root layout
+```
+
+### Route Protection
+
+```typescript
+// Middleware for route protection
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get('auth-token')
+
+  if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/auth/signin', request.url))
+  }
+
+  return NextResponse.next()
+}
+```
+
+## API Integration
+
+### API Client
+
+Centralized API client with automatic error handling:
+
+```typescript
+// API client configuration
+const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  timeout: 10000,
+})
+
+// Request interceptor for authentication
+apiClient.interceptors.request.use(config => {
+  const token = getAuthToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+```
+
+### API Hooks
+
+Custom hooks for API integration:
+
+```typescript
+// Custom hook for tests
+export function useTests(organizationId: string) {
+  return useQuery({
+    queryKey: ['tests', organizationId],
+    queryFn: () => api.getTests(organizationId),
+    enabled: !!organizationId,
+  })
+}
+
+// Mutation hook
+export function useCreateTest() {
+  return useMutation({
+    mutationFn: api.createTest,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tests'])
+    },
+  })
+}
+```
+
+## Styling & Design
+
+### Tailwind CSS
+
+Utility-first CSS framework for rapid development:
+
+```typescript
+// Component with Tailwind classes
+<div className="flex items-center justify-between p-6 bg-white rounded-lg shadow-sm border border-gray-200">
+  <h2 className="text-xl font-semibold text-gray-900">Test Results</h2>
+  <Button variant="primary">Export</Button>
+</div>
+```
+
+### Design System
+
+Consistent design tokens and components:
+
+```typescript
+// Design tokens
+const colors = {
+  primary: {
+    50: '#eff6ff',
+    500: '#3b82f6',
+    900: '#1e3a8a',
+  },
+  // ... more colors
+}
+
+// Component variants
+const buttonVariants = {
+  primary: 'bg-primary-500 text-white hover:bg-primary-600',
+  secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200',
+  danger: 'bg-red-500 text-white hover:bg-red-600',
+}
+```
+
+## Performance Optimization
+
+### Code Splitting
+
+Automatic code splitting with Next.js:
+
+```typescript
+// Dynamic imports for code splitting
+const TestEditor = dynamic(() => import('./TestEditor'), {
+  loading: () => <TestEditorSkeleton />,
+  ssr: false,
+});
+```
+
+### Image Optimization
+
+Next.js Image component for optimized images:
+
+```typescript
+import Image from 'next/image';
+
+<Image
+  src="/logo.png"
+  alt="Rhesis Logo"
+  width={200}
+  height={50}
+  priority
+/>
+```
+
+### Caching Strategies
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Static Generation</h3>
+    <p>Pre-rendered pages for optimal performance.</p>
+  </div>
+  <div>
+    <h3>Incremental Static Regeneration</h3>
+    <p>Background updates for fresh content.</p>
+  </div>
+  <div>
+    <h3>Client-side Caching</h3>
+    <p>React Query for API response caching.</p>
+  </div>
+  <div>
+    <h3>CDN Optimization</h3>
+    <p>Static assets served from CDN.</p>
+  </div>
+</div>
+
+## Development Workflow
+
+### Local Development
+
+```bash
+# Start development server
+npm run dev
+
+# Run type checking
+npm run type-check
+
+# Run linting
+npm run lint
+
+# Run tests
+npm run test
+
+# Build for production
+npm run build
+```
+
+### Environment Configuration
+
+Key environment variables:
+
+```bash
+# API Configuration
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_WS_URL=ws://localhost:8080
+
+# Authentication
+NEXT_PUBLIC_AUTH_DOMAIN=your-auth-domain
+NEXT_PUBLIC_AUTH_CLIENT_ID=your-client-id
+
+# Feature Flags
+NEXT_PUBLIC_ENABLE_ANALYTICS=true
+NEXT_PUBLIC_ENABLE_BETA_FEATURES=false
+```
+
+## Testing
+
+### Test Suite
+
+Comprehensive testing with Jest and React Testing Library:
+
+```typescript
+// Component test example
+import { render, screen } from '@testing-library/react';
+import { TestCard } from './TestCard';
+
+describe('TestCard', () => {
+  it('renders test information correctly', () => {
+    render(<TestCard test={mockTest} />);
+
+    expect(screen.getByText(mockTest.name)).toBeInTheDocument();
+    expect(screen.getByText(mockTest.description)).toBeInTheDocument();
+  });
+});
+```
+
+### Test Categories
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Unit Tests</h3>
+    <p>Individual component and function testing.</p>
+  </div>
+  <div>
+    <h3>Integration Tests</h3>
+    <p>Component interaction and API integration testing.</p>
+  </div>
+  <div>
+    <h3>E2E Tests</h3>
+    <p>Full user journey testing with Playwright.</p>
+  </div>
+  <div>
+    <h3>Visual Regression Tests</h3>
+    <p>UI consistency and design validation.</p>
+  </div>
+</div>
+
+## Deployment
+
+### Build Process
+
+```bash
+# Production build
+npm run build
+
+# Static export (optional)
+npm run export
+```
+
+### Deployment Options
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Vercel</h3>
+    <p>Optimized deployment for Next.js applications.</p>
+  </div>
+  <div>
+    <h3>Netlify</h3>
+    <p>Static site deployment with serverless functions.</p>
+  </div>
+  <div>
+    <h3>Docker</h3>
+    <p>Containerized deployment for custom environments.</p>
+  </div>
+  <div>
+    <h3>Self-hosted</h3>
+    <p>Traditional server deployment with nginx.</p>
+  </div>
+</div>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Explore the [Component Library](/docs/frontend/components) for available UI
+  components - Check out [Authentication Guide](/docs/frontend/auth) for security implementation -
+  Review [State Management](/docs/frontend/state) for data flow patterns - Learn about [API
+  Integration](/docs/frontend/api) for backend communication
+</Callout>

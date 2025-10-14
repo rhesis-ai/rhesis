@@ -1,0 +1,529 @@
+# Contributing to Rhesis
+
+Thank you for your interest in contributing to Rhesis! This guide will help you get started with contributing to our AI-powered testing and evaluation platform.
+
+<Callout type="default">
+  **Welcome Contributors!** We welcome contributions from developers of all skill levels. Whether
+  you're fixing bugs, adding features, or improving documentation, your contributions help make
+  Rhesis better for everyone.
+</Callout>
+
+## Getting Started
+
+### Prerequisites
+
+Before contributing, make sure you have:
+
+<Callout type="default">
+  **Development Requirements** - **Python 3.8+** with [uv](https://docs.astral.sh/uv/) package
+  manager - **Node.js 18+** and npm - **Git** for version control - **Docker** (optional, for
+  containerized development) - **PostgreSQL** (for backend development) - **Redis** (for background
+  tasks)
+</Callout>
+
+### Quick Setup
+
+1. **Fork and clone the repository:**
+
+   ```bash
+   git clone https://github.com/your-username/rhesis.git
+   cd rhesis
+   ```
+
+2. **Set up your development environment:**
+
+   ```bash
+   # Install Python dependencies
+   uv sync
+
+   # Install Node.js dependencies
+   cd apps/frontend && npm install
+   cd ../docs && npm install
+   ```
+
+3. **Configure environment:**
+
+   ```bash
+   cp .env.example .env
+   # Edit .env with your local configuration
+   ```
+
+4. **Start the development servers:**
+   ```bash
+   ./rh backend start
+   ./rh frontend start
+   ./rh docs start
+   ```
+
+## Project Structure
+
+Understanding the project structure will help you navigate the codebase:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Backend Service</h3>
+    <p>FastAPI-based backend in `apps/backend/` with REST APIs and business logic.</p>
+  </div>
+  <div>
+    <h3>Frontend Application</h3>
+    <p>React/Next.js frontend in `apps/frontend/` providing the user interface.</p>
+  </div>
+  <div>
+    <h3>Documentation</h3>
+    <p>Nextra-based documentation in `apps/documentation/` with comprehensive guides.</p>
+  </div>
+  <div>
+    <h3>Python SDK</h3>
+    <p>Client SDK in `sdk/` for integrating Rhesis into Python applications.</p>
+  </div>
+  <div>
+    <h3>Infrastructure</h3>
+    <p>Terraform configurations in `infrastructure/` for cloud deployment.</p>
+  </div>
+  <div>
+    <h3>Tests</h3>
+    <p>Comprehensive test suites in `tests/` covering all components.</p>
+  </div>
+</div>
+
+## Development Workflow
+
+### Branch Strategy
+
+We use a feature branch workflow:
+
+```bash
+# Create a new feature branch
+git checkout -b feature/your-feature-name
+
+# Or for bug fixes
+git checkout -b fix/your-bug-description
+
+# Or for documentation
+git checkout -b docs/your-doc-update
+```
+
+<Callout type="default">
+  **Branch Naming Convention** - `feature/` - New features and enhancements - `fix/` - Bug fixes and
+  patches - `docs/` - Documentation updates - `refactor/` - Code refactoring - `test/` - Test
+  improvements
+</Callout>
+
+### Making Changes
+
+1. **Make your changes** in your feature branch
+2. **Write tests** for new functionality
+3. **Update documentation** if needed
+4. **Run the test suite** to ensure everything works
+5. **Commit your changes** with clear, descriptive messages
+
+### Commit Guidelines
+
+We follow conventional commit messages:
+
+```bash
+# Format: type(scope): description
+git commit -m "feat(backend): add user authentication endpoint"
+git commit -m "fix(frontend): resolve login form validation issue"
+git commit -m "docs(readme): update installation instructions"
+```
+
+**Commit Types:**
+
+- `feat` - New features
+- `fix` - Bug fixes
+- `docs` - Documentation changes
+- `style` - Code style changes (formatting, etc.)
+- `refactor` - Code refactoring
+- `test` - Adding or updating tests
+- `chore` - Maintenance tasks
+
+## Coding Standards
+
+### Python (Backend)
+
+We follow PEP 8 and use modern Python practices:
+
+```python
+# Use type hints
+def create_user(user_data: UserCreate, db: Session) -> User:
+    """Create a new user in the database."""
+    user = User(**user_data.dict())
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+# Use async/await for I/O operations
+async def get_user_by_id(user_id: int, db: AsyncSession) -> Optional[User]:
+    """Retrieve a user by ID."""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    return result.scalar_one_or_none()
+```
+
+**Python Standards:**
+
+- **Type Hints**: Use type hints for all function parameters and return values
+- **Docstrings**: Write clear docstrings for all functions and classes
+- **Error Handling**: Use proper exception handling with specific exceptions
+- **Testing**: Aim for 90%+ test coverage
+- **Formatting**: Use `ruff` for formatting and linting
+
+### JavaScript/TypeScript (Frontend)
+
+We follow modern JavaScript/TypeScript practices:
+
+```typescript
+// Use TypeScript interfaces
+interface User {
+  id: string
+  email: string
+  name: string
+  organizationId: string
+}
+
+// Use React hooks properly
+const useUser = (userId: string) => {
+  return useQuery({
+    queryKey: ['user', userId],
+    queryFn: () => api.getUser(userId),
+    enabled: !!userId,
+  })
+}
+
+// Use proper error handling
+const handleSubmit = async (data: FormData) => {
+  try {
+    await api.createUser(data)
+    toast.success('User created successfully')
+  } catch (error) {
+    toast.error('Failed to create user')
+    console.error(error)
+  }
+}
+```
+
+**Frontend Standards:**
+
+- **TypeScript**: Use TypeScript for all new code
+- **React Hooks**: Use hooks for state management and side effects
+- **Error Boundaries**: Implement error boundaries for error handling
+- **Accessibility**: Ensure components are accessible
+- **Performance**: Optimize for performance with proper memoization
+
+## Testing
+
+### Backend Testing
+
+We use pytest for backend testing:
+
+```python
+# Test example
+def test_create_user(db_session):
+    """Test user creation."""
+    user_data = UserCreate(
+        email="test@example.com",
+        password="securepassword",
+        name="Test User"
+    )
+
+    user = create_user(user_data, db_session)
+
+    assert user.email == "test@example.com"
+    assert user.name == "Test User"
+    assert user.id is not None
+```
+
+**Testing Guidelines:**
+
+- **Unit Tests**: Test individual functions and classes
+- **Integration Tests**: Test API endpoints and database interactions
+- **Fixtures**: Use pytest fixtures for test data and setup
+- **Coverage**: Maintain high test coverage (90%+)
+
+### Frontend Testing
+
+We use Jest and React Testing Library:
+
+```typescript
+// Component test example
+import { render, screen, fireEvent } from '@testing-library/react';
+import { UserForm } from './UserForm';
+
+describe('UserForm', () => {
+  it('submits form data correctly', async () => {
+    const mockSubmit = jest.fn();
+    render(<UserForm onSubmit={mockSubmit} />);
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'test@example.com' },
+    });
+
+    fireEvent.click(screen.getByText('Submit'));
+
+    expect(mockSubmit).toHaveBeenCalledWith({
+      email: 'test@example.com',
+    });
+  });
+});
+```
+
+**Frontend Testing Guidelines:**
+
+- **Component Tests**: Test component behavior and interactions
+- **Integration Tests**: Test component integration with APIs
+- **E2E Tests**: Test complete user workflows
+- **Accessibility Tests**: Ensure components are accessible
+
+## Documentation
+
+### Code Documentation
+
+All code should be well-documented:
+
+```python
+class UserService:
+    """Service for user management operations."""
+
+    def __init__(self, db: Session):
+        """Initialize the service with a database session."""
+        self.db = db
+
+    def create_user(self, user_data: UserCreate) -> User:
+        """
+        Create a new user in the system.
+
+        Args:
+            user_data: User creation data
+
+        Returns:
+            The created user object
+
+        Raises:
+            UserAlreadyExistsError: If user with email already exists
+        """
+        # Implementation...
+```
+
+### API Documentation
+
+API endpoints should be documented with OpenAPI/Swagger:
+
+```python
+@router.post("/users/", response_model=User)
+async def create_user(
+    user_data: UserCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new user.
+
+    This endpoint allows administrators to create new user accounts
+    in the system.
+    """
+    return user_service.create_user(user_data, db)
+```
+
+## Pull Request Process
+
+### Creating a Pull Request
+
+1. **Push your branch** to your fork
+2. **Create a PR** against the main branch
+3. **Fill out the PR template** with details about your changes
+4. **Link any related issues** that your PR addresses
+
+### PR Template
+
+```markdown
+## Description
+
+Brief description of the changes made.
+
+## Type of Change
+
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Documentation update
+- [ ] Refactoring
+- [ ] Test improvement
+
+## Testing
+
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+
+## Checklist
+
+- [ ] Code follows style guidelines
+- [ ] Documentation updated
+- [ ] Tests added/updated
+- [ ] No breaking changes
+```
+
+### Review Process
+
+<Callout type="default">
+  **Review Guidelines** - All PRs require at least one review - Address all review comments before
+  merging - Ensure CI/CD checks pass - Update documentation as needed
+</Callout>
+
+## Code Review Guidelines
+
+### What to Look For
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Functionality</h3>
+    <p>Does the code work as intended?</p>
+  </div>
+  <div>
+    <h3>Code Quality</h3>
+    <p>Is the code readable and maintainable?</p>
+  </div>
+  <div>
+    <h3>Testing</h3>
+    <p>Are there adequate tests?</p>
+  </div>
+  <div>
+    <h3>Documentation</h3>
+    <p>Is the code well-documented?</p>
+  </div>
+  <div>
+    <h3>Performance</h3>
+    <p>Are there performance implications?</p>
+  </div>
+  <div>
+    <h3>Security</h3>
+    <p>Are there security concerns?</p>
+  </div>
+</div>
+
+### Review Comments
+
+When reviewing code, be constructive and specific:
+
+```markdown
+# Good review comment
+
+Consider using a more descriptive variable name here.
+`user_data` could be `user_creation_payload` to be more specific.
+
+# Bad review comment
+
+This is wrong.
+```
+
+## GitHub Automation
+
+### CI/CD Pipeline
+
+We use GitHub Actions for continuous integration:
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>Code Quality</h3>
+    <p>Linting, formatting, and type checking.</p>
+  </div>
+  <div>
+    <h3>Testing</h3>
+    <p>Unit and integration test execution.</p>
+  </div>
+  <div>
+    <h3>Security</h3>
+    <p>Dependency scanning and security checks.</p>
+  </div>
+  <div>
+    <h3>Documentation</h3>
+    <p>Documentation build and validation.</p>
+  </div>
+</div>
+
+### Issue Templates
+
+We provide templates for different types of issues:
+
+- **Bug Report**: For reporting bugs
+- **Feature Request**: For requesting new features
+- **Documentation**: For documentation improvements
+- **Question**: For asking questions
+
+## Getting Help
+
+### Communication Channels
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div>
+    <h3>GitHub Discussions</h3>
+    <p>General questions and community discussions.</p>
+  </div>
+  <div>
+    <h3>GitHub Issues</h3>
+    <p>Bug reports and feature requests.</p>
+  </div>
+  <div>
+    <h3>Pull Requests</h3>
+    <p>Code reviews and collaboration.</p>
+  </div>
+  <div>
+    <h3>Documentation</h3>
+    <p>Comprehensive guides and references.</p>
+  </div>
+</div>
+
+### Mentorship
+
+<Callout type="default">
+  **New Contributors** - Don't hesitate to ask questions - Start with "good first issue" labels -
+  Join our community discussions - We're here to help you succeed!
+</Callout>
+
+## Versioning
+
+### Semantic Versioning
+
+We follow [Semantic Versioning](https://semver.org/):
+
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backward compatible)
+- **PATCH**: Bug fixes (backward compatible)
+
+### Release Process
+
+1. **Create release branch** from main
+2. **Update version** in all relevant files
+3. **Update changelog** with new features and fixes
+4. **Create release** on GitHub
+5. **Deploy** to production
+
+## Code of Conduct
+
+### Our Standards
+
+We are committed to providing a welcoming and inclusive environment for all contributors. Please:
+
+- Be respectful and inclusive
+- Focus on what is best for the community
+- Show empathy towards other community members
+
+### Enforcement
+
+<Callout type="default">
+  **Reporting Issues** If you experience or witness unacceptable behavior, please report it to the
+  project maintainers. All reports will be handled with discretion.
+</Callout>
+
+---
+
+<Callout type="default">
+  **Ready to Contribute?** - Check out our [Development Setup
+  Guide](/docs/development/contributing/development-setup) - Review our [Coding
+  Standards](/docs/development/contributing/coding-standards) - Look for issues labeled "good first
+  issue" - Join our [GitHub Discussions](https://github.com/rhesis-ai/rhesis/discussions)
+</Callout>
+
+Thank you for contributing to Rhesis!

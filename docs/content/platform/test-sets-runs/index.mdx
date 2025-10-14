@@ -1,0 +1,112 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Test Sets
+
+Organize tests into collections and execute them against endpoints.
+
+## Why Test Sets?
+
+Running tests one at a time doesn't scale for comprehensive AI testing. Test sets enable you to:
+
+- **Organize Tests**: Group related tests by feature, environment, or test type (regression, smoke, integration)
+- **Execute in Bulk**: Run hundreds of tests against an endpoint with one click
+- **Track Coverage**: See which behaviors, topics, and categories a test set covers
+- **Create Suites**: Build pre-deployment validation suites, daily health checks, or feature-specific tests
+- **Compare Results**: Run the same test set against different endpoints or over time
+
+## Understanding Test Sets
+
+A test set is a collection of tests that can be executed together against an endpoint. Think of it as a test suite that groups related test cases for organized execution. Each test set automatically aggregates metadata from its included tests—behaviors, categories, topics, and source documents—making it easy to understand what the set covers at a glance. Like individual tests, test sets have workflow fields including status, priority, assignee, and owner, plus tags for organization and filtering.
+
+## Creating a Test Set
+
+Click "New Test Set", provide a name, owner, and status. Optionally add a description, set priority, and assign to a team member.
+
+**[SCREENSHOT HERE: New Test Set dialog showing the form with name field, owner dropdown, status selector, description text area, priority selector (Low/Medium/High/Urgent), and assignee dropdown.]**
+
+## Managing Test Sets
+
+### Viewing Test Sets
+
+The Test Sets page displays all your test sets in a grid view showing the name, behaviors, categories, test count, status, and assignee. Below the grid, you'll find charts that visualize test sets over time, break them down by status and creator, and show the distribution of topics. For organizations with many test sets, pagination helps you navigate through the list.
+
+### Editing a Test Set
+
+From the test set detail page, you can edit the name and description using the Edit buttons, update tags to improve organization, and change workflow fields like status, priority, assignee, and owner as the test set moves through your testing process.
+
+### Deleting Test Sets
+
+Select one or more test sets from the grid and click "Delete Test Sets". Deleting a test set only removes the test set record; the individual tests remain intact.
+
+## Working with Tests
+
+### Viewing Tests in a Test Set
+
+The test set detail page shows all tests included in the set, displaying the prompt content, behavior, and topic for each one. Click any test to view its full details, execution history, and associated metadata.
+
+### Removing Tests
+
+Select one or more tests from the test set's test grid and click "Remove Tests". This disassociates tests from the test set without deleting the tests themselves.
+
+## Executing Test Sets
+
+Click "Execute Test Set" from the test set detail page or select multiple test sets and click "Run Test Sets" from the main grid.
+
+### Execution Configuration
+
+**1. Select Project**
+Choose the project containing the endpoint you want to test against.
+
+**2. Select Endpoint**
+Choose an endpoint within the selected project. The endpoint dropdown shows the environment (development, staging, or production) for each option, helping you confirm you're testing against the right system.
+
+**3. Execution Mode**
+Decide how tests should run. **Parallel** mode (the default) runs all tests simultaneously for faster execution, ideal when your endpoint can handle multiple concurrent requests. **Sequential** mode runs tests one after another, which is useful when testing rate-limited endpoints or when test order matters.
+
+**[SCREENSHOT HERE: Execute Test Set dialog showing project dropdown, endpoint dropdown (with environment tags visible), and execution mode radio buttons for Parallel/Sequential. Show the "Execute" button at the bottom.]**
+
+## Downloading Test Sets
+
+### CSV Export
+
+Click "Download Test Set" to export the test set as a CSV file containing all test data.
+
+### Python SDK
+
+Use the Rhesis Python SDK to load test sets programmatically:
+
+<CodeBlock
+  filename="load_test_set.py"
+  language="python"
+>
+{`from rhesis.entities import TestSet
+
+# Load as pandas DataFrame
+test_set = TestSet(id="test-set-id")
+df = test_set.load()
+
+# Or download CSV directly
+test_set = TestSet(id="test-set-id")
+test_set.download()  # Downloads to current directory`}
+</CodeBlock>
+
+## Test Set Details
+
+The test set detail page provides analytics and metadata about the test set.
+
+### Charts
+
+Visual charts help you understand the composition of your test set. The **Total Tests** chart shows how the test count has changed over time, while distribution charts break down the tests by behaviors, categories, and topics. These visualizations make it easy to see what aspects of your AI application the test set covers.
+
+### Metadata
+
+The metadata section aggregates information from all tests in the set. You'll see all unique behaviors, categories, and topics represented in the test set, giving you a quick overview of coverage. If tests were generated from uploaded documents, those source documents are listed here as well.
+
+---
+
+<Callout type="default">
+  **Next Steps** - Execute your test set against an [Endpoint](/docs/platform/endpoints) - View
+  detailed results in [Test Runs](/docs/platform/test-runs) - Download test sets as CSV or access
+  via [Python SDK](/docs/development/sdk) - Create additional test sets for different scenarios
+  (regression, smoke, integration)
+</Callout>

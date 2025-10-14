@@ -100,9 +100,10 @@ const EXCLUDE_PATTERNS = [
   /build/,
   /coverage/,
   /\.next/,
-  /apps\/documentation/, // Exclude documentation app for now
   /theme\.ts$/, // Exclude the theme file itself
+  /globals\.css$/, // Exclude globals.css (contains theme definitions)
   /check-hardcoded-styles\.js$/, // Exclude this script itself
+  /apps\/documentation\/components\//, // Temporarily exclude docs components (need refactoring)
   /create-pr-comment\.js$/, // Exclude PR comment script (contains documentation examples)
   /\.module\.css$/, // Exclude CSS modules (they might have hardcoded values for specific reasons)
   /\.test\./,
@@ -142,6 +143,11 @@ const IGNORE_PATTERNS = [
 
   // Small spacing values that might be acceptable for fine-tuning
   /['"`][1-4]px['"`]/, // 1-4px values are often acceptable for micro-adjustments
+
+  // Documentation-specific patterns
+  /style=\{\{[^}]*\}\}/, // Inline styles in React components (often necessary in docs)
+  /className=["'][^"']*["']/, // CSS class names
+  /--[a-zA-Z-]+:/, // CSS custom properties definitions
 ];
 
 class StyleChecker {
@@ -365,8 +371,8 @@ class StyleChecker {
         if (entry.isDirectory()) {
           this.checkDirectory(fullPath);
         } else if (entry.isFile()) {
-          // Check TypeScript, JavaScript, and TSX files
-          if (/\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+          // Check TypeScript, JavaScript, TSX, and MDX files
+          if (/\.(ts|tsx|js|jsx|mdx)$/.test(entry.name)) {
             this.checkFile(fullPath);
           }
         }
@@ -384,7 +390,7 @@ class StyleChecker {
       // Get files changed in this PR/commit
       const gitDiff = execSync('git diff --name-only HEAD~1 HEAD', { encoding: 'utf8' });
       return gitDiff.split('\n').filter(file =>
-        file.trim() && /\.(ts|tsx|js|jsx)$/.test(file)
+        file.trim() && /\.(ts|tsx|js|jsx|mdx)$/.test(file)
       );
     } catch (error) {
       console.warn('Could not get git diff, checking all files');
@@ -474,13 +480,26 @@ class StyleChecker {
           }
         });
       } else {
-        // Check the entire frontend source directory
+        // Check both frontend and documentation directories
         const frontendSrcPath = path.join(process.cwd(), 'apps', 'frontend', 'src');
+        const docsSrcPath = path.join(process.cwd(), 'apps', 'documentation');
+
+        let checkedAny = false;
+
         if (fs.existsSync(frontendSrcPath)) {
           console.log('Checking all files in apps/frontend/src...');
           this.checkDirectory(frontendSrcPath);
-        } else {
-          console.error('Frontend source directory not found');
+          checkedAny = true;
+        }
+
+        if (fs.existsSync(docsSrcPath)) {
+          console.log('Checking all files in apps/documentation...');
+          this.checkDirectory(docsSrcPath);
+          checkedAny = true;
+        }
+
+        if (!checkedAny) {
+          console.error('Neither frontend nor documentation source directories found');
           process.exit(1);
         }
       }

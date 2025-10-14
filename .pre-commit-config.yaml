@@ -36,11 +36,18 @@ repos:
           files: ^apps/frontend/
           pass_filenames: false
 
-        - id: frontend-hardcoded-styles
-          name: check hardcoded styles in frontend
+        - id: docs-format
+          name: auto-fix docs formatting
+          language: system
+          entry: bash -c "cd apps/documentation && npm run format"
+          files: ^apps/documentation/
+          pass_filenames: false
+
+        - id: hardcoded-styles
+          name: check hardcoded styles in frontend and docs
           language: system
           entry: node scripts/check-hardcoded-styles.js
-          files: ^apps/frontend/
+          files: ^apps/(frontend|documentation)/
           pass_filenames: false
 
 
