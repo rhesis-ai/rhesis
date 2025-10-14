@@ -1,8 +1,30 @@
+from enum import Enum
 from typing import Any, Dict, Optional
 
 from pydantic import UUID4, field_validator
 
 from rhesis.backend.app.schemas import Base
+
+
+# Source Types Enum - Defines available source types with corresponding handlers
+class SourceType(str, Enum):
+    DOCUMENT = "Document"
+    # Future source types can be added here:
+    # WEBSITE = "Website"
+    # API = "API"
+    # NOTION = "Notion"
+
+    @classmethod
+    def get_value(cls, source_type):
+        """Get the string value of a source type"""
+        if isinstance(source_type, cls):
+            return source_type.value
+        return source_type
+
+    @classmethod
+    def get_all_values(cls):
+        """Get all source type values as a list"""
+        return [source_type.value for source_type in cls]
 
 
 # Base schema for Source
