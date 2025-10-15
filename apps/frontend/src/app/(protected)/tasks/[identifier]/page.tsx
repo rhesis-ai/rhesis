@@ -529,6 +529,8 @@ export default function TaskDetailPage({ params }: PageProps) {
                     testResultId: task.task_metadata?.test_result_id,
                     finalUrl,
                   });
+                  console.log('[TaskDetailPage] Full task object:', task);
+                  console.log('[TaskDetailPage] Task metadata:', task.task_metadata);
                   router.push(finalUrl);
                 } catch (error) {
                   console.error('Navigation error:', error);
