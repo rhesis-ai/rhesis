@@ -51,11 +51,19 @@ export async function generateMetadata({
   }
 }
 
-export default async function TestRunPage({ params }: { params: any }) {
+export default async function TestRunPage({
+  params,
+  searchParams,
+}: {
+  params: any;
+  searchParams: any;
+}) {
   try {
-    // Ensure params is properly awaited
+    // Ensure params and searchParams are properly awaited
     const resolvedParams = await Promise.resolve(params);
+    const resolvedSearchParams = await Promise.resolve(searchParams);
     const identifier = resolvedParams.identifier;
+    const selectedResult = resolvedSearchParams?.selectedresult;
 
     const session = await auth();
 
@@ -200,6 +208,7 @@ export default async function TestRunPage({ params }: { params: any }) {
               currentUserId={session.user?.id || ''}
               currentUserName={session.user?.name || ''}
               currentUserPicture={session.user?.picture || undefined}
+              initialSelectedTestId={selectedResult}
             />
           </div>
         </Box>

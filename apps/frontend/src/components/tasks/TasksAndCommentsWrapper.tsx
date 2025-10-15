@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Paper, Divider } from '@mui/material';
 import { EntityType } from '@/types/tasks';
@@ -17,6 +17,7 @@ interface TasksAndCommentsWrapperProps {
   currentUserPicture?: string;
   elevation?: number;
   onCountsChange?: () => void;
+  additionalMetadata?: Record<string, any>;
 }
 
 export function TasksAndCommentsWrapper({
@@ -28,8 +29,10 @@ export function TasksAndCommentsWrapper({
   currentUserPicture,
   elevation = 1,
   onCountsChange,
+  additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
+
   const { createTask, deleteTask } = useTasks({
     entityType,
     entityId,
@@ -39,14 +42,22 @@ export function TasksAndCommentsWrapper({
   const handleCreateTask = useCallback(
     async (taskData: any) => {
       try {
-        await createTask(taskData);
+        // Merge additional metadata into task_metadata if available
+        const enrichedTaskData = { ...taskData };
+        if (additionalMetadata && Object.keys(additionalMetadata).length > 0) {
+          enrichedTaskData.task_metadata = {
+            ...taskData.task_metadata,
+            ...additionalMetadata,
+          };
+        }
+        await createTask(enrichedTaskData);
         // Notify parent that counts have changed
         onCountsChange?.();
       } catch (error) {
         console.error('Failed to create task:', error);
       }
     },
-    [createTask, onCountsChange]
+    [createTask, onCountsChange, additionalMetadata]
   );
 
   const handleEditTask = useCallback((taskId: string) => {
@@ -75,9 +86,16 @@ export function TasksAndCommentsWrapper({
         entityId,
         commentId,
       });
-      router.push(`/tasks/create?${params.toString()}`);
+      // Add additional metadata as query params
+      if (additionalMetadata) {
+        Object.entries(additionalMetadata).forEach(([key, value]) => {
+          params.append(key, String(value));
+        });
+      }
+      const finalUrl = `/tasks/create?${params.toString()}`;
+      router.push(finalUrl);
     },
-    [router, entityType, entityId]
+    [router, entityType, entityId, additionalMetadata]
   );
 
   const handleCreateTaskFromEntity = useCallback(() => {
@@ -86,8 +104,15 @@ export function TasksAndCommentsWrapper({
       entityType,
       entityId,
     });
-    router.push(`/tasks/create?${params.toString()}`);
-  }, [router, entityType, entityId]);
+    // Add additional metadata as query params
+    if (additionalMetadata) {
+      Object.entries(additionalMetadata).forEach(([key, value]) => {
+        params.append(key, String(value));
+      });
+    }
+    const finalUrl = `/tasks/create?${params.toString()}`;
+    router.push(finalUrl);
+  }, [router, entityType, entityId, additionalMetadata]);
 
   return (
     <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
@@ -99,6 +124,7 @@ export function TasksAndCommentsWrapper({
         onCreateTask={handleCreateTask}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
+        onNavigateToCreate={handleCreateTaskFromEntity}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
       />
