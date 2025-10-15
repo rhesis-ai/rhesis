@@ -4,6 +4,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
+import rhesis.backend
 
 # revision identifiers, used by Alembic.
 revision: str = "792098eebe5f"
