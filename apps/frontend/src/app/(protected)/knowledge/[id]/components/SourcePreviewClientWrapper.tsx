@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Alert, Paper, Button, Chip, IconButton, Tooltip, ToggleButton, ToggleButtonGroup, Collapse } from '@mui/material';
+import { Box, Typography, Alert, Paper, Button, Chip, IconButton, Tooltip, Collapse } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -10,8 +10,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
-import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
-import CodeIcon from '@mui/icons-material/Code';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
@@ -35,7 +33,6 @@ export default function SourcePreviewClientWrapper({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'formatted' | 'raw'>('formatted');
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const notifications = useNotifications();
   const router = useRouter();
@@ -98,9 +95,8 @@ export default function SourcePreviewClientWrapper({
   };
 
   const handleCopyContentBlock = async () => {
-    const contentToCopy = viewMode === 'formatted' ? formattedContent : content;
     try {
-      await navigator.clipboard.writeText(contentToCopy);
+      await navigator.clipboard.writeText(content);
       notifications.show('Content copied to clipboard', {
         severity: 'success',
         autoHideDuration: 2000,
@@ -150,14 +146,6 @@ export default function SourcePreviewClientWrapper({
     router.back();
   };
 
-  const handleViewModeChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newViewMode: 'formatted' | 'raw' | null,
-  ) => {
-    if (newViewMode !== null) {
-      setViewMode(newViewMode);
-    }
-  };
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Unknown';
@@ -190,15 +178,8 @@ export default function SourcePreviewClientWrapper({
     return ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
   };
 
-  const fileExtension = getFileExtension(source.source_metadata?.original_filename);
 
-  // Convert \n to actual line breaks for display and handle markdown-like formatting
-  const formattedContent = content
-    .replace(/\\n/g, '\n')
-    .replace(/\*\*(.*?)\*\*/g, '**$1**') // Keep bold formatting visible
-    .replace(/\*(.*?)\*/g, '*$1*') // Keep italic formatting visible
-    .replace(/#{1,6}\s/g, (match) => match.trim() + ' ') // Clean up headers
-    .trim();
+  const fileExtension = getFileExtension(source.source_metadata?.original_filename);
 
   return (
     <PageContainer
@@ -309,26 +290,6 @@ export default function SourcePreviewClientWrapper({
               </Typography>
             </Box>
             <Box className={styles.contentBlockActions}>
-              <ToggleButtonGroup
-                value={viewMode}
-                exclusive
-                onChange={handleViewModeChange}
-                size="small"
-                aria-label="view mode"
-              >
-                <ToggleButton value="formatted" aria-label="formatted view">
-                  <FormatAlignLeftIcon fontSize="small" />
-                  <Typography variant="caption" sx={{ ml: 0.5 }}>
-                    Formatted
-                  </Typography>
-                </ToggleButton>
-                <ToggleButton value="raw" aria-label="raw view">
-                  <CodeIcon fontSize="small" />
-                  <Typography variant="caption" sx={{ ml: 0.5 }}>
-                    Raw
-                  </Typography>
-                </ToggleButton>
-              </ToggleButtonGroup>
               <Tooltip title="Copy Content">
                 <IconButton
                   size="small"
@@ -354,7 +315,7 @@ export default function SourcePreviewClientWrapper({
           <Collapse in={isContentExpanded}>
             <Box className={styles.contentBlockBody}>
               <pre className={styles.contentText}>
-                {viewMode === 'formatted' ? formattedContent : content}
+                {content}
               </pre>
             </Box>
           </Collapse>
