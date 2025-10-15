@@ -286,88 +286,86 @@ export default function SourcePreviewClientWrapper({
       </Paper>
 
       {/* Content preview */}
-      <Paper className={styles.contentContainer}>
-        {loading && (
-          <Box className={styles.loadingContainer}>
-            <Typography color="text.secondary">Loading content...</Typography>
-          </Box>
-        )}
+      {loading && (
+        <Box className={styles.loadingContainer}>
+          <Typography color="text.secondary">Loading content...</Typography>
+        </Box>
+      )}
 
-        {error && (
-          <Alert severity="error" className={styles.errorAlert}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert severity="error" className={styles.errorAlert}>
+          {error}
+        </Alert>
+      )}
 
-        {!loading && !error && content && (
-          <Box className={styles.contentBlock}>
-            {/* Content Block Header */}
-            <Box className={styles.contentBlockHeader}>
-              <Box className={styles.contentBlockTitle}>
-                <InsertDriveFileOutlined className={styles.documentIcon} />
-                <Typography variant="body2" color="text.secondary">
-                  {source.title || 'Document Content'}
-                </Typography>
-              </Box>
-              <Box className={styles.contentBlockActions}>
-                <ToggleButtonGroup
-                  value={viewMode}
-                  exclusive
-                  onChange={handleViewModeChange}
-                  size="small"
-                  aria-label="view mode"
-                >
-                  <ToggleButton value="formatted" aria-label="formatted view">
-                    <FormatAlignLeftIcon fontSize="small" />
-                    <Typography variant="caption" sx={{ ml: 0.5 }}>
-                      Formatted
-                    </Typography>
-                  </ToggleButton>
-                  <ToggleButton value="raw" aria-label="raw view">
-                    <CodeIcon fontSize="small" />
-                    <Typography variant="caption" sx={{ ml: 0.5 }}>
-                      Raw
-                    </Typography>
-                  </ToggleButton>
-                </ToggleButtonGroup>
-                <Tooltip title="Copy Content">
-                  <IconButton
-                    size="small"
-                    onClick={handleCopyContentBlock}
-                    className={styles.copyButton}
-                  >
-                    <ContentCopyIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={isContentExpanded ? "Collapse" : "Expand"}>
-                  <IconButton
-                    size="small"
-                    onClick={() => setIsContentExpanded(!isContentExpanded)}
-                    className={styles.expandButton}
-                  >
-                    {isContentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </Tooltip>
-              </Box>
+      {!loading && !error && content && (
+        <Box className={styles.contentBlock}>
+          {/* Content Block Header */}
+          <Box className={styles.contentBlockHeader}>
+            <Box className={styles.contentBlockTitle}>
+              <InsertDriveFileOutlined className={styles.documentIcon} />
+              <Typography variant="body2" color="text.secondary">
+                {source.title || 'Document Content'}
+              </Typography>
             </Box>
-
-            {/* Content Block Body */}
-            <Collapse in={isContentExpanded}>
-              <Box className={styles.contentBlockBody}>
-                <pre className={styles.contentText}>
-                  {viewMode === 'formatted' ? formattedContent : content}
-                </pre>
-              </Box>
-            </Collapse>
+            <Box className={styles.contentBlockActions}>
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={handleViewModeChange}
+                size="small"
+                aria-label="view mode"
+              >
+                <ToggleButton value="formatted" aria-label="formatted view">
+                  <FormatAlignLeftIcon fontSize="small" />
+                  <Typography variant="caption" sx={{ ml: 0.5 }}>
+                    Formatted
+                  </Typography>
+                </ToggleButton>
+                <ToggleButton value="raw" aria-label="raw view">
+                  <CodeIcon fontSize="small" />
+                  <Typography variant="caption" sx={{ ml: 0.5 }}>
+                    Raw
+                  </Typography>
+                </ToggleButton>
+              </ToggleButtonGroup>
+              <Tooltip title="Copy Content">
+                <IconButton
+                  size="small"
+                  onClick={handleCopyContentBlock}
+                  className={styles.copyButton}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={isContentExpanded ? "Collapse" : "Expand"}>
+                <IconButton
+                  size="small"
+                  onClick={() => setIsContentExpanded(!isContentExpanded)}
+                  className={styles.expandButton}
+                >
+                  {isContentExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
-        )}
 
-        {!loading && !error && !content && (
-          <Box className={styles.emptyContainer}>
-            <Typography color="text.secondary">No content available</Typography>
-          </Box>
-        )}
-      </Paper>
+          {/* Content Block Body */}
+          <Collapse in={isContentExpanded}>
+            <Box className={styles.contentBlockBody}>
+              <pre className={styles.contentText}>
+                {viewMode === 'formatted' ? formattedContent : content}
+              </pre>
+            </Box>
+          </Collapse>
+        </Box>
+      )}
+
+      {!loading && !error && !content && (
+        <Box className={styles.emptyContainer}>
+          <Typography color="text.secondary">No content available</Typography>
+        </Box>
+      )}
     </PageContainer>
   );
 }
