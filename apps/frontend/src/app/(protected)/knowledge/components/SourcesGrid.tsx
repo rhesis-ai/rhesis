@@ -39,7 +39,6 @@ export default function SourcesGrid({
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const isMounted = useRef(true);
 
   // Component state
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
@@ -47,61 +46,12 @@ export default function SourcesGrid({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
-    {}
-  );
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Fetch comment counts for sources
-  const fetchCommentCounts = useCallback(
-    async (sources: Source[]) => {
-      if (!sessionToken || sources.length === 0) return;
-
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const commentsClient = clientFactory.getCommentsClient();
-
-        const counts: Record<string, number> = {};
-
-        // Fetch comment counts for each source
-        await Promise.all(
-          sources.map(async source => {
-            try {
-              const comments = await commentsClient.getComments(
-                'Source',
-                source.id
-              );
-              counts[source.id] = comments.length;
-            } catch (error) {
-              console.error(
-                `Error fetching comments for source ${source.id}:`,
-                error
-              );
-              counts[source.id] = 0;
-            }
-          })
-        );
-
-        if (isMounted.current) {
-          setCommentCounts(counts);
-        }
-      } catch (error) {
-        console.error('Error fetching comment counts:', error);
-      }
-    },
-    [sessionToken]
-  );
 
   // Data fetching function
   const fetchSources = useCallback(async () => {
@@ -122,28 +72,19 @@ export default function SourcesGrid({
 
       const response = await sourcesClient.getSources(apiParams);
 
-      if (isMounted.current) {
-        setSources(response.data);
-        setTotalCount(response.pagination.totalCount);
-        setError(null);
-
-        // Fetch comment counts for each source
-        await fetchCommentCounts(response.data);
-      }
+      setSources(response.data);
+      setTotalCount(response.pagination.totalCount);
+      setError(null);
     } catch (error) {
       console.error('Error fetching sources:', error);
-      if (isMounted.current) {
-        setError('Failed to load knowledge sources');
-        setSources([]);
-      }
+      setError('Failed to load knowledge sources');
+      setSources([]);
     } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, [sessionToken, paginationModel, fetchCommentCounts]);
+  }, [sessionToken, paginationModel.page, paginationModel.pageSize]);
 
-  // Fetch data when dependencies change
+  // Initial data fetch
   useEffect(() => {
     fetchSources();
   }, [fetchSources]);
@@ -223,7 +164,7 @@ export default function SourcesGrid({
   };
 
   // Get action buttons based on selection
-  const getActionButtons = () => {
+  const getActionButtons = useCallback(() => {
     const buttons = [
       {
         label: 'Upload Source',
@@ -248,162 +189,165 @@ export default function SourcesGrid({
     }
 
     return buttons;
-  };
+  }, [selectedRows.length]);
 
   // Column definitions
-  const columns: GridColDef[] = [
-    {
-      field: 'title',
-      headerName: 'Title',
-      flex: 1,
-      minWidth: 250,
-      renderCell: params => {
-        const source = params.row as Source;
+  const columns: GridColDef[] = React.useMemo(
+    () => [
+      {
+        field: 'title',
+        headerName: 'Title',
+        flex: 1,
+        minWidth: 250,
+        renderCell: params => {
+          const source = params.row as Source;
 
-        return (
-          <Box className={styles.sourceContent}>
-            <Typography variant="body2">{source.title}</Typography>
-            {source.description && (
-              <Typography
-                variant="caption"
-                className={styles.sourceDescription}
-              >
-                {source.description.length > 50
-                  ? `${source.description.substring(0, 50)}...`
-                  : source.description}
-              </Typography>
-            )}
-          </Box>
-        );
+          return (
+            <Box className={styles.sourceContent}>
+              <Typography variant="body2">{source.title}</Typography>
+              {source.description && (
+                <Typography
+                  variant="caption"
+                  className={styles.sourceDescription}
+                >
+                  {source.description.length > 50
+                    ? `${source.description.substring(0, 50)}...`
+                    : source.description}
+                </Typography>
+              )}
+            </Box>
+          );
+        },
       },
-    },
-    {
-      field: 'type',
-      headerName: 'Type',
-      width: 100,
-      renderCell: params => {
-        const source = params.row as Source;
-        const metadata = source.source_metadata || {};
+      {
+        field: 'type',
+        headerName: 'Type',
+        width: 100,
+        renderCell: params => {
+          const source = params.row as Source;
+          const metadata = source.source_metadata || {};
 
-        // Extract file extension from original filename
-        const getFileExtension = (filename?: string) => {
-          if (!filename) return 'unknown';
+          // Extract file extension from original filename
+          const getFileExtension = (filename?: string) => {
+            if (!filename) return 'unknown';
 
-          const ext = filename.split('.').pop()?.toLowerCase();
-          if (!ext) return 'unknown';
+            const ext = filename.split('.').pop()?.toLowerCase();
+            if (!ext) return 'unknown';
 
-          // Handle special cases where we want to normalize extensions
-          const normalizedExt =
-            ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
+            // Handle special cases where we want to normalize extensions
+            const normalizedExt =
+              ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
 
-          return normalizedExt;
-        };
+            return normalizedExt;
+          };
 
-        const fileExtension = getFileExtension(metadata.original_filename);
+          const fileExtension = getFileExtension(metadata.original_filename);
 
-        return (
-          <Chip
-            label={fileExtension.toUpperCase()}
-            size="small"
-            variant="outlined"
-            className={styles.fileTypeChip}
-          />
-        );
+          return (
+            <Chip
+              label={fileExtension.toUpperCase()}
+              size="small"
+              variant="outlined"
+              className={styles.fileTypeChip}
+            />
+          );
+        },
       },
-    },
-    {
-      field: 'size',
-      headerName: 'Size',
-      width: 90,
-      renderCell: params => {
-        const source = params.row as Source;
-        const metadata = source.source_metadata || {};
-        const fileSize = metadata.file_size;
+      {
+        field: 'size',
+        headerName: 'Size',
+        width: 90,
+        renderCell: params => {
+          const source = params.row as Source;
+          const metadata = source.source_metadata || {};
+          const fileSize = metadata.file_size;
 
-        return (
-          <Typography variant="body2" color="text.secondary">
-            {formatFileSize(fileSize)}
-          </Typography>
-        );
-      },
-    },
-    {
-      field: 'created_at',
-      headerName: 'Uploaded',
-      width: 110,
-      renderCell: params => {
-        const source = params.row as Source;
-
-        const formatDate = (dateString: string | null | undefined) => {
-          if (!dateString) return 'Unknown';
-          try {
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return 'Invalid date';
-
-            // Use consistent DD/MM/YYYY formatting
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-
-            return `${day}/${month}/${year}`;
-          } catch {
-            return 'Invalid date';
-          }
-        };
-
-        // Use uploaded_at from source_metadata
-        const dateToShow = source.source_metadata?.uploaded_at;
-
-        return (
-          <Typography variant="body2" color="text.secondary">
-            {formatDate(dateToShow)}
-          </Typography>
-        );
-      },
-    },
-    {
-      field: 'uploader',
-      headerName: 'Added by',
-      width: 130,
-      renderCell: params => {
-        const source = params.row as Source;
-        const uploaderName = source.source_metadata?.uploader_name;
-
-        if (!uploaderName) {
           return (
             <Typography variant="body2" color="text.secondary">
-              Unknown
+              {formatFileSize(fileSize)}
             </Typography>
           );
-        }
-
-        return (
-          <Typography variant="body2" color="text.secondary">
-            {uploaderName}
-          </Typography>
-        );
+        },
       },
-    },
-    {
-      field: 'counts.comments',
-      headerName: 'Comments',
-      width: 100,
-      sortable: false,
-      filterable: false,
-      renderCell: params => {
-        const source = params.row as Source;
-        const count = commentCounts[source.id] || source.counts?.comments || 0;
+      {
+        field: 'created_at',
+        headerName: 'Uploaded',
+        width: 110,
+        renderCell: params => {
+          const source = params.row as Source;
 
-        if (count === 0) return null;
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">{count}</Typography>
-          </Box>
-        );
+          const formatDate = (dateString: string | null | undefined) => {
+            if (!dateString) return 'Unknown';
+            try {
+              const date = new Date(dateString);
+              if (isNaN(date.getTime())) return 'Invalid date';
+
+              // Use consistent DD/MM/YYYY formatting
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+
+              return `${day}/${month}/${year}`;
+            } catch {
+              return 'Invalid date';
+            }
+          };
+
+          // Use uploaded_at from source_metadata
+          const dateToShow = source.source_metadata?.uploaded_at;
+
+          return (
+            <Typography variant="body2" color="text.secondary">
+              {formatDate(dateToShow)}
+            </Typography>
+          );
+        },
       },
-    },
-  ];
+      {
+        field: 'uploader',
+        headerName: 'Added by',
+        width: 130,
+        renderCell: params => {
+          const source = params.row as Source;
+          const uploaderName = source.source_metadata?.uploader_name;
+
+          if (!uploaderName) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                Unknown
+              </Typography>
+            );
+          }
+
+          return (
+            <Typography variant="body2" color="text.secondary">
+              {uploaderName}
+            </Typography>
+          );
+        },
+      },
+      {
+        field: 'counts.comments',
+        headerName: 'Comments',
+        width: 100,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const source = params.row as Source;
+          const count = source.counts?.comments || 0;
+
+          if (count === 0) return null;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   if (error) {
     return (
