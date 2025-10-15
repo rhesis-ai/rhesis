@@ -99,7 +99,6 @@ start_worker() {
         exit 1
     }
 
-    echo -e "${BLUE}🔄 Starting Celery worker...${NC}"
     celery -A rhesis.backend.worker worker --loglevel=DEBUG -Q celery,execution 2>&1 | tee celery.log
 }
 
