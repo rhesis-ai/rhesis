@@ -215,6 +215,9 @@ autodoc_type_aliases = {
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
+# Use custom Rhesis pygments style for syntax highlighting
+pygments_style = 'rhesis_pygments_style.RhesisStyle'
+
 # Custom CSS files
 html_css_files = [
     'rhesis-theme.css',

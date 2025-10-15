@@ -187,7 +187,8 @@ h3, .rst-content h3 {
 }
 
 /* Sidebar navigation items */
-.wy-menu-vertical a {
+.wy-menu-vertical a,
+.wy-menu-vertical a.reference.internal {
   color: white !important;
   font-family: "Be Vietnam Pro", sans-serif !important;
   font-weight: 400;
@@ -199,14 +200,14 @@ h3, .rst-content h3 {
 }
 
 .wy-menu-vertical li.current a {
-  background-color: #1A1A1A !important;
+  background-color: var(--rhesis-primary-cta-blue) !important;
   color: white !important;
   border-right: 3px solid var(--rhesis-accent-yellow) !important;
   font-weight: 600 !important;
 }
 
 .wy-menu-vertical li.current > a {
-  background-color: #1A1A1A !important;
+  background-color: var(--rhesis-primary-cta-blue) !important;
 }
 
 /* Sidebar section headers */
@@ -255,38 +256,56 @@ a:visited, .rst-content a:visited {
 }
 
 /* Code blocks - Terminal/IDE style */
-.rst-content .highlight,
-.rst-content div[class^=highlight],
+.rst-content div[class*="highlight-"] {
+  background: #161B22 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  margin: 24px 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+  position: relative;
+}
+
 .rst-content pre.literal-block {
   background: #161B22 !important;
   border: none !important;
   border-radius: 8px !important;
   margin: 24px 0 !important;
   overflow: hidden !important;
-  box-shadow: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
   position: relative;
 }
 
-/* Add terminal header with dots */
-.rst-content .highlight::before {
+/* Add terminal header with dots - target the outer wrapper */
+.rst-content div[class*="highlight-"]::before {
   content: "";
   display: block;
   background: #1F242B;
   padding: 8px 16px;
+  height: 32px;
   border-bottom: 1px solid #2C2C2C;
   position: relative;
+  z-index: 1;
 }
 
-.rst-content .highlight::after {
+.rst-content div[class*="highlight-"]::after {
   content: "";
   position: absolute;
-  top: 12px;
+  top: 10px;
   left: 16px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: #e53935;
   box-shadow: 18px 0 0 #fbc02d, 36px 0 0 #4cafef;
+  z-index: 2;
+}
+
+/* Remove pseudo-elements from inner .highlight div */
+.rst-content div[class*="highlight-"] .highlight {
+  background: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .rst-content .highlight pre {
@@ -301,42 +320,8 @@ a:visited, .rst-content a:visited {
   overflow-x: auto !important;
 }
 
-/* Code syntax highlighting */
-.rst-content .highlight .c,
-.rst-content .highlight .c1,
-.rst-content .highlight .cm {
-  color: #7C7C7C !important; /* Comments */
-}
-
-.rst-content .highlight .k,
-.rst-content .highlight .kn,
-.rst-content .highlight .kd {
-  color: #FF7B72 !important; /* Keywords */
-}
-
-.rst-content .highlight .s,
-.rst-content .highlight .s1,
-.rst-content .highlight .s2 {
-  color: #A5C261 !important; /* Strings */
-}
-
-.rst-content .highlight .mi,
-.rst-content .highlight .mf {
-  color: #79C0FF !important; /* Numbers */
-}
-
-.rst-content .highlight .n,
-.rst-content .highlight .na {
-  color: #E6EDF3 !important; /* Names */
-}
-
-.rst-content .highlight .nf {
-  color: #D2A8FF !important; /* Function names */
-}
-
-.rst-content .highlight .o {
-  color: #FF7B72 !important; /* Operators */
-}
+/* Code syntax highlighting now handled by custom pygments style in rhesis_pygments_style.py */
+/* This provides cleaner, more maintainable syntax highlighting using Rhesis brand colors */
 
 /* Inline code */
 .rst-content code.literal {
