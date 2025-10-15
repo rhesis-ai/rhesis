@@ -20,7 +20,6 @@ from rhesis.backend.app.schemas.services import (
     TestConfigResponse,
     TextResponse,
 )
-from rhesis.backend.app.services.document_handler import DocumentHandler
 from rhesis.backend.app.services.gemini_client import (
     create_chat_completion,
     get_chat_response,
@@ -28,6 +27,8 @@ from rhesis.backend.app.services.gemini_client import (
 )
 from rhesis.backend.app.services.generation import generate_tests
 from rhesis.backend.app.services.github import read_repo_contents
+from rhesis.backend.app.services.handlers import DocumentHandler
+from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
 from rhesis.sdk.services.extractor import DocumentExtractor
@@ -269,8 +270,8 @@ async def upload_document(
     handler = DocumentHandler()
 
     # Use user_id as source_id for now (can be changed to a proper source ID later)
-    path, metadata = await handler.save_document(document, organization_id, user_id)
-    return {"path": path}
+    metadata = await handler.save_document(document, organization_id, user_id)
+    return {"path": metadata["file_path"]}
 
 
 @router.post("/documents/extract", response_model=ExtractDocumentResponse)
@@ -278,7 +279,8 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
     """
     Extract text content from an uploaded document.
 
-    Uses the SDK's DocumentExtractor to extract text from various document formats:
+    Uses the SDK's DocumentExtractor with hybrid storage support to extract text from
+    various document formats:
     - PDF (.pdf)
     - Microsoft Office formats (.docx, .xlsx, .pptx)
     - Markdown (.md)
@@ -288,6 +290,8 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
     - Plain text (.txt)
     - And more...
 
+    The endpoint automatically handles files stored in both cloud and local storage.
+
     Args:
         request: ExtractDocumentRequest containing the path to the uploaded document
 
@@ -295,11 +299,24 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
         ExtractDocumentResponse containing the extracted text content and detected format
     """
     try:
-        # Initialize extractor
-        extractor = DocumentExtractor()
+        # Initialize storage service
+        storage_service = StorageService()
 
         # Get file extension to determine format
         file_extension = Path(request.path).suffix.lower()
+
+        # Check if file exists in storage
+        if not storage_service.file_exists(request.path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"File not found: {request.path}",
+            )
+
+        # Get file content from storage (handles both cloud and local)
+        file_content = await storage_service.get_file(request.path)
+
+        # Initialize extractor
+        extractor = DocumentExtractor()
 
         # Check if format is supported
         if file_extension not in extractor.supported_extensions:
@@ -309,17 +326,12 @@ async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDo
                 f"Supported formats: {', '.join(extractor.supported_extensions)}",
             )
 
-        # Prepare document for extraction
-        document = Document(name="document", description="Uploaded document", path=request.path)
-
-        # Extract content
-        extracted_texts = extractor.extract([document])
-
-        # Get the extracted content (there's only one document)
-        content = next(iter(extracted_texts.values()))
+        # Extract content from bytes (not from file path)
+        filename = Path(request.path).name
+        extracted_content = extractor.extract_from_bytes(file_content, filename)
 
         return ExtractDocumentResponse(
-            content=content,
+            content=extracted_content,
             format=file_extension.lstrip("."),  # Remove the leading dot
         )
 
