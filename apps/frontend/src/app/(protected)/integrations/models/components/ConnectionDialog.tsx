@@ -674,11 +674,15 @@ export function ConnectionDialog({
                 configuration.
               </Alert>
             )}
-            {isEditMode && apiKey !== '************' && !connectionTested && !testResult && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Please test the connection with the new API key before updating.
-              </Alert>
-            )}
+            {isEditMode &&
+              apiKey !== '************' &&
+              !connectionTested &&
+              !testResult && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  Please test the connection with the new API key before
+                  updating.
+                </Alert>
+              )}
 
             {/* Custom Headers */}
             <Stack spacing={1}>
