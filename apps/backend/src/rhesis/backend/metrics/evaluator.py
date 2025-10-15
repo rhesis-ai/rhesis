@@ -1,5 +1,8 @@
 import concurrent.futures
 from typing import Any, Dict, List, Optional, Tuple, Union
+from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.base import BaseMetric, MetricConfig, MetricResult
@@ -13,20 +16,29 @@ from rhesis.backend.metrics.utils import diagnose_invalid_metric
 class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
-    def __init__(self, model: Optional[Any] = None):
+    def __init__(
+        self, 
+        model: Optional[Any] = None,
+        db: Optional[Session] = None,
+        organization_id: Optional[str] = None
+    ):
         """
         Initialize evaluator with factory and score evaluator.
         
         Args:
-            model: Optional model for metrics evaluation. Can be:
+            model: Optional default model for metrics evaluation. Can be:
                    - None: Use default model from constants
                    - str: Provider name (e.g., "gemini", "openai")
                    - BaseLLM instance: Fully configured model
+            db: Optional database session for fetching metric-specific models
+            organization_id: Optional organization ID for secure model lookups
         """
         # Lazy load factory to avoid circular imports
         self.factory = None
         self.score_evaluator = ScoreEvaluator()
-        self.model = model  # Store model for passing to metrics
+        self.model = model  # Store default model for passing to metrics
+        self.db = db  # Database session for fetching metric-specific models
+        self.organization_id = organization_id  # For secure model lookups
 
     def _get_factory(self):
         """Lazy load the MetricFactory to avoid circular imports."""
@@ -208,9 +220,54 @@ class MetricEvaluator:
                 # Prepare parameters for the metric
                 metric_params = {"threshold": metric_config.threshold, **metric_config.parameters}
                 
-                # Pass model to metric if available
-                if self.model is not None:
-                    metric_params["model"] = self.model
+                # Determine which model to use for this metric
+                # Priority: metric-specific model > user's default model > system default
+                metric_model = None
+                
+                # 1. Check if metric has a specific model configured
+                if metric_config.model_id and self.db:
+                    try:
+                        from rhesis.backend.app import crud
+                        from rhesis.sdk.models.factory import get_model
+                        
+                        # Fetch metric's preferred model from database
+                        model_record = crud.get_model(
+                            self.db, 
+                            UUID(metric_config.model_id) if isinstance(metric_config.model_id, str) else metric_config.model_id, 
+                            self.organization_id
+                        )
+                        
+                        if model_record and model_record.provider_type:
+                            # Create BaseLLM instance for this specific metric
+                            metric_model = get_model(
+                                provider=model_record.provider_type.type_value,
+                                model_name=model_record.model_name,
+                                api_key=model_record.key
+                            )
+                            logger.info(
+                                f"[METRIC_MODEL] Using metric-specific model for '{metric_config.name or class_name}': "
+                                f"{model_record.name} (provider={model_record.provider_type.type_value}, "
+                                f"model={model_record.model_name})"
+                            )
+                        else:
+                            logger.warning(
+                                f"[METRIC_MODEL] Model ID {metric_config.model_id} not found for metric '{metric_config.name or class_name}'"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"[METRIC_MODEL] Error fetching metric-specific model for '{metric_config.name or class_name}': {e}"
+                        )
+                
+                # 2. Fall back to user's default evaluation model if no metric-specific model
+                if metric_model is None and self.model is not None:
+                    metric_model = self.model
+                    logger.debug(
+                        f"[METRIC_MODEL] Using user's default model for '{metric_config.name or class_name}'"
+                    )
+                
+                # 3. Pass model to metric if available (will fall back to system default if None)
+                if metric_model is not None:
+                    metric_params["model"] = metric_model
 
                 # Instantiate the metric using the class name and backend
                 backend_factory = self._get_factory().get_factory(backend)

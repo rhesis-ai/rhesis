@@ -55,6 +55,7 @@ def create_metric_config_from_model(metric: Metric) -> Optional[Dict]:
         "class_name": metric.class_name,
         "backend": backend,
         "description": metric.description or f"Metric evaluation for {metric.class_name}",
+        "model_id": str(metric.model_id) if metric.model_id else None,
         "parameters": {},
     }
 
