@@ -12,6 +12,7 @@ export const getEntityDisplayName = (entityType: EntityType): string => {
     TestRun: 'Test Run',
     TestResult: 'Test Result',
     Task: 'Task',
+    Source: 'Source',
   };
   return entityMap[entityType] || entityType;
 };
@@ -28,6 +29,7 @@ export const getEntityPath = (entityType: EntityType): string => {
     TestRun: 'test-runs',
     TestResult: 'test-results',
     Task: 'tasks',
+    Source: 'knowledge',
   };
   return pathMap[entityType] || entityType.toLowerCase();
 };
@@ -43,6 +45,7 @@ export const getEntityUrlMap = (): Record<string, string> => {
     TestRun: 'test-runs',
     TestResult: 'test-results',
     Task: 'tasks',
+    Source: 'knowledge',
   };
 };
 
@@ -58,6 +61,7 @@ export const getEntityIconName = (entityType: EntityType): string => {
     TestRun: 'PlayArrow',
     TestResult: 'Assignment',
     Task: 'Assignment',
+    Source: 'Description',
   };
   return iconMap[entityType] || 'Assignment';
 };
@@ -76,6 +80,7 @@ export const isValidEntityType = (
     'TestRun',
     'TestResult',
     'Task',
+    'Source',
   ];
   return validTypes.includes(entityType as EntityType);
 };

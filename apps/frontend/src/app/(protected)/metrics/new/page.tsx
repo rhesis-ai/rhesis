@@ -389,6 +389,7 @@ export default function NewMetricPage() {
               onClick={() => removeStep(index)}
               disabled={formData.evaluation_steps.length === 1}
               sx={{ mt: 1 }}
+              color="error"
             >
               <DeleteIcon />
             </IconButton>
