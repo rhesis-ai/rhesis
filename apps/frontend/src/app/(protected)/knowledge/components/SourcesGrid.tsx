@@ -92,7 +92,12 @@ export default function SourcesGrid({
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, paginationModel.page, paginationModel.pageSize, filterModel]);
+  }, [
+    sessionToken,
+    paginationModel.page,
+    paginationModel.pageSize,
+    filterModel,
+  ]);
 
   // Initial data fetch
   useEffect(() => {
