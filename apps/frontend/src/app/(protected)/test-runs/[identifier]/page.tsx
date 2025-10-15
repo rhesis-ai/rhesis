@@ -64,12 +64,6 @@ export default async function TestRunPage({
     const resolvedSearchParams = await Promise.resolve(searchParams);
     const identifier = resolvedParams.identifier;
     const selectedResult = resolvedSearchParams?.selectedresult;
-    
-    console.log('[TestRunPage] Resolved params:', {
-      identifier,
-      selectedResult,
-      allSearchParams: resolvedSearchParams,
-    });
 
     const session = await auth();
 
@@ -216,13 +210,6 @@ export default async function TestRunPage({
               currentUserPicture={session.user?.picture || undefined}
               initialSelectedTestId={selectedResult}
             />
-            {selectedResult && (
-              <script
-                dangerouslySetInnerHTML={{
-                  __html: `console.log('[TestRunPage] Rendering with selectedResult:', '${selectedResult}');`,
-                }}
-              />
-            )}
           </div>
         </Box>
       </PageContainer>
