@@ -32,8 +32,7 @@ export function TasksAndCommentsWrapper({
   additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
-  
-  
+
   const { createTask, deleteTask } = useTasks({
     entityType,
     entityId,

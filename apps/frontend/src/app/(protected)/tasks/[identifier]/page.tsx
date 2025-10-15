@@ -513,9 +513,14 @@ export default function TaskDetailPage({ params }: PageProps) {
                   // Add query parameters if available (e.g., selectedresult for test runs)
                   const queryParams = new URLSearchParams();
                   if (task.task_metadata?.test_result_id) {
-                    queryParams.append('selectedresult', task.task_metadata.test_result_id);
+                    queryParams.append(
+                      'selectedresult',
+                      task.task_metadata.test_result_id
+                    );
                   }
-                  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+                  const queryString = queryParams.toString()
+                    ? `?${queryParams.toString()}`
+                    : '';
 
                   // Add hash for comments if available
                   const commentHash = task.task_metadata?.comment_id

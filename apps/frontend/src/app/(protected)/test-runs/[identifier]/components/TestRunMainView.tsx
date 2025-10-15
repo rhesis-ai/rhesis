@@ -387,9 +387,15 @@ export default function TestRunMainView({
 
   // Handle initial selection and pagination when initialSelectedTestId is provided
   React.useEffect(() => {
-    if (initialSelectedTestId && filteredTests.length > 0 && !hasInitialSelection) {
-      const testIndex = filteredTests.findIndex(t => t.id === initialSelectedTestId);
-      
+    if (
+      initialSelectedTestId &&
+      filteredTests.length > 0 &&
+      !hasInitialSelection
+    ) {
+      const testIndex = filteredTests.findIndex(
+        t => t.id === initialSelectedTestId
+      );
+
       if (testIndex !== -1) {
         // Calculate which page the test is on
         const testPage = Math.floor(testIndex / rowsPerPage);
@@ -421,7 +427,12 @@ export default function TestRunMainView({
         setSelectedTestId(null);
       }
     }
-  }, [selectedTestId, filteredTests, initialSelectedTestId, hasInitialSelection]);
+  }, [
+    selectedTestId,
+    filteredTests,
+    initialSelectedTestId,
+    hasInitialSelection,
+  ]);
 
   return (
     <Box>
