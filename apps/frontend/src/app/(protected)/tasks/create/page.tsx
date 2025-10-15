@@ -141,7 +141,6 @@ export default function CreateTaskPage() {
     const commentId = searchParams.get('commentId');
     const testResultId = searchParams.get('test_result_id');
 
-
     if (entityType && entityId) {
       // Build metadata object from available params
       const metadata: Record<string, any> = {};

@@ -27,7 +27,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
-  
+
   useEffect(() => {
     return () => {
       isMounted.current = false;
