@@ -139,13 +139,19 @@ export default function CreateTaskPage() {
     const entityType = searchParams.get('entityType') as EntityType;
     const entityId = searchParams.get('entityId');
     const commentId = searchParams.get('commentId');
+    const testResultId = searchParams.get('test_result_id');
 
     if (entityType && entityId) {
+      // Build metadata object from available params
+      const metadata: Record<string, any> = {};
+      if (commentId) metadata.comment_id = commentId;
+      if (testResultId) metadata.test_result_id = testResultId;
+
       setFormData(prev => ({
         ...prev,
         entity_type: entityType,
         entity_id: entityId,
-        task_metadata: commentId ? { comment_id: commentId } : undefined,
+        task_metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       }));
     }
   }, [searchParams]);

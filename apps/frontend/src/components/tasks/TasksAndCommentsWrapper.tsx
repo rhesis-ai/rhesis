@@ -17,6 +17,7 @@ interface TasksAndCommentsWrapperProps {
   currentUserPicture?: string;
   elevation?: number;
   onCountsChange?: () => void;
+  additionalMetadata?: Record<string, any>;
 }
 
 export function TasksAndCommentsWrapper({
@@ -28,6 +29,7 @@ export function TasksAndCommentsWrapper({
   currentUserPicture,
   elevation = 1,
   onCountsChange,
+  additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
   const { createTask, deleteTask } = useTasks({
@@ -75,9 +77,15 @@ export function TasksAndCommentsWrapper({
         entityId,
         commentId,
       });
+      // Add additional metadata as query params
+      if (additionalMetadata) {
+        Object.entries(additionalMetadata).forEach(([key, value]) => {
+          params.append(key, String(value));
+        });
+      }
       router.push(`/tasks/create?${params.toString()}`);
     },
-    [router, entityType, entityId]
+    [router, entityType, entityId, additionalMetadata]
   );
 
   const handleCreateTaskFromEntity = useCallback(() => {
@@ -86,8 +94,14 @@ export function TasksAndCommentsWrapper({
       entityType,
       entityId,
     });
+    // Add additional metadata as query params
+    if (additionalMetadata) {
+      Object.entries(additionalMetadata).forEach(([key, value]) => {
+        params.append(key, String(value));
+      });
+    }
     router.push(`/tasks/create?${params.toString()}`);
-  }, [router, entityType, entityId]);
+  }, [router, entityType, entityId, additionalMetadata]);
 
   return (
     <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
