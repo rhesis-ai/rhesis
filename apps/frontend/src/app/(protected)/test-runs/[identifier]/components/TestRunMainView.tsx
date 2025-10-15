@@ -35,6 +35,7 @@ interface TestRunMainViewProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  initialSelectedTestId?: string;
 }
 
 export default function TestRunMainView({
@@ -49,6 +50,7 @@ export default function TestRunMainView({
   currentUserId,
   currentUserName,
   currentUserPicture,
+  initialSelectedTestId,
 }: TestRunMainViewProps) {
   const theme = useTheme();
   const notifications = useNotifications();
@@ -58,6 +60,7 @@ export default function TestRunMainView({
   const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [hasInitialSelection, setHasInitialSelection] = useState(false);
   const [availableTestRuns, setAvailableTestRuns] = useState<
     Array<{
       id: string;
@@ -382,12 +385,42 @@ export default function TestRunMainView({
     [sessionToken, notifications]
   );
 
-  // Auto-select first test if none selected and tests are available
+  // Handle initial selection and pagination when initialSelectedTestId is provided
   React.useEffect(() => {
+    if (initialSelectedTestId && filteredTests.length > 0 && !hasInitialSelection) {
+      const testIndex = filteredTests.findIndex(t => t.id === initialSelectedTestId);
+      if (testIndex !== -1) {
+        // Calculate which page the test is on
+        const testPage = Math.floor(testIndex / rowsPerPage);
+        setPage(testPage);
+        setSelectedTestId(initialSelectedTestId);
+        setHasInitialSelection(true);
+      }
+    }
+  }, [initialSelectedTestId, filteredTests, rowsPerPage, hasInitialSelection]);
+
+  // Auto-select first test if none selected and tests are available
+  // But DON'T auto-select if we have an initialSelectedTestId that hasn't loaded yet
+  React.useEffect(() => {
+    // Skip auto-selection if we're waiting for initial selection
+    if (initialSelectedTestId && !hasInitialSelection) {
+      return;
+    }
+
     if (!selectedTestId && filteredTests.length > 0) {
       setSelectedTestId(filteredTests[0].id);
+    } else if (
+      selectedTestId &&
+      !filteredTests.some(t => t.id === selectedTestId)
+    ) {
+      // If selected test is not in filtered list, select first available or clear selection
+      if (filteredTests.length > 0) {
+        setSelectedTestId(filteredTests[0].id);
+      } else {
+        setSelectedTestId(null);
+      }
     }
-  }, [selectedTestId, filteredTests]);
+  }, [selectedTestId, filteredTests, initialSelectedTestId, hasInitialSelection]);
 
   return (
     <Box>
@@ -508,6 +541,7 @@ export default function TestRunMainView({
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               currentUserPicture={currentUserPicture}
+              initialSelectedTestId={initialSelectedTestId}
             />
           )}
         </>

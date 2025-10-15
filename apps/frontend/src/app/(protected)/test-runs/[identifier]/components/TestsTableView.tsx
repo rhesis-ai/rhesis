@@ -48,6 +48,7 @@ interface TestsTableViewProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  initialSelectedTestId?: string;
 }
 
 export default function TestsTableView({
@@ -61,6 +62,7 @@ export default function TestsTableView({
   currentUserId,
   currentUserName,
   currentUserPicture,
+  initialSelectedTestId,
 }: TestsTableViewProps) {
   const theme = useTheme();
   const [page, setPage] = useState(0);
@@ -75,6 +77,25 @@ export default function TestsTableView({
   const [testToOverrule, setTestToOverrule] = useState<TestResultDetail | null>(
     null
   );
+  const [hasInitialSelection, setHasInitialSelection] = useState(false);
+
+  // Handle initial selection when initialSelectedTestId is provided
+  React.useEffect(() => {
+    if (initialSelectedTestId && tests.length > 0 && !hasInitialSelection) {
+      const testIndex = tests.findIndex(t => t.id === initialSelectedTestId);
+      if (testIndex !== -1) {
+        // Calculate which page the test is on
+        const testPage = Math.floor(testIndex / rowsPerPage);
+        const rowIndexInPage = testIndex % rowsPerPage;
+
+        setPage(testPage);
+        setSelectedTest(tests[testIndex]);
+        setSelectedRowIndex(rowIndexInPage);
+        setDrawerOpen(true);
+        setHasInitialSelection(true);
+      }
+    }
+  }, [initialSelectedTestId, tests, rowsPerPage, hasInitialSelection]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
