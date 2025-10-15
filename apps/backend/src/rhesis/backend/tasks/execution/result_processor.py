@@ -43,10 +43,12 @@ def get_test_statistics(test_run: TestRun) -> Tuple[int, int, int]:
         attr_total = test_run.attributes.get("total_tests", total_tests)
 
         # Use attribute counts if they seem more accurate
+        # Note: attr_completed represents successfully completed (passed) tests
+        # attr_failed represents failed tests (counted separately)
         if attr_completed > 0 or attr_failed > 0:
             total_tests = attr_total
+            tests_passed = attr_completed  # attr_completed already represents passed tests
             tests_failed = attr_failed
-            tests_passed = attr_completed - attr_failed
 
     return total_tests, tests_passed, tests_failed
 

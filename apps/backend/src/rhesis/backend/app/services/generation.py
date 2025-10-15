@@ -4,16 +4,14 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-# Remove the Rhesis import and import the entire sdk module
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.sdk.synthesizers import (
     ConfigSynthesizer,
     DocumentSynthesizer,
     GenerationConfig,
 )
 from rhesis.sdk.types import Document
-
-DEFAULT_MODEL = "gemini"
 
 
 async def generate_tests(
@@ -25,10 +23,11 @@ async def generate_tests(
 ) -> Dict:
     """
     Generate tests using the appropriate synthesizer based on input.
+    Uses user's configured default model if available, otherwise falls back to DEFAULT_GENERATION_MODEL.
 
     Args:
         db: Database session
-        user: Current user
+        user: Current user (organization_id extracted from user for security)
         prompt: The generation prompt configuration as a dictionary
         num_tests: Number of test cases to generate (default: 5)
         documents: Optional list of document objects. When provided, uses DocumentSynthesizer.
@@ -45,14 +44,16 @@ async def generate_tests(
         HTTPException: If no valid tokens are found for the user
     """
 
-    # Set the SDK configuration at the module level
+    # Get user's configured model or fallback to default
+    model = get_user_generation_model(db, user)
+    
     # Choose synthesizer based on whether documents are provided
     config = GenerationConfig(**prompt)
     if documents:
-        synthesizer = DocumentSynthesizer(prompt=prompt, model=DEFAULT_MODEL, config=config)
+        synthesizer = DocumentSynthesizer(prompt=prompt, model=model, config=config)
         generate_func = partial(synthesizer.generate, documents=documents, num_tests=num_tests)
     else:
-        synthesizer = ConfigSynthesizer(config=config, model=DEFAULT_MODEL)
+        synthesizer = ConfigSynthesizer(config=config, model=model)
         generate_func = partial(synthesizer.generate, num_tests=num_tests)
 
     # Run the potentially blocking operation in a separate thread

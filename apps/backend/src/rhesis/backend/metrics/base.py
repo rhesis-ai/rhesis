@@ -75,6 +75,9 @@ class MetricConfig:
     description: Optional[str] = None
     """Human-readable description of what the metric measures"""
 
+    model_id: Optional[str] = None
+    """Optional model ID for metric-specific model configuration"""
+
     parameters: Dict[str, Any] = field(default_factory=dict)
     """Additional parameters specific to this metric implementation"""
 
@@ -149,6 +152,7 @@ class MetricConfig:
         threshold_operator = data.get("threshold_operator")
         description = data.get("description")
         name = data.get("name")
+        model_id = data.get("model_id")
 
         # Ensure threshold is a valid number if provided
         if threshold is not None:
@@ -166,6 +170,7 @@ class MetricConfig:
             "threshold_operator",
             "description",
             "name",
+            "model_id",
         }
         parameters = {k: v for k, v in data.items() if k not in reserved_keys}
 
@@ -177,6 +182,7 @@ class MetricConfig:
             threshold_operator=threshold_operator,
             description=description,
             name=name,
+            model_id=model_id,
             parameters=parameters,
         )
 

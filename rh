@@ -31,6 +31,7 @@ show_help() {
     echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server"
     echo -e "  ${GREEN}./rh frontend test${NC}   - Run frontend tests"
     echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server"
+    echo -e "  ${GREEN}./rh worker start${NC}    - Start the Celery worker"
     echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
@@ -38,6 +39,7 @@ show_help() {
     echo -e "  ${BLUE}./rh frontend start${NC}"
     echo -e "  ${BLUE}./rh frontend test${NC}"
     echo -e "  ${BLUE}./rh docs start${NC}"
+    echo -e "  ${BLUE}./rh worker start${NC}"
     echo ""
 }
 
@@ -87,6 +89,17 @@ start_docs() {
         echo -e "${RED}❌ Error: Docs start.sh not found${NC}"
         exit 1
     fi
+}
+
+# Function to start worker
+start_worker() {
+    echo -e "${GREEN}⚙️  Starting Rhesis Worker...${NC}"
+    cd "$SCRIPT_DIR/apps/backend" || {
+        echo -e "${RED}❌ Error: Backend directory not found${NC}"
+        exit 1
+    }
+
+    celery -A rhesis.backend.worker worker --loglevel=DEBUG -Q celery,execution 2>&1 | tee celery.log
 }
 
 # Function to run frontend tests
@@ -153,6 +166,18 @@ case "$1" in
             *)
                 echo -e "${RED}❌ Unknown docs command: $2${NC}"
                 echo -e "${YELLOW}Use: ./rh docs start${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    "worker")
+        case "$2" in
+            "start")
+                start_worker
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown worker command: $2${NC}"
+                echo -e "${YELLOW}Use: ./rh worker start${NC}"
                 exit 1
                 ;;
         esac

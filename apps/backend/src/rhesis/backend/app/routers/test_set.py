@@ -273,13 +273,14 @@ async def generate_test_set(
         test_count = determine_test_count(request.config, request.num_tests)
 
         # Launch the generation task
+        # Note: The task will fetch the user's configured model itself using get_user_generation_model
+        # This avoids trying to serialize BaseLLM objects which are not JSON serializable
         task_result = task_launcher(
             generate_and_save_test_set,
             request.synthesizer_type,  # First positional argument
             current_user=current_user,
             num_tests=test_count,
             batch_size=request.batch_size,
-            model="gemini",
             prompt=generation_prompt,
             documents=[doc.dict() for doc in request.documents] if request.documents else None,
         )

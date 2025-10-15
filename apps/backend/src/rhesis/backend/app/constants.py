@@ -43,3 +43,7 @@ SUCCESS_ASSOCIATIONS_REMOVED = "Successfully removed {count} test associations"
 # Default values
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_PRIORITY = 1
+
+# Model-related defaults
+DEFAULT_GENERATION_MODEL = "gemini"  # Default provider for test generation
+DEFAULT_MODEL_NAME = "gemini-2.0-flash-001"  # Default specific model name for Gemini

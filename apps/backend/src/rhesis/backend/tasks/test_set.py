@@ -1,13 +1,17 @@
 import logging
+from typing import Union
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.test_set import bulk_create_test_set
+from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.tasks.base import BaseTask
 from rhesis.backend.worker import app
 
 # Import SDK components for test generation
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers import SynthesizerFactory, SynthesizerType
 
 # Set up logging
@@ -133,18 +137,21 @@ def _process_synthesizer_parameters(
     return synthesizer_kwargs
 
 
-def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, model: str, processed_kwargs: dict):
+def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, model: Union[str, BaseLLM], processed_kwargs: dict):
     """Create and initialize the synthesizer."""
     synthesizer = SynthesizerFactory.create_synthesizer(
         synthesizer_type=synth_type, batch_size=batch_size, model=model, **processed_kwargs
     )
 
+    # Determine model info for logging
+    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
+    
     self.log_with_context(
         "info",
         "Synthesizer initialized",
         synthesizer_type=synth_type.value,
         synthesizer_class=synthesizer.__class__.__name__,
-        model=model,
+        model=model_info,
     )
 
     return synthesizer
@@ -184,6 +191,35 @@ def _save_test_set_to_database(self, test_set, org_id: str, user_id: str):
     )
 
     return db_test_set
+
+
+def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
+    """
+    Fetch user's configured generation model from database.
+    
+    Args:
+        org_id: Organization ID
+        user_id: User ID
+        
+    Returns:
+        Either the user's configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
+    """
+    self.log_with_context("info", "Fetching user's configured generation model")
+    with get_db_with_tenant_variables(org_id, user_id) as db:
+        # Get the user from database (user_id from context is already a UUID string)
+        user = crud.get_user(db, user_id=user_id)
+        if user:
+            model = get_user_generation_model(db, user)
+            self.log_with_context(
+                "info", 
+                "Using user's configured model",
+                model_type=type(model).__name__ if not isinstance(model, str) else "string"
+            )
+            return model
+        else:
+            # Fallback to default if user not found
+            self.log_with_context("warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL)
+            return DEFAULT_GENERATION_MODEL
 
 
 def _build_task_result(
@@ -227,7 +263,7 @@ def generate_and_save_test_set(
     synthesizer_type: str,
     num_tests: int = 5,
     batch_size: int = 20,
-    model: str = "gemini",
+    model: Union[str, BaseLLM, None] = None,
     **synthesizer_kwargs,
 ):
     """
@@ -240,7 +276,12 @@ def generate_and_save_test_set(
         synthesizer_type: Type of synthesizer to use (e.g., "prompt", "paraphrasing")
         num_tests: Number of test cases to generate (default: 5)
         batch_size: Batch size for the synthesizer (default: 20)
-        model: The model to use for generation (default: "gemini")
+        model: Optional model to use for generation. If None (default), the task will
+               fetch the user's configured default model from their settings.
+               Can be either:
+               - None: Fetch user's configured model or use DEFAULT_GENERATION_MODEL
+               - A string provider name (e.g., "gemini", "openai")
+               - A configured BaseLLM instance with API key and settings
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
             For PromptSynthesizer:
                 - prompt (str, required): The generation prompt
@@ -292,11 +333,20 @@ def generate_and_save_test_set(
 
     # Log the parameters (safely, without exposing sensitive data)
     log_kwargs = {k: v for k, v in synthesizer_kwargs.items() if not k.lower().endswith("_key")}
+    
+    # If no model specified, fetch user's configured model
+    if model is None:
+        model = _get_model_for_user(self, org_id, user_id)
+    
+    # Determine model info for logging
+    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
+    
     self.log_with_context(
         "info",
         "Starting generate_and_save_test_set task",
         num_tests=num_tests,
         synthesizer_type=synthesizer_type,
+        model=model_info,
         synthesizer_params=list(log_kwargs.keys()),
     )
 

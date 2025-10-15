@@ -1,10 +1,11 @@
+import json
 import os
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from mirascope import llm
 from pydantic import BaseModel, Field
 
+from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.base import MetricResult, retry_evaluation
 from rhesis.backend.metrics.rhesis.metric_base import RhesisMetricBase, ScoreType, ThresholdOperator
 
@@ -36,16 +37,43 @@ class RhesisPromptMetric(RhesisMetricBase):
         reference_score: Optional[str] = None,
         threshold_operator: Union[ThresholdOperator, str] = None,
         provider: str = "gemini",
-        model: Optional[str] = None,
+        model: Optional[Union[str, Any]] = None,
         api_key: Optional[str] = None,
         metric_type="rag",
         **kwargs,
     ):
-        # Set API key from parameter or environment variable
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-
-        # Set model from parameter or environment variable, with fallback to default
-        self.model = model or os.environ.get("GEMINI_MODEL_NAME") or "gemini-2.0-flash"
+        from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
+        from rhesis.sdk.models.base import BaseLLM
+        
+        # Store the model instance if it's a BaseLLM
+        self.model_instance = None
+        
+        # Handle model parameter - can be BaseLLM instance, string, or None
+        if model and not isinstance(model, str):
+            # It's a BaseLLM instance - store it and extract configuration
+            logger.debug(f"[METRIC_INIT] Using BaseLLM instance for metric '{name}'")
+            self.model_instance = model
+            # Extract provider from model_name (format: "provider/model-name")
+            if hasattr(model, 'model_name') and '/' in model.model_name:
+                self.provider = model.model_name.split('/')[0]
+                self.model = model.model_name.split('/')[1]
+            else:
+                self.provider = provider
+                self.model = getattr(model, 'model_name', None) or DEFAULT_MODEL_NAME
+            self.api_key = getattr(model, 'api_key', None) or api_key or os.environ.get("GEMINI_API_KEY")
+            logger.debug(f"[METRIC_INIT] Extracted from BaseLLM: provider={self.provider}, model={self.model}")
+        elif isinstance(model, str):
+            # It's a provider name string - will use SDK to create model
+            logger.debug(f"[METRIC_INIT] Using provider string '{model}' for metric '{name}'")
+            self.provider = model
+            self.api_key = api_key or os.environ.get(f"{model.upper()}_API_KEY") or os.environ.get("GEMINI_API_KEY")
+            self.model = os.environ.get(f"{model.upper()}_MODEL_NAME") or os.environ.get("GEMINI_MODEL_NAME") or DEFAULT_MODEL_NAME
+        else:
+            # Use defaults from constants
+            logger.debug(f"[METRIC_INIT] Using default model for metric '{name}'")
+            self.provider = provider or DEFAULT_GENERATION_MODEL
+            self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+            self.model = os.environ.get("GEMINI_MODEL_NAME") or DEFAULT_MODEL_NAME
 
         # Convert string to enum if needed
         if isinstance(score_type, str):
@@ -115,15 +143,8 @@ class RhesisPromptMetric(RhesisMetricBase):
         self.evaluation_examples = evaluation_examples
         self.provider = provider
 
-        # Prepare call params (for Gemini provider, API key is handled via environment variables)
+        # Store additional parameters for future use
         self.additional_params = kwargs.copy()
-
-        # For Gemini provider, set the API key as environment variable if provided
-        if self.api_key and self.provider == "gemini":
-            os.environ["GEMINI_API_KEY"] = self.api_key
-        elif self.api_key and self.provider != "gemini":
-            # For other providers, pass API key as parameter
-            self.additional_params["api_key"] = self.api_key
 
         # Set up Jinja environment
         templates_dir = os.path.join(
@@ -180,15 +201,58 @@ class RhesisPromptMetric(RhesisMetricBase):
 
         return prompt
 
-    @llm.call(
-        provider="provider_placeholder", model="model_placeholder", response_model=ScoreResponse
-    )
-    def run_evaluation(self, prompt: str) -> str:
+    def run_evaluation(self, prompt: str) -> ScoreResponse:
         """
-        Run the evaluation using Mirascope LLM call with structured response model.
-        This function will be decorated with the actual provider and model at runtime.
+        Run the evaluation using the model instance directly.
+        Returns a ScoreResponse with score and reason.
         """
-        return prompt
+        # Use the BaseLLM instance if available, otherwise create one from SDK
+        if self.model_instance:
+            model_to_use = self.model_instance
+            logger.debug(f"[METRIC_EVAL] Using stored BaseLLM instance")
+        else:
+            # Create model instance from SDK
+            from rhesis.sdk.models.factory import get_model
+            logger.debug(f"[METRIC_EVAL] Creating model from SDK: provider={self.provider}, model={self.model}")
+            model_to_use = get_model(
+                provider=self.provider,
+                model_name=self.model,
+                api_key=self.api_key
+            )
+        
+        # Add JSON formatting instruction to the prompt
+        json_prompt = f"""{prompt}
+
+IMPORTANT: You must respond with ONLY a valid JSON object in this exact format:
+{{
+  "score": <your_score>,
+  "reason": "<your_explanation>"
+}}
+
+Do not include any other text before or after the JSON object."""
+        
+        # Call the model directly
+        response_text = model_to_use.generate(json_prompt)
+        
+        # Parse the JSON response
+        try:
+            # Try to extract JSON from the response (handle cases where model adds extra text)
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+            if json_start >= 0 and json_end > json_start:
+                json_text = response_text[json_start:json_end]
+                response_dict = json.loads(json_text)
+                return ScoreResponse(**response_dict)
+            else:
+                raise ValueError(f"No JSON object found in response: {response_text}")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"[METRIC_EVAL] Failed to parse JSON response: {e}")
+            logger.error(f"[METRIC_EVAL] Raw response: {response_text}")
+            # Return a fallback response
+            return ScoreResponse(
+                score=0.0,
+                reason=f"Failed to parse model response: {str(e)}"
+            )
 
     def _process_score(self, raw_score: Union[float, str, int]) -> Union[float, str]:
         """
@@ -301,19 +365,9 @@ class RhesisPromptMetric(RhesisMetricBase):
         # Generate the evaluation prompt
         prompt = self.get_prompt_template(input, output, expected_output or "", context or [])
 
-        # Override the provider and model at runtime
-        # Note: For Google provider, API key is set via environment variable (GEMINI_API_KEY)
-        # rather than call_params to avoid 'api_key' parameter error
-        evaluation_fn = llm.override(
-            self.run_evaluation,
-            provider=self.provider,
-            model=self.model,
-            call_params=self.additional_params,
-        )
-
         try:
-            # Run the evaluation with structured response model
-            response = evaluation_fn(prompt)
+            # Run the evaluation using the model directly
+            response = self.run_evaluation(prompt)
 
             # Get the score and process it based on score type
             raw_score = response.score
@@ -353,11 +407,7 @@ class RhesisPromptMetric(RhesisMetricBase):
                 )
 
             # Get the original LLM response content for debugging
-            llm_response_content = (
-                str(response._response.content)
-                if hasattr(response, "_response")
-                else "No raw response available"
-            )
+            llm_response_content = f"Score: {raw_score}, Reason: {reason}"
 
             # Prepare details based on score type
             details = {
