@@ -13,11 +13,20 @@ from rhesis.backend.metrics.utils import diagnose_invalid_metric
 class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
-    def __init__(self):
-        """Initialize evaluator with factory and score evaluator."""
+    def __init__(self, model: Optional[Any] = None):
+        """
+        Initialize evaluator with factory and score evaluator.
+        
+        Args:
+            model: Optional model for metrics evaluation. Can be:
+                   - None: Use default model from constants
+                   - str: Provider name (e.g., "gemini", "openai")
+                   - BaseLLM instance: Fully configured model
+        """
         # Lazy load factory to avoid circular imports
         self.factory = None
         self.score_evaluator = ScoreEvaluator()
+        self.model = model  # Store model for passing to metrics
 
     def _get_factory(self):
         """Lazy load the MetricFactory to avoid circular imports."""
@@ -198,6 +207,10 @@ class MetricEvaluator:
 
                 # Prepare parameters for the metric
                 metric_params = {"threshold": metric_config.threshold, **metric_config.parameters}
+                
+                # Pass model to metric if available
+                if self.model is not None:
+                    metric_params["model"] = self.model
 
                 # Instantiate the metric using the class name and backend
                 backend_factory = self._get_factory().get_factory(backend)
