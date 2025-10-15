@@ -25,14 +25,14 @@ repos:
         - id: frontend-format
           name: auto-fix frontend formatting
           language: system
-          entry: cd apps/frontend && npm run format
+          entry: bash -c "cd apps/frontend && npm run format"
           files: ^apps/frontend/
           pass_filenames: false
 
         - id: frontend-lint
           name: lint frontend
           language: system
-          entry: cd apps/frontend && npm run lint
+          entry: bash -c "cd apps/frontend && npm run lint"
           files: ^apps/frontend/
           pass_filenames: false
 
