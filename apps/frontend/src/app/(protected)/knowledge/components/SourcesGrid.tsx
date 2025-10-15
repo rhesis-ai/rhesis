@@ -54,6 +54,36 @@ export default function SourcesGrid({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+
+  // Fetch comment counts for sources
+  const fetchCommentCounts = useCallback(async (sourceIds: string[]) => {
+    if (!sessionToken || sourceIds.length === 0) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      
+      const counts: Record<string, number> = {};
+      
+      // Fetch comment counts for each source
+      await Promise.all(
+        sourceIds.map(async (sourceId) => {
+          try {
+            const comments = await commentsClient.getComments('Source', sourceId);
+            counts[sourceId] = comments.length;
+          } catch (error) {
+            console.warn(`Failed to fetch comments for source ${sourceId}:`, error);
+            counts[sourceId] = 0;
+          }
+        })
+      );
+      
+      setCommentCounts(counts);
+    } catch (error) {
+      console.error('Error fetching comment counts:', error);
+    }
+  }, [sessionToken]);
 
   // Data fetching function
   const fetchSources = useCallback(async () => {
@@ -77,6 +107,10 @@ export default function SourcesGrid({
       setSources(response.data);
       setTotalCount(response.pagination.totalCount);
       setError(null);
+      
+      // Fetch comment counts for the loaded sources
+      const sourceIds = response.data.map(source => source.id);
+      fetchCommentCounts(sourceIds);
     } catch (error) {
       console.error('Error fetching sources:', error);
       setError('Failed to load knowledge sources');
@@ -334,7 +368,7 @@ export default function SourcesGrid({
         filterable: false,
         renderCell: params => {
           const source = params.row as Source;
-          const count = source.counts?.comments || 0;
+          const count = commentCounts[source.id] || 0;
 
           if (count === 0) return null;
           return (
@@ -346,7 +380,7 @@ export default function SourcesGrid({
         },
       },
     ],
-    []
+    [commentCounts]
   );
 
   if (error) {
