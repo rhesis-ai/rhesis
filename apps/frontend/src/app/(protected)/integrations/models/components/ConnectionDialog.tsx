@@ -20,6 +20,8 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { DeleteIcon, AddIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
@@ -567,17 +569,24 @@ export function ConnectionDialog({
                       : 'Click to update the API key'
                     : isCustomProvider
                       ? 'Authentication key for your deployment (if required)'
-                      : "Your API key from the provider's dashboard"
+                      : "Your API key from the model provider's dashboard"
                 }
                 InputProps={{
                   endAdornment:
-                    isEditMode && apiKey && apiKey !== '************' ? (
+                    apiKey && apiKey !== '************' ? (
                       <IconButton
                         size="small"
                         onClick={() => setShowApiKey(!showApiKey)}
                         edge="end"
+                        aria-label={
+                          showApiKey ? 'Hide API key' : 'Show API key'
+                        }
                       >
-                        <InfoOutlinedIcon fontSize="small" />
+                        {showApiKey ? (
+                          <VisibilityOffIcon fontSize="small" />
+                        ) : (
+                          <VisibilityIcon fontSize="small" />
+                        )}
                       </IconButton>
                     ) : null,
                 }}
