@@ -314,15 +314,20 @@ def execute_test(
         # Evaluate metrics
         context = result.get("context", []) if result else []
         
-        # Pass user's configured model to evaluator
-        metrics_evaluator = MetricEvaluator(model=model)
+        # Pass user's configured model, db session, and org ID to evaluator
+        # This allows metrics to use their own configured models if available
+        metrics_evaluator = MetricEvaluator(
+            model=model,
+            db=db,
+            organization_id=organization_id
+        )
         
         # Log model being used for metrics evaluation
         if model:
             model_info = model if isinstance(model, str) else f"{type(model).__name__}(model_name={model.model_name})"
-            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with model: {model_info}")
+            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with default model: {model_info}")
         else:
-            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with default model")
+            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with system default model")
 
         metrics_results = evaluate_prompt_response(
             metrics_evaluator=metrics_evaluator,
