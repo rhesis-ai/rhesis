@@ -7,7 +7,9 @@ HANDLER_REGISTRY = {
     # Future handlers can be added here:
     # "Website": WebsiteHandler,
     # "API": APIHandler,
-    # "Notion": NotionHandler,
+    # "Database": DatabaseHandler,
+    # "Code": CodeHandler,
+    # "Manual": ManualHandler,
 }
 
 

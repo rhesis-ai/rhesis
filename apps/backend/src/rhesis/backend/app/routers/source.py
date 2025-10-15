@@ -174,6 +174,9 @@ async def upload_source(
     - Populates source_metadata with file information
     - Extracts content from the uploaded file
 
+    Note: Currently only supports Document type. Other source types (Website, API,
+    Database, Code, Manual) can be created via the regular POST /sources/ endpoint.
+
     Args:
         file: The uploaded file
         title: Optional title for the source (defaults to filename)
@@ -217,9 +220,9 @@ async def extract_source_content_endpoint(
     Extract text content from an uploaded source file.
 
     This endpoint:
-    - Validates the source is of type 'Document'
-    - Retrieves the file from storage
-    - Extracts text content using DocumentExtractor
+    - Validates the source has a supported source type
+    - Retrieves the file from storage (for Document types)
+    - Extracts text content using the appropriate handler
     - Updates the Source record with extracted content
 
     Args:
@@ -232,7 +235,7 @@ async def extract_source_content_endpoint(
         dict: Extraction result with content and metadata
 
     Raises:
-        HTTPException: If source not found, not a document type, or extraction fails
+        HTTPException: If source not found, unsupported source type, or extraction fails
     """
     organization_id, user_id = tenant_context
 
@@ -264,8 +267,8 @@ async def get_source_content(
     Retrieve the raw file content from storage.
 
     This endpoint:
-    - Validates the source is of type 'Document'
-    - Gets the file path from the Source record
+    - Validates the source has a supported source type
+    - Gets the file path from the Source record (for Document types)
     - Retrieves the raw file content from storage
     - Returns the content as a streaming response
 
@@ -279,7 +282,7 @@ async def get_source_content(
         StreamingResponse: Raw file content
 
     Raises:
-        HTTPException: If source not found, not a document type, or file retrieval fails
+        HTTPException: If source not found, unsupported source type, or file retrieval fails
     """
     organization_id, user_id = tenant_context
 
