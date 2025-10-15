@@ -1,0 +1,13 @@
+Version 0.1.9 - 2025-05-15
+===========================
+
+
+Added
+-----
+
+- Added rhesis namespace - now accessible via `rhesis.sdk`
+
+Changed
+-------
+
+- Migrated to uv for package management, a more modern approach
