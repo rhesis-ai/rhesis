@@ -192,16 +192,16 @@ export function ConnectionDialog({
       if (defaultForGeneration) {
         updates.models.generation = { model_id: modelId };
       } else if (userSettings?.models?.generation?.model_id === modelId) {
-        // If toggle is off and this model was previously the default, clear it
-        updates.models.generation = {};
+        // If toggle is off and this model was previously the default, clear it by setting model_id to null
+        updates.models.generation = { model_id: null };
       }
 
       // Update evaluation default if toggle is on
       if (defaultForEvaluation) {
         updates.models.evaluation = { model_id: modelId };
       } else if (userSettings?.models?.evaluation?.model_id === modelId) {
-        // If toggle is off and this model was previously the default, clear it
-        updates.models.evaluation = {};
+        // If toggle is off and this model was previously the default, clear it by setting model_id to null
+        updates.models.evaluation = { model_id: null };
       }
 
       // Only update if there are changes
@@ -668,17 +668,21 @@ export function ConnectionDialog({
             )}
 
             {/* Connection Test Required Message */}
-            {!isEditMode && !connectionTested && (
+            {!isEditMode && !connectionTested && !testResult && (
               <Alert severity="info" sx={{ mt: 2 }}>
                 Please test the connection before saving the model
                 configuration.
               </Alert>
             )}
-            {isEditMode && apiKey !== '************' && !connectionTested && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Please test the connection with the new API key before updating.
-              </Alert>
-            )}
+            {isEditMode &&
+              apiKey !== '************' &&
+              !connectionTested &&
+              !testResult && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  Please test the connection with the new API key before
+                  updating.
+                </Alert>
+              )}
 
             {/* Custom Headers */}
             <Stack spacing={1}>

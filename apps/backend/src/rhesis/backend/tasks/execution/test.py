@@ -1,4 +1,6 @@
+from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.utils.llm_utils import get_user_evaluation_model
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.test_execution import execute_test
@@ -41,6 +43,50 @@ def execute_single_test(
     try:
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(organization_id, user_id) as db:
+            # Fetch user's evaluation model for metrics
+            model = None
+            try:
+                user = crud.get_user(db, user_id=user_id)
+                if user:
+                    # Get model settings to log the model name
+                    model_settings = user.settings.models.evaluation
+                    model_id = model_settings.model_id
+                    
+                    # Fetch the actual model
+                    model = get_user_evaluation_model(db, user)
+                    
+                    # Log detailed model selection information
+                    if isinstance(model, str):
+                        logger.info(f"[MODEL_SELECTION] Using default provider '{model}' for test {test_id}")
+                    else:
+                        # It's a BaseLLM instance - log detailed info
+                        provider = model.model_name.split('/')[0] if '/' in model.model_name else 'unknown'
+                        model_name = model.model_name.split('/')[1] if '/' in model.model_name else model.model_name
+                        
+                        # Try to get the user-friendly name from database
+                        if model_id:
+                            db_model = crud.get_model(db, model_id=str(model_id), organization_id=str(user.organization_id))
+                            if db_model:
+                                logger.info(
+                                    f"[MODEL_SELECTION] Using user-configured model for test {test_id}: "
+                                    f"name='{db_model.name}', provider={provider}, model={model_name}, id={model_id}"
+                                )
+                            else:
+                                logger.info(
+                                    f"[MODEL_SELECTION] Using evaluation model for test {test_id}: "
+                                    f"provider={provider}, model={model_name}, id={model_id}"
+                                )
+                        else:
+                            logger.info(
+                                f"[MODEL_SELECTION] Using evaluation model for test {test_id}: "
+                                f"provider={provider}, model={model_name}"
+                            )
+                else:
+                    logger.warning(f"[MODEL_SELECTION] User {user_id} not found, will use default model")
+            except Exception as e:
+                logger.warning(f"[MODEL_SELECTION] Error fetching user model for test {test_id}: {str(e)}, will use default")
+                model = None
+            
             # Call the main execution function from the dedicated module
             result = execute_test(
                 db=db,
@@ -50,6 +96,7 @@ def execute_single_test(
                 endpoint_id=endpoint_id,
                 organization_id=organization_id,
                 user_id=user_id,
+                model=model,
             )
 
         # Add detailed debugging about the result
@@ -144,20 +191,21 @@ def execute_single_test(
 
         # Update progress for failed test
         try:
-            progress_updated = increment_test_run_progress(
-                db=db,
-                test_run_id=test_run_id,
-                test_id=test_id,
-                was_successful=False,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-            if progress_updated:
-                logger.debug(f"✅ DEBUG: Updated test run progress for failed test {test_id}")
-            else:
-                logger.warning(
-                    f"⚠️ DEBUG: Failed to update test run progress for failed test {test_id}"
+            with get_db_with_tenant_variables(organization_id, user_id) as db:
+                progress_updated = increment_test_run_progress(
+                    db=db,
+                    test_run_id=test_run_id,
+                    test_id=test_id,
+                    was_successful=False,
+                    organization_id=organization_id,
+                    user_id=user_id,
                 )
+                if progress_updated:
+                    logger.debug(f"✅ DEBUG: Updated test run progress for failed test {test_id}")
+                else:
+                    logger.warning(
+                        f"⚠️ DEBUG: Failed to update test run progress for failed test {test_id}"
+                    )
         except Exception as progress_error:
             logger.error(
                 f"🚨 DEBUG: Exception updating progress for failed test {test_id}: {str(progress_error)}"

@@ -63,6 +63,8 @@ def _set_session_variables(db: Session, organization_id: str = '', user_id: str 
             """), 
             {"org_id": organization_id, "user_id": user_id}
         )
+
+        logger.debug(f"Session variables set: org={organization_id}, user={user_id}")
         
         # Cache the values for this specific connection + user/org combination
         _session_variable_cache[cache_key] = True
