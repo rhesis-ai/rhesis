@@ -81,7 +81,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background-color: #f5f5f5;
+  background-color: var(--mui-palette-grey-100);
   border-bottom: 1px solid var(--mui-palette-divider);
 }
 
