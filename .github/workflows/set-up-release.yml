@@ -69,7 +69,7 @@ jobs:
 
       - name: Set up Git
         run: |
-            git config user.name "rheo-app[bot]"
+            git config user.name "rheo[bot]"
             git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
 
 
