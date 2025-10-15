@@ -33,14 +33,6 @@ export function TasksAndCommentsWrapper({
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
   
-  // Log on mount/update to see if additionalMetadata is being passed
-  useEffect(() => {
-    console.log('[TasksAndCommentsWrapper] Component mounted/updated with:', {
-      entityType,
-      entityId,
-      additionalMetadata,
-    });
-  }, [entityType, entityId, additionalMetadata]);
   
   const { createTask, deleteTask } = useTasks({
     entityType,
@@ -54,13 +46,11 @@ export function TasksAndCommentsWrapper({
         // Merge additional metadata into task_metadata if available
         const enrichedTaskData = { ...taskData };
         if (additionalMetadata && Object.keys(additionalMetadata).length > 0) {
-          console.log('[TasksAndCommentsWrapper] Enriching task with additional metadata:', additionalMetadata);
           enrichedTaskData.task_metadata = {
             ...taskData.task_metadata,
             ...additionalMetadata,
           };
         }
-        console.log('[TasksAndCommentsWrapper] Creating task with data:', enrichedTaskData);
         await createTask(enrichedTaskData);
         // Notify parent that counts have changed
         onCountsChange?.();
@@ -99,19 +89,11 @@ export function TasksAndCommentsWrapper({
       });
       // Add additional metadata as query params
       if (additionalMetadata) {
-        console.log('[TasksAndCommentsWrapper] Adding additional metadata to comment task URL:', additionalMetadata);
         Object.entries(additionalMetadata).forEach(([key, value]) => {
           params.append(key, String(value));
         });
       }
       const finalUrl = `/tasks/create?${params.toString()}`;
-      console.log('[TasksAndCommentsWrapper] Navigating to create task from comment:', {
-        entityType,
-        entityId,
-        commentId,
-        additionalMetadata,
-        finalUrl,
-      });
       router.push(finalUrl);
     },
     [router, entityType, entityId, additionalMetadata]
@@ -125,18 +107,11 @@ export function TasksAndCommentsWrapper({
     });
     // Add additional metadata as query params
     if (additionalMetadata) {
-      console.log('[TasksAndCommentsWrapper] Adding additional metadata to URL:', additionalMetadata);
       Object.entries(additionalMetadata).forEach(([key, value]) => {
         params.append(key, String(value));
       });
     }
     const finalUrl = `/tasks/create?${params.toString()}`;
-    console.log('[TasksAndCommentsWrapper] Navigating to create task:', {
-      entityType,
-      entityId,
-      additionalMetadata,
-      finalUrl,
-    });
     router.push(finalUrl);
   }, [router, entityType, entityId, additionalMetadata]);
 

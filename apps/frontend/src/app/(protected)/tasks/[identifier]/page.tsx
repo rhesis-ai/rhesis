@@ -523,14 +523,6 @@ export default function TaskDetailPage({ params }: PageProps) {
                     : '';
 
                   const finalUrl = `${baseUrl}${queryString}${commentHash}`;
-                  console.log('[TaskDetailPage] Navigating to:', {
-                    entityType: task.entity_type,
-                    entityId: task.entity_id,
-                    testResultId: task.task_metadata?.test_result_id,
-                    finalUrl,
-                  });
-                  console.log('[TaskDetailPage] Full task object:', task);
-                  console.log('[TaskDetailPage] Task metadata:', task.task_metadata);
                   router.push(finalUrl);
                 } catch (error) {
                   console.error('Navigation error:', error);

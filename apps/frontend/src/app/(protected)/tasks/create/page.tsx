@@ -141,21 +141,12 @@ export default function CreateTaskPage() {
     const commentId = searchParams.get('commentId');
     const testResultId = searchParams.get('test_result_id');
 
-    console.log('[CreateTaskPage] URL parameters:', {
-      entityType,
-      entityId,
-      commentId,
-      testResultId,
-      allParams: Object.fromEntries(searchParams.entries()),
-    });
 
     if (entityType && entityId) {
       // Build metadata object from available params
       const metadata: Record<string, any> = {};
       if (commentId) metadata.comment_id = commentId;
       if (testResultId) metadata.test_result_id = testResultId;
-
-      console.log('[CreateTaskPage] Setting form data with metadata:', metadata);
 
       setFormData(prev => ({
         ...prev,
