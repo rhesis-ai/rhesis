@@ -218,6 +218,11 @@
             "description": "Entity type for tasks"
         },
         {
+            "type_name": "EntityType",
+            "type_value": "Source",
+            "description": "Entity type for sources"
+        },
+        {
             "type_name": "ResponsePatternType",
             "type_value": "Refusal",
             "description": "Response pattern type for refusals"
@@ -391,6 +396,36 @@
             "type_name": "TaskPriority",
             "type_value": "High",
             "description": "High priority task"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "Document",
+            "description": "Document source (PDF, Word, etc.)"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "Website",
+            "description": "Website or web page source"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "API",
+            "description": "API documentation or response"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "Database",
+            "description": "Database schema or data source"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "Code",
+            "description": "Source code or repository"
+        },
+        {
+            "type_name": "SourceType",
+            "type_value": "Manual",
+            "description": "Manual or user-provided content"
         }
     ],
     "behavior": [

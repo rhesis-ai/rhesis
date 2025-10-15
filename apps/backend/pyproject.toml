@@ -46,6 +46,7 @@ dependencies = [
     "email-validator>=2.0.0",
     "slowapi>=0.1.9",
     "rhesis-sdk",
+    "gcsfs>=2025.9.0",
     "cryptography>=44.0.3",
 ]
 
