@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Paper, Divider } from '@mui/material';
 import { EntityType } from '@/types/tasks';
@@ -32,6 +32,16 @@ export function TasksAndCommentsWrapper({
   additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
   const router = useRouter();
+  
+  // Log on mount/update to see if additionalMetadata is being passed
+  useEffect(() => {
+    console.log('[TasksAndCommentsWrapper] Component mounted/updated with:', {
+      entityType,
+      entityId,
+      additionalMetadata,
+    });
+  }, [entityType, entityId, additionalMetadata]);
+  
   const { createTask, deleteTask } = useTasks({
     entityType,
     entityId,
