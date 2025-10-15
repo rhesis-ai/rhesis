@@ -44,6 +44,9 @@ export default async function SourcePreviewPage({ params }: SourcePreviewPagePro
       <SourcePreviewClientWrapper
         source={source}
         sessionToken={session.session_token}
+        currentUserId={session.user?.id || ''}
+        currentUserName={session.user?.name || ''}
+        currentUserPicture={session.user?.picture || undefined}
       />
     );
   } catch (error) {
