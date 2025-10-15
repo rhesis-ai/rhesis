@@ -86,11 +86,12 @@ export default function UploadSourceDialog({
       onSuccess();
     } catch (error) {
       console.error('Error uploading source:', error);
-      const errorMessage = error instanceof Error && (error as any).data 
-        ? JSON.stringify((error as any).data, null, 2)
-        : error instanceof Error 
-          ? error.message
-          : 'Failed to upload source. Please try again.';
+      const errorMessage =
+        error instanceof Error && (error as any).data
+          ? JSON.stringify((error as any).data, null, 2)
+          : error instanceof Error
+            ? error.message
+            : 'Failed to upload source. Please try again.';
       setError(errorMessage);
     } finally {
       setUploading(false);
@@ -170,7 +171,11 @@ export default function UploadSourceDialog({
               />
             </Button>
             {file && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 1, display: 'block' }}
+              >
                 Size: {formatFileSize(file.size)}
               </Typography>
             )}
@@ -180,7 +185,7 @@ export default function UploadSourceDialog({
           <TextField
             label="Title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={e => setTitle(e.target.value)}
             fullWidth
             required
             disabled={uploading}
@@ -191,7 +196,7 @@ export default function UploadSourceDialog({
           <TextField
             label="Description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value)}
             fullWidth
             multiline
             rows={3}

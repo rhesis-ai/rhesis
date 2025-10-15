@@ -64,7 +64,7 @@ export class SourcesClient extends BaseApiClient {
   ): Promise<Source> {
     // Use direct URL construction to preserve trailing slash
     const url = new URL(`${this.baseUrl}/sources/upload/`);
-    
+
     const formData = new FormData();
     formData.append('file', file);
     if (title) formData.append('title', title);
@@ -96,7 +96,11 @@ export class SourcesClient extends BaseApiClient {
           errorData = await response.json();
           if (errorData.detail) {
             errorMessage = Array.isArray(errorData.detail)
-              ? errorData.detail.map((err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`).join(', ')
+              ? errorData.detail
+                  .map(
+                    (err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`
+                  )
+                  .join(', ')
               : errorData.detail;
           } else if (errorData.message) {
             errorMessage = errorData.message;
@@ -110,7 +114,9 @@ export class SourcesClient extends BaseApiClient {
         errorMessage = await response.text();
       }
 
-      const error = new Error(`API error: ${response.status} - ${errorMessage}`) as Error & {
+      const error = new Error(
+        `API error: ${response.status} - ${errorMessage}`
+      ) as Error & {
         status?: number;
         data?: any;
       };
