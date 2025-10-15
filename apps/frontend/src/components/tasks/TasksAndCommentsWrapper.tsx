@@ -150,6 +150,7 @@ export function TasksAndCommentsWrapper({
         onCreateTask={handleCreateTask}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
+        onNavigateToCreate={handleCreateTaskFromEntity}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
       />
