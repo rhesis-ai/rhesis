@@ -27,6 +27,13 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
+  const notificationsRef = useRef(notifications);
+  const hasInitialLoadRef = useRef(false);
+  
+  // Keep notifications ref updated
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
 
   // Component state
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
@@ -47,12 +54,13 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
+    console.log('[TasksGrid] fetchTasks callback (re)created');
     if (!isMounted.current) return;
 
     try {
       // Only show loading spinner on initial load or when no data exists
       // This prevents flickering on pagination/filter changes
-      if (!hasInitialLoad || tasks.length === 0) {
+      if (!hasInitialLoadRef.current || tasks.length === 0) {
         setLoading(true);
       }
       setError(null);
@@ -74,7 +82,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       const response = await tasksClient.getTasks({
         skip,
         limit,
-        sort_by: 'nano_id',
+        sort_by: 'created_at',
         sort_order: 'desc',
         $filter: oDataFilter,
       });
@@ -84,6 +92,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         // Use the actual total count from backend, fallback to 0
         setTotalCount(response.totalCount || 0);
         setHasInitialLoad(true);
+        hasInitialLoadRef.current = true;
       }
     } catch (err) {
       if (isMounted.current) {
@@ -92,30 +101,34 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         setError(errorMessage);
 
         // Only show notification on initial load or if we don't have cached data
-        if (!hasInitialLoad || tasks.length === 0) {
-          notifications.show(errorMessage, { severity: 'error' });
+        if (!hasInitialLoadRef.current || tasks.length === 0) {
+          notificationsRef.current.show(errorMessage, { severity: 'error' });
         }
 
         // Keep existing data on error if we have it (for pagination/filter errors)
-        if (!hasInitialLoad) {
+        if (!hasInitialLoadRef.current) {
           setTasks([]);
           setTotalCount(0);
         }
         setHasInitialLoad(true);
+        hasInitialLoadRef.current = true;
       }
     } finally {
       if (isMounted.current) {
         setLoading(false);
       }
     }
-  }, [
-    sessionToken,
-    paginationModel,
-    filterModel,
-    notifications,
-    hasInitialLoad,
-    tasks.length,
-  ]);
+  }, [sessionToken, paginationModel.page, paginationModel.pageSize, filterModel]);
+
+  // Debug: Log when dependencies change
+  useEffect(() => {
+    console.log('[TasksGrid] Dependencies changed:', {
+      sessionToken: sessionToken.slice(0, 20) + '...',
+      page: paginationModel.page,
+      pageSize: paginationModel.pageSize,
+      filterModel,
+    });
+  }, [sessionToken, paginationModel.page, paginationModel.pageSize, filterModel]);
 
   // Delete task
   const deleteTask = useCallback(
@@ -132,20 +145,20 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         // Update total count
         setTotalCount(prev => Math.max(0, prev - 1));
 
-        notifications.show('Task deleted successfully', {
+        notificationsRef.current.show('Task deleted successfully', {
           severity: 'success',
         });
         onRefresh?.();
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to delete task';
-        notifications.show(errorMessage, { severity: 'error' });
+        notificationsRef.current.show(errorMessage, { severity: 'error' });
 
         // Refresh data to ensure consistency after delete failure
         fetchTasks();
       }
     },
-    [sessionToken, notifications, onRefresh, fetchTasks]
+    [sessionToken, onRefresh, fetchTasks]
   );
 
   // Delete selected tasks
@@ -196,6 +209,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
   // Fetch tasks when dependencies change
   useEffect(() => {
+    console.log('[TasksGrid] useEffect triggered, calling fetchTasks');
     fetchTasks();
   }, [fetchTasks]);
 
