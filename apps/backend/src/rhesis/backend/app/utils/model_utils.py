@@ -339,8 +339,3 @@ def apply_optimized_loads(
             query = query.options(joinedload(relationship_attr))
 
     return query
-
-
-# Removed apply_organization_filter and apply_visibility_filter functions
-# These functions relied on session variables and have been replaced with direct parameter passing
-# Use QueryBuilder.with_organization_filter(organization_id) and with_visibility_filter(user_id, organization_id) instead
