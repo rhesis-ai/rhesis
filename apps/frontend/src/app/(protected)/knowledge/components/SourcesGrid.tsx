@@ -5,6 +5,7 @@ import {
   GridColDef,
   GridRowSelectionModel,
   GridPaginationModel,
+  GridFilterModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -18,6 +19,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import UploadSourceDialog from './UploadSourceDialog';
 import styles from '@/styles/SourcesGrid.module.css';
+import { convertGridFilterModelToOData } from '@/utils/odata-filter';
 
 interface SourcesGridProps {
   sessionToken: string;
@@ -50,6 +52,9 @@ export default function SourcesGrid({
     page: 0,
     pageSize: 25,
   });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -64,11 +69,15 @@ export default function SourcesGrid({
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
+      // Convert filter model to OData filter string
+      const filterString = convertGridFilterModelToOData(filterModel);
+
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
         sort_order: 'desc' as const,
+        ...(filterString && { $filter: filterString }),
       };
 
       const response = await sourcesClient.getSources(apiParams);
@@ -83,7 +92,7 @@ export default function SourcesGrid({
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, paginationModel.page, paginationModel.pageSize]);
+  }, [sessionToken, paginationModel.page, paginationModel.pageSize, filterModel]);
 
   // Initial data fetch
   useEffect(() => {
@@ -103,6 +112,13 @@ export default function SourcesGrid({
     },
     []
   );
+
+  // Handle filter change
+  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
+    setFilterModel(newModel);
+    // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
 
   // Handle selection change
   const handleSelectionChange = useCallback(
@@ -360,12 +376,14 @@ export default function SourcesGrid({
         showToolbar={false}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        onFilterModelChange={handleFilterModelChange}
         actionButtons={getActionButtons()}
         checkboxSelection
         disableRowSelectionOnClick
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={selectedRows}
         serverSidePagination={true}
+        serverSideFiltering={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
