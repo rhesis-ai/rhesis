@@ -6,14 +6,12 @@ import { Source } from '@/utils/api-client/interfaces/source';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
-import { useRouter } from 'next/navigation';
 import styles from '@/styles/SourcePreview.module.css';
 
 interface SourcePreviewClientWrapperProps {
@@ -32,10 +30,8 @@ export default function SourcePreviewClientWrapper({
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const notifications = useNotifications();
-  const router = useRouter();
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -76,23 +72,6 @@ export default function SourcePreviewClientWrapper({
     fetchContent();
   }, [source.id, sessionToken]);
 
-  const handleCopyText = async () => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopied(true);
-      notifications.show('Content copied to clipboard', {
-        severity: 'success',
-        autoHideDuration: 2000,
-      });
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy text:', error);
-      notifications.show('Failed to copy content', {
-        severity: 'error',
-        autoHideDuration: 2000,
-      });
-    }
-  };
 
   const handleCopyContentBlock = async () => {
     try {
@@ -142,9 +121,6 @@ export default function SourcePreviewClientWrapper({
     }
   };
 
-  const handleGoBack = () => {
-    router.back();
-  };
 
 
   const formatDate = (dateString: string | null | undefined) => {
@@ -236,23 +212,6 @@ export default function SourcePreviewClientWrapper({
           </Box>
 
           <Box className={styles.actionButtons}>
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackIcon />}
-              onClick={handleGoBack}
-              size="small"
-            >
-              Back
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<ContentCopyIcon />}
-              onClick={handleCopyText}
-              disabled={!content}
-              size="small"
-            >
-              Copy Text
-            </Button>
             <Button
               variant="outlined"
               startIcon={<DownloadIcon />}
