@@ -162,15 +162,34 @@ export default function SourcePreviewClientWrapper({
     return ext === 'htm' ? 'html' : ext === 'jpeg' ? 'jpg' : ext;
   };
 
+  const truncateFilename = (filename: string, maxLength: number = 50) => {
+    if (filename.length <= maxLength) return filename;
+
+    // Try to preserve the file extension
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex > 0) {
+      const extension = filename.substring(lastDotIndex);
+      const nameWithoutExt = filename.substring(0, lastDotIndex);
+      const availableLength = maxLength - extension.length - 3; // 3 for "..."
+
+      if (availableLength > 0) {
+        return `${nameWithoutExt.substring(0, availableLength)}...${extension}`;
+      }
+    }
+
+    // Fallback: just truncate and add ellipsis
+    return `${filename.substring(0, maxLength - 3)}...`;
+  };
 
   const fileExtension = getFileExtension(source.source_metadata?.original_filename);
+  const displayTitle = truncateFilename(source.title);
 
   return (
     <PageContainer
-      title={source.title}
+      title={displayTitle}
       breadcrumbs={[
         { title: 'Knowledge', path: '/knowledge' },
-        { title: source.title, path: `/knowledge/${source.id}` },
+        { title: displayTitle, path: `/knowledge/${source.id}` },
       ]}
     >
       {/* Header with source info and actions */}
