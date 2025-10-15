@@ -22,15 +22,11 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
-import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import styles from '@/styles/SourcePreview.module.css';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
   sessionToken: string;
-  currentUserId: string;
-  currentUserName: string;
-  currentUserPicture?: string;
 }
 
 /**
@@ -40,9 +36,6 @@ interface SourcePreviewClientWrapperProps {
 export default function SourcePreviewClientWrapper({
   source,
   sessionToken,
-  currentUserId,
-  currentUserName,
-  currentUserPicture,
 }: SourcePreviewClientWrapperProps) {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -356,19 +349,6 @@ export default function SourcePreviewClientWrapper({
           <Typography color="text.secondary">No content available</Typography>
         </Box>
       )}
-
-      {/* Add spacing before comments section */}
-      <Box sx={{ mt: 4 }} />
-
-      {/* Comments Section Only */}
-      <CommentsWrapper
-        entityType="Source"
-        entityId={source.id}
-        sessionToken={sessionToken}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        currentUserPicture={currentUserPicture}
-      />
     </PageContainer>
   );
 }
