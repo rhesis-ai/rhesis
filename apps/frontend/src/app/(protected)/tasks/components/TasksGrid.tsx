@@ -52,7 +52,6 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
   // Data fetching function
   const fetchTasks = useCallback(async () => {
-    console.log('[TasksGrid] fetchTasks callback (re)created');
     if (!sessionToken) return;
 
     try {
@@ -72,7 +71,6 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         $filter: oDataFilter,
       });
 
-      console.log('API response:', response);
       setTasks(response.data);
       setTotalCount(response.totalCount || 0);
 
@@ -93,7 +91,6 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
   // Initial data fetch
   useEffect(() => {
-    console.log('[TasksGrid] useEffect triggered');
     fetchTasks();
   }, [fetchTasks]);
 
