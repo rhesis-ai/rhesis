@@ -9,7 +9,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Source } from '@/utils/api-client/interfaces/source';
-import { Box, Chip, Tooltip, Typography } from '@mui/material';
+import { Box, Typography, Chip } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import UploadIcon from '@mui/icons-material/Upload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -33,94 +33,6 @@ const formatFileSize = (bytes?: number) => {
   return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
 };
 
-// Chip container for tags with overflow handling
-const ChipContainer = ({ items }: { items: string[] }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [visibleItems, setVisibleItems] = useState<string[]>([]);
-  const [remainingCount, setRemainingCount] = useState(0);
-
-  useEffect(() => {
-    const calculateVisibleChips = () => {
-      if (!containerRef.current || items.length === 0) return;
-
-      const container = containerRef.current;
-      const containerWidth = container.clientWidth;
-      const tempDiv = document.createElement('div');
-      tempDiv.style.visibility = 'hidden';
-      tempDiv.style.position = 'absolute';
-      document.body.appendChild(tempDiv);
-
-      let totalWidth = 0;
-      let visibleCount = 0;
-
-      // Account for potential overflow chip width
-      const overflowChip = document.createElement('div');
-      overflowChip.innerHTML =
-        '<span class="MuiChip-root" style="padding: 0 8px;">+99</span>';
-      document.body.appendChild(overflowChip);
-      const overflowChipWidth =
-        (overflowChip.firstChild as HTMLElement)?.getBoundingClientRect()
-          .width || 0;
-      overflowChip.remove();
-
-      for (let i = 0; i < items.length; i++) {
-        const chip = document.createElement('div');
-        chip.innerHTML = `<span class="MuiChip-root" style="padding: 0 8px;">${items[i]}</span>`;
-        tempDiv.appendChild(chip);
-        const chipWidth =
-          (chip.firstChild as HTMLElement)?.getBoundingClientRect().width || 0;
-
-        if (
-          totalWidth +
-            chipWidth +
-            (i < items.length - 1 ? overflowChipWidth : 0) <=
-          containerWidth - 16
-        ) {
-          // 16px for safety margin
-          totalWidth += chipWidth + 8; // 8px for gap
-          visibleCount++;
-        } else {
-          break;
-        }
-      }
-
-      tempDiv.remove();
-      setVisibleItems(items.slice(0, visibleCount));
-      setRemainingCount(items.length - visibleCount);
-    };
-
-    calculateVisibleChips();
-    window.addEventListener('resize', calculateVisibleChips);
-    return () => window.removeEventListener('resize', calculateVisibleChips);
-  }, [items]);
-
-  if (items.length === 0) return '-';
-
-  return (
-    <Box ref={containerRef} className={styles.chipContainer}>
-      {visibleItems.map((item: string) => (
-        <Chip
-          key={item}
-          label={item}
-          size="small"
-          variant="outlined"
-          className={styles.tagChip}
-        />
-      ))}
-      {remainingCount > 0 && (
-        <Tooltip title={items.slice(visibleItems.length).join(', ')} arrow>
-          <Chip
-            label={`+${remainingCount}`}
-            size="small"
-            variant="outlined"
-            className={styles.overflowChip}
-          />
-        </Tooltip>
-      )}
-    </Box>
-  );
-};
-
 export default function SourcesGrid({
   sessionToken,
   onRefresh,
@@ -135,6 +47,7 @@ export default function SourcesGrid({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -147,6 +60,37 @@ export default function SourcesGrid({
       isMounted.current = false;
     };
   }, []);
+
+  // Fetch comment counts for sources
+  const fetchCommentCounts = useCallback(async (sources: Source[]) => {
+    if (!sessionToken || sources.length === 0) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+
+      const counts: Record<string, number> = {};
+
+      // Fetch comment counts for each source
+      await Promise.all(
+        sources.map(async (source) => {
+          try {
+            const comments = await commentsClient.getComments('Source', source.id);
+            counts[source.id] = comments.length;
+          } catch (error) {
+            console.error(`Error fetching comments for source ${source.id}:`, error);
+            counts[source.id] = 0;
+          }
+        })
+      );
+
+      if (isMounted.current) {
+        setCommentCounts(counts);
+      }
+    } catch (error) {
+      console.error('Error fetching comment counts:', error);
+    }
+  }, [sessionToken]);
 
   // Data fetching function
   const fetchSources = useCallback(async () => {
@@ -171,6 +115,9 @@ export default function SourcesGrid({
         setSources(response.data);
         setTotalCount(response.pagination.totalCount);
         setError(null);
+
+        // Fetch comment counts for each source
+        await fetchCommentCounts(response.data);
       }
     } catch (error) {
       console.error('Error fetching sources:', error);
@@ -183,7 +130,7 @@ export default function SourcesGrid({
         setLoading(false);
       }
     }
-  }, [sessionToken, paginationModel]);
+  }, [sessionToken, paginationModel, fetchCommentCounts]);
 
   // Fetch data when dependencies change
   useEffect(() => {
@@ -427,15 +374,6 @@ export default function SourcesGrid({
       },
     },
     {
-      field: 'tags',
-      headerName: 'Tags',
-      width: 120,
-      renderCell: params => {
-        const source = params.row as Source;
-        return <ChipContainer items={source.tags || []} />;
-      },
-    },
-    {
       field: 'counts.comments',
       headerName: 'Comments',
       width: 100,
@@ -443,7 +381,8 @@ export default function SourcesGrid({
       filterable: false,
       renderCell: params => {
         const source = params.row as Source;
-        const count = source.counts?.comments || 0;
+        const count = commentCounts[source.id] || source.counts?.comments || 0;
+
         if (count === 0) return null;
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
