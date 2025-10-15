@@ -47,7 +47,9 @@ export default function SourcesGrid({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    {}
+  );
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -62,35 +64,44 @@ export default function SourcesGrid({
   }, []);
 
   // Fetch comment counts for sources
-  const fetchCommentCounts = useCallback(async (sources: Source[]) => {
-    if (!sessionToken || sources.length === 0) return;
+  const fetchCommentCounts = useCallback(
+    async (sources: Source[]) => {
+      if (!sessionToken || sources.length === 0) return;
 
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const commentsClient = clientFactory.getCommentsClient();
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const commentsClient = clientFactory.getCommentsClient();
 
-      const counts: Record<string, number> = {};
+        const counts: Record<string, number> = {};
 
-      // Fetch comment counts for each source
-      await Promise.all(
-        sources.map(async (source) => {
-          try {
-            const comments = await commentsClient.getComments('Source', source.id);
-            counts[source.id] = comments.length;
-          } catch (error) {
-            console.error(`Error fetching comments for source ${source.id}:`, error);
-            counts[source.id] = 0;
-          }
-        })
-      );
+        // Fetch comment counts for each source
+        await Promise.all(
+          sources.map(async source => {
+            try {
+              const comments = await commentsClient.getComments(
+                'Source',
+                source.id
+              );
+              counts[source.id] = comments.length;
+            } catch (error) {
+              console.error(
+                `Error fetching comments for source ${source.id}:`,
+                error
+              );
+              counts[source.id] = 0;
+            }
+          })
+        );
 
-      if (isMounted.current) {
-        setCommentCounts(counts);
+        if (isMounted.current) {
+          setCommentCounts(counts);
+        }
+      } catch (error) {
+        console.error('Error fetching comment counts:', error);
       }
-    } catch (error) {
-      console.error('Error fetching comment counts:', error);
-    }
-  }, [sessionToken]);
+    },
+    [sessionToken]
+  );
 
   // Data fetching function
   const fetchSources = useCallback(async () => {

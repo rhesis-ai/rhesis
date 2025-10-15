@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Alert, Paper, Button, Chip, IconButton, Tooltip, Collapse } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Alert,
+  Paper,
+  Button,
+  Chip,
+  IconButton,
+  Tooltip,
+  Collapse,
+} from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -52,16 +62,24 @@ export default function SourcePreviewClientWrapper({
         // Try to get extracted content first (processed markdown)
         try {
           console.log('Attempting to extract content for source:', source.id);
-          const extractedData = await sourcesClient.extractSourceContent(source.id);
+          const extractedData = await sourcesClient.extractSourceContent(
+            source.id
+          );
           console.log('Extraction successful:', extractedData);
           setContent(extractedData.content || '');
         } catch (extractError) {
           // Fallback to raw content if extraction fails
-          console.warn('Extraction failed, falling back to raw content:', extractError);
+          console.warn(
+            'Extraction failed, falling back to raw content:',
+            extractError
+          );
           try {
             console.log('Attempting to get raw content for source:', source.id);
             const rawContent = await sourcesClient.getSourceContent(source.id);
-            console.log('Raw content successful:', rawContent.substring(0, 100) + '...');
+            console.log(
+              'Raw content successful:',
+              rawContent.substring(0, 100) + '...'
+            );
             setContent(rawContent);
           } catch (rawError) {
             console.error('Both extraction and raw content failed:', rawError);
@@ -78,8 +96,6 @@ export default function SourcePreviewClientWrapper({
 
     fetchContent();
   }, [source.id, sessionToken]);
-
-
 
   const handleCopyContentBlock = async () => {
     try {
@@ -110,7 +126,8 @@ export default function SourcePreviewClientWrapper({
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = source.source_metadata?.original_filename || `${source.title}.txt`;
+      link.download =
+        source.source_metadata?.original_filename || `${source.title}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -128,8 +145,6 @@ export default function SourcePreviewClientWrapper({
       });
     }
   };
-
-
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Unknown';
@@ -181,7 +196,9 @@ export default function SourcePreviewClientWrapper({
     return `${filename.substring(0, maxLength - 3)}...`;
   };
 
-  const fileExtension = getFileExtension(source.source_metadata?.original_filename);
+  const fileExtension = getFileExtension(
+    source.source_metadata?.original_filename
+  );
   const displayTitle = truncateFilename(source.title);
 
   return (
@@ -209,15 +226,30 @@ export default function SourcePreviewClientWrapper({
             </Box>
 
             {source.description && (
-              <Typography variant="body2" color="text.secondary" className={styles.description}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                className={styles.description}
+              >
                 {source.description}
               </Typography>
             )}
 
             {/* Metadata Grid */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 2,
+                mb: 2,
+              }}
+            >
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
                   Size:
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -225,7 +257,11 @@ export default function SourcePreviewClientWrapper({
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
                   Type:
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -233,7 +269,11 @@ export default function SourcePreviewClientWrapper({
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
                   Added by:
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -241,7 +281,11 @@ export default function SourcePreviewClientWrapper({
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.5 }}
+                >
                   Uploaded:
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -249,7 +293,6 @@ export default function SourcePreviewClientWrapper({
                 </Typography>
               </Box>
             </Box>
-
           </Box>
         </Box>
       </Paper>
@@ -287,7 +330,7 @@ export default function SourcePreviewClientWrapper({
                   <ContentCopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={isContentExpanded ? "Collapse" : "Expand"}>
+              <Tooltip title={isContentExpanded ? 'Collapse' : 'Expand'}>
                 <IconButton
                   size="small"
                   onClick={() => setIsContentExpanded(!isContentExpanded)}
@@ -302,9 +345,7 @@ export default function SourcePreviewClientWrapper({
           {/* Content Block Body */}
           <Collapse in={isContentExpanded}>
             <Box className={styles.contentBlockBody}>
-              <pre className={styles.contentText}>
-                {content}
-              </pre>
+              <pre className={styles.contentText}>{content}</pre>
             </Box>
           </Collapse>
         </Box>

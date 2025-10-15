@@ -8,16 +8,18 @@ import styles from '@/styles/KnowledgePage.module.css';
 import { notFound } from 'next/navigation';
 
 interface SourcePreviewPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
  * Server component for the Source Preview page
  * Fetches source data and renders the client wrapper component
  */
-export default async function SourcePreviewPage({ params }: SourcePreviewPageProps) {
+export default async function SourcePreviewPage({
+  params,
+}: SourcePreviewPageProps) {
   try {
     const session = await auth();
 
