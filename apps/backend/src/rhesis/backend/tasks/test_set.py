@@ -1,6 +1,8 @@
 import logging
+from typing import Union
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.test_set import bulk_create_test_set
@@ -8,6 +10,7 @@ from rhesis.backend.tasks.base import BaseTask
 from rhesis.backend.worker import app
 
 # Import SDK components for test generation
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers import SynthesizerFactory, SynthesizerType
 
 # Set up logging
@@ -133,18 +136,21 @@ def _process_synthesizer_parameters(
     return synthesizer_kwargs
 
 
-def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, model: str, processed_kwargs: dict):
+def _create_synthesizer(self, synth_type: SynthesizerType, batch_size: int, model: Union[str, BaseLLM], processed_kwargs: dict):
     """Create and initialize the synthesizer."""
     synthesizer = SynthesizerFactory.create_synthesizer(
         synthesizer_type=synth_type, batch_size=batch_size, model=model, **processed_kwargs
     )
 
+    # Determine model info for logging
+    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
+    
     self.log_with_context(
         "info",
         "Synthesizer initialized",
         synthesizer_type=synth_type.value,
         synthesizer_class=synthesizer.__class__.__name__,
-        model=model,
+        model=model_info,
     )
 
     return synthesizer
@@ -227,7 +233,7 @@ def generate_and_save_test_set(
     synthesizer_type: str,
     num_tests: int = 5,
     batch_size: int = 20,
-    model: str = "gemini",
+    model: Union[str, BaseLLM] = DEFAULT_GENERATION_MODEL,
     **synthesizer_kwargs,
 ):
     """
@@ -240,7 +246,10 @@ def generate_and_save_test_set(
         synthesizer_type: Type of synthesizer to use (e.g., "prompt", "paraphrasing")
         num_tests: Number of test cases to generate (default: 5)
         batch_size: Batch size for the synthesizer (default: 20)
-        model: The model to use for generation (default: "gemini")
+        model: The model to use for generation. Can be either:
+               - A string provider name (e.g., "gemini", "openai")
+               - A configured BaseLLM instance with API key and settings
+               Defaults to DEFAULT_GENERATION_MODEL
         **synthesizer_kwargs: Additional parameters specific to the synthesizer type
             For PromptSynthesizer:
                 - prompt (str, required): The generation prompt
@@ -292,11 +301,16 @@ def generate_and_save_test_set(
 
     # Log the parameters (safely, without exposing sensitive data)
     log_kwargs = {k: v for k, v in synthesizer_kwargs.items() if not k.lower().endswith("_key")}
+    
+    # Determine model info for logging
+    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
+    
     self.log_with_context(
         "info",
         "Starting generate_and_save_test_set task",
         num_tests=num_tests,
         synthesizer_type=synthesizer_type,
+        model=model_info,
         synthesizer_params=list(log_kwargs.keys()),
     )
 

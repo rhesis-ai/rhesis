@@ -32,6 +32,7 @@ from rhesis.backend.app.services.test_set import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
@@ -272,6 +273,9 @@ async def generate_test_set(
         # Determine test count
         test_count = determine_test_count(request.config, request.num_tests)
 
+        # Get user's configured generation model or fallback to default
+        model = get_user_generation_model(db, current_user)
+
         # Launch the generation task
         task_result = task_launcher(
             generate_and_save_test_set,
@@ -279,7 +283,7 @@ async def generate_test_set(
             current_user=current_user,
             num_tests=test_count,
             batch_size=request.batch_size,
-            model="gemini",
+            model=model,
             prompt=generation_prompt,
             documents=[doc.dict() for doc in request.documents] if request.documents else None,
         )
