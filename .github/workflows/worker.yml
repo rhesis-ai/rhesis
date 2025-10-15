@@ -223,18 +223,28 @@ jobs:
         run: |
           # Check if cluster exists
           if ! gcloud container clusters describe ${{ env.CLUSTER_NAME }} --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
-            echo "Creating GKE Autopilot cluster..."
+            echo "Creating GKE Autopilot cluster in ${{ env.REGION }}..."
+            echo "🌐 Network configuration:"
+            echo "  - VPC Network: default (same as Redis and backend)"
+            echo "  - Region: ${{ env.REGION }}"
+            echo "  - Subnet: auto-selected in ${{ env.REGION }}"
+            
+            # GKE Autopilot automatically configures:
+            # - IP aliasing (enabled by default)
+            # - Workload Identity (enabled by default)
+            # - Subnet selection in the specified region
+            # - Network and security settings
             gcloud container clusters create-auto ${{ env.CLUSTER_NAME }} \
               --region=${{ env.REGION }} \
-               --project=${{ env.PROJECT_ID }} \
-               --network=default \
-               --subnetwork=default \
-               --release-channel=regular \
-               --enable-ip-alias \
-               --workload-pool=${{ env.PROJECT_ID }}.svc.id.goog \
-               --hpa-profile=performance
+              --project=${{ env.PROJECT_ID }} \
+              --network=default \
+              --release-channel=regular
+            
+            echo "✅ GKE Autopilot cluster created successfully in ${{ env.REGION }}"
+            echo "ℹ️ Cluster is using 'default' VPC network in region ${{ env.REGION }}"
+            echo "ℹ️ This ensures connectivity to Redis and other services in the same VPC"
           else
-            echo "Cluster ${{ env.CLUSTER_NAME }} already exists"
+            echo "✅ Cluster ${{ env.CLUSTER_NAME }} already exists"
             echo "Autopilot clusters handle autoscaling automatically - no manual configuration needed"
           fi
 
