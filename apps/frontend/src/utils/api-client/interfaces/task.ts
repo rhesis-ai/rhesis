@@ -90,4 +90,10 @@ export interface Tag {
   color?: string;
 }
 
-export type EntityType = 'Test' | 'TestSet' | 'TestRun' | 'TestResult' | 'Task' | 'Source';
+export type EntityType =
+  | 'Test'
+  | 'TestSet'
+  | 'TestRun'
+  | 'TestResult'
+  | 'Task'
+  | 'Source';

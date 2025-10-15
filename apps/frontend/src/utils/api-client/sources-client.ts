@@ -140,9 +140,14 @@ export class SourcesClient extends BaseApiClient {
     return response.text();
   }
 
-  async extractSourceContent(id: UUID): Promise<{ content: string; metadata: any }> {
-    return this.fetch<{ content: string; metadata: any }>(`${API_ENDPOINTS.sources}/${id}/extract`, {
-      method: 'POST',
-    });
+  async extractSourceContent(
+    id: UUID
+  ): Promise<{ content: string; metadata: any }> {
+    return this.fetch<{ content: string; metadata: any }>(
+      `${API_ENDPOINTS.sources}/${id}/extract`,
+      {
+        method: 'POST',
+      }
+    );
   }
 }
