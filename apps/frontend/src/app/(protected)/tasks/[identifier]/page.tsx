@@ -522,7 +522,14 @@ export default function TaskDetailPage({ params }: PageProps) {
                     ? `#comment-${task.task_metadata.comment_id}`
                     : '';
 
-                  router.push(`${baseUrl}${queryString}${commentHash}`);
+                  const finalUrl = `${baseUrl}${queryString}${commentHash}`;
+                  console.log('[TaskDetailPage] Navigating to:', {
+                    entityType: task.entity_type,
+                    entityId: task.entity_id,
+                    testResultId: task.task_metadata?.test_result_id,
+                    finalUrl,
+                  });
+                  router.push(finalUrl);
                 } catch (error) {
                   console.error('Navigation error:', error);
                 }

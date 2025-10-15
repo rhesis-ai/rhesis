@@ -387,14 +387,26 @@ export default function TestRunMainView({
 
   // Handle initial selection and pagination when initialSelectedTestId is provided
   React.useEffect(() => {
+    console.log('[TestRunMainView] Initial selection effect:', {
+      initialSelectedTestId,
+      filteredTestsLength: filteredTests.length,
+      hasInitialSelection,
+      firstTestId: filteredTests[0]?.id,
+    });
+    
     if (initialSelectedTestId && filteredTests.length > 0 && !hasInitialSelection) {
       const testIndex = filteredTests.findIndex(t => t.id === initialSelectedTestId);
+      console.log('[TestRunMainView] Looking for test:', initialSelectedTestId, 'Found at index:', testIndex);
+      
       if (testIndex !== -1) {
         // Calculate which page the test is on
         const testPage = Math.floor(testIndex / rowsPerPage);
+        console.log('[TestRunMainView] Setting page:', testPage, 'rowsPerPage:', rowsPerPage);
         setPage(testPage);
         setSelectedTestId(initialSelectedTestId);
         setHasInitialSelection(true);
+      } else {
+        console.log('[TestRunMainView] Test not found in filtered list');
       }
     }
   }, [initialSelectedTestId, filteredTests, rowsPerPage, hasInitialSelection]);
