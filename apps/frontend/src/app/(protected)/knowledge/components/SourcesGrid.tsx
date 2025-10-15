@@ -297,7 +297,8 @@ export default function SourcesGrid({
     {
       field: 'title',
       headerName: 'Title',
-      width: 300,
+      flex: 1,
+      minWidth: 250,
       renderCell: params => {
         const source = params.row as Source;
 
@@ -321,7 +322,7 @@ export default function SourcesGrid({
     {
       field: 'type',
       headerName: 'Type',
-      width: 120,
+      width: 100,
       renderCell: params => {
         const source = params.row as Source;
         const metadata = source.source_metadata || {};
@@ -355,7 +356,7 @@ export default function SourcesGrid({
     {
       field: 'size',
       headerName: 'Size',
-      width: 100,
+      width: 90,
       renderCell: params => {
         const source = params.row as Source;
         const metadata = source.source_metadata || {};
@@ -371,7 +372,7 @@ export default function SourcesGrid({
     {
       field: 'created_at',
       headerName: 'Uploaded',
-      width: 120,
+      width: 110,
       renderCell: params => {
         const source = params.row as Source;
 
@@ -405,7 +406,7 @@ export default function SourcesGrid({
     {
       field: 'uploader',
       headerName: 'Added by',
-      width: 150,
+      width: 130,
       renderCell: params => {
         const source = params.row as Source;
         const uploaderName = source.source_metadata?.uploader_name;
@@ -428,7 +429,7 @@ export default function SourcesGrid({
     {
       field: 'tags',
       headerName: 'Tags',
-      width: 200,
+      width: 120,
       renderCell: params => {
         const source = params.row as Source;
         return <ChipContainer items={source.tags || []} />;
