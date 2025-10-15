@@ -57,17 +57,6 @@
   flex-shrink: 0;
 }
 
-.contentContainer {
-  padding: 24px;
-  min-height: 400px;
-}
-
-.contentControls {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
 .loadingContainer,
 .emptyContainer {
   display: flex;
@@ -80,52 +69,6 @@
   margin-bottom: 16px;
 }
 
-.contentWrapper {
-  max-height: 70vh;
-  overflow: auto;
-  border: 1px solid var(--mui-palette-divider);
-  border-radius: 8px;
-  background-color: var(--mui-palette-background-default);
-}
-
-.contentText {
-  margin: 0;
-  padding: 16px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--mui-palette-text-primary);
-  background-color: transparent;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .headerContent {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .actionButtons {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .metadataRow {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .titleRow {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-}
-
-/* Content Block Styles */
 .contentBlock {
   border: 1px solid var(--mui-palette-divider);
   border-radius: 8px;
@@ -176,4 +119,41 @@
   border-top: 1px solid var(--mui-palette-divider);
   max-height: 400px;
   overflow: auto;
+}
+
+.contentText {
+  margin: 0;
+  padding: 16px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--mui-palette-text-primary);
+  background-color: transparent;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionButtons {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .metadataRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .titleRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
 }
