@@ -42,17 +42,17 @@ const footerData = {
   company: {
     title: 'Company',
     links: [
-      { name: 'About us', href: 'https://www.rhesis.ai/about', external: true },
-      { name: 'Careers', href: 'https://www.rhesis.ai/careers', external: true },
-      { name: 'Contact us', href: 'https://www.rhesis.ai/contact', external: true },
+      { name: 'About us', href: 'https://www.rhesis.ai/about-us', external: true },
+      { name: 'Careers', href: 'https://rhesis-ai.jobs.personio.com/', external: true },
+      { name: 'Contact us', href: 'https://www.rhesis.ai/contact-us', external: true },
     ],
   },
 }
 
 const legalLinks = [
   { name: 'Imprint', href: 'https://www.rhesis.ai/imprint', external: true },
-  { name: 'Privacy', href: 'https://www.rhesis.ai/privacy', external: true },
-  { name: 'Terms', href: 'https://www.rhesis.ai/terms', external: true },
+  { name: 'Privacy', href: 'https://www.rhesis.ai/privacy-policy', external: true },
+  { name: 'Terms', href: 'https://www.rhesis.ai/https://www.rhesis.ai/terms-conditions', external: true },
 ]
 
 export const Footer = ({
