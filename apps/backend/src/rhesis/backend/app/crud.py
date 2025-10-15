@@ -674,9 +674,18 @@ def get_test_configurations(
 
 
 def create_test_configuration(
-    db: Session, test_configuration: schemas.TestConfigurationCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_configuration: schemas.TestConfigurationCreate,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> models.TestConfiguration:
-    return create_item(db, models.TestConfiguration, test_configuration, organization_id=organization_id, user_id=user_id)
+    return create_item(
+        db,
+        models.TestConfiguration,
+        test_configuration,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 def update_test_configuration(
@@ -1109,41 +1118,41 @@ def delete_user(
 ) -> Optional[models.User]:
     """
     Soft delete a user by marking them as deleted and removing them from their organization.
-    
+
     This preserves audit trails and referential integrity for all user-created resources
     while removing the user's access to the system.
-    
+
     Args:
         db: Database session
         target_user_id: ID of user to delete/remove from organization
         organization_id: Organization ID for tenant context
         user_id: ID of the current user performing the action (for tenant context)
-        
+
     Returns:
         Deleted user object or None if not found
-        
+
     Raises:
         ValueError: If user tries to delete themselves
     """
     # Security check: Prevent users from deleting themselves
     if str(target_user_id) == str(user_id):
         raise ValueError("Users cannot remove themselves from the organization")
-    
+
     # Get the user with tenant context
     db_user = get_item(db, models.User, target_user_id, organization_id, user_id)
     if db_user is None:
         return None
-    
+
     # Soft delete the user to preserve audit trails and referential integrity
     db_user.soft_delete()
-    
+
     # Also remove them from their organization for backwards compatibility
     # This ensures existing logic that checks organization_id still works
     db_user.organization_id = None
-    
+
     db.commit()
     db.refresh(db_user)
-    
+
     return db_user
 
 
@@ -1429,7 +1438,7 @@ def count_user_tokens(
     organization_id: str = None,
 ) -> int:
     """Count all active bearer tokens for a user
-    
+
     This function applies the same filters as get_user_tokens to ensure
     the count matches the actual number of tokens the user can see.
 
@@ -1495,35 +1504,37 @@ def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = N
 
 def get_token_by_value(db: Session, token_value: str, organization_id: str = None):
     """Retrieve a token by its value with organization filtering (SECURITY CRITICAL)
-    
+
     Uses SHA-256 hash for efficient O(1) indexed lookup instead of decrypting all tokens.
     The token hash is deterministic, allowing direct SQL queries, while the token itself
     remains encrypted for security.
     """
     from rhesis.backend.app.utils.encryption import hash_token
-    
+
     # Compute hash of incoming token for lookup
     token_hash_value = hash_token(token_value)
-    
+
     # Build query using hash index
     query = db.query(models.Token).filter(models.Token.token_hash == token_hash_value)
 
     # Apply organization filtering (SECURITY CRITICAL)
     if organization_id:
         from uuid import UUID
+
         query = query.filter(models.Token.organization_id == UUID(organization_id))
 
     # Get token by hash (O(1) with index)
     token = query.first()
-    
+
     # Optional: Verify the decrypted token matches (defense in depth)
     # This protects against the unlikely case of hash collisions
     if token and token.token != token_value:
         # Hash collision detected - this should be extremely rare
         from rhesis.backend.logging import logger
+
         logger.warning(f"Token hash collision detected for token_id={token.id}")
         return None
-    
+
     return token
 
 
@@ -1709,7 +1720,7 @@ def delete_test(
 ) -> Optional[models.Test]:
     """
     Soft delete a test and update any associated test sets' attributes.
-    
+
     The test is marked as deleted but remains in the database to preserve
     referential integrity with test runs, results, and other related data.
     """

@@ -24,6 +24,7 @@ import {
   TerminalIcon,
   AssignmentIcon,
   SettingsIcon,
+  MenuBookIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -101,6 +102,12 @@ async function getNavigationItems(
       segment: 'projects',
       title: 'Projects',
       icon: <AppsIcon />,
+    },
+    {
+      kind: 'page',
+      segment: 'knowledge',
+      title: 'Knowledge',
+      icon: <MenuBookIcon />,
     },
     {
       kind: 'divider',
