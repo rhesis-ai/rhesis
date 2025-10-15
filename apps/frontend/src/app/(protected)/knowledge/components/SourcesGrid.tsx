@@ -17,6 +17,7 @@ import { ChatIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { DeleteButton } from '@/components/common/DeleteButton';
+import UploadSourceDialog from './UploadSourceDialog';
 import styles from '@/styles/SourcesGrid.module.css';
 
 interface SourcesGridProps {
@@ -52,6 +53,7 @@ export default function SourcesGrid({
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   // Data fetching function
   const fetchSources = useCallback(async () => {
@@ -171,9 +173,7 @@ export default function SourcesGrid({
         icon: <UploadIcon />,
         variant: 'contained' as const,
         onClick: () => {
-          notifications.show('Upload functionality coming soon!', {
-            severity: 'info',
-          });
+          setUploadDialogOpen(true);
         },
       },
     ];
@@ -400,6 +400,16 @@ export default function SourcesGrid({
         title="Delete Sources"
         message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}? This action cannot be undone.`}
         itemType="sources"
+      />
+
+      <UploadSourceDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={() => {
+          fetchSources();
+          setUploadDialogOpen(false);
+        }}
+        sessionToken={sessionToken}
       />
     </>
   );
