@@ -9,10 +9,11 @@ from rhesis.backend.app.schemas import Base
 # Source Types Enum - Defines available source types with corresponding handlers
 class SourceType(str, Enum):
     DOCUMENT = "Document"
-    # Future source types can be added here:
-    # WEBSITE = "Website"
-    # API = "API"
-    # NOTION = "Notion"
+    WEBSITE = "Website"
+    API = "API"
+    DATABASE = "Database"
+    CODE = "Code"
+    MANUAL = "Manual"
 
     @classmethod
     def get_value(cls, source_type):
