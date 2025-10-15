@@ -246,6 +246,7 @@ def execute_test(
     endpoint_id: str,
     organization_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    model: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Execute a single test and return its results.
@@ -312,7 +313,16 @@ def execute_test(
 
         # Evaluate metrics
         context = result.get("context", []) if result else []
-        metrics_evaluator = MetricEvaluator()
+        
+        # Pass user's configured model to evaluator
+        metrics_evaluator = MetricEvaluator(model=model)
+        
+        # Log model being used for metrics evaluation
+        if model:
+            model_info = model if isinstance(model, str) else f"{type(model).__name__}(model_name={model.model_name})"
+            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with model: {model_info}")
+        else:
+            logger.debug(f"[METRICS_EVALUATION] Evaluating test {test_id} with default model")
 
         metrics_results = evaluate_prompt_response(
             metrics_evaluator=metrics_evaluator,
