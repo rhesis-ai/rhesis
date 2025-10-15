@@ -1,0 +1,543 @@
+/* Rhesis AI SDK Documentation Theme */
+/* Matching colors and fonts from apps/frontend/src/styles/theme.ts */
+
+/* Local Rhesis AI fonts */
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-lightitalic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-mediumitalic.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-semibolditalic.ttf') format('truetype');
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  src: url('fonts/be-vietnam-pro/be-vietnam-pro-bolditalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('fonts/sora/sora-light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('fonts/sora/sora-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('fonts/sora/sora-medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('fonts/sora/sora-semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Root variables for Rhesis AI colors */
+:root {
+  /* Rhesis AI Brand Colors */
+  --rhesis-primary-blue: #50B9E0;
+  --rhesis-primary-light-blue: #97D5EE;
+  --rhesis-primary-cta-blue: #2AA1CE;
+  --rhesis-secondary-cta-orange: #FD6E12;
+  --rhesis-accent-yellow: #FDD803;
+  --rhesis-dark-black: #1A1A1A;
+  --rhesis-dark-text: #3D3D3D;
+  --rhesis-white-bg: #FFFFFF;
+
+  /* Background variants */
+  --rhesis-bg-light1: #F2F9FD;
+  --rhesis-bg-light2: #E4F2FA;
+  --rhesis-bg-light3: #C2E5F5;
+  --rhesis-bg-light4: #97D5EE;
+
+  /* Status colors */
+  --rhesis-success: #2E7D32;
+  --rhesis-warning: #F57C00;
+  --rhesis-error: #C62828;
+}
+
+/* Base typography - Be Vietnam Pro */
+body, .rst-content {
+  font-family: "Be Vietnam Pro", "Roboto", "Helvetica", "Arial", sans-serif !important;
+  color: var(--rhesis-dark-text) !important;
+  line-height: 1.6;
+}
+
+/* Headings - Sora font family */
+h1, h2, h3, h4, h5, h6,
+.rst-content h1, .rst-content h2, .rst-content h3,
+.rst-content h4, .rst-content h5, .rst-content h6,
+.wy-nav-content-wrap h1, .wy-nav-content-wrap h2,
+.wy-nav-content-wrap h3, .wy-nav-content-wrap h4,
+.wy-nav-content-wrap h5, .wy-nav-content-wrap h6 {
+  font-family: "Sora", "Be Vietnam Pro", sans-serif !important;
+  color: var(--rhesis-dark-text) !important;
+}
+
+h1, .rst-content h1 {
+  font-weight: 600 !important;
+  color: var(--rhesis-primary-cta-blue) !important;
+}
+
+h2, .rst-content h2 {
+  font-weight: 500 !important;
+  color: var(--rhesis-primary-blue) !important;
+}
+
+h3, .rst-content h3 {
+  font-weight: 400 !important;
+  color: var(--rhesis-dark-text) !important;
+}
+
+/* Navigation and sidebar - Single CTA Blue color */
+.wy-nav-side {
+  background: var(--rhesis-primary-cta-blue) !important;
+  border-right: 1px solid var(--rhesis-primary-cta-blue) !important;
+}
+
+.wy-nav-top {
+  background: var(--rhesis-primary-cta-blue) !important;
+  color: white !important;
+}
+
+.wy-nav-top a {
+  color: white !important;
+}
+
+/* Sidebar navigation items */
+.wy-menu-vertical a,
+.wy-menu-vertical a.reference.internal {
+  color: white !important;
+  font-family: "Be Vietnam Pro", sans-serif !important;
+  font-weight: 400;
+}
+
+.wy-menu-vertical a:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+.wy-menu-vertical li.current a {
+  background-color: var(--rhesis-primary-cta-blue) !important;
+  color: white !important;
+  border-right: 3px solid var(--rhesis-accent-yellow) !important;
+  font-weight: 600 !important;
+}
+
+.wy-menu-vertical li.current > a {
+  background-color: var(--rhesis-primary-cta-blue) !important;
+}
+
+/* Sidebar section headers */
+.wy-menu-vertical .caption {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.5px;
+}
+
+/* Search box in sidebar */
+.wy-side-nav-search input[type="text"] {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: var(--rhesis-dark-text) !important;
+}
+
+.wy-side-nav-search input[type="text"]:focus {
+  background-color: white !important;
+  border-color: white !important;
+}
+
+/* Main content area */
+.wy-nav-content-wrap {
+  background: var(--rhesis-white-bg) !important;
+}
+
+.wy-nav-content {
+  background: var(--rhesis-white-bg) !important;
+}
+
+/* Links */
+a, .rst-content a {
+  color: var(--rhesis-primary-cta-blue) !important;
+  text-decoration: none;
+}
+
+a:hover, .rst-content a:hover {
+  color: var(--rhesis-primary-blue) !important;
+  text-decoration: underline;
+}
+
+a:visited, .rst-content a:visited {
+  color: var(--rhesis-primary-cta-blue) !important;
+}
+
+/* Code blocks - Terminal/IDE style */
+.rst-content div[class*="highlight-"] {
+  background: #161B22 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  margin: 24px 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+  position: relative;
+}
+
+.rst-content pre.literal-block {
+  background: #161B22 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  margin: 24px 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+  position: relative;
+}
+
+/* Add terminal header with dots - target the outer wrapper */
+.rst-content div[class*="highlight-"]::before {
+  content: "";
+  display: block;
+  background: #1F242B;
+  padding: 8px 16px;
+  height: 32px;
+  border-bottom: 1px solid #2C2C2C;
+  position: relative;
+  z-index: 1;
+}
+
+.rst-content div[class*="highlight-"]::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e53935;
+  box-shadow: 18px 0 0 #fbc02d, 36px 0 0 #4cafef;
+  z-index: 2;
+}
+
+/* Remove pseudo-elements from inner .highlight div */
+.rst-content div[class*="highlight-"] .highlight {
+  background: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.rst-content .highlight pre {
+  background: #161B22 !important;
+  color: #E6EDF3 !important;
+  font-family: "Fira Code", "Monaco", "Consolas", monospace !important;
+  padding: 16px !important;
+  margin: 0 !important;
+  border: none !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  overflow-x: auto !important;
+}
+
+/* Code syntax highlighting now handled by custom pygments style in rhesis_pygments_style.py */
+/* This provides cleaner, more maintainable syntax highlighting using Rhesis brand colors */
+
+/* Inline code */
+.rst-content code.literal {
+  background-color: var(--rhesis-bg-light2) !important;
+  color: var(--rhesis-primary-cta-blue) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  font-family: "Fira Code", "Monaco", "Consolas", monospace !important;
+  font-size: 0.9em !important;
+}
+
+/* Code block titles/captions */
+.rst-content .code-block-caption {
+  background: #1F242B !important;
+  color: #A9B1BB !important;
+  padding: 8px 16px !important;
+  font-size: 12px !important;
+  font-family: "Be Vietnam Pro", sans-serif !important;
+  border-bottom: 1px solid #2C2C2C !important;
+  margin: 0 !important;
+}
+
+/* Buttons and CTAs */
+.btn, .rst-content .btn {
+  font-family: "Be Vietnam Pro", sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  border-radius: 4px !important;
+}
+
+.btn-primary, .rst-content .btn-primary {
+  background-color: var(--rhesis-primary-cta-blue) !important;
+  border-color: var(--rhesis-primary-cta-blue) !important;
+  color: white !important;
+}
+
+.btn-primary:hover, .rst-content .btn-primary:hover {
+  background-color: var(--rhesis-primary-blue) !important;
+  border-color: var(--rhesis-primary-blue) !important;
+}
+
+/* Admonitions (notes, warnings, etc.) */
+.rst-content .admonition {
+  border-radius: 4px !important;
+  border-left: 4px solid var(--rhesis-primary-blue) !important;
+  background-color: var(--rhesis-bg-light1) !important;
+}
+
+.rst-content .admonition.note {
+  border-left-color: var(--rhesis-primary-blue) !important;
+}
+
+.rst-content .admonition.warning {
+  border-left-color: var(--rhesis-warning) !important;
+  background-color: #FFF8E1 !important;
+}
+
+.rst-content .admonition.danger,
+.rst-content .admonition.error {
+  border-left-color: var(--rhesis-error) !important;
+  background-color: #FFEBEE !important;
+}
+
+.rst-content .admonition.tip,
+.rst-content .admonition.hint {
+  border-left-color: var(--rhesis-success) !important;
+  background-color: #E8F5E8 !important;
+}
+
+.rst-content .admonition-title {
+  font-family: "Sora", "Be Vietnam Pro", sans-serif !important;
+  font-weight: 600 !important;
+  color: var(--rhesis-dark-text) !important;
+}
+
+/* Tables */
+.rst-content table.docutils {
+  border: 1px solid var(--rhesis-bg-light3) !important;
+  border-radius: 4px !important;
+}
+
+.rst-content table.docutils th {
+  background-color: var(--rhesis-bg-light2) !important;
+  color: var(--rhesis-dark-text) !important;
+  font-family: "Be Vietnam Pro", sans-serif !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid var(--rhesis-primary-blue) !important;
+}
+
+.rst-content table.docutils td {
+  border-color: var(--rhesis-bg-light3) !important;
+}
+
+/* Search box */
+.wy-side-nav-search {
+  background-color: var(--rhesis-primary-cta-blue) !important;
+}
+
+.wy-side-nav-search input[type="text"] {
+  border: 1px solid var(--rhesis-bg-light3) !important;
+  border-radius: 4px !important;
+}
+
+/* Toctree */
+.rst-content .toctree-wrapper ul {
+  list-style: none;
+}
+
+.rst-content .toctree-wrapper li {
+  margin-bottom: 8px;
+}
+
+.rst-content .toctree-wrapper a {
+  display: inline-block;
+  padding: 8px 12px;
+  background-color: var(--rhesis-bg-light1);
+  border: 1px solid var(--rhesis-bg-light3);
+  border-radius: 4px;
+  color: var(--rhesis-primary-cta-blue) !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.rst-content .toctree-wrapper a:hover {
+  background-color: var(--rhesis-primary-blue);
+  color: white !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(42, 161, 206, 0.2);
+}
+
+/* Footer */
+.rst-footer-buttons {
+  border-top: 1px solid var(--rhesis-bg-light3) !important;
+}
+
+/* Version selector */
+.rst-versions {
+  background-color: var(--rhesis-primary-cta-blue) !important;
+}
+
+.rst-versions a {
+  color: white !important;
+}
+
+/* Custom styling for emojis in headings */
+.rst-content h1:before,
+.rst-content h2:before {
+  margin-right: 8px;
+}
+
+/* Logo area customization */
+.wy-side-nav-search .wy-dropdown > a img.logo,
+.wy-side-nav-search > a img.logo {
+  max-width: 200px !important;
+  margin-bottom: 12px;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .wy-nav-side {
+    left: -300px;
+  }
+
+  .wy-nav-content-wrap {
+    margin-left: 0;
+  }
+}
+
+/* Custom classes for special content */
+.rhesis-highlight {
+  background: linear-gradient(135deg, var(--rhesis-bg-light1), var(--rhesis-bg-light2));
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid var(--rhesis-primary-blue);
+  margin: 20px 0;
+}
+
+.rhesis-cta {
+  background-color: var(--rhesis-primary-cta-blue);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 6px;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.rhesis-cta a {
+  color: white !important;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rhesis-cta a:hover {
+  color: var(--rhesis-accent-yellow) !important;
+}
+
+/* Improve readability */
+.rst-content {
+  line-height: 1.7;
+}
+
+.rst-content p {
+  margin-bottom: 16px;
+}
+
+/* Custom styling for the main title */
+.rst-content h1:first-child {
+  text-align: center;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--rhesis-primary-blue);
+}
+
+/* Style the logo image */
+.rst-content img[alt="Rhesis Logo"] {
+  display: block;
+  margin: 0 auto 24px auto;
+}
