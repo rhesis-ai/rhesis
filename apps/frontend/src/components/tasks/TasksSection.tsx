@@ -33,6 +33,7 @@ interface TasksSectionProps {
   onCreateTask: (taskData: any) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
+  onNavigateToCreate?: () => void;
   currentUserId: string;
   currentUserName: string;
 }
@@ -44,6 +45,7 @@ export function TasksSection({
   onCreateTask,
   onEditTask,
   onDeleteTask,
+  onNavigateToCreate,
   currentUserId,
   currentUserName,
 }: TasksSectionProps) {
@@ -149,11 +151,17 @@ export function TasksSection({
   };
 
   const handleCreateTask = () => {
-    const queryParams = new URLSearchParams({
-      entityType,
-      entityId,
-    });
-    router.push(`/tasks/create?${queryParams.toString()}`);
+    // Use the provided navigation handler if available (includes additional metadata)
+    if (onNavigateToCreate) {
+      onNavigateToCreate();
+    } else {
+      // Fallback to direct navigation
+      const queryParams = new URLSearchParams({
+        entityType,
+        entityId,
+      });
+      router.push(`/tasks/create?${queryParams.toString()}`);
+    }
   };
 
   // Column definitions for the table

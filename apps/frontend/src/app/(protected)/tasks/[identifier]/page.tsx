@@ -509,10 +509,26 @@ export default function TaskDetailPage({ params }: PageProps) {
                     entityUrlMap[task.entity_type] ||
                     task.entity_type.toLowerCase();
                   const baseUrl = `/${entityPath}/${task.entity_id}`;
+
+                  // Add query parameters if available (e.g., selectedresult for test runs)
+                  const queryParams = new URLSearchParams();
+                  if (task.task_metadata?.test_result_id) {
+                    queryParams.append(
+                      'selectedresult',
+                      task.task_metadata.test_result_id
+                    );
+                  }
+                  const queryString = queryParams.toString()
+                    ? `?${queryParams.toString()}`
+                    : '';
+
+                  // Add hash for comments if available
                   const commentHash = task.task_metadata?.comment_id
                     ? `#comment-${task.task_metadata.comment_id}`
                     : '';
-                  router.push(`${baseUrl}${commentHash}`);
+
+                  const finalUrl = `${baseUrl}${queryString}${commentHash}`;
+                  router.push(finalUrl);
                 } catch (error) {
                   console.error('Navigation error:', error);
                 }

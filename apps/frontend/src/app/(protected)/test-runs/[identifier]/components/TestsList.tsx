@@ -268,11 +268,16 @@ export default function TestsList({
 
   // Scroll selected item into view
   useEffect(() => {
-    if (selectedItemRef.current && listContainerRef.current) {
-      selectedItemRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
+    if (selectedItemRef.current) {
+      // Use setTimeout to ensure DOM is fully rendered
+      const timeoutId = setTimeout(() => {
+        selectedItemRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [selectedTestId]);
 
