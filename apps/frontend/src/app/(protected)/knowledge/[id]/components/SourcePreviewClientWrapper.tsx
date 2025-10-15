@@ -12,11 +12,15 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
+import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import styles from '@/styles/SourcePreview.module.css';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
   sessionToken: string;
+  currentUserId: string;
+  currentUserName: string;
+  currentUserPicture?: string;
 }
 
 /**
@@ -26,6 +30,9 @@ interface SourcePreviewClientWrapperProps {
 export default function SourcePreviewClientWrapper({
   source,
   sessionToken,
+  currentUserId,
+  currentUserName,
+  currentUserPicture,
 }: SourcePreviewClientWrapperProps) {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -71,6 +78,7 @@ export default function SourcePreviewClientWrapper({
 
     fetchContent();
   }, [source.id, sessionToken]);
+
 
 
   const handleCopyContentBlock = async () => {
@@ -159,7 +167,7 @@ export default function SourcePreviewClientWrapper({
 
   return (
     <PageContainer
-      title="Source Preview"
+      title={source.title}
       breadcrumbs={[
         { title: 'Knowledge', path: '/knowledge' },
         { title: source.title, path: `/knowledge/${source.id}` },
@@ -169,16 +177,16 @@ export default function SourcePreviewClientWrapper({
       <Paper className={styles.headerContainer}>
         <Box className={styles.headerContent}>
           <Box className={styles.sourceInfo}>
-            <Box className={styles.titleRow}>
-              <Typography variant="h5" className={styles.sourceTitle}>
-                {source.title}
-              </Typography>
-              <Chip
-                label={fileExtension.toUpperCase()}
-                size="small"
-                variant="outlined"
-                className={styles.fileTypeChip}
-              />
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<DownloadIcon />}
+                onClick={handleDownloadFile}
+              >
+                Download File
+              </Button>
             </Box>
 
             {source.description && (
@@ -187,40 +195,42 @@ export default function SourcePreviewClientWrapper({
               </Typography>
             )}
 
-            <Box className={styles.metadataRow}>
-              <Typography variant="caption" color="text.secondary">
-                Uploaded: {formatDate(source.source_metadata?.uploaded_at)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Size: {formatFileSize(source.source_metadata?.file_size)}
-              </Typography>
-              {source.source_metadata?.uploader_name && (
-                <Box className={styles.ownerContainer}>
-                  <Typography variant="caption" color="text.secondary">
-                    Added by: {source.source_metadata.uploader_name}
-                  </Typography>
-                </Box>
-              )}
-              {source.tags && source.tags.length > 0 && (
-                <Box className={styles.tagsContainer}>
-                  <Typography variant="caption" color="text.secondary">
-                    Tags: {source.tags.join(', ')}
-                  </Typography>
-                </Box>
-              )}
+            {/* Metadata Grid */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Size:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {formatFileSize(source.source_metadata?.file_size)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Type:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {fileExtension.toUpperCase()}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Added by:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {source.source_metadata?.uploader_name || 'Unknown'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Uploaded:
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {formatDate(source.source_metadata?.uploaded_at)}
+                </Typography>
+              </Box>
             </Box>
-          </Box>
 
-          <Box className={styles.actionButtons}>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleDownloadFile}
-              disabled={!content}
-              size="small"
-            >
-              Download File
-            </Button>
           </Box>
         </Box>
       </Paper>
@@ -286,6 +296,19 @@ export default function SourcePreviewClientWrapper({
           <Typography color="text.secondary">No content available</Typography>
         </Box>
       )}
+
+      {/* Add spacing before comments section */}
+      <Box sx={{ mt: 4 }} />
+
+      {/* Comments Section Only */}
+      <CommentsWrapper
+        entityType="Source"
+        entityId={source.id}
+        sessionToken={sessionToken}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        currentUserPicture={currentUserPicture}
+      />
     </PageContainer>
   );
 }

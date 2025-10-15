@@ -45,4 +45,5 @@ export type EntityType =
   | 'Prompt'
   | 'Behavior'
   | 'Category'
-  | 'Task';
+  | 'Task'
+  | 'Source';
