@@ -16,18 +16,13 @@ class DeepEvalMetricBase(BaseMetric):
         self,
         name: str,
         threshold: float = 0.5,
-        metric_type: MetricType = "rag",
+        metric_type: MetricType = MetricType.RAG,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
         super().__init__(name=name, metric_type=metric_type, model=model)
         self._metric = None  # Will be set by child classes
         self.threshold = threshold  # Use setter for validation
-        self._model = DeepEvalModelWrapper(self._model)
-
-    @property
-    def model(self) -> BaseLLM:
-        """Get the configured model instance."""
-        return self._model
+        self.model = DeepEvalModelWrapper(self.model)
 
     @property
     def threshold(self) -> float:
