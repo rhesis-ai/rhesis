@@ -1160,7 +1160,8 @@ def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
-    return db.query(models.User).filter(models.User.email == email).first()
+    from sqlalchemy import func
+    return db.query(models.User).filter(func.lower(models.User.email) == email.lower()).first()
 
 
 def get_user_by_id(db: Session, user_id: Union[str, UUID]) -> Optional[models.User]:
