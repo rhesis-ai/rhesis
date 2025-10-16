@@ -7,6 +7,8 @@ import {
   ModelDetail,
   ModelQueryParams,
   ModelsResponse,
+  TestModelConnectionRequest,
+  TestModelConnectionResponse,
 } from './interfaces/model';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';
@@ -65,6 +67,18 @@ export class ModelsClient extends BaseApiClient {
       `${API_ENDPOINTS.models}/${id}/test`,
       {
         method: 'POST',
+      }
+    );
+  }
+
+  async testConnection(
+    request: TestModelConnectionRequest
+  ): Promise<TestModelConnectionResponse> {
+    return this.fetch<TestModelConnectionResponse>(
+      `${API_ENDPOINTS.models}/test-connection`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
       }
     );
   }

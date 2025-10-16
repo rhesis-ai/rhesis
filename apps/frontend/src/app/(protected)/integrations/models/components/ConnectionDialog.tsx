@@ -252,6 +252,9 @@ export function ConnectionDialog({
     setShowFullError(false);
 
     try {
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const modelsClient = apiFactory.getModelsClient();
+
       const requestBody: any = {
         provider: currentProvider.type_value,
         model_name: modelName,
@@ -263,19 +266,7 @@ export function ConnectionDialog({
         requestBody.endpoint = endpoint.trim();
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/models/test-connection`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.session_token}`,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      const result = await response.json();
+      const result = await modelsClient.testConnection(requestBody);
 
       if (result.success) {
         setTestResult({
