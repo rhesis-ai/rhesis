@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
 from rhesis.sdk.metrics.utils import retry_evaluation
 
@@ -9,12 +9,16 @@ class RagasAnswerRelevancy(RagasMetricBase):
     """Ragas implementation of Answer Relevancy metric."""
 
     def __init__(self, threshold: float = 0.5):
-        super().__init__(name="answer_relevancy", threshold=threshold, metric_type="rag")
+        super().__init__(name="answer_relevancy", threshold=threshold, metric_type=MetricType.RAG)
         # Initialize Ragas specific implementation
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
         # Implement Ragas specific evaluation logic
         # Placeholder implementation
@@ -36,12 +40,18 @@ class RagasContextualPrecision(RagasMetricBase):
     """Ragas implementation of Contextual Precision metric."""
 
     def __init__(self, threshold: float = 0.5):
-        super().__init__(name="contextual_precision", threshold=threshold, metric_type="rag")
+        super().__init__(
+            name="contextual_precision", threshold=threshold, metric_type=MetricType.RAG
+        )
         # Initialize Ragas specific implementation
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
         # Implement Ragas specific evaluation logic
         # Placeholder implementation
