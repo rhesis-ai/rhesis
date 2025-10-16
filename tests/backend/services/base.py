@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
-from rhesis.backend.app.services.document_handler import DocumentHandler
+from rhesis.backend.app.services.handlers.document import DocumentHandler
 from rhesis.backend.app.services.storage_service import StorageService
 
 
