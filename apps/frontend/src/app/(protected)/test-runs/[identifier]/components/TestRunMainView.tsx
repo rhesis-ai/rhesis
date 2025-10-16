@@ -293,21 +293,29 @@ export default function TestRunMainView({
   React.useEffect(() => {
     const fetchTestRuns = async () => {
       try {
+        // Get test_set_id from the nested test_set object
+        const testSetId = testRun.test_configuration?.test_set?.id;
+
+        if (!testSetId) {
+          console.warn(
+            'No test_set found for test run, cannot fetch comparison runs'
+          );
+          setAvailableTestRuns([]);
+          return;
+        }
+
         const testRunsClient = new ApiClientFactory(
           sessionToken
         ).getTestRunsClient();
 
+        // Use OData filter to get all test runs for the same test set
         const params: any = {
           limit: 50,
           skip: 0,
           sort_by: 'created_at',
           sort_order: 'desc',
+          filter: `test_configuration/test_set/id eq '${testSetId}'`,
         };
-
-        // Only add test_configuration_id filter if it exists
-        if (testRunData.test_configuration_id) {
-          params.test_configuration_id = testRunData.test_configuration_id;
-        }
 
         const response = await testRunsClient.getTestRuns(params);
 
@@ -323,12 +331,13 @@ export default function TestRunMainView({
 
         setAvailableTestRuns(runs);
       } catch (error) {
-        console.error('Error fetching test runs:', error);
+        console.error('Error fetching test runs for comparison:', error);
+        setAvailableTestRuns([]);
       }
     };
 
     fetchTestRuns();
-  }, [testRunId, sessionToken, testRunData.test_configuration_id ?? '']);
+  }, [testRunId, sessionToken, testRun.test_configuration?.test_set?.id]);
 
   // Handle compare
   const handleCompare = useCallback(() => {
