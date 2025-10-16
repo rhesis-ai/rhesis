@@ -13,6 +13,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-10-16
+
+### Added
+- Added support for user-defined LLM provider generation and execution.
+- Enhanced `DocumentExtractor` with `BytesIO` support for processing documents from memory.
+- Added `model` parameter support to the synthesizer factory, allowing specification of the LLM model to use.
+
+### Changed
+- Updated `ParaphrasingSynthesizer` to utilize the `model` parameter for LLM selection.
+- Modernized SDK documentation with Rhesis AI branding.
+
+### Fixed
+- Corrected the class name for DeepEval context relevancy metrics.
+- Resolved an issue related to worker-based generation.
+- Fixed an issue where the `main` branch might be missing in the Makefile git diff.
+- Fixed an error when pulling metrics.
+- Removed `schema` from kwargs to resolve an issue.
+
+### Removed
+- (None)
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Added

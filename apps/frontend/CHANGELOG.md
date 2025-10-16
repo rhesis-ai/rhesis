@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-16
+
+### Added
+- Implemented Knowledge section with source upload functionality, OData filtering for sources grid, and enhanced source preview with content block design and uploader information display.
+- Added comments column to SourcesGrid.
+- Implemented user settings API client and interfaces.
+- Added conditional endpoint field for self-hosted model providers.
+- Added test connection button to model dialog.
+- Added friendly error messages with expandable technical details.
+- Added validation for website, logo URL, email, and phone fields in organization settings.
+- Implemented leave organization feature.
+- Added editable test set title functionality.
+- Added advanced filtering for test results in test runs.
+- Added review management methods to API client.
+- Added 'Conflicting Review' filter option.
+- Added Tasks & Comments tab to test detail panel.
+- Implemented reusable StatusChip component for consistent status display.
+
+### Changed
+- Standardized delete button styling across the entire platform.
+- Standardized date format to DD/MM/YYYY across knowledge components.
+- Moved Knowledge section to appear after Projects in the navigation.
+- Improved Knowledge components to match the test-sets pattern.
+- Refactored integrations menu to display Models first.
+- Renamed "llm-providers" to "models" for consistency.
+- Redesigned test runs detail page with a modern dashboard interface.
+- Refactored test detail charts with dynamic data and enhanced UI.
+- Improved API key field UX and reduced card width.
+- Updated model cards to match metrics styling and apply consistent width constraints.
+- Applied consistent width constraints to Applications and Tools pages.
+- Constrained models page width to match metrics styling.
+- Extended DeleteModal with word confirmation, optional top border, bold text support, and simplified DangerZone.
+- Improved status card layout and typography in TestRunHeader.
+- Improved comparison view layout and real-time comment updates.
+- Simplified Review column in table view to a dual-icon system.
+
+### Fixed
+- Resolved blank file downloads in the knowledge section.
+- Resolved code formatting issues.
+- Resolved infinite loop in SourcesGrid component.
+- Updated params type for Next.js 15 compatibility.
+- Resolved hydration mismatch in date formatting.
+- Resolved infinite loading in tasks section.
+- Resolved flickering data grid on test runs page.
+- Resolved duplicate import ESLint error in TokensGrid.
+- Improved token deletion confirmation message.
+- Aligned token empty state with theme.
+- Resolved user deletion 500 error.
+- Prevented automatic headers from being stored in request_headers.
+- Prevented button text flicker when closing dialog and in edit mode.
+- Properly cleared default model settings when toggling off.
+- Improved disabled button visibility and added connection test requirement alerts.
+- Corrected machine icon to show original automated result.
+- Resolved TypeScript errors and linting issues.
+- Fixed hardcoded style violations and replaced them with theme values.
+- Fixed Prettier formatting issues.
+- Fixed hardcoded styles in DangerZone.
+- Fixed hardcoded style values to comply with theme standards.
+- Fixed hardcoded font sizes with theme values.
+- Fixed hardcoded values with theme tokens.
+- Fixed theme borderRadius instead of hard-coded values.
+- Fixed Prettier formatting in TasksSection.
+- Fixed escape apostrophes in DomainSettingsForm text.
+- Fixed: always send endpoint field in test connection request.
+- Fixed: preserve natural error messages from all providers in connection test.
+- Fixed: fetch all provider types by adding limit parameter.
+- Fixed: remove server-side console.logs causing hydration errors.
+- Fixed: actually pass additionalMetadata when creating tasks.
+- Fixed: correct entity type for tasks created from test results.
+- Fixed: improve token deletion confirmation message.
+
+### Removed
+- Removed all comment functionality from sources.
+- Removed back and copy buttons from source preview header.
+- Removed formatted/raw toggle from source preview.
+- Removed white container wrapper from source preview.
+- Removed header section from Knowledge page.
+- Removed file type icons from SourcesGrid title column.
+- Removed editor settings from user settings.
+- Removed subscription section from organization settings.
+- Removed domain settings from organization settings page.
+- Removed redundant View Details action.
+- Removed redundant test count display.
+- Removed step prefix from evaluation steps edit fields.
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Added
