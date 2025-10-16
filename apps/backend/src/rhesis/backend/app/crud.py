@@ -1117,19 +1117,21 @@ def delete_user(
     db: Session, target_user_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.User]:
     """
-    Soft delete a user by marking them as deleted and removing them from their organization.
+    Remove a user from their organization by setting organization_id to NULL.
 
-    This preserves audit trails and referential integrity for all user-created resources
-    while removing the user's access to the system.
+    The user account remains active but loses organization access.
+    This preserves the user account and all their data while removing
+    organizational context. On next login, the user will go through 
+    the onboarding flow again.
 
     Args:
         db: Database session
-        target_user_id: ID of user to delete/remove from organization
+        target_user_id: ID of user to remove from organization
         organization_id: Organization ID for tenant context
         user_id: ID of the current user performing the action (for tenant context)
 
     Returns:
-        Deleted user object or None if not found
+        Updated user object or None if not found
 
     Raises:
         ValueError: If user tries to delete themselves
@@ -1143,11 +1145,7 @@ def delete_user(
     if db_user is None:
         return None
 
-    # Soft delete the user to preserve audit trails and referential integrity
-    db_user.soft_delete()
-
-    # Also remove them from their organization for backwards compatibility
-    # This ensures existing logic that checks organization_id still works
+    # Remove them from their organization - user account remains active
     db_user.organization_id = None
 
     db.commit()
