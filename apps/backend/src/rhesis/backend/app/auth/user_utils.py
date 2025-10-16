@@ -40,7 +40,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
         user = crud.get_user_by_auth0_id(db, auth0_id)
         if user:
             # If emails don't match, we should create a new user
-            if email != user.email:
+            if email.lower() != user.email.lower():
                 user = None
             else:
                 # Only update profile info and last login if emails match
@@ -54,8 +54,16 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
 
     # If no user found or emails don't match, create new user
     if not user:
+        # Normalize email before creating user
+        from rhesis.backend.app.utils.validation import validate_and_normalize_email
+        try:
+            normalized_email = validate_and_normalize_email(email)
+        except ValueError:
+            # If email validation fails, use the original email (for placeholder emails)
+            normalized_email = email
+            
         user_data = UserCreate(
-            email=email,
+            email=normalized_email,
             name=user_profile["name"],
             given_name=user_profile["given_name"],
             family_name=user_profile["family_name"],
