@@ -68,3 +68,17 @@ export interface ModelQueryParams extends PaginationParams {
   status?: string;
   provider_type?: string;
 }
+
+export interface TestModelConnectionRequest {
+  provider: string;
+  model_name: string;
+  api_key: string;
+  endpoint?: string;
+}
+
+export interface TestModelConnectionResponse {
+  success: boolean;
+  message: string;
+  provider?: string;
+  model_name?: string;
+}
