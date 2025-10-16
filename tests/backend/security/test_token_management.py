@@ -54,11 +54,13 @@ class TestTokenOrganizationSecurity:
         
         # Create a real token in the database instead of mocking
         from rhesis.backend.app.models.token import Token
+        from rhesis.backend.app.utils.encryption import hash_token
         
         # Create a real token using existing fixtures
         token = Token(
             name="Test Token",
             token=token_value,
+            token_hash=hash_token(token_value),
             token_obfuscated="test_***",
             token_type="api",
             user_id=db_user.id,
@@ -95,11 +97,13 @@ class TestTokenOrganizationSecurity:
         
         # Create a token with organization scoping
         from rhesis.backend.app.schemas.token import TokenCreate
+        from rhesis.backend.app.utils.encryption import hash_token
         import secrets
         token_value = secrets.token_urlsafe(32)
         token_data = TokenCreate(
             name=f"Test Token {unique_id}",
             token=token_value,
+            token_hash=hash_token(token_value),
             token_obfuscated=token_value[:8] + "...",
             user_id=user.id
         )
@@ -130,11 +134,13 @@ class TestTokenOrganizationSecurity:
         
         # Create a token in org1
         from rhesis.backend.app.schemas.token import TokenCreate
+        from rhesis.backend.app.utils.encryption import hash_token
         import secrets
         token_value1 = secrets.token_urlsafe(32)
         token_data = TokenCreate(
             name=f"Test Token 1 {unique_id}",
             token=token_value1,
+            token_hash=hash_token(token_value1),
             token_obfuscated=token_value1[:8] + "...",
             user_id=user1.id
         )
@@ -149,6 +155,7 @@ class TestTokenOrganizationSecurity:
         token_data2 = TokenCreate(
             name=f"Test Token 2 {unique_id}",
             token=token_value2,
+            token_hash=hash_token(token_value2),
             token_obfuscated=token_value2[:8] + "...",
             user_id=user1.id
         )
