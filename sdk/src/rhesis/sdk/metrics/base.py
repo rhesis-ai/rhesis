@@ -204,6 +204,8 @@ class BaseMetric(ABC):
         self,
         input: str,
         output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
         """
         Evaluate the metric on the given input, output, and context.
@@ -211,6 +213,8 @@ class BaseMetric(ABC):
         Args:
             input: The input query/question
             output: The system output/response
+            expected_output: Optional ground truth/reference output
+            context: Optional list of context strings
 
         Returns:
             MetricResult: The evaluation result
