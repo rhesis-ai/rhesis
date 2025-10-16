@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth import auth_utils, token_validation, user_utils
+from rhesis.backend.app.utils.encryption import hash_token
 
 
 @pytest.mark.unit
@@ -35,9 +36,11 @@ class TestAuthTransactionManagement:
     def test_auth_utils_update_token_usage_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that auth_utils.update_token_usage commits automatically on success"""
         # Create a test token
+        token_value = "test_token_123"
         test_token = models.Token(
             name="Test Token",
-            token="test_token_123",
+            token=token_value,
+            token_hash=hash_token(token_value),
             token_obfuscated="test_...123",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
@@ -68,9 +71,11 @@ class TestAuthTransactionManagement:
     def test_auth_utils_update_token_usage_handles_exception_gracefully(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that auth_utils.update_token_usage handles exceptions gracefully without manual rollback"""
         # Create a test token
+        token_value = "test_token_456"
         test_token = models.Token(
             name="Test Token",
-            token="test_token_456",
+            token=token_value,
+            token_hash=hash_token(token_value),
             token_obfuscated="test_...456",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
@@ -81,9 +86,11 @@ class TestAuthTransactionManagement:
         
         # Test with a token that has invalid data to trigger an exception
         # Create a token with invalid organization_id to cause an error
+        invalid_token_value = "invalid_token"
         invalid_token = models.Token(
             name="Invalid Token",
-            token="invalid_token",
+            token=invalid_token_value,
+            token_hash=hash_token(invalid_token_value),
             token_obfuscated="invalid_...",
             token_type="bearer",
             organization_id=uuid.uuid4(),  # Non-existent organization
@@ -103,9 +110,11 @@ class TestAuthTransactionManagement:
     def test_token_validation_update_token_usage_commits_on_success(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that token_validation.update_token_usage commits automatically on success"""
         # Create a test token
+        token_value = "validation_token_123"
         test_token = models.Token(
             name="Validation Test Token",
-            token="validation_token_123",
+            token=token_value,
+            token_hash=hash_token(token_value),
             token_obfuscated="validation_...123",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
@@ -136,9 +145,11 @@ class TestAuthTransactionManagement:
     def test_token_validation_update_token_usage_handles_exception_gracefully(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that token_validation.update_token_usage handles exceptions gracefully without manual rollback"""
         # Create a test token
+        token_value = "validation_token_456"
         test_token = models.Token(
             name="Validation Test Token",
-            token="validation_token_456",
+            token=token_value,
+            token_hash=hash_token(token_value),
             token_obfuscated="validation_...456",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
@@ -149,9 +160,11 @@ class TestAuthTransactionManagement:
         
         # Test with a token that has invalid data to trigger an exception
         # Create a token with invalid organization_id to cause an error
+        invalid_token_value = "invalid_token"
         invalid_token = models.Token(
             name="Invalid Token",
-            token="invalid_token",
+            token=invalid_token_value,
+            token_hash=hash_token(invalid_token_value),
             token_obfuscated="invalid_...",
             token_type="bearer",
             organization_id=uuid.uuid4(),  # Non-existent organization
@@ -263,17 +276,21 @@ class TestAuthTransactionManagement:
     def test_multiple_token_updates_transaction_isolation(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that multiple token updates maintain proper transaction isolation"""
         # Create multiple test tokens
+        token1_value = "test_token_1"
         token1 = models.Token(
             name="Test Token 1",
-            token="test_token_1",
+            token=token1_value,
+            token_hash=hash_token(token1_value),
             token_obfuscated="test_...1",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
             user_id=uuid.UUID(authenticated_user_id)
         )
+        token2_value = "test_token_2"
         token2 = models.Token(
             name="Test Token 2",
-            token="test_token_2", 
+            token=token2_value,
+            token_hash=hash_token(token2_value),
             token_obfuscated="test_...2",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),
@@ -355,9 +372,11 @@ class TestAuthTransactionManagement:
     def test_concurrent_auth_operations_do_not_interfere(self, test_db: Session, test_org_id: str, authenticated_user_id: str):
         """Test that concurrent auth operations do not interfere with each other"""
         # Create multiple tokens and users
+        token_value = "concurrent_token"
         token = models.Token(
             name="Concurrent Test Token",
-            token="concurrent_token",
+            token=token_value,
+            token_hash=hash_token(token_value),
             token_obfuscated="concurrent_...token",
             token_type="bearer",
             organization_id=uuid.UUID(test_org_id),

@@ -5,7 +5,7 @@ from sqlalchemy import text
 from datetime import datetime, timedelta, timezone
 
 from rhesis.backend.app.models.token import Token
-from rhesis.backend.app.utils.encryption import is_encrypted
+from rhesis.backend.app.utils.encryption import is_encrypted, hash_token
 from tests.backend.routes.fixtures.data_factories import BaseDataFactory
 from faker import Faker
 
@@ -36,7 +36,8 @@ class TokenEncryptionDataFactory(BaseDataFactory):
     @classmethod
     def generate_token(cls) -> str:
         """Generate a realistic token"""
-        return "rh_" + fake.sha256()[:48]
+        import uuid
+        return "rh_" + str(uuid.uuid4()).replace('-', '')[:48]
     
     @classmethod
     def obfuscate_token(cls, token: str) -> str:
@@ -53,24 +54,18 @@ class TokenEncryptionDataFactory(BaseDataFactory):
         return data
 
 
-@pytest.fixture
-def encryption_key():
-    """Provide test encryption key"""
-    key = Fernet.generate_key().decode()
-    os.environ["DB_ENCRYPTION_KEY"] = key
-    yield key
-    if "DB_ENCRYPTION_KEY" in os.environ:
-        del os.environ["DB_ENCRYPTION_KEY"]
+# Encryption key is now set globally in conftest.py
 
 
 class TestTokenEncryption:
     """Test encryption of Token field"""
     
-    def test_token_encrypted_in_db(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_token_encrypted_in_db(self, test_db, authenticated_user_id, test_org_id):
         """Test that token is encrypted when stored in database"""
         token_data = TokenEncryptionDataFactory.sample_data()
         token_data["user_id"] = authenticated_user_id
         token_data["organization_id"] = test_org_id
+        token_data["token_hash"] = hash_token(token_data["token"])  # Add the missing token_hash
         token = Token(**token_data)
         test_db.add(token)
         test_db.commit()
@@ -90,11 +85,12 @@ class TestTokenEncryption:
         test_db.refresh(token)
         assert token.token == token_data["token"]
     
-    def test_token_obfuscated_not_encrypted(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_token_obfuscated_not_encrypted(self, test_db, authenticated_user_id, test_org_id):
         """Test that token_obfuscated is NOT encrypted (it's for display)"""
         token_data = TokenEncryptionDataFactory.sample_data()
         token_data["user_id"] = authenticated_user_id
         token_data["organization_id"] = test_org_id
+        token_data["token_hash"] = hash_token(token_data["token"])
         token = Token(**token_data)
         test_db.add(token)
         test_db.commit()
@@ -108,11 +104,12 @@ class TestTokenEncryption:
         assert result[0] == token_data["token_obfuscated"]
         assert not is_encrypted(result[0])
     
-    def test_update_token(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_update_token(self, test_db, authenticated_user_id, test_org_id):
         """Test updating token (token refresh/rotation scenario)"""
         token_data = TokenEncryptionDataFactory.sample_data()
         token_data["user_id"] = authenticated_user_id
         token_data["organization_id"] = test_org_id
+        token_data["token_hash"] = hash_token(token_data["token"])
         token = Token(**token_data)
         test_db.add(token)
         test_db.commit()
@@ -120,6 +117,7 @@ class TestTokenEncryption:
         # Rotate token
         new_token = TokenEncryptionDataFactory.generate_token()
         token.token = new_token
+        token.token_hash = hash_token(new_token)
         token.last_refreshed_at = datetime.now(timezone.utc)
         test_db.commit()
         
@@ -134,7 +132,7 @@ class TestTokenEncryption:
         assert token.token == new_token
         assert token.token != token_data["token"]
     
-    def test_different_token_types(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_different_token_types(self, test_db, authenticated_user_id, test_org_id):
         """Test encryption works for different token types"""
         token_types = ["api_key", "access_token", "bearer", "refresh_token"]
         
@@ -143,6 +141,7 @@ class TestTokenEncryption:
             token_data["token_type"] = token_type
             token_data["user_id"] = authenticated_user_id
             token_data["organization_id"] = test_org_id
+            token_data["token_hash"] = hash_token(token_data["token"])
             token = Token(**token_data)
             test_db.add(token)
             test_db.commit()
@@ -157,7 +156,7 @@ class TestTokenEncryption:
             test_db.refresh(token)
             assert token.token == token_data["token"]
     
-    def test_multiple_tokens_for_same_user(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_multiple_tokens_for_same_user(self, test_db, authenticated_user_id, test_org_id):
         """Test multiple tokens with different values"""
         tokens_data = [
             TokenEncryptionDataFactory.sample_data(),
@@ -169,6 +168,7 @@ class TestTokenEncryption:
         for token_data in tokens_data:
             token_data["user_id"] = authenticated_user_id
             token_data["organization_id"] = test_org_id
+            token_data["token_hash"] = hash_token(token_data["token"])
             token = Token(**token_data)
             test_db.add(token)
             test_db.commit()
@@ -186,11 +186,12 @@ class TestTokenEncryption:
             token = test_db.query(Token).filter(Token.id == token_id).first()
             assert token.token == original_token
     
-    def test_token_query(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_token_query(self, test_db, authenticated_user_id, test_org_id):
         """Test that we can query tokens and access values transparently"""
         token_data = TokenEncryptionDataFactory.sample_data()
         token_data["user_id"] = authenticated_user_id
         token_data["organization_id"] = test_org_id
+        token_data["token_hash"] = hash_token(token_data["token"])
         token = Token(**token_data)
         test_db.add(token)
         test_db.commit()
@@ -200,11 +201,12 @@ class TestTokenEncryption:
         assert queried_token is not None
         assert queried_token.token == token_data["token"]  # Transparently decrypted
     
-    def test_expired_token_still_encrypted(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_expired_token_still_encrypted(self, test_db, authenticated_user_id, test_org_id):
         """Test that expired tokens are still encrypted"""
         token_data = TokenEncryptionDataFactory.expired_token_data()
         token_data["user_id"] = authenticated_user_id
         token_data["organization_id"] = test_org_id
+        token_data["token_hash"] = hash_token(token_data["token"])
         token = Token(**token_data)
         test_db.add(token)
         test_db.commit()
@@ -222,11 +224,12 @@ class TestTokenEncryption:
         assert token.is_expired is True
         assert token.token == token_data["token"]
     
-    def test_token_last_used_tracking(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_token_last_used_tracking(self, test_db, authenticated_user_id, test_org_id):
         """Test that token usage tracking works with encryption"""
         token_data = TokenEncryptionDataFactory.sample_data()
         token_data["user_id"] = authenticated_user_id
         token_data["organization_id"] = test_org_id
+        token_data["token_hash"] = hash_token(token_data["token"])
         token = Token(**token_data)
         test_db.add(token)
         test_db.commit()
@@ -246,7 +249,7 @@ class TestTokenEncryption:
         assert token.token == token_data["token"]
         assert token.last_used_at is not None
     
-    def test_token_required_validation(self, test_db, encryption_key, authenticated_user_id, test_org_id):
+    def test_token_required_validation(self, test_db, authenticated_user_id, test_org_id):
         """Test that token field is required (cannot be None)"""
         token_data = TokenEncryptionDataFactory.minimal_data()
         token_data["token"] = None
