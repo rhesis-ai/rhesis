@@ -1,11 +1,20 @@
+from typing import Optional, Union
+
 from rhesis.sdk.metrics.base import BaseMetric, MetricType
+from rhesis.sdk.models import BaseLLM
 
 
 class RagasMetricBase(BaseMetric):
     """Base class for Ragas metrics with common functionality."""
 
-    def __init__(self, name: str, threshold: float = 0.5, metric_type: MetricType = "rag"):
-        super().__init__(name=name, metric_type=metric_type)
+    def __init__(
+        self,
+        name: str,
+        threshold: float = 0.5,
+        model: Optional[Union[BaseLLM, str]] = None,
+        metric_type: MetricType = MetricType.RAG,
+    ):
+        super().__init__(name=name, metric_type=metric_type, model=model)
         self.threshold = threshold  # Use the setter for validation
         # Actual Ragas implementation to be added
 
