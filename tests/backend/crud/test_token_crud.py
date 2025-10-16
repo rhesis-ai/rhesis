@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.utils.encryption import hash_token
 
 
 @pytest.mark.unit
@@ -40,18 +41,22 @@ class TestTokenOperations:
         user_uuid = test_user.id
         
         # Create test tokens with proper Token model fields
+        token_1_value = "test_token_1_abc123"
         db_token_1 = models.Token(
             name="Test Token 1",
-            token="test_token_1_abc123",
+            token=token_1_value,
+            token_hash=hash_token(token_1_value),
             token_obfuscated="test_...123",
             token_type="bearer",
             user_id=user_uuid,
             organization_id=uuid.UUID(test_org_id)
         )
         
+        token_2_value = "test_token_2_def456"
         db_token_2 = models.Token(
             name="Test Token 2",
-            token="test_token_2_def456",
+            token=token_2_value,
+            token_hash=hash_token(token_2_value),
             token_obfuscated="test_...456",
             token_type="bearer", 
             user_id=user_uuid,
