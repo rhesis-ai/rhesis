@@ -260,7 +260,7 @@ class TestTestSetExecution:
             mock_get_endpoint.assert_called_once_with(test_db, endpoint_id=endpoint.id, organization_id=test_org_id, user_id=authenticated_user_id)
             mock_validate_access.assert_called_once_with(user, test_set, endpoint)
             mock_create_config.assert_called_once_with(
-                test_db, endpoint.id, test_set.id, user, {"param": "value"}
+                test_db, endpoint.id, test_set.id, user, {"param": "value"}, None, None
             )
             mock_submit.assert_called_once_with("test_config_id", user)
 
