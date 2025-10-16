@@ -101,9 +101,16 @@ class TestRecycleGetDeletedEndpoint:
         assert "Unknown model" in response.json()["detail"]
 
     def test_get_deleted_returns_only_deleted_records(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test that endpoint returns only soft-deleted records."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create active and deleted behaviors
         active_behavior = crud_utils.create_item(
             test_db, models.Behavior,
@@ -122,7 +129,7 @@ class TestRecycleGetDeletedEndpoint:
         )
         
         # Get deleted behaviors
-        response = superuser_client.get("/recycle/behavior")
+        response = authenticated_client.get("/recycle/behavior")
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -139,9 +146,16 @@ class TestRecycleGetDeletedEndpoint:
         assert str(active_behavior.id) not in item_ids
 
     def test_get_deleted_with_pagination(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test pagination parameters for deleted records."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create and delete multiple topics
         for _ in range(5):
             topic = crud_utils.create_item(
@@ -154,7 +168,7 @@ class TestRecycleGetDeletedEndpoint:
             )
         
         # Get with pagination
-        response = superuser_client.get("/recycle/topic?skip=1&limit=2")
+        response = authenticated_client.get("/recycle/topic?skip=1&limit=2")
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -163,9 +177,16 @@ class TestRecycleGetDeletedEndpoint:
         assert len(data["items"]) <= 2
 
     def test_get_deleted_with_organization_filter(
-        self, superuser_client: TestClient, test_db, test_org_id, secondary_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, secondary_org_id, authenticated_user_id
     ):
-        """Test organization filtering for deleted records."""
+        """Test organization filtering for deleted records (automatic based on user context)."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create deleted items in different organizations
         behavior1 = crud_utils.create_item(
             test_db, models.Behavior,
@@ -185,17 +206,18 @@ class TestRecycleGetDeletedEndpoint:
             test_db, models.Behavior, behavior2.id, organization_id=secondary_org_id
         )
         
-        # Get deleted behaviors for specific organization
-        response = superuser_client.get(f"/recycle/behavior?organization_id={test_org_id}")
+        # Get deleted behaviors - should only return items from authenticated user's organization context (test_org_id)
+        response = authenticated_client.get("/recycle/behavior")
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         
         item_ids = [item["id"] for item in data["items"]]
         
-        # Should only include behavior from test_org_id
+        # Should only include behavior1 (from test_org_id), not behavior2 (from secondary_org_id)
+        # This demonstrates proper organization isolation
         assert str(behavior1.id) in item_ids
-        # Note: behavior2 might be filtered out by organization filter
+        assert str(behavior2.id) not in item_ids
 
 
 @pytest.mark.integration
@@ -204,9 +226,16 @@ class TestRecycleRestoreEndpoint:
     """Test the POST /recycle/{model_name}/{item_id}/restore endpoint."""
 
     def test_restore_requires_superuser(
-        self, authenticated_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test that restoring requires superuser privileges."""
+        # Ensure the authenticated user is NOT a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = False
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create and delete a behavior
         behavior = crud_utils.create_item(
             test_db, models.Behavior,
@@ -233,9 +262,16 @@ class TestRecycleRestoreEndpoint:
         assert "Unknown model" in response.json()["detail"]
 
     def test_restore_success(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test successful restoration of deleted record."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create and delete a category
         category = crud_utils.create_item(
             test_db, models.Category,
@@ -249,7 +285,7 @@ class TestRecycleRestoreEndpoint:
         )
         
         # Restore it
-        response = superuser_client.post(f"/recycle/category/{category_id}/restore")
+        response = authenticated_client.post(f"/recycle/category/{category_id}/restore")
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -267,20 +303,34 @@ class TestRecycleRestoreEndpoint:
         assert restored.deleted_at is None
 
     def test_restore_not_found(
-        self, superuser_client: TestClient, test_db
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test restoring a non-existent record returns 404."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         import uuid
         fake_id = uuid.uuid4()
         
-        response = superuser_client.post(f"/recycle/behavior/{fake_id}/restore")
+        response = authenticated_client.post(f"/recycle/behavior/{fake_id}/restore")
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_restore_already_active_record(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test restoring an already active record (idempotent)."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create an active topic
         topic = crud_utils.create_item(
             test_db, models.Topic,
@@ -289,7 +339,7 @@ class TestRecycleRestoreEndpoint:
         )
         
         # Try to restore it (should succeed idempotently)
-        response = superuser_client.post(f"/recycle/topic/{topic.id}/restore")
+        response = authenticated_client.post(f"/recycle/topic/{topic.id}/restore")
         
         # Should succeed
         assert response.status_code == status.HTTP_200_OK
@@ -301,9 +351,16 @@ class TestRecyclePermanentDeleteEndpoint:
     """Test the DELETE /recycle/{model_name}/{item_id} endpoint."""
 
     def test_permanent_delete_requires_superuser(
-        self, authenticated_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test that permanent deletion requires superuser privileges."""
+        # Ensure the authenticated user is NOT a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = False
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create and delete a behavior
         behavior = crud_utils.create_item(
             test_db, models.Behavior,
@@ -340,9 +397,16 @@ class TestRecyclePermanentDeleteEndpoint:
         assert "confirm" in response.json()["detail"].lower()
 
     def test_permanent_delete_success(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test successful permanent deletion."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create and delete a category
         category = crud_utils.create_item(
             test_db, models.Category,
@@ -356,7 +420,7 @@ class TestRecyclePermanentDeleteEndpoint:
         )
         
         # Permanently delete
-        response = superuser_client.delete(
+        response = authenticated_client.delete(
             f"/recycle/category/{category_id}?confirm=true"
         )
         
@@ -394,9 +458,16 @@ class TestRecycleStatsEndpoint:
     """Test the GET /recycle/stats/counts endpoint."""
 
     def test_stats_requires_superuser(
-        self, authenticated_client: TestClient, test_db
+        self, authenticated_client: TestClient, test_db, authenticated_user_id
     ):
         """Test that stats endpoint requires superuser privileges."""
+        # Ensure the authenticated user is NOT a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = False
+        test_db.commit()
+        test_db.refresh(user)
+        
         response = authenticated_client.get("/recycle/stats/counts")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -457,9 +528,16 @@ class TestRecycleBulkRestoreEndpoint:
         assert "No item IDs" in response.json()["detail"]
 
     def test_bulk_restore_success(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test successful bulk restoration."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+        
         # Create and delete multiple topics
         topic_ids = []
         for _ in range(3):
@@ -474,7 +552,7 @@ class TestRecycleBulkRestoreEndpoint:
             topic_ids.append(str(topic.id))
         
         # Bulk restore
-        response = superuser_client.post(
+        response = authenticated_client.post(
             "/recycle/bulk-restore/topic",
             json=topic_ids
         )
@@ -513,10 +591,17 @@ class TestRecycleBulkRestoreEndpoint:
         assert "100" in response.json()["detail"]
 
     def test_bulk_restore_partial_success(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test bulk restore with some items not found."""
         import uuid
+        
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
         
         # Create and delete one topic
         topic = crud_utils.create_item(
@@ -531,7 +616,7 @@ class TestRecycleBulkRestoreEndpoint:
         # Mix valid and invalid IDs
         item_ids = [str(topic.id), str(uuid.uuid4()), str(uuid.uuid4())]
         
-        response = superuser_client.post(
+        response = authenticated_client.post(
             "/recycle/bulk-restore/topic",
             json=item_ids
         )
@@ -549,9 +634,16 @@ class TestRecycleEmptyBinEndpoint:
     """Test the DELETE /recycle/empty/{model_name} endpoint."""
 
     def test_empty_bin_requires_superuser(
-        self, authenticated_client: TestClient, test_db
+        self, authenticated_client: TestClient, test_db, authenticated_user_id
     ):
         """Test that emptying bin requires superuser privileges."""
+        # Ensure the authenticated user is NOT a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = False
+        test_db.commit()
+        test_db.refresh(user)
+        
         response = authenticated_client.delete(
             "/recycle/empty/behavior?confirm=true"
         )
@@ -567,9 +659,16 @@ class TestRecycleEmptyBinEndpoint:
         assert "confirm" in response.json()["detail"].lower()
 
     def test_empty_bin_success(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Test successful emptying of recycle bin for a model."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+
         # Create and delete multiple categories
         category_ids = []
         for _ in range(3):
@@ -584,7 +683,7 @@ class TestRecycleEmptyBinEndpoint:
             category_ids.append(category.id)
         
         # Empty the recycle bin
-        response = superuser_client.delete(
+        response = authenticated_client.delete(
             "/recycle/empty/category?confirm=true"
         )
         
@@ -605,9 +704,16 @@ class TestRecycleEmptyBinEndpoint:
             # May or may not be gone depending on organization filtering
 
     def test_empty_bin_with_organization_filter(
-        self, superuser_client: TestClient, test_db, test_org_id, secondary_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id, secondary_org_id, authenticated_user_id
     ):
         """Test emptying bin with organization filter."""
+        # Make the authenticated user a superuser for this test
+        from rhesis.backend.app import crud
+        user = crud.get_user_by_id(test_db, authenticated_user_id)
+        user.is_superuser = True
+        test_db.commit()
+        test_db.refresh(user)
+
         # Create and delete items in different organizations
         behavior1 = crud_utils.create_item(
             test_db, models.Behavior,
@@ -627,13 +733,14 @@ class TestRecycleEmptyBinEndpoint:
             test_db, models.Behavior, behavior2.id, organization_id=secondary_org_id
         )
         
-        # Empty bin for specific organization
-        response = superuser_client.delete(
-            f"/recycle/empty/behavior?confirm=true&organization_id={test_org_id}"
+        # Empty bin - should only affect items in the authenticated user's organization (test_org_id)
+        response = authenticated_client.delete(
+            "/recycle/empty/behavior?confirm=true"
         )
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         
+        # Should have deleted behavior1 (from test_org_id) but not behavior2 (from secondary_org_id)
         assert data["permanently_deleted"] >= 1
 

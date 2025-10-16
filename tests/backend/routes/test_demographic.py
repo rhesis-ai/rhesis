@@ -371,7 +371,7 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
         authenticated_client.delete(APIEndpoints.DIMENSIONS.remove(dimension["id"]))
     
     def test_demographic_orphaning_scenarios(self, authenticated_client: TestClient):
-        """🔗 Test demographics when dimensions are modified or deleted"""
+        """🔗 Test demographics when dimensions are soft-deleted"""
         # Create dimension using faker utilities for unique data
         dimension_data = generate_dimension_data()
         dimension_response = authenticated_client.post(APIEndpoints.DIMENSIONS.create, json=dimension_data)
@@ -383,25 +383,23 @@ class TestDemographicDimensionIntegration(DemographicTestMixin, BaseEntityTests)
         }
         demographic = self.create_entity(authenticated_client, demo_data)
         
-        # Test what happens when we try to delete dimension with demographics
+        # Test what happens when we soft-delete dimension with demographics
         delete_response = authenticated_client.delete(APIEndpoints.DIMENSIONS.remove(dimension["id"]))
         
-        if delete_response.status_code == status.HTTP_200_OK:
-            # Dimension was deleted (cascade or demographic was orphaned)
-            demo_check = authenticated_client.get(self.endpoints.get(demographic["id"]))
-            if demo_check.status_code == status.HTTP_200_OK:
-                # Demographic still exists, check if dimension_id is null
-                assert demo_check.json()["dimension_id"] is None
-        else:
-            # Dimension deletion was prevented by foreign key constraint
-            assert delete_response.status_code in [
-                status.HTTP_400_BAD_REQUEST,
-                status.HTTP_409_CONFLICT
-            ]
-            # Demographic should still exist and be linked
-            demo_check = authenticated_client.get(self.endpoints.get(demographic["id"]))
-            assert demo_check.status_code == status.HTTP_200_OK
-            assert demo_check.json()["dimension_id"] == dimension["id"]
+        # With soft delete, the dimension deletion should succeed
+        assert delete_response.status_code == status.HTTP_200_OK
+        
+        # The demographic should still exist and still reference the soft-deleted dimension
+        demo_check = authenticated_client.get(self.endpoints.get(demographic["id"]))
+        assert demo_check.status_code == status.HTTP_200_OK
+        
+        # With soft delete, the dimension_id should still be set (pointing to soft-deleted dimension)
+        # This is expected behavior since soft delete preserves referential integrity
+        assert demo_check.json()["dimension_id"] == dimension["id"]
+        
+        # Verify the dimension is soft-deleted by trying to fetch it (should return 404)
+        dimension_check = authenticated_client.get(APIEndpoints.DIMENSIONS.get(dimension["id"]))
+        assert dimension_check.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.slow
