@@ -29,7 +29,8 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
     if origin:
         request.session["original_frontend"] = origin
 
-    base_url = str(request.base_url).rstrip("/")
+    # Use RHESIS_BASE_URL if available (for production), otherwise fall back to request.base_url
+    base_url = os.getenv("RHESIS_BASE_URL") or str(request.base_url).rstrip("/")
     callback_url = f"{base_url}/auth/callback"
 
     # Store return_to in session
@@ -244,7 +245,8 @@ async def demo_redirect(request: Request):
         if origin:
             request.session["original_frontend"] = origin
         
-        base_url = str(request.base_url).rstrip("/")
+        # Use RHESIS_BASE_URL if available (for production), otherwise fall back to request.base_url
+        base_url = os.getenv("RHESIS_BASE_URL") or str(request.base_url).rstrip("/")
         callback_url = f"{base_url}/auth/callback"
         
         # Store return_to in session - demo users go to dashboard
