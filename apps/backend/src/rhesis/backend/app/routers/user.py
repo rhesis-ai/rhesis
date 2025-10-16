@@ -240,9 +240,6 @@ def delete_user(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token)):
-    if not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to delete users")
-
     organization_id, user_id_tenant = tenant_context
     
     try:
