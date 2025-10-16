@@ -63,6 +63,7 @@ token_enabled_routes = [
     "/test-contexts/",
     "/comments/",
     "/sources/",
+    "/models/",
 ]
 
 

@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-16
+
+### Added
+- Added support for user-defined LLM provider generation and execution.
+- Added metric-specific model configuration.
+- Added user settings API endpoints for managing models.
+- Added API endpoints for test review manipulation.
+- Added a sample size parameter to test configurations.
+- Added recycle bin management endpoints for soft-deleted items.
+- Added leave organization feature.
+- Added support for re-inviting users who left organizations.
+- Added individual test stats endpoint.
+- Added document upload, extract, and content endpoints.
+- Added uploader name to source metadata.
+- Added SourceType enum to source schema and initial data.
+- Added test connection button to model dialog.
+- Implemented encryption for sensitive data in Model and Token tables, and Endpoint model authentication fields.
+
+### Changed
+- Refactored source handling to be completely dynamic using a handler factory pattern.
+- Refactored storage to implement hybrid cloud/local storage lookup.
+- Refactored model connection test to a dedicated service and model router.
+- Centralized user settings with a manager class and renamed `llm` to `models`.
+- Enhanced test configuration generation and schema.
+- Updated CRUD utilities for soft deletion.
+- Enhanced QueryBuilder with soft delete methods.
+- Updated DocumentHandler for persistent storage.
+- Renamed 'google' provider to 'gemini' for consistency.
+- Separated dev and staging databases.
+
+### Fixed
+- Corrected test count calculation in execution summary.
+- Corrected deepeval context relevancy class name.
+- Resolved DB scope issue in `execute_single_test` exception handler.
+- Resolved JSON serialization error with dedicated model fetcher.
+- Resolved soft delete filtering and test issues.
+- Resolved ValueError in document upload endpoint.
+- Resolved upload endpoint authentication and database session issues.
+- Improved DocumentHandler validation and MIME type support.
+- Fixed GCS initialization by removing JSON corruption.
+- Fixed handling of base64-encoded service account keys.
+- Fixed unicode filenames in content disposition header.
+- Ensured consistent whitespace stripping in endpoint validators.
+- Properly handled null endpoint values in test connection schema.
+- Properly persisted user settings with UUID serialization.
+- Implemented soft delete to resolve 500 error on user removal.
+- Enabled tags, tasks, and comments for test results.
+- Fixed organization filtering and accurate token count.
+- Properly filtered soft-deleted records in raw queries with `.first()`.
+
+### Removed
+- Removed frontend comment functionality from sources.
+- Removed editor settings from user settings.
+- Removed obsolete comment about deprecated functions.
+- Removed SDK configuration and added model parameter for test generation.
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Added
