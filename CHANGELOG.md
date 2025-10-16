@@ -13,6 +13,44 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-16
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.0**
+- **Frontend 0.4.0**
+- **SDK 0.3.1**
+
+### Summary of Changes
+
+**Backend v0.4.0:**
+- Added support for user-defined LLM providers and model configuration, including metric-specific models and a dedicated model connection test service.
+- Implemented soft delete functionality for users and organizations, including recycle bin management and GDPR user anonymization.
+- Enhanced source handling with dynamic source types, hybrid cloud/local storage, and improved document extraction.
+- Added user settings API endpoints for managing default models and other user-specific configurations.
+
+
+**Frontend v0.4.0:**
+- Enhanced Knowledge section with source upload functionality, improved source preview, and OData filtering for sources grid.
+- Redesigned Test Runs detail page with a modern dashboard interface, comprehensive comparison view, and human review integration.
+- Improved Models (formerly LLM Providers) management with a new edit modal, connection testing, and API key visibility toggle.
+- Added advanced filtering for test results and improved overall UI consistency by using theme values and standardizing styling across components.
+
+
+**SDK v0.3.1:**
+- Added support for user-defined LLM provider generation and execution.
+- Enhanced DocumentExtractor with BytesIO support.
+- Added `model` parameter support to synthesizer factory and updated ParaphrasingSynthesizer.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.3.0] - 2025-10-02
 
 ### Platform Release
