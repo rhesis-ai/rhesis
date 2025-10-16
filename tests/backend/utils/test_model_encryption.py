@@ -55,10 +55,15 @@ class ModelEncryptionDataFactory(BaseDataFactory):
 @pytest.fixture
 def encryption_key():
     """Provide test encryption key"""
+    # Preserve original value
+    original_key = os.environ.get("DB_ENCRYPTION_KEY")
     key = Fernet.generate_key().decode()
     os.environ["DB_ENCRYPTION_KEY"] = key
     yield key
-    if "DB_ENCRYPTION_KEY" in os.environ:
+    # Restore original value or remove if it wasn't set
+    if original_key is not None:
+        os.environ["DB_ENCRYPTION_KEY"] = original_key
+    elif "DB_ENCRYPTION_KEY" in os.environ:
         del os.environ["DB_ENCRYPTION_KEY"]
 
 

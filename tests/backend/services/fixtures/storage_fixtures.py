@@ -9,7 +9,7 @@ import tempfile
 from typing import Any, Dict
 
 import pytest
-from rhesis.backend.app.services.document_handler import DocumentHandler
+from rhesis.backend.app.services.handlers.document import DocumentHandler
 from rhesis.backend.app.services.storage_service import StorageService
 
 
@@ -174,26 +174,26 @@ def environment_configurations():
         },
         "development": {
             "BACKEND_ENV": "development",
-            "STORAGE_PROJECT_ID": "test-project-dev",
-            "STORAGE_CREDENTIALS_PATH": "/path/to/dev/credentials.json",
+            "STORAGE_SERVICE_URI": "gs://sources-rhesis-dev",
+            "STORAGE_SERVICE_ACCOUNT_KEY": "eyJ0eXBlIjoidGVzdCIsInByb2plY3RfaWQiOiJ0ZXN0LXByb2plY3QifQ==",  # base64 encoded test JSON
             "LOCAL_STORAGE_PATH": "/tmp/dev-storage",
         },
         "staging": {
             "BACKEND_ENV": "staging",
-            "STORAGE_PROJECT_ID": "test-project-stg",
-            "STORAGE_CREDENTIALS_PATH": "/path/to/stg/credentials.json",
+            "STORAGE_SERVICE_URI": "gs://sources-rhesis-stg",
+            "STORAGE_SERVICE_ACCOUNT_KEY": "eyJ0eXBlIjoidGVzdCIsInByb2plY3RfaWQiOiJ0ZXN0LXByb2plY3QifQ==",  # base64 encoded test JSON
             "LOCAL_STORAGE_PATH": "/tmp/stg-storage",
         },
         "production": {
             "BACKEND_ENV": "production",
-            "STORAGE_PROJECT_ID": "test-project-prd",
-            "STORAGE_CREDENTIALS_PATH": "/path/to/prd/credentials.json",
+            "STORAGE_SERVICE_URI": "gs://sources-rhesis-prd",
+            "STORAGE_SERVICE_ACCOUNT_KEY": "eyJ0eXBlIjoidGVzdCIsInByb2plY3RfaWQiOiJ0ZXN0LXByb2plY3QifQ==",  # base64 encoded test JSON
             "LOCAL_STORAGE_PATH": "/tmp/prd-storage",
         },
         "partial_gcs": {
             "BACKEND_ENV": "development",
-            "STORAGE_PROJECT_ID": "test-project",
-            # Missing STORAGE_CREDENTIALS_PATH to test fallback
+            "STORAGE_SERVICE_URI": "gs://sources-rhesis-dev",
+            # Missing STORAGE_SERVICE_ACCOUNT_KEY to test fallback
             "LOCAL_STORAGE_PATH": "/tmp/fallback-storage",
         },
         "no_gcs": {

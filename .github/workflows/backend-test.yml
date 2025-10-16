@@ -91,6 +91,9 @@ jobs:
       STORAGE_SERVICE_URI: ${{ secrets.STORAGE_SERVICE_URI }}
       STORAGE_SERVICE_ACCOUNT_KEY: ${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}
       LOCAL_STORAGE_PATH: ${{ secrets.LOCAL_STORAGE_PATH }}
+      
+      # Encryption
+      DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
     
     services:
       postgres:
@@ -353,6 +356,7 @@ jobs:
           JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
           JWT_ALGORITHM: HS256
           RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'mock-api-key-for-coverage' }}
+          DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
         run: |
           export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
           

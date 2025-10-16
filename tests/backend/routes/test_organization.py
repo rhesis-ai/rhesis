@@ -76,6 +76,14 @@ class OrganizationTestMixin:
 class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests):
     """Complete standard organization route tests using base classes"""
     
+    def test_delete_entity_not_found(self, superuser_client: TestClient):
+        """🧩 Test deleting non-existent organization (requires superuser)"""
+        non_existent_id = str(uuid.uuid4())
+        
+        response = superuser_client.delete(self.endpoints.remove(non_existent_id))
+        
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+    
     # Override user field configuration for organizations
     user_id_field = "user_id"
     owner_id_field = "owner_id"

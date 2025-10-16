@@ -150,7 +150,7 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
 
     def test_create_model_missing_required_fields(self, model_factory):
         """📝 Test model creation with missing required fields"""
-        required_fields = ["name", "model_name", "endpoint", "key"]
+        required_fields = ["name", "model_name", "key"]  # endpoint is optional
         
         for field_to_remove in required_fields:
             data = self.get_minimal_data()

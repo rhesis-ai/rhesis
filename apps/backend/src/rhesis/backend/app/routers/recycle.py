@@ -17,6 +17,7 @@ from sqlalchemy.inspection import inspect
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.utils.crud_utils import (
     get_deleted_items,
@@ -120,9 +121,9 @@ def get_recycled_records(
     model_name: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    organization_id: str = Query(None, description="Filter by organization"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_current_user_or_token),
+    tenant_context=Depends(get_tenant_context),
 ):
     """
     Get soft-deleted records in the recycle bin for a specific model (admin only).
@@ -131,17 +132,17 @@ def get_recycled_records(
         model_name: Name of the model (e.g., 'user', 'test', 'project')
         skip: Number of records to skip
         limit: Maximum number of records to return
-        organization_id: Optional organization filter
     
     Returns:
         List of soft-deleted records
     """
     require_superuser(current_user)
     model = get_model_by_name(model_name)
+    organization_id, user_id = tenant_context
     
     # Check if model supports organization filtering
     org_id = None
-    if organization_id and hasattr(model, 'organization_id'):
+    if hasattr(model, 'organization_id'):
         org_id = organization_id
     
     deleted_items = get_deleted_items(
@@ -164,9 +165,9 @@ def get_recycled_records(
 def restore_from_recycle_bin(
     model_name: str,
     item_id: UUID,
-    organization_id: str = Query(None, description="Organization context"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_current_user_or_token),
+    tenant_context=Depends(get_tenant_context),
 ):
     """
     Restore a soft-deleted record from the recycle bin (admin only).
@@ -174,16 +175,16 @@ def restore_from_recycle_bin(
     Args:
         model_name: Name of the model
         item_id: ID of the record to restore
-        organization_id: Optional organization context
     
     Returns:
         Restored record
     """
     require_superuser(current_user)
     model = get_model_by_name(model_name)
+    organization_id, user_id = tenant_context
     
     org_id = None
-    if organization_id and hasattr(model, 'organization_id'):
+    if hasattr(model, 'organization_id'):
         org_id = organization_id
     
     restored_item = restore_item(db, model, item_id, organization_id=org_id)
@@ -204,14 +205,86 @@ def restore_from_recycle_bin(
     }
 
 
+@router.delete("/empty/{model_name}")
+def empty_recycle_bin_for_model(
+    model_name: str,
+    confirm: bool = Query(False, description="Must be true to confirm"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_current_user_or_token),
+    tenant_context=Depends(get_tenant_context),
+):
+    """
+    Empty the recycle bin for a specific model - permanently delete ALL soft-deleted records (admin only).
+    
+    WARNING: This action cannot be undone! All soft-deleted records will be
+    permanently removed from the database.
+    
+    Args:
+        model_name: Name of the model
+        confirm: Must be true to confirm permanent deletion
+    
+    Returns:
+        Count of permanently deleted records
+    """
+    require_superuser(current_user)
+    
+    if not confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Must set confirm=true to empty recycle bin"
+        )
+    
+    model = get_model_by_name(model_name)
+    organization_id, user_id = tenant_context
+    
+    org_id = None
+    if hasattr(model, 'organization_id'):
+        org_id = organization_id
+    
+    # Get all deleted items using QueryBuilder directly to bypass pagination limits
+    from rhesis.backend.app.utils.model_utils import QueryBuilder
+    deleted_items = (
+        QueryBuilder(db, model)
+        .only_deleted()
+        .with_organization_filter(org_id)
+        .with_visibility_filter()
+        .all()
+    )
+    
+    deleted_count = 0
+    failed_count = 0
+    
+    for item in deleted_items:
+        try:
+            if hard_delete_item(db, model, item.id, organization_id=org_id):
+                deleted_count += 1
+            else:
+                failed_count += 1
+        except Exception as e:
+            logger.error(f"Error permanently deleting {model_name} {item.id}: {e}")
+            failed_count += 1
+    
+    logger.warning(
+        f"EMPTY RECYCLE BIN: {model_name} - {deleted_count} permanently deleted, "
+        f"{failed_count} failed by user {current_user.email}"
+    )
+    
+    return {
+        "message": f"Recycle bin emptied for {model_name}",
+        "permanently_deleted": deleted_count,
+        "failed": failed_count,
+        "warning": "This action cannot be undone"
+    }
+
+
 @router.delete("/{model_name}/{item_id}")
 def permanently_delete_record(
     model_name: str,
     item_id: UUID,
     confirm: bool = Query(False, description="Must be true to confirm deletion"),
-    organization_id: str = Query(None, description="Organization context"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_current_user_or_token),
+    tenant_context=Depends(get_tenant_context),
 ):
     """
     Permanently delete a record from the recycle bin (admin only).
@@ -223,7 +296,6 @@ def permanently_delete_record(
         model_name: Name of the model
         item_id: ID of the record to delete
         confirm: Must be true to confirm permanent deletion
-        organization_id: Optional organization context
     
     Returns:
         Success message
@@ -237,9 +309,10 @@ def permanently_delete_record(
         )
     
     model = get_model_by_name(model_name)
+    organization_id, user_id = tenant_context
     
     org_id = None
-    if organization_id and hasattr(model, 'organization_id'):
+    if hasattr(model, 'organization_id'):
         org_id = organization_id
     
     success = hard_delete_item(db, model, item_id, organization_id=org_id)
@@ -263,17 +336,14 @@ def permanently_delete_record(
 
 @router.get("/stats/counts")
 def get_recycle_bin_counts(
-    organization_id: str = Query(None, description="Filter by organization"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_current_user_or_token),
+    tenant_context=Depends(get_tenant_context),
 ):
     """
     Get counts of soft-deleted records in the recycle bin for all models (admin only).
     
     This can take a while for large databases as it queries every table.
-    
-    Args:
-        organization_id: Optional organization filter
     
     Returns:
         Dictionary with counts per model
@@ -281,29 +351,30 @@ def get_recycle_bin_counts(
     require_superuser(current_user)
     model_map = get_all_models()
     counts = {}
+    organization_id, user_id = tenant_context
     
     for table_name, model in sorted(model_map.items()):
         try:
             # Check if model supports organization filtering
             org_id = None
-            if organization_id and hasattr(model, 'organization_id'):
+            if hasattr(model, 'organization_id'):
                 org_id = organization_id
             
-            # Count deleted items (with a reasonable limit)
-            deleted_items = get_deleted_items(
-                db, 
-                model, 
-                limit=10000,  # Max count to avoid performance issues
-                organization_id=org_id
+            # Count deleted items using QueryBuilder directly to avoid pagination limits
+            from rhesis.backend.app.utils.model_utils import QueryBuilder
+            count = (
+                QueryBuilder(db, model)
+                .only_deleted()
+                .with_organization_filter(org_id)
+                .with_visibility_filter()
+                .count()
             )
-            count = len(deleted_items)
             
             # Only include models that have deleted records
             if count > 0:
                 counts[table_name] = {
                     "count": count,
-                    "class_name": model.__name__,
-                    "has_more": count >= 10000
+                    "class_name": model.__name__
                 }
         except Exception as e:
             logger.error(f"Error counting recycled items for {table_name}: {e}")
@@ -322,9 +393,9 @@ def get_recycle_bin_counts(
 def bulk_restore_from_recycle_bin(
     model_name: str,
     item_ids: List[UUID],
-    organization_id: str = Query(None, description="Organization context"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_current_user_or_token),
+    tenant_context=Depends(get_tenant_context),
 ):
     """
     Restore multiple soft-deleted records from the recycle bin at once (admin only).
@@ -332,7 +403,6 @@ def bulk_restore_from_recycle_bin(
     Args:
         model_name: Name of the model
         item_ids: List of IDs to restore
-        organization_id: Optional organization context
     
     Returns:
         Summary of restoration results
@@ -352,9 +422,10 @@ def bulk_restore_from_recycle_bin(
         )
     
     model = get_model_by_name(model_name)
+    organization_id, user_id = tenant_context
     
     org_id = None
-    if organization_id and hasattr(model, 'organization_id'):
+    if hasattr(model, 'organization_id'):
         org_id = organization_id
     
     results = {
@@ -395,72 +466,4 @@ def bulk_restore_from_recycle_bin(
     }
 
 
-@router.delete("/empty/{model_name}")
-def empty_recycle_bin_for_model(
-    model_name: str,
-    confirm: bool = Query(False, description="Must be true to confirm"),
-    organization_id: str = Query(None, description="Optional organization filter"),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_current_user_or_token),
-):
-    """
-    Empty the recycle bin for a specific model - permanently delete ALL soft-deleted records (admin only).
-    
-    WARNING: This action cannot be undone! All soft-deleted records will be
-    permanently removed from the database.
-    
-    Args:
-        model_name: Name of the model
-        confirm: Must be true to confirm permanent deletion
-        organization_id: Optional organization filter (only delete from this org)
-    
-    Returns:
-        Count of permanently deleted records
-    """
-    require_superuser(current_user)
-    
-    if not confirm:
-        raise HTTPException(
-            status_code=400,
-            detail="Must set confirm=true to empty recycle bin"
-        )
-    
-    model = get_model_by_name(model_name)
-    
-    org_id = None
-    if organization_id and hasattr(model, 'organization_id'):
-        org_id = organization_id
-    
-    # Get all deleted items
-    deleted_items = get_deleted_items(
-        db,
-        model,
-        limit=10000,  # Safety limit
-        organization_id=org_id
-    )
-    
-    deleted_count = 0
-    failed_count = 0
-    
-    for item in deleted_items:
-        try:
-            if hard_delete_item(db, model, item.id, organization_id=org_id):
-                deleted_count += 1
-            else:
-                failed_count += 1
-        except Exception as e:
-            logger.error(f"Error permanently deleting {model_name} {item.id}: {e}")
-            failed_count += 1
-    
-    logger.warning(
-        f"EMPTY RECYCLE BIN: {model_name} - {deleted_count} permanently deleted, "
-        f"{failed_count} failed by user {current_user.email}"
-    )
-    
-    return {
-        "message": f"Recycle bin emptied for {model_name}",
-        "permanently_deleted": deleted_count,
-        "failed": failed_count,
-        "warning": "This action cannot be undone"
-    }
 

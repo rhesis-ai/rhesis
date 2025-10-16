@@ -336,7 +336,7 @@ class TestDocumentHandlerIntegration(
         large_content = b"x" * 1500  # 1.5KB
         large_file = MockUploadFile(large_content, "large.txt")
 
-        with pytest.raises(ValueError, match="Document size exceeds limit"):
+        with pytest.raises(ValueError, match="Source size exceeds limit"):
             await handler.save_document(
                 document=large_file,
                 organization_id="org-size-test",
@@ -351,7 +351,7 @@ class TestDocumentHandlerIntegration(
         # Test empty file
         empty_file = MockUploadFile(b"", "empty.txt")
 
-        with pytest.raises(ValueError, match="Document is empty"):
+        with pytest.raises(ValueError, match="Source is empty"):
             await handler.save_document(
                 document=empty_file,
                 organization_id="org-error-test",
@@ -369,7 +369,7 @@ class TestDocumentHandlerIntegration(
 
         no_name_file = MockUploadFileNoName(b"content")
 
-        with pytest.raises(ValueError, match="Document has no name"):
+        with pytest.raises(ValueError, match="Source has no name"):
             await handler.save_document(
                 document=no_name_file,
                 organization_id="org-error-test",
@@ -442,14 +442,14 @@ class TestStorageServiceEnvironmentConfigurations(
                 storage_service = StorageService()
 
                 if env_name == "development":
-                    assert storage_service.bucket_name == "sources-rhesis-dev"
+                    assert storage_service.storage_uri == "gs://sources-rhesis-dev"
                 elif env_name == "staging":
-                    assert storage_service.bucket_name == "sources-rhesis-stg"
+                    assert storage_service.storage_uri == "gs://sources-rhesis-stg"
                 elif env_name == "production":
-                    assert storage_service.bucket_name == "sources-rhesis-prd"
+                    assert storage_service.storage_uri == "gs://sources-rhesis-prd"
                 elif env_name in ["partial_gcs", "no_gcs"]:
                     # These should fallback to local storage
-                    assert storage_service.use_gcs is False
+                    assert storage_service.use_cloud_storage is False
 
     def test_local_environment_configuration(self, environment_configurations):
         """Test local environment configuration."""
@@ -458,8 +458,8 @@ class TestStorageServiceEnvironmentConfigurations(
         with patch.dict(os.environ, config, clear=True):
             storage_service = StorageService()
 
-            assert storage_service.bucket_name is None
-            assert storage_service.use_gcs is False
+            assert storage_service.storage_uri is None
+            assert storage_service.use_cloud_storage is False
             assert storage_service.storage_path == "/tmp/local-test"
 
     def test_gcs_fallback_to_local(self, environment_configurations):
@@ -470,5 +470,5 @@ class TestStorageServiceEnvironmentConfigurations(
             storage_service = StorageService()
 
             # Should have bucket name but not use GCS due to missing credentials
-            assert storage_service.bucket_name == "sources-rhesis-dev"
-            assert storage_service.use_gcs is False
+            assert storage_service.storage_uri == "gs://sources-rhesis-dev"
+            assert storage_service.use_cloud_storage is False

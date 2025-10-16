@@ -16,11 +16,15 @@ from rhesis.backend.app.utils.encryption import (
 @pytest.fixture
 def encryption_key():
     """Provide a test encryption key."""
+    # Preserve original value
+    original_key = os.environ.get("DB_ENCRYPTION_KEY")
     key = Fernet.generate_key().decode()
     os.environ["DB_ENCRYPTION_KEY"] = key
     yield key
-    # Cleanup
-    if "DB_ENCRYPTION_KEY" in os.environ:
+    # Restore original value or remove if it wasn't set
+    if original_key is not None:
+        os.environ["DB_ENCRYPTION_KEY"] = original_key
+    elif "DB_ENCRYPTION_KEY" in os.environ:
         del os.environ["DB_ENCRYPTION_KEY"]
 
 
@@ -34,11 +38,18 @@ class TestEncryptionUtilities:
     
     def test_get_encryption_key_not_set(self):
         """Test error when encryption key is not set."""
+        # Preserve original value
+        original_key = os.environ.get("DB_ENCRYPTION_KEY")
         if "DB_ENCRYPTION_KEY" in os.environ:
             del os.environ["DB_ENCRYPTION_KEY"]
         
-        with pytest.raises(EncryptionKeyNotFoundError):
-            get_encryption_key()
+        try:
+            with pytest.raises(EncryptionKeyNotFoundError):
+                get_encryption_key()
+        finally:
+            # Restore original value
+            if original_key is not None:
+                os.environ["DB_ENCRYPTION_KEY"] = original_key
     
     def test_encrypt_decrypt_roundtrip(self, encryption_key):
         """Test encryption and decryption roundtrip."""
@@ -129,19 +140,33 @@ class TestEncryptionUtilities:
     
     def test_encrypt_without_key_raises_error(self):
         """Test that encryption without key raises appropriate error."""
+        # Preserve original value
+        original_key = os.environ.get("DB_ENCRYPTION_KEY")
         if "DB_ENCRYPTION_KEY" in os.environ:
             del os.environ["DB_ENCRYPTION_KEY"]
         
-        with pytest.raises(EncryptionError):
-            encrypt("some-data")
+        try:
+            with pytest.raises(EncryptionError):
+                encrypt("some-data")
+        finally:
+            # Restore original value
+            if original_key is not None:
+                os.environ["DB_ENCRYPTION_KEY"] = original_key
     
     def test_decrypt_without_key_raises_error(self):
         """Test that decryption without key raises appropriate error."""
+        # Preserve original value
+        original_key = os.environ.get("DB_ENCRYPTION_KEY")
         if "DB_ENCRYPTION_KEY" in os.environ:
             del os.environ["DB_ENCRYPTION_KEY"]
         
-        with pytest.raises(DecryptionError):
-            decrypt("gAAAAABmV8x...")  # Fake encrypted data
+        try:
+            with pytest.raises(DecryptionError):
+                decrypt("gAAAAABmV8x...")  # Fake encrypted data
+        finally:
+            # Restore original value
+            if original_key is not None:
+                os.environ["DB_ENCRYPTION_KEY"] = original_key
 
 
 class TestEncryptedStringType:
@@ -230,11 +255,18 @@ class TestEncryptedStringType:
         """Test that bind param raises EncryptionError on failure."""
         encrypted_type = EncryptedString()
         
+        # Preserve original value
+        original_key = os.environ.get("DB_ENCRYPTION_KEY")
         # Remove encryption key to force failure
         del os.environ["DB_ENCRYPTION_KEY"]
         
-        with pytest.raises(EncryptionError):
-            encrypted_type.process_bind_param("some-value", None)
+        try:
+            with pytest.raises(EncryptionError):
+                encrypted_type.process_bind_param("some-value", None)
+        finally:
+            # Restore original value
+            if original_key is not None:
+                os.environ["DB_ENCRYPTION_KEY"] = original_key
     
     def test_cache_ok_is_true(self, encryption_key):
         """Test that cache_ok is set to True for SQLAlchemy caching."""
