@@ -111,16 +111,14 @@ export default function SourcePreviewClientWrapper({
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
-      // Get raw file content for download
-      const response = await sourcesClient.getSourceContent(source.id);
+      // Get file content as blob to preserve binary data
+      const blob = await sourcesClient.getSourceContentBlob(source.id);
 
-      // Create blob and download
-      const blob = new Blob([response], { type: 'text/plain' });
+      // Create download link with proper filename
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download =
-        source.source_metadata?.original_filename || `${source.title}.txt`;
+      link.download = source.source_metadata?.original_filename || source.title;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
