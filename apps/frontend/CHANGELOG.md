@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2025-10-16
 
 ### Added
+
 - Implemented Knowledge section with source upload functionality, OData filtering for sources grid, and enhanced source preview with content block design and uploader information display.
 - Added comments column to SourcesGrid.
 - Implemented user settings API client and interfaces.
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented reusable StatusChip component for consistent status display.
 
 ### Changed
+
 - Standardized delete button styling across the entire platform.
 - Standardized date format to DD/MM/YYYY across knowledge components.
 - Moved Knowledge section to appear after Projects in the navigation.
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified Review column in table view to a dual-icon system.
 
 ### Fixed
+
 - Resolved blank file downloads in the knowledge section.
 - Resolved code formatting issues.
 - Resolved infinite loop in SourcesGrid component.
@@ -79,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed: improve token deletion confirmation message.
 
 ### Removed
+
 - Removed all comment functionality from sources.
 - Removed back and copy buttons from source preview header.
 - Removed formatted/raw toggle from source preview.
@@ -91,7 +95,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed redundant View Details action.
 - Removed redundant test count display.
 - Removed step prefix from evaluation steps edit fields.
-
 
 ## [0.3.0] - 2025-10-02
 
