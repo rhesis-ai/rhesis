@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import UploadFile
-from rhesis.backend.app.services.document_handler import DocumentHandler
+from rhesis.backend.app.services.handlers.document import DocumentHandler
 
 from .base import BaseDocumentHandlerTests, DocumentHandlerTestMixin
 
@@ -47,7 +47,7 @@ class TestDocumentHandlerInitialization(
     def test_init_with_default_storage_service(self):
         """Test initialization with default StorageService."""
         with patch(
-            "rhesis.backend.app.services.document_handler.StorageService"
+            "rhesis.backend.app.services.handlers.document.StorageService"
         ) as mock_storage_class:
             mock_storage = MagicMock()
             mock_storage_class.return_value = mock_storage
@@ -73,7 +73,7 @@ class TestDocumentHandlerInitialization(
     def test_init_with_custom_max_size_only(self):
         """Test initialization with custom max size but default storage service."""
         with patch(
-            "rhesis.backend.app.services.document_handler.StorageService"
+            "rhesis.backend.app.services.handlers.document.StorageService"
         ) as mock_storage_class:
             mock_storage = MagicMock()
             mock_storage_class.return_value = mock_storage
@@ -100,7 +100,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
         mock_file = MagicMock(spec=UploadFile)
         mock_file.filename = None
 
-        with pytest.raises(ValueError, match="Document has no name"):
+        with pytest.raises(ValueError, match="Source has no name"):
             await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
@@ -115,7 +115,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
         mock_file.filename = "test.txt"
         mock_file.read = AsyncMock(return_value=b"")
 
-        with pytest.raises(ValueError, match="Document is empty"):
+        with pytest.raises(ValueError, match="Source is empty"):
             await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
@@ -132,7 +132,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
         mock_file.read = AsyncMock(return_value=large_content)
 
         with pytest.raises(
-            ValueError, match="Document size exceeds limit of 100 bytes"
+            ValueError, match="Source size exceeds limit of 100 bytes"
         ):
             await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
@@ -177,7 +177,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
                 content, "test/path/file.txt"
             )
             mock_extract.assert_called_once_with(
-                content, "test.txt", "test/path/file.txt"
+                content, "test.txt", "test/path/file.txt", None, "org-123", None
             )
 
 
@@ -504,7 +504,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         content = b"test content"
         mock_file = MockUploadFile(content, "")
 
-        with pytest.raises(ValueError, match="Document has no name"):
+        with pytest.raises(ValueError, match="Source has no name"):
             await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
@@ -518,7 +518,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         content = b"test content"
         mock_file = MockUploadFile(content, "   ")
 
-        with pytest.raises(ValueError, match="Document has no name"):
+        with pytest.raises(ValueError, match="Source has no name"):
             await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
@@ -589,7 +589,7 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         content = b"x" * 101  # 101 bytes
         mock_file = MockUploadFile(content, "over_size.txt")
 
-        with pytest.raises(ValueError, match="Document size exceeds limit"):
+        with pytest.raises(ValueError, match="Source size exceeds limit"):
             await handler.save_document(
                 document=mock_file, organization_id="org-123", source_id="source-456"
             )
