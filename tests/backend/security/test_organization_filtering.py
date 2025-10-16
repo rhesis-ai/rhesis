@@ -394,6 +394,7 @@ class TestCrudOrganizationFiltering:
         # Create tokens in both organizations
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.auth.token_utils import generate_api_token
+        from rhesis.backend.app.utils.encryption import hash_token
         
         token_value_1 = generate_api_token()
         token1 = crud.create_token(
@@ -401,6 +402,7 @@ class TestCrudOrganizationFiltering:
             token=TokenCreate(
                 name=f"Token in Org 1 {unique_id}",
                 token=token_value_1,
+                token_hash=hash_token(token_value_1),
                 token_type="bearer",
                 token_obfuscated=token_value_1[:3] + "..." + token_value_1[-4:],
                 expires_at=None,
@@ -417,6 +419,7 @@ class TestCrudOrganizationFiltering:
             token=TokenCreate(
                 name=f"Token in Org 2 {unique_id}",
                 token=token_value_2,
+                token_hash=hash_token(token_value_2),
                 token_type="bearer",
                 token_obfuscated=token_value_2[:3] + "..." + token_value_2[-4:],
                 expires_at=None,

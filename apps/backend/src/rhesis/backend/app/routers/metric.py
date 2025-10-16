@@ -44,6 +44,11 @@ def create_metric(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
+    
+    # Set the current user as the owner if not specified
+    if not metric.owner_id:
+        metric.owner_id = current_user.id
+    
     return crud.create_metric(
         db=db, metric=metric, organization_id=organization_id, user_id=user_id
     )

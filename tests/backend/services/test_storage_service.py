@@ -8,7 +8,7 @@ with factory-based data generation and base class inheritance.
 
 import os
 from typing import Any, Dict
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 
 import pytest
 from rhesis.backend.app.services.storage_service import StorageService
@@ -55,11 +55,10 @@ class TestStorageServiceInitialization(
         ):
             storage_service = StorageService()
 
-            assert storage_service.bucket_name is None
-            assert storage_service.project_id is None
-            assert storage_service.credentials_path is None
+            assert storage_service.storage_uri is None
+            assert storage_service.service_account_key is None
             assert storage_service.storage_path == "/tmp/test-storage"
-            assert storage_service.use_gcs is False
+            assert storage_service.use_cloud_storage is False
 
     def test_init_partial_gcs_configuration(self):
         """Test initialization with partial GCS configuration (should fallback to local)."""
@@ -67,17 +66,16 @@ class TestStorageServiceInitialization(
             os.environ,
             {
                 "BACKEND_ENV": "development",
-                "STORAGE_PROJECT_ID": "test-project",
+                "STORAGE_SERVICE_URI": "gs://sources-rhesis-dev",
                 "LOCAL_STORAGE_PATH": "/tmp/test-storage",
             },
             clear=True,
         ):
             storage_service = StorageService()
 
-            assert storage_service.bucket_name == "sources-rhesis-dev"
-            assert storage_service.project_id == "test-project"
-            assert storage_service.credentials_path is None
-            assert storage_service.use_gcs is False
+            assert storage_service.storage_uri == "gs://sources-rhesis-dev"
+            assert storage_service.service_account_key is None
+            assert storage_service.use_cloud_storage is False
 
     @patch("rhesis.backend.app.services.storage_service.fsspec.filesystem")
     def test_file_system_initialization_gcs(self, mock_fsspec):
@@ -89,17 +87,18 @@ class TestStorageServiceInitialization(
             os.environ,
             {
                 "BACKEND_ENV": "production",
-                "STORAGE_PROJECT_ID": "test-project",
-                "STORAGE_CREDENTIALS_PATH": "/path/to/credentials.json",
+                "STORAGE_SERVICE_URI": "gs://sources-rhesis-prd",
+                "STORAGE_SERVICE_ACCOUNT_KEY": "eyJ0eXBlIjoidGVzdCIsInByb2plY3RfaWQiOiJ0ZXN0LXByb2plY3QifQ==",
             },
             clear=True,
         ):
-            storage_service = StorageService()
+            # Mock the service account creation to avoid actual GCS calls
+            with patch("rhesis.backend.app.services.storage_service.service_account"):
+                storage_service = StorageService()
 
-            mock_fsspec.assert_called_once_with(
-                "gcs", project="test-project", token="/path/to/credentials.json"
-            )
-            assert storage_service.fs == mock_fs
+            # The service should successfully initialize with cloud storage when credentials are provided
+            assert storage_service.storage_uri == "gs://sources-rhesis-prd"
+            assert storage_service.use_cloud_storage is True  # Successfully initialized with mocked credentials
 
     @patch("rhesis.backend.app.services.storage_service.fsspec.filesystem")
     def test_file_system_initialization_local(self, mock_fsspec):
@@ -176,21 +175,17 @@ class TestStorageServiceFileOperations(
     @pytest.mark.asyncio
     async def test_get_file_success(self):
         """Test successful file retrieval operation."""
-        mock_fs = MagicMock()
-        mock_file = MagicMock()
-        mock_file.read.return_value = b"test file content"
-        mock_fs.open.return_value.__enter__.return_value = mock_file
-
         storage_service = StorageService()
-        storage_service.fs = mock_fs
-
         file_path = "test/path/file.txt"
-
-        result = await storage_service.get_file(file_path)
-
-        assert result == b"test file content"
-        mock_fs.open.assert_called_once_with(file_path, "rb")
-        mock_file.read.assert_called_once()
+        test_content = b"test file content"
+        
+        # Mock the cloud storage check to fail, then mock local file operations
+        with patch.object(storage_service.fs, 'open', side_effect=Exception("Cloud storage not available")):
+            with patch('builtins.open', mock_open(read_data=test_content)):
+                with patch('os.path.exists', return_value=True):
+                    result = await storage_service.get_file(file_path)
+        
+        assert result == test_content
 
     @pytest.mark.asyncio
     async def test_delete_file_success(self):
@@ -222,31 +217,25 @@ class TestStorageServiceFileOperations(
 
     def test_file_exists_true(self):
         """Test file existence check when file exists."""
-        mock_fs = MagicMock()
-        mock_fs.exists.return_value = True
         storage_service = StorageService()
-        storage_service.fs = mock_fs
-
         file_path = "test/path/file.txt"
 
-        result = storage_service.file_exists(file_path)
+        # Mock local file existence check since we're using local storage
+        with patch('os.path.exists', return_value=True):
+            result = storage_service.file_exists(file_path)
 
         assert result is True
-        mock_fs.exists.assert_called_once_with(file_path)
 
     def test_file_exists_false(self):
         """Test file existence check when file doesn't exist."""
-        mock_fs = MagicMock()
-        mock_fs.exists.return_value = False
         storage_service = StorageService()
-        storage_service.fs = mock_fs
-
         file_path = "test/path/file.txt"
 
-        result = storage_service.file_exists(file_path)
+        # Mock local file existence check since we're using local storage
+        with patch('os.path.exists', return_value=False):
+            result = storage_service.file_exists(file_path)
 
         assert result is False
-        mock_fs.exists.assert_called_once_with(file_path)
 
     def test_file_exists_exception(self):
         """Test file existence check exception handling."""
@@ -263,17 +252,15 @@ class TestStorageServiceFileOperations(
 
     def test_get_file_size_success(self):
         """Test successful file size retrieval."""
-        mock_fs = MagicMock()
-        mock_fs.size.return_value = 1024
         storage_service = StorageService()
-        storage_service.fs = mock_fs
-
         file_path = "test/path/file.txt"
 
-        result = storage_service.get_file_size(file_path)
+        # Mock local file operations since we're using local storage
+        with patch('os.path.exists', return_value=True):
+            with patch('os.path.getsize', return_value=1024):
+                result = storage_service.get_file_size(file_path)
 
         assert result == 1024
-        mock_fs.size.assert_called_once_with(file_path)
 
     def test_get_file_size_failure(self):
         """Test file size retrieval failure handling."""
