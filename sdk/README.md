@@ -1,11 +1,10 @@
 # Rhesis SDK 🧠
+
 <meta name="google-site-verification" content="muyrLNdeOT9KjYaOnfpOmGi8K5xPe8o7r_ov3kEGdXA" />
+
 <p align="center">
-  <img src="https://cdn.prod.website-files.com/66f422128b6d0f3351ce41e3/66fcfdf2e263aab9f4a19e52_Logo%20Rhesis%20Blue.png" alt="Rhesis Blue" width="300"/>
-</p>
-<p align="center">
-  <a href="https://github.com/rhesis-ai/rhesis-sdk/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/rhesis-ai/rhesis-sdk" alt="License">
+  <a href="https://github.com/rhesis-ai/rhesis/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
   </a>
   <a href="https://pypi.org/project/rhesis-sdk/">
     <img src="https://img.shields.io/pypi/v/rhesis-sdk" alt="PyPI Version">
@@ -27,16 +26,16 @@
   </a>
 </p>
 
-> Gen AI applications that deliver value, not surprises.
+> Your team defines expectations, Rhesis generates and executes thousands of test scenarios. So that you know what you ship.
 
-The Rhesis SDK enables developers to access curated test sets and generate dynamic ones for GenAI applications. It provides tools to tailor validations to your needs and integrate seamlessly to keep your Gen AI robust, reliable & compliant.
+The Rhesis SDK empowers developers to programmatically access curated test sets and generate comprehensive test scenarios for Gen AI applications. Transform domain expertise into automated testing: access thousands of test scenarios, generate custom validation suites, and integrate seamlessly into your workflow to keep your Gen AI robust, reliable & compliant.
 
-<img src="https://cdn.prod.website-files.com/66f422128b6d0f3351ce41e3/67ea61119543db5f3fa4776e_Screenshot%20Rhesis%20AI%20Platform.png" 
+<img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png" 
      loading="lazy" 
      width="1392" 
      sizes="(max-width: 479px) 100vw, (max-width: 767px) 95vw, (max-width: 991px) 94vw, 95vw" 
-     alt="Dashboard mockup" 
-     srcset="https://cdn.prod.website-files.com/66f422128b6d0f3351ce41e3/67ea61119543db5f3fa4776e_Screenshot%20Rhesis%20AI%20Platform.png 2939w" 
+     alt="Rhesis Platform Results" 
+     srcset="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/68d66fa1ff10c81d4e4e4d0f_Frame%201000004352.png 2939w" 
      class="uui-layout41_lightbox-image-01-2">
 
 ## 📑 Table of Contents
@@ -57,12 +56,13 @@ The Rhesis SDK enables developers to access curated test sets and generate dynam
 
 ## ✨ Features
 
-The Rhesis SDK currently provides functionality to work with Rhesis test sets through routine operations:
+The Rhesis SDK provides programmatic access to the Rhesis testing platform:
 
-- **List Test Sets**: Browse through available curated test sets
-- **Load Test Sets**: Load specific test sets for your use case
-- **Download Test Sets**: Download test set data for offline use
-- **Generate Test Sets**: Generate new test sets from basic prompts
+- **Access Test Sets**: Browse and load curated test sets across multiple domains and use cases
+- **Generate Test Scenarios**: Create custom test sets from prompts, requirements, or domain knowledge
+- **Seamless Integration**: Integrate testing into your CI/CD pipeline and development workflow
+- **Comprehensive Coverage**: Scale your testing from dozens to thousands of scenarios
+- **Open Source**: MIT-licensed with full transparency and community-driven development
 
 ## 🚀 Installation
 
@@ -123,11 +123,11 @@ export RHESIS_BASE_URL="https://api.rhesis.ai"  # optional
 #### Direct Configuration
 
 ```python
-import rhesis 
+import rhesis
 
 # Set configuration directly
-rhesis.sdk.base_url = "https://api.rhesis.ai"  # optional
-rhesis.sdk.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"
+rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"
+rhesis.base_url = "https://api.rhesis.ai"  # optional
 ```
 
 ## ⚡ Quick Start
@@ -137,7 +137,8 @@ Before you start, you can configure the Rhesis SDK either through environment va
 ### Working with Test Sets 📋
 
 ```python
-from rhesis.entities import TestSet
+from rhesis.sdk.entities import TestSet
+from rhesis.sdk.synthesizers import PromptSynthesizer
 
 # List all test sets
 for test_set in TestSet().all():
@@ -151,12 +152,13 @@ test_set.load()
 test_set.download()
 
 # Generate a new test set
-prompt_synthesizer = PromptSynthesizer(prompt="Generate tests for an insurance chatbot that can answer questions about the company's policies.")
-test_set = prompt_synthesizer.generate(num_tests=5)
-
+prompt_synthesizer = PromptSynthesizer(
+    prompt="Generate tests for an insurance chatbot that can answer questions about the company's policies."
+)
+test_set = prompt_synthesizer.generate(num_tests=100)
 ```
 
-For more detailed examples, check out our [example notebooks](examples/).
+For more detailed examples, check out our [example notebooks](https://github.com/rhesis-ai/rhesis/tree/main/examples).
 
 ### Generating Custom Test Sets 🛠️
 
@@ -166,13 +168,14 @@ You can check out [app.rhesis.ai](http://app.rhesis.ai). There you can define re
 
 ## 🧪 About Rhesis AI
 
-Rhesis AI helps organizations build Gen AI applications that deliver value, not surprises. Our platform enables you to:
-- Access curated test sets
-- Generate custom test sets
-- Upload your custom test sets to the cloud
-- Tailor validations to your specific needs
-- Integrate testing seamlessly into your workflow
-- Keep your Gen AI applications robust, reliable & compliant
+Rhesis is an open-source testing platform that transforms how Gen AI teams validate their applications. Through collaborative test management, domain expertise becomes comprehensive automated testing: legal defines requirements, marketing sets expectations, engineers build quality, and everyone knows exactly how the Gen AI application performs before users do.
+
+**Key capabilities:**
+- **Collaborative Test Management**: Your entire team contributes requirements without writing code
+- **Automated Test Generation**: Generate thousands of test scenarios from team expertise
+- **Comprehensive Coverage**: Scale from dozens of manual tests to thousands of automated scenarios
+- **Edge Case Discovery**: Find potential failures before your users do
+- **Compliance Validation**: Ensure systems meet regulatory and ethical standards
 
 Made in Potsdam, Germany 🇩🇪
 
@@ -189,10 +192,20 @@ You can also find us on [Hugging Face](https://huggingface.co/rhesis). There, yo
 ## 🆘 Support
 
 For questions, issues, or feature requests:
-- Visit our [documentation](https://docs.rhesis.ai)
-- Contact us at hello@rhesis.ai
-- Create an issue in this repository
+- **Documentation**: [docs.rhesis.ai](https://docs.rhesis.ai)
+- **Discord Community**: [discord.rhesis.ai](https://discord.rhesis.ai)
+- **GitHub Discussions**: [Community discussions](https://github.com/rhesis-ai/rhesis/discussions)
+- **Email**: hello@rhesis.ai
+- **Issues**: [Report bugs or request features](https://github.com/rhesis-ai/rhesis/issues)
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The Rhesis SDK is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+The SDK is completely open-source and freely available for use, modification, and distribution.
+
+---
+
+**Made with ❤️ in Potsdam, Germany 🇩🇪**
+
+Learn more at [rhesis.ai](https://rhesis.ai)
