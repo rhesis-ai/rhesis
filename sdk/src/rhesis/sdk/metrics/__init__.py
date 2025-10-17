@@ -1,16 +1,19 @@
 """Metrics for evaluating RAG and generation systems."""
 
+from rhesis.sdk.metrics.providers.deepeval import (
+    DeepEvalAnswerRelevancy,
+    DeepEvalContextualPrecision,
+    DeepEvalContextualRecall,
+    DeepEvalContextualRelevancy,
+    DeepEvalFaithfulness,
+    DeepEvalMetricFactory,
+)
 from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     RhesisMetricFactory,
     RhesisPromptMetricCategorical,
     RhesisPromptMetricNumeric,
 )
-from rhesis.sdk.metrics.providers.ragas import (  # Re-export Ragas metrics
-    RagasAnswerRelevancy,
-    RagasContextualPrecision,
-    RagasMetricBase,
-    RagasMetricFactory,
-)
+from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
 
 from .base import BaseMetric, MetricConfig, MetricResult
 from .config.loader import MetricConfigLoader
@@ -38,13 +41,9 @@ __all__ = [
     "VALID_OPERATORS_BY_SCORE_TYPE",
     "diagnose_invalid_metric",
     # Rhesis metrics
-    "RhesisMetricBase",
     "RhesisMetricFactory",
     "RhesisPromptMetricCategorical",
     "RhesisPromptMetricNumeric",
     # Ragas metrics
     "RagasMetricBase",
-    "RagasMetricFactory",
-    "RagasAnswerRelevancy",
-    "RagasContextualPrecision",
 ]
