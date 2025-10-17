@@ -60,9 +60,9 @@ class ModelTester:
                 test_set.add_model(model)
             test_set.load_results()
             if recompute_existing:
-                results = test_set.generate_all_responses(save_results=True)
+                results = test_set.generate_all_responses()
             else:
-                results = test_set.generate_pending_responses(save_results=True)
+                results = test_set.generate_pending_responses()
             self.test_results.extend(results)
 
     def evaluate_model_responses(self, recompute_existing=False):
@@ -76,7 +76,6 @@ class ModelTester:
         for test_set in self.test_sets:
             test_set.load_results()
             test_set.evaluate_results(recompute_existing=recompute_existing)
-            test_set.save_results()
 
     def print_summary(self):
         """
