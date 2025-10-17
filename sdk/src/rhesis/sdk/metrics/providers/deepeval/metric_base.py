@@ -22,7 +22,7 @@ class DeepEvalMetricBase(BaseMetric):
         super().__init__(name=name, metric_type=metric_type, model=model)
         self._metric = None  # Will be set by child classes
         self.threshold = threshold  # Use setter for validation
-        self.model = DeepEvalModelWrapper(self.model)
+        self._deepeval_model = DeepEvalModelWrapper(self.model)
 
     @property
     def threshold(self) -> float:
