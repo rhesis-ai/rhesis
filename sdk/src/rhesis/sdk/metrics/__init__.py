@@ -1,5 +1,15 @@
 """Metrics for evaluating RAG and generation systems."""
 
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.config.loader import MetricConfigLoader
+from rhesis.sdk.metrics.constants import (
+    OPERATOR_MAP,
+    VALID_OPERATORS_BY_SCORE_TYPE,
+    ScoreType,
+    ThresholdOperator,
+)
+from rhesis.sdk.metrics.evaluator import MetricEvaluator as Evaluator
+from rhesis.sdk.metrics.factory import MetricFactory
 from rhesis.sdk.metrics.providers.deepeval import (
     DeepEvalAnswerRelevancy,
     DeepEvalContextualPrecision,
@@ -14,14 +24,8 @@ from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     RhesisPromptMetricNumeric,
 )
 from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
-
-from .base import BaseMetric, MetricConfig, MetricResult
-from .config.loader import MetricConfigLoader
-from .constants import OPERATOR_MAP, VALID_OPERATORS_BY_SCORE_TYPE, ScoreType, ThresholdOperator
-from .evaluator import MetricEvaluator as Evaluator
-from .factory import MetricFactory
-from .score_evaluator import ScoreEvaluator
-from .utils import diagnose_invalid_metric, run_evaluation
+from rhesis.sdk.metrics.score_evaluator import ScoreEvaluator
+from rhesis.sdk.metrics.utils import diagnose_invalid_metric, run_evaluation
 
 __all__ = [
     # Base metrics
