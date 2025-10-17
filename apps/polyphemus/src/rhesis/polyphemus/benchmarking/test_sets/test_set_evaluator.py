@@ -60,6 +60,24 @@ class TestSetEvaluator():
             raise ValueError("No tests found.")
         self.tests = tests
 
+    def load_judge(self):
+        """
+        Load the shared judge model for evaluation.
+        """
+        global JUDGE
+        if JUDGE is None:
+            JUDGE = Judge()
+        self.judge = JUDGE
+        if self.judge.model is None:
+            (self.judge.model, self.judge.tokenizer, self.judge.device) = self.judge.load_model()
+
+    def unload_judge(self):
+        """
+        Unload the shared judge model to free up resources.
+        """
+        if self.judge is not None:
+            self.judge.unload_model()
+
     def add_model(self, model: BaseLLM):
         """
         Add a model to the test set. Initializes the result list for the model.
@@ -293,13 +311,7 @@ class TestSetEvaluator():
             return
 
         # First use of judge: Ensure judge is initialized
-        if self.judge is None:
-            global JUDGE
-            if JUDGE is None:
-                JUDGE = Judge()
-            self.judge = JUDGE
-        if self.judge.model is None:
-            (self.judge.model, self.judge.tokenizer, self.judge.device) = self.judge.load_model()
+        self.load_judge()
 
         ### instruction following ###
         instruction_following_metric = RhesisPromptMetricNumeric(
