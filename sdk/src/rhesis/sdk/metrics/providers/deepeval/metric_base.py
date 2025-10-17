@@ -62,7 +62,7 @@ class DeepEvalMetricBase(BaseMetric):
     def _create_test_case(
         self,
         input: str,
-        output: str,
+        output: Optional[str] = None,
         expected_output: Optional[str] = None,
         context: Optional[List[str]] = None,
     ) -> LLMTestCase:

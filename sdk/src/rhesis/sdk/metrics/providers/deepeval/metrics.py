@@ -34,9 +34,11 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input, output)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -49,7 +51,7 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
 
     @property
     def requires_ground_truth(self) -> bool:
-        return True
+        return False
 
 
 class DeepEvalFaithfulness(DeepEvalMetricBase):
@@ -63,9 +65,12 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input, output, context=context)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -95,9 +100,11 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input=input, context=context)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -127,7 +134,11 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
         test_case = self._create_test_case(input, output, expected_output, context)
         self._metric.measure(test_case)
@@ -159,7 +170,11 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
         test_case = self._create_test_case(input, output, expected_output, context)
         self._metric.measure(test_case)
@@ -191,9 +206,11 @@ class DeepEvalBias(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input, output)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -223,9 +240,11 @@ class DeepEvalToxicity(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input=input, output=output)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -242,7 +261,7 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
 
     def __init__(
         self,
-        advice_types: Optional[List[str]] = None,
+        advice_types: List[str],
         threshold: float = 0.5,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
@@ -252,16 +271,17 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
             metric_type=MetricType.GENERATION,
             model=model,
         )
-        advice_types = advice_types or ["financial", "medical"]
         self._metric = NonAdviceMetric(
             advice_types=advice_types, threshold=threshold, model=self.model
         )
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input=input, output=output)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -296,9 +316,11 @@ class DeepEvalMisuse(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input=input, output=output)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -328,9 +350,11 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input=input, output=output)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
@@ -351,7 +375,7 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
 
     def __init__(
         self,
-        role: str = "helpful assistant",
+        role: str,
         threshold: float = 0.5,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
@@ -365,9 +389,11 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str]
+        self,
+        input: str,
+        output: str,
     ) -> MetricResult:
-        test_case = self._create_test_case(input, output, expected_output, context)
+        test_case = self._create_test_case(input=input, output=output)
         self._metric.measure(test_case)
         return MetricResult(
             score=self._metric.score,
