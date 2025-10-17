@@ -1,6 +1,7 @@
 import { UUID } from 'crypto';
 import { Status } from './status';
 import { Tag } from './tag';
+import { Document } from './documents';
 
 export interface TestSetBase {
   name: string;
@@ -245,26 +246,27 @@ export interface GenerationSample {
   behavior: string;
   topic: string;
   rating?: number | null;
-  feedback?: string;
+  feedback: string;
 }
 
 export interface TestSetGenerationConfig {
   project_name?: string;
   behaviors: string[];
   purposes: string[];
-  test_type?: string;
-  response_generation?: string;
-  test_coverage?: string;
+  test_type: string;
+  response_generation: string;
+  test_coverage: string;
   tags?: string[];
   description: string;
 }
 
 export interface TestSetGenerationRequest {
   config: TestSetGenerationConfig;
-  samples?: GenerationSample[];
-  synthesizer_type?: string;
+  samples: GenerationSample[];
+  synthesizer_type: string;
   num_tests?: number;
-  batch_size?: number;
+  batch_size: number;
+  documents?: Document[];
 }
 
 export interface TestSetGenerationResponse {
