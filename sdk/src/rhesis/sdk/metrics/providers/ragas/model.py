@@ -59,7 +59,8 @@ class CustomLLM(LLM):
 
     @property
     def _llm_type(self) -> str:
-        """Get the type of language model used by this chat model. Used for logging purposes only."""
+        """Get the type of language model used by this chat model.
+        Used for logging purposes only."""
         return "custom"
 
 

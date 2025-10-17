@@ -144,7 +144,7 @@ class MetricConfig:
 class MetricResult:
     """Result of a metric evaluation."""
 
-    def __init__(self, score: float, details: Dict[str, Any] = None):
+    def __init__(self, score: Optional[float] = None, details: Optional[Dict[str, Any]] = None):
         self.score = score
         self.details = details or {}
 

@@ -1,6 +1,6 @@
 # Import DeepEvalBaseLLM for proper custom model implementation
 
-from deepeval.models import DeepEvalBaseLLM
+from deepeval.models.base_model import DeepEvalBaseLLM
 
 from rhesis.sdk.models.base import BaseLLM
 
