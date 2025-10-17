@@ -1,4 +1,5 @@
 import gc
+import json
 from typing import Optional
 
 try:
@@ -13,6 +14,8 @@ except ImportError:
         "  uv sync --extra huggingface"
     )
 
+from pydantic import BaseModel
+
 from rhesis.sdk.errors import (
     HUGGINGFACE_MODEL_NOT_LOADED,
     MODEL_RELOAD_WARNING,
@@ -20,6 +23,7 @@ from rhesis.sdk.errors import (
     WARNING_TOKENIZER_ALREADY_LOADED_RELOAD,
 )
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.utils import validate_llm_response
 
 
 class HuggingFaceLLM(BaseLLM):
@@ -135,10 +139,20 @@ class HuggingFaceLLM(BaseLLM):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
+        schema: Optional[BaseModel] = None,
         **kwargs,
     ) -> str:
         """
-        Generate a response from the model
+        Generate a response from the model.
+
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt
+            schema: Optional Pydantic BaseModel for structured output
+            **kwargs: Additional generation parameters
+
+        Returns:
+            str if no schema provided, dict if schema provided
         """
 
         # check model and tokenizer
@@ -148,6 +162,17 @@ class HuggingFaceLLM(BaseLLM):
         # format arguments
         if self.default_kwargs:
             kwargs = {**self.default_kwargs, **kwargs}
+
+        # If schema is provided, augment the prompt to request JSON output
+        if schema:
+            json_schema = schema.model_json_schema()
+            schema_instruction = (
+                f"\n\nYou must respond with valid JSON matching this schema:\n"
+                f"```json\n{json.dumps(json_schema, indent=2)}\n```\n"
+                f"Only return the JSON object, nothing else. "
+                f"Do not include explanations or markdown."
+            )
+            prompt = prompt + schema_instruction
 
         if hasattr(self.tokenizer, "chat_template") and self.tokenizer.chat_template is not None:
             messages = (
@@ -167,8 +192,6 @@ class HuggingFaceLLM(BaseLLM):
             messages = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
             inputs = self.tokenizer(messages, return_tensors="pt").to(self.device)
 
-        kwargs.pop("schema", None)
-
         # generate response
         output_ids = self.model.generate(
             **inputs,
@@ -182,5 +205,11 @@ class HuggingFaceLLM(BaseLLM):
             skip_special_tokens=True,
             clean_up_tokenization_spaces=True,
         ).strip()
+
+        # If schema was provided, parse and validate the JSON response
+        if schema:
+            response_dict = json.loads(completion)
+            validate_llm_response(response_dict, schema)
+            return response_dict
 
         return completion
