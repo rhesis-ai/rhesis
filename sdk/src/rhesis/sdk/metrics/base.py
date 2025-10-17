@@ -20,7 +20,7 @@ Also, the method retry_evaluationmight be better placed in a utils type of modul
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
@@ -95,7 +95,7 @@ class MetricConfig:
 
     # Custom parameters
 
-    evaluation_prompt: str = None
+    evaluation_prompt: Optional[str] = None
     """The evaluation prompt for the metric"""
 
     evaluation_steps: Optional[str] = None
@@ -126,7 +126,7 @@ class MetricConfig:
             )
 
     def _validate_enum_value(
-        self, value: Union[str, Enum], enum_class: type, field_name: str
+        self, value: Union[str, Enum], enum_class: Type[Enum], field_name: str
     ) -> str:
         if isinstance(value, str):
             try:
