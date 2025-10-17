@@ -1,6 +1,6 @@
 from typing import List, Optional, Union
 
-from deepeval.test_case import LLMTestCase
+from deepeval.test_case.llm_test_case import LLMTestCase
 
 from rhesis.sdk.metrics.base import BaseMetric, MetricType
 from rhesis.sdk.metrics.providers.deepeval.model import DeepEvalModelWrapper
@@ -60,7 +60,11 @@ class DeepEvalMetricBase(BaseMetric):
             self._metric.verbose_mode = value
 
     def _create_test_case(
-        self, input: str, output: str, expected_output: str, context: List[str]
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
     ) -> LLMTestCase:
         """Create a DeepEval test case from input parameters."""
         return LLMTestCase(
