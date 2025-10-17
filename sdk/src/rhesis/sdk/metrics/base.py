@@ -161,7 +161,7 @@ class BaseMetric(ABC):
         description: Optional[str] = None,
         score_type: Optional[Union[str, ScoreType]] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
-        model: Optional[Union[BaseLLM, str]] = None,
+        model: Optional[Any] = None,
         **kwargs,
     ):
         self.name = name
@@ -190,14 +190,9 @@ class BaseMetric(ABC):
         self.model = self.set_model(model)
 
     def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
-        if model is None:
-            return get_model()  # Use default model
         if isinstance(model, BaseLLM):
             return model
-        elif isinstance(model, str) or model is None:
-            return get_model(model)
-        else:
-            raise ValueError(f"Invalid model type: {type(model)}")
+        return get_model(model)
 
     @abstractmethod
     def evaluate(
