@@ -138,7 +138,7 @@ class TestSetEvaluator():
         print("No matching test found for the provided result. Result not added.")
 
     def _generate_responses(
-        self, tests: List[Test], model: BaseLLM, save_results: bool = True
+        self, tests: List[Test], model: BaseLLM
     ) -> List[TestResult]:
         """
         Generate responses for a list of tests using the specified model.
@@ -213,11 +213,10 @@ class TestSetEvaluator():
             )
             self._add_result(test_result, overwrite_existing=True)
             results.append(test_result)
-            if save_results:
-                self.save_results()
+        model.unload_model()
         return results
 
-    def generate_pending_responses(self, save_results: bool = True) -> List[TestResult]:
+    def generate_pending_responses(self) -> List[TestResult]:
         """
         Generate responses for all test cases that don't have results yet or have errors.
 
@@ -238,12 +237,15 @@ class TestSetEvaluator():
                 existing_result = self.results[model_index][test_index]
                 if existing_result is None or existing_result.error is not None:
                     tests.append(test)
+            new_results = self._generate_responses(tests, model)
             results.extend(
-                self._generate_responses(tests, model, save_results=save_results)
+                new_results
             )
+            if new_results:
+                self.save_results(model_index_to_save=model_index)
         return results
 
-    def generate_all_responses(self, save_results: bool = True) -> List[TestResult]:
+    def generate_all_responses(self) -> List[TestResult]:
         """
         Generate responses for all tests in the test set for all models.
 
@@ -258,10 +260,11 @@ class TestSetEvaluator():
             List of generated test results.
         """
         results = []
-        for model in self.models:
+        for model_index, model in enumerate(self.models):
             results.extend(
-                self._generate_responses(self.tests, model, save_results=save_results)
+                self._generate_responses(self.tests, model)
             )
+            self.save_results(model_index_to_save=model_index)
         return results
 
     
@@ -350,7 +353,7 @@ class TestSetEvaluator():
                 if not recompute_existing and test_result.score is not None:
                     continue
                 self._evaluate_test_result(test_result)
-                self.save_results(model_index_to_save=model_index)
+            self.save_results(model_index_to_save=model_index)
 
     def _save_results(self, results: List[TestResult], json_path: Path):
         """
