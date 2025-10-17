@@ -76,6 +76,9 @@ class ModelTester:
         for test_set in self.test_sets:
             test_set.load_results()
             test_set.evaluate_results(recompute_existing=recompute_existing)
+            break
+        if test_set:
+            test_set.unload_judge()  # Reset judge for next evaluation
 
     def print_summary(self):
         """
