@@ -30,7 +30,7 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
             metric_type=MetricType.RAG,
             model=model,
         )
-        self._metric = AnswerRelevancyMetric(threshold=threshold, model=self.model)
+        self._metric = AnswerRelevancyMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -61,7 +61,7 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
         super().__init__(
             name="Faithfulness", threshold=threshold, metric_type=MetricType.RAG, model=model
         )
-        self._metric = FaithfulnessMetric(threshold=threshold, model=self.model)
+        self._metric = FaithfulnessMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -96,7 +96,7 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
             metric_type=MetricType.RAG,
             model=model,
         )
-        self._metric = ContextualRelevancyMetric(threshold=threshold, model=self.model)
+        self._metric = ContextualRelevancyMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -130,7 +130,7 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
             metric_type=MetricType.RAG,
             model=model,
         )
-        self._metric = ContextualPrecisionMetric(threshold=threshold, model=self.model)
+        self._metric = ContextualPrecisionMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -166,7 +166,7 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
             metric_type=MetricType.RAG,
             model=model,
         )
-        self._metric = ContextualRecallMetric(threshold=threshold, model=self.model)
+        self._metric = ContextualRecallMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -202,7 +202,7 @@ class DeepEvalBias(DeepEvalMetricBase):
             metric_type=MetricType.GENERATION,
             model=model,
         )
-        self._metric = BiasMetric(threshold=threshold, model=self.model)
+        self._metric = BiasMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -236,7 +236,7 @@ class DeepEvalToxicity(DeepEvalMetricBase):
             metric_type=MetricType.GENERATION,
             model=model,
         )
-        self._metric = ToxicityMetric(threshold=threshold, model=self.model)
+        self._metric = ToxicityMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -272,7 +272,7 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
             model=model,
         )
         self._metric = NonAdviceMetric(
-            advice_types=advice_types, threshold=threshold, model=self.model
+            advice_types=advice_types, threshold=threshold, model=self._deepeval_model
         )
 
     @retry_evaluation()
@@ -312,7 +312,7 @@ class DeepEvalMisuse(DeepEvalMetricBase):
             metric_type=MetricType.GENERATION,
             model=model,
         )
-        self._metric = MisuseMetric(domain=domain, threshold=threshold, model=self.model)
+        self._metric = MisuseMetric(domain=domain, threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -346,7 +346,7 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
             metric_type=MetricType.GENERATION,
             model=model,
         )
-        self._metric = PIILeakageMetric(threshold=threshold, model=self.model)
+        self._metric = PIILeakageMetric(threshold=threshold, model=self._deepeval_model)
 
     @retry_evaluation()
     def evaluate(
@@ -385,7 +385,9 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
             metric_type=MetricType.GENERATION,
             model=model,
         )
-        self._metric = RoleViolationMetric(role=role, threshold=threshold, model=self.model)
+        self._metric = RoleViolationMetric(
+            role=role, threshold=threshold, model=self._deepeval_model
+        )
 
     @retry_evaluation()
     def evaluate(
