@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from rhesis.sdk.models import BaseLLM
 
-from .test_sets import AbstractTestSet, TestResult
+from .test_sets import TestResult, TestSetEvaluator
 
 
 class ModelTester:
@@ -13,7 +13,7 @@ class ModelTester:
     Designed for extensibility and future benchmarking needs.
     """
 
-    def __init__(self, results_path: Optional[Path] = None):
+    def __init__(self, json_dir: Path):
         """
         Initialize the ModelTester.
 
@@ -23,8 +23,14 @@ class ModelTester:
             Directory where the results folder structure should be built.
             Defaults to rhesis/polyphemus/benchmarking/results.
         """
+        if not json_dir.exists() or not json_dir.is_dir():
+            raise ValueError(f"Invalid test sets directory: {json_dir}")
+        
         self.models: List[BaseLLM] = []  # Models to be tested
-        self.test_sets: List[AbstractTestSet] = []  # Test sets to use
+        self.test_sets: List[TestSetEvaluator] = []  # Test sets to use
+        for json_file in json_dir.glob("**/*.json"):
+            test_set = TestSetEvaluator(json_file)
+            self.test_sets.append(test_set)
         self.test_results: List[TestResult] = []  # Collected test results
 
     def add_model(self, model: BaseLLM):
@@ -36,16 +42,6 @@ class ModelTester:
             The model to add for benchmarking.
         """
         self.models.append(model)
-
-    def add_test_set(self, test_set: AbstractTestSet):
-        """
-        Add a test set to the tester.
-        Parameters
-        ----------
-        test_set : AbstractTestSet
-            The test set to add for benchmarking.
-        """
-        self.test_sets.append(test_set)
 
     def generate_responses(self, recompute_existing=False):
         """

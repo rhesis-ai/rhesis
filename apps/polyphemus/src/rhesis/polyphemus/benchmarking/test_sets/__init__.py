@@ -1,5 +1,3 @@
+from .test_set_evaluator import Test, TestResult, TestSetEvaluator
 
-from .abstract_testset import AbstractTestSet, TestResult, Test
-from .harmless import MockTestSet
-
-__all__ = ["AbstractTestSet", "TestResult", "Test", "MockTestSet"]
+__all__ = ["TestSetEvaluator", "TestResult", "Test"]
