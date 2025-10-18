@@ -1,10 +1,9 @@
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from ragas.llms import LangchainLLMWrapper
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricType
+from rhesis.sdk.metrics.base import BaseMetric, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.ragas.model import CustomLLM
-from rhesis.sdk.models import BaseLLM
 
 
 class RagasMetricBase(BaseMetric):
@@ -12,25 +11,17 @@ class RagasMetricBase(BaseMetric):
 
     def __init__(
         self,
-        name: str,
-        threshold: float = 0.5,
-        model: Optional[Union[BaseLLM, str]] = None,
-        metric_type: MetricType = MetricType.RAG,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        score_type: Optional[Union[str, ScoreType]] = None,
+        metric_type: Optional[Union[str, MetricType]] = None,
+        model: Optional[Any] = None,
     ):
-        super().__init__(name=name, metric_type=metric_type, model=model)
-        self.threshold = threshold  # Use the setter for validation
-        # Actual Ragas implementation to be added
+        super().__init__(
+            name=name,
+            description=description,
+            score_type=score_type,
+            metric_type=metric_type,
+            model=model,
+        )
         self.model = LangchainLLMWrapper(CustomLLM(rhesis_model=self.model))
-
-    @property
-    def threshold(self) -> float:
-        return self._threshold
-
-    @threshold.setter
-    def threshold(self, value: float):
-        if not 0 <= value <= 1:
-            raise ValueError("Threshold must be between 0 and 1")
-        self._threshold = value
-
-    def evaluate(self):
-        pass
