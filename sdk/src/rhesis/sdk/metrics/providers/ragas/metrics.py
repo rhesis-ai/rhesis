@@ -12,8 +12,10 @@ from rhesis.sdk.models import BaseLLM
 class RagasContextRelevance(RagasMetricBase):
     """Ragas implementation of Context Relevance metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="context_relevance", metric_type=MetricType.RAG, model=model)
+        super().__init__(name="context_relevance", metric_type=self.metric_type, model=model)
         self.threshold = threshold
         self.scorer = ContextRelevance(llm=self.model)
         # Initialize Ragas specific implementation
@@ -43,8 +45,10 @@ class RagasContextRelevance(RagasMetricBase):
 class RagasAnswerAccuracy(RagasMetricBase):
     """Ragas implementation of Answer Accuracy metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="answer_accuracy", metric_type=MetricType.RAG, model=model)
+        super().__init__(name="answer_accuracy", metric_type=self.metric_type, model=model)
         self.scorer = AnswerAccuracy(llm=self.model)
         self.threshold = threshold
         # Initialize Ragas specific implementation
@@ -80,8 +84,10 @@ class RagasAnswerAccuracy(RagasMetricBase):
 class RagasFaithfulness(RagasMetricBase):
     """Ragas implementation of Faithfulness metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="faithfulness", metric_type=MetricType.RAG, model=model)
+        super().__init__(name="faithfulness", metric_type=self.metric_type, model=model)
         self.scorer = Faithfulness(llm=self.model)
         self.threshold = threshold
         # Initialize Ragas specific implementation
@@ -117,6 +123,8 @@ class RagasFaithfulness(RagasMetricBase):
 class RagasAspectCritic(RagasMetricBase):
     """Ragas implementation of AspectCritic metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(
         self,
         threshold: float = 0.5,
@@ -124,7 +132,7 @@ class RagasAspectCritic(RagasMetricBase):
         name: str = "aspect_critic",
         definition: str = "Is the submission intended to harm, deceive, or exploit users?",
     ):
-        super().__init__(name=name, metric_type=MetricType.RAG, model=model)
+        super().__init__(name=name, metric_type=self.metric_type, model=model)
         self.scorer = AspectCritic(name=name, definition=definition, llm=self.model)
         self.threshold = threshold
 
