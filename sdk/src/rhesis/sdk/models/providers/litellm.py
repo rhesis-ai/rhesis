@@ -1,5 +1,5 @@
 import json
-from typing import Optional
+from typing import Optional, Type, Union
 
 import litellm
 from litellm import completion
@@ -47,10 +47,10 @@ class LiteLLM(BaseLLM):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        schema: Optional[BaseModel] = None,
+        schema: Optional[Type[BaseModel]] = None,
         *args,
         **kwargs,
-    ):
+    ) -> Union[str, dict]:
         """
         Run a chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
@@ -72,7 +72,7 @@ class LiteLLM(BaseLLM):
             **kwargs,
         )
 
-        response_content = response.choices[0].message.content
+        response_content = response.choices[0].message.content  # type: ignore
         if schema:
             response_content = json.loads(response_content)
             validate_llm_response(response_content, schema)
