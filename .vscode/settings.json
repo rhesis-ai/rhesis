@@ -25,6 +25,7 @@
         "--ignore=tests/sdk/test_behavior.py",
         "--ignore=tests/sdk/test_topic.py",
         "--ignore=tests/sdk/synthesizers",
+        "--ignore=tests/sdk/tests",
         "--ignore=sdk",
         "--ignore=apps/"
     ],
