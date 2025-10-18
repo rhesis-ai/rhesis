@@ -18,7 +18,6 @@ class RagasContextRelevance(RagasMetricBase):
         super().__init__(name="context_relevance", metric_type=self.metric_type, model=model)
         self.threshold = threshold
         self.scorer = ContextRelevance(llm=self.model)
-        # Initialize Ragas specific implementation
 
     @retry_evaluation()
     def evaluate(self, input: str, context: List[str]) -> MetricResult:
@@ -31,7 +30,6 @@ class RagasContextRelevance(RagasMetricBase):
         return MetricResult(
             score=score,
             details={
-                # "reason": "Not implemented yet",
                 "is_successful": is_successful,
                 "threshold": self.threshold,
             },
@@ -156,7 +154,3 @@ class RagasAspectCritic(RagasMetricBase):
                 "threshold": self.threshold,
             },
         )
-
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
