@@ -1,12 +1,9 @@
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from deepeval.test_case.llm_test_case import LLMTestCase
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricType
+from rhesis.sdk.metrics.base import BaseMetric, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.deepeval.model import DeepEvalModelWrapper
-
-# from rhesis.sdk.metrics.providers.deepeval.model_factory import get_model_from_config
-from rhesis.sdk.models.base import BaseLLM
 
 
 class DeepEvalMetricBase(BaseMetric):
@@ -14,27 +11,21 @@ class DeepEvalMetricBase(BaseMetric):
 
     def __init__(
         self,
-        name: str,
-        threshold: float = 0.5,
-        metric_type: MetricType = MetricType.RAG,
-        model: Optional[Union[BaseLLM, str]] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        score_type: Optional[Union[str, ScoreType]] = None,
+        metric_type: Optional[Union[str, MetricType]] = None,
+        model: Optional[Any] = None,
     ):
-        super().__init__(name=name, metric_type=metric_type, model=model)
+        super().__init__(
+            name=name,
+            description=description,
+            score_type=score_type,
+            metric_type=metric_type,
+            model=model,
+        )
         self._metric = None  # Will be set by child classes
-        self.threshold = threshold  # Use setter for validation
         self._deepeval_model = DeepEvalModelWrapper(self.model)
-
-    @property
-    def threshold(self) -> float:
-        return self._threshold
-
-    @threshold.setter
-    def threshold(self, value: float):
-        if not 0 <= value <= 1:
-            raise ValueError("Threshold must be between 0 and 1")
-        self._threshold = value
-        if self._metric:
-            self._metric.threshold = value
 
     @property
     def is_successful(self) -> bool:
@@ -69,7 +60,7 @@ class DeepEvalMetricBase(BaseMetric):
         """Create a DeepEval test case from input parameters."""
         return LLMTestCase(
             input=input,
-            actual_output=output,
+            actual_output=output,  # type: ignore
             expected_output=expected_output,
             retrieval_context=context,
         )
