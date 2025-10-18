@@ -20,13 +20,13 @@ class RhesisPromptMetricBase(BaseMetric):
 
     def __init__(
         self,
+        evaluation_prompt: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
         score_type: Optional[Union[str, ScoreType]] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
         requires_ground_truth: Optional[bool] = None,
         requires_context: Optional[bool] = None,
-        evaluation_prompt: Optional[str] = None,
         evaluation_steps: Optional[str] = None,
         reasoning: Optional[str] = None,
         evaluation_examples: Optional[str] = None,
