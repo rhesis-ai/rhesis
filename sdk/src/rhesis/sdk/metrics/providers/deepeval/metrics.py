@@ -60,6 +60,7 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
     """DeepEval implementation of Faithfulness metric."""
 
     metric_type = MetricType.RAG
+    requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(name="Faithfulness", metric_type=self.metric_type, model=model)
@@ -84,15 +85,12 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
-
 
 class DeepEvalContextualRelevancy(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Relevancy metric."""
 
     metric_type = MetricType.RAG
+    requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
@@ -120,15 +118,12 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
-
 
 class DeepEvalContextualPrecision(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Precision metric."""
 
     metric_type = MetricType.RAG
+    requires_ground_truth = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
@@ -158,15 +153,12 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return True
-
 
 class DeepEvalContextualRecall(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Recall metric."""
 
     metric_type = MetricType.RAG
+    requires_ground_truth = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
@@ -196,15 +188,12 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
-
 
 class DeepEvalBias(DeepEvalMetricBase):
     """DeepEval implementation of Bias metric."""
 
     metric_type = MetricType.GENERATION
+    requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
@@ -232,15 +221,12 @@ class DeepEvalBias(DeepEvalMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
-
 
 class DeepEvalToxicity(DeepEvalMetricBase):
     """DeepEval implementation of Toxicity metric."""
 
     metric_type = MetricType.CLASSIFICATION
+    requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
@@ -273,6 +259,7 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
     """DeepEval implementation of Non-Advice metric."""
 
     metric_type = MetricType.CLASSIFICATION
+    requires_ground_truth = False
 
     def __init__(
         self,
@@ -306,10 +293,6 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
                 "threshold": self.threshold,
             },
         )
-
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
 
 
 class DeepEvalMisuse(DeepEvalMetricBase):
@@ -348,15 +331,12 @@ class DeepEvalMisuse(DeepEvalMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
-
 
 class DeepEvalPIILeakage(DeepEvalMetricBase):
     """DeepEval implementation of PII Leakage metric."""
 
     metric_type = MetricType.CLASSIFICATION
+    requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
@@ -384,15 +364,12 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
             },
         )
 
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
-
 
 class DeepEvalRoleViolation(DeepEvalMetricBase):
     """DeepEval implementation of Role Violation metric."""
 
     metric_type = MetricType.CLASSIFICATION
+    requires_ground_truth = False
 
     def __init__(
         self,
@@ -426,7 +403,3 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
                 "threshold": self.threshold,
             },
         )
-
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
