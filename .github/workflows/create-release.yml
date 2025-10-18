@@ -1,4 +1,4 @@
-name: Release - 2. Create and deploy (stg)
+name: "[Release] 2. Create and deploy (stg)"
 
 on:
   workflow_dispatch:  # Allows manual triggering
