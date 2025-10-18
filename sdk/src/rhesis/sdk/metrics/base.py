@@ -162,7 +162,6 @@ class BaseMetric(ABC):
         score_type: Optional[Union[str, ScoreType]] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
         model: Optional[Any] = None,
-        **kwargs,
     ):
         self.name = name
         self.description = description
@@ -197,10 +196,8 @@ class BaseMetric(ABC):
     @abstractmethod
     def evaluate(
         self,
-        input: str,
-        output: str,
-        expected_output: Optional[str] = None,
-        context: Optional[List[str]] = None,
+        *args: Any,
+        **kwargs: Any,
     ) -> MetricResult:
         """
         Evaluate the metric on the given input, output, and context.
