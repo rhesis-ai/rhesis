@@ -59,6 +59,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             ValueError: If the number of passing_categories exceeds categories
         """
         super().__init__(
+            evaluation_prompt=evaluation_prompt,
             name=name,
             description=description,
             score_type=SCORE_TYPE,
@@ -145,7 +146,12 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             )
 
     def _get_prompt_template(
-        self, input: str, output: str, expected_output: str, context: Optional[List[str]] = None
+        self,
+        input: str,
+        output: str,
+        expected_output: str,
+        context: Optional[List[str]] = None,
+        **additional_template_vars,
     ) -> str:
         """
         Generate the prompt to be sent to the LLM using a Jinja template.
@@ -249,16 +255,16 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
                 "ScoreResponseCategorical", score=(score_literal, ...), reason=(str, ...)
             )
             response = self.model.generate(prompt, schema=ScoreResponseCategorical)
-            response = ScoreResponseCategorical(**response)
+            response = ScoreResponseCategorical(**response)  # type: ignore[arg-type]
 
             # Get the score directly from the response
-            score = response.score
-            reason = response.reason
+            score = response.score  # type: ignore[attr-defined]
+            reason = response.reason  # type: ignore[attr-defined]
 
             # Check if the evaluation meets the reference score using the base class method
             is_successful = self._evaluate_score(
                 score=score,
-                passing_categories=self.passing_categories,
+                passing_categories=self.passing_categories,  # type: ignore[arg-type]§
             )
 
             # Update details with success-specific fields
@@ -312,6 +318,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             evaluation_steps=config.evaluation_steps,
             reasoning=config.reasoning,
             evaluation_examples=config.evaluation_examples,
-            categories=config.parameters.get("categories"),
-            passing_categories=config.parameters.get("passing_categories"),
+            categories=config.parameters.get("categories"),  # type: ignore[arg-type]
+            passing_categories=config.parameters.get("passing_categories"),  # type: ignore[arg-type]
         )

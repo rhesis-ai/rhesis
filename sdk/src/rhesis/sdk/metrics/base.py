@@ -20,7 +20,7 @@ Also, the method retry_evaluationmight be better placed in a utils type of modul
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
@@ -67,8 +67,9 @@ class MetricConfig:
     - metric_type
     """
 
-    # Backend required items
+    evaluation_prompt: str
 
+    # Backend required items
     class_name: Optional[str] = None
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
 
@@ -87,15 +88,14 @@ class MetricConfig:
     metric_type: Optional[Union[str, MetricType]] = None  # string or enum
     """The type of the metric eg. rag, generation, classification"""
 
-    ground_truth_required: Optional[bool] = False
+    requires_ground_truth: Optional[bool] = False
     """Whether the metric requires a ground truth reference"""
 
-    context_required: Optional[bool] = False
+    requires_context: Optional[bool] = False
     """Whether the metric requires a context"""
 
     # Custom parameters
 
-    evaluation_prompt: str = None
     """The evaluation prompt for the metric"""
 
     evaluation_steps: Optional[str] = None
@@ -126,7 +126,7 @@ class MetricConfig:
             )
 
     def _validate_enum_value(
-        self, value: Union[str, Enum], enum_class: type, field_name: str
+        self, value: Union[str, Enum], enum_class: Type[Enum], field_name: str
     ) -> str:
         if isinstance(value, str):
             try:
@@ -144,7 +144,7 @@ class MetricConfig:
 class MetricResult:
     """Result of a metric evaluation."""
 
-    def __init__(self, score: float, details: Dict[str, Any] = None):
+    def __init__(self, score: Optional[float] = None, details: Optional[Dict[str, Any]] = None):
         self.score = score
         self.details = details or {}
 
@@ -155,55 +155,57 @@ class MetricResult:
 class BaseMetric(ABC):
     """Base class for all evaluation metrics."""
 
+    # Type annotations for instance variables (after conversion)
+    score_type: Optional[ScoreType]
+    metric_type: Optional[MetricType]
+
     def __init__(
         self,
         name: Optional[str] = None,
         description: Optional[str] = None,
         score_type: Optional[Union[str, ScoreType]] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
-        model: Optional[Union[BaseLLM, str]] = None,
-        **kwargs,
+        model: Optional[Any] = None,
     ):
         self.name = name
         self.description = description
 
-        self.score_type = score_type
-        if isinstance(self.score_type, str):
+        # Convert score_type to enum if it's a string
+        if isinstance(score_type, str):
             try:
-                self.score_type = ScoreType(self.score_type)
+                self.score_type = ScoreType(score_type)
             except ValueError:
                 allowed = [member.value for member in ScoreType]
                 raise ValueError(
-                    f"Invalid score_type value: {self.score_type}. Allowed values: {allowed}"
+                    f"Invalid score_type value: {score_type}. Allowed values: {allowed}"
                 )
+        else:
+            self.score_type = score_type
 
-        self.metric_type = metric_type
-        if isinstance(self.metric_type, str):
+        # Convert metric_type to enum if it's a string
+        if isinstance(metric_type, str):
             try:
-                self.metric_type = MetricType(self.metric_type)
+                self.metric_type = MetricType(metric_type)
             except ValueError:
                 allowed = [member.value for member in MetricType]
                 raise ValueError(
-                    f"Invalid metric_type value: {self.metric_type}. Allowed values: {allowed}"
+                    f"Invalid metric_type value: {metric_type}. Allowed values: {allowed}"
                 )
+        else:
+            self.metric_type = metric_type
 
         self.model = self.set_model(model)
 
     def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
-        if model is None:
-            return get_model()  # Use default model
         if isinstance(model, BaseLLM):
             return model
-        elif isinstance(model, str) or model is None:
-            return get_model(model)
-        else:
-            raise ValueError(f"Invalid model type: {type(model)}")
+        return get_model(model)
 
     @abstractmethod
     def evaluate(
         self,
-        input: str,
-        output: str,
+        *args: Any,
+        **kwargs: Any,
     ) -> MetricResult:
         """
         Evaluate the metric on the given input, output, and context.
@@ -211,6 +213,8 @@ class BaseMetric(ABC):
         Args:
             input: The input query/question
             output: The system output/response
+            expected_output: Optional ground truth/reference output
+            context: Optional list of context strings
 
         Returns:
             MetricResult: The evaluation result

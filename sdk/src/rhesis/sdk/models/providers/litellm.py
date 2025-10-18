@@ -1,12 +1,15 @@
 import json
-from typing import Optional
+from typing import Optional, Type, Union
 
+import litellm
 from litellm import completion
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.utils import validate_llm_response
+
+litellm.suppress_debug_info = True
 
 
 class LiteLLM(BaseLLM):
@@ -44,10 +47,10 @@ class LiteLLM(BaseLLM):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        schema: Optional[BaseModel] = None,
+        schema: Optional[Type[BaseModel]] = None,
         *args,
         **kwargs,
-    ):
+    ) -> Union[str, dict]:
         """
         Run a chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
@@ -69,7 +72,7 @@ class LiteLLM(BaseLLM):
             **kwargs,
         )
 
-        response_content = response.choices[0].message.content
+        response_content = response.choices[0].message.content  # type: ignore
         if schema:
             response_content = json.loads(response_content)
             validate_llm_response(response_content, schema)

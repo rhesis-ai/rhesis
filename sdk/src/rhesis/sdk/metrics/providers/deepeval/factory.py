@@ -7,6 +7,11 @@ from rhesis.sdk.metrics.providers.deepeval.metrics import (
     DeepEvalContextualRecall,
     DeepEvalContextualRelevancy,
     DeepEvalFaithfulness,
+    DeepEvalMisuse,
+    DeepEvalNonAdvice,
+    DeepEvalPIILeakage,
+    DeepEvalRoleViolation,
+    DeepEvalToxicity,
 )
 
 
@@ -19,6 +24,11 @@ class DeepEvalMetricFactory(BaseMetricFactory):
         "DeepEvalContextualRelevancy": DeepEvalContextualRelevancy,
         "DeepEvalContextualPrecision": DeepEvalContextualPrecision,
         "DeepEvalContextualRecall": DeepEvalContextualRecall,
+        "DeepEvalToxicity": DeepEvalToxicity,
+        "DeepEvalNonAdvice": DeepEvalNonAdvice,
+        "DeepEvalMisuse": DeepEvalMisuse,
+        "DeepEvalPIILeakage": DeepEvalPIILeakage,
+        "DeepEvalRoleViolation": DeepEvalRoleViolation,
     }
 
     # Define which parameters each metric class accepts
@@ -29,6 +39,11 @@ class DeepEvalMetricFactory(BaseMetricFactory):
         "DeepEvalContextualRelevancy": {"threshold"},
         "DeepEvalContextualPrecision": {"threshold"},
         "DeepEvalContextualRecall": {"threshold"},
+        "DeepEvalToxicity": {"threshold"},
+        "DeepEvalNonAdvice": {"threshold"},
+        "DeepEvalMisuse": {"threshold"},
+        "DeepEvalPIILeakage": {"threshold"},
+        "DeepEvalRoleViolation": {"threshold"},
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
