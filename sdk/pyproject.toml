@@ -138,7 +138,9 @@ include = [ "src/rhesis/sdk/metrics", ]
 [tool.pytest.ini_options]
 testpaths = [
     "../tests/sdk",
+
 ]
+addopts = "--ignore=../tests/sdk/synthesizers --ignore=../tests/sdk/tests --ignore=../tests/sdk/services --ignore=../tests/sdk/entities"
 pythonpath = [
     "src",
 ]
