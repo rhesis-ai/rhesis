@@ -1,12 +1,15 @@
 import json
 from typing import Optional
 
+import litellm
 from litellm import completion
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.utils import validate_llm_response
+
+litellm.suppress_debug_info = True
 
 
 class LiteLLM(BaseLLM):
