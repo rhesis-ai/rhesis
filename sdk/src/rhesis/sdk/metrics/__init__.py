@@ -8,7 +8,6 @@ from rhesis.sdk.metrics.constants import (
     ScoreType,
     ThresholdOperator,
 )
-from rhesis.sdk.metrics.evaluator import MetricEvaluator as Evaluator
 from rhesis.sdk.metrics.factory import MetricFactory
 from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
 from rhesis.sdk.metrics.providers.deepeval.metrics import (
@@ -36,8 +35,6 @@ from rhesis.sdk.metrics.providers.ragas.metrics import (
     RagasContextRelevance,
     RagasFaithfulness,
 )
-from rhesis.sdk.metrics.score_evaluator import ScoreEvaluator
-from rhesis.sdk.metrics.utils import diagnose_invalid_metric, run_evaluation
 
 __all__ = [
     # Base metrics
@@ -47,15 +44,11 @@ __all__ = [
     "MetricConfigLoader",
     "MetricFactory",
     # Evaluation
-    "Evaluator",
-    "ScoreEvaluator",
-    "run_evaluation",
     # Types and utilities
     "ScoreType",
     "ThresholdOperator",
     "OPERATOR_MAP",
     "VALID_OPERATORS_BY_SCORE_TYPE",
-    "diagnose_invalid_metric",
     # DeepEval metrics
     "DeepEvalMetricFactory",
     "DeepEvalAnswerRelevancy",
