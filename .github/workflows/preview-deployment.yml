@@ -1,4 +1,4 @@
-name: Preview CI/CD
+name: "[Deploy] Preview"
 
 # Preview deployment for both backend and frontend
 # This ensures frontend gets the correct backend preview URL
