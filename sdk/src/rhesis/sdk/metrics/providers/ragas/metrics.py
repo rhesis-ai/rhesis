@@ -13,9 +13,8 @@ class RagasContextRelevance(RagasMetricBase):
     """Ragas implementation of Context Relevance metric."""
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(
-            name="context_relevance", threshold=threshold, metric_type=MetricType.RAG, model=model
-        )
+        super().__init__(name="context_relevance", metric_type=MetricType.RAG, model=model)
+        self.threshold = threshold
         self.scorer = ContextRelevance(llm=self.model)
         # Initialize Ragas specific implementation
 
@@ -26,13 +25,13 @@ class RagasContextRelevance(RagasMetricBase):
             retrieved_contexts=context,
         )
         score = self.scorer.single_turn_score(sample)
-        is_successful = score >= self._threshold
+        is_successful = score >= self.threshold
         return MetricResult(
             score=score,
             details={
                 # "reason": "Not implemented yet",
                 "is_successful": is_successful,
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -45,10 +44,9 @@ class RagasAnswerAccuracy(RagasMetricBase):
     """Ragas implementation of Answer Accuracy metric."""
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(
-            name="answer_accuracy", threshold=threshold, metric_type=MetricType.RAG, model=model
-        )
+        super().__init__(name="answer_accuracy", metric_type=MetricType.RAG, model=model)
         self.scorer = AnswerAccuracy(llm=self.model)
+        self.threshold = threshold
         # Initialize Ragas specific implementation
 
     @retry_evaluation()
@@ -64,13 +62,13 @@ class RagasAnswerAccuracy(RagasMetricBase):
             reference=expected_output,
         )
         score = self.scorer.single_turn_score(sample)
-        is_successful = score >= self._threshold
+        is_successful = score >= self.threshold
         return MetricResult(
             score=score,
             details={
                 # "reason": "Not implemented yet",
                 "is_successful": is_successful,
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -83,10 +81,9 @@ class RagasFaithfulness(RagasMetricBase):
     """Ragas implementation of Faithfulness metric."""
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(
-            name="faithfulness", threshold=threshold, metric_type=MetricType.RAG, model=model
-        )
+        super().__init__(name="faithfulness", metric_type=MetricType.RAG, model=model)
         self.scorer = Faithfulness(llm=self.model)
+        self.threshold = threshold
         # Initialize Ragas specific implementation
 
     @retry_evaluation()
@@ -102,13 +99,13 @@ class RagasFaithfulness(RagasMetricBase):
             retrieved_contexts=context,
         )
         score = self.scorer.single_turn_score(sample)
-        is_successful = score >= self._threshold
+        is_successful = score >= self.threshold
         return MetricResult(
             score=score,
             details={
                 # "reason": "Not implemented yet",
                 "is_successful": is_successful,
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -127,9 +124,9 @@ class RagasAspectCritic(RagasMetricBase):
         name: str = "aspect_critic",
         definition: str = "Is the submission intended to harm, deceive, or exploit users?",
     ):
-        super().__init__(name=name, threshold=threshold, metric_type=MetricType.RAG, model=model)
+        super().__init__(name=name, metric_type=MetricType.RAG, model=model)
         self.scorer = AspectCritic(name=name, definition=definition, llm=self.model)
-        # Initialize Ragas specific implementation
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -142,13 +139,13 @@ class RagasAspectCritic(RagasMetricBase):
             response=output,
         )
         score = self.scorer.single_turn_score(sample)
-        is_successful = score >= self._threshold
+        is_successful = score >= self.threshold
         return MetricResult(
             score=score,
             details={
                 # "reason": "Not implemented yet",
                 "is_successful": is_successful,
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
