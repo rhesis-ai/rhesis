@@ -23,10 +23,12 @@ from rhesis.sdk.models.base import BaseLLM
 class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
     """DeepEval implementation of Answer Relevancy metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Answer Relevancy",
-            metric_type=MetricType.RAG,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = AnswerRelevancyMetric(threshold=threshold, model=self._deepeval_model)
@@ -57,8 +59,10 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
 class DeepEvalFaithfulness(DeepEvalMetricBase):
     """DeepEval implementation of Faithfulness metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="Faithfulness", metric_type=MetricType.RAG, model=model)
+        super().__init__(name="Faithfulness", metric_type=self.metric_type, model=model)
         self._metric = FaithfulnessMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
@@ -88,10 +92,12 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
 class DeepEvalContextualRelevancy(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Relevancy metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Relevancy",
-            metric_type=MetricType.RAG,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = ContextualRelevancyMetric(threshold=threshold, model=self._deepeval_model)
@@ -122,10 +128,12 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
 class DeepEvalContextualPrecision(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Precision metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Precision",
-            metric_type=MetricType.RAG,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = ContextualPrecisionMetric(threshold=threshold, model=self._deepeval_model)
@@ -158,10 +166,12 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
 class DeepEvalContextualRecall(DeepEvalMetricBase):
     """DeepEval implementation of Contextual Recall metric."""
 
+    metric_type = MetricType.RAG
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Recall",
-            metric_type=MetricType.RAG,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = ContextualRecallMetric(threshold=threshold, model=self._deepeval_model)
@@ -194,10 +204,12 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
 class DeepEvalBias(DeepEvalMetricBase):
     """DeepEval implementation of Bias metric."""
 
+    metric_type = MetricType.GENERATION
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Bias",
-            metric_type=MetricType.GENERATION,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = BiasMetric(threshold=threshold, model=self._deepeval_model)
@@ -228,10 +240,12 @@ class DeepEvalBias(DeepEvalMetricBase):
 class DeepEvalToxicity(DeepEvalMetricBase):
     """DeepEval implementation of Toxicity metric."""
 
+    metric_type = MetricType.CLASSIFICATION
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Toxicity",
-            metric_type=MetricType.GENERATION,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = ToxicityMetric(threshold=threshold, model=self._deepeval_model)
@@ -258,6 +272,8 @@ class DeepEvalToxicity(DeepEvalMetricBase):
 class DeepEvalNonAdvice(DeepEvalMetricBase):
     """DeepEval implementation of Non-Advice metric."""
 
+    metric_type = MetricType.CLASSIFICATION
+
     def __init__(
         self,
         advice_types: List[str],
@@ -266,7 +282,7 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
     ):
         super().__init__(
             name="Non-Advice",
-            metric_type=MetricType.GENERATION,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = NonAdviceMetric(
@@ -299,6 +315,8 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
 class DeepEvalMisuse(DeepEvalMetricBase):
     """DeepEval implementation of Misuse metric."""
 
+    metric_type = MetricType.CLASSIFICATION
+
     def __init__(
         self,
         domain: str = "general",
@@ -307,7 +325,7 @@ class DeepEvalMisuse(DeepEvalMetricBase):
     ):
         super().__init__(
             name="Misuse",
-            metric_type=MetricType.GENERATION,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = MisuseMetric(domain=domain, threshold=threshold, model=self._deepeval_model)
@@ -338,10 +356,12 @@ class DeepEvalMisuse(DeepEvalMetricBase):
 class DeepEvalPIILeakage(DeepEvalMetricBase):
     """DeepEval implementation of PII Leakage metric."""
 
+    metric_type = MetricType.CLASSIFICATION
+
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="PII Leakage",
-            metric_type=MetricType.GENERATION,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = PIILeakageMetric(threshold=threshold, model=self._deepeval_model)
@@ -372,6 +392,8 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
 class DeepEvalRoleViolation(DeepEvalMetricBase):
     """DeepEval implementation of Role Violation metric."""
 
+    metric_type = MetricType.CLASSIFICATION
+
     def __init__(
         self,
         role: str,
@@ -380,7 +402,7 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
     ):
         super().__init__(
             name="Role Violation",
-            metric_type=MetricType.GENERATION,
+            metric_type=self.metric_type,
             model=model,
         )
         self._metric = RoleViolationMetric(
