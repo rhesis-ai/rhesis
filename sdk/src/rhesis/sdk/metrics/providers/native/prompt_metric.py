@@ -48,8 +48,8 @@ class RhesisPromptMetricBase(BaseMetric):
     def __repr__(self) -> str:
         return str(self.to_config())
 
-    def evaluate(self):
-        pass
+    def evaluate(self, *args, **kwargs) -> MetricResult:
+        raise NotImplementedError("Subclasses should override this method")
 
     def _validate_evaluate_inputs(
         self,
