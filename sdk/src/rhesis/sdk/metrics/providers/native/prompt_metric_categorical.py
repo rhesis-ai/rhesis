@@ -59,6 +59,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             ValueError: If the number of passing_categories exceeds categories
         """
         super().__init__(
+            evaluation_prompt=evaluation_prompt,
             name=name,
             description=description,
             score_type=SCORE_TYPE,

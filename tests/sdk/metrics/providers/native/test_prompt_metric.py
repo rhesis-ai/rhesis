@@ -8,6 +8,7 @@ from rhesis.sdk.models.providers.gemini import GeminiLLM
 def metric(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test")
     return RhesisPromptMetricBase(
+        evaluation_prompt="test_prompt",
         name="test_metric",
         description="test_description",
         score_type="numeric",
@@ -20,6 +21,7 @@ def metric(monkeypatch):
 def test_prompt_metric_base__init__(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     metric = RhesisPromptMetricBase(
+        evaluation_prompt="test_prompt",
         name="test_metric",
         description="test_description",
         score_type="numeric",

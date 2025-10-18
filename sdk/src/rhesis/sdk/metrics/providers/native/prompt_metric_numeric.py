@@ -70,6 +70,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             ValueError: If threshold_operator string is invalid
         """
         super().__init__(
+            evaluation_prompt=evaluation_prompt,
             name=name,
             description=description,
             metric_type=METRIC_TYPE,
