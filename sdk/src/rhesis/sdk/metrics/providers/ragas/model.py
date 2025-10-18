@@ -55,7 +55,7 @@ class CustomLLM(LLM):
             The model output as a string. Actual completions SHOULD NOT include the prompt.
         """
         response = self.rhesis_model.generate(prompt)
-        return response
+        return str(response)
 
     @property
     def _llm_type(self) -> str:
