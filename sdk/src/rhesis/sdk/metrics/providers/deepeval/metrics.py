@@ -26,11 +26,11 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Answer Relevancy",
-            threshold=threshold,
             metric_type=MetricType.RAG,
             model=model,
         )
         self._metric = AnswerRelevancyMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -45,7 +45,7 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -58,10 +58,9 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
     """DeepEval implementation of Faithfulness metric."""
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(
-            name="Faithfulness", threshold=threshold, metric_type=MetricType.RAG, model=model
-        )
+        super().__init__(name="Faithfulness", metric_type=MetricType.RAG, model=model)
         self._metric = FaithfulnessMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -77,7 +76,7 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -92,11 +91,11 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Relevancy",
-            threshold=threshold,
             metric_type=MetricType.RAG,
             model=model,
         )
         self._metric = ContextualRelevancyMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -111,7 +110,7 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -126,11 +125,11 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Precision",
-            threshold=threshold,
             metric_type=MetricType.RAG,
             model=model,
         )
         self._metric = ContextualPrecisionMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -147,7 +146,7 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -162,11 +161,11 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Recall",
-            threshold=threshold,
             metric_type=MetricType.RAG,
             model=model,
         )
         self._metric = ContextualRecallMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -183,7 +182,7 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -198,11 +197,11 @@ class DeepEvalBias(DeepEvalMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Bias",
-            threshold=threshold,
             metric_type=MetricType.GENERATION,
             model=model,
         )
         self._metric = BiasMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -217,7 +216,7 @@ class DeepEvalBias(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -232,11 +231,11 @@ class DeepEvalToxicity(DeepEvalMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Toxicity",
-            threshold=threshold,
             metric_type=MetricType.GENERATION,
             model=model,
         )
         self._metric = ToxicityMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -251,7 +250,7 @@ class DeepEvalToxicity(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -267,13 +266,13 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
     ):
         super().__init__(
             name="Non-Advice",
-            threshold=threshold,
             metric_type=MetricType.GENERATION,
             model=model,
         )
         self._metric = NonAdviceMetric(
             advice_types=advice_types, threshold=threshold, model=self._deepeval_model
         )
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -288,7 +287,7 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -308,11 +307,11 @@ class DeepEvalMisuse(DeepEvalMetricBase):
     ):
         super().__init__(
             name="Misuse",
-            threshold=threshold,
             metric_type=MetricType.GENERATION,
             model=model,
         )
         self._metric = MisuseMetric(domain=domain, threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -327,7 +326,7 @@ class DeepEvalMisuse(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -342,11 +341,11 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="PII Leakage",
-            threshold=threshold,
             metric_type=MetricType.GENERATION,
             model=model,
         )
         self._metric = PIILeakageMetric(threshold=threshold, model=self._deepeval_model)
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -361,7 +360,7 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
@@ -381,13 +380,13 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
     ):
         super().__init__(
             name="Role Violation",
-            threshold=threshold,
             metric_type=MetricType.GENERATION,
             model=model,
         )
         self._metric = RoleViolationMetric(
             role=role, threshold=threshold, model=self._deepeval_model
         )
+        self.threshold = threshold
 
     @retry_evaluation()
     def evaluate(
@@ -402,7 +401,7 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
             details={
                 "reason": self._metric.reason,
                 "is_successful": self._metric.is_successful(),
-                "threshold": self._threshold,
+                "threshold": self.threshold,
             },
         )
 
