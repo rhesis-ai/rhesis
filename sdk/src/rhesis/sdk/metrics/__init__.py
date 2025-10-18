@@ -64,6 +64,7 @@ __all__ = [
     "DeepEvalContextualRecall",
     "DeepEvalContextualRelevancy",
     "DeepEvalFaithfulness",
+    "DeepEvalBias",
     "DeepEvalMisuse",
     "DeepEvalNonAdvice",
     "DeepEvalPIILeakage",
