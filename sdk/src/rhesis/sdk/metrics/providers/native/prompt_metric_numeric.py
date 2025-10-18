@@ -153,7 +153,12 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             raise ValueError(f"Threshold must be between {self.min_score} and {self.max_score}")
 
     def _get_prompt_template(
-        self, input: str, output: str, expected_output: str, context: List[str] = None
+        self,
+        input: str,
+        output: str,
+        expected_output: str,
+        context: Optional[List[str]] = None,
+        **additional_template_vars,
     ) -> str:
         """
         Generate the prompt to be sent to the LLM using a Jinja template.
@@ -180,7 +185,11 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         )
 
     def evaluate(
-        self, input: str, output: str, expected_output: Optional[str], context: List[str] = None
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str],
+        context: Optional[List[str]] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -245,7 +254,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         try:
             # Run the evaluation with structured response model
             response = self.model.generate(prompt, schema=NumericScoreResponse)
-            response = NumericScoreResponse(**response)
+            response = NumericScoreResponse(**response)  # type: ignore
 
             # Get the score directly from the response
             score = response.score
@@ -312,5 +321,20 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             min_score=config.parameters.get("min_score"),
             max_score=config.parameters.get("max_score"),
             threshold=config.parameters.get("threshold"),
-            threshold_operator=config.parameters.get("threshold_operator"),
+            threshold_operator=config.parameters.get(
+                "threshold_operator", ThresholdOperator.GREATER_THAN_OR_EQUAL
+            ),
         )
+
+
+if __name__ == "__main__":
+
+    class TestSchema(BaseModel):
+        score: float
+        reason: str
+
+    output = {
+        "score": 0.5,
+        "reason": "This is a test reason",
+    }
+    response = TestSchema(**output)

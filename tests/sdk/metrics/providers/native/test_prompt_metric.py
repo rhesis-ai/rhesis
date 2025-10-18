@@ -12,6 +12,8 @@ def metric(monkeypatch):
         description="test_description",
         score_type="numeric",
         metric_type="rag",
+        requires_ground_truth=True,
+        requires_context=True,
     )
 
 
@@ -36,7 +38,8 @@ def test_prompt_metric_base__init__(monkeypatch):
 def test_validate_evaluate_inputs(metric):
     metric._validate_evaluate_inputs("input", "output", "expected_output")
     metric._validate_evaluate_inputs("input", "output", "expected_output", ["context"])
-    metric.requires_ground_truth = True
+
+    assert hasattr(metric, "requires_ground_truth")
 
     with pytest.raises(ValueError):
         metric._validate_evaluate_inputs(1, "output", "expected_output")
@@ -62,8 +65,8 @@ def test_get_base_details(metric):
 
 
 def test_to_config(metric):
-    metric.ground_truth_required = True
-    metric.context_required = True
+    metric.requires_ground_truth = True
+    metric.requires_context = True
 
     config = metric.to_config()
 
@@ -74,8 +77,8 @@ def test_to_config(metric):
     assert config.description == metric.description
     assert config.score_type == metric.score_type
     assert config.metric_type == metric.metric_type
-    assert config.ground_truth_required == metric.ground_truth_required
-    assert config.context_required == metric.context_required
+    assert config.requires_ground_truth == metric.requires_ground_truth
+    assert config.requires_context == metric.requires_context
     # Custom parameters
     assert config.evaluation_prompt == metric.evaluation_prompt
     assert config.evaluation_steps == metric.evaluation_steps
