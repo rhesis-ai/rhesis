@@ -11,9 +11,9 @@ from rhesis.sdk.metrics.providers.native.prompt_metric_categorical import (
 def metric(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
     return RhesisPromptMetricCategorical(
+        evaluation_prompt="test_prompt",
         name="test_metric",
         description="test_description",
-        evaluation_prompt="test_prompt",
         evaluation_steps="test_steps",
         reasoning="test_reasoning",
         evaluation_examples="test_examples",
