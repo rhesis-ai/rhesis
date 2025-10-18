@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Any, Dict, Union
 
 
 class BaseLLM(ABC):
@@ -17,7 +17,7 @@ class BaseLLM(ABC):
         pass
 
     @abstractmethod
-    def generate(self, *args, **kwargs) -> Union[str, dict]:
+    def generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
         """Runs the model to output LLM response.
 
         Returns:
