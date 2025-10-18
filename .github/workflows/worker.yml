@@ -1,4 +1,4 @@
-name: Worker CI/CD
+name: "[Deploy] Worker"
 
 on:
   push:
