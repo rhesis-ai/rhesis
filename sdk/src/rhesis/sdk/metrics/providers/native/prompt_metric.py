@@ -24,10 +24,12 @@ class RhesisPromptMetricBase(BaseMetric):
         description: Optional[str] = None,
         score_type: Optional[Union[str, ScoreType]] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
+        requires_ground_truth: Optional[bool] = None,
+        requires_context: Optional[bool] = None,
         evaluation_prompt: Optional[str] = None,
         evaluation_steps: Optional[str] = None,
         reasoning: Optional[str] = None,
-        evaluation_examples: Optional[List[str]] = None,
+        evaluation_examples: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
@@ -44,6 +46,9 @@ class RhesisPromptMetricBase(BaseMetric):
         self.evaluation_steps = evaluation_steps
         self.reasoning = reasoning
         self.evaluation_examples = evaluation_examples
+
+        self.requires_ground_truth = requires_ground_truth
+        self.requires_context = requires_context
 
     def __repr__(self) -> str:
         return str(self.to_config())
@@ -76,7 +81,7 @@ class RhesisPromptMetricBase(BaseMetric):
         if not isinstance(output, str):
             raise ValueError("output must be a string")
 
-        if expected_output is None and self.requires_ground_truth:
+        if expected_output is None and self.requires_ground_truth is True:
             raise ValueError(f"{self.name} metric requires ground truth but none was provided")
 
         if context is not None and not isinstance(context, list):
@@ -92,6 +97,8 @@ class RhesisPromptMetricBase(BaseMetric):
         Returns:
             Dict[str, Any]: Base details dictionary
         """
+        if self.score_type is None:
+            raise ValueError("score_type must be set before calling _get_base_details")
         return {
             "score_type": self.score_type.value,
             "prompt": prompt,
@@ -189,6 +196,9 @@ class RhesisPromptMetricBase(BaseMetric):
         except Exception as e:
             raise ValueError(f"Failed to load template: {e}") from e
 
+        if self.score_type is None:
+            raise ValueError("score_type must be set before calling _get_prompt_template")
+
         # Prepare base template variables
         template_vars = {
             "evaluation_prompt": self.evaluation_prompt,
@@ -224,8 +234,8 @@ class RhesisPromptMetricBase(BaseMetric):
             description=self.description,
             score_type=self.score_type,
             metric_type=self.metric_type,
-            ground_truth_required=self.ground_truth_required,
-            context_required=self.context_required,
+            requires_ground_truth=self.requires_ground_truth,
+            requires_context=self.requires_context,
             # Custom parameters
             evaluation_prompt=self.evaluation_prompt,
             evaluation_steps=self.evaluation_steps,
@@ -236,7 +246,8 @@ class RhesisPromptMetricBase(BaseMetric):
 
         return config
 
-    def from_config(self):
+    @classmethod
+    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricBase":
         raise NotImplementedError("Subclasses should override this method")
 
     def to_dict(self) -> Dict[str, Any]:

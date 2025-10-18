@@ -24,6 +24,7 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
     """DeepEval implementation of Answer Relevancy metric."""
 
     metric_type = MetricType.RAG
+    requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
@@ -50,10 +51,6 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
                 "threshold": self.threshold,
             },
         )
-
-    @property
-    def requires_ground_truth(self) -> bool:
-        return False
 
 
 class DeepEvalFaithfulness(DeepEvalMetricBase):
@@ -299,6 +296,7 @@ class DeepEvalMisuse(DeepEvalMetricBase):
     """DeepEval implementation of Misuse metric."""
 
     metric_type = MetricType.CLASSIFICATION
+    requires_ground_truth = False
 
     def __init__(
         self,

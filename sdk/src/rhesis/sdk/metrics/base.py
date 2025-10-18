@@ -67,8 +67,9 @@ class MetricConfig:
     - metric_type
     """
 
-    # Backend required items
+    evaluation_prompt: str
 
+    # Backend required items
     class_name: Optional[str] = None
     """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
 
@@ -87,15 +88,14 @@ class MetricConfig:
     metric_type: Optional[Union[str, MetricType]] = None  # string or enum
     """The type of the metric eg. rag, generation, classification"""
 
-    ground_truth_required: Optional[bool] = False
+    requires_ground_truth: Optional[bool] = False
     """Whether the metric requires a ground truth reference"""
 
-    context_required: Optional[bool] = False
+    requires_context: Optional[bool] = False
     """Whether the metric requires a context"""
 
     # Custom parameters
 
-    evaluation_prompt: Optional[str] = None
     """The evaluation prompt for the metric"""
 
     evaluation_steps: Optional[str] = None
@@ -155,6 +155,10 @@ class MetricResult:
 class BaseMetric(ABC):
     """Base class for all evaluation metrics."""
 
+    # Type annotations for instance variables (after conversion)
+    score_type: Optional[ScoreType]
+    metric_type: Optional[MetricType]
+
     def __init__(
         self,
         name: Optional[str] = None,
@@ -166,25 +170,29 @@ class BaseMetric(ABC):
         self.name = name
         self.description = description
 
-        self.score_type = score_type
-        if isinstance(self.score_type, str):
+        # Convert score_type to enum if it's a string
+        if isinstance(score_type, str):
             try:
-                self.score_type = ScoreType(self.score_type)
+                self.score_type = ScoreType(score_type)
             except ValueError:
                 allowed = [member.value for member in ScoreType]
                 raise ValueError(
-                    f"Invalid score_type value: {self.score_type}. Allowed values: {allowed}"
+                    f"Invalid score_type value: {score_type}. Allowed values: {allowed}"
                 )
+        else:
+            self.score_type = score_type
 
-        self.metric_type = metric_type
-        if isinstance(self.metric_type, str):
+        # Convert metric_type to enum if it's a string
+        if isinstance(metric_type, str):
             try:
-                self.metric_type = MetricType(self.metric_type)
+                self.metric_type = MetricType(metric_type)
             except ValueError:
                 allowed = [member.value for member in MetricType]
                 raise ValueError(
-                    f"Invalid metric_type value: {self.metric_type}. Allowed values: {allowed}"
+                    f"Invalid metric_type value: {metric_type}. Allowed values: {allowed}"
                 )
+        else:
+            self.metric_type = metric_type
 
         self.model = self.set_model(model)
 
