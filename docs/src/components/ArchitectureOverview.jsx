@@ -26,7 +26,8 @@ const architectureComponents = [
   {
     icon: ScienceOutlined,
     title: 'Backend Service',
-    description: 'FastAPI-based backend service providing REST APIs, authentication, and business logic.',
+    description:
+      'FastAPI-based backend service providing REST APIs, authentication, and business logic.',
   },
   {
     icon: CategoryOutlined,
@@ -71,7 +72,10 @@ export const ArchitectureOverview = () => {
   }
 
   return (
-    <div style={styles.container} className="not-prose rhesis-architecture-overview grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div
+      style={styles.container}
+      className="not-prose rhesis-architecture-overview grid grid-cols-1 lg:grid-cols-2 gap-4"
+    >
       {architectureComponents.map(component => (
         <InfoCardHorizontal
           key={component.title}

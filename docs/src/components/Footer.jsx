@@ -52,7 +52,11 @@ const footerData = {
 const legalLinks = [
   { name: 'Imprint', href: 'https://www.rhesis.ai/imprint', external: true },
   { name: 'Privacy', href: 'https://www.rhesis.ai/privacy-policy', external: true },
-  { name: 'Terms', href: 'https://www.rhesis.ai/https://www.rhesis.ai/terms-conditions', external: true },
+  {
+    name: 'Terms',
+    href: 'https://www.rhesis.ai/https://www.rhesis.ai/terms-conditions',
+    external: true,
+  },
 ]
 
 export const Footer = ({

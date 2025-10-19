@@ -80,10 +80,7 @@ export const InfoCardHorizontal = ({
   }
 
   return (
-    <div
-      style={styles.card}
-      className={`info-card-horizontal ${className}`}
-    >
+    <div style={styles.card} className={`info-card-horizontal ${className}`}>
       <div style={styles.iconWrapper}>
         <Icon style={styles.icon} />
       </div>
