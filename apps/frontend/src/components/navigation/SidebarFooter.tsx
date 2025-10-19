@@ -5,7 +5,6 @@ import FeedbackModal from '../common/FeedbackModal';
 
 type SidebarFooterProps = {
   mini?: boolean;
-  sidebarExpandedWidth?: number;
 };
 
 export default function SidebarFooter({
