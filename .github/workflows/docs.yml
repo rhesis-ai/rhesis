@@ -8,13 +8,13 @@ on:
     paths:
       - 'docs/src/**'
       - 'docs/content/**'
-      - '.github/workflows/documentation.yml'
+      - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'docs/src/**'
       - 'docs/content/**'
-      - '.github/workflows/documentation.yml'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
     inputs:
       environment:
