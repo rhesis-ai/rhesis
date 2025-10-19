@@ -3,7 +3,14 @@ import { Box, Button, Typography } from '@mui/material';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import FeedbackModal from '../common/FeedbackModal';
 
-export default function SidebarFooter() {
+type SidebarFooterProps = {
+  mini?: boolean;
+  sidebarExpandedWidth?: number;
+};
+
+export default function SidebarFooter({
+  mini = false,
+}: SidebarFooterProps) {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   const handleOpenFeedbackModal = () => {
@@ -16,47 +23,69 @@ export default function SidebarFooter() {
 
   return (
     <>
-      <Box
-        sx={{
-          padding: 2,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          marginTop: 'auto', // Push to bottom of sidebar
-        }}
-      >
-        <Button
-          fullWidth
-          startIcon={<FeedbackIcon />}
-          onClick={handleOpenFeedbackModal}
+      {mini ? (
+        <Box
           sx={{
-            justifyContent: 'flex-start',
-            color: 'text.secondary',
-            '&:hover': {
-              backgroundColor: 'action.hover',
-              color: 'primary.main',
-            },
-            textTransform: 'none',
+            padding: 1,
+            borderTop: '1px solid',
+            borderColor: 'divider',
           }}
         >
-          <Box
+          <Button
+            onClick={handleOpenFeedbackModal}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              width: '100%',
+              minWidth: '3rem',
+              minHeight: '3rem',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+                color: 'primary.main',
+              },
             }}
           >
-            <Typography variant="body2">Provide Feedback</Typography>
-            <Typography
-              variant="caption"
-              color="text.disabled"
-              sx={{ opacity: 0.6, marginLeft: 'auto' }}
+            <FeedbackIcon sx={{ width: '20px', height: '20px' }} />
+          </Button>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            padding: 2,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          {' '}
+          <Button
+            onClick={handleOpenFeedbackModal}
+            startIcon={<FeedbackIcon />}
+            sx={{
+              minWidth: 0, // allow content to shrink within early expansion frames
+              maxWidth: '100%',
+              color: 'text.secondary',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+                color: 'primary.main',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
             >
-              v{process.env.APP_VERSION || '0.0.0'}
-            </Typography>
-          </Box>
-        </Button>
-      </Box>
+              <Typography variant="body2">Provide Feedback</Typography>
+              <Typography
+                variant="caption"
+                color="text.disabled"
+                sx={{ opacity: 0.6, marginLeft: 'auto' }}
+              >
+                v{process.env.APP_VERSION || '0.0.0'}
+              </Typography>
+            </Box>
+          </Button>
+        </Box>
+      )}
 
       <FeedbackModal
         open={feedbackModalOpen}
