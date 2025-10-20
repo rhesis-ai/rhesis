@@ -185,13 +185,18 @@ export class BaseApiClient {
         if (!response.ok) {
           // Determine if this is an expected validation/client error or an unexpected server error
           // 404 Not Found and 410 Gone are expected states for missing/deleted items
-          const isClientError = [400, 404, 409, 410, 422, 429].includes(response.status);
+          const isClientError = [400, 404, 409, 410, 422, 429].includes(
+            response.status
+          );
           const logLevel = isClientError ? 'warn' : 'error';
           const logPrefix = isClientError ? '[VALIDATION]' : '[ERROR]';
 
           // Don't log 404/410 in development - they're expected states handled by error boundary
-          const shouldLog = !(process.env.NODE_ENV === 'development' && [404, 410].includes(response.status));
-          
+          const shouldLog = !(
+            process.env.NODE_ENV === 'development' &&
+            [404, 410].includes(response.status)
+          );
+
           if (shouldLog) {
             console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
               url,
@@ -251,22 +256,22 @@ export class BaseApiClient {
           let enhancedMessage = errorMessage;
           if (response.status === 410 || response.status === 404) {
             const parts: string[] = [];
-            
+
             // Include table_name (critical for restore operations)
             if (errorData?.table_name) {
               parts.push(`table:${errorData.table_name}`);
             }
-            
+
             // Include item_id
             if (errorData?.item_id) {
               parts.push(`id:${errorData.item_id}`);
             }
-            
+
             // Include item_name if available (for display)
             if (errorData?.item_name) {
               parts.push(`name:${errorData.item_name}`);
             }
-            
+
             // Format: "table:test_run|id:abc-123|name:My Test|Original message"
             if (parts.length > 0) {
               enhancedMessage = `${parts.join('|')}|${errorMessage}`;
