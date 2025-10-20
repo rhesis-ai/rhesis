@@ -2,7 +2,7 @@
 # `docker build -t rhesis-backend -f backend/Dockerfile .`
 
 # First stage: Build dependencies
-FROM python:3.9-slim AS builder
+FROM mirror.gcr.io/library/python:3.9-slim AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY bot/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Second stage: Run the application
-FROM python:3.9-slim
+FROM mirror.gcr.io/library/python:3.9-slim
 
 WORKDIR /app
 
