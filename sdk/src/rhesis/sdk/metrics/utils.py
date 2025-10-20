@@ -18,41 +18,7 @@ def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    keys_to_remove = [
-        "id",
-        "nano_id",
-        "explanation",
-        "metric_type_id",
-        "backend_type_id",
-        "model_id",
-        "status_id",
-        "assignee_id",
-        "owner_id",
-        "organization_id",
-        "user_id",
-        "created_at",
-        "updated_at",
-        "tags",
-        "status",
-        "assignee",
-        "owner",
-        "model",
-        "behaviors",
-        "comments",
-        "organization",
-        "user",
-        "backend_type",
-        "counts",
-    ]
-    for key in keys_to_remove:
-        config.pop(key, None)
-
-    config["parameters"] = {}
-    config["parameters"]["min_score"] = config.pop("min_score", None)
-    config["parameters"]["max_score"] = config.pop("max_score", None)
-    config["parameters"]["threshold"] = config.pop("threshold", None)
-    config["parameters"]["threshold_operator"] = config.pop("threshold_operator", None)
-    config["parameters"]["reference_score"] = config.pop("reference_score", None)
+    config["requires_ground_truth"] = config.pop("ground_truth_required", None)
     return config
 
 

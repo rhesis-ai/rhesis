@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List, Optional, Union
+from dataclasses import dataclass, fields
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -153,6 +153,7 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             description=description,
             metric_type=metric_type,
             score_type=SCORE_TYPE,
+            class_name=self.__class__.__name__,
         )
         super().__init__(config=self.config, model=model)
 
@@ -326,6 +327,17 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
             description=config.description,
             metric_type=config.metric_type,
         )
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricNumeric":
+        """Create a metric from a dictionary."""
+        # Get all field names from the dataclass
+        valid_fields = {field.name for field in fields(PromptMetricNumericConfig)}
+
+        # Filter config to only include keys that exist in the dataclass
+        filtered_config = {k: v for k, v in config.items() if k in valid_fields}
+
+        return cls.from_config(PromptMetricNumericConfig(**filtered_config))
 
 
 if __name__ == "__main__":
