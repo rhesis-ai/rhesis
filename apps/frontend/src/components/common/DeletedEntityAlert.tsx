@@ -5,6 +5,7 @@ import RestoreIcon from '@mui/icons-material/RestoreFromTrash';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import { useState } from 'react';
 import Link from 'next/link';
+import { RecycleClient } from '@/utils/api-client/recycle-client';
 
 export interface DeletedEntityData {
   model_name: string;
@@ -68,24 +69,8 @@ export function DeletedEntityAlert({
     setRestoreError(null);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}${entityData.restore_url}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${sessionToken}`,
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.detail || `Failed to restore ${entityData.model_name}`
-        );
-      }
+      const recycleClient = new RecycleClient(sessionToken);
+      await recycleClient.restoreItem(entityData.table_name, entityData.item_id);
 
       setIsRestored(true);
       
@@ -110,25 +95,27 @@ export function DeletedEntityAlert({
 
   if (isRestored) {
     return (
-      <Alert severity="success" sx={{ mb: 3 }}>
-        {entityData.model_name_display || entityData.model_name} has been restored. Reloading...
+      <Alert severity="success">
+        <Box mb={3}>
+          {entityData.model_name_display || entityData.model_name} has been restored. Reloading...
+        </Box>
       </Alert>
     );
   }
 
   return (
-    <Alert
-      severity="warning"
-      sx={{ mb: 3 }}
-    >
-      {entityData.message}
+    <Alert severity="warning">
+      <Box mb={2}>
+        {entityData.message}
+      </Box>
+      
       {restoreError && (
-        <Box sx={{ mt: 1, color: 'error.main' }}>
+        <Box mt={1} color="error.main">
           Error: {restoreError}
         </Box>
       )}
       
-      <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+      <Box display="flex" gap={2} mt={2}>
         {sessionToken && (
           <Button
             variant="contained"
