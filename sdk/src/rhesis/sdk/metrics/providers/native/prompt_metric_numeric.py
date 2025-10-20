@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     PromptMetricConfig,
@@ -307,26 +307,6 @@ class RhesisPromptMetricNumeric(RhesisPromptMetricBase):
         threshold_operator = OPERATOR_MAP[self.threshold_operator]
         result = threshold_operator(score, self.threshold)
         return result
-
-    @classmethod
-    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricNumeric":
-        """Create a metric from a dictionary."""
-
-        if not isinstance(config, PromptMetricNumericConfig):
-            raise TypeError(f"Expected PromptMetricNumericConfig, got {type(config).__name__}")
-        return cls(
-            evaluation_prompt=config.evaluation_prompt,
-            evaluation_steps=config.evaluation_steps,
-            reasoning=config.reasoning,
-            evaluation_examples=config.evaluation_examples,
-            min_score=config.min_score,
-            max_score=config.max_score,
-            threshold=config.threshold,
-            threshold_operator=config.threshold_operator,
-            name=config.name,
-            description=config.description,
-            metric_type=config.metric_type,
-        )
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricNumeric":

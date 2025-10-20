@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.prompt_metric import (
     PromptMetricConfig,
     RhesisPromptMetricBase,
@@ -303,24 +303,6 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
         """
         result = score in passing_categories
         return result
-
-    @classmethod
-    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricCategorical":
-        """Create a metric from a dictionary."""
-        if not isinstance(config, PromptMetricCategoricalConfig):
-            raise TypeError(f"Expected PromptMetricCategoricalConfig, got {type(config).__name__}")
-        return cls(
-            # Backend required items
-            name=config.name,
-            description=config.description,
-            # Custom parameters
-            evaluation_prompt=config.evaluation_prompt,
-            evaluation_steps=config.evaluation_steps,
-            reasoning=config.reasoning,
-            evaluation_examples=config.evaluation_examples,
-            categories=config.categories,  # type: ignore[arg-type]
-            passing_categories=config.passing_categories,  # type: ignore[arg-type]
-        )
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricCategorical":
