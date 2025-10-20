@@ -19,6 +19,42 @@ export interface NotFoundEntityData {
 }
 
 // ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Convert a URL segment (plural, hyphenated) to a database table name (singular, underscored).
+ * Examples:
+ *   test-runs -> test_run
+ *   test-sets -> test_set
+ *   projects -> project
+ *   metrics -> metric
+ * 
+ * @param urlSegment - The URL segment (e.g., 'test-runs')
+ * @returns The database table name (e.g., 'test_run')
+ */
+function urlSegmentToTableName(urlSegment: string): string {
+  // First convert hyphens to underscores
+  let tableName = urlSegment.replace(/-/g, '_');
+  
+  // Remove trailing 's' for plural forms
+  // Handle special cases where just removing 's' isn't enough
+  if (tableName.endsWith('ies')) {
+    // e.g., categories -> category (but we don't have these in our models)
+    tableName = tableName.slice(0, -3) + 'y';
+  } else if (tableName.endsWith('sses') || tableName.endsWith('xes') || tableName.endsWith('ches')) {
+    // e.g., processes -> process, boxes -> box
+    tableName = tableName.slice(0, -2);
+  } else if (tableName.endsWith('s') && !tableName.endsWith('ss')) {
+    // Standard plural: just remove the 's'
+    // But keep 'ss' endings like 'status'
+    tableName = tableName.slice(0, -1);
+  }
+  
+  return tableName;
+}
+
+// ============================================================================
 // 404 Not Found Error Handling
 // ============================================================================
 
@@ -72,36 +108,53 @@ export function getNotFoundEntityData(error: any): NotFoundEntityData | null {
   }
 
   // Fallback: Parse from error message (after serialization across boundary)
-  // Error message format: "API error: 404 - Test Run not found"
+  // New format: "API error: 404 - table:test_run|id:abc-123|Test Run not found"
+  // Old format: "API error: 404 - Test Run not found"
   const message = error.message || '';
-  const match = message.match(/404 - (.+?) not found/);
   
-  if (match) {
-    const modelNameDisplay = match[1]; // "Test Run"
-    const modelName = modelNameDisplay.replace(/\s+/g, ''); // "TestRun"
+  // Try to extract encoded data first (new format)
+  const encodedMatch = message.match(/404 - ((?:table:[^|]+\|)?(?:id:[^|]+\|)?(?:name:[^|]+\|)?)(.+)/);
+  
+  if (encodedMatch) {
+    const encodedParts = encodedMatch[1];
+    const remainingMessage = encodedMatch[2];
     
-    // Try to get item_id and table_name from current URL
-    let itemId = '';
-    let tableName = '';
+    // Parse encoded data
+    const tableMatch = encodedParts.match(/table:([^|]+)/);
+    const idMatch = encodedParts.match(/id:([^|]+)/);
+    const nameMatch = encodedParts.match(/name:([^|]+)/);
     
-    if (typeof window !== 'undefined') {
+    const tableName = tableMatch ? tableMatch[1] : '';
+    const itemId = idMatch ? idMatch[1] : '';
+    
+    // Extract model name from remaining message
+    const modelMatch = remainingMessage.match(/(.+?) not found/);
+    const modelNameDisplay = modelMatch ? modelMatch[1].trim() : 'Item';
+    const modelName = modelNameDisplay.replace(/\s+/g, '');
+    
+    // If we don't have table_name from encoding, try URL as fallback
+    let finalTableName = tableName;
+    let finalItemId = itemId;
+    
+    if (!finalTableName && typeof window !== 'undefined') {
       const path = window.location.pathname;
       const segments = path.split('/').filter(Boolean);
       
-      // URL format: /test-runs/uuid or /tests/uuid
       if (segments.length >= 2) {
-        tableName = segments[0].replace(/-/g, '_'); // test-runs -> test_run
-        itemId = segments[1];
+        finalTableName = urlSegmentToTableName(segments[0]);
+        if (!finalItemId) {
+          finalItemId = segments[1];
+        }
       }
     }
     
-    const listUrl = `/${tableName.replace(/_/g, '-')}`;
+    const listUrl = `/${(finalTableName || modelName.toLowerCase()).replace(/_/g, '-')}s`;
     
     return {
       model_name: modelName,
       model_name_display: modelNameDisplay,
-      item_id: itemId,
-      table_name: tableName || modelName.toLowerCase(),
+      item_id: finalItemId,
+      table_name: finalTableName || modelName.toLowerCase(),
       list_url: listUrl,
       message: `The ${modelNameDisplay.toLowerCase()} you're looking for doesn't exist or you don't have permission to access it.`,
     };
@@ -165,49 +218,54 @@ export function getDeletedEntityData(error: any): DeletedEntityData | null {
   }
 
   // Fallback: Parse from error message (server-side error that crossed boundary)
-  // Error message format: "API error: 410 - Test Run has been deleted"
-  // Or with item name: "API error: 410 - My Test Run | Test Run has been deleted"
+  // New format: "API error: 410 - table:test_run|id:abc-123|name:My Test|Test Run has been deleted"
+  // Old format: "API error: 410 - Test Run has been deleted"
   const message = error.message || '';
   
-  // Try to extract item name if present (format: "item_name | message")
-  let itemName: string | undefined;
-  let cleanMessage = message;
-  const itemNameMatch = message.match(/410 - (.+?) \| (.+?) has been deleted/);
+  // Try to extract encoded data first (new format)
+  const encodedMatch = message.match(/410 - ((?:table:[^|]+\|)?(?:id:[^|]+\|)?(?:name:[^|]+\|)?)(.+)/);
   
-  if (itemNameMatch) {
-    // Message includes item name
-    itemName = itemNameMatch[1].trim();
-    cleanMessage = message.replace(`${itemName} | `, ''); // Remove item name from message
-  }
-  
-  const match = cleanMessage.match(/410 - (.+?) has been deleted/);
-  
-  if (match) {
-    const modelNameDisplay = match[1]; // "Test Run"
-    const modelName = modelNameDisplay.replace(/\s+/g, ''); // "TestRun"
+  if (encodedMatch) {
+    const encodedParts = encodedMatch[1];
+    const remainingMessage = encodedMatch[2];
     
-    // Try to get item_id and table_name from current URL
-    let itemId = '';
-    let tableName = '';
+    // Parse encoded data
+    const tableMatch = encodedParts.match(/table:([^|]+)/);
+    const idMatch = encodedParts.match(/id:([^|]+)/);
+    const nameMatch = encodedParts.match(/name:([^|]+)/);
     
-    if (typeof window !== 'undefined') {
+    const tableName = tableMatch ? tableMatch[1] : '';
+    const itemId = idMatch ? idMatch[1] : '';
+    const itemName = nameMatch ? nameMatch[1] : undefined;
+    
+    // Extract model name from remaining message
+    const modelMatch = remainingMessage.match(/(.+?) has been deleted/);
+    const modelNameDisplay = modelMatch ? modelMatch[1].trim() : 'Item';
+    const modelName = modelNameDisplay.replace(/\s+/g, '');
+    
+    // If we don't have table_name from encoding, try URL as fallback
+    let finalTableName = tableName;
+    let finalItemId = itemId;
+    
+    if (!finalTableName && typeof window !== 'undefined') {
       const path = window.location.pathname;
       const segments = path.split('/').filter(Boolean);
       
-      // URL format: /test-runs/uuid or /tests/uuid
       if (segments.length >= 2) {
-        tableName = segments[0].replace(/-/g, '_'); // test-runs -> test_run
-        itemId = segments[1];
+        finalTableName = urlSegmentToTableName(segments[0]);
+        if (!finalItemId) {
+          finalItemId = segments[1];
+        }
       }
     }
     
     return {
       model_name: modelName,
       model_name_display: modelNameDisplay,
-      item_name: itemName, // Now includes item name if it was in the message
-      item_id: itemId,
-      table_name: tableName || modelName.toLowerCase(),
-      restore_url: `/recycle/${tableName}/${itemId}/restore`,
+      item_name: itemName,
+      item_id: finalItemId,
+      table_name: finalTableName || modelName.toLowerCase(),
+      restore_url: `/recycle/${finalTableName || modelName.toLowerCase()}/${finalItemId}/restore`,
       message: `This ${modelNameDisplay.toLowerCase()} has been deleted. You can restore it from the recycle bin.`,
     };
   }

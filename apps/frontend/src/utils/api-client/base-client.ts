@@ -246,11 +246,31 @@ export class BaseApiClient {
             errorMessage = `Too many requests. You've exceeded the rate limit (${rateLimitInfo}). Please try again later.`;
           }
 
-          // For 410 Gone responses, include item_name in message so it survives serialization
-          // across Next.js server-client boundary
+          // For 410 Gone and 404 Not Found responses, encode critical data in the message
+          // so it survives serialization across Next.js server-client boundary
           let enhancedMessage = errorMessage;
-          if (response.status === 410 && errorData?.item_name) {
-            enhancedMessage = `${errorData.item_name} | ${errorMessage}`;
+          if (response.status === 410 || response.status === 404) {
+            const parts: string[] = [];
+            
+            // Include table_name (critical for restore operations)
+            if (errorData?.table_name) {
+              parts.push(`table:${errorData.table_name}`);
+            }
+            
+            // Include item_id
+            if (errorData?.item_id) {
+              parts.push(`id:${errorData.item_id}`);
+            }
+            
+            // Include item_name if available (for display)
+            if (errorData?.item_name) {
+              parts.push(`name:${errorData.item_name}`);
+            }
+            
+            // Format: "table:test_run|id:abc-123|name:My Test|Original message"
+            if (parts.length > 0) {
+              enhancedMessage = `${parts.join('|')}|${errorMessage}`;
+            }
           }
 
           const error = new Error(
