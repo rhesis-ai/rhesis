@@ -21,6 +21,33 @@ router = APIRouter(
     tags=["authentication"])
 
 
+def get_callback_url(request: Request) -> str:
+    """
+    Generate the OAuth callback URL.
+    In local development, use request.base_url to match the incoming host.
+    In production, use RHESIS_BASE_URL for proper domain handling.
+    """
+    rhesis_base_url = os.getenv("RHESIS_BASE_URL")
+    if rhesis_base_url and ("localhost" not in str(request.base_url) and "127.0.0.1" not in str(request.base_url)):
+        # Production: use RHESIS_BASE_URL
+        base_url = rhesis_base_url.rstrip("/")
+    else:
+        # Local development: use the actual request host to ensure cookie domain matches
+        base_url = str(request.base_url).rstrip("/")
+    
+    callback_url = f"{base_url}/auth/callback"
+    
+    # Only rewrite http to https if not localhost (including 127.0.0.1)
+    if (
+        callback_url.startswith("http://")
+        and "localhost" not in callback_url
+        and "127.0.0.1" not in callback_url
+    ):
+        callback_url = "https://" + callback_url[7:]
+    
+    return callback_url
+
+
 @router.get("/login")
 async def login(request: Request, connection: str = None, return_to: str = "/home"):
     """Redirect users to Auth0 login page"""
@@ -29,20 +56,10 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
     if origin:
         request.session["original_frontend"] = origin
 
-    # Use RHESIS_BASE_URL if available (for production), otherwise fall back to request.base_url
-    base_url = os.getenv("RHESIS_BASE_URL") or str(request.base_url).rstrip("/")
-    callback_url = f"{base_url}/auth/callback"
+    callback_url = get_callback_url(request)
 
     # Store return_to in session
     request.session["return_to"] = return_to
-
-    # Only rewrite http to https if not localhost (including 127.0.0.1)
-    if (
-        callback_url.startswith("http://")
-        and "localhost" not in callback_url
-        and "127.0.0.1" not in callback_url
-    ):
-        callback_url = "https://" + callback_url[7:]
 
     if not os.getenv("AUTH0_DOMAIN"):
         raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")
@@ -58,12 +75,7 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
             auth_params["connection"] = connection
 
         # Let oauth.authorize_redirect handle state parameter
-        response = await oauth.auth0.authorize_redirect(request, **auth_params)
-
-        # Log the state for debugging
-        logger.info(f"Generated state: {request.session.get('oauth_state')}")
-
-        return response
+        return await oauth.auth0.authorize_redirect(request, **auth_params)
 
     except Exception as e:
         logger.error(f"Login error: {str(e)}", exc_info=True)
@@ -245,20 +257,10 @@ async def demo_redirect(request: Request):
         if origin:
             request.session["original_frontend"] = origin
         
-        # Use RHESIS_BASE_URL if available (for production), otherwise fall back to request.base_url
-        base_url = os.getenv("RHESIS_BASE_URL") or str(request.base_url).rstrip("/")
-        callback_url = f"{base_url}/auth/callback"
+        callback_url = get_callback_url(request)
         
         # Store return_to in session - demo users go to dashboard
         request.session["return_to"] = "/dashboard"
-        
-        # Only rewrite http to https if not localhost
-        if (
-            callback_url.startswith("http://")
-            and "localhost" not in callback_url
-            and "127.0.0.1" not in callback_url
-        ):
-            callback_url = "https://" + callback_url[7:]
         
         if not os.getenv("AUTH0_DOMAIN"):
             raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")
