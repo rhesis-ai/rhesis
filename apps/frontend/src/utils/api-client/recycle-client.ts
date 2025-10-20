@@ -8,7 +8,7 @@ export class RecycleClient extends BaseApiClient {
   /**
    * Restore a soft-deleted item from the recycle bin.
    * 
-   * @param tableName - The table name of the model (e.g., 'test_runs', 'tests')
+   * @param tableName - The singular table name of the model (e.g., 'test_run', 'test', 'project')
    * @param itemId - The UUID of the item to restore
    * @returns Promise with the restored item
    */
