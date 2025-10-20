@@ -18,9 +18,9 @@ Also, the method retry_evaluationmight be better placed in a utils type of modul
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
@@ -56,89 +56,34 @@ class ThresholdOperator(str, Enum):
 
 @dataclass
 class MetricConfig:
-    """Standard configuration for a metric instance
-
-    Backend required items:
-    - class_name
-    - backend
-    - name
-    - description
-    - score_type
-    - metric_type
-    """
-
-    evaluation_prompt: str
-
     # Backend required items
     class_name: Optional[str] = None
-    """The class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')"""
-
     backend: Optional[Union[str, Backend]] = Backend.RHESIS
-    """The backend/framework to use for this metric (e.g., 'deepeval')"""
-
     name: Optional[str] = None
-    """Human-readable name of the metric"""
-
     description: Optional[str] = None
-    """Human-readable description of what the metric measures"""
-
     score_type: Optional[Union[str, ScoreType]] = None  # string or enum
-    """The score type of the metric eg. numeric, categorical, etc."""
-
     metric_type: Optional[Union[str, MetricType]] = None  # string or enum
-    """The type of the metric eg. rag, generation, classification"""
-
     requires_ground_truth: Optional[bool] = False
-    """Whether the metric requires a ground truth reference"""
-
     requires_context: Optional[bool] = False
-    """Whether the metric requires a context"""
-
-    # Custom parameters
-
-    """The evaluation prompt for the metric"""
-
-    evaluation_steps: Optional[str] = None
-    """The evaluation steps for the metric"""
-
-    reasoning: Optional[str] = None
-    """The reasoning for the metric"""
-
-    evaluation_examples: Optional[str] = None
-    """The evaluation examples for the metric"""
-
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    """Additional parameters specific to this metric implementation"""
 
     def __post_init__(self):
-        # The config accept both string and enum for score_type and metric_type. However, the object
-        # will keep it as a string for easier serialization
-
-        if self.backend is not None:
-            self.backend = self._validate_enum_value(self.backend, Backend, "backend")
-
-        if self.score_type is not None:
-            self.score_type = self._validate_enum_value(self.score_type, ScoreType, "score_type")
-
-        if self.metric_type is not None:
-            self.metric_type = self._validate_enum_value(
-                self.metric_type, MetricType, "metric_type"
-            )
-
-    def _validate_enum_value(
-        self, value: Union[str, Enum], enum_class: Type[Enum], field_name: str
-    ) -> str:
-        if isinstance(value, str):
+        if isinstance(self.backend, str):
             try:
-                enum_instance = enum_class(value)
-                return enum_instance.value
+                self.backend = Backend(self.backend.lower())
             except ValueError:
-                allowed = [member.value for member in enum_class]
-                raise ValueError(f"Invalid {field_name} value: {value}. Allowed values: {allowed}")
-        elif isinstance(value, enum_class):
-            return value.value
-        else:
-            raise ValueError(f"Invalid {field_name} type: {type(value)}")
+                raise ValueError(f"Unknown backend: {self.backend}")
+
+        if isinstance(self.score_type, str):
+            try:
+                self.score_type = ScoreType(self.score_type.lower())
+            except ValueError:
+                raise ValueError(f"Unknown score type: {self.score_type}")
+
+        if isinstance(self.metric_type, str):
+            try:
+                self.metric_type = MetricType(self.metric_type.lower())
+            except ValueError:
+                raise ValueError(f"Unknown metric type: {self.metric_type}")
 
 
 class MetricResult:
@@ -155,44 +100,13 @@ class MetricResult:
 class BaseMetric(ABC):
     """Base class for all evaluation metrics."""
 
-    # Type annotations for instance variables (after conversion)
-    score_type: Optional[ScoreType]
-    metric_type: Optional[MetricType]
-
-    def __init__(
-        self,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        score_type: Optional[Union[str, ScoreType]] = None,
-        metric_type: Optional[Union[str, MetricType]] = None,
-        model: Optional[Any] = None,
-    ):
-        self.name = name
-        self.description = description
-
-        # Convert score_type to enum if it's a string
-        if isinstance(score_type, str):
-            try:
-                self.score_type = ScoreType(score_type)
-            except ValueError:
-                allowed = [member.value for member in ScoreType]
-                raise ValueError(
-                    f"Invalid score_type value: {score_type}. Allowed values: {allowed}"
-                )
-        else:
-            self.score_type = score_type
-
-        # Convert metric_type to enum if it's a string
-        if isinstance(metric_type, str):
-            try:
-                self.metric_type = MetricType(metric_type)
-            except ValueError:
-                allowed = [member.value for member in MetricType]
-                raise ValueError(
-                    f"Invalid metric_type value: {metric_type}. Allowed values: {allowed}"
-                )
-        else:
-            self.metric_type = metric_type
+    def __init__(self, config: MetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+        self.name = config.name
+        self.description = config.description
+        self.score_type = config.score_type
+        self.metric_type = config.metric_type
+        self.requires_ground_truth = config.requires_ground_truth
+        self.requires_context = config.requires_context
 
         self.model = self.set_model(model)
 
