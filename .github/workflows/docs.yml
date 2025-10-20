@@ -199,7 +199,7 @@ jobs:
             docker build \
               -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
               -f docs/src/Dockerfile \
-              docs/src
+              docs/
 
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
@@ -207,7 +207,7 @@ jobs:
             docker build \
               -t ${{ env.IMAGE_NAME }}:latest \
               -f docs/src/Dockerfile \
-              docs/src
+              docs/
 
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi

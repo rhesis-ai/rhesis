@@ -7,19 +7,19 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files first to leverage Docker cache
-COPY package.json package-lock.json ./
+COPY src/package.json src/package-lock.json ./
 
 # Install all dependencies (including devDependencies for build tools)
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
 
 # Copy source files needed for build
-COPY next.config.mjs mdx-components.js theme.config.jsx ./
-COPY public ./public
-COPY app ./app
-COPY components ./components
-COPY ../content ./content
-COPY styles ./styles
+COPY src/next.config.mjs src/mdx-components.js src/theme.config.jsx ./
+COPY src/public ./public
+COPY src/app ./app
+COPY src/components ./components
+COPY content ./content
+COPY src/styles ./styles
 
 # Set build environment variables
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -44,7 +44,7 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY src/package.json src/package-lock.json ./
 
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.npm \
