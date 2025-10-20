@@ -13,15 +13,14 @@ class PromptSynthesizer(TemplateSynthesizer):
     """Prompt-driven synthesizer built on TemplateSynthesizer base class.
 
     This class binds a user-provided prompt ("generation_prompt") to the
-    PromptSynthesizer template and delegates all rendering and LLM execution
-    to the TemplateSynthesizer base class.
+    default prompt_synthesizer template and delegates all rendering and LLM
+    execution to the TemplateSynthesizer base class.
     """
 
     def __init__(
         self,
         prompt: str,
         batch_size: int = 20,
-        system_prompt: Optional[str] = None,
         model: Optional[Union[str, BaseLLM]] = None,
     ):
         """Initialize the PromptSynthesizer.
@@ -29,22 +28,21 @@ class PromptSynthesizer(TemplateSynthesizer):
         Args:
             prompt: The generation prompt to use
             batch_size: Maximum number of tests to generate in a single LLM call
-            system_prompt: Optional custom template string to override the default
             model: LLM model to use (string name or BaseLLM instance)
         """
         self.prompt = prompt
 
-        # Use custom template if provided, otherwise load the prompt_synthesizer template
+        # Always use the default asset template for prompt synthesizer
         super().__init__(
-            template_name=None if system_prompt else "prompt_synthesizer",
-            custom_template=system_prompt,
+            template_name="prompt_synthesizer",
+            template_string=None,
             batch_size=batch_size,
             model=model,
         )
 
-    def _prepare_template_vars(self, num_items: int, template_vars: dict) -> dict:
+    def _prepare_template_vars(self, num_tests: int, template_vars: dict) -> dict:
         """Add the prompt as generation_prompt variable."""
-        return {"num_items": num_items, "generation_prompt": self.prompt, **template_vars}
+        return {"num_tests": num_tests, "generation_prompt": self.prompt, **template_vars}
 
     def _create_test_set_metadata(self, template_data: dict, tests: List[dict]) -> dict:
         """Add prompt-specific metadata."""
@@ -79,8 +77,8 @@ class PromptSynthesizer(TemplateSynthesizer):
             template_vars.update(asdict(config))
         template_vars.update(extra_vars)
 
-        # Delegate to base class (maps num_tests -> num_items)
-        return super().generate(num_items=num_tests, **template_vars)
+        # Delegate to base class
+        return super().generate(num_tests=num_tests, **template_vars)
 
 
 # Example usage
@@ -132,7 +130,6 @@ if __name__ == "__main__":
 
     custom_synthesizer = PromptSynthesizer(
         prompt="Create a function that validates email addresses",
-        system_prompt=custom_template,
         batch_size=3,
         model="gemini",
     )

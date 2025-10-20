@@ -20,7 +20,7 @@ class TemplateSynthesizer(BaseSynthesizer):
     def __init__(
         self,
         template_name: Optional[str] = None,
-        custom_template: Optional[str] = None,
+        template_string: Optional[str] = None,
         batch_size: int = 5,
         model: Optional[Union[str, BaseLLM]] = None,
         max_attempts: int = 3,
@@ -29,8 +29,8 @@ class TemplateSynthesizer(BaseSynthesizer):
         Initialize the template synthesizer.
 
         Args:
-            template_name: Name of the template file to load from assets
-            custom_template: Custom template string to use instead of loading from file
+            template_name: Name of the template file under assets/ (no path, no .md extension).
+            template_string: Raw Jinja2 template content provided inline.
             batch_size: Maximum number of items to process in a single LLM call
             model: LLM model to use (string name or BaseLLM instance)
             max_attempts: Maximum retry attempts for LLM calls
@@ -45,24 +45,24 @@ class TemplateSynthesizer(BaseSynthesizer):
         else:
             self.model = model
 
-        # Load template
-        if custom_template:
-            self.template = Template(custom_template)
+        # Load/compile template: prefer inline string, otherwise use asset, otherwise fallback
+        if template_string:
+            self.template = Template(template_string)
         elif template_name:
             self.template = load_prompt_template(template_name)
         else:
             self.template = Template(
-                "Generate {{ num_items }} items based on the provided variables."
+                "Generate {{ num_tests }} tests based on the provided variables."
             )
 
-    def generate(self, num_items: int = 3, **template_vars: Any) -> TestSet:
+    def generate(self, num_tests: int = 3, **template_vars: Any) -> TestSet:
         """Generate a test set using the template and LLM.
 
         This is the template method that orchestrates the generation flow.
         Subclasses can override the protected methods to customize behavior.
         """
         # Prepare template variables
-        template_data = self._prepare_template_vars(num_items, template_vars)
+        template_data = self._prepare_template_vars(num_tests, template_vars)
 
         # Render template
         rendered_prompt = self._render_template(template_data)
@@ -80,9 +80,9 @@ class TemplateSynthesizer(BaseSynthesizer):
         return create_test_set(tests=tests, model=self.model, **metadata)
 
     # Extension points that subclasses can override
-    def _prepare_template_vars(self, num_items: int, template_vars: dict) -> dict:
+    def _prepare_template_vars(self, num_tests: int, template_vars: dict) -> dict:
         """Prepare template variables. Subclasses can customize this."""
-        return {"num_items": num_items, **template_vars}
+        return {"num_tests": num_tests, **template_vars}
 
     def _render_template(self, template_data: dict) -> str:
         """Render the template. Subclasses can customize this."""
