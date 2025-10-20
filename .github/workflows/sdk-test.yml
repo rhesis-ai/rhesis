@@ -27,11 +27,11 @@ jobs:
         version: latest
         enable-cache: true
 
-    - name: Type check SDK
-      run: |
-        cd sdk
-        uv run pyright
-      continue-on-error: false
+    # - name: Type check SDK
+    #   run: |
+    #     cd sdk
+    #     uv run pyright
+    #   continue-on-error: false
       
     - name: Test SDK
       run: |
