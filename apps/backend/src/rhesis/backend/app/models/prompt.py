@@ -32,7 +32,6 @@ class Prompt(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Coun
     parent_id = Column(GUID(), ForeignKey("prompt.id"))
     prompt_template_id = Column(GUID(), ForeignKey("prompt_template.id"))
     expected_response = Column(Text)
-    source_id = Column(GUID(), ForeignKey("source.id"))
     user_id = Column(GUID(), ForeignKey("user.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
     user = relationship("User", back_populates="prompts")
@@ -45,7 +44,6 @@ class Prompt(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Coun
     )
     topic = relationship("Topic", back_populates="prompts")
     status = relationship("Status", back_populates="prompts")
-    source = relationship("Source", back_populates="prompts")
     demographic = relationship("Demographic", back_populates="prompts")
     prompt_template = relationship("PromptTemplate", back_populates="prompts")
     test_sets = relationship(
@@ -57,7 +55,8 @@ class Prompt(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Coun
     test_configurations = relationship("TestConfiguration", back_populates="prompt")
     parent = relationship("Prompt", back_populates="children", remote_side="[Prompt.id]")
     children = relationship("Prompt", back_populates="parent")
-    tests = relationship("Test", back_populates="prompt")
+    # Many-to-many relationship to sources via test_source association
+    sources = relationship("Source", secondary="test_source", back_populates="prompts_multi")
 
     # Comments, tasks relationships and counts property are now provided by CommentTaskMixin
 
@@ -77,7 +76,7 @@ class Prompt(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Coun
             else None,  # Assuming you want the content of the parent
             "prompt_template": self.prompt_template.content if self.prompt_template else None,
             "expected_response": self.expected_response,
-            "source": self.source.title if self.source else None,
+            "source": self.sources[0].title if self.sources else None,
             "user": self.user.name if self.user else None,
             "status": self.status.name if self.status else None,
             # Add any other fields or related names you want to include
