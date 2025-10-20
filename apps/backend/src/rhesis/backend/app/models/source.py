@@ -38,7 +38,9 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
     # Comment relationship (polymorphic)
     comments = relationship(
         "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(Source.id), Comment.entity_type == 'Source')",
+        primaryjoin=(
+            "and_(Comment.entity_id == foreign(Source.id), Comment.entity_type == 'Source')"
+        ),
         viewonly=True,
         uselist=True,
     )
