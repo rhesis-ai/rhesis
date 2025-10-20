@@ -16,6 +16,7 @@ from rhesis.sdk.metrics.providers.native.prompt_metric_numeric import (
 @pytest.fixture
 def metric(monkeypatch):
     monkeypatch.setenv("RHESIS_API_KEY", "test_api_key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test_api_key")
     return RhesisPromptMetricNumeric(
         name="test_metric",
         description="test_description",
