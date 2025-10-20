@@ -35,3 +35,10 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
     prompt_templates = relationship("PromptTemplate", back_populates="source")
     prompts = relationship("Prompt", back_populates="source")
     tests = relationship("Test", back_populates="source")
+    # Comment relationship (polymorphic)
+    comments = relationship(
+        "Comment",
+        primaryjoin="and_(Comment.entity_id == foreign(Source.id), Comment.entity_type == 'Source')",
+        viewonly=True,
+        uselist=True,
+    )
