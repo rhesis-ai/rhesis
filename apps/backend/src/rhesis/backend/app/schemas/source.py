@@ -1,9 +1,12 @@
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from pydantic import UUID4, field_validator
+from pydantic import UUID4, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.status import Status
+from rhesis.backend.app.schemas.tag import Tag
+from rhesis.backend.app.schemas.type_lookup import TypeLookup
 
 
 # Source Types Enum - Defines available source types with corresponding handlers
@@ -34,6 +37,7 @@ class SourceBase(Base):
     description: Optional[str] = None  # Description is optional
     content: Optional[str] = None  # Raw text content from source, extracted
     source_type_id: Optional[UUID4] = None  # Type of source (e.g., website, paper, etc.)
+    status_id: Optional[UUID4] = None  # Status of the source (e.g., Active, Processing)
     url: Optional[str] = None  # Optional URL as string with basic validation
     citation: Optional[str] = None  # Optional citation for papers or books
     language_code: Optional[str] = None  # Optional language code (BCP 47 format)
@@ -70,4 +74,10 @@ class SourceUpdate(SourceBase):
 
 # Schema for returning a Source (typically includes an ID)
 class Source(SourceBase):
-    pass
+    id: UUID4
+    # Related objects
+    source_type: Optional[TypeLookup] = None
+    status: Optional[Status] = None
+    tags: Optional[list[Tag]] = []
+
+    model_config = ConfigDict(from_attributes=True)
