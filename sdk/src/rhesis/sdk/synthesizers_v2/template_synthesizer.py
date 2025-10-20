@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 from jinja2 import Template
 
@@ -58,81 +58,49 @@ class TemplateSynthesizer(BaseSynthesizer):
     def generate(self, num_items: int = 3, **template_vars: Any) -> TestSet:
         """Generate a test set using the template and LLM.
 
-        Args:
-            num_items: Number of items to generate
-            **template_vars: Template variables for rendering
-
-        Returns:
-            TestSet: A TestSet entity containing the generated test cases
+        This is the template method that orchestrates the generation flow.
+        Subclasses can override the protected methods to customize behavior.
         """
         # Prepare template variables
-        template_data = {"num_items": num_items, **template_vars}
+        template_data = self._prepare_template_vars(num_items, template_vars)
 
-        # Render the template
-        rendered_prompt = self.template.render(**template_data)
+        # Render template
+        rendered_prompt = self._render_template(template_data)
 
-        # Execute LLM call with retry
-        response = retry_llm_call(self.model, rendered_prompt, self.max_attempts)
+        # Execute LLM call
+        response = self._execute_llm(rendered_prompt)
 
-        # Parse the response into structured data
-        tests = parse_llm_response(response)
+        # Parse response
+        tests = self._parse_response(response)
+
+        # Create metadata
+        metadata = self._create_test_set_metadata(template_data, tests)
 
         # Create and return TestSet
-        return create_test_set(
-            tests=tests,
-            model=self.model,
-            synthesizer_name=self.__class__.__name__,
-            batch_size=self.batch_size,
-            template_name=self.template_name,
-            rendered_prompt=rendered_prompt,
-            template_vars=template_vars,
-        )
+        return create_test_set(tests=tests, model=self.model, **metadata)
 
+    # Extension points that subclasses can override
+    def _prepare_template_vars(self, num_items: int, template_vars: dict) -> dict:
+        """Prepare template variables. Subclasses can customize this."""
+        return {"num_items": num_items, **template_vars}
 
-# Example usage
-if __name__ == "__main__":
-    # Example 1: Using a custom template
-    custom_template = """
-    You are a helpful assistant. Generate {{ num_items }} test cases for the following task:
+    def _render_template(self, template_data: dict) -> str:
+        """Render the template. Subclasses can customize this."""
+        return self.template.render(**template_data)
 
-    Task: {{ task_description }}
+    def _execute_llm(self, rendered_prompt: str) -> Any:
+        """Execute LLM call with retry. Subclasses can customize this."""
+        return retry_llm_call(self.model, rendered_prompt, self.max_attempts)
 
-    Additional context: {{ context }}
-    Domain: {{ domain }}
+    def _parse_response(self, response: Any) -> List[dict]:
+        """Parse response into structured data. Subclasses can customize this."""
+        return parse_llm_response(response)
 
-    Please return the test cases in JSON format with the following structure:
-    {
-        "tests": [
-            {
-                "input": "test input",
-                "expected_output": "expected output",
-                "description": "what this test validates"
-            }
-        ]
-    }
-    """
-
-    synthesizer = TemplateSynthesizer(
-        custom_template=custom_template,
-        batch_size=3,
-        model="gemini",  # or any supported model
-        max_attempts=2,
-    )
-
-    # Generate test cases
-    test_set = synthesizer.generate(
-        num_items=2,
-        task_description="Create a function that validates email addresses",
-        context="Focus on edge cases and common validation patterns",
-        domain="email validation",
-    )
-
-    print("Generated Test Set:")
-    print(f"Number of tests: {len(test_set.tests)}")
-    print(f"Model used: {test_set.model}")
-    print(f"Synthesizer: {test_set.metadata.get('synthesizer')}")
-
-    # Print first test case
-    if test_set.tests:
-        print("\nFirst test case:")
-        print(test_set.tests[0])
+    def _create_test_set_metadata(self, template_data: dict, tests: List[dict]) -> dict:
+        """Create metadata for TestSet. Subclasses can customize this."""
+        return {
+            "synthesizer_name": self.__class__.__name__,
+            "batch_size": self.batch_size,
+            "template_name": self.template_name,
+            "template_vars": template_data,
+        }
