@@ -23,6 +23,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user, require_cur
 from rhesis.backend.app.utils.git_utils import get_version_info
 from rhesis.backend.app.database import Base, engine
 from rhesis.backend.app.routers import routers
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.logging import logger
 
 Base.metadata.create_all(bind=engine)
@@ -110,6 +111,19 @@ app = FastAPI(
     version=__version__,
     route_class=AuthenticatedAPIRoute,
 )
+
+
+# Global exception handler for soft-deleted items
+@app.exception_handler(ItemDeletedException)
+async def deleted_item_exception_handler(request: Request, exc: ItemDeletedException):
+    """Handle requests for soft-deleted items with HTTP 410 Gone."""
+    return JSONResponse(
+        status_code=410,
+        content={
+            "detail": f"{exc.model_name} has been deleted"
+        }
+    )
+
 
 # Configure CORS
 app.add_middleware(
