@@ -31,7 +31,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const identifier = resolvedParams.identifier;
-  
+
   // Return basic metadata - the page component will fetch data and handle errors
   return {
     title: 'Test Details',
@@ -123,10 +123,7 @@ export default async function TestDetailPage({ params }: PageProps) {
                 {/* Tags Section */}
                 <Grid item xs={12}>
                   <Divider sx={{ my: 2 }} />
-                  <TestTags
-                    sessionToken={session.session_token}
-                    test={test}
-                  />
+                  <TestTags sessionToken={session.session_token} test={test} />
                 </Grid>
               </Grid>
             </Paper>

@@ -14,12 +14,12 @@ interface NotFoundAlertProps {
    * Data from the 404 Not Found API response
    */
   entityData: NotFoundEntityData;
-  
+
   /**
    * Optional back link URL (e.g., '/test-runs')
    */
   backUrl?: string;
-  
+
   /**
    * Optional back link label
    */
@@ -41,15 +41,13 @@ export function NotFoundAlert({
 
   return (
     <Alert severity="warning">
-      <Box mb={2}>
-        {entityData.message}
-      </Box>
-      
+      <Box mb={2}>{entityData.message}</Box>
+
       <Box display="flex" gap={2} flexWrap="wrap">
         <Button
           component={Link}
           href="javascript:history.back()"
-          onClick={(e) => {
+          onClick={e => {
             e.preventDefault();
             window.history.back();
           }}
@@ -72,4 +70,3 @@ export function NotFoundAlert({
     </Alert>
   );
 }
-

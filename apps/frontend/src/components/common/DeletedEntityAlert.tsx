@@ -22,22 +22,22 @@ interface DeletedEntityAlertProps {
    * Data from the 410 Gone API response
    */
   entityData: DeletedEntityData;
-  
+
   /**
    * Callback when restore is successful
    */
   onRestoreSuccess?: () => void;
-  
+
   /**
    * Optional session token for API calls
    */
   sessionToken?: string;
-  
+
   /**
    * Optional back link URL (e.g., '/test-runs')
    */
   backUrl?: string;
-  
+
   /**
    * Optional back link label
    */
@@ -70,10 +70,13 @@ export function DeletedEntityAlert({
 
     try {
       const recycleClient = new RecycleClient(sessionToken);
-      await recycleClient.restoreItem(entityData.table_name, entityData.item_id);
+      await recycleClient.restoreItem(
+        entityData.table_name,
+        entityData.item_id
+      );
 
       setIsRestored(true);
-      
+
       // Call success callback and reload after a brief delay
       if (onRestoreSuccess) {
         onRestoreSuccess();
@@ -97,7 +100,8 @@ export function DeletedEntityAlert({
     return (
       <Alert severity="success">
         <Box mb={3}>
-          {entityData.model_name_display || entityData.model_name} has been restored. Reloading...
+          {entityData.model_name_display || entityData.model_name} has been
+          restored. Reloading...
         </Box>
       </Alert>
     );
@@ -105,16 +109,14 @@ export function DeletedEntityAlert({
 
   return (
     <Alert severity="warning">
-      <Box mb={2}>
-        {entityData.message}
-      </Box>
-      
+      <Box mb={2}>{entityData.message}</Box>
+
       {restoreError && (
         <Box mt={1} color="error.main">
           Error: {restoreError}
         </Box>
       )}
-      
+
       <Box display="flex" gap={2} mt={2}>
         {sessionToken && (
           <Button
@@ -148,4 +150,3 @@ export function DeletedEntityAlert({
     </Alert>
   );
 }
-

@@ -9,17 +9,17 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { usePathname } from 'next/navigation';
 import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
 import { NotFoundAlert } from '@/components/common/NotFoundAlert';
-import { 
+import {
   isDeletedEntityError,
   isNotFoundError,
   getDeletedEntityData,
   getNotFoundEntityData,
-  getErrorMessage 
+  getErrorMessage,
 } from '@/utils/entity-error-handler';
 import { useSession } from 'next-auth/react';
 
 interface ErrorProps {
-  error: Error & { 
+  error: Error & {
     digest?: string;
     status?: number;
     data?: any;
@@ -29,23 +29,26 @@ interface ErrorProps {
 
 /**
  * Global error handler for all protected routes.
- * 
+ *
  * Features:
  * - Automatically handles 404 (not found) errors with navigation UI
  * - Automatically handles 410 (deleted entity) errors with restore UI
  * - Gracefully handles all other errors with retry functionality
  * - Performance optimized with memoization
  * - Type-safe and accessible
- * 
+ *
  * Works for ALL entities without manual error handling!
  */
 export default function ProtectedError({ error, reset }: ErrorProps) {
   const { data: session } = useSession();
   const [isResetting, setIsResetting] = useState(false);
-  
+
   // Check if this is a not found error (404)
-  const notFoundEntityData = useMemo(() => getNotFoundEntityData(error), [error]);
-  
+  const notFoundEntityData = useMemo(
+    () => getNotFoundEntityData(error),
+    [error]
+  );
+
   // Check if this is a deleted entity error (410)
   const deletedEntityData = useMemo(() => getDeletedEntityData(error), [error]);
 
@@ -70,7 +73,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
         digest: error.digest,
         stack: error.stack,
       });
-      
+
       // TODO: Send to error tracking service in production
       // if (process.env.NODE_ENV === 'production') {
       //   reportErrorToService(error);
@@ -95,7 +98,8 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
   // Get page title based on error type (memoized)
   const pageTitle = useMemo(() => {
     if (notFoundEntityData) {
-      const displayName = notFoundEntityData.model_name_display || notFoundEntityData.model_name;
+      const displayName =
+        notFoundEntityData.model_name_display || notFoundEntityData.model_name;
       return `${displayName} not found`;
     }
     if (deletedEntityData) {
@@ -103,7 +107,8 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
       if (deletedEntityData.item_name) {
         return `${deletedEntityData.item_name} (Deleted)`;
       }
-      const displayName = deletedEntityData.model_name_display || deletedEntityData.model_name;
+      const displayName =
+        deletedEntityData.model_name_display || deletedEntityData.model_name;
       return `${displayName} Deleted`;
     }
     return 'Error';
@@ -129,37 +134,37 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
   // Generate breadcrumbs based on current path (memoized)
   const breadcrumbs = useMemo(() => {
     if (pathSegments.length === 0) return [];
-    
+
     // Get entity name for the list page
     const entityName = formatEntityName(pathSegments[0]);
-    
-    const crumbs = [
-      { title: entityName, path: `/${pathSegments[0]}` }
-    ];
-    
+
+    const crumbs = [{ title: entityName, path: `/${pathSegments[0]}` }];
+
     // If we're on a detail page, add the current item
     if (pathSegments.length > 1) {
       const itemId = pathSegments[1];
       let itemTitle = itemId;
-      
+
       if (deletedEntityData) {
         // Use actual item name if available
         if (deletedEntityData.item_name) {
           itemTitle = deletedEntityData.item_name;
         } else {
           // Fallback: show type with short ID
-          const displayName = deletedEntityData.model_name_display || deletedEntityData.model_name;
+          const displayName =
+            deletedEntityData.model_name_display ||
+            deletedEntityData.model_name;
           const shortId = itemId.substring(0, 8);
           itemTitle = `${displayName} (${shortId}...)`;
         }
       }
-      
-      crumbs.push({ 
-        title: itemTitle, 
-        path: typeof window !== 'undefined' ? window.location.pathname : ''
+
+      crumbs.push({
+        title: itemTitle,
+        path: typeof window !== 'undefined' ? window.location.pathname : '',
       });
     }
-    
+
     return crumbs;
   }, [pathSegments, deletedEntityData]);
 
@@ -201,11 +206,11 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
             <Typography variant="h6" color="error" gutterBottom>
               Something went wrong
             </Typography>
-            
+
             <Typography color="error" paragraph>
               {getErrorMessage(error)}
             </Typography>
-            
+
             {/* Show error digest in development for debugging */}
             {process.env.NODE_ENV === 'development' && error.digest && (
               <Alert severity="info">
@@ -217,7 +222,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
                 </Typography>
               </Alert>
             )}
-            
+
             <Box display="flex" gap={2} flexWrap="wrap" mt={2}>
               <Button
                 variant="contained"
@@ -245,4 +250,3 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
     </PageContainer>
   );
 }
-

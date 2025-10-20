@@ -28,7 +28,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const identifier = resolvedParams.identifier;
-  
+
   // Return basic metadata - the page component will fetch data and handle errors
   return {
     title: 'Test Set Details',

@@ -21,7 +21,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const identifier = resolvedParams.identifier;
-  
+
   // Return basic metadata - the page component will fetch data and handle errors
   return {
     title: 'Test Run Details',
@@ -124,8 +124,7 @@ export default async function TestRunPage({
   // Fetch behaviors with metrics for this test run
   let behaviors: any[] = [];
   try {
-    const behaviorsData =
-      await testRunsClient.getTestRunBehaviors(identifier);
+    const behaviorsData = await testRunsClient.getTestRunBehaviors(identifier);
     const behaviorsWithMetrics = await Promise.all(
       behaviorsData.map(async behavior => {
         try {

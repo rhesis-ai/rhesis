@@ -7,7 +7,7 @@ import { API_ENDPOINTS } from './config';
 export class RecycleClient extends BaseApiClient {
   /**
    * Restore a soft-deleted item from the recycle bin.
-   * 
+   *
    * @param tableName - The singular table name of the model (e.g., 'test_run', 'test', 'project')
    * @param itemId - The UUID of the item to restore
    * @returns Promise with the restored item
@@ -20,7 +20,7 @@ export class RecycleClient extends BaseApiClient {
 
   /**
    * Get soft-deleted items for a specific model.
-   * 
+   *
    * @param tableName - The table name of the model
    * @param skip - Number of records to skip
    * @param limit - Maximum number of records to return
@@ -36,17 +36,14 @@ export class RecycleClient extends BaseApiClient {
     items: any[];
     has_more: boolean;
   }> {
-    return this.fetch(
-      `/recycle/${tableName}?skip=${skip}&limit=${limit}`,
-      {
-        method: 'GET',
-      }
-    );
+    return this.fetch(`/recycle/${tableName}?skip=${skip}&limit=${limit}`, {
+      method: 'GET',
+    });
   }
 
   /**
    * Get counts of deleted items across all models.
-   * 
+   *
    * @returns Promise with counts per model
    */
   async getRecycleBinCounts(): Promise<{
@@ -60,7 +57,7 @@ export class RecycleClient extends BaseApiClient {
 
   /**
    * Permanently delete an item from the recycle bin.
-   * 
+   *
    * @param tableName - The table name of the model
    * @param itemId - The UUID of the item to permanently delete
    * @returns Promise with success message
@@ -69,12 +66,8 @@ export class RecycleClient extends BaseApiClient {
     tableName: string,
     itemId: string
   ): Promise<{ message: string; warning: string }> {
-    return this.fetch(
-      `/recycle/${tableName}/${itemId}?confirm=true`,
-      {
-        method: 'DELETE',
-      }
-    );
+    return this.fetch(`/recycle/${tableName}/${itemId}?confirm=true`, {
+      method: 'DELETE',
+    });
   }
 }
-
