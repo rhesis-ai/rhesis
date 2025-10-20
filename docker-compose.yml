@@ -200,11 +200,11 @@ services:
       start_period: 60s
 
   # Documentation
-  documentation:
+  docs:
     build:
-      context: ./apps/documentation
-      dockerfile: Dockerfile
-    container_name: rhesis-documentation
+      context: ./docs
+      dockerfile: src/Dockerfile
+    container_name: rhesis-docs
     environment:
       <<: [*common-environment]
       PORT: 3001
