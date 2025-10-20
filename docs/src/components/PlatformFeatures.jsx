@@ -29,42 +29,50 @@ const features = [
   {
     icon: BusinessIcon,
     title: 'Organizations & Team',
-    description: 'Manage organization settings, invite team members, and configure contact information and preferences.',
+    description:
+      'Manage organization settings, invite team members, and configure contact information and preferences.',
   },
   {
     icon: FolderIcon,
     title: 'Projects',
-    description: 'Organize testing work into projects with environment management, visual icons, and comprehensive project settings.',
+    description:
+      'Organize testing work into projects with environment management, visual icons, and comprehensive project settings.',
   },
   {
     icon: ApiIcon,
     title: 'Endpoints',
-    description: 'Configure API endpoints that your tests execute against, with support for REST and WebSocket protocols.',
+    description:
+      'Configure API endpoints that your tests execute against, with support for REST and WebSocket protocols.',
   },
   {
     icon: AssignmentIcon,
     title: 'Tests',
-    description: 'Create and manage test cases manually or generate them using AI with document context and iterative feedback.',
+    description:
+      'Create and manage test cases manually or generate them using AI with document context and iterative feedback.',
   },
   {
     icon: LibraryBooksIcon,
     title: 'Test Sets',
-    description: 'Organize tests into collections and execute them against endpoints with parallel or sequential execution modes.',
+    description:
+      'Organize tests into collections and execute them against endpoints with parallel or sequential execution modes.',
   },
   {
     icon: PlayArrowIcon,
     title: 'Test Runs',
-    description: 'View execution results for individual test runs with filtering, comparison, and detailed metric analysis.',
+    description:
+      'View execution results for individual test runs with filtering, comparison, and detailed metric analysis.',
   },
   {
     icon: BarChartIcon,
     title: 'Test Results',
-    description: 'Dashboard for analyzing test result trends, metrics performance, and historical data with advanced filtering.',
+    description:
+      'Dashboard for analyzing test result trends, metrics performance, and historical data with advanced filtering.',
   },
   {
     icon: TuneIcon,
     title: 'Metrics',
-    description: 'Define and manage LLM-based evaluation criteria with behaviors, scoring types, and model-driven grading.',
+    description:
+      'Define and manage LLM-based evaluation criteria with behaviors, scoring types, and model-driven grading.',
   },
   {
     icon: ExtensionIcon,

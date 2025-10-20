@@ -5,7 +5,7 @@ inputs:
     description: 'Environment (dev, stg, prd)'
     required: true
   service-type:
-    description: 'Service type (backend, frontend, worker)'
+    description: 'Service type (backend, frontend, worker, docs)'
     required: true
   project-id:
     description: 'GCP Project ID'

@@ -36,12 +36,12 @@ import React from 'react'
 
 export const CodeBlock = ({
   children,
-  filename = "code.txt",
-  language = "text",
-  isTerminal = false
+  filename = 'code.txt',
+  language = 'text',
+  isTerminal = false,
 }) => {
   // Apply syntax highlighting based on language
-  const applySyntaxHighlighting = (code) => {
+  const applySyntaxHighlighting = code => {
     if (isTerminal) {
       // For terminal output, apply subtle styling for better readability
       let terminalCode = code
@@ -53,10 +53,7 @@ export const CodeBlock = ({
       )
 
       // Highlight comments (lines starting with #)
-      terminalCode = terminalCode.replace(
-        /^#.*$/gm,
-        '<span class="code-comment">$&</span>'
-      )
+      terminalCode = terminalCode.replace(/^#.*$/gm, '<span class="code-comment">$&</span>')
 
       // Highlight labels and values in one pass to avoid conflicts
       terminalCode = terminalCode.replace(
@@ -100,29 +97,33 @@ export const CodeBlock = ({
 
       // 3. Comments - match # at start of line or after whitespace, not inside strings
       // Since strings are already wrapped, we avoid them with a more sophisticated check
-      highlightedCode = highlightedCode.split('\n').map(line => {
-        // Skip if line already contains code-string span (means # is in a string)
-        if (line.includes('class="code-string"')) {
-          // Only highlight # if it's NOT inside the string span
-          const parts = line.split(/(<span class="code-string">.*?<\/span>)/);
-          return parts.map(part => {
-            if (part.includes('class="code-string"')) {
-              return part; // Keep strings as-is
-            }
-            // Apply comment highlighting to non-string parts
-            return part.replace(/#.*$/, '<span class="code-comment">$&</span>');
-          }).join('');
-        }
-        // No strings in this line, safe to highlight comments
-        return line.replace(/#.*$/, '<span class="code-comment">$&</span>');
-      }).join('\n')
+      highlightedCode = highlightedCode
+        .split('\n')
+        .map(line => {
+          // Skip if line already contains code-string span (means # is in a string)
+          if (line.includes('class="code-string"')) {
+            // Only highlight # if it's NOT inside the string span
+            const parts = line.split(/(<span class="code-string">.*?<\/span>)/)
+            return parts
+              .map(part => {
+                if (part.includes('class="code-string"')) {
+                  return part // Keep strings as-is
+                }
+                // Apply comment highlighting to non-string parts
+                return part.replace(/#.*$/, '<span class="code-comment">$&</span>')
+              })
+              .join('')
+          }
+          // No strings in this line, safe to highlight comments
+          return line.replace(/#.*$/, '<span class="code-comment">$&</span>')
+        })
+        .join('\n')
 
       // 4. Keywords (avoid replacing if already in a span)
       highlightedCode = highlightedCode.replace(
         /\b(import|from|def|class|if|else|elif|for|while|try|except|finally|with|as|return|yield|break|continue|pass|lambda|global|nonlocal|assert|del|raise|and|or|not|in|is|True|False|None)\b(?![^<]*<\/span>)/g,
         '<span class="code-keyword">$1</span>'
       )
-
     } else if (language === 'bash' || language === 'shell') {
       // 1. Strings first
       highlightedCode = highlightedCode.replace(
@@ -135,18 +136,23 @@ export const CodeBlock = ({
       )
 
       // 2. Comments - avoid matching # inside strings
-      highlightedCode = highlightedCode.split('\n').map(line => {
-        if (line.includes('class="code-string"')) {
-          const parts = line.split(/(<span class="code-string">.*?<\/span>)/);
-          return parts.map(part => {
-            if (part.includes('class="code-string"')) {
-              return part;
-            }
-            return part.replace(/#.*$/, '<span class="code-comment">$&</span>');
-          }).join('');
-        }
-        return line.replace(/#.*$/, '<span class="code-comment">$&</span>');
-      }).join('\n')
+      highlightedCode = highlightedCode
+        .split('\n')
+        .map(line => {
+          if (line.includes('class="code-string"')) {
+            const parts = line.split(/(<span class="code-string">.*?<\/span>)/)
+            return parts
+              .map(part => {
+                if (part.includes('class="code-string"')) {
+                  return part
+                }
+                return part.replace(/#.*$/, '<span class="code-comment">$&</span>')
+              })
+              .join('')
+          }
+          return line.replace(/#.*$/, '<span class="code-comment">$&</span>')
+        })
+        .join('\n')
 
       // 3. Commands
       highlightedCode = highlightedCode.replace(
@@ -166,7 +172,7 @@ export const CodeBlock = ({
       margin: '24px 0',
       overflow: 'hidden',
       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25)',
-      border: isTerminal ? '1px solid #2C2C2C' : 'none'
+      border: isTerminal ? '1px solid #2C2C2C' : 'none',
     },
     header: {
       background: '#1F242B',
@@ -175,38 +181,38 @@ export const CodeBlock = ({
       color: '#A9B1BB',
       borderBottom: '1px solid #2C2C2C',
       display: 'flex',
-      alignItems: 'center'
+      alignItems: 'center',
     },
     dots: {
       display: 'flex',
       gap: '6px',
-      marginRight: '12px'
+      marginRight: '12px',
     },
     dot: {
       width: '12px',
       height: '12px',
-      borderRadius: '50%'
+      borderRadius: '50%',
     },
     redDot: {
-      background: '#e53935'
+      background: '#e53935',
     },
     yellowDot: {
-      background: '#fbc02d'
+      background: '#fbc02d',
     },
     blueDot: {
-      background: '#4cafef'
+      background: '#4cafef',
     },
     content: {
       padding: '16px',
       overflowX: 'auto',
-      fontSize: '14px'
+      fontSize: '14px',
     },
     pre: {
       margin: '0',
       color: '#E6EDF3',
       whiteSpace: 'pre-wrap',
-      wordBreak: 'break-word'
-    }
+      wordBreak: 'break-word',
+    },
   }
 
   const processedCode = applySyntaxHighlighting(children?.toString() || '')
@@ -215,9 +221,9 @@ export const CodeBlock = ({
     <div style={styles.container} className="not-prose rhesis-codeblock">
       <div style={styles.header}>
         <div style={styles.dots}>
-          <div style={{...styles.dot, ...styles.redDot}}></div>
-          <div style={{...styles.dot, ...styles.yellowDot}}></div>
-          <div style={{...styles.dot, ...styles.blueDot}}></div>
+          <div style={{ ...styles.dot, ...styles.redDot }}></div>
+          <div style={{ ...styles.dot, ...styles.yellowDot }}></div>
+          <div style={{ ...styles.dot, ...styles.blueDot }}></div>
         </div>
         <span>{filename}</span>
       </div>
