@@ -14,6 +14,7 @@ from rhesis.backend.app.constants import EntityType
 # Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.logging import logger
 
 # Define a generic type variable
@@ -170,6 +171,41 @@ def _create_db_item_with_transaction(
 # ============================================================================
 
 
+def _check_and_raise_if_deleted(
+    item: Optional[T],
+    model: Type[T],
+    item_id: uuid.UUID,
+    include_deleted: bool = False,
+) -> Optional[T]:
+    """
+    Helper function to check if an item is soft-deleted and raise exception if needed.
+    
+    Args:
+        item: The item to check (or None if not found)
+        model: SQLAlchemy model class (for exception message)
+        item_id: ID of the item (for exception message)
+        include_deleted: If True, don't raise exception for deleted items
+    
+    Returns:
+        The item if it exists and is not deleted, or if include_deleted is True
+        None if item doesn't exist
+        
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
+    """
+    # If item doesn't exist at all, return None
+    if item is None:
+        return None
+    
+    # If item exists but is deleted, and we're not including deleted
+    if not include_deleted and hasattr(item, 'deleted_at') and item.deleted_at is not None:
+        model_name = model.__name__ if hasattr(model, '__name__') else str(model)
+        raise ItemDeletedException(model_name, str(item_id))
+    
+    # Return the item (either active, or deleted but include_deleted=True)
+    return item
+
+
 def get_item(
     db: Session,
     model: Type[T],
@@ -197,18 +233,21 @@ def get_item(
     
     Returns:
         Item or None if not found
+        
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
-    builder = QueryBuilder(db, model)
-    
-    if include_deleted:
-        builder = builder.with_deleted()
-    
-    return (
-        builder
+    # Always check with deleted items first to differentiate not-found vs deleted
+    item = (
+        QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
     )
+    
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
 def get_item_detail(
@@ -217,6 +256,7 @@ def get_item_detail(
     item_id: uuid.UUID,
     organization_id: str = None,
     user_id: str = None,
+    include_deleted: bool = False,
 ) -> Optional[T]:
     """
     Get a single item with all relationships loaded using optimized approach - no session variables needed.
@@ -227,14 +267,33 @@ def get_item_detail(
     - No SHOW queries during retrieval
     - Direct tenant context injection
     - Uses selectinload for many-to-many relationships to avoid cartesian products
+    
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to retrieve
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+        include_deleted: If True, include soft-deleted records (default: False)
+    
+    Returns:
+        Item with relationships loaded or None if not found
+        
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
-    return (
+    # Always check with deleted items first to differentiate not-found vs deleted
+    item = (
         QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
         .with_optimized_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
     )
+    
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
 def get_items(
