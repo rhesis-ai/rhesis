@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 from rhesis.sdk.entities.test_set import TestSet
 
 
-class TestSetSynthesizer(ABC):
+class BaseSynthesizer(ABC):
     """Base class for all test set synthesizers."""
 
     def __init__(self, batch_size: int = 5):
