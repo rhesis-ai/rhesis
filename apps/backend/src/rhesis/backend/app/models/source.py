@@ -18,6 +18,9 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
         GUID(), ForeignKey("type_lookup.id")
     )  # Type of source (e.g., 'website', 'document')
 
+    # Status relationship
+    status_id = Column(GUID(), ForeignKey("status.id"))
+
     # Additional information
     url = Column(String)  # Optional, URL if the source is a website
     citation = Column(Text)  # Optional, citation details for papers or books
@@ -32,6 +35,7 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
 
     # Relationships
     source_type = relationship("TypeLookup", back_populates="sources")
+    status = relationship("Status", back_populates="sources")
     prompt_templates = relationship("PromptTemplate", back_populates="source")
     prompts = relationship("Prompt", back_populates="source")
     tests = relationship("Test", back_populates="source")
