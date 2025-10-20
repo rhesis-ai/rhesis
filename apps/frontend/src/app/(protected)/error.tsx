@@ -6,6 +6,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { usePathname } from 'next/navigation';
 import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
 import { NotFoundAlert } from '@/components/common/NotFoundAlert';
 import { 
@@ -77,11 +78,11 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
     }
   }, [error, notFoundEntityData, deletedEntityData]);
 
-  // Parse current path segments (memoized for performance)
+  // Get current pathname and parse segments (reactive to navigation changes)
+  const pathname = usePathname();
   const pathSegments = useMemo(() => {
-    if (typeof window === 'undefined') return [];
-    return window.location.pathname.split('/').filter(Boolean);
-  }, []);
+    return pathname.split('/').filter(Boolean);
+  }, [pathname]);
 
   // Format entity name from URL segment (e.g., "test-runs" -> "Test Runs")
   const formatEntityName = (segment: string): string => {
