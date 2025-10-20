@@ -130,7 +130,15 @@ app.add_middleware(
 )
 
 # Add session middleware
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("AUTH0_SECRET_KEY"))
+# For OAuth state preservation, we need proper cookie configuration
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("AUTH0_SECRET_KEY"),
+    session_cookie="session",
+    max_age=3600,  # 1 hour session lifetime
+    same_site="lax",  # Required for OAuth flows
+    https_only=False,  # False for local development (http)
+)
 
 
 # Add HTTPS redirect middleware
