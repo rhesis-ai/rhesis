@@ -16,8 +16,7 @@ from sqlalchemy.inspection import inspect
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_context
+from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.utils.crud_utils import (
     get_deleted_items,
@@ -86,7 +85,7 @@ def get_model_by_name(model_name: str) -> type:
 @router.get("/models")
 def list_available_models(
     current_user: models.User = Depends(require_current_user_or_token),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
 ):
     """
     List all available models that can be managed (admin only).
@@ -121,7 +120,7 @@ def get_recycled_records(
     model_name: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -165,7 +164,7 @@ def get_recycled_records(
 def restore_from_recycle_bin(
     model_name: str,
     item_id: UUID,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -209,7 +208,7 @@ def restore_from_recycle_bin(
 def empty_recycle_bin_for_model(
     model_name: str,
     confirm: bool = Query(False, description="Must be true to confirm"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -282,7 +281,7 @@ def permanently_delete_record(
     model_name: str,
     item_id: UUID,
     confirm: bool = Query(False, description="Must be true to confirm deletion"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -336,7 +335,7 @@ def permanently_delete_record(
 
 @router.get("/stats/counts")
 def get_recycle_bin_counts(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -393,7 +392,7 @@ def get_recycle_bin_counts(
 def bulk_restore_from_recycle_bin(
     model_name: str,
     item_ids: List[UUID],
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),
 ):
