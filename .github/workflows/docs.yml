@@ -1,0 +1,460 @@
+name: Documentation CI/CD
+
+# Workflow file for building and deploying the documentation (Nextra) application
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/src/**'
+      - 'docs/content/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/src/**'
+      - 'docs/content/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+      preview:
+        description: 'Deploy as preview (tagged URL, no live traffic)'
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      deploy_only:
+        description: 'Skip build and only deploy latest image'
+        required: false
+        default: false
+        type: boolean
+      reason:
+        description: 'Reason for manual deployment'
+        required: false
+        type: string
+        default: 'Manual deployment'
+      preview:
+        description: 'Deploy as preview (tagged URL, no live traffic)'
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      docs_preview_url:
+        description: 'The docs preview URL if deployed as preview'
+        value: ${{ jobs.deploy.outputs.docs_preview_url }}
+      deployed_url:
+        description: 'The deployed service URL'
+        value: ${{ jobs.deploy.outputs.deployed_url }}
+
+env:
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ github.event.inputs.environment }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: docs/src/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd docs/src
+          npm ci
+
+      - name: Run format check
+        run: |
+          cd docs/src
+          npm run format:check
+
+      - name: Build documentation
+        run: |
+          cd docs/src
+          npm run build
+
+  build:
+    needs: [validate-inputs, test]
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_only != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      SERVICE: documentation
+
+    outputs:
+      image_name: ${{ steps.set_env.outputs.image_name }}
+      service_name: ${{ steps.set_env.outputs.service_name }}
+      environment: ${{ env.ENVIRONMENT }}
+      commit_sha: ${{ steps.set_env.outputs.commit_sha }}
+      is_preview: ${{ steps.set_env.outputs.is_preview }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        id: set_env
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+
+          # Get commit SHA (short version for URLs)
+          COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+          # Check if this is a preview deployment
+          if [ "${{ inputs.preview }}" = "true" ] || [ "${{ github.event.inputs.preview }}" = "true" ]; then
+            IS_PREVIEW="true"
+          else
+            IS_PREVIEW="false"
+          fi
+          echo "IS_PREVIEW=$IS_PREVIEW" >> $GITHUB_ENV
+          echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
+          echo "🔍 Preview deployment mode: $IS_PREVIEW"
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: docs
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build Container
+        run: |
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # For preview deployments, tag with commit SHA
+            echo "Building preview image for commit: ${{ env.COMMIT_SHA }}"
+
+            docker build \
+              -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} \
+              -f docs/src/Dockerfile \
+              docs/src
+
+            echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+          else
+            # For regular deployments, use latest tag
+            docker build \
+              -t ${{ env.IMAGE_NAME }}:latest \
+              -f docs/src/Dockerfile \
+              docs/src
+
+            echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
+          fi
+
+      - name: Push Container
+        run: |
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # For preview deployments, push commit SHA tagged image
+            docker push ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
+            echo "Pushed preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+          else
+            # For regular deployments, push latest tagged image
+            docker push ${{ env.IMAGE_NAME }}:latest
+            echo "Pushed regular image: ${{ env.IMAGE_NAME }}:latest"
+          fi
+
+  deploy:
+    needs: [validate-inputs, build]
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+
+    env:
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+      IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
+
+    outputs:
+      docs_preview_url: ${{ steps.output_url.outputs.docs_preview_url }}
+      deployed_url: ${{ steps.output_url.outputs.deployed_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+
+      - name: Setup service environment
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: docs
+          project-id: ${{ secrets.PROJECT_ID }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # Preview deployment with commit SHA
+            IMAGE_TAG="${{ env.COMMIT_SHA }}"
+            echo "🚀 Deploying preview revision with commit SHA: $IMAGE_TAG"
+            echo "Image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
+
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --port=3001 \
+              --memory=1Gi \
+              --cpu=1 \
+              --min-instances=0 \
+              --max-instances=5 \
+              --concurrency=80 \
+              --timeout=300s \
+              --no-traffic \
+              --revision-suffix=${{ env.COMMIT_SHA }}
+
+            echo "✅ Preview revision deployed successfully"
+          else
+            # Regular deployment with latest tag
+            echo "🚀 Deploying regular revision"
+            echo "Image: ${{ env.IMAGE_NAME }}:latest"
+
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ env.IMAGE_NAME }}:latest \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --port=3001 \
+              --memory=1Gi \
+              --cpu=1 \
+              --min-instances=0 \
+              --max-instances=5 \
+              --concurrency=80 \
+              --timeout=300s
+
+            echo "✅ Regular deployment completed successfully"
+
+            # For regular deployments, ensure the new revision gets 100% traffic
+            echo "🚦 Setting new revision to receive 100% traffic..."
+            gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+              --to-latest \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }}
+
+            echo "✅ Traffic successfully routed to new revision"
+          fi
+
+      - name: Tag revision for commit-specific URL
+        if: env.IS_PREVIEW == 'true'
+        run: |
+          echo "Creating tag for commit-specific URL"
+
+          # Get the latest revision (the one we just created)
+          echo "🔍 Getting latest revision for service: ${{ env.SERVICE_NAME }}"
+          LATEST_REVISION=$(gcloud run revisions list \
+            --service=${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format="value(metadata.name)" \
+            --limit=1)
+
+          echo "Latest revision: $LATEST_REVISION"
+
+          # Validate revision was found
+          if [ -z "$LATEST_REVISION" ]; then
+            echo "❌ Error: No latest revision found!"
+            echo "🔍 Available revisions:"
+            gcloud run revisions list --service=${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} --limit=5
+            exit 1
+          fi
+
+          # Create a valid tag name (lowercase, alphanumeric + hyphens only)
+          GITHUB_USER="${{ github.actor }}"
+          GITHUB_USER=$(echo "$GITHUB_USER" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+          TAG_NAME="$GITHUB_USER-${{ env.COMMIT_SHA }}"
+          TAG_NAME=$(echo "$TAG_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "Using tag name: $TAG_NAME (user: ${{ github.actor }})"
+
+          # Tag the latest revision with 0% traffic
+          echo "Tagging revision with 0% traffic allocation..."
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --to-revisions="$LATEST_REVISION=0" \
+            --set-tags "$TAG_NAME=$LATEST_REVISION" \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+
+          # Get the tagged URL
+          echo "Fetching tagged URL from Cloud Run..."
+          PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url')
+
+          if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
+            echo "Warning: Could not fetch tagged URL, retrying..."
+            sleep 5
+            PREVIEW_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }} \
+              --format="json" | jq -r --arg tag "$TAG_NAME" '.status.traffic[] | select(.tag == $tag) | .url')
+          fi
+
+          if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" = "null" ]; then
+            echo "Error: Failed to get preview URL after retry"
+            exit 1
+          fi
+
+          echo "Preview URL created: $PREVIEW_URL"
+          echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
+
+      - name: Output deployed service URL
+        id: output_service_url
+        run: |
+          echo "🔍 Determining service URL (IS_PREVIEW=${{ env.IS_PREVIEW }})"
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            # For preview deployments, use the tagged URL
+            DEPLOYED_URL="${{ env.PREVIEW_URL }}"
+            echo "📍 Using preview URL: $DEPLOYED_URL"
+          else
+            # For regular deployments, get the standard service URL
+            DEPLOYED_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+              --project=${{ env.PROJECT_ID }} \
+              --region=${{ env.REGION }} \
+              --format="value(status.url)")
+            echo "📍 Using standard service URL: $DEPLOYED_URL"
+          fi
+
+          # Set as output for use in other workflows
+          echo "DEPLOYED_URL=$DEPLOYED_URL" >> $GITHUB_ENV
+          echo "deployed_service_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
+
+      - name: Set actual service name
+        id: set_service_name
+        run: |
+          # Use repository variable to construct service name
+          SERVICE_TYPE="docs"
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}"
+          else
+            ACTUAL_SERVICE_NAME="${{ vars.APP_NAME }}-${SERVICE_TYPE}-${{ env.ENVIRONMENT }}"
+          fi
+
+          echo "✅ Service name: $ACTUAL_SERVICE_NAME"
+          echo "ACTUAL_SERVICE_NAME=$ACTUAL_SERVICE_NAME" >> $GITHUB_ENV
+
+      - name: Generate deployment summary
+        uses: ./.github/actions/generate-deployment-summary
+        with:
+          service-type: Documentation
+          is-preview: ${{ env.IS_PREVIEW }}
+          environment: ${{ env.ENVIRONMENT }}
+          env-display: ${{ env.ENV_DISPLAY }}
+          service-url: ${{ env.IS_PREVIEW == 'true' && env.DEPLOYED_URL || '' }}
+          actual-service-name: ${{ env.ACTUAL_SERVICE_NAME }}
+
+      - name: Set Workflow Outputs
+        id: output_url
+        run: |
+          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+            DOCS_PREVIEW_URL="${{ env.PREVIEW_URL }}"
+            DEPLOYED_URL="$DOCS_PREVIEW_URL"
+            echo "docs_preview_url=$DOCS_PREVIEW_URL" >> $GITHUB_OUTPUT
+          else
+            DEPLOYED_URL="${{ env.DEPLOYED_URL }}"
+            echo "docs_preview_url=" >> $GITHUB_OUTPUT
+          fi
+          echo "deployed_url=$DEPLOYED_URL" >> $GITHUB_OUTPUT
+

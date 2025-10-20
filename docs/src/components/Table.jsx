@@ -103,7 +103,7 @@ export const Table = ({
   }
 
   // Helper function to check if content looks like code
-  const isCodeLike = (content) => {
+  const isCodeLike = content => {
     if (typeof content !== 'string') return false
     return (
       content.includes('`') ||
@@ -117,7 +117,7 @@ export const Table = ({
   }
 
   // Helper function to render cell content with code formatting and bold
-  const renderCellContent = (content) => {
+  const renderCellContent = content => {
     if (typeof content !== 'string') return content
 
     // Check if the entire content is wrapped in ** for bold
@@ -140,7 +140,7 @@ export const Table = ({
   }
 
   // Get alignment for a column
-  const getAlignment = (index) => {
+  const getAlignment = index => {
     return align[index] || 'left'
   }
 

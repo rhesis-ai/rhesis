@@ -22,6 +22,7 @@ The CodeBlock component is globally available in all MDX files. No import needed
 from rhesis.sdk import RhesisClient
 
 client = RhesisClient(api_key="your-key")`}
+
 </CodeBlock>
 ```
 
@@ -29,7 +30,7 @@ client = RhesisClient(api_key="your-key")`}
 
 ```mdx
 <CodeBlock filename="terminal" language="bash">
-{`pip install rhesis-sdk
+  {`pip install rhesis-sdk
 cd my-project
 python app.py`}
 </CodeBlock>
@@ -39,7 +40,7 @@ python app.py`}
 
 ```mdx
 <CodeBlock filename="Terminal Output" isTerminal={true}>
-{`✓ Tests generated successfully
+  {`✓ Tests generated successfully
 ✓ 100 test cases created
 ✓ Ready for execution`}
 </CodeBlock>
@@ -47,12 +48,12 @@ python app.py`}
 
 ## Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `filename` | `string` | `"code.txt"` | The filename to display in the header |
-| `language` | `string` | `"text"` | Programming language for syntax highlighting (`python`, `bash`, `shell`, `text`) |
-| `isTerminal` | `boolean` | `false` | Whether this is terminal output (disables syntax highlighting) |
-| `children` | `string` | - | The code content to display |
+| Prop         | Type      | Default      | Description                                                                      |
+| ------------ | --------- | ------------ | -------------------------------------------------------------------------------- |
+| `filename`   | `string`  | `"code.txt"` | The filename to display in the header                                            |
+| `language`   | `string`  | `"text"`     | Programming language for syntax highlighting (`python`, `bash`, `shell`, `text`) |
+| `isTerminal` | `boolean` | `false`      | Whether this is terminal output (disables syntax highlighting)                   |
+| `children`   | `string`  | -            | The code content to display                                                      |
 
 ## Supported Languages
 
@@ -65,6 +66,7 @@ python app.py`}
 The component uses the following color scheme to match the Rhesis brand:
 
 **Code Syntax Highlighting:**
+
 - Background: `#161B22` (dark gray)
 - Header: `#1F242B` (darker gray)
 - Text: `#E6EDF3` (light gray)
@@ -74,6 +76,7 @@ The component uses the following color scheme to match the Rhesis brand:
 - Comments: `#A9B1BB` (muted gray)
 
 **Terminal Output:**
+
 - Separators (dashes): `#6B7280` (muted gray with opacity)
 - Labels (Prompt:, Behavior:, etc.): `#60A5FA` (blue, semi-bold)
 - Values: `#E5E7EB` (light gray)

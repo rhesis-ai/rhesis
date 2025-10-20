@@ -78,7 +78,7 @@ start_frontend() {
 # Function to start docs
 start_docs() {
     echo -e "${GREEN}📚 Starting Rhesis Documentation...${NC}"
-    cd "$SCRIPT_DIR/apps/documentation" || {
+    cd "$SCRIPT_DIR/docs/src" || {
         echo -e "${RED}❌ Error: Documentation directory not found${NC}"
         exit 1
     }

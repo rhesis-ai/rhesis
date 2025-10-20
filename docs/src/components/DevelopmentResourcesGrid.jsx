@@ -27,7 +27,8 @@ const resources = [
   {
     icon: CodeOutlined,
     title: 'Development Setup',
-    description: 'Complete guide to setting up your development environment for contributing to Rhesis.',
+    description:
+      'Complete guide to setting up your development environment for contributing to Rhesis.',
     link: '/docs/development/contributing/development-setup',
     linkText: 'Setup Guide →',
   },
@@ -48,7 +49,8 @@ const resources = [
   {
     icon: CheckCircleOutlined,
     title: 'Coding Standards',
-    description: 'Code style guidelines and best practices for Python, TypeScript, and other languages.',
+    description:
+      'Code style guidelines and best practices for Python, TypeScript, and other languages.',
     link: '/docs/development/contributing/coding-standards',
     linkText: 'View Standards →',
   },
@@ -78,7 +80,7 @@ const resources = [
 export const DevelopmentResourcesGrid = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 not-prose">
-      {resources.map((resource) => (
+      {resources.map(resource => (
         <InfoCard
           key={resource.title}
           icon={resource.icon}

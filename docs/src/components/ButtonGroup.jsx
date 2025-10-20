@@ -75,18 +75,10 @@ export const ButtonGroup = ({
   return (
     <>
       <div style={styles.container} className="button-group-rhesis">
-        <a
-          href={primaryHref}
-          style={styles.primaryButton}
-          className="btn-primary-rhesis"
-        >
+        <a href={primaryHref} style={styles.primaryButton} className="btn-primary-rhesis">
           {primaryText}
         </a>
-        <a
-          href={secondaryHref}
-          style={styles.secondaryButton}
-          className="btn-secondary-rhesis"
-        >
+        <a href={secondaryHref} style={styles.secondaryButton} className="btn-secondary-rhesis">
           {secondaryText}
         </a>
       </div>
