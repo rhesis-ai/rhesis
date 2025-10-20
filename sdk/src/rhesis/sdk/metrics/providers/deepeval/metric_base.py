@@ -2,7 +2,7 @@ from typing import Any, List, Optional, Union
 
 from deepeval.test_case.llm_test_case import LLMTestCase
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricType, ScoreType
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.deepeval.model import DeepEvalModelWrapper
 
 
@@ -17,13 +17,13 @@ class DeepEvalMetricBase(BaseMetric):
         metric_type: Optional[Union[str, MetricType]] = None,
         model: Optional[Any] = None,
     ):
-        super().__init__(
+        config = MetricConfig(
             name=name,
             description=description,
             score_type=score_type,
             metric_type=metric_type,
-            model=model,
         )
+        super().__init__(config=config, model=model)
         self._metric = None  # Will be set by child classes
         self._deepeval_model = DeepEvalModelWrapper(self.model)
 
