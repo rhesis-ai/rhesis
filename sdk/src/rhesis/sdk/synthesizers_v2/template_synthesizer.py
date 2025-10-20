@@ -51,21 +51,22 @@ class TemplateSynthesizer(BaseSynthesizer):
         elif template_name:
             self.template = load_prompt_template(template_name)
         else:
-            self.template = Template("{{ prompt }}")
+            self.template = Template(
+                "Generate {{ num_items }} items based on the provided variables."
+            )
 
-    def generate(self, prompt: str, num_items: int = 3, **template_vars: Any) -> TestSet:
+    def generate(self, num_items: int = 3, **template_vars: Any) -> TestSet:
         """Generate a test set using the template and LLM.
 
         Args:
-            prompt: The main prompt/instruction
             num_items: Number of items to generate
-            **template_vars: Additional variables for template rendering
+            **template_vars: Template variables for rendering
 
         Returns:
             TestSet: A TestSet entity containing the generated test cases
         """
         # Prepare template variables
-        template_data = {"prompt": prompt, "num_items": num_items, **template_vars}
+        template_data = {"num_items": num_items, **template_vars}
 
         # Render the template
         rendered_prompt = self.template.render(**template_data)
@@ -83,7 +84,6 @@ class TemplateSynthesizer(BaseSynthesizer):
             synthesizer_name=self.__class__.__name__,
             batch_size=self.batch_size,
             template_name=self.template_name,
-            original_prompt=prompt,
             rendered_prompt=rendered_prompt,
             template_vars=template_vars,
         )
@@ -93,11 +93,12 @@ class TemplateSynthesizer(BaseSynthesizer):
 if __name__ == "__main__":
     # Example 1: Using a custom template
     custom_template = """
-    You are a helpful assistant. Generate {{ num_items }} test cases for the following prompt:
+    You are a helpful assistant. Generate {{ num_items }} test cases for the following task:
 
-    Prompt: {{ prompt }}
+    Task: {{ task_description }}
 
     Additional context: {{ context }}
+    Domain: {{ domain }}
 
     Please return the test cases in JSON format with the following structure:
     {
@@ -120,9 +121,10 @@ if __name__ == "__main__":
 
     # Generate test cases
     test_set = synthesizer.generate(
-        prompt="Create a function that validates email addresses",
         num_items=2,
+        task_description="Create a function that validates email addresses",
         context="Focus on edge cases and common validation patterns",
+        domain="email validation",
     )
 
     print("Generated Test Set:")
