@@ -256,7 +256,18 @@ def with_database_error_handling(
 
 class ItemDeletedException(Exception):
     """Raised when trying to access a soft-deleted item."""
-    def __init__(self, model_name: str, item_id: str):
+    def __init__(self, model_name: str, item_id: str, table_name: str = None, item_name: str = None):
         self.model_name = model_name
         self.item_id = item_id
+        self.table_name = table_name or model_name.lower()
+        self.item_name = item_name
         super().__init__(f"{model_name} with ID {item_id} has been deleted")
+
+
+class ItemNotFoundException(Exception):
+    """Raised when trying to access an item that doesn't exist."""
+    def __init__(self, model_name: str, item_id: str, table_name: str = None):
+        self.model_name = model_name
+        self.item_id = item_id
+        self.table_name = table_name or model_name.lower()
+        super().__init__(f"{model_name} with ID {item_id} not found")

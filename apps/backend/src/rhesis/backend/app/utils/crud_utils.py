@@ -14,7 +14,7 @@ from rhesis.backend.app.constants import EntityType
 # Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.model_utils import QueryBuilder
-from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.logging import logger
 
 # Define a generic type variable
@@ -200,9 +200,48 @@ def _check_and_raise_if_deleted(
     # If item exists but is deleted, and we're not including deleted
     if not include_deleted and hasattr(item, 'deleted_at') and item.deleted_at is not None:
         model_name = model.__name__ if hasattr(model, '__name__') else str(model)
-        raise ItemDeletedException(model_name, str(item_id))
+        table_name = getattr(model, '__tablename__', model_name.lower())
+        
+        # Try to get the item's name or title for better UX
+        item_name = None
+        if hasattr(item, 'name') and item.name:
+            item_name = item.name
+        elif hasattr(item, 'title') and item.title:
+            item_name = item.title
+        
+        raise ItemDeletedException(model_name, str(item_id), table_name, item_name)
     
     # Return the item (either active, or deleted but include_deleted=True)
+    return item
+
+
+def _check_and_raise_if_not_found(
+    item: Optional[T],
+    model: Type[T],
+    item_id: uuid.UUID,
+    raise_if_none: bool = True,
+) -> Optional[T]:
+    """
+    Helper function to check if an item exists and raise 404 exception if not found.
+    
+    Args:
+        item: The item to check (or None if not found)
+        model: SQLAlchemy model class (for exception message)
+        item_id: ID of the item (for exception message)
+        raise_if_none: If True, raise exception when item is None (default: True)
+    
+    Returns:
+        The item if it exists
+        None if item doesn't exist and raise_if_none is False
+        
+    Raises:
+        ItemNotFoundException: If item is None and raise_if_none is True
+    """
+    if item is None and raise_if_none:
+        model_name = model.__name__ if hasattr(model, '__name__') else str(model)
+        table_name = getattr(model, '__tablename__', model_name.lower())
+        raise ItemNotFoundException(model_name, str(item_id), table_name)
+    
     return item
 
 
