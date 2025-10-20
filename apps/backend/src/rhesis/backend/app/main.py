@@ -23,7 +23,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user, require_cur
 from rhesis.backend.app.utils.git_utils import get_version_info
 from rhesis.backend.app.database import Base, engine
 from rhesis.backend.app.routers import routers
-from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.logging import logger
 
 Base.metadata.create_all(bind=engine)
@@ -117,11 +117,61 @@ app = FastAPI(
 @app.exception_handler(ItemDeletedException)
 async def deleted_item_exception_handler(request: Request, exc: ItemDeletedException):
     """Handle requests for soft-deleted items with HTTP 410 Gone."""
+    import re
+    
+    # Convert model name from "TestRun" to "Test Run" (add space before capitals)
+    model_name_display = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', exc.model_name)
+    model_name_lower = model_name_display.lower()
+    
+    # Build response with item name if available
+    response_content = {
+        "detail": f"{model_name_display} has been deleted",
+        "model_name": exc.model_name,
+        "model_name_display": model_name_display,
+        "item_id": exc.item_id,
+        "table_name": exc.table_name,
+        "restore_url": f"/recycle/{exc.table_name}/{exc.item_id}/restore",
+        "can_restore": True,
+        "message": f"This {model_name_lower} has been deleted. You can restore it from the recycle bin."
+    }
+    
+    # Include item name if available
+    if exc.item_name:
+        response_content["item_name"] = exc.item_name
+    
     return JSONResponse(
         status_code=410,
-        content={
-            "detail": f"{exc.model_name} has been deleted"
-        }
+        content=response_content
+    )
+
+
+# Global exception handler for not found items
+@app.exception_handler(ItemNotFoundException)
+async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundException):
+    """Handle requests for items that don't exist with HTTP 404 Not Found."""
+    import re
+    
+    # Convert model name from "TestRun" to "Test Run" (add space before capitals)
+    model_name_display = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', exc.model_name)
+    model_name_lower = model_name_display.lower()
+    
+    # Get list URL from table name
+    list_url = f"/{exc.table_name.replace('_', '-')}"
+    
+    # Build response
+    response_content = {
+        "detail": f"{model_name_display} not found",
+        "model_name": exc.model_name,
+        "model_name_display": model_name_display,
+        "item_id": exc.item_id,
+        "table_name": exc.table_name,
+        "list_url": list_url,
+        "message": f"The {model_name_lower} you're looking for doesn't exist or you don't have permission to access it."
+    }
+    
+    return JSONResponse(
+        status_code=404,
+        content=response_content
     )
 
 
