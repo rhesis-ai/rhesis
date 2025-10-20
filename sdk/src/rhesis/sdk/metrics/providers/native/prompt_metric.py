@@ -1,8 +1,9 @@
+import inspect
 import logging
 import traceback
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -10,6 +11,9 @@ from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
 from rhesis.sdk.models import BaseLLM
+
+# Type variable for generic return types
+T = TypeVar("T", bound="RhesisPromptMetricBase")
 
 # Custom parameters
 
@@ -218,15 +222,23 @@ class RhesisPromptMetricBase(BaseMetric):
         return self.config
 
     @classmethod
-    def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricBase":
-        raise NotImplementedError("Subclasses should override this method")
+    def from_config(cls: type[T], config: MetricConfig) -> T:
+        """Create a metric from a config object."""
+        # Get __init__ parameter names automatically
+        init_params = inspect.signature(cls.__init__).parameters
+        config_dict = asdict(config)
+
+        # Only pass parameters that __init__ accepts
+        filtered_params = {k: v for k, v in config_dict.items() if k in init_params}
+
+        return cls(**filtered_params)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the metric to a dictionary."""
         return asdict(self.to_config())
 
     @classmethod
-    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricBase":
+    def from_dict(cls: type[T], config: Dict[str, Any]) -> T:
         """Create a metric from a dictionary."""
         raise NotImplementedError("Subclasses should override this method")
 
