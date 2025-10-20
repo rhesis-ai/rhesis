@@ -14,13 +14,15 @@ class PromptTemplate(Base, TagsMixin, OrganizationMixin):
     parent_id = Column(GUID(), ForeignKey("prompt_template.id"))
     language_code = Column(String)
     is_summary = Column(Boolean, default=False)
-    source_id = Column(GUID(), ForeignKey("source.id"))
     user_id = Column(GUID(), ForeignKey("user.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
     category = relationship("Category", back_populates="prompt_templates")
     topic = relationship("Topic", back_populates="prompt_templates")
     status = relationship("Status", back_populates="prompt_templates")
-    source = relationship("Source", back_populates="prompt_templates")
+    # Many-to-many relationship to sources via test_source association
+    sources = relationship(
+        "Source", secondary="test_source", back_populates="prompt_templates_multi"
+    )
     parent = relationship(
         "PromptTemplate", back_populates="children", remote_side="[PromptTemplate.id]"
     )
