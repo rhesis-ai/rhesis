@@ -9,12 +9,8 @@ T = TypeVar("T")
 
 
 def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    config["min_score"] = config["parameters"].get("min_score")
-    config["max_score"] = config["parameters"].get("max_score")
-    config["threshold"] = config["parameters"].get("threshold")
-    config["threshold_operator"] = config["parameters"].get("threshold_operator")
-    if config["parameters"].get("passing_categories"):
-        config["reference_score"] = config["parameters"].get("passing_categories")[0]
+    if config.get("passing_categories"):
+        config["reference_score"] = config.get("passing_categories")[0]
     else:
         config["reference_score"] = None
 
