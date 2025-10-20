@@ -228,7 +228,7 @@ class RhesisPromptMetricBase(BaseMetric):
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricBase":
         """Create a metric from a dictionary."""
-        return cls.from_config(MetricConfig(**config))
+        raise NotImplementedError("Subclasses should override this method")
 
     def push(self) -> None:
         """Push the metric to the backend."""
@@ -282,5 +282,4 @@ class RhesisPromptMetricBase(BaseMetric):
             raise ValueError(f"Metric {config.get('id')} is not a {cls.__name__}")
 
         config = backend_config_to_sdk_config(config)
-        config = MetricConfig(**config)
-        return cls.from_config(config)
+        return cls.from_dict(config)

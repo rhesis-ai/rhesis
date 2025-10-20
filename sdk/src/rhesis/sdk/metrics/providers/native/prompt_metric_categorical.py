@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List, Literal, Optional, Union
+from dataclasses import dataclass, fields
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
@@ -141,6 +141,7 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             metric_type=METRIC_TYPE,
             requires_ground_truth=requires_ground_truth,
             requires_context=requires_context,
+            class_name=self.__class__.__name__,
         )
 
         super().__init__(config=self.config, model=model)
@@ -321,5 +322,13 @@ class RhesisPromptMetricCategorical(RhesisPromptMetricBase):
             passing_categories=config.passing_categories,  # type: ignore[arg-type]
         )
 
-    def to_config(self) -> MetricConfig:
-        return self.config
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]) -> "RhesisPromptMetricCategorical":
+        """Create a metric from a dictionary."""
+        # Get all field names from the dataclass
+        valid_fields = {field.name for field in fields(PromptMetricCategoricalConfig)}
+
+        # Filter config to only include keys that exist in the dataclass
+        filtered_config = {k: v for k, v in config.items() if k in valid_fields}
+
+        return cls.from_config(PromptMetricCategoricalConfig(**filtered_config))
