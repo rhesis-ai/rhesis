@@ -419,20 +419,10 @@ class StatsCalculator:
                 if related_ids_subquery is None:
                     return self._empty_stats_result(result, months)
 
-                # Get total count
+                # Get total count - OPTIMIZED to use subquery instead of loading entities
                 if entity_id:
-                    # For specific entity, we need to count the relationship
-                    entity_with_related = (
-                        self.db.query(entity_model)
-                        .filter_by(id=entity_id)
-                        .options(joinedload(getattr(entity_model, relationship_attr)))
-                        .first()
-                    )
-                    result.total = (
-                        len(getattr(entity_with_related, relationship_attr))
-                        if entity_with_related
-                        else 0
-                    )
+                    # Count using the subquery instead of loading all entities
+                    result.total = self.db.query(func.count()).select_from(related_ids_subquery).scalar()
                 else:
                     # Apply organization filtering (SECURITY CRITICAL)
                     total_query = self.db.query(func.count(related_model.id))
@@ -495,29 +485,65 @@ class StatsCalculator:
             if self.config.enable_debug_logging:
                 print(f"Getting related IDs for entity {entity_id}")
 
-            entity_with_related = (
-                self.db.query(entity_model)
-                .filter_by(id=entity_id)
-                .options(joinedload(getattr(entity_model, relationship_attr)))
-                .first()
-            )
-
-            if not entity_with_related:
+            # PERFORMANCE OPTIMIZATION: Query association table directly instead of loading entities
+            # This is critical for performance when dealing with large numbers of related entities
+            inspector = inspect(entity_model)
+            relationship = inspector.relationships.get(relationship_attr)
+            
+            if relationship is None:
+                if self.config.enable_debug_logging:
+                    print(f"No relationship found with name {relationship_attr}")
+                return None
+            
+            # Check if it's a many-to-many relationship with an association table
+            if relationship.secondary is not None:
+                # For many-to-many (e.g., TestSet <-> Test), query the association table directly
+                association_table = relationship.secondary
+                
+                # Determine which columns to use based on the relationship direction
+                # The relationship.synchronize_pairs tells us which columns are linked
+                if relationship.direction.name == 'MANYTOMANY':
+                    # Find the foreign key columns in the association table
+                    for fk in association_table.foreign_keys:
+                        if fk.column.table == entity_model.__table__:
+                            entity_fk_col = fk.parent
+                        elif fk.column.table == related_model.__table__:
+                            related_fk_col = fk.parent
+                    
+                    # Build efficient subquery using association table
+                    # Label the column as 'id' so other methods can reference it consistently
+                    related_ids_query = (
+                        self.db.query(related_fk_col.label('id'))
+                        .select_from(association_table)
+                        .filter(entity_fk_col == entity_id)
+                    )
+                    
+                    # Apply organization filtering if the association table has organization_id
+                    if 'organization_id' in [col.name for col in association_table.columns]:
+                        if self.organization_id:
+                            from uuid import UUID
+                            org_id = UUID(self.organization_id) if not isinstance(self.organization_id, UUID) else self.organization_id
+                            related_ids_query = related_ids_query.filter(
+                                association_table.c.organization_id == org_id
+                            )
+                    
+                    return related_ids_query.subquery()
+            
+            # Fallback to the old approach for one-to-many relationships
+            # First check if entity exists
+            entity_exists = self.db.query(entity_model.id).filter_by(id=entity_id).first()
+            if not entity_exists:
                 if self.config.enable_debug_logging:
                     print("No entity found with the given ID")
                 return None
-
-            related_entities = getattr(entity_with_related, relationship_attr)
-            if not related_entities:
-                if self.config.enable_debug_logging:
-                    print("No related entities found")
-                return None
-
-            # Create subquery for specific related IDs
-            related_ids = [entity.id for entity in related_entities]
-            return (
-                self.db.query(related_model.id).filter(related_model.id.in_(related_ids)).subquery()
-            )
+            
+            # For one-to-many, we can still optimize by not loading full entities
+            # Just get the count and IDs without joinedload
+            related_query = self.db.query(related_model.id).join(
+                entity_model, getattr(related_model, relationship.back_populates) == entity_model
+            ).filter(entity_model.id == entity_id)
+            
+            return related_query.subquery()
         else:
             if self.config.enable_debug_logging:
                 print("Getting all related entity IDs")
