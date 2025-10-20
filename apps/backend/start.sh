@@ -100,7 +100,6 @@ start_server() {
             --access-logfile - \
             --error-logfile - \
             --log-level info \
-            --preload \
             rhesis.backend.app.main:app
     else
         log "${BLUE}🛠️  Starting development server with Uvicorn...${NC}"
