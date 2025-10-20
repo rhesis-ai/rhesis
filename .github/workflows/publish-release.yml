@@ -1,4 +1,4 @@
-name: Release - 3. Publish and deploy (prd)
+name: "[Release] 3. Publish and deploy (prd)"
 on:
   workflow_dispatch:  # Allows manual triggering
 
