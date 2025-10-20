@@ -7,9 +7,7 @@ type SidebarFooterProps = {
   mini?: boolean;
 };
 
-export default function SidebarFooter({
-  mini = false,
-}: SidebarFooterProps) {
+export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   const handleOpenFeedbackModal = () => {
@@ -52,7 +50,6 @@ export default function SidebarFooter({
             borderColor: 'divider',
           }}
         >
-          {' '}
           <Button
             onClick={handleOpenFeedbackModal}
             startIcon={<FeedbackIcon />}
