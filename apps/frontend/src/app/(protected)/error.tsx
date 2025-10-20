@@ -186,8 +186,11 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
           backUrl={backUrl}
           backLabel={backLabel}
           onRestoreSuccess={() => {
-            // After restore, try to reload the page
-            handleReset();
+            // After restore, reload the page to fetch fresh server-side data
+            // Use a brief delay to let the success message show
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           }}
         />
       ) : (
