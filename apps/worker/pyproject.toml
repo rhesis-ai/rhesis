@@ -9,7 +9,6 @@ dependencies = [
     "authlib>=1.6.1",
     "celery[redis]==5.5.2",
     "chardet>=5.2.0",
-    "deepeval==3.0.0",
     "email-validator>=2.0.0",
     "faker>=37.5.3",
     "fastapi>=0.116.1",
