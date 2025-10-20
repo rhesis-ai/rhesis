@@ -22,7 +22,7 @@ def config():
 
 @pytest.fixture
 def metric(monkeypatch, config):
-    monkeypatch.setenv("RHESIS_API_KEY", "test")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
     return RhesisPromptMetricBase(config, model="gemini")
 
 
