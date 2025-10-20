@@ -84,8 +84,8 @@ class User(Base):
         "Model", foreign_keys="[Model.assignee_id]", back_populates="assignee"
     )
 
-    # Comment relationships
-    comments = relationship("Comment", back_populates="user")
+    # Source relationships
+    created_sources = relationship("Source", foreign_keys="[Source.user_id]", back_populates="user")
 
     # Task relationships
     assigned_tasks = relationship(
@@ -139,19 +139,19 @@ class User(Base):
     def settings(self) -> UserSettingsManager:
         """
         Centralized access to user settings.
-        
+
         Provides a clean interface for accessing and updating all user preferences.
-        
+
         Usage:
             # Access model settings
             model_id = user.settings.models.generation.model_id
             temperature = user.settings.models.generation.temperature
             eval_model = user.settings.models.evaluation.model_id
-            
+
             # Access UI settings
             theme = user.settings.ui.theme
             page_size = user.settings.ui.default_page_size
-            
+
             # Update settings
             user.settings.update({
                 "models": {

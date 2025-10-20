@@ -31,11 +31,12 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
     # File metadata as JSONB object
     source_metadata = Column(
         JSONB, default=dict
-    )  # Should contain file_path, file_type, file_size, file_hash, uploaded_at
+    )  # Should contain file_path, file_type, file_size, file_hash
 
     # Relationships
     source_type = relationship("TypeLookup", back_populates="sources")
     status = relationship("Status", back_populates="sources")
+    user = relationship("User", foreign_keys="[Source.user_id]", back_populates="created_sources")
     # Many-to-many backrefs for prompts and prompt templates via test_source association
     prompts_multi = relationship("Prompt", secondary="test_source", back_populates="sources")
     prompt_templates_multi = relationship(
