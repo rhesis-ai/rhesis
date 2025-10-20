@@ -1,15 +1,28 @@
 import logging
 import traceback
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from rhesis.sdk.client import Client, Endpoints, Methods
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models import BaseLLM
+
+# Custom parameters
+
+
+@dataclass
+class PromptMetricConfig(MetricConfig):
+    evaluation_prompt: Optional[str] = None
+    evaluation_steps: Optional[str] = None
+    reasoning: Optional[str] = None
+    evaluation_examples: Optional[str] = None
+
+    def __post_init__(self):
+        return super().__post_init__()
 
 
 class RhesisPromptMetricBase(BaseMetric):
@@ -18,37 +31,13 @@ class RhesisPromptMetricBase(BaseMetric):
     Uses LLM to perform evaluation based on provided evaluation criteria.
     """
 
-    def __init__(
-        self,
-        evaluation_prompt: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        score_type: Optional[Union[str, ScoreType]] = None,
-        metric_type: Optional[Union[str, MetricType]] = None,
-        requires_ground_truth: Optional[bool] = None,
-        requires_context: Optional[bool] = None,
-        evaluation_steps: Optional[str] = None,
-        reasoning: Optional[str] = None,
-        evaluation_examples: Optional[str] = None,
-        model: Optional[Union[BaseLLM, str]] = None,
-        **kwargs,
-    ):
-        super().__init__(
-            name=name,
-            description=description,
-            score_type=score_type,
-            metric_type=metric_type,
-            model=model,
-            **kwargs,
-        )
-
-        self.evaluation_prompt = evaluation_prompt
-        self.evaluation_steps = evaluation_steps
-        self.reasoning = reasoning
-        self.evaluation_examples = evaluation_examples
-
-        self.requires_ground_truth = requires_ground_truth
-        self.requires_context = requires_context
+    def __init__(self, config: PromptMetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+        self.config = config
+        super().__init__(config=self.config, model=model)
+        self.evaluation_prompt = self.config.evaluation_prompt
+        self.evaluation_steps = self.config.evaluation_steps
+        self.reasoning = self.config.reasoning
+        self.evaluation_examples = self.config.evaluation_examples
 
     def __repr__(self) -> str:
         return str(self.to_config())
@@ -226,25 +215,7 @@ class RhesisPromptMetricBase(BaseMetric):
     def to_config(self) -> MetricConfig:
         """Convert the metric to a MetricConfig."""
         """Subclasses should override this method to add their own parameters."""
-        config = MetricConfig(
-            # Backend required items
-            class_name=self.__class__.__name__,
-            backend="rhesis",
-            name=self.name,
-            description=self.description,
-            score_type=self.score_type,
-            metric_type=self.metric_type,
-            requires_ground_truth=self.requires_ground_truth,
-            requires_context=self.requires_context,
-            # Custom parameters
-            evaluation_prompt=self.evaluation_prompt,
-            evaluation_steps=self.evaluation_steps,
-            reasoning=self.reasoning,
-            evaluation_examples=self.evaluation_examples,
-            parameters={},
-        )
-
-        return config
+        return self.config
 
     @classmethod
     def from_config(cls, config: MetricConfig) -> "RhesisPromptMetricBase":
