@@ -29,7 +29,10 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         # Start timing
         start_time = time.time()
 
-        # Check if user has telemetry enabled
+        # Process the request first (this runs dependencies and sets request.state.user)
+        response = await call_next(request)
+
+        # NOW check if user has telemetry enabled (after dependencies have run)
         user = getattr(request.state, "user", None)
 
         if user and hasattr(user, "telemetry_enabled"):
@@ -37,7 +40,11 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
             user_id = getattr(user, "id", None)
             org_id = getattr(user, "organization_id", None)
 
-            # Set telemetry context
+            logger.debug(
+                f"TelemetryMiddleware: user={user_id}, telemetry_enabled={telemetry_enabled}"
+            )
+
+            # Set telemetry context for any spans created during this request
             set_telemetry_enabled(
                 enabled=telemetry_enabled,
                 user_id=str(user_id) if user_id else None,
@@ -46,17 +53,14 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
 
             # Track endpoint usage if telemetry is enabled
             if telemetry_enabled:
-                await self._track_request(request, call_next, start_time, user_id, org_id)
-                return await call_next(request)
+                await self._track_endpoint(request, response, start_time, user_id, org_id)
 
-        # No telemetry tracking
-        response = await call_next(request)
         return response
 
-    async def _track_request(
-        self, request: Request, call_next: Callable, start_time: float, user_id, org_id
+    async def _track_endpoint(
+        self, request: Request, response: Response, start_time: float, user_id, org_id
     ):
-        """Track API endpoint usage"""
+        """Track API endpoint usage after request is completed"""
         try:
             tracer = get_tracer(__name__)
 
@@ -64,12 +68,17 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
             route = request.url.path
             method = request.method
 
+            # Calculate duration
+            duration_ms = (time.time() - start_time) * 1000
+
             with tracer.start_as_current_span(f"http.{method}.{route}") as span:
                 # Set HTTP attributes
                 span.set_attribute("event.category", "endpoint_usage")
                 span.set_attribute("http.method", method)
                 span.set_attribute("http.route", route)
                 span.set_attribute("http.url", str(request.url))
+                span.set_attribute("http.status_code", response.status_code)
+                span.set_attribute("duration_ms", duration_ms)
 
                 # Set user context
                 if user_id:
@@ -77,18 +86,5 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                 if org_id:
                     span.set_attribute("organization.id", str(org_id))
 
-                # Execute request
-                response = await call_next(request)
-
-                # Calculate duration
-                duration_ms = (time.time() - start_time) * 1000
-
-                # Set response attributes
-                span.set_attribute("http.status_code", response.status_code)
-                span.set_attribute("duration_ms", duration_ms)
-
-                return response
-
         except Exception as e:
-            logger.error(f"Error tracking request: {e}")
-            return await call_next(request)
+            logger.error(f"Error tracking endpoint: {e}")
