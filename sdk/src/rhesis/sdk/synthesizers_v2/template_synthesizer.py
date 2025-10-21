@@ -21,7 +21,6 @@ class TemplateSynthesizer(BaseSynthesizer):
 
     def __init__(
         self,
-        template_string: Optional[str] = None,
         batch_size: int = 5,
         model: Optional[Union[str, BaseLLM]] = None,
         max_attempts: int = 3,
@@ -30,7 +29,6 @@ class TemplateSynthesizer(BaseSynthesizer):
         Initialize the template synthesizer.
 
         Args:
-            template_string: Raw Jinja2 template content provided inline (optional).
             batch_size: Maximum number of items to process in a single LLM call
             model: LLM model to use (string name or BaseLLM instance)
             max_attempts: Maximum retry attempts for LLM calls
@@ -44,15 +42,13 @@ class TemplateSynthesizer(BaseSynthesizer):
         else:
             self.model = model
 
-        # Load template: prefer template_string, otherwise use class variable, otherwise fallback
-        if template_string:
-            self.template = Template(template_string)
-        elif self.template_name:
+        # Load template using class variable
+        if self.template_name:
             self.template = self.load_prompt_template(self.template_name)
         else:
             raise ValueError(
-                "No template specified. Either provide template_string or set template_name "
-                "as a class variable in your synthesizer subclass."
+                "No template specified. Set template_name as a class variable "
+                "in your synthesizer subclass."
             )
 
     @staticmethod
