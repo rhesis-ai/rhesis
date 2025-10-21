@@ -20,9 +20,9 @@ from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_se
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.utils.crud_utils import (
     get_deleted_items,
-    restore_item,
     hard_delete_item,
 )
+from rhesis.backend.app.services import recycle as recycle_service
 from rhesis.backend.logging import logger
 
 router = APIRouter(prefix="/recycle", tags=["recycle"])
@@ -171,12 +171,15 @@ def restore_from_recycle_bin(
     """
     Restore a soft-deleted record from the recycle bin (admin only).
     
+    This endpoint uses cascade-aware restoration. For example, restoring a
+    test_run will automatically restore all its associated test_results.
+    
     Args:
         model_name: Name of the model
         item_id: ID of the record to restore
     
     Returns:
-        Restored record
+        Restored record with cascade information
     """
     require_superuser(current_user)
     model = get_model_by_name(model_name)
@@ -186,7 +189,10 @@ def restore_from_recycle_bin(
     if hasattr(model, 'organization_id'):
         org_id = organization_id
     
-    restored_item = restore_item(db, model, item_id, organization_id=org_id)
+    # Use cascade-aware restoration from service layer
+    restored_item = recycle_service.restore_item_with_cascade(
+        db, model, item_id, organization_id=org_id
+    )
     
     if not restored_item:
         raise HTTPException(
@@ -399,6 +405,8 @@ def bulk_restore_from_recycle_bin(
     """
     Restore multiple soft-deleted records from the recycle bin at once (admin only).
     
+    Uses cascade-aware restoration - each item and its related entities are restored.
+    
     Args:
         model_name: Name of the model
         item_ids: List of IDs to restore
@@ -427,25 +435,10 @@ def bulk_restore_from_recycle_bin(
     if hasattr(model, 'organization_id'):
         org_id = organization_id
     
-    results = {
-        "restored": [],
-        "failed": [],
-        "not_found": []
-    }
-    
-    for item_id in item_ids:
-        try:
-            restored_item = restore_item(db, model, item_id, organization_id=org_id)
-            if restored_item:
-                results["restored"].append(str(item_id))
-            else:
-                results["not_found"].append(str(item_id))
-        except Exception as e:
-            logger.error(f"Error restoring {model_name} {item_id}: {e}")
-            results["failed"].append({
-                "id": str(item_id),
-                "error": str(e)
-            })
+    # Use cascade-aware bulk restoration from service layer
+    results = recycle_service.bulk_restore_with_cascade(
+        db, model, item_ids, organization_id=org_id
+    )
     
     logger.info(
         f"Bulk restore {model_name} from recycle bin: {len(results['restored'])} restored, "
