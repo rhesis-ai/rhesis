@@ -1,11 +1,9 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-from dataclasses import asdict
 from typing import Any, List, Optional, Union
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers.config_synthesizer import GenerationConfig
 from rhesis.sdk.synthesizers_v2.template_synthesizer import TemplateSynthesizer
 
 
@@ -16,6 +14,8 @@ class PromptSynthesizer(TemplateSynthesizer):
     default prompt_synthesizer template and delegates all rendering and LLM
     execution to the TemplateSynthesizer base class.
     """
+
+    template_name = "prompt_synthesizer"
 
     def __init__(
         self,
@@ -34,8 +34,6 @@ class PromptSynthesizer(TemplateSynthesizer):
 
         # Always use the default asset template for prompt synthesizer
         super().__init__(
-            template_name="prompt_synthesizer",
-            template_string=None,
             batch_size=batch_size,
             model=model,
         )
@@ -53,29 +51,19 @@ class PromptSynthesizer(TemplateSynthesizer):
     def generate(
         self,
         num_tests: int = 5,
-        context: Optional[str] = None,
-        config: Optional[GenerationConfig] = None,
-        **extra_vars: Any,
+        **template_vars: Any,
     ) -> TestSet:
         """Generate test cases based on the stored prompt.
 
         Args:
             num_tests: Total number of test cases to generate
-            context: Optional context string for generation
-            config: Optional GenerationConfig to expand the template variables
-            **extra_vars: Additional template variables to pass through
+            **template_vars: Additional template variables to pass through
 
         Returns:
             TestSet: Generated test set
         """
         if not isinstance(num_tests, int):
             raise TypeError("num_tests must be an integer")
-
-        # Prepare template variables
-        template_vars = {"context": context}
-        if config is not None:
-            template_vars.update(asdict(config))
-        template_vars.update(extra_vars)
 
         # Delegate to base class
         return super().generate(num_tests=num_tests, **template_vars)
@@ -93,7 +81,6 @@ if __name__ == "__main__":
     # Generate test cases
     test_set = synthesizer.generate(
         num_tests=2,
-        context="Focus on edge cases and common validation patterns",
     )
 
     print("Generated Test Set:")
@@ -137,7 +124,6 @@ if __name__ == "__main__":
     # Generate test cases with custom template
     custom_test_set = custom_synthesizer.generate(
         num_tests=2,
-        context="Focus on edge cases and common validation patterns",
         domain="email validation",
     )
 
