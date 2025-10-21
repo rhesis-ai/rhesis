@@ -33,8 +33,10 @@ def upgrade() -> None:
     op.create_table(
         "analytics_user_activity",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False, index=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), nullable=True, index=True),
+        sa.Column("user_id", sa.String(32), nullable=False, index=True),  # Hashed ID, not UUID
+        sa.Column(
+            "organization_id", sa.String(32), nullable=True, index=True
+        ),  # Hashed ID, not UUID
         sa.Column("event_type", sa.String(50), nullable=False),
         sa.Column("timestamp", sa.DateTime(), nullable=False, index=True),
         sa.Column("session_id", sa.String(255), nullable=True),
@@ -61,8 +63,10 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("endpoint", sa.String(255), nullable=False, index=True),
         sa.Column("method", sa.String(10), nullable=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=True, index=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), nullable=True, index=True),
+        sa.Column("user_id", sa.String(32), nullable=True, index=True),  # Hashed ID, not UUID
+        sa.Column(
+            "organization_id", sa.String(32), nullable=True, index=True
+        ),  # Hashed ID, not UUID
         sa.Column("status_code", sa.Integer(), nullable=True),
         sa.Column("duration_ms", sa.Float(), nullable=True),
         sa.Column("timestamp", sa.DateTime(), nullable=False, index=True),
@@ -88,8 +92,10 @@ def upgrade() -> None:
         "analytics_feature_usage",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("feature_name", sa.String(100), nullable=False, index=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=True, index=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), nullable=True, index=True),
+        sa.Column("user_id", sa.String(32), nullable=True, index=True),  # Hashed ID, not UUID
+        sa.Column(
+            "organization_id", sa.String(32), nullable=True, index=True
+        ),  # Hashed ID, not UUID
         sa.Column("action", sa.String(100), nullable=True),
         sa.Column("timestamp", sa.DateTime(), nullable=False, index=True),
         sa.Column("deployment_type", sa.String(50), nullable=True),
