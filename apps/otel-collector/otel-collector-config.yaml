@@ -68,7 +68,7 @@ exporters:
   # Note: This is a custom exporter - we'll use the SQL exporter
   # For now, we'll use OTLP to bridge, then create a custom service
   otlp/postgres:
-    endpoint: ${TELEMETRY_PROCESSOR_ENDPOINT:-telemetry-processor:4317}
+    endpoint: ${env:TELEMETRY_PROCESSOR_ENDPOINT}
     tls:
       insecure: true
     sending_queue:
