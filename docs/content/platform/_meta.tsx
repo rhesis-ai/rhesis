@@ -5,6 +5,7 @@ const meta: MetaRecord = {
   organizations: 'Organizations & Team',
   projects: 'Projects',
   endpoints: 'Endpoints',
+  knowledge: 'Knowledge',
   'tests-generation': 'Tests',
   'test-sets-runs': 'Test Sets',
   'test-runs': 'Test Runs',
