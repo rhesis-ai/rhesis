@@ -1958,11 +1958,13 @@ def delete_test_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.TestRun]:
     """
-    Soft delete a test run and cascade to all associated test results.
+    Soft delete a test run.
+    
+    Automatically cascades to all associated test results based on configuration
+    in config/cascade_config.py. Uses efficient bulk UPDATE for cascade operations.
     
     This operation is fully transactional - either all entities are soft deleted
-    or none are (in case of error, changes are rolled back). Uses a bulk UPDATE
-    for test results for maximum efficiency.
+    or none are (in case of error, changes are rolled back).
     
     Args:
         db: Database session
@@ -1976,46 +1978,10 @@ def delete_test_run(
     Raises:
         Exception: If any error occurs during deletion (triggers rollback)
     """
-    from datetime import datetime
-    
-    try:
-        # First, get the test run to ensure it exists
-        test_run = get_item(db, models.TestRun, test_run_id, organization_id, user_id)
-        if not test_run:
-            return None
-        
-        # Bulk soft delete all test results for this test run in a single UPDATE query
-        # This is much more efficient than fetching and updating objects individually
-        query = db.query(models.TestResult).filter(
-            models.TestResult.test_run_id == test_run_id
-        )
-        
-        # Apply organization filter for security
-        if organization_id:
-            query = query.filter(models.TestResult.organization_id == organization_id)
-        
-        # Bulk update all matching test results
-        # synchronize_session=False is safe here since we're not using these objects after
-        query.update(
-            {"deleted_at": datetime.utcnow()},
-            synchronize_session=False
-        )
-        
-        # Now soft delete the test run itself
-        test_run.soft_delete()
-        
-        # SINGLE COMMIT - This is the only commit in the entire function
-        # Everything above happens in memory/transaction until this point
-        # If this fails, SQLAlchemy will automatically rollback everything
-        db.commit()
-        
-        return test_run
-        
-    except Exception as e:
-        # Explicitly rollback on any error to ensure clean state
-        # This rolls back BOTH the test run and all test results
-        db.rollback()
-        raise
+    # delete_item() automatically handles cascade based on cascade_config.py
+    return delete_item(
+        db, models.TestRun, test_run_id, organization_id=organization_id, user_id=user_id
+    )
 
 
 # Test Result CRUD
