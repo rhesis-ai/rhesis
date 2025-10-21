@@ -31,7 +31,7 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
     # File metadata as JSONB object
     source_metadata = Column(
         JSONB, default=dict
-    )  # Should contain file_path, file_type, file_size, file_hash
+    )  # Should contain file_path, file_type, file_size, file_hash, original_filename
 
     # Relationships
     source_type = relationship("TypeLookup", back_populates="sources")
