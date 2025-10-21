@@ -203,8 +203,8 @@ export default function TestRunHeader({
       statusLabel = 'Failed';
     } else if (backendStatus === 'completed') {
       status = 'completed';
-      // Color based on test results
-      statusColor = failed === 0 ? 'success' : 'error';
+      // Completed means all tests executed (regardless of assertion results)
+      statusColor = 'success';
       statusLabel = 'Completed';
     } else {
       // Fallback: calculate from attributes
@@ -224,9 +224,10 @@ export default function TestRunHeader({
         status = 'failed';
         statusColor = 'error';
         statusLabel = 'Failed';
-      } else if (completedAt && failed > 0) {
+      } else if (completedAt) {
+        // If completed, all tests executed (even if some failed assertions)
         status = 'completed';
-        statusColor = passed > failed ? 'success' : 'error';
+        statusColor = 'success';
         statusLabel = 'Completed';
       }
     }
