@@ -66,12 +66,33 @@ def create_test_result(
     - test_metrics: Automated metric evaluations
     - test_reviews: Human feedback with created_at/updated_at timestamps
     - test_output: The actual test execution output
+    
+    Note: If test_metrics are provided but status_id is not, the status will be
+    automatically set based on whether all metrics passed.
     """
     organization_id, user_id = tenant_context
 
     # Set the user_id to the current user if not provided
     if not test_result.user_id:
         test_result.user_id = current_user.id
+    
+    # Auto-set status based on test_metrics if not provided
+    if not test_result.status_id and test_result.test_metrics:
+        from rhesis.backend.app.utils.crud_utils import get_or_create_status
+        from rhesis.backend.tasks.enums import ResultStatus
+        
+        metrics = test_result.test_metrics.get('metrics', {})
+        if metrics:
+            # Check if all metrics passed
+            all_metrics_passed = all(
+                metric_data.get('is_successful', False)
+                for metric_data in metrics.values()
+                if isinstance(metric_data, dict)
+            )
+            
+            status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+            status = get_or_create_status(db, status_value, "TestResult", organization_id=organization_id)
+            test_result.status_id = status.id
 
     return crud.create_test_result(
         db=db, test_result=test_result, organization_id=organization_id, user_id=user_id
@@ -386,6 +407,9 @@ def update_test_result(
     - test_metrics: Automated evaluations
     - test_reviews: Human feedback (add new reviews or edit existing ones with updated_at)
     - status_id: Overall status of the test result
+    
+    Note: If test_metrics are updated but status_id is not provided, the status will be
+    automatically updated based on whether all metrics passed.
     """
     organization_id, user_id = tenant_context
     db_test_result = crud.get_test_result(
@@ -397,6 +421,24 @@ def update_test_result(
     # Check if the user has permission to update this test result
     if db_test_result.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized to update this test result")
+    
+    # Auto-update status based on test_metrics if status_id is not explicitly provided
+    if test_result.test_metrics and not test_result.status_id:
+        from rhesis.backend.app.utils.crud_utils import get_or_create_status
+        from rhesis.backend.tasks.enums import ResultStatus
+        
+        metrics = test_result.test_metrics.get('metrics', {})
+        if metrics:
+            # Check if all metrics passed
+            all_metrics_passed = all(
+                metric_data.get('is_successful', False)
+                for metric_data in metrics.values()
+                if isinstance(metric_data, dict)
+            )
+            
+            status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+            status = get_or_create_status(db, status_value, "TestResult", organization_id=organization_id)
+            test_result.status_id = status.id
 
     return crud.update_test_result(
         db=db,
