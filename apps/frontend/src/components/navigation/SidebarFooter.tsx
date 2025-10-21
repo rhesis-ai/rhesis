@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, Typography, Tooltip } from '@mui/material';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import FeedbackModal from '../common/FeedbackModal';
 
@@ -28,19 +28,25 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
             borderColor: 'divider',
           }}
         >
-          <Button
-            onClick={handleOpenFeedbackModal}
-            sx={{
-              minWidth: '3rem',
-              minHeight: '3rem',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-                color: 'primary.main',
-              },
-            }}
-          >
-            <FeedbackIcon sx={{ width: '20px', height: '20px' }} />
-          </Button>
+          <Tooltip title="Provide Feedback" placement="right">
+            <Button
+              onClick={handleOpenFeedbackModal}
+              sx={{
+                minWidth: '48px',
+                minHeight: '48px',
+                width: '48px',
+                height: '48px',
+                borderRadius: theme => theme.shape.borderRadius * 1.5,
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  color: 'primary.main',
+                },
+              }}
+            >
+              <FeedbackIcon sx={{ width: '20px', height: '20px' }} />
+            </Button>
+          </Tooltip>
         </Box>
       ) : (
         <Box
@@ -54,9 +60,12 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
             onClick={handleOpenFeedbackModal}
             startIcon={<FeedbackIcon />}
             sx={{
-              minWidth: 0, // allow content to shrink within early expansion frames
-              maxWidth: '100%',
+              width: '100%',
+              justifyContent: 'flex-start',
               color: 'text.secondary',
+              textTransform: 'none',
+              borderRadius: theme => theme.shape.borderRadius,
+              padding: theme => theme.spacing(1, 1.5),
               '&:hover': {
                 backgroundColor: 'action.hover',
                 color: 'primary.main',
@@ -67,14 +76,20 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1,
+                justifyContent: 'space-between',
+                width: '100%',
+                whiteSpace: 'nowrap',
               }}
             >
               <Typography variant="body2">Provide Feedback</Typography>
               <Typography
                 variant="caption"
                 color="text.disabled"
-                sx={{ opacity: 0.6, marginLeft: 'auto' }}
+                sx={{
+                  opacity: 0.6,
+                  marginLeft: 1,
+                  flexShrink: 0,
+                }}
               >
                 v{process.env.APP_VERSION || '0.0.0'}
               </Typography>
