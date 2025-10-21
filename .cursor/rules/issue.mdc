@@ -1,4 +1,5 @@
 ---
+description: This applies when the user wants to create issues.
 alwaysApply: false
 ---
 The rule is to create a new issue in Github.
