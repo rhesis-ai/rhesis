@@ -11,6 +11,7 @@ import { Organization } from '@/utils/api-client/interfaces/organization';
 import OrganizationDetailsForm from './components/OrganizationDetailsForm';
 import ContactInformationForm from './components/ContactInformationForm';
 import DangerZone from './components/DangerZone';
+import TelemetrySettings from '@/components/settings/TelemetrySettings';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
@@ -119,6 +120,14 @@ export default function OrganizationSettingsPage() {
           sessionToken={session?.session_token || ''}
           onUpdate={handleUpdate}
         />
+      </Paper>
+
+      {/* Privacy & Telemetry Section */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+          Privacy & Data Collection
+        </Typography>
+        <TelemetrySettings sessionToken={session?.session_token || ''} />
       </Paper>
 
       {/* Danger Zone Section */}
