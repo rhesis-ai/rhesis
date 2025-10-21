@@ -556,12 +556,16 @@ def delete_item(
     The item will still exist in the database but will be filtered
     out from normal queries. Use restore_item() to restore it.
     For permanent deletion, use hard_delete_item().
+    
+    Automatically cascades to configured child relationships (see config/cascade_config.py).
+    For example, deleting a TestRun will automatically soft delete all its TestResults.
 
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during deletion
     - Direct tenant context injection
+    - Bulk UPDATE for cascade operations
 
     Args:
         db: Database session
@@ -576,16 +580,25 @@ def delete_item(
     Raises:
         ValueError: If organization_id or user_id is required but not provided
     """
+    from rhesis.backend.app.services import cascade as cascade_service
+    
     item = get_item(db, model, item_id, organization_id, user_id)
     
     if not item:
         return None
     
-    # Soft delete using the model's method
-    item.soft_delete()
-    db.commit()
-    
-    return item
+    try:
+        # Automatically cascade soft delete to configured child relationships
+        cascade_service.cascade_soft_delete(db, model, item_id, organization_id)
+        
+        # Soft delete the parent item using the model's method
+        item.soft_delete()
+        db.commit()
+        
+        return item
+    except Exception as e:
+        db.rollback()
+        raise
 
 
 def get_deleted_items(
@@ -635,6 +648,9 @@ def restore_item(
     """
     Restore a soft-deleted item.
     
+    Automatically cascades to configured child relationships (see config/cascade_config.py).
+    For example, restoring a TestRun will automatically restore all its TestResults.
+    
     Args:
         db: Database session
         model: SQLAlchemy model class
@@ -645,13 +661,24 @@ def restore_item(
     Returns:
         Restored item or None if not found
     """
+    from rhesis.backend.app.services import cascade as cascade_service
+    
     # Get the item, including deleted ones
     item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
     
     if item and item.deleted_at:
-        item.restore()
-        db.commit()
-        db.refresh(item)
+        try:
+            # Restore the parent item
+            item.restore()
+            
+            # Automatically cascade restore to configured child relationships
+            cascade_service.cascade_restore(db, model, item_id, organization_id)
+            
+            db.commit()
+            db.refresh(item)
+        except Exception as e:
+            db.rollback()
+            raise
     
     return item
 
