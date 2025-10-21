@@ -71,62 +71,31 @@ class PromptSynthesizer(TemplateSynthesizer):
 
 # Example usage
 if __name__ == "__main__":
-    # Example 1: Using the default prompt synthesizer template
+    # Create synthesizer
     synthesizer = PromptSynthesizer(
         prompt="Create a function that validates email addresses",
         batch_size=3,
-        model="gemini",  # or any supported model
+        model="gemini",
     )
 
-    # Generate test cases
+    # Generate test cases with template variables
     test_set = synthesizer.generate(
         num_tests=2,
+        project_context="This is for a web application",
+        test_purposes="Focus on edge cases and security",
+        context="Test malformed emails and injection attempts",
     )
 
     print("Generated Test Set:")
     print(f"Number of tests: {len(test_set.tests)}")
     print(f"Model used: {test_set.model}")
-    print(f"Synthesizer: {test_set.metadata.get('synthesizer')}")
+    print(f"Synthesizer: {test_set.metadata.get('synthesizer_name')}")
+    print(f"Template: {test_set.metadata.get('template_name')}")
     print(f"Prompt: {test_set.metadata.get('generation_prompt')}")
 
     # Print first test case
     if test_set.tests:
         print("\nFirst test case:")
         print(test_set.tests[0])
-
-    # Example 2: Using a custom template
-    custom_template = """
-    You are a helpful assistant. Generate {{ num_items }} test cases for the following prompt:
-
-    Prompt: {{ generation_prompt }}
-
-    Additional context: {{ context }}
-    Domain: {{ domain }}
-
-    Please return the test cases in JSON format with the following structure:
-    {
-        "tests": [
-            {
-                "input": "test input",
-                "expected_output": "expected output",
-                "description": "what this test validates"
-            }
-        ]
-    }
-    """
-
-    custom_synthesizer = PromptSynthesizer(
-        prompt="Create a function that validates email addresses",
-        batch_size=3,
-        model="gemini",
-    )
-
-    # Generate test cases with custom template
-    custom_test_set = custom_synthesizer.generate(
-        num_tests=2,
-        domain="email validation",
-    )
-
-    print("\nCustom Template Test Set:")
-    print(f"Number of tests: {len(custom_test_set.tests)}")
-    print(f"Template used: {custom_test_set.metadata.get('template_name')}")
+    else:
+        print("No tests generated")
