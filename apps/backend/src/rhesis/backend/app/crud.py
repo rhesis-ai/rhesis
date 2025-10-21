@@ -1961,8 +1961,8 @@ def delete_test_run(
     Soft delete a test run and cascade to all associated test results.
     
     This operation is fully transactional - either all entities are soft deleted
-    or none are (in case of error, changes are rolled back). The entire operation
-    happens in a single database transaction with a single commit at the end.
+    or none are (in case of error, changes are rolled back). Uses a bulk UPDATE
+    for test results for maximum efficiency.
     
     Args:
         db: Database session
@@ -1976,43 +1976,30 @@ def delete_test_run(
     Raises:
         Exception: If any error occurs during deletion (triggers rollback)
     """
+    from datetime import datetime
+    
     try:
         # First, get the test run to ensure it exists
         test_run = get_item(db, models.TestRun, test_run_id, organization_id, user_id)
         if not test_run:
             return None
         
-        # Soft delete all non-deleted test results for this test run
-        # The soft delete filter automatically excludes already-deleted results,
-        # so we only need to process the ones that aren't deleted yet
-        skip = 0
-        limit = 100
+        # Bulk soft delete all test results for this test run in a single UPDATE query
+        # This is much more efficient than fetching and updating objects individually
+        query = db.query(models.TestResult).filter(
+            models.TestResult.test_run_id == test_run_id
+        )
         
-        while True:
-            # Query for non-deleted test results (automatic soft delete filtering)
-            query = db.query(models.TestResult).filter(
-                models.TestResult.test_run_id == test_run_id
-            )
-            
-            # Apply organization filter for security
-            if organization_id:
-                query = query.filter(models.TestResult.organization_id == organization_id)
-            
-            test_results_batch = query.limit(limit).offset(skip).all()
-            
-            if not test_results_batch:
-                break
-            
-            # Soft delete each test result
-            # No need to check deleted_at - the query already filtered those out
-            for test_result in test_results_batch:
-                test_result.soft_delete()
-            
-            if len(test_results_batch) < limit:
-                # Last batch, no more results
-                break
-            
-            skip += limit
+        # Apply organization filter for security
+        if organization_id:
+            query = query.filter(models.TestResult.organization_id == organization_id)
+        
+        # Bulk update all matching test results
+        # synchronize_session=False is safe here since we're not using these objects after
+        query.update(
+            {"deleted_at": datetime.utcnow()},
+            synchronize_session=False
+        )
         
         # Now soft delete the test run itself
         test_run.soft_delete()
