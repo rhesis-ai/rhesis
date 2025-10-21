@@ -10,6 +10,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.telemetry.instrumentation import (
+    _telemetry_org_id,
+    _telemetry_user_id,
     get_tracer,
     set_telemetry_enabled,
 )
@@ -80,11 +82,14 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                 span.set_attribute("http.status_code", response.status_code)
                 span.set_attribute("duration_ms", duration_ms)
 
-                # Set user context
-                if user_id:
-                    span.set_attribute("user.id", str(user_id))
-                if org_id:
-                    span.set_attribute("organization.id", str(org_id))
+                # Set user context (use hashed IDs from context)
+                hashed_user_id = _telemetry_user_id.get()
+                hashed_org_id = _telemetry_org_id.get()
+
+                if hashed_user_id:
+                    span.set_attribute("user.id", hashed_user_id)
+                if hashed_org_id:
+                    span.set_attribute("organization.id", hashed_org_id)
 
         except Exception as e:
             logger.error(f"Error tracking endpoint: {e}")
