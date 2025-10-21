@@ -47,10 +47,10 @@ status = "Pass" if all_metrics_passed else "Fail"
 
 **Important architectural decision:** Once the status is determined and stored, it becomes the **single source of truth** for all subsequent operations:
 
-- ✅ **Statistics calculations** use the stored status field
-- ✅ **Email notifications** use the stored status field
-- ✅ **UI displays** use the stored status field
-- ✅ **API responses** use the stored status field
+- **Statistics calculations** use the stored status field
+- **Email notifications** use the stored status field
+- **UI displays** use the stored status field
+- **API responses** use the stored status field
 
 **Do NOT recalculate status from metrics in these contexts.** The metrics remain available for:
 - Per-metric statistics and breakdowns
@@ -97,7 +97,7 @@ Test results contain a `test_metrics` field with the following structure:
 In this example:
 - 2 metrics passed (`is_successful: true`)
 - 1 metric failed (`is_successful: false`)
-- **Result:** Test status = **Fail** ❌
+- **Result:** Test status = **Fail**
 
 ---
 
@@ -115,7 +115,7 @@ In this example:
   }
 }
 ```
-**Status:** Pass ✅  
+**Status:** Pass  
 **Reason:** All 3 metrics passed
 
 ### Example 2: One Metric Fails
@@ -130,7 +130,7 @@ In this example:
   }
 }
 ```
-**Status:** Fail ❌  
+**Status:** Fail  
 **Reason:** 1 out of 3 metrics failed
 
 ### Example 3: All Metrics Fail
@@ -145,7 +145,7 @@ In this example:
   }
 }
 ```
-**Status:** Fail ❌  
+**Status:** Fail  
 **Reason:** All metrics failed
 
 ### Example 4: Single Metric Test
@@ -158,7 +158,7 @@ In this example:
   }
 }
 ```
-**Status:** Pass ✅  
+**Status:** Pass  
 **Reason:** The only metric passed
 
 ---
@@ -306,8 +306,8 @@ If a test has no metrics or empty metrics, it's counted as an **execution error*
 
 | Scenario | Test Result Status | Execution Status |
 |----------|-------------------|------------------|
-| All metrics pass | Pass ✅ | Executed successfully |
-| Some metrics fail | Fail ❌ | Executed successfully |
+| All metrics pass | Pass | Executed successfully |
+| Some metrics fail | Fail | Executed successfully |
 | No metrics (error) | (none) | Execution error |
 
 A test that **failed** (some metrics didn't pass) still **executed successfully** (it ran and returned results).
