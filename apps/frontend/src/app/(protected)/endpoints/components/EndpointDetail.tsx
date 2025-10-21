@@ -15,11 +15,7 @@ import {
   FormControl,
   InputLabel,
   CircularProgress,
-  ListItemIcon,
-  ListItemText,
   Chip,
-  Alert,
-  Snackbar,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -55,6 +51,7 @@ import { updateEndpoint, invokeEndpoint } from '@/actions/endpoints';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { ProjectSelection } from '@/components/form/ProjectSelection';
 
 // Constants for select fields
 const PROTOCOLS = ['REST'];
@@ -478,72 +475,17 @@ export default function EndpointDetail({
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Project
               </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  {isEditing ? (
-                    <FormControl fullWidth>
-                      <InputLabel>Project</InputLabel>
-                      <Select
-                        value={editedValues.project_id || ''}
-                        label="Project"
-                        onChange={e =>
-                          handleChange('project_id', e.target.value)
-                        }
-                      >
-                        <MenuItem value="">
-                          <em>None</em>
-                        </MenuItem>
-                        {loadingProjects ? (
-                          <MenuItem disabled>
-                            <CircularProgress size={20} />
-                            <Box component="span" sx={{ ml: 1 }}>
-                              Loading projects...
-                            </Box>
-                          </MenuItem>
-                        ) : (
-                          Object.values(projects).map(project => (
-                            <MenuItem key={project.id} value={project.id}>
-                              <ListItemIcon>
-                                {getProjectIcon(project)}
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={project.name}
-                                secondary={project.description}
-                              />
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                    </FormControl>
-                  ) : (
-                    <>
-                      {endpoint.project_id ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {projects[endpoint.project_id] && (
-                            <Box
-                              sx={{
-                                mr: 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              {getProjectIcon(projects[endpoint.project_id])}
-                            </Box>
-                          )}
-                          <Typography variant="body1">
-                            {projects[endpoint.project_id]?.name ||
-                              'Loading project...'}
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Typography variant="body1">
-                          No project assigned
-                        </Typography>
-                      )}
-                    </>
-                  )}
-                </Grid>
-              </Grid>
+              <ProjectSelection
+                label="Project"
+                isEditing={isEditing}
+                allowUnset={true}
+                projectId={
+                  isEditing ? editedValues.project_id : endpoint.project_id
+                }
+                onChangeAction={nextProjectId => {
+                  handleChange('project_id', nextProjectId);
+                }}
+              />
             </Grid>
 
             <Grid item xs={12}>
