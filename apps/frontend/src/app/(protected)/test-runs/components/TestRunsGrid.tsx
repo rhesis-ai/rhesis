@@ -10,6 +10,10 @@ import React, {
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import {
   GridColDef,
   GridRowSelectionModel,
@@ -267,7 +271,34 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
           const status = params.row.status?.name;
           if (!status) return null;
 
-          return <Chip label={status} size="small" variant="outlined" />;
+          const statusLower = status.toLowerCase();
+          let color: 'success' | 'error' | 'warning' | 'info' | 'default' =
+            'default';
+          let icon = null;
+
+          if (statusLower === 'completed') {
+            color = 'success';
+            icon = <CheckCircleOutlineIcon />;
+          } else if (statusLower === 'partial') {
+            color = 'warning';
+            icon = <WarningAmberOutlinedIcon />;
+          } else if (statusLower === 'failed') {
+            color = 'error';
+            icon = <CancelOutlinedIcon />;
+          } else if (statusLower === 'progress') {
+            color = 'info';
+            icon = <PlayCircleOutlineIcon />;
+          }
+
+          return (
+            <Chip
+              label={status}
+              size="small"
+              color={color}
+              icon={icon}
+              sx={{ fontWeight: 500 }}
+            />
+          );
         },
       },
       {
