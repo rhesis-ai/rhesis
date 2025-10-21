@@ -14,7 +14,7 @@ import {
   FormControlLabel,
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
-import { useNotifications } from '@/contexts/NotificationContext';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { setTelemetryEnabled } from '@/lib/telemetry';
 
 interface TelemetrySettingsProps {
@@ -51,7 +51,7 @@ export default function TelemetrySettings({ sessionToken }: TelemetrySettingsPro
       setTelemetryEnabled(data.telemetry_enabled);
     } catch (error) {
       console.error('Error fetching telemetry status:', error);
-      notifications.showError('Failed to load telemetry settings');
+      notifications.show('Failed to load telemetry settings', { severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -84,10 +84,10 @@ export default function TelemetrySettings({ sessionToken }: TelemetrySettingsPro
       // Update telemetry SDK
       setTelemetryEnabled(newValue);
       
-      notifications.showSuccess(data.message || 'Telemetry settings updated');
+      notifications.show(data.message || 'Telemetry settings updated', { severity: 'success' });
     } catch (error) {
       console.error('Error updating telemetry settings:', error);
-      notifications.showError('Failed to update telemetry settings');
+      notifications.show('Failed to update telemetry settings', { severity: 'error' });
     } finally {
       setUpdating(false);
     }

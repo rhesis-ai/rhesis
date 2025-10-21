@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column("timestamp", sa.DateTime(), nullable=False, index=True),
         sa.Column("session_id", sa.String(255), nullable=True),
         sa.Column("deployment_type", sa.String(50), nullable=True),
-        sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("event_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("NOW()")),
     )
 
@@ -67,7 +67,7 @@ def upgrade() -> None:
         sa.Column("duration_ms", sa.Float(), nullable=True),
         sa.Column("timestamp", sa.DateTime(), nullable=False, index=True),
         sa.Column("deployment_type", sa.String(50), nullable=True),
-        sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("event_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("NOW()")),
     )
 
@@ -93,7 +93,7 @@ def upgrade() -> None:
         sa.Column("action", sa.String(100), nullable=True),
         sa.Column("timestamp", sa.DateTime(), nullable=False, index=True),
         sa.Column("deployment_type", sa.String(50), nullable=True),
-        sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("event_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("NOW()")),
     )
 

@@ -44,7 +44,7 @@ class UserActivity(Base):
     timestamp = Column(DateTime, nullable=False, index=True)
     session_id = Column(String(255))
     deployment_type = Column(String(50))
-    metadata = Column(JSON)
+    event_metadata = Column(JSON)
 
 
 class EndpointUsage(Base):
@@ -61,7 +61,7 @@ class EndpointUsage(Base):
     duration_ms = Column(Float)
     timestamp = Column(DateTime, nullable=False, index=True)
     deployment_type = Column(String(50))
-    metadata = Column(JSON)
+    event_metadata = Column(JSON)
 
 
 class FeatureUsage(Base):
@@ -76,7 +76,7 @@ class FeatureUsage(Base):
     action = Column(String(100))
     timestamp = Column(DateTime, nullable=False, index=True)
     deployment_type = Column(String(50))
-    metadata = Column(JSON)
+    event_metadata = Column(JSON)
 
 
 class TelemetryTraceService(trace_service_pb2_grpc.TraceServiceServicer):
@@ -173,7 +173,7 @@ class TelemetryTraceService(trace_service_pb2_grpc.TraceServiceServicer):
                 timestamp=timestamp,
                 session_id=attrs.get("session.id"),
                 deployment_type=deployment_type,
-                metadata={
+                event_metadata={
                     k: v
                     for k, v in attrs.items()
                     if k
@@ -204,7 +204,7 @@ class TelemetryTraceService(trace_service_pb2_grpc.TraceServiceServicer):
                 duration_ms=attrs.get("duration_ms"),
                 timestamp=timestamp,
                 deployment_type=deployment_type,
-                metadata={
+                event_metadata={
                     k: v
                     for k, v in attrs.items()
                     if k
@@ -236,7 +236,7 @@ class TelemetryTraceService(trace_service_pb2_grpc.TraceServiceServicer):
                 action=attrs.get("feature.action"),
                 timestamp=timestamp,
                 deployment_type=deployment_type,
-                metadata={
+                event_metadata={
                     k: v
                     for k, v in attrs.items()
                     if k
