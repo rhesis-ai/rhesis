@@ -46,6 +46,11 @@ x-rhesis-config: &rhesis-config
   RHESIS_API_KEY: ${RHESIS_API_KEY}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
+
+x-telemetry-config: &telemetry-config
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-rhesis}
+  DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self_hosted}
   
 x-llm-config: &llm-config
   # Gemini API (legacy)
@@ -121,7 +126,7 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *llm-config]
+      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *llm-config, *telemetry-config]
       LOG_LEVEL: DEBUG
     ports:
       - "8080:8080"
@@ -197,6 +202,8 @@ services:
     environment:
       <<: [*common-auth0, *nextjs-frontend, *google-client, *common-environment, *rhesis-config]
       PORT: 3000
+      NEXT_PUBLIC_OTEL_ENDPOINT: ${NEXT_PUBLIC_OTEL_ENDPOINT:-}
+      NEXT_PUBLIC_DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE:-self_hosted}
     ports:
       - "3000:3000"
     depends_on:
@@ -232,6 +239,42 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # OpenTelemetry Collector (Optional - only for cloud deployment)
+  # Uncomment below services if you want to run telemetry collector locally
+  # otel-collector:
+  #   build:
+  #     context: ./apps/otel-collector
+  #     dockerfile: Dockerfile
+  #   container_name: rhesis-otel-collector
+  #   ports:
+  #     - "4317:4317"  # OTLP gRPC
+  #     - "4318:4318"  # OTLP HTTP
+  #     - "13133:13133" # Health check
+  #   environment:
+  #     TELEMETRY_PROCESSOR_ENDPOINT: telemetry-processor:4317
+  #   networks:
+  #     - rhesis-network
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - telemetry-processor
+  
+  # telemetry-processor:
+  #   build:
+  #     context: ./apps/telemetry-processor
+  #     dockerfile: Dockerfile
+  #   container_name: rhesis-telemetry-processor
+  #   ports:
+  #     - "4319:4317"
+  #   environment:
+  #     <<: [*common-database]
+  #     PORT: 4317
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - rhesis-network
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:

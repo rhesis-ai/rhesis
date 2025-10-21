@@ -239,6 +239,81 @@ def update_user_settings(
     return db_user.user_settings
 
 
+@router.get("/telemetry/status", response_model=dict)
+def get_telemetry_status(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context),
+):
+    """
+    Get current user's telemetry opt-in status.
+
+    Returns whether the user has opted in to share anonymous usage data.
+    """
+    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "telemetry_enabled": db_user.telemetry_enabled or False,
+        "user_id": str(db_user.id),
+    }
+
+
+@router.put("/telemetry/enable", response_model=dict)
+@handle_database_exceptions(entity_name="telemetry settings")
+def enable_telemetry(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context),
+):
+    """
+    Enable telemetry data collection (opt-in).
+
+    By enabling telemetry, you help improve Rhesis by sharing anonymous usage data.
+    No personally identifiable information (PII) is collected.
+    """
+    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_user.telemetry_enabled = True
+    db.commit()
+    db.refresh(db_user)
+
+    logger.info(f"Telemetry enabled for user {db_user.email}")
+
+    return {
+        "telemetry_enabled": True,
+        "message": "Thank you for helping improve Rhesis!",
+    }
+
+
+@router.put("/telemetry/disable", response_model=dict)
+@handle_database_exceptions(entity_name="telemetry settings")
+def disable_telemetry(
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context),
+):
+    """
+    Disable telemetry data collection (opt-out).
+
+    Disabling telemetry will stop all anonymous usage data collection.
+    """
+    db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_user.telemetry_enabled = False
+    db.commit()
+    db.refresh(db_user)
+
+    logger.info(f"Telemetry disabled for user {db_user.email}")
+
+    return {
+        "telemetry_enabled": False,
+        "message": "Telemetry has been disabled.",
+    }
+
+
 @router.get("/{user_id}", response_model=schemas.User)
 def read_user(
     user_id: uuid.UUID,

@@ -1,0 +1,130 @@
+receivers:
+  # OTLP receiver for traces, metrics, and logs
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "https://app.rhesis.ai"
+            - "https://dev-app.rhesis.ai"
+            - "https://stg-app.rhesis.ai"
+            - "http://localhost:3000"
+            - "*"  # Allow self-hosted instances from any origin
+
+processors:
+  # Batch processor - recommended for performance
+  batch:
+    timeout: 10s
+    send_batch_size: 100
+    send_batch_max_size: 1000
+  
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  
+  # Filter out sensitive attributes
+  attributes:
+    actions:
+      - key: password
+        action: delete
+      - key: token
+        action: delete
+      - key: api_key
+        action: delete
+      - key: secret
+        action: delete
+      - key: authorization
+        action: delete
+  
+  # Add resource attributes
+  resource:
+    attributes:
+      - key: service.namespace
+        value: rhesis
+        action: upsert
+      - key: collector.version
+        value: 0.97.0
+        action: upsert
+  
+  # Transform traces to store in custom format
+  transform:
+    trace_statements:
+      - context: span
+        statements:
+          # Extract user activity events
+          - set(attributes["event.category"], "user_activity") where attributes["event.type"] == "login" or attributes["event.type"] == "logout"
+          # Extract API endpoint events
+          - set(attributes["event.category"], "endpoint_usage") where attributes["http.method"] != nil
+          # Extract feature usage events
+          - set(attributes["event.category"], "feature_usage") where attributes["feature.name"] != nil
+
+exporters:
+  # PostgreSQL exporter for analytics
+  # Note: This is a custom exporter - we'll use the SQL exporter
+  # For now, we'll use OTLP to bridge, then create a custom service
+  otlp/postgres:
+    endpoint: ${TELEMETRY_PROCESSOR_ENDPOINT:-telemetry-processor:4317}
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  
+  # Logging exporter for debugging
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+  
+  # Prometheus metrics exporter
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: rhesis_telemetry
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+  
+  # pprof extension for performance profiling
+  pprof:
+    endpoint: 0.0.0.0:1777
+  
+  # zpages extension for debugging
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes, resource, transform]
+      exporters: [otlp/postgres, logging]
+    
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes, resource]
+      exporters: [otlp/postgres, prometheus, logging]
+  
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+
