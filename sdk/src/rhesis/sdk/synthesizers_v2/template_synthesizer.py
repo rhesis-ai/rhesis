@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, List, Optional, Union
 
 from jinja2 import Template
@@ -7,8 +8,6 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers_v2.base import BaseSynthesizer
 from rhesis.sdk.synthesizers_v2.utils import (
-    create_test_set,
-    load_prompt_template,
     parse_llm_response,
     retry_llm_call,
 )
@@ -17,9 +16,11 @@ from rhesis.sdk.synthesizers_v2.utils import (
 class TemplateSynthesizer(BaseSynthesizer):
     """Template-based synthesizer for generating test sets using LLM and templates."""
 
+    # Subclasses should override this to specify their template
+    template_name: Optional[str] = None
+
     def __init__(
         self,
-        template_name: Optional[str] = None,
         template_string: Optional[str] = None,
         batch_size: int = 5,
         model: Optional[Union[str, BaseLLM]] = None,
@@ -29,15 +30,13 @@ class TemplateSynthesizer(BaseSynthesizer):
         Initialize the template synthesizer.
 
         Args:
-            template_name: Name of the template file under assets/ (no path, no .md extension).
-            template_string: Raw Jinja2 template content provided inline.
+            template_string: Raw Jinja2 template content provided inline (optional).
             batch_size: Maximum number of items to process in a single LLM call
             model: LLM model to use (string name or BaseLLM instance)
             max_attempts: Maximum retry attempts for LLM calls
         """
         super().__init__(batch_size=batch_size)
         self.max_attempts = max_attempts
-        self.template_name = template_name
 
         # Initialize model
         if isinstance(model, str) or model is None:
@@ -45,15 +44,43 @@ class TemplateSynthesizer(BaseSynthesizer):
         else:
             self.model = model
 
-        # Load/compile template: prefer inline string, otherwise use asset, otherwise fallback
+        # Load template: prefer template_string, otherwise use class variable, otherwise fallback
         if template_string:
             self.template = Template(template_string)
-        elif template_name:
-            self.template = load_prompt_template(template_name)
+        elif self.template_name:
+            self.template = self.load_prompt_template(self.template_name)
         else:
-            self.template = Template(
-                "Generate {{ num_tests }} tests based on the provided variables."
+            raise ValueError(
+                "No template specified. Either provide template_string or set template_name "
+                "as a class variable in your synthesizer subclass."
             )
+
+    @staticmethod
+    def load_prompt_template(template_name: str) -> Template:
+        """Load prompt template from assets directory."""
+        # Convert camel case to snake case
+        snake_case = "".join(
+            ["_" + c.lower() if c.isupper() else c.lower() for c in template_name]
+        ).lstrip("_")
+
+        prompt_path = Path(__file__).parent / "assets" / f"{snake_case}.md"
+        try:
+            with open(prompt_path, "r") as f:
+                return Template(f.read())
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"Template file not found: {prompt_path}. "
+                f"Please create the template file or check the template name."
+            )
+
+    def create_test_set(self, tests: List[dict], **metadata_kwargs) -> TestSet:
+        """Create and configure a TestSet with metadata."""
+        metadata = self._create_test_set_metadata({}, tests)
+        metadata.update(metadata_kwargs)
+
+        test_set = TestSet(tests=tests, metadata=metadata, model=self.model)
+        test_set.set_properties()
+        return test_set
 
     def generate(self, num_tests: int = 3, **template_vars: Any) -> TestSet:
         """Generate a test set using the template and LLM.
@@ -77,7 +104,7 @@ class TemplateSynthesizer(BaseSynthesizer):
         metadata = self._create_test_set_metadata(template_data, tests)
 
         # Create and return TestSet
-        return create_test_set(tests=tests, model=self.model, **metadata)
+        return self.create_test_set(tests=tests, **metadata)
 
     # Extension points that subclasses can override
     def _prepare_template_vars(self, num_tests: int, template_vars: dict) -> dict:
