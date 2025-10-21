@@ -125,7 +125,9 @@ def get_recycled_records(
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Get soft-deleted records in the recycle bin for a specific model (admin only).
+    Get soft-deleted records in the recycle bin for a specific model.
+    
+    Users can view deleted records from their organization.
     
     Args:
         model_name: Name of the model (e.g., 'user', 'test', 'project')
@@ -135,7 +137,6 @@ def get_recycled_records(
     Returns:
         List of soft-deleted records
     """
-    require_superuser(current_user)
     model = get_model_by_name(model_name)
     organization_id, user_id = tenant_context
     
@@ -169,10 +170,12 @@ def restore_from_recycle_bin(
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Restore a soft-deleted record from the recycle bin (admin only).
+    Restore a soft-deleted record from the recycle bin.
     
     This endpoint uses cascade-aware restoration. For example, restoring a
     test_run will automatically restore all its associated test_results.
+    
+    Users can restore deleted records from their organization.
     
     Args:
         model_name: Name of the model
@@ -181,7 +184,6 @@ def restore_from_recycle_bin(
     Returns:
         Restored record with cascade information
     """
-    require_superuser(current_user)
     model = get_model_by_name(model_name)
     organization_id, user_id = tenant_context
     
@@ -346,14 +348,14 @@ def get_recycle_bin_counts(
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Get counts of soft-deleted records in the recycle bin for all models (admin only).
+    Get counts of soft-deleted records in the recycle bin for all models.
     
+    Users can see counts for deleted records in their organization.
     This can take a while for large databases as it queries every table.
     
     Returns:
         Dictionary with counts per model
     """
-    require_superuser(current_user)
     model_map = get_all_models()
     counts = {}
     organization_id, user_id = tenant_context
@@ -403,9 +405,11 @@ def bulk_restore_from_recycle_bin(
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Restore multiple soft-deleted records from the recycle bin at once (admin only).
+    Restore multiple soft-deleted records from the recycle bin at once.
     
     Uses cascade-aware restoration - each item and its related entities are restored.
+    
+    Users can restore deleted records from their organization.
     
     Args:
         model_name: Name of the model
@@ -414,7 +418,6 @@ def bulk_restore_from_recycle_bin(
     Returns:
         Summary of restoration results
     """
-    require_superuser(current_user)
     
     if not item_ids:
         raise HTTPException(
