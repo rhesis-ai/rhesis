@@ -112,6 +112,8 @@ export default function CreateProjectClient({
 
         // Navigate to the projects page
         router.push('/projects');
+        // invalidate cache by force
+        router.refresh();
       } catch (projectError) {
         console.error('Error creating project:', projectError);
 
