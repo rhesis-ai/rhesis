@@ -1,0 +1,67 @@
+# Knowledge
+
+The Knowledge section provides documentation about Rhesis's core concepts and methodologies for AI testing and evaluation.
+
+## What are Sources?
+
+Sources are content that you add to Rhesis to provide context and domain knowledge for AI testing. They serve as the foundation for generating relevant, domain-specific test cases.
+
+### Source Types
+
+Rhesis currently supports:
+
+- **Document**: Uploaded files (PDF, Word, Excel, PowerPoint, text files, etc.)
+
+<Callout type="info">
+  **Future Support**: Additional source types including Website, API, Database, Code, and Manual are planned for future releases.
+</Callout>
+
+### Supported File Formats
+
+When adding documents, Rhesis supports a wide range of file formats:
+
+**Office Documents:**
+- `.docx` - Microsoft Word documents
+- `.pptx` - Microsoft PowerPoint presentations
+- `.xlsx` - Microsoft Excel spreadsheets
+
+**Documents:**
+- `.pdf` - PDF files
+- `.txt` - Plain text files
+- `.csv` - Comma-separated values
+- `.json` - JSON data files
+- `.xml` - XML documents
+- `.html`, `.htm` - HTML web pages
+
+**Archives:**
+- `.zip` - Compressed archives (contents are extracted)
+
+**E-books:**
+- `.epub` - Electronic book format
+
+## How Sources Work
+
+### Adding and Storage
+
+When you add a source:
+
+1. **Content Storage**: The content is securely stored in your organization's storage
+2. **Content Extraction**: Text content is automatically extracted using [Markitdown](https://github.com/microsoft/markitdown)
+3. **Metadata Creation**: Source information (type, size, date added) is stored
+4. **Source Record**: A source record is created with the extracted content and metadata
+
+You can then view details, browse extracted content, download the original file, edit metadata (title, description, tags), and add comments.
+
+## Using Sources for Test Generation
+
+### Current Capabilities
+
+Sources are currently used in the Knowledge section to:
+
+- **Store Domain Knowledge**: Add content that contains domain-specific information
+- **Extract Content**: Automatically extract and view text content from sources
+- **Organize Information**: Categorize and tag sources for easy management
+
+<Callout type="info">
+  **Coming Soon**: Sources will be integrated with test generation to automatically create domain-specific test cases.
+</Callout>
