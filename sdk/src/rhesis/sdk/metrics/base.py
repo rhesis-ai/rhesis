@@ -107,6 +107,8 @@ class BaseMetric(ABC):
         self.metric_type = config.metric_type
         self.requires_ground_truth = config.requires_ground_truth
         self.requires_context = config.requires_context
+        self.class_name = config.class_name
+        self.backend = config.backend
 
         self.model = self.set_model(model)
 
