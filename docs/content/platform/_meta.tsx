@@ -11,6 +11,7 @@ const meta: MetaRecord = {
   'test-results': 'Test Results',
   metrics: 'Metrics',
   integrations: 'Integrations',
+  knowledge: 'Knowledge',
 }
 
 export default meta
