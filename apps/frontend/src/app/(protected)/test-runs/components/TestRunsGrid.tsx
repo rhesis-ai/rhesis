@@ -266,20 +266,25 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         renderCell: params => {
           const status =
             params.row.status?.name || params.row.attributes?.status;
+          const statusLower = status?.toLowerCase();
 
           // If status is Progress, show "In Progress" instead of elapsed time
-          if (status?.toLowerCase() === 'progress') {
+          if (statusLower === 'progress') {
             return 'In Progress';
           }
 
-          // If status is completed, show total execution time
-          if (status?.toLowerCase() === 'completed') {
+          // Show execution time for completed, partial, and failed runs
+          if (
+            statusLower === 'completed' ||
+            statusLower === 'partial' ||
+            statusLower === 'failed'
+          ) {
             const timeMs = params.row.attributes?.total_execution_time_ms;
             if (!timeMs) return '';
             return formatExecutionTime(timeMs);
           }
 
-          // For other statuses, return empty
+          // For unknown statuses, return empty
           return '';
         },
       },
