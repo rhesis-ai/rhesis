@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import Image from 'next/image';
-import { Box } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 import {
@@ -13,8 +12,6 @@ import {
   GroupIcon,
   PlayArrowIcon,
   AssessmentIcon,
-  DescriptionIcon,
-  AutoFixHighIcon,
   CategoryIcon,
   AutoGraphIcon,
   IntegrationInstructionsIcon,
@@ -80,7 +77,17 @@ async function getNavigationItems(
     {
       kind: 'page',
       segment: 'organizations',
-      title: organizationName,
+      title: (
+        <Tooltip
+          placement="top"
+          // sidebar is 240px, px to rem conversion => 240/16=15, so from 16 characters we display ellipsis+tooltip
+          title={organizationName.length < 15 ? '' : organizationName}
+        >
+          <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {organizationName}
+          </Box>
+        </Tooltip>
+      ),
       icon: <BusinessIcon />,
       children: [
         {
