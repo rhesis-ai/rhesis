@@ -1,31 +1,9 @@
 """Utility functions for common synthesizer operations."""
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from jinja2 import Template
-
-from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.utils import extract_json_from_text
-
-
-def load_prompt_template(class_name: str, custom_prompt: Optional[str] = None) -> Template:
-    """Load prompt template from assets or use custom prompt."""
-    if custom_prompt:
-        return Template(custom_prompt)
-
-    # Convert camel case to snake case
-    snake_case = "".join(
-        ["_" + c.lower() if c.isupper() else c.lower() for c in class_name]
-    ).lstrip("_")
-
-    prompt_path = Path(__file__).parent / "assets" / f"{snake_case}.md"
-    try:
-        with open(prompt_path, "r") as f:
-            return Template(f.read())
-    except FileNotFoundError:
-        return Template("{{ generation_prompt }}")
 
 
 def retry_llm_call(model: BaseLLM, prompt: str, max_attempts: int = 3) -> Any:
@@ -82,23 +60,3 @@ def _extract_from_string(response: str, expected_keys: List[str] = None) -> List
                 return parsed[key] if isinstance(parsed[key], list) else [parsed[key]]
 
     return parsed.get("tests", [])
-
-
-def create_test_set_metadata(synthesizer_name: str, batch_size: int, **kwargs) -> Dict[str, Any]:
-    """Create standardized metadata for test sets."""
-    base_metadata = {
-        "synthesizer": synthesizer_name,
-        "batch_size": batch_size,
-    }
-    base_metadata.update(kwargs)
-    return base_metadata
-
-
-def create_test_set(tests: List[Dict], model: BaseLLM, **metadata_kwargs) -> "TestSet":
-    """Create and configure a TestSet with metadata."""
-    from rhesis.sdk.entities.test_set import TestSet
-
-    metadata = create_test_set_metadata(**metadata_kwargs)
-    test_set = TestSet(tests=tests, metadata=metadata, model=model)
-    test_set.set_properties()
-    return test_set
