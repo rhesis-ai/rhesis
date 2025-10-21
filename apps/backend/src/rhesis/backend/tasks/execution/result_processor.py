@@ -16,14 +16,11 @@ from rhesis.backend.tasks.utils import format_execution_time, format_execution_t
 
 def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
     """
-    Calculate test statistics from test run data by analyzing test_metrics.
+    Calculate test statistics from test run data using efficient SQL aggregation.
     
-    This function analyzes the test_metrics field (the source of truth) to determine
-    pass/fail status, matching the logic used by the frontend. A test is considered
-    passed only if ALL its metrics are successful.
-    
-    Note: We analyze test_metrics instead of the status field because historically
-    the status field was not set correctly (always set to "Pass" regardless of metrics).
+    The test status is determined once during execution based on whether all metrics
+    passed. This stored status is then the source of truth for all statistics.
+    Uses database-level aggregation for optimal performance.
 
     Args:
         test_run: The test run to analyze
@@ -32,45 +29,57 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
     Returns:
         Tuple of (total_tests, tests_passed, tests_failed, execution_errors)
     """
+    from sqlalchemy import func, case
     from rhesis.backend.app import models
+    from rhesis.backend.app.constants import (
+        TEST_RESULT_STATUS_PASSED,
+        TEST_RESULT_STATUS_FAILED,
+        TEST_RESULT_STATUS_ERROR,
+        STATUS_CATEGORY_PASSED,
+        STATUS_CATEGORY_FAILED,
+        STATUS_CATEGORY_ERROR,
+    )
     
     # Build base filter conditions
     base_filters = [models.TestResult.test_run_id == test_run.id]
     if test_run.organization_id:
         base_filters.append(models.TestResult.organization_id == test_run.organization_id)
     
-    # Get all test results for this test run
-    test_results = db.query(models.TestResult).filter(*base_filters).all()
+    # Use SQL aggregation to count tests by status category
+    # This is much more efficient than loading all results into memory
+    status_counts = (
+        db.query(
+            func.lower(models.Status.name).label('status_name'),
+            func.count(models.TestResult.id).label('count')
+        )
+        .join(models.Status, models.TestResult.status_id == models.Status.id)
+        .filter(*base_filters)
+        .group_by(func.lower(models.Status.name))
+        .all()
+    )
     
-    total_tests = len(test_results)
+    # Categorize status counts using centralized mappings
     tests_passed = 0
     tests_failed = 0
     execution_errors = 0
     
-    for result in test_results:
-        # Check if test_metrics exists and has metrics data
-        if not result.test_metrics or 'metrics' not in result.test_metrics:
-            execution_errors += 1
-            continue
-        
-        metrics = result.test_metrics.get('metrics', {})
-        
-        # If no metrics, count as execution error
-        if not metrics or len(metrics) == 0:
-            execution_errors += 1
-            continue
-        
-        # Check if ALL metrics passed (matches frontend logic)
-        all_metrics_passed = all(
-            metric_data.get('is_successful', False)
-            for metric_data in metrics.values()
-            if isinstance(metric_data, dict)
-        )
-        
-        if all_metrics_passed:
-            tests_passed += 1
+    for status_name, count in status_counts:
+        if status_name in TEST_RESULT_STATUS_PASSED:
+            tests_passed += count
+        elif status_name in TEST_RESULT_STATUS_FAILED:
+            tests_failed += count
+        elif status_name in TEST_RESULT_STATUS_ERROR:
+            execution_errors += count
         else:
-            tests_failed += 1
+            # Unknown status - treat as execution error
+            execution_errors += count
+    
+    # Get total count efficiently
+    total_tests = (
+        db.query(func.count(models.TestResult.id))
+        .filter(*base_filters)
+        .scalar()
+    ) or 0
     
     return total_tests, tests_passed, tests_failed, execution_errors
 

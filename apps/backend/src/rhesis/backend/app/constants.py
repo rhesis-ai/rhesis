@@ -68,6 +68,12 @@ TEST_RESULT_STATUS_ERROR = frozenset([
     'review', 'pending'  # Awaiting review or execution
 ])
 
+# Status Category Constants
+# Use these constants instead of magic strings when checking status categories
+STATUS_CATEGORY_PASSED = 'passed'
+STATUS_CATEGORY_FAILED = 'failed'
+STATUS_CATEGORY_ERROR = 'error'
+
 
 def categorize_test_result_status(status_name: str) -> str:
     """
@@ -94,13 +100,13 @@ def categorize_test_result_status(status_name: str) -> str:
         'error'
     """
     if not status_name:
-        return 'error'
+        return STATUS_CATEGORY_ERROR
     
     status_lower = status_name.lower()
     
     if status_lower in TEST_RESULT_STATUS_PASSED:
-        return 'passed'
+        return STATUS_CATEGORY_PASSED
     elif status_lower in TEST_RESULT_STATUS_FAILED:
-        return 'failed'
+        return STATUS_CATEGORY_FAILED
     else:
-        return 'error'
+        return STATUS_CATEGORY_ERROR
