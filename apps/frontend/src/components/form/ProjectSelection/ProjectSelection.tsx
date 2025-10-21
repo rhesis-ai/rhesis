@@ -16,7 +16,7 @@ export type ProjectSelectionContainerProps = {
 export function ProjectSelection({
   isEditing,
   projectId,
-                                   onChange,
+  onChange,
   label,
   allowUnset = true,
 }: ProjectSelectionContainerProps) {
