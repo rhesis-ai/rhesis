@@ -482,7 +482,7 @@ export default function EndpointDetail({
                 projectId={
                   isEditing ? editedValues.project_id : endpoint.project_id
                 }
-                onChangeAction={nextProjectId => {
+                onChange={nextProjectId => {
                   handleChange('project_id', nextProjectId);
                 }}
               />

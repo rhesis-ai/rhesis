@@ -14,19 +14,19 @@ export type UseProjectOptionsResult = {
 
 /**
  * Data selector to get the required information for the select box
- * @param p
+ * @param project
  */
-function mapProjectToOption(p: Project): ProjectOption {
+function mapProjectToOption(project: Project): ProjectOption {
   return {
-    id: String(p.id),
-    name: p.name ?? 'Unnamed Project',
-    description: p.description ?? null,
-    icon: p.icon ?? null,
+    id: String(project.id),
+    name: project.name ?? 'Unnamed Project',
+    description: project.description ?? null,
+    icon: project.icon ?? null,
   };
 }
 
 /**
- * data selector for project options
+ * Hook for project information loading
  * drop it later in favor of an easier client side state handling framework
  */
 export function useProjectOptions(): UseProjectOptionsResult {
