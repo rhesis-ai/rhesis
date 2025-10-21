@@ -1957,9 +1957,78 @@ def update_test_run(
 def delete_test_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.TestRun]:
-    return delete_item(
-        db, models.TestRun, test_run_id, organization_id=organization_id, user_id=user_id
-    )
+    """
+    Soft delete a test run and cascade to all associated test results.
+    
+    This operation is fully transactional - either all entities are soft deleted
+    or none are (in case of error, changes are rolled back). The entire operation
+    happens in a single database transaction with a single commit at the end.
+    
+    Args:
+        db: Database session
+        test_run_id: ID of the test run to delete
+        organization_id: Organization ID for tenant context
+        user_id: User ID for tenant context
+    
+    Returns:
+        The soft-deleted test run or None if not found
+        
+    Raises:
+        Exception: If any error occurs during deletion (triggers rollback)
+    """
+    try:
+        # First, get the test run to ensure it exists
+        test_run = get_item(db, models.TestRun, test_run_id, organization_id, user_id)
+        if not test_run:
+            return None
+        
+        # Soft delete all non-deleted test results for this test run
+        # The soft delete filter automatically excludes already-deleted results,
+        # so we only need to process the ones that aren't deleted yet
+        skip = 0
+        limit = 100
+        
+        while True:
+            # Query for non-deleted test results (automatic soft delete filtering)
+            query = db.query(models.TestResult).filter(
+                models.TestResult.test_run_id == test_run_id
+            )
+            
+            # Apply organization filter for security
+            if organization_id:
+                query = query.filter(models.TestResult.organization_id == organization_id)
+            
+            test_results_batch = query.limit(limit).offset(skip).all()
+            
+            if not test_results_batch:
+                break
+            
+            # Soft delete each test result
+            # No need to check deleted_at - the query already filtered those out
+            for test_result in test_results_batch:
+                test_result.soft_delete()
+            
+            if len(test_results_batch) < limit:
+                # Last batch, no more results
+                break
+            
+            skip += limit
+        
+        # Now soft delete the test run itself
+        test_run.soft_delete()
+        
+        # SINGLE COMMIT - This is the only commit in the entire function
+        # Everything above happens in memory/transaction until this point
+        # If this fails, SQLAlchemy will automatically rollback everything
+        db.commit()
+        
+        return test_run
+        
+    except Exception as e:
+        # Explicitly rollback on any error to ensure clean state
+        # This rolls back BOTH the test run and all test results
+        db.rollback()
+        raise
 
 
 # Test Result CRUD
