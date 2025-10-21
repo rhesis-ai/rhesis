@@ -85,12 +85,12 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
 
         // Convert filter model to OData filter string (handles both column filters and quick search)
         const filterString = combineTestRunFiltersToOData(filterModel);
-        
+
         console.log('TestRunsGrid - Filter Debug:', {
           filterModel,
           filterString,
           skip,
-          limit
+          limit,
         });
 
         const apiParams = {
@@ -100,7 +100,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
           sort_order: 'desc' as const,
           ...(filterString && { filter: filterString }),
         };
-        
+
         console.log('TestRunsGrid - API Params:', apiParams);
 
         const response = await testRunsClient.getTestRuns(apiParams);
@@ -487,12 +487,15 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
   }, []);
 
   // Filter change handler
-  const handleFilterModelChange = useCallback((newFilterModel: GridFilterModel) => {
-    console.log('Filter model changed:', newFilterModel);
-    setFilterModel(newFilterModel);
-    // Reset to first page when filter changes
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
+  const handleFilterModelChange = useCallback(
+    (newFilterModel: GridFilterModel) => {
+      console.log('Filter model changed:', newFilterModel);
+      setFilterModel(newFilterModel);
+      // Reset to first page when filter changes
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
+    },
+    []
+  );
 
   // Memoized action buttons based on selection
   const actionButtons = useMemo(() => {

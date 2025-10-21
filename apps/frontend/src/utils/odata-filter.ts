@@ -495,7 +495,7 @@ export function convertTestRunQuickFilterToOData(
     'name',
     'test_configuration/test_set/name',
     'user/name',
-    'status/name'
+    'status/name',
   ];
 
   const quickFilterExpressions = quickFilterValues
