@@ -320,7 +320,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
               label={status}
               size="small"
               color={color}
-              icon={icon}
+              {...(icon && { icon })}
               sx={{ fontWeight: 500 }}
             />
           );
