@@ -39,10 +39,10 @@ def delete_test_run(db, test_run_id, org_id, user_id):
 ```
 
 **Problems:**
-- ❌ Repetitive code across multiple functions
-- ❌ Error-prone (easy to miss child relationships)
-- ❌ Hard to maintain (adding new relationships requires code changes everywhere)
-- ❌ Not scalable (every new parent-child relationship needs new manual code)
+- **Repetitive code** across multiple functions
+- **Error-prone** (easy to miss child relationships)
+- **Hard to maintain** (adding new relationships requires code changes everywhere)
+- **Not scalable** (every new parent-child relationship needs new manual code)
 
 ### The Solution: Configuration-Driven Cascades
 
@@ -65,11 +65,11 @@ def delete_test_run(db, test_run_id, org_id, user_id):
 ```
 
 **Benefits:**
-- ✅ Single source of truth for cascade relationships
-- ✅ Automatic cascade for both delete and restore
-- ✅ No code changes needed in CRUD functions
-- ✅ Easy to add new cascade relationships
-- ✅ Consistent behavior across all entities
+- **Single source of truth** for cascade relationships
+- **Automatic cascade** for both delete and restore
+- **No code changes** needed in CRUD functions
+- **Easy to add** new cascade relationships
+- **Consistent behavior** across all entities
 
 ## Architecture
 
@@ -306,10 +306,10 @@ When you delete a `Project`:
 The cascade service uses efficient bulk UPDATE queries instead of loading objects:
 
 ```python
-# ✅ Efficient: Bulk UPDATE (single query)
+# EFFICIENT: Bulk UPDATE (single query)
 query.update({"deleted_at": datetime.utcnow()}, synchronize_session=False)
 
-# ❌ Inefficient: Load and update each object
+# INEFFICIENT: Load and update each object
 for obj in query.all():
     obj.soft_delete()
 ```
@@ -355,10 +355,10 @@ except Exception as e:
 ```
 
 **Guarantees:**
-- ✅ **Atomic**: Either all entities are deleted/restored, or none are
-- ✅ **Consistent**: Database remains in valid state even on errors
-- ✅ **Isolated**: Other transactions don't see partial cascades
-- ✅ **Durable**: Committed cascades are permanent
+- **Atomic**: Either all entities are deleted/restored, or none are
+- **Consistent**: Database remains in valid state even on errors
+- **Isolated**: Other transactions don't see partial cascades
+- **Durable**: Committed cascades are permanent
 
 ## Testing Cascade Relationships
 
@@ -454,7 +454,7 @@ CascadeRelationship(
 Some relationships should **NOT** cascade:
 
 ```python
-# ❌ DON'T cascade delete audit logs
+# DON'T: cascade delete audit logs
 models.User: [
     CascadeRelationship(
         child_model=models.AuditLog,
@@ -464,7 +464,7 @@ models.User: [
     )
 ]
 
-# ✅ DO cascade delete user sessions
+# DO: cascade delete user sessions
 models.User: [
     CascadeRelationship(
         child_model=models.UserSession,
@@ -502,10 +502,10 @@ logger.info(
 Avoid deep cascade chains (>3 levels) as they can be hard to reason about:
 
 ```python
-# ✅ Good: 2-level cascade
+# RECOMMENDED: 2-level cascade
 Project -> TestSet -> Test
 
-# ⚠️ Consider carefully: 4-level cascade
+# CAUTION: 4-level cascade (consider carefully)
 Organization -> Project -> TestSet -> Test -> TestResult
 ```
 
