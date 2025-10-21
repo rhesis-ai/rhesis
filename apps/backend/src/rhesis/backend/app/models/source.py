@@ -37,11 +37,8 @@ class Source(Base, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMix
     source_type = relationship("TypeLookup", back_populates="sources")
     status = relationship("Status", back_populates="sources")
     user = relationship("User", foreign_keys="[Source.user_id]", back_populates="created_sources")
-    # Many-to-many backrefs for prompts and prompt templates via test_source association
-    prompts_multi = relationship("Prompt", secondary="test_source", back_populates="sources")
-    prompt_templates_multi = relationship(
-        "PromptTemplate", secondary="test_source", back_populates="sources"
-    )
+    prompt_templates = relationship("PromptTemplate", back_populates="source")
+    prompts = relationship("Prompt", back_populates="source")
     # New many-to-many backref for tests that reference this source via association
     tests_multi = relationship("Test", secondary="test_source", back_populates="sources")
     # Comment relationship (polymorphic)
