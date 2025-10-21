@@ -33,8 +33,13 @@ class ConditionalSpanProcessor(BatchSpanProcessor):
 
     def on_end(self, span):
         """Only process spans if telemetry is enabled in current context"""
-        if _telemetry_enabled.get(False):
+        telemetry_enabled = _telemetry_enabled.get(False)
+        logger.debug(f"Span ending: {span.name}, telemetry_enabled={telemetry_enabled}")
+        if telemetry_enabled:
+            logger.debug(f"Exporting span: {span.name}")
             super().on_end(span)
+        else:
+            logger.debug(f"Skipping span: {span.name} (telemetry disabled)")
 
 
 def _hash_id(id_str: str) -> str:
