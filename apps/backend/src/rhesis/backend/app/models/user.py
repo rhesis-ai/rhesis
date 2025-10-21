@@ -22,6 +22,7 @@ class User(Base):
     auth0_id = Column(String, nullable=True)
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
     last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in
+    telemetry_enabled = Column(Boolean, default=False, server_default="FALSE")  # Opt-in telemetry
     user_settings = Column(
         JSONB,
         nullable=False,

@@ -1,0 +1,19 @@
+[project]
+name = "rhesis-telemetry-processor"
+version = "0.1.0"
+description = "Telemetry data processor for Rhesis analytics"
+requires-python = ">=3.10"
+dependencies = [
+    "opentelemetry-api>=1.32.1",
+    "opentelemetry-sdk>=1.32.1",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.32.1",
+    "grpcio>=1.60.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.9",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+

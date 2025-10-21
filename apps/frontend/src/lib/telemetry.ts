@@ -1,0 +1,239 @@
+/**
+ * OpenTelemetry instrumentation for Rhesis frontend.
+ * 
+ * This module provides conditional telemetry export based on user preferences.
+ */
+
+import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { Resource } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+
+let telemetryEnabled = false;
+let provider: WebTracerProvider | null = null;
+let tracer: any = null;
+
+/**
+ * Hash a string for privacy (one-way)
+ */
+function hashString(str: string): string {
+  if (!str) return '';
+  
+  // Simple hash for browser (not cryptographically secure, but sufficient for telemetry)
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(16);
+}
+
+/**
+ * Initialize OpenTelemetry for the frontend.
+ * 
+ * This should be called once when the app starts.
+ */
+export function initTelemetry() {
+  const otlpEndpoint = process.env.NEXT_PUBLIC_OTEL_ENDPOINT;
+  
+  if (!otlpEndpoint) {
+    console.log('Telemetry disabled: NEXT_PUBLIC_OTEL_ENDPOINT not set');
+    return;
+  }
+  
+  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  const appVersion = process.env.APP_VERSION || 'unknown';
+  
+  // Create resource
+  const resource = new Resource({
+    [ATTR_SERVICE_NAME]: 'rhesis-frontend',
+    [ATTR_SERVICE_VERSION]: appVersion,
+    'deployment.type': deploymentType,
+    'service.namespace': 'rhesis',
+  });
+  
+  // Create provider
+  provider = new WebTracerProvider({ resource });
+  
+  // Create OTLP exporter
+  const exporter = new OTLPTraceExporter({
+    url: `${otlpEndpoint}/v1/traces`,
+    headers: {},
+    // 5 second timeout - don't block app if telemetry is slow
+    timeoutMillis: 5000,
+  });
+  
+  // Add batch processor
+  provider.addSpanProcessor(new BatchSpanProcessor(exporter));
+  
+  // Register provider
+  provider.register();
+  
+  // Get tracer
+  tracer = provider.getTracer('rhesis-frontend', appVersion);
+  
+  console.log('Telemetry initialized:', { otlpEndpoint, deploymentType });
+}
+
+/**
+ * Enable or disable telemetry.
+ * 
+ * @param enabled Whether telemetry is enabled
+ */
+export function setTelemetryEnabled(enabled: boolean) {
+  telemetryEnabled = enabled;
+}
+
+/**
+ * Check if telemetry is enabled.
+ */
+export function isTelemetryEnabled(): boolean {
+  return telemetryEnabled;
+}
+
+/**
+ * Track a page view.
+ * 
+ * @param page Page path
+ * @param userId User ID (will be hashed)
+ * @param organizationId Organization ID (will be hashed)
+ */
+export function trackPageView(
+  page: string,
+  userId?: string,
+  organizationId?: string
+) {
+  if (!telemetryEnabled || !tracer) return;
+  
+  const span = tracer.startSpan('page.view');
+  
+  span.setAttribute('event.category', 'feature_usage');
+  span.setAttribute('feature.name', 'page_view');
+  span.setAttribute('feature.action', 'viewed');
+  span.setAttribute('page.path', page);
+  
+  if (userId) {
+    span.setAttribute('user.id', hashString(userId));
+  }
+  
+  if (organizationId) {
+    span.setAttribute('organization.id', hashString(organizationId));
+  }
+  
+  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  span.setAttribute('deployment.type', deploymentType);
+  
+  span.end();
+}
+
+/**
+ * Track a user action/event.
+ * 
+ * @param eventName Name of the event
+ * @param properties Additional properties
+ * @param userId User ID (will be hashed)
+ * @param organizationId Organization ID (will be hashed)
+ */
+export function trackEvent(
+  eventName: string,
+  properties: Record<string, string | number | boolean> = {},
+  userId?: string,
+  organizationId?: string
+) {
+  if (!telemetryEnabled || !tracer) return;
+  
+  const span = tracer.startSpan(eventName);
+  
+  span.setAttribute('event.category', 'feature_usage');
+  span.setAttribute('feature.name', eventName);
+  span.setAttribute('feature.action', 'triggered');
+  
+  // Add properties as attributes
+  Object.entries(properties).forEach(([key, value]) => {
+    span.setAttribute(`metadata.${key}`, String(value));
+  });
+  
+  if (userId) {
+    span.setAttribute('user.id', hashString(userId));
+  }
+  
+  if (organizationId) {
+    span.setAttribute('organization.id', hashString(organizationId));
+  }
+  
+  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  span.setAttribute('deployment.type', deploymentType);
+  
+  span.end();
+}
+
+/**
+ * Track a feature usage.
+ * 
+ * @param featureName Name of the feature
+ * @param action Action performed
+ * @param metadata Additional metadata
+ * @param userId User ID (will be hashed)
+ * @param organizationId Organization ID (will be hashed)
+ */
+export function trackFeatureUsage(
+  featureName: string,
+  action: string,
+  metadata: Record<string, string | number | boolean> = {},
+  userId?: string,
+  organizationId?: string
+) {
+  if (!telemetryEnabled || !tracer) return;
+  
+  const span = tracer.startSpan(`feature.${featureName}`);
+  
+  span.setAttribute('event.category', 'feature_usage');
+  span.setAttribute('feature.name', featureName);
+  span.setAttribute('feature.action', action);
+  
+  // Add metadata as attributes
+  Object.entries(metadata).forEach(([key, value]) => {
+    span.setAttribute(`metadata.${key}`, String(value));
+  });
+  
+  if (userId) {
+    span.setAttribute('user.id', hashString(userId));
+  }
+  
+  if (organizationId) {
+    span.setAttribute('organization.id', hashString(organizationId));
+  }
+  
+  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  span.setAttribute('deployment.type', deploymentType);
+  
+  span.end();
+}
+
+/**
+ * Track user login.
+ * 
+ * @param userId User ID (will be hashed)
+ * @param organizationId Organization ID (will be hashed)
+ */
+export function trackUserLogin(userId: string, organizationId?: string) {
+  if (!telemetryEnabled || !tracer) return;
+  
+  const span = tracer.startSpan('user.login');
+  
+  span.setAttribute('event.category', 'user_activity');
+  span.setAttribute('event.type', 'login');
+  span.setAttribute('user.id', hashString(userId));
+  
+  if (organizationId) {
+    span.setAttribute('organization.id', hashString(organizationId));
+  }
+  
+  const deploymentType = process.env.NEXT_PUBLIC_DEPLOYMENT_TYPE || 'unknown';
+  span.setAttribute('deployment.type', deploymentType);
+  
+  span.end();
+}
+

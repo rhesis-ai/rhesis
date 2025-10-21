@@ -25,8 +25,13 @@ from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
 from rhesis.backend.logging import logger
+from rhesis.backend.telemetry import initialize_telemetry
+from rhesis.backend.telemetry.middleware import TelemetryMiddleware
 
 Base.metadata.create_all(bind=engine)
+
+# Initialize OpenTelemetry
+initialize_telemetry()
 
 # Public routes don't need any authentication
 public_routes = [
@@ -209,6 +214,9 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HTTPSRedirectMiddleware)
+
+# Add telemetry middleware
+app.add_middleware(TelemetryMiddleware)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
