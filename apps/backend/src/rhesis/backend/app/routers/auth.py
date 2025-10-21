@@ -17,6 +17,7 @@ from rhesis.backend.app.dependencies import (
     get_db_session,
 )
 from rhesis.backend.logging import logger
+from rhesis.backend.telemetry import set_telemetry_enabled, track_user_activity
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -101,7 +102,24 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         request.session["user_id"] = str(user.id)
         session_token = create_session_token(user)
 
-        # Step 5: Determine redirect URL
+        # Step 5: Track login activity (only if user has telemetry enabled)
+        if user.telemetry_enabled:
+            # Set telemetry context first
+            set_telemetry_enabled(
+                enabled=True,
+                user_id=str(user.id),
+                org_id=str(user.organization_id) if user.organization_id else None,
+            )
+
+            # Now track the activity
+            track_user_activity(
+                event_type="login",
+                session_id=request.session.get("_id"),
+                login_method="oauth",
+                auth_provider="auth0",
+            )
+
+        # Step 6: Determine redirect URL
         redirect_url = build_redirect_url(request, session_token)
 
         return RedirectResponse(url=redirect_url)
@@ -129,6 +147,18 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
 
             if user_id:
                 logger.info(f"Logout called for user {user_id} via JWT token")
+
+                # Set telemetry context before tracking (user already authenticated via token)
+                org_id = user_info.get("organization_id")
+                set_telemetry_enabled(
+                    enabled=True,  # We're in logout, so telemetry was already enabled
+                    user_id=str(user_id),
+                    org_id=str(org_id) if org_id else None,
+                )
+
+                # Track logout activity
+                track_user_activity(event_type="logout", session_id=request.session.get("_id"))
+
                 # Here you could add additional cleanup if needed
                 # For example, invalidating refresh tokens, clearing user-specific cache, etc.
 

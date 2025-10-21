@@ -38,8 +38,8 @@ class UserActivity(Base):
     __tablename__ = "analytics_user_activity"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    organization_id = Column(UUID(as_uuid=True), index=True)
+    user_id = Column(String(32), nullable=False, index=True)  # Hashed, not UUID
+    organization_id = Column(String(32), index=True)  # Hashed, not UUID
     event_type = Column(String(50), nullable=False)
     timestamp = Column(DateTime, nullable=False, index=True)
     session_id = Column(String(255))
@@ -55,8 +55,8 @@ class EndpointUsage(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     endpoint = Column(String(255), nullable=False, index=True)
     method = Column(String(10))
-    user_id = Column(UUID(as_uuid=True), index=True)
-    organization_id = Column(UUID(as_uuid=True), index=True)
+    user_id = Column(String(32), index=True)  # Hashed, not UUID
+    organization_id = Column(String(32), index=True)  # Hashed, not UUID
     status_code = Column(Integer)
     duration_ms = Column(Float)
     timestamp = Column(DateTime, nullable=False, index=True)
@@ -71,8 +71,8 @@ class FeatureUsage(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     feature_name = Column(String(100), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), index=True)
-    organization_id = Column(UUID(as_uuid=True), index=True)
+    user_id = Column(String(32), index=True)  # Hashed, not UUID
+    organization_id = Column(String(32), index=True)  # Hashed, not UUID
     action = Column(String(100))
     timestamp = Column(DateTime, nullable=False, index=True)
     deployment_type = Column(String(50))
@@ -166,6 +166,9 @@ class TelemetryTraceService(trace_service_pb2_grpc.TraceServiceServicer):
     ):
         """Insert user activity record"""
         try:
+            logger.info(
+                f"Inserting user activity: event_type={attrs.get('event.type')}, user_id={user_id}, org_id={org_id}"
+            )
             activity = UserActivity(
                 user_id=user_id,
                 organization_id=org_id,
@@ -187,6 +190,7 @@ class TelemetryTraceService(trace_service_pb2_grpc.TraceServiceServicer):
                 },
             )
             session.add(activity)
+            logger.info("Successfully added user activity to session")
         except Exception as e:
             logger.error(f"Error inserting user activity: {e}")
 
