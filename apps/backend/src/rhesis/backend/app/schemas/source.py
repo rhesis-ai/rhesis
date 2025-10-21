@@ -1,5 +1,6 @@
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, ConfigDict, field_validator
 
@@ -7,6 +8,7 @@ from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.status import Status
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
+from rhesis.backend.app.schemas.user import User
 
 
 # Source Types Enum - Defines available source types with corresponding handlers
@@ -72,12 +74,15 @@ class SourceUpdate(SourceBase):
     title: Optional[str] = None  # Make title optional for updates
 
 
-# Schema for returning a Source (typically includes an ID)
+# Schema for returning a Source (includes related objects)
 class Source(SourceBase):
     id: UUID4
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
+    tags: Optional[List[Tag]] = []
     # Related objects
     source_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
-    tags: Optional[list[Tag]] = []
+    user: Optional[User] = None
 
     model_config = ConfigDict(from_attributes=True)
