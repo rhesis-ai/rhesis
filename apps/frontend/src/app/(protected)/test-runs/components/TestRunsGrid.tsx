@@ -18,6 +18,7 @@ import {
   GridColDef,
   GridRowSelectionModel,
   GridPaginationModel,
+  GridFilterModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -38,6 +39,7 @@ import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
 
 interface ProjectCache {
   [key: string]: string;
@@ -65,6 +67,9 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
     page: 0,
     pageSize: 50,
   });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
 
   const fetchTestRuns = useCallback(
     async (skip: number, limit: number) => {
@@ -78,12 +83,25 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
 
+        // Convert filter model to OData filter string (handles both column filters and quick search)
+        const filterString = combineTestRunFiltersToOData(filterModel);
+        
+        console.log('TestRunsGrid - Filter Debug:', {
+          filterModel,
+          filterString,
+          skip,
+          limit
+        });
+
         const apiParams = {
           skip,
           limit,
           sort_by: 'created_at',
           sort_order: 'desc' as const,
+          ...(filterString && { filter: filterString }),
         };
+        
+        console.log('TestRunsGrid - API Params:', apiParams);
 
         const response = await testRunsClient.getTestRuns(apiParams);
 
@@ -169,7 +187,7 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         }
       }
     },
-    [sessionToken]
+    [sessionToken, filterModel]
   );
 
   useEffect(() => {
@@ -215,12 +233,14 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         field: 'name',
         headerName: 'Name',
         flex: 1,
+        filterable: true,
         valueGetter: (_, row) => row.name || '',
       },
       {
-        field: 'test_sets',
+        field: 'test_configuration.test_set.name',
         headerName: 'Test Sets',
         flex: 1,
+        filterable: true,
         valueGetter: (_, row) => {
           const testSet = row.test_configuration?.test_set;
           return testSet?.name || '';
@@ -302,9 +322,19 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         },
       },
       {
-        field: 'executor',
+        field: 'user.name',
         headerName: 'Executor',
         flex: 1,
+        filterable: true,
+        valueGetter: (_, row) => {
+          const executor = row.user;
+          if (!executor) return '';
+          return (
+            executor.name ||
+            `${executor.given_name || ''} ${executor.family_name || ''}`.trim() ||
+            executor.email
+          );
+        },
         renderCell: params => {
           const executor = params.row.user;
           if (!executor) return null;
@@ -456,6 +486,14 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
     setDeleteModalOpen(false);
   }, []);
 
+  // Filter change handler
+  const handleFilterModelChange = useCallback((newFilterModel: GridFilterModel) => {
+    console.log('Filter model changed:', newFilterModel);
+    setFilterModel(newFilterModel);
+    // Reset to first page when filter changes
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
   // Memoized action buttons based on selection
   const actionButtons = useMemo(() => {
     const buttons = [];
@@ -511,6 +549,9 @@ function TestRunsTable({ sessionToken, onRefresh }: TestRunsTableProps) {
         getRowId={row => row.id}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        filterModel={filterModel}
+        onFilterModelChange={handleFilterModelChange}
+        serverSideFiltering={true}
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={Array.isArray(selectedRows) ? selectedRows : []}
         onRowClick={handleRowClick}
