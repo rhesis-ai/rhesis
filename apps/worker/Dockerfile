@@ -3,7 +3,7 @@
 
 # Use Python 3.10.17 base image
 # IMPORTANT: The python version must match the version in the .python-version file.
-FROM python:3.10.17-slim
+FROM mirror.gcr.io/library/python:3.10.17-slim
 
 # Set environment variables for Python optimization
 ENV PYTHONUNBUFFERED=1 \
