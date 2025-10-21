@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, ReactNode, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+  useRef,
+} from 'react';
 import {
   Box,
   Typography,
@@ -353,9 +359,12 @@ export default function BaseDataGrid({
       item => item.field === 'quickFilter' || item.field === '__quickFilter__'
     );
     const newValue = quickFilterItem?.value || '';
-    
+
     // Only update if different and not during active typing (debounce in progress)
-    if (quickFilterInputRef.current.value !== newValue && !debounceTimerRef.current) {
+    if (
+      quickFilterInputRef.current.value !== newValue &&
+      !debounceTimerRef.current
+    ) {
       quickFilterInputRef.current.value = newValue;
     }
   }, [filterModel]);
@@ -366,28 +375,32 @@ export default function BaseDataGrid({
    */
   const handleQuickFilterChange = useCallback(() => {
     const value = quickFilterInputRef.current?.value || '';
-    
+
     // Clear existing debounce timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
-    
+
     // Debounced filter model update
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
-      
+
       if (onFilterModelChangeRef.current && filterModelRef.current) {
         const otherFilters = filterModelRef.current.items.filter(
-          item => item.field !== 'quickFilter' && item.field !== '__quickFilter__'
+          item =>
+            item.field !== 'quickFilter' && item.field !== '__quickFilter__'
         );
-        
+
         const newFilterModel = {
           ...filterModelRef.current,
           items: value
-            ? [...otherFilters, { field: 'quickFilter', operator: 'contains', value }]
+            ? [
+                ...otherFilters,
+                { field: 'quickFilter', operator: 'contains', value },
+              ]
             : otherFilters,
         };
-        
+
         onFilterModelChangeRef.current(newFilterModel);
       }
     }, 300);
@@ -400,13 +413,13 @@ export default function BaseDataGrid({
     if (quickFilterInputRef.current) {
       quickFilterInputRef.current.value = '';
     }
-    
+
     // Clear any pending debounce
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    
+
     // Immediately update filter model
     if (onFilterModelChangeRef.current && filterModelRef.current) {
       const otherFilters = filterModelRef.current.items.filter(
