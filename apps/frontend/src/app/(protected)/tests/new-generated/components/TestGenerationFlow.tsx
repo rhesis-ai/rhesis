@@ -168,7 +168,6 @@ export default function TestGenerationFlow({
             // Navigate to interface screen after samples are generated
             setCurrentScreen('interface');
             setIsGenerating(false);
-            show('Template loaded successfully', { severity: 'success' });
           } catch (e) {
             console.error('Failed to parse or generate from template:', e);
             setIsGenerating(false);
@@ -1004,8 +1003,13 @@ export default function TestGenerationFlow({
 
   // Navigation handlers
   const handleBackToInput = useCallback(() => {
-    setCurrentScreen('input');
-  }, []);
+    // If user came from template selection, go back to landing screen
+    if (mode === 'template') {
+      router.push('/tests');
+    } else {
+      setCurrentScreen('input');
+    }
+  }, [mode, router]);
 
   const handleBackToInterface = useCallback(() => {
     setCurrentScreen('interface');
