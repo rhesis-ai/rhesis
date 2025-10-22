@@ -332,28 +332,47 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                         organization_id=organization_id, user_id=user_id, commit=False
                     )
 
-                # Build endpoint data
-                endpoint_data = {
-                    "name": item["name"],
-                    "description": item.get("description"),
-                    "protocol": item["protocol"],
-                    "url": item["url"],
-                    "method": item.get("method"),
-                    "environment": item.get("environment", "development"),
-                    "config_source": item.get("config_source", "manual"),
-                    "response_format": item.get("response_format", "json"),
-                    "request_headers": item.get("request_headers"),
-                    "request_body_template": item.get("request_body_template"),
-                    "response_mappings": item.get("response_mappings"),
-                    "query_params": item.get("query_params"),
-                    "validation_rules": item.get("validation_rules"),
-                }
+            # Build endpoint data
+            endpoint_data = {
+                "name": item["name"],
+                "description": item.get("description"),
+                "protocol": item["protocol"],
+                "url": item["url"],
+                "method": item.get("method"),
+                "environment": item.get("environment", "development"),
+                "config_source": item.get("config_source", "manual"),
+                "response_format": item.get("response_format", "json"),
+                "request_headers": item.get("request_headers"),
+                "request_body_template": item.get("request_body_template"),
+                "response_mappings": item.get("response_mappings"),
+                "query_params": item.get("query_params"),
+                "validation_rules": item.get("validation_rules"),
+            }
 
-                # Add optional relationships
-                if project:
-                    endpoint_data["project_id"] = project.id
-                if status:
-                    endpoint_data["status_id"] = status.id
+            # Add authentication fields if specified
+            if item.get("auth_type"):
+                endpoint_data["auth_type"] = item["auth_type"]
+            
+            if item.get("auth_token"):
+                # Replace environment variable placeholders (e.g., ${CHATBOT_API_KEY})
+                auth_token = item["auth_token"]
+                if auth_token.startswith("${") and auth_token.endswith("}"):
+                    env_var_name = auth_token[2:-1]  # Extract variable name
+                    auth_token = os.getenv(env_var_name)
+                    if auth_token:
+                        endpoint_data["auth_token"] = auth_token
+                        print(f"  ✓ Loaded {env_var_name} from environment for endpoint: {item['name']}")
+                    else:
+                        print(f"  ⚠ Warning: {env_var_name} not found in environment for endpoint: {item['name']}")
+                else:
+                    # Use the value directly if not a placeholder
+                    endpoint_data["auth_token"] = auth_token
+
+            # Add optional relationships
+            if project:
+                endpoint_data["project_id"] = project.id
+            if status:
+                endpoint_data["status_id"] = status.id
 
                 get_or_create_entity(
                     db=db,
