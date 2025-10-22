@@ -229,7 +229,7 @@ export default function UploadSourceDialog({
         </Button>
         <Button
           onClick={handleUpload}
-          variant="contained"
+          variant={uploading ? 'outlined' : 'contained'}
           disabled={!file || !title.trim() || uploading}
           startIcon={<UploadIcon />}
         >
