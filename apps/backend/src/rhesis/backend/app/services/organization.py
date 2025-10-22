@@ -309,6 +309,61 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                 except Exception as e:
                     print(f"Warning: Failed to update attributes for test set {test_set.name}: {e}")
 
+            # Process endpoints
+            print("Processing endpoints...")
+            for item in initial_data.get("endpoint", []):
+                # Get project if specified
+                project = None
+                if item.get("project"):
+                    project = (
+                        db.query(models.Project)
+                        .filter(
+                            models.Project.name == item["project"],
+                            models.Project.organization_id == uuid.UUID(organization_id)
+                        )
+                        .first()
+                    )
+
+                # Get status if specified
+                status = None
+                if item.get("status"):
+                    status = get_or_create_status(
+                        db=db, name=item["status"], entity_type="General", 
+                        organization_id=organization_id, user_id=user_id, commit=False
+                    )
+
+                # Build endpoint data
+                endpoint_data = {
+                    "name": item["name"],
+                    "description": item.get("description"),
+                    "protocol": item["protocol"],
+                    "url": item["url"],
+                    "method": item.get("method"),
+                    "environment": item.get("environment", "development"),
+                    "config_source": item.get("config_source", "manual"),
+                    "response_format": item.get("response_format", "json"),
+                    "request_headers": item.get("request_headers"),
+                    "request_body_template": item.get("request_body_template"),
+                    "response_mappings": item.get("response_mappings"),
+                    "query_params": item.get("query_params"),
+                    "validation_rules": item.get("validation_rules"),
+                }
+
+                # Add optional relationships
+                if project:
+                    endpoint_data["project_id"] = project.id
+                if status:
+                    endpoint_data["status_id"] = status.id
+
+                get_or_create_entity(
+                    db=db,
+                    model=models.Endpoint,
+                    entity_data=endpoint_data,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    commit=False,
+                )
+
             # Process metrics
             print("Processing metrics...")
             for item in initial_data.get("metric", []):
