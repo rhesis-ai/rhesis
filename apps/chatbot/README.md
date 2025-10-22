@@ -9,7 +9,7 @@ Rosalind is a pre-configured insurance expert chatbot powered by Google's Gemini
 ## Features
 
 - **Zero Configuration**: Works out of the box for all new users
-- **Rate Limited**: 20 requests/hour for unauthenticated users, 100 requests/hour for authenticated users
+- **Rate Limited**: 1000 requests/day per IP address (no authentication required)
 - **Domain-Specific**: Trained specifically for insurance-related queries
 - **Session Management**: Maintains conversation context across multiple messages
 - **Health Monitoring**: Built-in health check endpoint for service monitoring
@@ -33,7 +33,7 @@ uv sync
 ```bash
 export GEMINI_API_KEY="your-gemini-api-key"
 export GEMINI_MODEL_NAME="gemini-2.0-flash-001"  # Optional, defaults to this
-export CHATBOT_RATE_LIMIT="1000"  # Optional, defaults to 1000 requests/hour
+export CHATBOT_RATE_LIMIT="1000"  # Optional, defaults to 1000 requests/day
 ```
 
 3. **Run the server:**
@@ -136,7 +136,7 @@ List available use cases (currently only "insurance").
 
 - `GEMINI_API_KEY` (required): Google Gemini API key
 - `GEMINI_MODEL_NAME` (optional): Model to use, defaults to "gemini-2.0-flash-001"
-- `CHATBOT_RATE_LIMIT` (optional): Maximum requests per hour, defaults to 1000
+- `CHATBOT_RATE_LIMIT` (optional): Maximum requests per day, defaults to 1000
 - `CHATBOT_API_KEY` (optional): API key for bearer token authentication. If set, all chat and session endpoints require authentication
 - `PORT` (optional): Server port, defaults to 8080
 
@@ -160,7 +160,7 @@ docker run -e CHATBOT_RATE_LIMIT="500" ...
 gcloud run deploy ... --set-env-vars CHATBOT_RATE_LIMIT=500
 ```
 
-The rate limit is applied per IP address and resets every hour.
+The rate limit is applied per IP address and resets every day.
 
 ### Authentication
 
