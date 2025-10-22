@@ -350,8 +350,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             }
 
             # Add authentication fields if specified
-            if item.get("auth_type"):
-                endpoint_data["auth_type"] = item["auth_type"]
+            # Only set auth_type if we have a valid auth_token
+            auth_token_loaded = False
             
             if item.get("auth_token"):
                 # Replace environment variable placeholders (e.g., ${CHATBOT_API_KEY})
@@ -361,12 +361,19 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     auth_token = os.getenv(env_var_name)
                     if auth_token:
                         endpoint_data["auth_token"] = auth_token
+                        auth_token_loaded = True
                         print(f"  ✓ Loaded {env_var_name} from environment for endpoint: {item['name']}")
                     else:
                         print(f"  ⚠ Warning: {env_var_name} not found in environment for endpoint: {item['name']}")
+                        print(f"  → Skipping auth_type configuration (no token available)")
                 else:
                     # Use the value directly if not a placeholder
                     endpoint_data["auth_token"] = auth_token
+                    auth_token_loaded = True
+            
+            # Only set auth_type if we successfully loaded an auth_token
+            if item.get("auth_type") and auth_token_loaded:
+                endpoint_data["auth_type"] = item["auth_type"]
 
             # Add optional relationships
             if project:
