@@ -154,11 +154,6 @@
             "name": "Error",
             "description": "Last ingestion or transformation failed",
             "entity_type": "Source"
-        },
-        {
-            "name": "Deleted",
-            "description": "Source was deleted",
-            "entity_type": "Source"
         }
     ],
     "type_lookup": [

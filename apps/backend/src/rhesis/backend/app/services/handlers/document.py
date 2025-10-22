@@ -136,7 +136,6 @@ class DocumentHandler(BaseSourceHandler):
             "file_path": file_path,
         }
 
-
         return metadata
 
     def _calculate_file_hash(self, content: bytes) -> str:
