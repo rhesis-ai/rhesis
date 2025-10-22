@@ -9,9 +9,9 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from endpoint import stream_assistant_response, generate_context
 
-# Get rate limit from environment variable, default to 1000 requests/hour
-RATE_LIMIT_PER_HOUR = os.getenv("CHATBOT_RATE_LIMIT", "1000")
-RATE_LIMIT = f"{RATE_LIMIT_PER_HOUR}/hour"
+# Get rate limit from environment variable, default to 1000 requests/day
+RATE_LIMIT_PER_DAY = os.getenv("CHATBOT_RATE_LIMIT", "1000")
+RATE_LIMIT = f"{RATE_LIMIT_PER_DAY}/day"
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)

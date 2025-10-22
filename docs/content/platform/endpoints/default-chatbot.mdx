@@ -107,7 +107,7 @@ Get information about available endpoints and rate limits.
     "sessions": "/sessions/{session_id} (GET, DELETE)"
   },
   "rate_limits": {
-    "requests_per_hour": 1000,
+    "requests_per_day": 1000,
     "note": "Configurable via CHATBOT_RATE_LIMIT environment variable"
   }
 }`}
@@ -128,7 +128,7 @@ Get information about available endpoints and rate limits.
     "sessions": "/sessions/{session_id} (GET, DELETE)"
   },
   "rate_limits": {
-    "requests_per_hour": 1000,
+    "requests_per_day": 1000,
     "note": "Configurable via CHATBOT_RATE_LIMIT environment variable"
   },
   "authentication": {
@@ -200,9 +200,10 @@ To ensure fair usage and service stability, the chatbot implements rate limiting
 
 ### Default Rate Limit
 
-- **1000 requests per hour** per IP address
+- **1000 requests per day** per IP address
 - Rate limit is configurable by administrators via environment variables
-- Rate limit resets every hour
+- Rate limit resets every day
+- No authentication required
 - Ideal for evaluation and testing purposes
 
 ### Rate Limit Headers
