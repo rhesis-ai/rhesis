@@ -137,12 +137,32 @@ export default function TestRunHeader({
   // Calculate statistics
   const stats = useMemo(() => {
     const total = testResults.length;
-    const passed = testResults.filter(result => {
+
+    // Count passed, failed, and execution errors
+    let passed = 0;
+    let failed = 0;
+    let executionErrors = 0;
+
+    testResults.forEach(result => {
       const metrics = result.test_metrics?.metrics;
-      if (!metrics) return false;
-      return Object.values(metrics).every(metric => metric.is_successful);
-    }).length;
-    const failed = total - passed;
+
+      // No metrics or empty metrics = execution error
+      if (!metrics || Object.keys(metrics).length === 0) {
+        executionErrors++;
+        return;
+      }
+
+      // Check if all metrics passed
+      const allPassed = Object.values(metrics).every(
+        metric => metric.is_successful
+      );
+      if (allPassed) {
+        passed++;
+      } else {
+        failed++;
+      }
+    });
+
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
 
     // Calculate duration
@@ -160,26 +180,68 @@ export default function TestRunHeader({
       duration = 'In Progress';
     }
 
-    // Determine status
-    let status: 'completed' | 'in_progress' | 'failed' = 'completed';
-    let statusColor: 'success' | 'info' | 'error' = 'success';
+    // Determine status from testRun.status or calculate it
+    let status: 'completed' | 'in_progress' | 'failed' | 'partial' =
+      'completed';
+    let statusColor: 'success' | 'info' | 'error' | 'warning' = 'success';
+    let statusLabel = 'Completed';
 
-    if (!completedAt && startedAt) {
+    // Use backend status if available
+    const backendStatus = testRun.status?.name?.toLowerCase();
+
+    if (backendStatus === 'progress') {
       status = 'in_progress';
       statusColor = 'info';
-    } else if (completedAt && failed > 0) {
+      statusLabel = 'In Progress';
+    } else if (backendStatus === 'partial') {
+      status = 'partial';
+      statusColor = 'warning';
+      statusLabel = 'Partial';
+    } else if (backendStatus === 'failed') {
+      status = 'failed';
+      statusColor = 'error';
+      statusLabel = 'Failed';
+    } else if (backendStatus === 'completed') {
       status = 'completed';
-      statusColor = passed > failed ? 'success' : 'error';
+      // Completed means all tests executed (regardless of assertion results)
+      statusColor = 'success';
+      statusLabel = 'Completed';
+    } else {
+      // Fallback: calculate from attributes
+      if (!completedAt && startedAt) {
+        status = 'in_progress';
+        statusColor = 'info';
+        statusLabel = 'In Progress';
+      } else if (
+        completedAt &&
+        executionErrors > 0 &&
+        executionErrors < total
+      ) {
+        status = 'partial';
+        statusColor = 'warning';
+        statusLabel = 'Partial';
+      } else if (executionErrors === total && total > 0) {
+        status = 'failed';
+        statusColor = 'error';
+        statusLabel = 'Failed';
+      } else if (completedAt) {
+        // If completed, all tests executed (even if some failed assertions)
+        status = 'completed';
+        statusColor = 'success';
+        statusLabel = 'Completed';
+      }
     }
 
     return {
       total,
       passed,
       failed,
+      executionErrors,
       passRate,
       duration,
       status,
       statusColor,
+      statusLabel,
     };
   }, [testResults, testRun]);
 
@@ -216,7 +278,11 @@ export default function TestRunHeader({
           <SummaryCard
             title="Tests Executed"
             value={stats.total}
-            subtitle={`${stats.passed} passed, ${stats.failed} failed`}
+            subtitle={
+              stats.executionErrors > 0
+                ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
+                : `${stats.passed} passed, ${stats.failed} failed`
+            }
             icon={<PlayCircleOutlineIcon />}
             color="primary"
           />
@@ -263,13 +329,15 @@ export default function TestRunHeader({
                   Status
                 </Typography>
                 <Chip
-                  label={
-                    stats.status === 'in_progress' ? 'In Progress' : 'Completed'
-                  }
+                  label={stats.statusLabel}
                   color={stats.statusColor}
                   icon={
                     stats.status === 'in_progress' ? (
                       <PlayCircleOutlineIcon />
+                    ) : stats.status === 'partial' ? (
+                      <WarningAmberOutlinedIcon />
+                    ) : stats.status === 'failed' ? (
+                      <CancelOutlinedIcon />
                     ) : stats.statusColor === 'success' ? (
                       <CheckCircleOutlineIcon />
                     ) : (
