@@ -9,7 +9,11 @@ Rosalind is a pre-configured insurance expert chatbot powered by Google's Gemini
 ## Features
 
 - **Zero Configuration**: Works out of the box for all new users
-- **Rate Limited**: 1000 requests/day per IP address (no authentication required)
+- **Dual-Tier Rate Limiting**:
+  - **Authenticated Access**: 1000 requests/day per user (with API key + user headers)
+  - **Public Access**: 100 requests/day per IP (no authentication required)
+- **Secure Backend Integration**: API key authentication for backend services
+- **Per-User Rate Limiting**: Track usage per user/organization when authenticated
 - **Domain-Specific**: Trained specifically for insurance-related queries
 - **Session Management**: Maintains conversation context across multiple messages
 - **Health Monitoring**: Built-in health check endpoint for service monitoring
@@ -33,7 +37,8 @@ uv sync
 ```bash
 export GEMINI_API_KEY="your-gemini-api-key"
 export GEMINI_MODEL_NAME="gemini-2.0-flash-001"  # Optional, defaults to this
-export CHATBOT_RATE_LIMIT="1000"  # Optional, defaults to 1000 requests/day
+export CHATBOT_RATE_LIMIT="1000"  # Optional, defaults to 1000 requests/day for authenticated users
+export CHATBOT_API_KEY="your-secret-api-key"  # Optional, enables backend authentication
 ```
 
 3. **Run the server:**
@@ -136,59 +141,99 @@ List available use cases (currently only "insurance").
 
 - `GEMINI_API_KEY` (required): Google Gemini API key
 - `GEMINI_MODEL_NAME` (optional): Model to use, defaults to "gemini-2.0-flash-001"
-- `CHATBOT_RATE_LIMIT` (optional): Maximum requests per day, defaults to 1000
-- `CHATBOT_API_KEY` (optional): API key for bearer token authentication. If set, all chat and session endpoints require authentication
+- `CHATBOT_RATE_LIMIT` (optional): Maximum requests per day for authenticated users, defaults to 1000
+- `CHATBOT_API_KEY` (optional): API key for backend authentication. Enables dual-tier rate limiting (1000/day authenticated, 100/day public)
 - `PORT` (optional): Server port, defaults to 8080
 
 ### Rate Limiting
 
-Rate limits are configurable via the `CHATBOT_RATE_LIMIT` environment variable:
+The chatbot implements **dual-tier rate limiting** based on authentication:
 
-- Default: 1000 requests/hour per IP address
-- Configurable at deployment or runtime via environment variable
+#### **Tier 1: Authenticated Access** ✅ **Recommended for Backend**
+- **1000 requests/day per user** (configurable via `CHATBOT_RATE_LIMIT`)
+- Requires `Authorization: Bearer <CHATBOT_API_KEY>` header
+- Requires `X-User-ID` and/or `X-Organization-ID` headers for per-user tracking
+- Each user gets their own quota - prevents one user from exhausting limits for others
+- Cannot be spoofed without valid API key
 
-To modify rate limits, set the `CHATBOT_RATE_LIMIT` environment variable:
+#### **Tier 2: Public Access**
+- **100 requests/day per IP address** (fixed limit)
+- No authentication required
+- Useful for demos, testing, and public evaluation
+- Stricter limits to prevent abuse
+
+To modify authenticated user rate limits:
 
 ```bash
-# Set to 500 requests per hour
-export CHATBOT_RATE_LIMIT="500"
+# Set to 2000 requests per day for authenticated users
+export CHATBOT_RATE_LIMIT="2000"
 
 # Or in Docker
-docker run -e CHATBOT_RATE_LIMIT="500" ...
+docker run -e CHATBOT_RATE_LIMIT="2000" ...
 
 # Or in Cloud Run deployment
-gcloud run deploy ... --set-env-vars CHATBOT_RATE_LIMIT=500
+gcloud run deploy ... --set-env-vars CHATBOT_RATE_LIMIT=2000
 ```
 
-The rate limit is applied per IP address and resets every day.
+**Note**: Public access limit (100/day per IP) is fixed and cannot be configured.
 
 ### Authentication
 
-The chatbot supports optional bearer token authentication:
+The chatbot supports **optional API key authentication** for backend services, enabling secure per-user rate limiting:
 
-- **Without `CHATBOT_API_KEY`**: No authentication required (useful for development)
-- **With `CHATBOT_API_KEY`**: Bearer token authentication required for `/chat` and `/sessions` endpoints
+#### **Mode 1: Public Only (No API Key)** 
+- All requests treated as public access
+- 100 requests/day per IP address
+- No user-level tracking
+- Good for demos and testing
 
-To enable authentication, set the `CHATBOT_API_KEY` environment variable:
+#### **Mode 2: Dual-Tier with Authentication** ✅ **Recommended**
+Set the `CHATBOT_API_KEY` environment variable:
 
 ```bash
 export CHATBOT_API_KEY="your-secret-key-here"
 ```
 
-All authenticated requests must include the bearer token in the `Authorization` header:
-
+**Authenticated Backend Requests** (Higher Limits):
 ```bash
 curl -X POST http://localhost:8080/chat \
   -H "Authorization: Bearer your-secret-key-here" \
+  -H "X-User-ID: user-123" \
+  -H "X-Organization-ID: org-456" \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hello"}'
+  -d '{"message": "What is term life insurance?"}'
 ```
 
-If authentication is enabled and the token is missing or invalid, the API returns a `401 Unauthorized` response:
+Benefits:
+- ✅ 1000 requests/day per user
+- ✅ Per-user/organization tracking
+- ✅ Cannot be spoofed (requires valid API key)
+- ✅ Fair usage across all users
 
+**Public Requests** (Lower Limits):
+```bash
+curl -X POST http://localhost:8080/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is term life insurance?"}'
+```
+
+- 100 requests/day per IP
+- No authentication required
+- Good for public demos
+
+**Error Responses:**
+
+Invalid API key (401):
 ```json
 {
-  "detail": "Not authenticated. Bearer token required."
+  "detail": "Invalid API key. Public access available with rate limit of 100 requests/day."
+}
+```
+
+Rate limit exceeded (429):
+```json
+{
+  "detail": "Rate limit exceeded. Retry after X seconds."
 }
 ```
 
