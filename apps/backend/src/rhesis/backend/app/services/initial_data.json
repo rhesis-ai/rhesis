@@ -762,6 +762,7 @@
             "config_source": "manual",
             "response_format": "json",
             "auth_type": "bearer_token",
+            "auth_token": "${CHATBOT_API_KEY}",
             "request_headers": {
                 "Content-Type": "application/json"
             },
