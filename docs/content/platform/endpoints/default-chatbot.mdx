@@ -26,7 +26,13 @@ The chatbot service provides several endpoints for interaction and monitoring:
 
 **POST** `/chat`
 
-The primary interaction endpoint for conversing with Rosalind.
+The primary interaction endpoint for conversing with Rosalind. Requires bearer token authentication if `CHATBOT_API_KEY` is configured.
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <your-api-key>  # Required if authentication is enabled
+```
 
 <CodeBlock
   filename="chat-request.json"
@@ -86,6 +92,7 @@ Monitor service availability and status.
 
 Get information about available endpoints and rate limits.
 
+**Without authentication configured:**
 <CodeBlock
   filename="api-info-response.json"
   language="json"
@@ -100,8 +107,34 @@ Get information about available endpoints and rate limits.
     "sessions": "/sessions/{session_id} (GET, DELETE)"
   },
   "rate_limits": {
-    "authenticated": "100 requests/hour",
-    "unauthenticated": "20 requests/hour"
+    "requests_per_hour": 1000,
+    "note": "Configurable via CHATBOT_RATE_LIMIT environment variable"
+  }
+}`}
+</CodeBlock>
+
+**With authentication configured:**
+<CodeBlock
+  filename="api-info-auth-response.json"
+  language="json"
+>
+{`{
+  "service": "Rhesis Insurance Chatbot API",
+  "description": "Chat with Rosalind, your insurance expert",
+  "endpoints": {
+    "chat": "/chat (POST)",
+    "health": "/health (GET)",
+    "use_cases": "/use-cases (GET)",
+    "sessions": "/sessions/{session_id} (GET, DELETE)"
+  },
+  "rate_limits": {
+    "requests_per_hour": 1000,
+    "note": "Configurable via CHATBOT_RATE_LIMIT environment variable"
+  },
+  "authentication": {
+    "required": true,
+    "type": "Bearer token",
+    "note": "Include 'Authorization: Bearer <token>' header in requests"
   }
 }`}
 </CodeBlock>
@@ -133,6 +166,33 @@ Retrieve conversation history for a specific session.
 **DELETE** `/sessions/{session_id}`
 
 Delete a conversation session and its history.
+
+## Authentication
+
+The chatbot supports bearer token authentication for secure access:
+
+### Authentication Requirements
+
+- **Optional by Default**: If `CHATBOT_API_KEY` is not configured, no authentication is required
+- **Bearer Token**: When enabled, all chat and session endpoints require a valid bearer token
+- **Public Endpoints**: `/health`, `/`, and `/use-cases` are always accessible without authentication
+
+### Using Authentication
+
+Include the bearer token in the `Authorization` header:
+
+```
+Authorization: Bearer <your-api-key>
+```
+
+### Authentication Errors
+
+**401 Unauthorized** - Missing or invalid token:
+```json
+{
+  "detail": "Not authenticated. Bearer token required."
+}
+```
 
 ## Rate Limiting
 
@@ -168,7 +228,7 @@ When rate limits are exceeded, the API returns a `429 Too Many Requests` status 
 # Base URL for the chatbot service
 BASE_URL = "https://chatbot.rhesis.ai"  # Replace with actual URL
 
-def chat_with_rosalind(message, session_id=None):
+def chat_with_rosalind(message, session_id=None, api_key=None):
     """Send a message to Rosalind and get a response."""
     
     payload = {
@@ -179,10 +239,16 @@ def chat_with_rosalind(message, session_id=None):
     if session_id:
         payload["session_id"] = session_id
     
+    headers = {"Content-Type": "application/json"}
+    
+    # Add authentication header if API key is provided
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    
     response = requests.post(
         f"{BASE_URL}/chat",
         json=payload,
-        headers={"Content-Type": "application/json"}
+        headers=headers
     )
     
     if response.status_code == 200:
@@ -197,16 +263,20 @@ def chat_with_rosalind(message, session_id=None):
         print(f"Error: {response.status_code} - {response.text}")
         return None
 
-# Example conversation
+# Example conversation (with authentication)
+API_KEY = "your-secret-api-key"  # Replace with your actual API key
+
 response1 = chat_with_rosalind(
-    "What types of insurance do I need as a homeowner?"
+    "What types of insurance do I need as a homeowner?",
+    api_key=API_KEY
 )
 
 if response1:
     # Continue the conversation using the same session
     response2 = chat_with_rosalind(
         "How much coverage should I have?",
-        session_id=response1["session_id"]
+        session_id=response1["session_id"],
+        api_key=API_KEY
     )`}
 </CodeBlock>
 
@@ -218,7 +288,7 @@ if response1:
 >
 {`const BASE_URL = "https://chatbot.rhesis.ai";  // Replace with actual URL
 
-async function chatWithRosalind(message, sessionId = null) {
+async function chatWithRosalind(message, sessionId = null, apiKey = null) {
   const payload = {
     message: message,
     use_case: "insurance"
@@ -228,12 +298,19 @@ async function chatWithRosalind(message, sessionId = null) {
     payload.session_id = sessionId;
   }
   
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  
+  // Add authentication header if API key is provided
+  if (apiKey) {
+    headers["Authorization"] = \`Bearer \${apiKey}\`;
+  }
+  
   try {
     const response = await fetch(\`\${BASE_URL}/chat\`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: headers,
       body: JSON.stringify(payload)
     });
     
@@ -255,17 +332,22 @@ async function chatWithRosalind(message, sessionId = null) {
   }
 }
 
-// Example usage
+// Example usage (with authentication)
 (async () => {
+  const API_KEY = "your-secret-api-key";  // Replace with your actual API key
+  
   const response1 = await chatWithRosalind(
-    "What is the difference between HMO and PPO health insurance?"
+    "What is the difference between HMO and PPO health insurance?",
+    null,
+    API_KEY
   );
   
   if (response1) {
     // Continue the conversation
     const response2 = await chatWithRosalind(
       "Which one is typically more expensive?",
-      response1.session_id
+      response1.session_id,
+      API_KEY
     );
   }
 })();`}
@@ -277,18 +359,19 @@ async function chatWithRosalind(message, sessionId = null) {
   filename="chatbot_curl.sh"
   language="bash"
 >
-{`# Send a single message
+{`# Send a single message (with authentication)
 curl -X POST https://chatbot.rhesis.ai/chat \\
   -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer your-secret-api-key" \\
   -d '{
     "message": "What is comprehensive auto insurance?",
     "use_case": "insurance"
   }'
 
-# Check health status
+# Check health status (no auth required)
 curl https://chatbot.rhesis.ai/health
 
-# Get API information
+# Get API information (no auth required)
 curl https://chatbot.rhesis.ai/`}
 </CodeBlock>
 

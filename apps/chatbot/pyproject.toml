@@ -2,7 +2,6 @@
 name = "rhesis-chatbot"
 version = "1.0.0"
 description = "Default insurance chatbot (Rosalind) for new user onboarding"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.116.1",
@@ -13,8 +12,4 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "google-genai==1.13.0",
 ]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 

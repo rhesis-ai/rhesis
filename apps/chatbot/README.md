@@ -137,6 +137,7 @@ List available use cases (currently only "insurance").
 - `GEMINI_API_KEY` (required): Google Gemini API key
 - `GEMINI_MODEL_NAME` (optional): Model to use, defaults to "gemini-2.0-flash-001"
 - `CHATBOT_RATE_LIMIT` (optional): Maximum requests per hour, defaults to 1000
+- `CHATBOT_API_KEY` (optional): API key for bearer token authentication. If set, all chat and session endpoints require authentication
 - `PORT` (optional): Server port, defaults to 8080
 
 ### Rate Limiting
@@ -160,6 +161,41 @@ gcloud run deploy ... --set-env-vars CHATBOT_RATE_LIMIT=500
 ```
 
 The rate limit is applied per IP address and resets every hour.
+
+### Authentication
+
+The chatbot supports optional bearer token authentication:
+
+- **Without `CHATBOT_API_KEY`**: No authentication required (useful for development)
+- **With `CHATBOT_API_KEY`**: Bearer token authentication required for `/chat` and `/sessions` endpoints
+
+To enable authentication, set the `CHATBOT_API_KEY` environment variable:
+
+```bash
+export CHATBOT_API_KEY="your-secret-key-here"
+```
+
+All authenticated requests must include the bearer token in the `Authorization` header:
+
+```bash
+curl -X POST http://localhost:8080/chat \
+  -H "Authorization: Bearer your-secret-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello"}'
+```
+
+If authentication is enabled and the token is missing or invalid, the API returns a `401 Unauthorized` response:
+
+```json
+{
+  "detail": "Not authenticated. Bearer token required."
+}
+```
+
+**Note**: 
+- The `/health`, `/`, and `/use-cases` endpoints are always accessible without authentication
+- The root endpoint (`/`) only displays authentication information when `CHATBOT_API_KEY` is configured
+- No sensitive information (like the actual API key) is ever exposed in API responses
 
 ## Use Cases
 
@@ -251,7 +287,7 @@ gcloud run deploy rhesis-chatbot \
   --cpu 1 \
   --max-instances 10 \
   --min-instances 0 \
-  --set-env-vars GEMINI_API_KEY=your-key,CHATBOT_RATE_LIMIT=1000
+  --set-env-vars GEMINI_API_KEY=your-key,CHATBOT_RATE_LIMIT=1000,CHATBOT_API_KEY=your-secret-key
 ```
 
 ## Monitoring
@@ -308,11 +344,21 @@ gcloud run services logs read rhesis-chatbot --region us-central1
 ### Testing
 
 ```python
-# Test basic chat
+# Test basic chat (with authentication if required)
 import requests
+
+headers = {
+    "Content-Type": "application/json",
+}
+
+# Add authentication header if CHATBOT_API_KEY is set
+api_key = "your-secret-api-key"  # Replace with your actual key
+if api_key:
+    headers["Authorization"] = f"Bearer {api_key}"
 
 response = requests.post(
     "http://localhost:8080/chat",
+    headers=headers,
     json={"message": "What is homeowners insurance?"}
 )
 print(response.json())
