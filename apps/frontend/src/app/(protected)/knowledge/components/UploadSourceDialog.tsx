@@ -73,16 +73,27 @@ export default function UploadSourceDialog({
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
-      await sourcesClient.uploadSource(
+      const uploadedSource = await sourcesClient.uploadSource(
         file,
         title.trim(),
         description.trim() || undefined
       );
 
-      notifications.show('Source uploaded successfully!', {
-        severity: 'success',
-        autoHideDuration: 4000,
-      });
+      // Check if content extraction failed
+      if (!uploadedSource.content || uploadedSource.content.trim() === '') {
+        notifications.show(
+          'Source uploaded successfully, but content extraction failed. The file may not be supported or corrupted.',
+          {
+            severity: 'warning',
+            autoHideDuration: 8000,
+          }
+        );
+      } else {
+        notifications.show('Source uploaded successfully!', {
+          severity: 'success',
+          autoHideDuration: 4000,
+        });
+      }
 
       // Reset form and close dialog
       handleClose();
