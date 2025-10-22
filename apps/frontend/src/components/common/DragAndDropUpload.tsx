@@ -19,7 +19,7 @@ export default function DragAndDropUpload({
   onFileSelect,
   onFileRemove,
   selectedFile,
-  accept = '.txt,.md,.pdf,.doc,.docx,.json,.csv,.xml',
+  accept = '.txt,.md,.pdf,.doc,.docx,.json,.csv,.xml,.epub',
   maxSize = 5 * 1024 * 1024,
   disabled = false,
 }: DragAndDropUploadProps) {
@@ -49,6 +49,7 @@ export default function DragAndDropUpload({
 
   const handleFile = useCallback(
     (file: File) => {
+      console.log('DragAndDropUpload: File selected:', file.name, file.size);
       const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);
@@ -89,8 +90,12 @@ export default function DragAndDropUpload({
     if (files && files.length > 0) handleFile(files[0]);
   };
 
-  const handleClick = () => {
-    if (!disabled && fileInputRef.current) fileInputRef.current.click();
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const handleRemoveFile = () => {
@@ -113,7 +118,8 @@ export default function DragAndDropUpload({
       <Paper
         elevation={0}
         sx={{
-          border: '2px dashed #ccc',
+          border: '2px dashed',
+          borderColor: 'divider',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.6 : 1,
           p: 3,
@@ -129,6 +135,7 @@ export default function DragAndDropUpload({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={handleClick}
+        component="div"
       >
         {selectedFile ? (
           <Box
