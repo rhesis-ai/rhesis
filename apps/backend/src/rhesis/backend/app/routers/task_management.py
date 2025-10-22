@@ -17,6 +17,7 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Use rhesis logger
 from rhesis.backend.logging import logger
+from rhesis.backend.telemetry import set_telemetry_enabled, track_feature_usage
 
 # Create the detailed schema for Task
 TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
@@ -38,6 +39,14 @@ def create_task(
 ):
     """Create a new task"""
     try:
+        # Set telemetry context for this request
+        if current_user and hasattr(current_user, "telemetry_enabled"):
+            set_telemetry_enabled(
+                enabled=current_user.telemetry_enabled or False,
+                user_id=str(current_user.id) if current_user.id else None,
+                org_id=str(current_user.organization_id) if current_user.organization_id else None,
+            )
+
         # Validate organization-level constraints
         validate_task_organization_constraints(db, task, current_user)
 
@@ -52,6 +61,14 @@ def create_task(
         if created_task.assignee_id:
             frontend_url = os.getenv("FRONTEND_URL")
             send_task_assignment_notification(db=db, task=created_task, frontend_url=frontend_url)
+
+        # Track feature usage
+        track_feature_usage(
+            feature_name="task",
+            action="created",
+            task_id=str(created_task.id),
+            entity_type=created_task.entity_type if hasattr(created_task, "entity_type") else None,
+        )
 
         return created_task
     except ValueError as e:
@@ -111,6 +128,10 @@ def get_task(
     task = crud.get_task(db=db, task_id=task_id, organization_id=organization_id, user_id=user_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Track feature usage
+    track_feature_usage(feature_name="task", action="viewed", task_id=str(task_id))
+
     return task
 
 
@@ -157,6 +178,14 @@ def update_task(
 ):
     """Update a task"""
     try:
+        # Set telemetry context for this request
+        if current_user and hasattr(current_user, "telemetry_enabled"):
+            set_telemetry_enabled(
+                enabled=current_user.telemetry_enabled or False,
+                user_id=str(current_user.id) if current_user.id else None,
+                org_id=str(current_user.organization_id) if current_user.organization_id else None,
+            )
+
         organization_id = str(current_user.organization_id)
         user_id = str(current_user.id)
 
@@ -186,6 +215,14 @@ def update_task(
             frontend_url = os.getenv("FRONTEND_URL")
             send_task_assignment_notification(db=db, task=updated_task, frontend_url=frontend_url)
 
+        # Track feature usage
+        track_feature_usage(
+            feature_name="task",
+            action="updated",
+            task_id=str(task_id),
+            fields_updated=list(task.dict(exclude_unset=True).keys()),
+        )
+
         return updated_task
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -213,6 +250,10 @@ def delete_task(
         )
         if not success:
             raise HTTPException(status_code=404, detail="Task not found")
+
+        # Track feature usage
+        track_feature_usage(feature_name="task", action="deleted", task_id=str(task_id))
+
         return {"message": "Task deleted successfully"}
     except HTTPException:
         # Re-raise HTTP exceptions (like 404) without modification
