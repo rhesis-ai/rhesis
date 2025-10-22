@@ -169,13 +169,13 @@ Delete a conversation session and its history.
 
 ## Authentication
 
-The chatbot supports bearer token authentication for secure access:
+The chatbot supports bearer token authentication for secure access. The authentication mode is automatically configured based on environment settings (see [Deployment Modes](#deployment-modes) for details):
 
 ### Authentication Requirements
 
-- **Optional by Default**: If `CHATBOT_API_KEY` is not configured, no authentication is required
-- **Bearer Token**: When enabled, all chat and session endpoints require a valid bearer token
-- **Public Endpoints**: `/health`, `/`, and `/use-cases` are always accessible without authentication
+- **Optional by Default**: If `CHATBOT_API_KEY` is not configured, no authentication is required (Public Access mode)
+- **Bearer Token**: When `CHATBOT_API_KEY` is configured, all chat and session endpoints require a valid bearer token (Authenticated Access mode)
+- **Public Endpoints**: `/health`, `/`, and `/use-cases` are always accessible without authentication in both modes
 
 ### Using Authentication
 
@@ -194,17 +194,78 @@ Authorization: Bearer <your-api-key>
 }
 ```
 
+## Deployment Modes
+
+The chatbot supports two deployment modes, automatically determined by environment configuration:
+
+### Mode 1: Public Access (No API Key)
+
+**When `CHATBOT_API_KEY` is not configured:**
+
+- ✅ **No authentication required** - Direct access for all users
+- 📊 **Rate limit**: 100 requests per day per IP address
+- 🎯 **Use case**: Public demos, evaluation, testing
+- 🔧 **Backend behavior**: Endpoint created without `auth_type`, no Authorization header sent
+
+```json
+// Endpoint configuration in backend
+{
+  "name": "Insurance Chatbot",
+  "url": "https://chatbot.rhesis.ai/chat",
+  "method": "POST",
+  // No auth_type or auth_token fields
+  "request_headers": {
+    "Content-Type": "application/json"
+  }
+}
+```
+
+### Mode 2: Authenticated Access (With API Key)
+
+**When `CHATBOT_API_KEY` is configured:**
+
+- 🔐 **Bearer token authentication** - Backend uses API key to authenticate
+- 📊 **Rate limit**: 1000 requests per day per user (tracked via X-User-ID)
+- 🎯 **Use case**: Production deployments, per-user quotas, secure access
+- 🔧 **Backend behavior**: Endpoint created with `auth_type="bearer_token"`, Authorization header automatically injected
+
+```json
+// Endpoint configuration in backend
+{
+  "name": "Insurance Chatbot",
+  "url": "https://chatbot.rhesis.ai/chat",
+  "method": "POST",
+  "auth_type": "bearer_token",
+  "auth_token": "<CHATBOT_API_KEY>",  // Loaded from environment
+  "request_headers": {
+    "Content-Type": "application/json"
+    // Authorization, X-User-ID, X-Organization-ID automatically injected by backend
+  }
+}
+```
+
+<Callout type="info">
+  **Automatic Configuration**: The backend automatically detects which mode to use during initial data load. If `CHATBOT_API_KEY` environment variable is present, authenticated mode is enabled. If missing, public access mode is used. Both modes work seamlessly—no endpoint failures!
+</Callout>
+
 ## Rate Limiting
 
-To ensure fair usage and service stability, the chatbot implements rate limiting:
+The chatbot implements dual-tier rate limiting based on deployment mode:
 
-### Default Rate Limit
+### Public Access Rate Limits
 
-- **1000 requests per day** per IP address
-- Rate limit is configurable by administrators via environment variables
-- Rate limit resets every day
+- **100 requests per day** per IP address
+- Rate limit resets every day at midnight UTC
 - No authentication required
-- Ideal for evaluation and testing purposes
+- Tracked via `X-Forwarded-For` or client IP
+
+### Authenticated Access Rate Limits
+
+- **1000 requests per day** per user (identified by X-User-ID header)
+- Rate limit resets every day at midnight UTC
+- Bearer token authentication required
+- Fair usage across all users in organization
+- Rate limit is configurable by administrators via `CHATBOT_RATE_LIMIT` environment variable
 
 ### Rate Limit Headers
 
