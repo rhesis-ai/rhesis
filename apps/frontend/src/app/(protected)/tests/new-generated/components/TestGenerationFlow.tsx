@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import {
@@ -24,6 +25,7 @@ import {
 import TestInputScreen from './TestInputScreen';
 import TestGenerationInterface from './TestGenerationInterface';
 import TestConfigurationConfirmation from './TestConfigurationConfirmation';
+import { TEMPLATES } from '@/config/test-templates';
 
 interface TestGenerationFlowProps {
   sessionToken: string;
@@ -49,9 +51,18 @@ export default function TestGenerationFlow({
   const router = useRouter();
   const { show } = useNotifications();
 
-  // Navigation State
-  const [currentScreen, setCurrentScreen] = useState<FlowStep>('input');
-  const [mode, setMode] = useState<GenerationMode | null>('ai');
+  // Check if template exists before initializing state
+  const hasTemplate =
+    typeof window !== 'undefined' &&
+    sessionStorage.getItem('selectedTemplateId') !== null;
+
+  // Navigation State - start with null to prevent premature rendering
+  const [currentScreen, setCurrentScreen] = useState<FlowStep | null>(
+    hasTemplate ? null : 'input'
+  );
+  const [mode, setMode] = useState<GenerationMode | null>(
+    hasTemplate ? 'template' : 'ai'
+  );
 
   // Data State
   const [description, setDescription] = useState('');
@@ -76,71 +87,92 @@ export default function TestGenerationFlow({
     string | null
   >(null);
 
-  // Check for template on mount and generate config
+  // Check for template on mount and directly create config from template values
   useEffect(() => {
     const initializeFromTemplate = async () => {
       try {
         // Check if coming from template selection
-        const templateData = sessionStorage.getItem('selectedTemplate');
-        if (templateData) {
+        const templateId = sessionStorage.getItem('selectedTemplateId');
+        if (templateId) {
           try {
-            const template: TestTemplate = JSON.parse(templateData);
-            sessionStorage.removeItem('selectedTemplate');
+            // Look up template by ID
+            const template = TEMPLATES.find(t => t.id === templateId);
+            if (!template) {
+              throw new Error(`Template with ID ${templateId} not found`);
+            }
+            sessionStorage.removeItem('selectedTemplateId');
 
             setMode('template');
             setDescription(template.description);
             setIsGenerating(true);
 
-            // Generate config based on template description
-            const apiFactory = new ApiClientFactory(sessionToken);
-            const servicesClient = apiFactory.getServicesClient();
-
-            const configResponse = await servicesClient.generateTestConfig({
-              prompt: template.description,
-              sample_size: 10,
-            });
-
-            // Create chips from config response (5 active, 5 inactive)
+            // Create chips directly from template values (no API call needed)
             const createChipsFromArray = (
-              items: Array<{ name: string; description: string }>,
+              items: string[],
               colorVariant: string
             ): ChipConfig[] => {
-              return items.map((item, index) => {
-                return {
-                  id: item.name.toLowerCase().replace(/\s+/g, '-'),
-                  label: item.name,
-                  description: item.description,
-                  active: index < 5, // First 5 are active
-                  colorVariant,
-                };
-              });
+              return items.map(item => ({
+                id: item.toLowerCase().replace(/\s+/g, '-'),
+                label: item,
+                description: '',
+                active: true, // All template chips are active
+                colorVariant,
+              }));
             };
 
             const newConfigChips: ConfigChips = {
-              behavior: createChipsFromArray(configResponse.behaviors, 'blue'),
-              topics: createChipsFromArray(configResponse.topics, 'purple'),
-              category: createChipsFromArray(
-                configResponse.categories,
-                'orange'
-              ),
-              scenarios: createChipsFromArray(
-                configResponse.scenarios,
-                'green'
-              ),
+              behavior: createChipsFromArray(template.behaviors, 'blue'),
+              topics: createChipsFromArray(template.topics, 'purple'),
+              category: createChipsFromArray(template.category, 'orange'),
+              scenarios: createChipsFromArray(template.scenarios, 'green'),
             };
 
             setConfigChips(newConfigChips);
 
-            // Only navigate after config is loaded
+            // Generate initial test samples directly
+            const apiFactory = new ApiClientFactory(sessionToken);
+            const servicesClient = apiFactory.getServicesClient();
+
+            const prompt = {
+              project_context: project?.name || 'General',
+              test_behaviors: template.behaviors,
+              test_purposes: template.topics,
+              key_topics: template.topics,
+              specific_requirements: template.description,
+              test_type: 'Single interaction tests',
+              output_format: 'Generate only user inputs',
+            };
+
+            const response = await servicesClient.generateTests({
+              prompt,
+              num_tests: 5,
+              documents: [],
+            });
+
+            if (response.tests?.length) {
+              const newSamples: TestSample[] = response.tests.map(
+                (test, index) => ({
+                  id: `sample-${Date.now()}-${index}`,
+                  prompt: test.prompt.content,
+                  response: test.prompt.expected_response,
+                  behavior: test.behavior,
+                  topic: test.topic,
+                  rating: null,
+                  feedback: '',
+                })
+              );
+
+              setTestSamples(newSamples);
+            }
+
+            // Navigate to interface screen after samples are generated
             setCurrentScreen('interface');
             setIsGenerating(false);
+            show('Template loaded successfully', { severity: 'success' });
           } catch (e) {
-            console.error(
-              'Failed to parse or generate config from template:',
-              e
-            );
+            console.error('Failed to parse or generate from template:', e);
             setIsGenerating(false);
-            show('Failed to load template configuration', {
+            show('Failed to load template', {
               severity: 'error',
             });
           }
@@ -152,7 +184,7 @@ export default function TestGenerationFlow({
     };
 
     initializeFromTemplate();
-  }, [sessionToken, show]);
+  }, [sessionToken, show, project]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
@@ -239,11 +271,13 @@ export default function TestGenerationFlow({
           output_format: 'Generate only user inputs',
         };
 
-        const documentPayload = fetchedDocuments.map(doc => ({
-          name: doc.name,
-          description: doc.description,
-          content: doc.content,
-        }));
+        const documentPayload = fetchedDocuments
+          .filter(doc => doc.description && doc.description.trim())
+          .map(doc => ({
+            name: doc.name,
+            description: doc.description,
+            content: doc.content,
+          }));
 
         const response = await servicesClient.generateTests({
           prompt,
@@ -268,9 +302,6 @@ export default function TestGenerationFlow({
 
           // Only navigate after both API calls complete successfully
           setCurrentScreen('interface');
-          show('Configuration and samples generated successfully', {
-            severity: 'success',
-          });
         }
       } catch (error) {
         console.error('Error generating configuration and samples:', error);
@@ -397,7 +428,12 @@ export default function TestGenerationFlow({
       };
 
       const documentPayload = documents
-        .filter(doc => doc.status === 'completed')
+        .filter(
+          doc =>
+            doc.status === 'completed' &&
+            doc.description &&
+            doc.description.trim()
+        )
         .map(doc => ({
           name: doc.name,
           description: doc.description,
@@ -464,7 +500,12 @@ export default function TestGenerationFlow({
         };
 
         const documentPayload = documents
-          .filter(doc => doc.status === 'completed')
+          .filter(
+            doc =>
+              doc.status === 'completed' &&
+              doc.description &&
+              doc.description.trim()
+          )
           .map(doc => ({
             name: doc.name,
             description: doc.description,
@@ -671,7 +712,12 @@ export default function TestGenerationFlow({
         };
 
         const documentPayload = documents
-          .filter(doc => doc.status === 'completed')
+          .filter(
+            doc =>
+              doc.status === 'completed' &&
+              doc.description &&
+              doc.description.trim()
+          )
           .map(doc => ({
             name: doc.name,
             description: doc.description,
@@ -782,7 +828,12 @@ export default function TestGenerationFlow({
       };
 
       const documentPayload = documents
-        .filter(doc => doc.status === 'completed')
+        .filter(
+          doc =>
+            doc.status === 'completed' &&
+            doc.description &&
+            doc.description.trim()
+        )
         .map(doc => ({
           name: doc.name,
           description: doc.description,
@@ -942,6 +993,15 @@ export default function TestGenerationFlow({
     show,
   ]);
 
+  // Document handlers
+  const handleDocumentRemove = useCallback((documentId: string) => {
+    setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+  }, []);
+
+  const handleDocumentAdd = useCallback((document: ProcessedDocument) => {
+    setDocuments(prev => [...prev, document]);
+  }, []);
+
   // Navigation handlers
   const handleBackToInput = useCallback(() => {
     setCurrentScreen('input');
@@ -957,6 +1017,25 @@ export default function TestGenerationFlow({
 
   // Render current screen
   const renderCurrentScreen = () => {
+    // Show loading state while initializing from template
+    if (currentScreen === null) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            bgcolor: 'background.default',
+          }}
+        >
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="body1">Loading template...</Typography>
+        </Box>
+      );
+    }
+
     switch (currentScreen) {
       case 'input':
         return (
@@ -965,8 +1044,6 @@ export default function TestGenerationFlow({
             initialDescription={description}
             selectedSourceIds={selectedSourceIds}
             onSourcesChange={setSelectedSourceIds}
-            selectedEndpointId={selectedEndpointId}
-            onEndpointChange={setSelectedEndpointId}
             isLoading={isGenerating}
           />
         );
@@ -988,6 +1065,9 @@ export default function TestGenerationFlow({
             onRegenerate={handleRegenerateSample}
             onBack={handleBackToInput}
             onNext={handleNextToConfirmation}
+            onEndpointChange={setSelectedEndpointId}
+            onDocumentRemove={handleDocumentRemove}
+            onDocumentAdd={handleDocumentAdd}
             isGenerating={isGenerating}
             isLoadingMore={isLoadingMore}
             regeneratingSampleId={regeneratingSampleId}

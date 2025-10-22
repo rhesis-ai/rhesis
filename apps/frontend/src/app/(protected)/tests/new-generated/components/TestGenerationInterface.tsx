@@ -15,6 +15,10 @@ import {
   CircularProgress,
   Tooltip,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
@@ -24,6 +28,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ApiIcon from '@mui/icons-material/Api';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import {
   ConfigChips,
   TestSample,
@@ -33,6 +38,8 @@ import {
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
 import ActionBar from './shared/ActionBar';
+import EndpointSelector from './shared/EndpointSelector';
+import UploadSourceDialog from '../../../knowledge/components/UploadSourceDialog';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -51,6 +58,9 @@ interface TestGenerationInterfaceProps {
   onRegenerate: (sampleId: string, feedback: string) => void;
   onBack: () => void;
   onNext: () => void;
+  onEndpointChange: (endpointId: string | null) => void;
+  onDocumentRemove: (documentId: string) => void;
+  onDocumentAdd: (document: ProcessedDocument) => void;
   isGenerating: boolean;
   isLoadingMore: boolean;
   regeneratingSampleId: string | null;
@@ -76,6 +86,9 @@ export default function TestGenerationInterface({
   onRegenerate,
   onBack,
   onNext,
+  onEndpointChange,
+  onDocumentRemove,
+  onDocumentAdd,
   isGenerating,
   isLoadingMore,
   regeneratingSampleId,
@@ -93,6 +106,8 @@ export default function TestGenerationInterface({
   const [processedSampleIds, setProcessedSampleIds] = useState<Set<string>>(
     new Set()
   );
+  const [showEndpointModal, setShowEndpointModal] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const { data: session } = useSession();
 
   // Sync local samples with prop changes - merge new samples while preserving existing responses
@@ -168,21 +183,19 @@ export default function TestGenerationInterface({
       }
     };
 
-    // Reset processed IDs and clear responses when endpoint changes to re-fetch all responses
+    // Reset processed IDs and clear responses when endpoint changes
     setProcessedSampleIds(new Set());
 
-    // Clear existing responses from samples when endpoint changes
-    if (selectedEndpointId) {
-      setLocalTestSamples(prev =>
-        prev.map(sample => {
-          const newSample = { ...sample };
-          delete newSample.response;
-          delete newSample.responseError;
-          delete newSample.isLoadingResponse;
-          return newSample;
-        })
-      );
-    }
+    // Clear existing responses from samples whenever endpoint changes (including when set to null)
+    setLocalTestSamples(prev =>
+      prev.map(sample => {
+        const newSample = { ...sample };
+        delete newSample.response;
+        delete newSample.responseError;
+        delete newSample.isLoadingResponse;
+        return newSample;
+      })
+    );
 
     loadEndpointInfo();
   }, [selectedEndpointId, session]);
@@ -328,6 +341,37 @@ export default function TestGenerationInterface({
     },
     [handleSendMessage]
   );
+
+  const handleUploadSuccess = useCallback(async () => {
+    if (!session?.session_token) return;
+
+    try {
+      // Fetch the newly uploaded source
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const sourcesClient = apiFactory.getSourcesClient();
+
+      // Get all sources and find the most recent one (sorted by created_at desc by default)
+      const response = await sourcesClient.getSources({ skip: 0, limit: 1 });
+      if (response.data.length > 0) {
+        // Get the most recent source (assuming it's the one just uploaded)
+        const mostRecentSource = response.data[0];
+
+        const newDocument: ProcessedDocument = {
+          id: mostRecentSource.id,
+          name: mostRecentSource.title,
+          description: mostRecentSource.description || '',
+          path: '',
+          content: mostRecentSource.content || '',
+          originalName: mostRecentSource.title,
+          status: 'completed',
+        };
+
+        onDocumentAdd(newDocument);
+      }
+    } catch (error) {
+      console.error('Error loading uploaded source:', error);
+    }
+  }, [session?.session_token, onDocumentAdd]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -516,19 +560,18 @@ export default function TestGenerationInterface({
                   p: 2,
                   borderTop: 1,
                   borderColor: 'divider',
-                  bgcolor: 'primary.lighter',
+                  bgcolor: 'background.paper',
                 }}
               >
                 <Typography
-                  variant="caption"
+                  variant="body2"
                   color="text.secondary"
                   gutterBottom
+                  sx={{ mb: 1 }}
                 >
-                  Context Documents
+                  Selected sources (documents)
                 </Typography>
-                <Box
-                  sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}
-                >
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {documents.map(doc => (
                     <Chip
                       key={doc.id}
@@ -536,6 +579,7 @@ export default function TestGenerationInterface({
                       label={doc.name || doc.originalName}
                       size="small"
                       variant="outlined"
+                      onDelete={() => onDocumentRemove(doc.id)}
                     />
                   ))}
                 </Box>
@@ -562,9 +606,15 @@ export default function TestGenerationInterface({
                   p: 0.5,
                 }}
               >
-                <IconButton size="small" sx={{ ml: 0.5 }}>
-                  <AddIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title="Upload source document">
+                  <IconButton
+                    size="small"
+                    sx={{ ml: 0.5 }}
+                    onClick={() => setShowUploadDialog(true)}
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
                 <TextField
                   fullWidth
                   placeholder="Further refine test generation..."
@@ -628,7 +678,7 @@ export default function TestGenerationInterface({
                 alignItems: 'center',
               }}
               title={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="h6" fontWeight="bold">
                     Review Test Cases
                   </Typography>
@@ -647,49 +697,20 @@ export default function TestGenerationInterface({
                   </Tooltip>
                 </Box>
               }
-            />
-
-            {/* Endpoint Info Banner */}
-            {endpointInfo && (
-              <Box
-                sx={{
-                  px: 3,
-                  py: 2,
-                  bgcolor: 'info.lighter',
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ApiIcon sx={{ fontSize: 18, color: 'info.main' }} />
-                  <Typography variant="body2" color="text.primary">
-                    <strong>Preview Endpoint:</strong>{' '}
-                    {endpointInfo.projectName} › {endpointInfo.name}
-                  </Typography>
-                  <Chip
-                    label={
-                      endpointInfo.environment.charAt(0).toUpperCase() +
-                      endpointInfo.environment.slice(1)
-                    }
-                    size="small"
-                    sx={{
-                      ml: 1,
-                      height: 20,
-                      '& .MuiChip-label': {
-                        fontSize: theme => theme.typography.caption.fontSize,
-                      },
-                    }}
-                  />
-                </Box>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ ml: 3 }}
+              action={
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
+                  onClick={() => setShowEndpointModal(true)}
+                  sx={{ textTransform: 'none' }}
                 >
-                  Test samples will show live responses from this endpoint
-                </Typography>
-              </Box>
-            )}
+                  {endpointInfo
+                    ? `${endpointInfo.projectName} › ${endpointInfo.name}`
+                    : 'Select Preview Endpoint'}
+                </Button>
+              }
+            />
 
             {/* Scrollable Samples Area */}
             <CardContent
@@ -787,6 +808,40 @@ export default function TestGenerationInterface({
           endIcon: <AutoFixHighIcon />,
         }}
       />
+
+      {/* Endpoint Selection Modal */}
+      <Dialog
+        open={showEndpointModal}
+        onClose={() => setShowEndpointModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Select Endpoint for Test Preview</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Test samples will show live responses from this endpoint.
+            </Typography>
+            <EndpointSelector
+              selectedEndpointId={selectedEndpointId}
+              onEndpointChange={onEndpointChange}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowEndpointModal(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Upload Source Dialog */}
+      {session?.session_token && (
+        <UploadSourceDialog
+          open={showUploadDialog}
+          onClose={() => setShowUploadDialog(false)}
+          onSuccess={handleUploadSuccess}
+          sessionToken={session.session_token}
+        />
+      )}
     </Box>
   );
 }

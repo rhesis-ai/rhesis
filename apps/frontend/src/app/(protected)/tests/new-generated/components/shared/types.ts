@@ -110,7 +110,6 @@ export interface TestTemplate {
   category: string[];
   scenarios: string[];
   popularity?: 'high' | 'medium' | 'low';
-  tags?: string[];
 }
 
 /**

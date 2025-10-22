@@ -19,19 +19,8 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import CloseIcon from '@mui/icons-material/Close';
-import ShieldIcon from '@mui/icons-material/Shield';
-import GavelIcon from '@mui/icons-material/Gavel';
-import SpeedIcon from '@mui/icons-material/Speed';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import SecurityIcon from '@mui/icons-material/Security';
-import AccessibilityNewIcon from '@mui/icons-material/AccessibilityNew';
-import LanguageIcon from '@mui/icons-material/Language';
-import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
-import BalanceIcon from '@mui/icons-material/Balance';
-import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { TestTemplate } from './shared/types';
+import { TEMPLATES } from '@/config/test-templates';
 
 interface LandingScreenProps {
   open: boolean;
@@ -40,166 +29,6 @@ interface LandingScreenProps {
   onSelectManual: () => void;
   onSelectTemplate: (template: TestTemplate) => void;
 }
-
-// Template library with 12 predefined templates
-const TEMPLATES: TestTemplate[] = [
-  {
-    id: 'gdpr-compliance',
-    name: 'GDPR Compliance',
-    description: 'Test privacy and data protection compliance',
-    icon: ShieldIcon,
-    color: 'primary.main',
-    behaviors: ['Compliance', 'Privacy'],
-    topics: ['GDPR', 'Data Protection', 'User Rights'],
-    category: ['Legal', 'Privacy'],
-    scenarios: ['Data Access Request', 'Right to be Forgotten'],
-    popularity: 'high',
-    tags: ['GDPR', 'Privacy', 'Legal'],
-  },
-  {
-    id: 'bias-detection',
-    name: 'Bias Detection',
-    description: 'Identify and test for AI biases',
-    icon: BalanceIcon,
-    color: 'secondary.main',
-    behaviors: ['Fairness', 'Reliability'],
-    topics: ['Bias', 'Fairness', 'Demographics'],
-    category: ['Ethics', 'Quality'],
-    scenarios: ['Gender Bias', 'Racial Bias', 'Age Bias'],
-    popularity: 'high',
-    tags: ['Bias', 'Fairness', 'Ethics'],
-  },
-  {
-    id: 'performance-testing',
-    name: 'Performance Testing',
-    description: 'Test response quality and latency',
-    icon: SpeedIcon,
-    color: 'warning.main',
-    behaviors: ['Reliability', 'Performance'],
-    topics: ['Speed', 'Quality', 'Consistency'],
-    category: ['Performance', 'Quality'],
-    scenarios: ['High Load', 'Edge Cases', 'Error Handling'],
-    popularity: 'high',
-    tags: ['Performance', 'Speed', 'Quality'],
-  },
-  {
-    id: 'hallucination-detection',
-    name: 'Hallucination Detection',
-    description: 'Detect factual inaccuracies',
-    icon: PsychologyIcon,
-    color: 'error.main',
-    behaviors: ['Reliability', 'Accuracy'],
-    topics: ['Facts', 'Accuracy', 'Verification'],
-    category: ['Quality', 'Reliability'],
-    scenarios: ['Fact Checking', 'Source Verification'],
-    popularity: 'medium',
-    tags: ['Hallucination', 'Accuracy', 'Facts'],
-  },
-  {
-    id: 'medical-safety',
-    name: 'Medical Safety',
-    description: 'Test healthcare AI applications',
-    icon: HealthAndSafetyIcon,
-    color: 'success.main',
-    behaviors: ['Safety', 'Compliance'],
-    topics: ['Medical', 'Safety', 'HIPAA'],
-    category: ['Healthcare', 'Safety'],
-    scenarios: ['Medical Advice', 'Patient Privacy'],
-    popularity: 'medium',
-    tags: ['Healthcare', 'Safety', 'HIPAA'],
-  },
-  {
-    id: 'financial-compliance',
-    name: 'Financial Compliance',
-    description: 'Test financial service regulations',
-    icon: AccountBalanceIcon,
-    color: 'info.main',
-    behaviors: ['Compliance', 'Security'],
-    topics: ['Financial', 'Regulations', 'Security'],
-    category: ['Finance', 'Legal'],
-    scenarios: ['KYC', 'AML', 'Transaction Security'],
-    popularity: 'medium',
-    tags: ['Finance', 'Compliance', 'Security'],
-  },
-  {
-    id: 'security-testing',
-    name: 'Security Testing',
-    description: 'Test for security vulnerabilities',
-    icon: SecurityIcon,
-    color: 'error.dark',
-    behaviors: ['Security', 'Reliability'],
-    topics: ['Security', 'Vulnerabilities', 'Attacks'],
-    category: ['Security', 'Testing'],
-    scenarios: ['Prompt Injection', 'Data Leakage'],
-    popularity: 'high',
-    tags: ['Security', 'Vulnerabilities', 'Testing'],
-  },
-  {
-    id: 'accessibility',
-    name: 'Accessibility',
-    description: 'Test for accessibility compliance',
-    icon: AccessibilityNewIcon,
-    color: 'warning.dark',
-    behaviors: ['Accessibility', 'Compliance'],
-    topics: ['Accessibility', 'WCAG', 'Inclusivity'],
-    category: ['Accessibility', 'Legal'],
-    scenarios: ['Screen Reader', 'Keyboard Navigation'],
-    popularity: 'low',
-    tags: ['Accessibility', 'WCAG', 'Inclusivity'],
-  },
-  {
-    id: 'multilingual',
-    name: 'Multilingual',
-    description: 'Test language understanding',
-    icon: LanguageIcon,
-    color: 'secondary.main',
-    behaviors: ['Reliability', 'Quality'],
-    topics: ['Languages', 'Translation', 'Localization'],
-    category: ['Localization', 'Quality'],
-    scenarios: ['Translation Quality', 'Cultural Context'],
-    popularity: 'medium',
-    tags: ['Languages', 'Translation', 'Localization'],
-  },
-  {
-    id: 'content-moderation',
-    name: 'Content Moderation',
-    description: 'Test content filtering and safety',
-    icon: VerifiedUserIcon,
-    color: 'info.dark',
-    behaviors: ['Safety', 'Compliance'],
-    topics: ['Content', 'Moderation', 'Safety'],
-    category: ['Safety', 'Content'],
-    scenarios: ['Harmful Content', 'Policy Violations'],
-    popularity: 'medium',
-    tags: ['Content', 'Moderation', 'Safety'],
-  },
-  {
-    id: 'legal-compliance',
-    name: 'Legal Compliance',
-    description: 'Test legal and regulatory compliance',
-    icon: GavelIcon,
-    color: 'primary.dark',
-    behaviors: ['Compliance', 'Legal'],
-    topics: ['Legal', 'Regulations', 'Policies'],
-    category: ['Legal', 'Compliance'],
-    scenarios: ['Terms of Service', 'Copyright'],
-    popularity: 'medium',
-    tags: ['Legal', 'Compliance', 'Regulations'],
-  },
-  {
-    id: 'privacy-protection',
-    name: 'Privacy Protection',
-    description: 'Test data privacy measures',
-    icon: PrivacyTipIcon,
-    color: 'info.main',
-    behaviors: ['Privacy', 'Security'],
-    topics: ['Privacy', 'Data Protection', 'Encryption'],
-    category: ['Privacy', 'Security'],
-    scenarios: ['Data Encryption', 'Access Controls'],
-    popularity: 'high',
-    tags: ['Privacy', 'Security', 'Data Protection'],
-  },
-];
 
 /**
  * LandingScreen Component
@@ -426,16 +255,6 @@ export default function LandingScreen({
                       </Typography>
 
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {template.tags
-                          ?.slice(0, 2)
-                          .map(tag => (
-                            <Chip
-                              key={tag}
-                              label={tag}
-                              size="small"
-                              variant="outlined"
-                            />
-                          ))}
                         {template.popularity === 'high' && (
                           <Chip
                             label="Popular"
