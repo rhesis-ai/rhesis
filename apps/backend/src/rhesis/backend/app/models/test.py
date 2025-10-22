@@ -16,16 +16,6 @@ test_test_set_association = Table(
     Column("organization_id", GUID(), ForeignKey("organization.id")),
 )
 
-# Association table for test and source (many-to-many)
-test_source_association = Table(
-    "test_source",
-    Base.metadata,
-    Column("test_id", GUID(), ForeignKey("test.id"), primary_key=True),
-    Column("source_id", GUID(), ForeignKey("source.id"), primary_key=True),
-    Column("user_id", GUID(), ForeignKey("user.id")),
-    Column("organization_id", GUID(), ForeignKey("organization.id")),
-)
-
 
 class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, CountsMixin):
     __tablename__ = "test"
@@ -43,6 +33,7 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
     behavior_id = Column(GUID(), ForeignKey("behavior.id"))
     category_id = Column(GUID(), ForeignKey("category.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
+    source_id = Column(GUID(), ForeignKey("source.id"))
     # Test source info (origin, inputs, context)
     # Named 'test_metadata' to avoid SQLAlchemy's reserved 'metadata' attribute
     test_metadata = Column(JSONB)
@@ -59,6 +50,7 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
     behavior = relationship("Behavior", back_populates="tests")
     category = relationship("Category", back_populates="tests")
     status = relationship("Status", back_populates="tests")
+    source = relationship("Source", back_populates="tests")
     test_contexts = relationship("TestContext", back_populates="test")
     test_results = relationship("TestResult", back_populates="test")
     test_sets = relationship(
@@ -71,8 +63,4 @@ class Test(Base, TagsMixin, OrganizationMixin, CommentsMixin, TasksMixin, Counts
         primaryjoin="and_(Comment.entity_id == foreign(Test.id), Comment.entity_type == 'Test')",
         viewonly=True,
         uselist=True,
-    )
-    # New many-to-many relationship to support multiple sources per test
-    sources = relationship(
-        "Source", secondary=test_source_association, back_populates="tests_multi"
     )
