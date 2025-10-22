@@ -156,7 +156,7 @@ def update_source(
     return db_source
 
 
-@router.post("/upload/", response_model=schemas.Source)
+@router.post("/upload", response_model=schemas.Source)
 async def upload_source(
     file: UploadFile = File(...),
     title: str = Form(None),
