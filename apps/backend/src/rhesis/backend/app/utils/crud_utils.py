@@ -14,6 +14,7 @@ from rhesis.backend.app.constants import EntityType
 # Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.logging import logger
 
 # Define a generic type variable
@@ -170,6 +171,80 @@ def _create_db_item_with_transaction(
 # ============================================================================
 
 
+def _check_and_raise_if_deleted(
+    item: Optional[T],
+    model: Type[T],
+    item_id: uuid.UUID,
+    include_deleted: bool = False,
+) -> Optional[T]:
+    """
+    Helper function to check if an item is soft-deleted and raise exception if needed.
+    
+    Args:
+        item: The item to check (or None if not found)
+        model: SQLAlchemy model class (for exception message)
+        item_id: ID of the item (for exception message)
+        include_deleted: If True, don't raise exception for deleted items
+    
+    Returns:
+        The item if it exists and is not deleted, or if include_deleted is True
+        None if item doesn't exist
+        
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
+    """
+    # If item doesn't exist at all, return None
+    if item is None:
+        return None
+    
+    # If item exists but is deleted, and we're not including deleted
+    if not include_deleted and hasattr(item, 'deleted_at') and item.deleted_at is not None:
+        model_name = model.__name__ if hasattr(model, '__name__') else str(model)
+        table_name = getattr(model, '__tablename__', model_name.lower())
+        
+        # Try to get the item's name or title for better UX
+        item_name = None
+        if hasattr(item, 'name') and item.name:
+            item_name = item.name
+        elif hasattr(item, 'title') and item.title:
+            item_name = item.title
+        
+        raise ItemDeletedException(model_name, str(item_id), table_name, item_name)
+    
+    # Return the item (either active, or deleted but include_deleted=True)
+    return item
+
+
+def _check_and_raise_if_not_found(
+    item: Optional[T],
+    model: Type[T],
+    item_id: uuid.UUID,
+    raise_if_none: bool = True,
+) -> Optional[T]:
+    """
+    Helper function to check if an item exists and raise 404 exception if not found.
+    
+    Args:
+        item: The item to check (or None if not found)
+        model: SQLAlchemy model class (for exception message)
+        item_id: ID of the item (for exception message)
+        raise_if_none: If True, raise exception when item is None (default: True)
+    
+    Returns:
+        The item if it exists
+        None if item doesn't exist and raise_if_none is False
+        
+    Raises:
+        ItemNotFoundException: If item is None and raise_if_none is True
+    """
+    if item is None and raise_if_none:
+        model_name = model.__name__ if hasattr(model, '__name__') else str(model)
+        table_name = getattr(model, '__tablename__', model_name.lower())
+        raise ItemNotFoundException(model_name, str(item_id), table_name)
+    
+    return item
+
+
 def get_item(
     db: Session,
     model: Type[T],
@@ -197,18 +272,21 @@ def get_item(
     
     Returns:
         Item or None if not found
+        
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
-    builder = QueryBuilder(db, model)
-    
-    if include_deleted:
-        builder = builder.with_deleted()
-    
-    return (
-        builder
+    # Always check with deleted items first to differentiate not-found vs deleted
+    item = (
+        QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
     )
+    
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
 def get_item_detail(
@@ -217,6 +295,7 @@ def get_item_detail(
     item_id: uuid.UUID,
     organization_id: str = None,
     user_id: str = None,
+    include_deleted: bool = False,
 ) -> Optional[T]:
     """
     Get a single item with all relationships loaded using optimized approach - no session variables needed.
@@ -227,14 +306,33 @@ def get_item_detail(
     - No SHOW queries during retrieval
     - Direct tenant context injection
     - Uses selectinload for many-to-many relationships to avoid cartesian products
+    
+    Args:
+        db: Database session
+        model: SQLAlchemy model class
+        item_id: ID of the item to retrieve
+        organization_id: Organization ID for filtering
+        user_id: User ID for filtering
+        include_deleted: If True, include soft-deleted records (default: False)
+    
+    Returns:
+        Item with relationships loaded or None if not found
+        
+    Raises:
+        ItemDeletedException: If item is soft-deleted and include_deleted is False
     """
-    return (
+    # Always check with deleted items first to differentiate not-found vs deleted
+    item = (
         QueryBuilder(db, model)
+        .with_deleted()  # Always include deleted to check status
         .with_optimized_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
     )
+    
+    # Use helper to check deletion status and raise exception if needed
+    return _check_and_raise_if_deleted(item, model, item_id, include_deleted)
 
 
 def get_items(
@@ -458,12 +556,16 @@ def delete_item(
     The item will still exist in the database but will be filtered
     out from normal queries. Use restore_item() to restore it.
     For permanent deletion, use hard_delete_item().
+    
+    Automatically cascades to configured child relationships (see config/cascade_config.py).
+    For example, deleting a TestRun will automatically soft delete all its TestResults.
 
     Performance improvements:
     - Completely bypasses database session variables
     - No SET LOCAL commands needed
     - No SHOW queries during deletion
     - Direct tenant context injection
+    - Bulk UPDATE for cascade operations
 
     Args:
         db: Database session
@@ -478,16 +580,25 @@ def delete_item(
     Raises:
         ValueError: If organization_id or user_id is required but not provided
     """
+    from rhesis.backend.app.services import cascade as cascade_service
+    
     item = get_item(db, model, item_id, organization_id, user_id)
     
     if not item:
         return None
     
-    # Soft delete using the model's method
-    item.soft_delete()
-    db.commit()
-    
-    return item
+    try:
+        # Automatically cascade soft delete to configured child relationships
+        cascade_service.cascade_soft_delete(db, model, item_id, organization_id)
+        
+        # Soft delete the parent item using the model's method
+        item.soft_delete()
+        db.commit()
+        
+        return item
+    except Exception as e:
+        db.rollback()
+        raise
 
 
 def get_deleted_items(
@@ -537,6 +648,9 @@ def restore_item(
     """
     Restore a soft-deleted item.
     
+    Automatically cascades to configured child relationships (see config/cascade_config.py).
+    For example, restoring a TestRun will automatically restore all its TestResults.
+    
     Args:
         db: Database session
         model: SQLAlchemy model class
@@ -547,13 +661,24 @@ def restore_item(
     Returns:
         Restored item or None if not found
     """
+    from rhesis.backend.app.services import cascade as cascade_service
+    
     # Get the item, including deleted ones
     item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
     
     if item and item.deleted_at:
-        item.restore()
-        db.commit()
-        db.refresh(item)
+        try:
+            # Restore the parent item
+            item.restore()
+            
+            # Automatically cascade restore to configured child relationships
+            cascade_service.cascade_restore(db, model, item_id, organization_id)
+            
+            db.commit()
+            db.refresh(item)
+        except Exception as e:
+            db.rollback()
+            raise
     
     return item
 

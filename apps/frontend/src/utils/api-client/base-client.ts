@@ -184,16 +184,27 @@ export class BaseApiClient {
 
         if (!response.ok) {
           // Determine if this is an expected validation/client error or an unexpected server error
-          const isClientError = [400, 409, 422, 429].includes(response.status);
+          // 404 Not Found and 410 Gone are expected states for missing/deleted items
+          const isClientError = [400, 404, 409, 410, 422, 429].includes(
+            response.status
+          );
           const logLevel = isClientError ? 'warn' : 'error';
           const logPrefix = isClientError ? '[VALIDATION]' : '[ERROR]';
 
-          console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
-            url,
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
-          });
+          // Don't log 404/410 in development - they're expected states handled by error boundary
+          const shouldLog = !(
+            process.env.NODE_ENV === 'development' &&
+            [404, 410].includes(response.status)
+          );
+
+          if (shouldLog) {
+            console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
+              url,
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+            });
+          }
 
           let errorMessage = '';
           let errorData: any;
@@ -227,10 +238,12 @@ export class BaseApiClient {
             errorMessage = await response.text();
           }
 
-          console[logLevel](`${logPrefix} [DEBUG] Full error details:`, {
-            errorMessage,
-            errorData,
-          });
+          if (shouldLog) {
+            console[logLevel](`${logPrefix} [DEBUG] Full error details:`, {
+              errorMessage,
+              errorData,
+            });
+          }
 
           // Provide user-friendly messages for rate limiting
           if (response.status === 429) {
@@ -238,8 +251,35 @@ export class BaseApiClient {
             errorMessage = `Too many requests. You've exceeded the rate limit (${rateLimitInfo}). Please try again later.`;
           }
 
+          // For 410 Gone and 404 Not Found responses, encode critical data in the message
+          // so it survives serialization across Next.js server-client boundary
+          let enhancedMessage = errorMessage;
+          if (response.status === 410 || response.status === 404) {
+            const parts: string[] = [];
+
+            // Include table_name (critical for restore operations)
+            if (errorData?.table_name) {
+              parts.push(`table:${errorData.table_name}`);
+            }
+
+            // Include item_id
+            if (errorData?.item_id) {
+              parts.push(`id:${errorData.item_id}`);
+            }
+
+            // Include item_name if available (for display)
+            if (errorData?.item_name) {
+              parts.push(`name:${errorData.item_name}`);
+            }
+
+            // Format: "table:test_run|id:abc-123|name:My Test|Original message"
+            if (parts.length > 0) {
+              enhancedMessage = `${parts.join('|')}|${errorMessage}`;
+            }
+          }
+
           const error = new Error(
-            `API error: ${response.status} - ${errorMessage}`
+            `API error: ${response.status} - ${enhancedMessage}`
           ) as Error & {
             status?: number;
             data?: any;
@@ -283,6 +323,11 @@ export class BaseApiClient {
           return await this.handleUnauthorizedError();
         }
 
+        // Handle deleted entities (410 Gone) immediately without retrying
+        if (error.status === 410) {
+          throw error;
+        }
+
         // If this is the last attempt or error is not retryable, throw the error
         if (
           attempt === this.retryConfig.maxAttempts ||
@@ -299,8 +344,9 @@ export class BaseApiClient {
           }
 
           // Use appropriate log level based on error status
+          // 410 Gone is included as it's an expected state for soft-deleted items
           const isClientError =
-            error.status && [400, 409, 422, 429].includes(error.status);
+            error.status && [400, 409, 410, 422, 429].includes(error.status);
           if (isClientError) {
             console.warn(`API client error for ${url}:`, error);
           } else {

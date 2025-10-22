@@ -1957,6 +1957,28 @@ def update_test_run(
 def delete_test_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.TestRun]:
+    """
+    Soft delete a test run.
+    
+    Automatically cascades to all associated test results based on configuration
+    in config/cascade_config.py. Uses efficient bulk UPDATE for cascade operations.
+    
+    This operation is fully transactional - either all entities are soft deleted
+    or none are (in case of error, changes are rolled back).
+    
+    Args:
+        db: Database session
+        test_run_id: ID of the test run to delete
+        organization_id: Organization ID for tenant context
+        user_id: User ID for tenant context
+    
+    Returns:
+        The soft-deleted test run or None if not found
+        
+    Raises:
+        Exception: If any error occurs during deletion (triggers rollback)
+    """
+    # delete_item() automatically handles cascade based on cascade_config.py
     return delete_item(
         db, models.TestRun, test_run_id, organization_id=organization_id, user_id=user_id
     )

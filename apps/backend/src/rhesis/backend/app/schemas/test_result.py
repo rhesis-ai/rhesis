@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional, Union
 
-from pydantic import UUID4, Field
+from pydantic import UUID4, Field, ConfigDict
 
 from rhesis.backend.app.schemas import Base
 
@@ -31,8 +31,7 @@ class TestResult(TestResultBase):
     last_review: Optional[Dict[str, Any]] = None
     matches_review: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Review schemas

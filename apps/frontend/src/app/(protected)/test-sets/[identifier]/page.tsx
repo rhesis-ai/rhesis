@@ -19,49 +19,21 @@ interface PageProps {
 }
 
 // Generate metadata for the page
+// Note: We use minimal metadata here to avoid duplicate API calls
+// The error boundary will handle 404/410 errors from the main page component
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ identifier: string }>;
 }): Promise<Metadata> {
-  try {
-    const resolvedParams = await params;
-    const identifier = resolvedParams.identifier;
-    const session = (await auth()) as { session_token: string } | null;
+  const resolvedParams = await params;
+  const identifier = resolvedParams.identifier;
 
-    // If no session (like during warmup), return basic metadata
-    if (!session?.session_token) {
-      return {
-        title: `Test Set ${identifier}`,
-        description: `Details for Test Set ${identifier}`,
-      };
-    }
-
-    const apiFactory = new ApiClientFactory(session.session_token);
-    const testSetsClient = apiFactory.getTestSetsClient();
-    const response = await testSetsClient.getTestSets({
-      limit: 1,
-      $filter: `id eq ${resolvedParams.identifier}`,
-    } as TestSetsQueryParams);
-    const testSet = response.data[0];
-    if (!testSet) {
-      throw new Error('Test set not found');
-    }
-
-    return {
-      title: testSet.name,
-      description: testSet.description || 'Test Set Details',
-      // Add other metadata that might be useful
-      openGraph: {
-        title: testSet.name,
-        description: testSet.description || 'Test Set Details',
-      },
-    };
-  } catch (error) {
-    return {
-      title: 'Test Set Details',
-    };
-  }
+  // Return basic metadata - the page component will fetch data and handle errors
+  return {
+    title: 'Test Set Details',
+    description: `Details for Test Set ${identifier}`,
+  };
 }
 
 export default async function TestSetPage({ params }: { params: any }) {
