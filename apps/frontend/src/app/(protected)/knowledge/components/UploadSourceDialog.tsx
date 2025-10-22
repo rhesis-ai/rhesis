@@ -144,7 +144,7 @@ export default function UploadSourceDialog({
               onFileSelect={handleFileSelect}
               onFileRemove={handleFileRemove}
               selectedFile={file}
-              accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.xml"
+              accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.xml,.epub,.pptx,.xlsx,.html,.htm,.zip"
               maxSize={5 * 1024 * 1024} // 5MB
               disabled={uploading}
             />
