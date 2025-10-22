@@ -44,51 +44,14 @@ export default function SourcePreviewClientWrapper({
   const notifications = useNotifications();
 
   useEffect(() => {
-    const fetchContent = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const sourcesClient = clientFactory.getSourcesClient();
-
-        // Try to get extracted content first (processed markdown)
-        try {
-          console.log('Attempting to extract content for source:', source.id);
-          const extractedData = await sourcesClient.extractSourceContent(
-            source.id
-          );
-          console.log('Extraction successful:', extractedData);
-          setContent(extractedData.content || '');
-        } catch (extractError) {
-          // Fallback to raw content if extraction fails
-          console.warn(
-            'Extraction failed, falling back to raw content:',
-            extractError
-          );
-          try {
-            console.log('Attempting to get raw content for source:', source.id);
-            const rawContent = await sourcesClient.getSourceContent(source.id);
-            console.log(
-              'Raw content successful:',
-              rawContent.substring(0, 100) + '...'
-            );
-            setContent(rawContent);
-          } catch (rawError) {
-            console.error('Both extraction and raw content failed:', rawError);
-            throw rawError;
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching source content:', error);
-        setError('Failed to load source content');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchContent();
-  }, [source.id, sessionToken]);
+    // Simply use the existing content from the source object
+    if (source.content && source.content.trim()) {
+      setContent(source.content);
+    } else {
+      setContent('');
+    }
+    setLoading(false);
+  }, [source.content]);
 
   const handleCopyContentBlock = async () => {
     try {
